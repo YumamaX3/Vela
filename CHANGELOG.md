@@ -1,3 +1,14 @@
+# Unreleased
+
+## Changes
+- **Config**: move the default port from 20128 to 32060 across the whole harbor —
+  app config (`src/shared/constants/config.js`), CLI defaults (`cli/cli.js`,
+  `cli/src/cli/api/client.js`, xAI video command), updater, tunnels, MITM defaults,
+  dashboard tool cards and landing page, plus `.env.example`, Dockerfile,
+  docker-compose.yml and start.sh. Docs, i18n literals, translations and tests
+  follow the same number. Existing installs that hardcode 20128 must update their
+  `.env` (`PORT`, `BASE_URL`, `NEXT_PUBLIC_BASE_URL`) and any client base URLs
+
 # v0.5.50 (2026-08-05)
 
 ## Features
