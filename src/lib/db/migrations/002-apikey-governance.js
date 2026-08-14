@@ -34,7 +34,8 @@ const USAGE_COLUMNS = [
 ];
 
 function existingColumns(db, table) {
-  return new Set(db.prepare(`PRAGMA table_info(${table})`).all().map((r) => r.name));
+  // Adapter interface exposes run/get/all/exec/transaction — no raw prepare().
+  return new Set(db.all(`PRAGMA table_info(${table})`).map((r) => r.name));
 }
 
 function addColumns(db, table, columns) {

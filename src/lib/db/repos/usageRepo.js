@@ -262,7 +262,13 @@ export async function saveRequestUsage(entry) {
 
     // Resolve stable attribution identity. The raw bearer token is NEVER
     // persisted (hash-at-rest, plan §3.6) — masked-dual-write from W1.
-    const { keyId, keyPrefix } = await resolveUsageKeyIdentity(entry.apiKey);
+    // Keyless fast-path: skip the async resolution entirely when there is no
+    // bearer token, keeping the hot path synchronous (matches pre-governance
+    // timing for the overwhelmingly common local-no-key case).
+    let keyId = null, keyPrefix = null;
+    if (typeof entry.apiKey === "string" && entry.apiKey) {
+      ({ keyId, keyPrefix } = await resolveUsageKeyIdentity(entry.apiKey));
+    }
     entry.keyId = keyId;
     entry.keyPrefix = keyPrefix;
     delete entry.apiKey; // never reach the INSERT
