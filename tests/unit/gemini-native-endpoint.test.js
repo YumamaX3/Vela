@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   handleChat: vi.fn(),
   getSettings: vi.fn(),
-  isValidApiKey: vi.fn(),
+  authorizeApiRequest: vi.fn(),
   getProviderCredentials: vi.fn(),
   markAccountUnavailable: vi.fn(),
   clearAccountError: vi.fn(),
@@ -15,9 +15,18 @@ vi.mock("@/sse/handlers/chat.js", () => ({
 
 vi.mock("@/sse/services/auth.js", () => ({
   getProviderCredentials: mocks.getProviderCredentials,
-  isValidApiKey: mocks.isValidApiKey,
   markAccountUnavailable: mocks.markAccountUnavailable,
   clearAccountError: mocks.clearAccountError,
+}));
+
+// W1 replaced isValidApiKey with the stage-pipeline gate (keyGate.js). This
+// suite tests Gemini-native translation, not the gate itself — the gate is
+// covered exhaustively by apikey-gate-acl.test.js. Open the seam here.
+vi.mock("@/sse/services/keyGate.js", () => ({
+  authorizeApiRequest: mocks.authorizeApiRequest,
+  // GET model-listing scopes the catalog to the key's allowed models —
+  // identity passthrough keeps this suite about the catalog itself.
+  scopeModelsForRequest: vi.fn(async (_request, models) => models),
 }));
 
 vi.mock("@/lib/localDb", () => ({
@@ -60,7 +69,9 @@ describe("Gemini native v1beta endpoint", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getSettings.mockResolvedValue({ requireApiKey: true });
-    mocks.isValidApiKey.mockResolvedValue(true);
+    // The gate seam opens for every request in this suite — governance is
+    // proven elsewhere; translation is what's under test here.
+    mocks.authorizeApiRequest.mockResolvedValue({ ok: true, key: null });
     mocks.getProviderCredentials.mockResolvedValue({
       apiKey: "real-gemini-key",
       connectionId: "gemini-conn",
@@ -122,7 +133,10 @@ describe("Gemini native v1beta endpoint", () => {
       params: Promise.resolve({ path: ["gemini-2.5-flash-preview-tts:generateContent"] }),
     });
 
-    expect(mocks.isValidApiKey).toHaveBeenCalledWith("client-router-key");
+    // The gate saw a request (it decides which header carries identity); the
+    // upstream fetch used the REAL gemini credential, not the client's key.
+    expect(mocks.authorizeApiRequest).toHaveBeenCalledTimes(1);
+    expect(mocks.authorizeApiRequest.mock.calls[0][0]).toBe(request);
     expect(global.fetch.mock.calls[0][1].headers["x-goog-api-key"]).toBe("real-gemini-key");
     expect(global.fetch.mock.calls[0][1].headers["x-goog-api-key"]).not.toBe("client-router-key");
   });
