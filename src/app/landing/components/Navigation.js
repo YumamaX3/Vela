@@ -16,8 +16,8 @@ export default function Navigation() {
           onClick={() => router.push("/")}
           aria-label="Navigate to home"
         >
-          <div className="size-8 rounded-lg bg-[#0a0a0a] border border-[#3a2f27] flex items-center justify-center overflow-hidden">
-            <img src="/vela-logo.svg" alt="Vela" className="size-6" width={24} height={24} />
+          <div className="size-8 flex items-center justify-center">
+            <img src="/vela-logo.svg" alt="Vela" className="size-8" width={32} height={32} />
           </div>
           <h2 className="text-white text-xl font-bold tracking-tight">Vela</h2>
         </button>
