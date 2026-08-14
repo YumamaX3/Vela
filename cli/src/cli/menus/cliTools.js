@@ -23,13 +23,22 @@ const CLAUDE_MODEL_TYPES = [
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
 /**
- * Get first available API key from server
+ * Get the first usable API key for CLI tool setup.
+ * Hash-at-rest means the server list is masked — resolve the full key from the
+ * local CLI vault (captured at create time, plan §3.6). Returns null if no key
+ * has been captured on this device yet.
  * @returns {Promise<string|null>}
  */
 async function getFirstApiKey() {
   const result = await api.getApiKeys();
   const keys = result.success ? (result.data.keys || []) : [];
-  return keys.length > 0 ? keys[0].key : null;
+  if (keys.length === 0) return null;
+  const { resolveKeyRef } = require("../utils/keyVault");
+  for (const k of keys) {
+    const full = resolveKeyRef(k.id);
+    if (full) return full;
+  }
+  return null;
 }
 
 // ─── Claude Code ──────────────────────────────────────────────────────────────

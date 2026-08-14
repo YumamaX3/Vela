@@ -6,6 +6,7 @@ import { getProviderAlias } from "@/shared/constants/providers";
 import { getModelKind } from "@/shared/constants/models";
 import { getModelsByProviderId } from "@/shared/constants/models";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import { resolveKeyRef } from "@/shared/utils/keyVault";
 import { Row } from "./exampleShared";
 
 export function SttExampleCard({ providerId }) {
@@ -38,7 +39,7 @@ export function SttExampleCard({ providerId }) {
     setLocalEndpoint(window.location.origin);
     fetch("/api/keys")
       .then((r) => r.json())
-      .then((d) => { setApiKey((d.keys || []).find((k) => k.isActive !== false)?.key || ""); })
+      .then((d) => { const k = (d.keys || []).find((x) => x.isActive !== false); setApiKey(resolveKeyRef(k?.id) || ""); })
       .catch(() => {});
     fetch("/api/tunnel/status")
       .then((r) => r.json())

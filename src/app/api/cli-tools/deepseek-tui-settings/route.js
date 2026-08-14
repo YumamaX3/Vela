@@ -132,7 +132,8 @@ export async function POST(request) {
         const dir = getDeepSeekDir();
         await fs.mkdir(dir, { recursive: true });
 
-        const newConfig = build9RouterConfig(baseUrl, apiKey || "sk_9router", model);
+        // Local-mode placeholder (requireApiKey=false loopback pass-through); never a secret.
+        const newConfig = build9RouterConfig(baseUrl, apiKey || "vela-local", model);
         await fs.writeFile(getDeepSeekConfigPath(), newConfig);
 
         return NextResponse.json({

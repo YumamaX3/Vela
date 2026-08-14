@@ -7,6 +7,8 @@ import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
 import { matchKnownEndpoint } from "./cliEndpointMatch";
+import { resolveKeyRef } from "@/shared/utils/keyVault";
+
 
 const ENDPOINT = "/api/cli-tools/grok-build-settings";
 const MODEL_SLOT = "9router";
@@ -86,7 +88,7 @@ export default function GrokBuildToolCard({
   const [applying, setApplying] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [message, setMessage] = useState(null);
-  const [selectedApiKey, setSelectedApiKey] = useState(apiKeys?.[0]?.key || "");
+  const [selectedApiKey, setSelectedApiKey] = useState(apiKeys?.[0]?.id || "");
   const [selectedModel, setSelectedModel] = useState(initialModel);
   const [subagentModels, setSubagentModels] = useState(initialSubagents);
   const [modelTarget, setModelTarget] = useState(null); // "main" or subagent type
@@ -162,9 +164,7 @@ export default function GrokBuildToolCard({
     setApplying(true);
     setMessage(null);
     try {
-      const keyToUse = selectedApiKey?.trim()
-        || (apiKeys?.length > 0 ? apiKeys[0].key : null)
-        || (!cloudEnabled ? "sk_9router" : null);
+      const keyToUse = resolveKeyRef(selectedApiKey) || resolveKeyRef(apiKeys?.[0]?.id);
       const mappedSubagents = {};
       for (const type of SUBAGENT_TYPES) {
         const model = subagentModels[type.id]?.trim();
@@ -227,8 +227,7 @@ export default function GrokBuildToolCard({
   };
 
   const getManualConfigs = () => {
-    const keyToUse = selectedApiKey?.trim()
-      || (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
+    const keyToUse = resolveKeyRef(selectedApiKey) || "<API_KEY_FROM_DASHBOARD>";
     const baseUrl = getEffectiveBaseUrl();
     const mainModel = selectedModel || "provider/model-id";
     const blocks = [

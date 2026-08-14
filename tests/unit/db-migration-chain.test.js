@@ -77,7 +77,12 @@ describe("Schema migrations", () => {
 
     const keys = db.all(`SELECT * FROM apiKeys`);
     expect(keys).toHaveLength(1);
-    expect(keys[0].key).toBe("abc");
+    // Governance clean break (migration 002): legacy plaintext keys are imported
+    // then tombstoned — revoked, plaintext wiped, never usable. See
+    // tests/unit/apikey-migration-002.test.js for the full tombstone covenant.
+    expect(keys[0].key).toBe("revoked-k1");
+    expect(keys[0].isActive).toBe(0);
+    expect(keys[0].keyVersion).toBe("legacy");
 
     const aliases = db.all(`SELECT * FROM kv WHERE scope='modelAliases'`);
     expect(aliases).toHaveLength(1);
