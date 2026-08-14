@@ -228,5 +228,8 @@
   "Forget the full key from this browser's vault": "Forget the full key from this browser's vault",
   "Delete (revoke)": "Delete (revoke)",
   "Pause key": "Pause key",
-  "Resume key": "Resume key"
+  "Resume key": "Resume key",
+  "Add Model": "Add Model",
+  "No models selected": "No models selected",
+  "Select models": "Select models"
 }

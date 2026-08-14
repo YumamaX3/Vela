@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Card, Button, Input, Modal, CardSkeleton, Toggle, ConfirmModal } from "@/shared/components";
+import { Card, Button, Input, Modal, CardSkeleton, Toggle, ConfirmModal, ModelSelectModal } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { storeKey, getKey, hasKey, removeKey, resolveKeyRef } from "@/shared/utils/keyVault";
 import { translate } from "@/i18n/runtime";
@@ -29,7 +29,9 @@ export default function APIPageClient() {
   const [createdKey, setCreatedKey] = useState(null); // { key, keyId, keyPrefix, record } — the one-time show
   const [createdKeyAck, setCreatedKeyAck] = useState(false);
   const [editingKey, setEditingKey] = useState(null); // draft state for the edit modal
-  const [availableModels, setAvailableModels] = useState([]);
+  const [scopePickerFor, setScopePickerFor] = useState(null); // "create" | "edit" — which form's scope the grouped picker is editing
+  const [activeProviders, setActiveProviders] = useState([]);
+  const [modelAliases, setModelAliases] = useState({});
   const [confirmState, setConfirmState] = useState(null);
 
   const [requireApiKey, setRequireApiKey] = useState(false);
@@ -297,18 +299,18 @@ export default function APIPageClient() {
     }
   };
 
-  // Model catalog for the allowed-models picker (fullModel = provider/model — the
-  // canonical form the gate matches at request time).
+  // Connected providers + aliases for the grouped model-scope picker — the same
+  // catalog the combo page feeds ModelSelectModal. Stored values are model.value
+  // ("alias/model"), the canonical form the gate matches at request time.
   useEffect(() => {
-    fetch("/api/models")
-      .then((res) => (res.ok ? res.json() : { models: [] }))
-      .then((data) => {
-        const list = (data.models || [])
-          .map((m) => ({ id: m.fullModel, alias: m.alias || m.model }))
-          .sort((a, b) => a.id.localeCompare(b.id));
-        setAvailableModels(list);
-      })
-      .catch(() => setAvailableModels([]));
+    fetch("/api/providers")
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((data) => setActiveProviders(data.connections || []))
+      .catch(() => setActiveProviders([]));
+    fetch("/api/models/alias")
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((data) => setModelAliases(data.aliases || {}))
+      .catch(() => setModelAliases({}));
   }, []);
 
   const resetCreateForm = () => {
@@ -326,6 +328,29 @@ export default function APIPageClient() {
   const closeCreatedKeyModal = () => {
     setCreatedKey(null);
     setCreatedKeyAck(false);
+  };
+
+  // Grouped scope picker: add/remove a model value on whichever form opened it.
+  // model.value is "alias/model" — the exact form the gate matches at request time.
+  const scopeValue = (model) => model?.value || model?.name || model;
+  const handleScopeSelect = (model) => {
+    const value = scopeValue(model);
+    if (!value) return;
+    if (scopePickerFor === "create") {
+      setNewKeyScope((prev) => (prev.includes(value) ? prev : [...prev, value]));
+    } else {
+      setEditingKey((prev) => (prev && !prev.allowedModels.includes(value)
+        ? { ...prev, allowedModels: [...prev.allowedModels, value] }
+        : prev));
+    }
+  };
+  const handleScopeDeselect = (model) => {
+    const value = scopeValue(model);
+    if (scopePickerFor === "create") {
+      setNewKeyScope((prev) => prev.filter((x) => x !== value));
+    } else {
+      setEditingKey((prev) => (prev ? { ...prev, allowedModels: prev.allowedModels.filter((x) => x !== value) } : prev));
+    }
   };
 
   const openEditKey = (key) => {
@@ -1217,7 +1242,7 @@ export default function APIPageClient() {
             placeholder={translate("What this key is used for")}
           />
 
-          {/* Allowed models */}
+          {/* Allowed models — grouped per provider, same picker the combos use */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <div>
@@ -1227,30 +1252,32 @@ export default function APIPageClient() {
               <Toggle size="sm" checked={newKeyScopeOn} onChange={(c) => { setNewKeyScopeOn(c); if (!c) setNewKeyScope([]); }} />
             </div>
             {newKeyScopeOn && (
-              <div className="border border-border-subtle rounded-lg max-h-48 overflow-y-auto">
-                {availableModels.length === 0 && (
-                  <p className="text-xs text-text-muted p-3">{translate("No models available")}</p>
+              <>
+                <Button icon="add" variant="outline" size="sm" onClick={() => setScopePickerFor("create")}>
+                  {translate("Add Model")}
+                </Button>
+                {newKeyScope.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {newKeyScope.map((m) => (
+                      <span key={m} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 border border-primary/30 text-xs font-mono">
+                        {m}
+                        <button
+                          onClick={() => setNewKeyScope((prev) => prev.filter((x) => x !== m))}
+                          className="text-text-muted hover:text-red-500"
+                          aria-label={translate("Remove")}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: "12px" }}>close</span>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-text-muted mt-2">{translate("No models selected")}</p>
                 )}
-                {availableModels.map((m) => (
-                  <label key={m.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={newKeyScope.includes(m.id)}
-                      onChange={(e) => {
-                        setNewKeyScope((prev) => e.target.checked ? [...prev, m.id] : prev.filter((x) => x !== m.id));
-                      }}
-                      className="accent-primary"
-                    />
-                    <span className="text-xs font-mono truncate">{m.id}</span>
-                    {m.alias && m.alias !== m.id.split("/").pop() && (
-                      <span className="text-xs text-text-muted truncate">({m.alias})</span>
-                    )}
-                  </label>
-                ))}
-              </div>
-            )}
-            {newKeyScopeOn && newKeyScope.length > 0 && (
-              <p className="text-xs text-text-muted mt-1">{newKeyScope.length} {translate("selected")}</p>
+                {newKeyScope.length > 0 && (
+                  <p className="text-xs text-text-muted mt-1.5">{newKeyScope.length} {translate("selected")}</p>
+                )}
+              </>
             )}
           </div>
 
@@ -1349,35 +1376,32 @@ export default function APIPageClient() {
               />
             </div>
             {editingKey?.scopeOn && (
-              <div className="border border-border-subtle rounded-lg max-h-48 overflow-y-auto">
-                {availableModels.length === 0 && (
-                  <p className="text-xs text-text-muted p-3">{translate("No models available")}</p>
+              <>
+                <Button icon="add" variant="outline" size="sm" onClick={() => setScopePickerFor("edit")}>
+                  {translate("Add Model")}
+                </Button>
+                {(editingKey?.allowedModels || []).length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {(editingKey?.allowedModels || []).map((m) => (
+                      <span key={m} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 border border-primary/30 text-xs font-mono">
+                        {m}
+                        <button
+                          onClick={() => setEditingKey((prev) => ({ ...prev, allowedModels: prev.allowedModels.filter((x) => x !== m) }))}
+                          className="text-text-muted hover:text-red-500"
+                          aria-label={translate("Remove")}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: "12px" }}>close</span>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-text-muted mt-2">{translate("No models selected")}</p>
                 )}
-                {availableModels.map((m) => (
-                  <label key={m.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={(editingKey?.allowedModels || []).includes(m.id)}
-                      onChange={(e) => {
-                        setEditingKey((prev) => ({
-                          ...prev,
-                          allowedModels: e.target.checked
-                            ? [...prev.allowedModels, m.id]
-                            : prev.allowedModels.filter((x) => x !== m.id),
-                        }));
-                      }}
-                      className="accent-primary"
-                    />
-                    <span className="text-xs font-mono truncate">{m.id}</span>
-                    {m.alias && m.alias !== m.id.split("/").pop() && (
-                      <span className="text-xs text-text-muted truncate">({m.alias})</span>
-                    )}
-                  </label>
-                ))}
-              </div>
-            )}
-            {editingKey?.scopeOn && (
-              <p className="text-xs text-text-muted mt-1">{(editingKey?.allowedModels || []).length} {translate("selected")}</p>
+                {editingKey?.scopeOn && (editingKey?.allowedModels || []).length > 0 && (
+                  <p className="text-xs text-text-muted mt-1.5">{(editingKey?.allowedModels || []).length} {translate("selected")}</p>
+                )}
+              </>
             )}
           </div>
 
@@ -1541,6 +1565,24 @@ export default function APIPageClient() {
           </div>
         </div>
       </Modal>
+
+      {/* Grouped model-scope picker — same ModelSelectModal the combos use.
+          Combo names are hidden (showCombos=false): for combos the gate checks
+          each MEMBER model against the scope, so scoping happens per model. */}
+      {scopePickerFor && (
+        <ModelSelectModal
+          isOpen
+          onClose={() => setScopePickerFor(null)}
+          onSelect={handleScopeSelect}
+          onDeselect={handleScopeDeselect}
+          activeProviders={activeProviders}
+          modelAliases={modelAliases}
+          title={translate("Select models")}
+          addedModelValues={scopePickerFor === "create" ? newKeyScope : (editingKey?.allowedModels || [])}
+          closeOnSelect={false}
+          showCombos={false}
+        />
+      )}
 
       {/* Confirm Modal */}
       <ConfirmModal

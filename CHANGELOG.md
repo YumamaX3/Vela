@@ -33,6 +33,11 @@
   "stored here")
 - **i18n**: 39 governance strings seeded across 34 locales via
   `scripts/i18n-seed-literals.mjs` (`--check` detects drift)
+- **Endpoint**: the key model-scope picker is now the same grouped per-provider
+  selector the combos use (search, provider icons, click-to-add/remove chips)
+  instead of a flat checkbox list. Values are stored as `alias/model` — the
+  exact form the gate matches. Combo names are hidden there since combo
+  requests are checked against their member models
 - **Test covenant**: 9 governance suites (format, gate ACL, migration 002,
   show-once, internal key, usage attribution, backup/restore, secret lifecycle,
   i18n parity) + an ACL enforcement-site baseline (`verify-apikey-enforcement`)
