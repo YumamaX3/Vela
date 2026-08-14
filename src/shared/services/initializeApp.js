@@ -2,7 +2,7 @@ import os from "os";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { existsSync } from "fs";
-import { cleanupProviderConnections, getSettings, updateSettings, getApiKeys } from "@/lib/localDb";
+import { cleanupProviderConnections, getSettings, updateSettings } from "@/lib/localDb";
 import {
   enableTunnel, enableTailscale,
   isTunnelManuallyDisabled, isTunnelReconnecting, isTailscaleReconnecting,
@@ -139,11 +139,14 @@ async function autoStartMitm(settings) {
       return;
     }
 
-    const keys = await getApiKeys();
-    const activeKey = keys.find(k => k.isActive !== false);
+    // MITM uses a deterministic internal key — derived from API_KEY_SECRET and
+    // stored nowhere (plan §3.6). The old path read a plaintext key from the
+    // list (impossible under hash-at-rest) or fell back to the public sk_9router.
+    const { ensureInternalKey } = await import("@/lib/db/repos/apiKeysRepo.js");
+    const internal = await ensureInternalKey("mitm");
 
     console.log("[InitApp] MITM was enabled, auto-starting...");
-    await startMitm(activeKey?.key || "sk_9router", password);
+    await startMitm(internal.key, password);
     console.log("[InitApp] MITM auto-started");
     try {
       await restoreToolDNS(password);
