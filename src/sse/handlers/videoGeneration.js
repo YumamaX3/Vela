@@ -3,8 +3,8 @@ import {
   markAccountUnavailable,
   clearAccountError,
   extractApiKey,
-  isValidApiKey,
 } from "../services/auth.js";
+import { authorizeApiRequest } from "../services/keyGate.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo } from "../services/model.js";
 import { handleVideoProxyCore, getVideoConfig, sanitizeSecrets } from "open-sse/handlers/videoCore.js";
@@ -27,14 +27,11 @@ const CREATE_ROTATION_STATUSES = new Set([
 ]);
 
 async function requireValidApiKey(request) {
-  const apiKey = extractApiKey(request);
   const settings = await getSettings();
-  if (settings.requireApiKey) {
-    if (!apiKey) return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
-    const valid = await isValidApiKey(apiKey);
-    if (!valid) return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
-  }
-  return null;
+  // Identity-only gate: the video body is read AFTER auth (stream-forwarding),
+  // so the model is not available here (documented carve-out, plan §3.5).
+  const gate = await authorizeApiRequest(request, { settings });
+  return gate.ok ? null : gate.response;
 }
 
 /**

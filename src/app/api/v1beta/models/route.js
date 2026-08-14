@@ -17,7 +17,7 @@ export async function OPTIONS() {
  * GET /v1beta/models - Gemini compatible models list
  * Returns models in Gemini API format
  */
-export async function GET() {
+export async function GET(request) {
   try {
     const models = [];
     const seen = new Set();
@@ -54,7 +54,10 @@ export async function GET() {
       }
     }
 
-    return Response.json({ models });
+    // Display-side scope narrowing (fail-open; dispatch gates stay fail-closed)
+    const { scopeModelsForRequest } = await import("@/sse/services/keyGate.js");
+    const scoped = await scopeModelsForRequest(request, models);
+    return Response.json({ models: scoped });
   } catch (error) {
     console.log("Error fetching models:", error);
     return Response.json({ error: { message: error.message } }, { status: 500 });

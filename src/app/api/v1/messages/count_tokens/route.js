@@ -83,6 +83,20 @@ export async function POST(request) {
     });
   }
 
+  // Full gate — this route had ZERO key checks before W1 (plan §3.5 site 10)
+  {
+    const { authorizeApiRequest } = await import("@/sse/services/keyGate.js");
+    const { getSettings } = await import("@/lib/db/repos/settingsRepo.js");
+    const settings = await getSettings();
+    const gate = await authorizeApiRequest(request, { requestModel: body?.model || null, settings });
+    if (!gate.ok) {
+      return new Response(JSON.stringify({ error: { code: gate.code, message: gate.message } }), {
+        status: gate.status,
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+      });
+    }
+  }
+
   const inputTokens = estimateAnthropicInputTokens(body);
 
   return new Response(JSON.stringify({
