@@ -24,6 +24,7 @@ const {
   parseCidr,
   cidrContains,
   extractClientIp,
+  resolveClientIp,
   ipStage,
   rateStage,
   spendStage,
@@ -400,6 +401,34 @@ describe("extractClientIp — only the trusted header", () => {
   });
 });
 
+describe("resolveClientIp — override → socket header → loopback Host fallback", () => {
+  it("explicit override wins over everything", () => {
+    expect(resolveClientIp(req({ "x-9r-real-ip": "203.0.113.7", host: "localhost:32060" }), { clientIp: "10.0.0.1" })).toBe("10.0.0.1");
+  });
+
+  it("socket-stamped header wins over the Host fallback", () => {
+    expect(resolveClientIp(req({ "x-9r-real-ip": "192.168.18.5", host: "localhost:32060" }), { isInternal: true })).toBe("192.168.18.5");
+  });
+
+  it("internal key + loopback Host (dev mode, no custom-server) resolves to loopback", () => {
+    // The real self-call shapes: pingModelByKind hardcodes 127.0.0.1; browsers
+    // use localhost. ([::1]:port is not parsed here — deliberate parity with
+    // dashboardGuard.isLocalRequest's documented Host fallback.)
+    for (const host of ["localhost:32060", "127.0.0.1:32060", "localhost"]) {
+      expect(resolveClientIp(req({ host }), { isInternal: true })).toBe("127.0.0.1");
+    }
+  });
+
+  it("the Host fallback NEVER applies to external keys — they fail closed", () => {
+    expect(resolveClientIp(req({ host: "localhost:32060" }), { isInternal: false })).toBeNull();
+    expect(resolveClientIp(req({ host: "localhost:32060" }), {})).toBeNull();
+  });
+
+  it("an internal key through a PUBLIC host gets no fallback (attacker cannot forge a loopback Host on a public socket)", () => {
+    expect(resolveClientIp(req({ host: "gateway.example.com" }), { isInternal: true })).toBeNull();
+  });
+});
+
 // ── full-gate integration ──────────────────────────────────────────────────
 
 describe("authorizeApiRequest — W3 stages wired end-to-end", () => {
@@ -468,5 +497,34 @@ describe("authorizeApiRequest — W3 stages wired end-to-end", () => {
     );
     const res = await authorizeApiRequest(req({ ...VALID_BEARER, "x-9r-real-ip": "203.0.113.9" }), { settings: SETTINGS });
     expect(res.code).toBe(GATE_CODES.IP_NOT_ALLOWED);
+  });
+
+  it("REGRESSION: model-test self-call (internal key, loopback Host, no custom-server header) passes", async () => {
+    // The model-test ping authenticates as the loopback-pinned internal key and
+    // fetches its own /v1. In dev (plain `next dev`), custom-server.js is not
+    // loaded, so no x-9r-real-ip is stamped — the gate must resolve the client
+    // via the loopback Host fallback for internal keys.
+    mocks.resolveKey.mockResolvedValue(
+      row({ isInternal: 1, ipAllowlist: '["127.0.0.1/32","::1/128"]' })
+    );
+    const res = await authorizeApiRequest(
+      req({ ...VALID_BEARER, host: "localhost:32060" }),
+      { settings: SETTINGS, allowInternal: true }
+    );
+    expect(res.ok).toBe(true);
+  });
+
+  it("REGRESSION guard: an external allowlisted key via loopback Host (no custom-server) still fails closed", async () => {
+    // The Host fallback must NOT widen external keys — only internal ones get it.
+    mocks.resolveKey.mockResolvedValue(
+      row({ isInternal: 0, ipAllowlist: '["127.0.0.1/32","::1/128"]' })
+    );
+    const res = await authorizeApiRequest(
+      req({ ...VALID_BEARER, host: "localhost:32060" }),
+      { settings: SETTINGS }
+    );
+    expect(res.ok).toBe(false);
+    expect(res.code).toBe(GATE_CODES.IP_NOT_ALLOWED);
+    expect(res.status).toBe(403);
   });
 });
