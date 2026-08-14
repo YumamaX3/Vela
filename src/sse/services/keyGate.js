@@ -92,6 +92,40 @@ export function extractClientIp(request) {
   return request?.headers?.get?.("x-9r-real-ip") || null;
 }
 
+/** Loopback hostnames recognized by the Host-header fallback. */
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+
+function isLoopbackHostname(host) {
+  if (!host) return false;
+  const name = host.split(":")[0].replace(/^\[|\]$/g, "").toLowerCase();
+  return LOOPBACK_HOSTS.has(name);
+}
+
+/**
+ * Resolve the client IP for the gate. Order: explicit override → the trusted
+ * x-9r-real-ip header (stamped by custom-server.js from the TCP socket) →
+ * a narrowly-scoped Host-header fallback.
+ *
+ * The fallback exists ONLY so server-to-server self-calls (the model-test ping)
+ * work when the process runs as bare `next dev` / `next start` without
+ * custom-server.js — there is no TCP-socket IP to stamp in that mode. It is
+ * deliberately narrow: it applies only to internal keys (which are already
+ * minted loopback-only), and only when the request arrives via a loopback
+ * Host. An external attacker cannot set a loopback Host on a public socket,
+ * so the fallback cannot widen an external key's IP allowlist — those still
+ * fail closed without a socket-stamped IP. Mirrors the documented dev fallback
+ * in dashboardGuard.js isLocalRequest().
+ */
+export function resolveClientIp(request, { clientIp = null, isInternal = false } = {}) {
+  if (clientIp) return clientIp;
+  const stamped = extractClientIp(request);
+  if (stamped) return stamped;
+  if (isInternal && isLoopbackHostname(request?.headers?.get?.("host"))) {
+    return "127.0.0.1";
+  }
+  return null;
+}
+
 export function ipStage(key, { clientIp } = {}) {
   // W3: CIDR allowlist. Null/empty = unrestricted. An allowlist with no
   // resolvable client IP fails CLOSED — we cannot prove the caller belongs.
@@ -314,9 +348,10 @@ export async function authorizeApiRequest(
     return deny(HTTP_STATUS.FORBIDDEN, GATE_CODES.INVALID_KEY, "Invalid API key");
   }
 
-  // W3: sites may pass clientIp explicitly; otherwise trust the header that
-  // custom-server.js stamps with the unspoofable socket peer.
-  const resolvedIp = clientIp || extractClientIp(request);
+  // W3: resolve the client IP — explicit override → the socket-stamped
+  // x-9r-real-ip header → (internal keys only, dev mode) the loopback Host
+  // fallback. External keys still fail closed without a stamped IP.
+  const resolvedIp = resolveClientIp(request, { clientIp, isInternal: key.isInternal });
 
   for (const stage of STAGES) {
     // Stages may be async (spendStage reads the usage ledger) — await each verdict.

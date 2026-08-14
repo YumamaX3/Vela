@@ -25,6 +25,26 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.03 — The Loopback Fallback 🧭
+
+*Sealed 2026-08-14*
+
+## 🐛 Fixes
+- **Model-test 403 `ip_not_allowed` in dev**: testing a model on the Providers
+  page (e.g. `/dashboard/providers/opencode`) failed with
+  "Client address could not be determined for this allowlisted key" because the
+  model-test self-call authenticates as the loopback-pinned **internal key**,
+  but the client IP was derived only from `x-9r-real-ip` — a header stamped by
+  `custom-server.js`, which is loaded only by the CLI launcher, never by plain
+  `next dev` / `next start`. Added a narrowly-scoped `resolveClientIp` to the
+  gate: explicit override → the socket-stamped header → a loopback Host
+  fallback that applies **only to internal keys**. External keys still fail
+  closed without a socket-stamped IP (an attacker cannot forge a loopback Host
+  on a public socket), so the allowlist is never widened. Mirrors the
+  documented dev fallback in `dashboardGuard.isLocalRequest`. Test covenant:
+  7 new cases (5 unit for `resolveClientIp`, 2 end-to-end regression guards);
+  the gate suite is now 59/59
+
 # v0.6.02 — The Milestone Tide 🌊
 
 *Sealed 2026-08-14 · the first tick under the new rite*
