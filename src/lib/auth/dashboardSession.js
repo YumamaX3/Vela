@@ -8,6 +8,12 @@ import { getSettings } from "@/lib/localDb";
 
 const DEFAULT_PASSWORD = "123456";
 
+// Vela's own session cookie. Browsers key cookies by domain, NOT by port, so a
+// cookie named `auth_token` (9Router's) is shared between both gateways when they
+// run side by side on localhost — logging into one evicts the other. Vela's jar
+// is its own (v0.6.12).
+export const AUTH_COOKIE_NAME = "vela_auth_token";
+
 function loadJwtSecret() {
   if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
   const file = path.join(DATA_DIR, "jwt-secret");
@@ -59,7 +65,7 @@ export async function getDashboardAuthSession(token) {
 
 export async function setDashboardAuthCookie(cookieStore, request, claims = {}) {
   const token = await createDashboardAuthToken(claims);
-  cookieStore.set("auth_token", token, {
+  cookieStore.set(AUTH_COOKIE_NAME, token, {
     httpOnly: true,
     secure: shouldUseSecureCookie(request),
     sameSite: "lax",
@@ -68,7 +74,7 @@ export async function setDashboardAuthCookie(cookieStore, request, claims = {}) 
 }
 
 export function clearDashboardAuthCookie(cookieStore) {
-  cookieStore.delete("auth_token");
+  cookieStore.delete(AUTH_COOKIE_NAME);
 }
 
 // Verify the current dashboard password (re-auth for sensitive actions).

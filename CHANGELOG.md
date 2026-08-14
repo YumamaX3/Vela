@@ -25,6 +25,26 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.12 — A Jar of Its Own 🏺⛵
+
+*Sealed 2026-08-14 · Milestone Tide: small change → `0.6.11 → 0.6.12`*
+
+## 🐛 Fixes
+- **Two gateways, two sessions**: the dashboard session cookie was named
+  `auth_token` — the same name 9Router uses. Browsers key cookies by domain,
+  **not by port**, so when Vela (`:32060`) and 9Router ran side by side on
+  `localhost` they shared one cookie jar: logging into one evicted the other.
+  Vela now stamps its own cookie, `vela_auth_token`, named in one place
+  (`AUTH_COOKIE_NAME` in `src/lib/auth/dashboardSession.js`) and read in the
+  guard and the status / SAML-test / OIDC-test routes. The two harbors keep
+  separate sessions; neither knocks the other out. 🌊
+
+## ⚙️ Internal
+- No golden snapshot change — the cookie name does not ride the version
+  headers.
+
+---
+
 # v0.6.11 — The Crest Risen 🏛️⛵
 
 *Sealed 2026-08-14*
