@@ -5,6 +5,7 @@ import { Card } from "@/shared/components";
 import { MEDIA_PROVIDER_KINDS, getProviderAlias, resolveProviderId } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import { resolveKeyRef } from "@/shared/utils/keyVault";
 import { Row, KIND_EXAMPLE_CONFIG } from "./exampleShared";
 
 const CLOUDFLARE_TEST_IMAGE_URL = "https://pub-1fb693cb11cc46b2b2f656f51e015a2c.r2.dev/dog.png";
@@ -73,7 +74,7 @@ export function GenericExampleCard({ providerId, kind }) {
     setLocalEndpoint(window.location.origin);
     fetch("/api/keys")
       .then((r) => r.json())
-      .then((d) => { setApiKey((d.keys || []).find((k) => k.isActive !== false)?.key || ""); })
+      .then((d) => { const k = (d.keys || []).find((x) => x.isActive !== false); setApiKey(resolveKeyRef(k?.id) || ""); })
       .catch(() => {});
     fetch("/api/tunnel/status")
       .then((r) => r.json())

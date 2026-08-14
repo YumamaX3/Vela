@@ -15,7 +15,7 @@ const DEFAULT_CONFIG = {
 
 const CLI_TOKEN_HEADER = "x-9r-cli-token";
 const CLI_TOKEN_SALT = "9r-cli-auth";
-const APP_NAME = "9router";
+const APP_NAME = "vela";
 
 function getDataDir() {
   if (process.env.DATA_DIR) return process.env.DATA_DIR;
@@ -296,7 +296,7 @@ async function getApiKeys() {
  * @returns {Promise<Object>} { success, data: { key, name, id, machineId } }
  */
 async function createApiKey(name) {
-  return makeRequest("POST", "/api/keys", { name });
+  return makeRequest("POST", "/api/keys", { name }); // 201 → { key (one-time), keyId, keyPrefix, record }
 }
 
 /**

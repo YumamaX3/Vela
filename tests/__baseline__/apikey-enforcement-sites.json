@@ -1,0 +1,15 @@
+{
+  "description": "ACL enforcement-site census — tripwire for plans/vela-key-governance.md §3.5. Every /v1 entry that must pass the key gate. Regenerate with: node tests/__baseline__/snapshot-apikey-enforcement.mjs",
+  "sites": [
+    { "file": "src/app/api/v1/messages/count_tokens/route.js", "allowInternal": false, "comboModels": false },
+    { "file": "src/app/api/v1beta/models/[...path]/route.js", "allowInternal": false, "comboModels": false },
+    { "file": "src/sse/handlers/chat.js", "allowInternal": true, "comboModels": true },
+    { "file": "src/sse/handlers/embeddings.js", "allowInternal": true, "comboModels": false },
+    { "file": "src/sse/handlers/fetch.js", "allowInternal": false, "comboModels": false },
+    { "file": "src/sse/handlers/imageGeneration.js", "allowInternal": false, "comboModels": false },
+    { "file": "src/sse/handlers/search.js", "allowInternal": false, "comboModels": false },
+    { "file": "src/sse/handlers/stt.js", "allowInternal": false, "comboModels": false },
+    { "file": "src/sse/handlers/tts.js", "allowInternal": false, "comboModels": false },
+    { "file": "src/sse/handlers/videoGeneration.js", "allowInternal": false, "comboModels": false }
+  ]
+}

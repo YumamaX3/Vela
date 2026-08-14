@@ -9,12 +9,11 @@ const DEFAULT_MITM_ROUTER_BASE = "http://localhost:32060";
  * Shared MITM infrastructure card — manages SSL cert + server start/stop.
  * DNS per-tool is handled separately in MitmToolCard.
  */
-export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }) {
+export default function MitmServerCard({ cloudEnabled, onStatusChange }) {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [sudoPassword, setSudoPassword] = useState("");
-  const [selectedApiKey, setSelectedApiKey] = useState(() => apiKeys?.[0]?.key || "");
   const [pendingAction, setPendingAction] = useState(null);
   const [modalError, setModalError] = useState(null);
   const [actionError, setActionError] = useState(null);
@@ -74,14 +73,12 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
           body: JSON.stringify({ action: "trust-cert", sudoPassword: password }),
         });
       } else if (action === "start") {
-        const keyToUse = selectedApiKey?.trim()
-          || (apiKeys?.length > 0 ? apiKeys[0].key : null)
-          || (!cloudEnabled ? "sk_9router" : null);
+        // MITM authenticates via the derived internal key (server-side); the
+        // client no longer supplies one — masked rows can't feed config writes.
         res = await fetch("/api/cli-tools/antigravity-mitm", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            apiKey: keyToUse,
             sudoPassword: password,
             mitmRouterBaseUrl: mitmRouterBaseUrl.trim() || DEFAULT_MITM_ROUTER_BASE,
             forceKillPort443,
@@ -172,7 +169,7 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
             </p>
           </div>
 
-          {/* Base URL + API Key — same row pattern as Claude Code / cli-tools */}
+          {/* Base URL — the MITM child uses the derived internal key; no client key needed */}
           <div className="flex flex-col gap-2">
             <div className="grid gap-1 sm:grid-cols-[8rem_auto_1fr] sm:items-center sm:gap-2">
               <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">9Router Base URL</span>
@@ -186,27 +183,6 @@ export default function MitmServerCard({ apiKeys, cloudEnabled, onStatusChange }
                 className="flex-1 min-w-0 px-2 py-1.5 bg-surface rounded border border-border text-xs text-text-main focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-50"
               />
             </div>
-            {!isRunning && (
-              <div className="grid gap-1 sm:grid-cols-[8rem_auto_1fr] sm:items-center sm:gap-2">
-                <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">API Key</span>
-                <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
-                <input
-                  type="text"
-                  list="mitm-api-keys"
-                  value={selectedApiKey}
-                  onChange={(e) => setSelectedApiKey(e.target.value)}
-                  placeholder={cloudEnabled ? "Enter or pick API key" : "sk_9router (default)"}
-                  className="flex-1 min-w-0 px-2 py-1.5 bg-surface rounded border border-border text-xs text-text-main focus:outline-none focus:ring-1 focus:ring-primary/50"
-                />
-                {apiKeys?.length > 0 && (
-                  <datalist id="mitm-api-keys">
-                    {apiKeys.map((key) => (
-                      <option key={key.id} value={key.key}>{key.name || key.key}</option>
-                    ))}
-                  </datalist>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Action buttons */}

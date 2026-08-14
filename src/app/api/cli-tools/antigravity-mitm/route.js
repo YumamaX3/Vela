@@ -91,14 +91,17 @@ export async function GET() {
 }
 
 // POST - Start MITM server (cert + server, no DNS)
+// The child process authenticates with the deterministic internal key (plan §3.6)
+// — derived from API_KEY_SECRET, loopback-pinned, hidden from every list. The
+// client no longer supplies a key: under hash-at-rest it cannot know one.
 export async function POST(request) {
   try {
-    const { apiKey, sudoPassword, mitmRouterBaseUrl, forceKillPort443 } = await request.json();
+    const { sudoPassword, mitmRouterBaseUrl, forceKillPort443 } = await request.json();
     const pwd = getPassword(sudoPassword) || await loadEncryptedPassword() || "";
 
-    if (!apiKey || requiresSudoPassword(pwd)) {
+    if (requiresSudoPassword(pwd)) {
       return NextResponse.json(
-        { error: !apiKey ? "Missing apiKey" : "Missing sudoPassword" },
+        { error: "Missing sudoPassword" },
         { status: 400 }
       );
     }
@@ -122,7 +125,9 @@ export async function POST(request) {
       }
     }
 
-    const result = await startServer(apiKey, pwd, !!forceKillPort443);
+    const { ensureInternalKey } = await import("@/lib/db/repos/apiKeysRepo.js");
+    const internal = await ensureInternalKey("mitm");
+    const result = await startServer(internal.key, pwd, !!forceKillPort443);
     if (!isWin) setCachedPassword(pwd);
 
     return NextResponse.json({ success: true, running: result.running, pid: result.pid });

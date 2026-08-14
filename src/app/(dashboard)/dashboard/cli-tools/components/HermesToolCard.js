@@ -6,6 +6,8 @@ import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
 import { matchKnownEndpoint } from "./cliEndpointMatch";
+import { resolveKeyRef } from "@/shared/utils/keyVault";
+
 
 const ENDPOINT = "/api/cli-tools/hermes-settings";
 
@@ -49,7 +51,7 @@ export default function HermesToolCard({
 
   useEffect(() => {
     if (apiKeys?.length > 0 && !selectedApiKey) {
-      setSelectedApiKey(apiKeys[0].key);
+      setSelectedApiKey(apiKeys[0].id);
     }
   }, [apiKeys, selectedApiKey]);
 
@@ -113,9 +115,7 @@ export default function HermesToolCard({
     setApplying(true);
     setMessage(null);
     try {
-      const keyToUse = selectedApiKey?.trim()
-        || (apiKeys?.length > 0 ? apiKeys[0].key : null)
-        || (!cloudEnabled ? "sk_9router" : null);
+      const keyToUse = resolveKeyRef(selectedApiKey) || resolveKeyRef(apiKeys?.[0]?.id);
 
       const res = await fetch(ENDPOINT, {
         method: "POST",
@@ -166,9 +166,7 @@ export default function HermesToolCard({
   };
 
   const getManualConfigs = () => {
-    const keyToUse = (selectedApiKey && selectedApiKey.trim())
-      ? selectedApiKey
-      : (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
+    const keyToUse = resolveKeyRef(selectedApiKey) || "<API_KEY_FROM_DASHBOARD>";
 
     const yamlContent = `model:\n  default: "${selectedModel || "provider/model-id"}"\n  provider: "custom"\n  base_url: "${getEffectiveBaseUrl()}"\n`;
     const envContent = `OPENAI_API_KEY=${keyToUse}\n`;

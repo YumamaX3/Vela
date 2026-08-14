@@ -1,10 +1,11 @@
 const api = require("../api/client");
 const { prompt, confirm, pause } = require("../utils/input");
 const { clearScreen, showStatus, showHeader } = require("../utils/display");
-const { maskKey, formatDate, getRelativeTime } = require("../utils/format");
+const { formatDate, getRelativeTime } = require("../utils/format");
 const { showMenuWithBack } = require("../utils/menuHelper");
 const { copyToClipboard } = require("../utils/clipboard");
 const { getEndpoint } = require("../utils/endpoint");
+const { storeKey, getKey, removeKey } = require("../utils/keyVault");
 
 /**
  * Display API keys list with formatted output
@@ -26,9 +27,12 @@ function displayApiKeys(keys, port) {
     keys.forEach((key, index) => {
       console.log("│                                                          │");
       console.log(`│  ${index + 1}. ${key.name}${" ".repeat(52 - String(index + 1).length - key.name.length)}│`);
-      
-      const maskedKey = maskKey(key.key);
-      console.log(`│     Key: ${maskedKey}${" ".repeat(47 - maskedKey.length)}│`);
+
+      // Hash-at-rest: only the masked prefix is available after creation
+      const maskedKey = key.keyPrefix || `vela-v1-${String(key.id).slice(0, 8)}…`;
+      const onDevice = getKey(key.id) ? " · stored here" : "";
+      const maskedLine = maskedKey + onDevice;
+      console.log(`│     Key: ${maskedLine}${" ".repeat(Math.max(0, 47 - maskedLine.length))}│`);
       
       const created = formatDate(key.createdAt);
       console.log(`│     Created: ${created}${" ".repeat(43 - created.length)}│`);
@@ -69,18 +73,26 @@ async function handleCreateKey() {
   }
   
   const result = await api.createApiKey(name);
-  
+
   if (!result.success) {
     showStatus(`Failed to create key: ${result.error}`, "error");
     await pause();
     return false;
   }
-  
+
+  // Capture-at-create (plan §3.6): the 201 carries the only plaintext copy.
+  // Store it in the local CLI vault so setup paths can resolve it later.
+  const record = result.data.record || {};
+  const createdId = record.id || result.data.keyId;
+  if (result.data.key && createdId) {
+    storeKey(createdId, result.data.key);
+  }
+
   console.log("\n✅ API Key created successfully!");
   console.log("\n⚠️  IMPORTANT: Save this key now. You won't be able to see it again!");
   console.log(`\nKey: ${result.data.key}`);
-  console.log(`Name: ${result.data.name}`);
-  console.log(`ID: ${result.data.id}`);
+  console.log(`Name: ${record.name || ""}`);
+  console.log(`ID: ${createdId || ""}`);
   
   const shouldCopy = await confirm("\nCopy key to clipboard?");
   if (shouldCopy) {
@@ -103,7 +115,13 @@ async function handleViewFullKey(key) {
   console.log("\n🔍 Full API Key");
   console.log("─".repeat(30));
   console.log(`Name: ${key.name}`);
-  console.log(`Key: ${key.key}`);
+  // Hash-at-rest: the full key only exists if this device captured it at create time
+  const full = getKey(key.id);
+  if (full) {
+    console.log(`Key: ${full}`);
+  } else {
+    console.log(`Key: ${key.keyPrefix || `vela-v1-${String(key.id).slice(0, 8)}…`} (full key not stored on this device)`);
+  }
   console.log(`ID: ${key.id}`);
   console.log(`Created: ${formatDate(key.createdAt)}`);
   
@@ -121,7 +139,13 @@ async function handleViewFullKey(key) {
  * @param {Object} key - API key object
  */
 async function handleCopyKey(key) {
-  if (copyToClipboard(key.key)) {
+  const full = getKey(key.id);
+  if (!full) {
+    showStatus("Full key not stored on this device (keys are shown once, at creation)", "error");
+    await pause();
+    return;
+  }
+  if (copyToClipboard(full)) {
     showStatus(`Key "${key.name}" copied to clipboard!`, "success");
   } else {
     showStatus("Failed to copy to clipboard", "error");
@@ -137,25 +161,28 @@ async function handleCopyKey(key) {
 async function handleDeleteKey(key) {
   console.log(`\n⚠️  Delete API Key: ${key.name}`);
   console.log("─".repeat(30));
-  console.log(`Key: ${maskKey(key.key)}`);
+  console.log(`Key: ${key.keyPrefix || `vela-v1-${String(key.id).slice(0, 8)}…`}`);
   console.log(`Created: ${formatDate(key.createdAt)}`);
-  
+
   const confirmed = await confirm("\nAre you sure you want to delete this key?");
-  
+
   if (!confirmed) {
     showStatus("Deletion cancelled", "info");
     await pause();
     return false;
   }
-  
+
   const result = await api.deleteApiKey(key.id);
-  
+
   if (!result.success) {
     showStatus(`Failed to delete key: ${result.error}`, "error");
     await pause();
     return false;
   }
-  
+
+  // Purge the captured copy alongside the server-side revoke
+  removeKey(key.id);
+
   showStatus("API key deleted successfully", "success");
   await pause();
   return true;
@@ -172,7 +199,7 @@ async function showKeyActions(key, port, breadcrumb = []) {
   await showMenuWithBack({
     title: `🔑 ${key.name}`,
     breadcrumb: [...breadcrumb, key.name],
-    headerContent: `Name: ${key.name}\nKey: ${key.key}\nEndpoint: ${endpoint}`,
+    headerContent: `Name: ${key.name}\nKey: ${key.keyPrefix || `vela-v1-${String(key.id).slice(0, 8)}…`}\nEndpoint: ${endpoint}`,
     items: [
       {
         label: "Copy to Clipboard",
@@ -215,7 +242,7 @@ async function showApiKeysMenu(port, breadcrumb = []) {
       }
       return { items: result.data.keys || [] };
     },
-    formatItem: (key) => `${key.name} (${maskKey(key.key)})`,
+    formatItem: (key) => `${key.name} (${key.keyPrefix || `vela-v1-${String(key.id).slice(0, 8)}…`})`,
     onSelect: async (key) => {
       await showKeyActions(key, port, breadcrumb);
     },

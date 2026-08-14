@@ -6,6 +6,8 @@ import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
 import { matchKnownEndpoint } from "./cliEndpointMatch";
+import { resolveKeyRef, parseKeyId, storeKey } from "@/shared/utils/keyVault";
+
 
 export default function OpenClawToolCard({
   tool,
@@ -48,7 +50,7 @@ export default function OpenClawToolCard({
 
   useEffect(() => {
     if (apiKeys?.length > 0 && !selectedApiKey) {
-      setSelectedApiKey(apiKeys[0].key);
+      setSelectedApiKey(apiKeys[0].id);
     }
   }, [apiKeys, selectedApiKey]);
 
@@ -80,8 +82,11 @@ export default function OpenClawToolCard({
       if (provider) {
         const primaryModel = openclawStatus.settings?.agents?.defaults?.model?.primary;
         if (primaryModel) setSelectedModel(primaryModel.replace("9router/", ""));
-        if (provider.apiKey && apiKeys?.some(k => k.key === provider.apiKey)) {
-          setSelectedApiKey(provider.apiKey);
+        // Capture the found full key into the vault, select by keyId
+        const provKeyId = parseKeyId(provider.apiKey);
+        if (provider.apiKey && provKeyId && apiKeys?.some(k => k.id === provKeyId)) {
+          storeKey(provKeyId, provider.apiKey);
+          setSelectedApiKey(provKeyId);
         }
       }
       // Init per-agent models from enriched agents list
@@ -130,9 +135,7 @@ export default function OpenClawToolCard({
     setApplying(true);
     setMessage(null);
     try {
-      const keyToUse = selectedApiKey?.trim()
-        || (apiKeys?.length > 0 ? apiKeys[0].key : null)
-        || (!cloudEnabled ? "sk_9router" : null);
+      const keyToUse = resolveKeyRef(selectedApiKey) || resolveKeyRef(apiKeys?.[0]?.id);
 
       const res = await fetch("/api/cli-tools/openclaw-settings", {
         method: "POST",
@@ -190,9 +193,7 @@ export default function OpenClawToolCard({
   };
 
   const getManualConfigs = () => {
-    const keyToUse = (selectedApiKey && selectedApiKey.trim())
-      ? selectedApiKey
-      : (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
+    const keyToUse = resolveKeyRef(selectedApiKey) || "<API_KEY_FROM_DASHBOARD>";
 
     const settingsContent = {
       agents: {
