@@ -93,6 +93,28 @@ export async function GET(request) {
       { status: 400, headers: { "Access-Control-Allow-Origin": "*" } },
     );
   }
+  // Display-side scope narrowing: an out-of-scope model reads as not found
+  try {
+    const { extractKeyFromHeaders } = await import("@/sse/services/keyGate.js");
+    const { resolveKey } = await import("@/lib/db/repos/apiKeysRepo.js");
+    const { getSettings } = await import("@/lib/db/repos/settingsRepo.js");
+    const settings = await getSettings();
+    if (settings?.requireApiKey) {
+      const token = extractKeyFromHeaders(request);
+      const row = token ? await resolveKey(token) : null;
+      if (row && (row.isActive === 1 || row.isActive === true) && row.allowedModels) {
+        let scope = null;
+        try { scope = new Set(JSON.parse(row.allowedModels)); } catch {}
+        if (scope && !scope.has(id)) {
+          return Response.json(
+            { error: { message: `Model not found: ${id}`, type: "not_found" } },
+            { status: 404, headers: { "Access-Control-Allow-Origin": "*" } },
+          );
+        }
+      }
+    }
+  } catch {}
+
   const info = lookup(id, kind);
   if (!info) {
     return Response.json(
