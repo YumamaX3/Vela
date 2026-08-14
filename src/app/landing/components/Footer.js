@@ -8,10 +8,10 @@ export default function Footer() {
           {/* Brand */}
           <div className="col-span-2 lg:col-span-2">
             <div className="flex items-center gap-3 mb-6">
-              <div className="size-6 rounded bg-[#f97815] flex items-center justify-center text-white">
-                <span className="material-symbols-outlined text-[16px]">hub</span>
+              <div className="size-6 rounded-md bg-[#0a0a0a] border border-[#3a2f27] flex items-center justify-center overflow-hidden">
+                <img src="/vela-logo.svg" alt="Vela" className="size-4" width={16} height={16} />
               </div>
-              <h3 className="text-white text-lg font-bold">9Router</h3>
+              <h3 className="text-white text-lg font-bold">Vela</h3>
             </div>
             <p className="text-gray-500 text-sm max-w-xs mb-6">
               The unified endpoint for AI generation. Connect, route, and manage your AI providers with ease.

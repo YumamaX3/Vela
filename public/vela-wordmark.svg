@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 520">
+<defs>
+  <linearGradient id="txt" x1="0" y1="1" x2="1" y2="0">
+    <stop offset="0" stop-color="#0B2A5B"/>
+    <stop offset=".5" stop-color="#2D86D8"/>
+    <stop offset="1" stop-color="#8FE8FF"/>
+  </linearGradient>
+  <linearGradient id="g" x1="0" y1="1" x2="1" y2="0">
+    <stop offset="0" stop-color="#B78A38"/>
+    <stop offset=".6" stop-color="#FFE7A0"/>
+    <stop offset="1" stop-color="#FFF7D4"/>
+  </linearGradient>
+</defs>
+<!-- simplified emblem -->
+<g transform="translate(60,30) scale(.45)">
+  <circle cx="512" cy="512" r="305" fill="none" stroke="url(#txt)" stroke-width="8" opacity=".28" stroke-dasharray="10 18"/>
+  <path d="M512 345 C448 270 342 255 303 322 C272 376 326 443 425 458 C463 464 492 449 512 429"
+        fill="none" stroke="url(#txt)" stroke-width="22" stroke-linecap="round"/>
+  <path d="M512 345 C576 270 682 255 721 322 C752 376 698 443 599 458 C561 464 532 449 512 429"
+        fill="none" stroke="url(#txt)" stroke-width="22" stroke-linecap="round"/>
+  <path d="M438 305 C438 248 478 212 512 212 C546 212 586 248 586 305"
+        fill="none" stroke="#EAF7FF" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="512" cy="208" r="18" fill="url(#g)"/>
+  <path d="M512 228 L512 704" stroke="#EAF7FF" stroke-width="36" stroke-linecap="round"/>
+  <path d="M390 550 C424 600 463 622 512 622 C561 622 600 600 634 550"
+        fill="none" stroke="#EAF7FF" stroke-width="30" stroke-linecap="round"/>
+  <path d="M512 704 C475 751 426 793 365 810 C416 842 482 829 512 782"
+        fill="none" stroke="url(#txt)" stroke-width="28" stroke-linecap="round"/>
+  <path d="M512 704 C549 751 598 793 659 810 C608 842 542 829 512 782"
+        fill="none" stroke="url(#txt)" stroke-width="28" stroke-linecap="round"/>
+  <path d="M512 372 L546 430 L512 489 L478 430 Z" fill="url(#g)"/>
+</g>
+<text x="560" y="302" font-family="Georgia, 'Times New Roman', serif" font-size="188"
+      font-weight="600" letter-spacing="18" fill="url(#txt)">VELA</text>
+<text x="575" y="382" font-family="Arial, Helvetica, sans-serif" font-size="34"
+      letter-spacing="13" fill="#6E88A3">AI GATEWAY</text>
+<path d="M575 415 H1045" stroke="url(#g)" stroke-width="5" stroke-linecap="round"/>
+</svg>
