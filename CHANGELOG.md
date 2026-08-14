@@ -1,5 +1,14 @@
 # Unreleased
 
+## Documentation
+- **Plans**: the Shorekeeper-Sealed Plan for API key governance is born —
+  `plans/vela-key-governance.md`: `vela-v1-{keyId}-{crc}` keys, hash-at-rest +
+  show-once, an 11-site stage-pipeline gate, full governance in waves W1/W2/W3,
+  migration 002 design with sentinel tombstones, and the four full-key consumer
+  redesigns (MITM derived key, CLI capture-at-create, keyId cards, keyId usage).
+  Sealed after five adversarial passes and a 4.2/5 arbiter review; implementation
+  follows on a feat branch
+
 ## Changes
 - **Config**: move the default port from 20128 to 32060 across the whole harbor —
   app config (`src/shared/constants/config.js`), CLI defaults (`cli/cli.js`,
