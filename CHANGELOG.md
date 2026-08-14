@@ -1,6 +1,42 @@
 # Unreleased
 
 ## Features
+- **API Keys — Governance wave W3 (limits)**: per-key limits are now enforced
+  on every `/v1` request. The gate stage pipeline runs lifetime → IP allowlist
+  → rate → spend → model scope:
+  - **Rate limit (RPM)** — sliding 60s window per key; 429 `rate_limited` with
+    the limit stated honestly in the message
+  - **Token budget + spend cap** — one reset window (`budgetScope`:
+    daily/weekly/monthly/yearly) governs both; soft-cap semantics (the
+    in-flight request is counted after it completes) with usage aggregated
+    from the same ledger the dashboard reads; 429 `budget_exceeded` with usage
+    context; a 5s TTL cache keeps hot paths from re-summing the ledger
+  - **IP allowlist** — CIDR entries (IPv4 + IPv6, mapped-form normalized);
+    allowlisted keys fail closed when the client address cannot be determined;
+    the gate trusts only `x-9r-real-ip`, stamped by custom-server from the
+    socket peer — attacker-controlled forwarding headers are never read
+  - **Expiration** — `expiresAt` → 401 `key_expired`
+- **Key limits UI** (`/dashboard/endpoint`): a shared limits editor in both the
+  create and edit modals — RPM presets, token budget templates (1M/10M/100M/1B),
+  spend presets ($5/$10/$50/$100), custom values, an Unlimited toggle per
+  section, the reset-window selector (shown when any budget is active), an
+  expiration picker (Never / 7 / 30 / 90 days / custom date), and an IP
+  allowlist textarea; key rows show limit badges (RPM, tokens, $, IP count)
+- **Repo validation**: limit fields (`rateLimitRpm`, `tokenBudgetDaily`,
+  `spendCapDailyCents`, `budgetScope`, `expiresAt`, `ipAllowlist`) join the
+  repo's writable whitelist and are validated at create and update — positive
+  integers or null, sealed scope set, future ISO expiry, CIDR syntax, ≤100
+  entries. Invalid input → 400 naming every problem; security columns stay
+  unwritable
+- **Shared primitives**: CIDR matching + budget scopes + limit validation live
+  in `src/lib/db/keyLimits.js` — a neutral home so the repo never imports the
+  gate (which imports the repo). The gate re-exports them, API unchanged
+- **Test covenant**: W3 gate-stage suite (CIDR matrix, fail-closed IP, sliding
+  rate window, budget window boundaries, TTL cache, full-gate integration) +
+  limits-validation suite (pure matrix + POST/PUT round-trips over a real temp
+  DB). The internal key's loopback pin is now asserted end-to-end
+- **i18n**: 25 limits strings seeded across all 34 locales via the governance
+  seeder (68 governance keys total)
 - **API Keys — Governance (waves W1/W2)**: a full-governance key system replaces
   the old plaintext `sk-` keys. New keys mint as `vela-v1-{keyId}-{crc}` — a
   128-bit CSPRNG identity plus a timing-safe HMAC-SHA256 checksum keyed by

@@ -79,20 +79,181 @@ export function lifetimeStage(key) {
   return { ok: true };
 }
 
+// ── CIDR matching (W3 ip stage) ──────────────────────────────────────────
+// Primitives live in lib/db/keyLimits.js (shared with repo-side validation —
+// the repo must not import this file; this file imports the repo).
+export { parseCidr, cidrContains } from "@/lib/db/keyLimits.js";
+import { cidrContains } from "@/lib/db/keyLimits.js";
+
+/** Derive the real client IP. custom-server.js strips attacker-controlled
+ *  forwarding headers and stamps the socket peer (or trusted-proxy value)
+ *  into x-9r-real-ip — that header is the only IP the gate trusts. */
+export function extractClientIp(request) {
+  return request?.headers?.get?.("x-9r-real-ip") || null;
+}
+
 export function ipStage(key, { clientIp } = {}) {
-  // W3: CIDR allowlist. Null/empty = unrestricted.
-  if (!key.ipAllowlist?.length || !clientIp) return { ok: true };
-  // Implementation lands with W3 (CIDR match against socket-derived IP).
-  return { ok: true };
+  // W3: CIDR allowlist. Null/empty = unrestricted. An allowlist with no
+  // resolvable client IP fails CLOSED — we cannot prove the caller belongs.
+  if (!key.ipAllowlist?.length) return { ok: true };
+  if (!clientIp) {
+    return deny(HTTP_STATUS.FORBIDDEN, GATE_CODES.IP_NOT_ALLOWED, "Client address could not be determined for this allowlisted key");
+  }
+  for (const entry of key.ipAllowlist) {
+    if (cidrContains(entry, clientIp)) return { ok: true };
+  }
+  return deny(HTTP_STATUS.FORBIDDEN, GATE_CODES.IP_NOT_ALLOWED, "Client address is not in this key's IP allowlist");
+}
+
+// ── Rate limiting (W3 rate stage) ────────────────────────────────────────
+// Sliding 60s window per keyId, in-memory (process-local). Survives module
+// reloads via a global singleton; eviction keeps the map bounded.
+
+const RATE_WINDOW_MS = 60_000;
+const RATE_MAP_MAX_KEYS = 10_000;
+
+function rateWindowMap() {
+  if (!global._velaRateWindows) global._velaRateWindows = new Map();
+  return global._velaRateWindows;
 }
 
 export function rateStage(key) {
-  // W3: sliding window per keyId (global._* singleton, bounded eviction).
+  if (!key.rateLimitRpm || key.rateLimitRpm <= 0) return { ok: true };
+  const windows = rateWindowMap();
+  const now = Date.now();
+  let stamps = windows.get(key.keyId);
+  if (!stamps) {
+    stamps = [];
+    windows.set(key.keyId, stamps);
+  }
+  // Prune outside the window, then bound the map.
+  while (stamps.length && stamps[0] <= now - RATE_WINDOW_MS) stamps.shift();
+  if (windows.size > RATE_MAP_MAX_KEYS) {
+    for (const [k, s] of windows) {
+      while (s.length && s[0] <= now - RATE_WINDOW_MS) s.shift();
+      if (!s.length && k !== key.keyId) windows.delete(k);
+      if (windows.size <= RATE_MAP_MAX_KEYS) break;
+    }
+  }
+  if (stamps.length >= key.rateLimitRpm) {
+    return deny(
+      HTTP_STATUS.RATE_LIMITED,
+      GATE_CODES.RATE_LIMITED,
+      `Rate limit exceeded: ${key.rateLimitRpm} requests per minute`
+    );
+  }
+  stamps.push(now);
   return { ok: true };
 }
 
-export function spendStage(key) {
-  // W3: budgetTracker against usageDaily aggregate.
+// ── Token + spend budgets (W3 spend stage) ───────────────────────────────
+// One window (budgetScope) governs BOTH budgets: daily | weekly | monthly |
+// yearly. Column names carry "Daily" for migration compatibility; the scope
+// decides the actual reset cadence. Usage aggregates from usageDaily rows —
+// the same ledger the dashboard reads — with a short TTL cache so hot paths
+// do not re-sum the ledger on every request. The check is a soft cap: the
+// request in flight is counted after it completes.
+
+export { BUDGET_SCOPES } from "@/lib/db/keyLimits.js";
+import { BUDGET_SCOPES } from "@/lib/db/keyLimits.js";
+const BUDGET_CACHE_TTL_MS = 5_000;
+const BUDGET_CACHE_MAX = 2_000;
+
+function budgetCache() {
+  if (!global._velaBudgetCache) global._velaBudgetCache = new Map();
+  return global._velaBudgetCache;
+}
+
+/** Local YYYY-MM-DD — matches usageDaily.dateKey's local-day convention. */
+export function localDateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Start dateKey of the window containing `now` (local-time boundaries,
+ *  same convention as the ledger that stores local dateKeys). */
+export function windowStartDateKey(scope, now = new Date()) {
+  switch (scope) {
+    case "weekly": {
+      // ISO weeks start Monday
+      const day = now.getDay() || 7; // Sunday → 7
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - (day - 1));
+      return localDateKey(monday);
+    }
+    case "monthly":
+      return localDateKey(new Date(now.getFullYear(), now.getMonth(), 1));
+    case "yearly":
+      return localDateKey(new Date(now.getFullYear(), 0, 1));
+    case "daily":
+    default:
+      return localDateKey(now);
+  }
+}
+
+function scopeLabel(scope) {
+  return { daily: "Daily", weekly: "Weekly", monthly: "Monthly", yearly: "Yearly" }[scope] || "Daily";
+}
+
+/** Sum tokens + cost for one keyId across usageDaily rows ≥ startDateKey. */
+export async function sumKeyUsage(keyId, startDateKey) {
+  const db = await getAdapter();
+  const rows = db.all(`SELECT data FROM usageDaily WHERE dateKey >= ? ORDER BY dateKey ASC`, [startDateKey]);
+  let tokens = 0, costCents = 0;
+  for (const row of rows) {
+    let day = null;
+    try { day = JSON.parse(row.data); } catch { continue; }
+    if (!day?.byApiKey) continue;
+    for (const entry of Object.values(day.byApiKey)) {
+      if (entry?.meta?.keyId !== keyId) continue;
+      tokens += (entry.promptTokens || 0) + (entry.completionTokens || 0);
+      costCents += Math.round((entry.cost || 0) * 100);
+    }
+  }
+  return { tokens, costCents };
+}
+
+export async function spendStage(key) {
+  const tokenBudget = key.tokenBudgetDaily;
+  const spendCap = key.spendCapDailyCents;
+  if (!tokenBudget && !spendCap) return { ok: true };
+  const scope = BUDGET_SCOPES.includes(key.budgetScope) ? key.budgetScope : "daily";
+
+  const startDateKey = windowStartDateKey(scope);
+  const cacheKey = `${key.keyId}:${scope}:${startDateKey}`;
+  const cache = budgetCache();
+  const nowMs = Date.now();
+  let usage = cache.get(cacheKey);
+  if (!usage || nowMs - usage.ts > BUDGET_CACHE_TTL_MS) {
+    usage = { ...(await sumKeyUsage(key.keyId, startDateKey)), ts: nowMs };
+    if (cache.size >= BUDGET_CACHE_MAX) {
+      for (const [k, v] of cache) {
+        if (nowMs - v.ts > BUDGET_CACHE_TTL_MS) cache.delete(k);
+        if (cache.size < BUDGET_CACHE_MAX) break;
+      }
+      // Still full (no stale entries) — free one slot so the map stays bounded.
+      if (cache.size >= BUDGET_CACHE_MAX) {
+        const oldest = cache.keys().next().value;
+        if (oldest && oldest !== cacheKey) cache.delete(oldest);
+      }
+    }
+    cache.set(cacheKey, usage);
+  }
+
+  const label = scopeLabel(scope);
+  if (tokenBudget && usage.tokens >= tokenBudget) {
+    return deny(
+      HTTP_STATUS.RATE_LIMITED,
+      GATE_CODES.BUDGET_EXCEEDED,
+      `${label} token budget exceeded: ${usage.tokens} of ${tokenBudget} tokens used`
+    );
+  }
+  if (spendCap && usage.costCents >= spendCap) {
+    return deny(
+      HTTP_STATUS.RATE_LIMITED,
+      GATE_CODES.BUDGET_EXCEEDED,
+      `${label} spend cap exceeded: $${(usage.costCents / 100).toFixed(2)} of $${(spendCap / 100).toFixed(2)} used`
+    );
+  }
   return { ok: true };
 }
 
@@ -153,8 +314,13 @@ export async function authorizeApiRequest(
     return deny(HTTP_STATUS.FORBIDDEN, GATE_CODES.INVALID_KEY, "Invalid API key");
   }
 
+  // W3: sites may pass clientIp explicitly; otherwise trust the header that
+  // custom-server.js stamps with the unspoofable socket peer.
+  const resolvedIp = clientIp || extractClientIp(request);
+
   for (const stage of STAGES) {
-    const verdict = stage(key, { clientIp });
+    // Stages may be async (spendStage reads the usage ledger) — await each verdict.
+    const verdict = await stage(key, { clientIp: resolvedIp });
     if (!verdict.ok) return verdict;
   }
 

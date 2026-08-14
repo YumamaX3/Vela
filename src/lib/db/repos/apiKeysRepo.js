@@ -3,10 +3,13 @@
 // (returned ONCE in the 201 payload) and stored only as SHA-256 hashes; list
 // endpoints return masked rows without the `key` field.
 import { getAdapter } from "../driver.js";
+import { validateKeyLimits, KeyLimitsValidationError } from "../keyLimits.js";
 // Static (not dynamic) import — resolveKey is on the gate hot path and a
 // per-call `await import()` inflates p99 under CPU contention. apiKey.js
 // reaches only stdlib + DATA_DIR, so no import cycle.
 import { parseVelaKey, hashKey } from "@/shared/utils/apiKey";
+
+export { KeyLimitsValidationError } from "../keyLimits.js";
 
 function rowToPublic(row) {
   if (!row) return null;
@@ -57,14 +60,19 @@ export async function getApiKeyById(id) {
  * The legacy `key` column keeps a per-row placeholder to satisfy UNIQUE NOT NULL.
  */
 export async function createApiKey(name, opts = {}) {
+  // W3: limit opts are validated exactly like the update path — a key must
+  // never be minted with governance values the gate or UI cannot trust.
+  const limits = validateKeyLimits(opts);
+  if (!limits.ok) throw new KeyLimitsValidationError(limits.errors);
   const db = await getAdapter();
   const { generateApiKey } = await import("@/shared/utils/apiKey");
   const { key, keyId, keyHash, keyPrefix } = generateApiKey();
   const id = keyId; // keyId is the row id — one less random identity
   const createdAt = new Date().toISOString();
+  const v = limits.values;
   db.run(
-    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, description, allowedModels, isInternal)
-     VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 0)`,
+    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, description, allowedModels, isInternal, rateLimitRpm, tokenBudgetDaily, spendCapDailyCents, budgetScope, expiresAt, ipAllowlist)
+     VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       `vela-minted-${id}`,
@@ -76,6 +84,12 @@ export async function createApiKey(name, opts = {}) {
       keyPrefix,
       opts.description || null,
       opts.allowedModels != null ? JSON.stringify(opts.allowedModels) : null,
+      v.rateLimitRpm ?? null,
+      v.tokenBudgetDaily ?? null,
+      v.spendCapDailyCents ?? null,
+      v.budgetScope ?? null,
+      v.expiresAt ?? null,
+      v.ipAllowlist != null ? JSON.stringify(v.ipAllowlist) : null,
     ]
   );
   return { record: await getApiKeyById(id), key, keyId, keyPrefix };
@@ -83,11 +97,27 @@ export async function createApiKey(name, opts = {}) {
 
 /**
  * Whitelisted update — ONLY these fields may change (fixes the blind merge).
- * Security columns (keyHash, keyVersion, keyPrefix, isInternal, rotatedFrom)
- * are never writable through this path.
+ * Security columns (keyHash, keyVersion, keyPrefix, isInternal, rotatedFrom,
+ * rotationPrevHash, rotationGraceUntil) are never writable through this path.
+ * W3 governance fields pass validateKeyLimits first — an invalid value throws
+ * KeyLimitsValidationError instead of reaching the database.
  */
-const MUTABLE_FIELDS = new Set(["name", "description", "allowedModels", "isActive"]);
+const MUTABLE_FIELDS = new Set([
+  "name", "description", "allowedModels", "isActive",
+  "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
+  "budgetScope", "expiresAt", "ipAllowlist",
+]);
+const LIMIT_FIELDS = new Set([
+  "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
+  "budgetScope", "expiresAt", "ipAllowlist",
+]);
 export async function updateApiKey(id, data) {
+  const present = Object.keys(data || {}).filter((k) => MUTABLE_FIELDS.has(k));
+  const limitInput = {};
+  for (const k of present) if (LIMIT_FIELDS.has(k)) limitInput[k] = data[k];
+  const limits = validateKeyLimits(limitInput);
+  if (!limits.ok) throw new KeyLimitsValidationError(limits.errors);
+
   const db = await getAdapter();
   let result = null;
   db.transaction(() => {
@@ -95,17 +125,19 @@ export async function updateApiKey(id, data) {
     if (!row) return;
     const sets = [];
     const vals = [];
-    for (const [k, v] of Object.entries(data || {})) {
-      if (!MUTABLE_FIELDS.has(k)) continue;
+    for (const k of present) {
       if (k === "allowedModels") {
         sets.push("allowedModels = ?");
-        vals.push(v != null ? JSON.stringify(v) : null);
+        vals.push(data[k] != null ? JSON.stringify(data[k]) : null);
       } else if (k === "isActive") {
         sets.push("isActive = ?");
-        vals.push(v ? 1 : 0);
+        vals.push(data[k] ? 1 : 0);
+      } else if (LIMIT_FIELDS.has(k)) {
+        sets.push(`${k} = ?`);
+        vals.push(k === "ipAllowlist" && limits.values[k] != null ? JSON.stringify(limits.values[k]) : limits.values[k] ?? null);
       } else {
         sets.push(`${k} = ?`);
-        vals.push(v);
+        vals.push(data[k]);
       }
     }
     if (!sets.length) {
