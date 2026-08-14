@@ -25,6 +25,35 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.23 — The Ledger Speaks For Each Key 📊⛵
+
+> *"Every key now tells the tale of its own labor — how many calls it
+> carried, how many tokens it poured, how much it spent."*
+
+*Sealed 2026-08-14 · the Star's request · Milestone Tide: small change → `0.6.22 → 0.6.23`*
+
+## ✨ Features
+- **Per-key usage strips** — under each API key on the Endpoints page:
+  requests, input tokens, output tokens, total tokens, and estimated spend,
+  each with its own icon and hover title.
+- **Usage window selector** — `24h / 7d / 30d / All time` beside the Create
+  Key button; the strips re-aggregate instantly on change.
+- **`GET /api/keys/usage?period=`** — one `GROUP BY keyId` over the ledger;
+  attribution is keyId-based (hash-at-rest), so totals survive rotation and
+  local-no-key traffic never muddies a key's story.
+- **`lastUsedAt` awakened** — the dormant governance column now stamps the
+  moment the gate resolves a key, so "Last used" in every key row tells the
+  truth from this tide onward.
+
+## ⚙️ Internal
+- `getKeyUsageStats(period)` in usageRepo + route at `src/app/api/keys/usage`
+  (static-segment precedence over `[id]`).
+- New test suite `tests/unit/apikey-usage-stats.test.js` (8 tests) — rollup
+  math, window filtering, local-no-key exclusion, route contract, lastUsedAt
+  stamping; full apikey family re-run green (170 tests).
+
+---
+
 # v0.6.22 — The Catalogue of Keys 🗝️⛵
 
 > *"A harbor grows many keys — for friends, for messengers, for tools. The
