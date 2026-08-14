@@ -1,6 +1,6 @@
-// NesaRouter — "API AI OpenAI-compatible" (nesarouter.com). The catalog is
-// key-gated ("Missing NesaRouter API key"); passthrough routes any model id
-// once a key is connected.
+// NesaRouter — "API AI OpenAI-compatible" (nesarouter.com). Catalog from the
+// Star's dashboard export (2026-08-14): 24 always-active free models and 14
+// premium models (per-token credits or Unlimited packages, IDR).
 export default {
   id: "nesarouter",
   alias: "nr",
@@ -9,19 +9,64 @@ export default {
   authType: "apikey",
   authModes: ["apikey"],
   priority: 90,
+  hasFree: true,
   display: {
     name: "NesaRouter",
     icon: "hub",
     color: "#D36A2D",
     textIcon: "NR",
     website: "https://nesarouter.com",
-    notice: { apiKeyUrl: "https://nesarouter.com/docs" },
+    notice: {
+      text: "24 free models always on (nesa-free costs no credits). Premium models need activation + credits or an Unlimited package.",
+      apiKeyUrl: "https://nesarouter.com/docs",
+    },
   },
   transport: {
     baseUrl: "https://nesarouter.com/v1/chat/completions",
     validateUrl: "https://nesarouter.com/v1/models",
   },
   passthroughModels: true,
-  models: [],
+  models: [
+    // ── Nesa Free (always active, no credits) ──
+    { id: "nesarouter/nesa-free", name: "Nesa Free" },
+    { id: "nesarouter/big-pickle-free", name: "Big Pickle (Free)" },
+    { id: "nesarouter/deepseek-v4-flash-free", name: "DeepSeek V4 Flash (Free)" },
+    { id: "nesarouter/mimo-v2.5-free", name: "MiMo V2.5 (Free)" },
+    { id: "nesarouter/nemotron-3-ultra-free", name: "Nemotron 3 Ultra (Free)" },
+    { id: "nesarouter/north-mini-code-free", name: "North Mini Code (Free)" },
+    { id: "nesarouter/laguna-s-2.1-free", name: "Laguna S 2.1 (Free)" },
+    { id: "nesarouter/ling-3.0-flash-free", name: "Ling 3.0 Flash (Free)" },
+    { id: "nesarouter/longcat-2.0-free", name: "LongCat 2.0 (Free)" },
+    { id: "nesarouter/glm-5.2-free", name: "GLM 5.2 (Free)" },
+    { id: "nesarouter/minimax-m2.7-free", name: "MiniMax M2.7 (Free)" },
+    { id: "nesarouter/minimax-m3-free", name: "MiniMax M3 (Free)" },
+    { id: "nesarouter/step-3.7-flash-free", name: "Step 3.7 Flash (Free)" },
+    { id: "nesarouter/step-3.5-flash-free", name: "Step 3.5 Flash (Free)" },
+    { id: "nesarouter/gpt-oss-20b-free", name: "GPT-OSS 20B (Free)" },
+    { id: "nesarouter/nemotron-3-nano-30b-a3b-free", name: "Nemotron 3 Nano 30B (Free)" },
+    { id: "nesarouter/codestral-latest-free", name: "Codestral (Free)" },
+    { id: "nesarouter/mistral-small-latest-free", name: "Mistral Small (Free)" },
+    { id: "nesarouter/mistral-medium-latest-free", name: "Mistral Medium (Free)" },
+    { id: "nesarouter/ministral-8b-latest-free", name: "Ministral 8B (Free)" },
+    { id: "nesarouter/ministral-3b-latest-free", name: "Ministral 3B (Free)" },
+    { id: "nesarouter/open-mistral-nemo-free", name: "Mistral Nemo (Free)" },
+    { id: "nesarouter/devstral-latest-free", name: "Devstral (Free)" },
+    { id: "nesarouter/mistral-large-latest-free", name: "Mistral Large (Free)" },
+    // ── Nesa Premium (per-token credits / Unlimited packages) ──
+    { id: "nesarouter/gpt-5.6-sol", name: "GPT 5.6 Sol" },
+    { id: "nesarouter/gpt-5.6-terra", name: "GPT 5.6 Terra" },
+    { id: "nesarouter/gpt-5.6-luna", name: "GPT 5.6 Luna" },
+    { id: "nesarouter/gpt-5.4", name: "GPT 5.4" },
+    { id: "nesarouter/gpt-5.4-mini", name: "GPT 5.4 Mini" },
+    { id: "nesarouter/claude-4.5-sonnet", name: "Claude 4.5 Sonnet" },
+    { id: "nesarouter/claude-4.6-sonnet", name: "Claude 4.6 Sonnet" },
+    { id: "nesarouter/claude-4.8-opus", name: "Claude 4.8 Opus" },
+    { id: "nesarouter/gemini-3-flash-preview", name: "Gemini 3 Flash Preview" },
+    { id: "nesarouter/kimi-k2.6", name: "Kimi K2.6" },
+    { id: "nesarouter/deepseek-v4-flash", name: "DeepSeek V4 Flash" },
+    { id: "nesarouter/deepseek-v4-pro", name: "DeepSeek V4 Pro" },
+    { id: "nesarouter/step-3.7-flash", name: "Step 3.7 Flash" },
+    { id: "nesarouter/step-3.5-flash", name: "Step 3.5 Flash" },
+  ],
   serviceKinds: ["llm"],
 };
