@@ -3,6 +3,10 @@
 // (returned ONCE in the 201 payload) and stored only as SHA-256 hashes; list
 // endpoints return masked rows without the `key` field.
 import { getAdapter } from "../driver.js";
+// Static (not dynamic) import — resolveKey is on the gate hot path and a
+// per-call `await import()` inflates p99 under CPU contention. apiKey.js
+// reaches only stdlib + DATA_DIR, so no import cycle.
+import { parseVelaKey, hashKey } from "@/shared/utils/apiKey";
 
 function rowToPublic(row) {
   if (!row) return null;
@@ -132,7 +136,6 @@ export async function deleteApiKey(id) {
  */
 export async function resolveKey(rawKey) {
   const db = await getAdapter();
-  const { parseVelaKey, hashKey } = await import("@/shared/utils/apiKey");
   const parsed = parseVelaKey(rawKey);
   if (!parsed) return null;
   const hash = hashKey(rawKey);
