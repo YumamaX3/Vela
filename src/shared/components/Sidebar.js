@@ -128,8 +128,14 @@ export default function Sidebar({ onClose }) {
         {/* Brand — Vela, the harbor */}
         <div className="px-6 pt-6 pb-3 flex flex-col gap-2">
           <Link href="/dashboard" onClick={onClose} className="flex items-center gap-3 group" aria-label="Vela home">
-            <div className="flex items-center justify-center size-10 rounded-[12px] bg-gradient-to-br from-brand-400 via-brand-500 to-brand-700 shadow-[var(--shadow-warm)] transition-transform group-hover:scale-[1.04]">
-              <span className="material-symbols-outlined text-white text-[22px]">sailing</span>
+            <div className="flex items-center justify-center size-10 rounded-[12px] bg-[#0a0a0a] shadow-[var(--shadow-warm)] transition-transform group-hover:scale-[1.04] overflow-hidden">
+              <img
+                src="/vela-logo.svg"
+                alt="Vela"
+                className="size-8"
+                width={40}
+                height={40}
+              />
             </div>
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2">

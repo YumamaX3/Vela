@@ -30,6 +30,7 @@ export default {
     { id: "auto", name: "Auto" },
     { id: "performance", name: "Performance" },
     { id: "efficient", name: "Efficient" },
+    { id: "qmodel_38max", name: "Qwen3.8-Max" },
     { id: "qmodel_preview", name: "Qwen3.8-Max-Preview" },
     { id: "qmodel_latest", name: "Qwen3.7-Max" },
     { id: "qmodel", name: "Qwen3.7-Plus" },

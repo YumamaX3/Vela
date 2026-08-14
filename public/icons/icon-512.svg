@@ -1,4 +1,90 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="64" fill="#0a0a0a"/>
-  <text x="256" y="320" font-family="Arial, sans-serif" font-size="200" font-weight="bold" fill="#ffffff" text-anchor="middle">9R</text>
+<defs>
+  <linearGradient id="i512-ocean" x1="0" y1="1" x2="1" y2="0">
+    <stop offset="0" stop-color="#0B2A5B"/>
+    <stop offset=".48" stop-color="#2D86D8"/>
+    <stop offset=".75" stop-color="#8FE8FF"/>
+    <stop offset="1" stop-color="#EAFBFF"/>
+  </linearGradient>
+  <linearGradient id="i512-silver" x1="0" y1="1" x2="1" y2="0">
+    <stop offset="0" stop-color="#A7C7E8"/>
+    <stop offset=".5" stop-color="#F4FBFF"/>
+    <stop offset="1" stop-color="#B7D8F4"/>
+  </linearGradient>
+  <linearGradient id="i512-gold" x1="0" y1="1" x2="1" y2="0">
+    <stop offset="0" stop-color="#B78A38"/>
+    <stop offset=".55" stop-color="#FFE7A0"/>
+    <stop offset="1" stop-color="#FFF7D4"/>
+  </linearGradient>
+  <filter id="i512-glow" x="-80%" y="-80%" width="260%" height="260%">
+    <feGaussianBlur stdDeviation="10" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+</defs>
+<rect width="512" height="512" rx="104" fill="#0a0a0a"/>
+<g transform="translate(32,32) scale(0.437500)">
+
+<!-- Outer orbital rings -->
+<circle cx="512" cy="512" r="352" fill="none" stroke="url(#ocean)" stroke-width="10" opacity=".28"/>
+<circle cx="512" cy="512" r="305" fill="none" stroke="url(#silver)" stroke-width="4" opacity=".32"
+        stroke-dasharray="10 18"/>
+
+<!-- Stellar butterfly wings -->
+<path d="M512 345
+         C448 270 342 255 303 322
+         C272 376 326 443 425 458
+         C463 464 492 449 512 429 Z"
+      fill="none" stroke="url(#ocean)" stroke-width="22" stroke-linecap="round"
+      stroke-linejoin="round" filter="url(#glow)"/>
+<path d="M512 345
+         C576 270 682 255 721 322
+         C752 376 698 443 599 458
+         C561 464 532 449 512 429 Z"
+      fill="none" stroke="url(#ocean)" stroke-width="22" stroke-linecap="round"
+      stroke-linejoin="round" filter="url(#glow)"/>
+
+<!-- Anchor crown / shackle -->
+<path d="M438 305
+         C438 248 478 212 512 212
+         C546 212 586 248 586 305"
+      fill="none" stroke="url(#silver)" stroke-width="18" stroke-linecap="round"/>
+
+<circle cx="512" cy="208" r="18" fill="url(#gold)" filter="url(#glow)"/>
+<path d="M512 228 L512 704" stroke="url(#silver)" stroke-width="36" stroke-linecap="round"/>
+
+<!-- Anchor shoulders -->
+<path d="M390 550
+         C424 600 463 622 512 622
+         C561 622 600 600 634 550"
+      fill="none" stroke="url(#silver)" stroke-width="30" stroke-linecap="round"/>
+
+<!-- Anchor flukes / wave tails -->
+<path d="M512 704
+         C475 751 426 793 365 810
+         C416 842 482 829 512 782"
+      fill="none" stroke="url(#ocean)" stroke-width="28" stroke-linecap="round"/>
+<path d="M512 704
+         C549 751 598 793 659 810
+         C608 842 542 829 512 782"
+      fill="none" stroke="url(#ocean)" stroke-width="28" stroke-linecap="round"/>
+
+<!-- Central resonance crystal -->
+<path d="M512 372 L546 430 L512 489 L478 430 Z" fill="url(#gold)" opacity=".95" filter="url(#glow)"/>
+<path d="M512 387 L535 430 L512 471 L489 430 Z" fill="#F4FFFF" opacity=".85"/>
+
+<!-- Small orbit stars -->
+<g fill="url(#gold)">
+  <path d="M292 502 l8 20 20 8-20 8-8 20-8-20-20-8 20-8z"/>
+  <path d="M732 502 l7 17 17 7-17 7-7 17-7-17-17-7 17-7z"/>
+  <path d="M356 668 l6 14 14 6-14 6-6 14-6-14-14-6 14-6z"/>
+  <path d="M668 668 l6 14 14 6-14 6-6 14-6-14-14-6 14-6z"/>
+</g>
+
+<!-- Minimal wave -->
+<path d="M300 855 C384 810 453 860 512 842 C571 824 640 874 724 829"
+      fill="none" stroke="url(#ocean)" stroke-width="12" stroke-linecap="round" opacity=".9"/>
+
+<!-- Tiny "V" accent -->
+<path d="M480 170 L512 195 L544 170" fill="none" stroke="url(#gold)" stroke-width="8" stroke-linecap="round"/>
+</g>
 </svg>
