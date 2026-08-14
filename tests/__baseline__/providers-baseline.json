@@ -1008,5 +1008,45 @@
       "preserveCacheControl": true
     },
     "format": "openai"
+  },
+  "bandelbanget": {
+    "baseUrl": "https://bandelbanget.xyz/v1/chat/completions",
+    "validateUrl": "https://bandelbanget.xyz/v1/models",
+    "format": "openai"
+  },
+  "jembatanai": {
+    "baseUrl": "https://freeai.jembatanai.com/v1/chat/completions",
+    "validateUrl": "https://freeai.jembatanai.com/v1/models",
+    "format": "openai"
+  },
+  "mytraceroute": {
+    "baseUrl": "https://api.mytraceroute.web.id/v2/chat/completions",
+    "validateUrl": "https://api.mytraceroute.web.id/v2/models",
+    "format": "openai"
+  },
+  "weizerouter": {
+    "baseUrl": "https://weizerouter.web.id/v1/chat/completions",
+    "validateUrl": "https://weizerouter.web.id/v1/models",
+    "format": "openai"
+  },
+  "tokenharbor": {
+    "baseUrl": "https://tokenharbor.ai/v1/chat/completions",
+    "validateUrl": "https://tokenharbor.ai/v1/models",
+    "format": "openai"
+  },
+  "qzz": {
+    "baseUrl": "https://id.solution.qzz.io/v1/chat/completions",
+    "validateUrl": "https://id.solution.qzz.io/v1/models",
+    "format": "openai"
+  },
+  "nesarouter": {
+    "baseUrl": "https://nesarouter.com/v1/chat/completions",
+    "validateUrl": "https://nesarouter.com/v1/models",
+    "format": "openai"
+  },
+  "codecrafters": {
+    "baseUrl": "https://api.codecrafters.id/v1/chat/completions",
+    "validateUrl": "https://api.codecrafters.id/v1/models",
+    "format": "openai"
   }
 }
