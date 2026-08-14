@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { Card, Button, Badge, Modal, Input, ModelSelectModal } from "@/shared/components";
 import Image from "next/image";
+import { resolveKeyRef } from "@/shared/utils/keyVault";
+
 
 export default function AntigravityToolCard({
   tool,
@@ -29,7 +31,7 @@ export default function AntigravityToolCard({
 
   useEffect(() => {
     if (apiKeys?.length > 0 && !selectedApiKey) {
-      setSelectedApiKey(apiKeys[0].key);
+      setSelectedApiKey(apiKeys[0].id);
     }
   }, [apiKeys, selectedApiKey]);
 
@@ -111,9 +113,7 @@ export default function AntigravityToolCard({
     // Show steps progressing in order
     setStartingStep("cert");
     try {
-      const keyToUse = selectedApiKey?.trim()
-        || (apiKeys?.length > 0 ? apiKeys[0].key : null)
-        || (!cloudEnabled ? "sk_9router" : null);
+      const keyToUse = resolveKeyRef(selectedApiKey) || resolveKeyRef(apiKeys?.[0]?.id);
 
       const res = await fetch("/api/cli-tools/antigravity-mitm", {
         method: "POST",
@@ -329,11 +329,11 @@ export default function AntigravityToolCard({
                     onChange={(e) => setSelectedApiKey(e.target.value)}
                     className="w-full min-w-0 px-2 py-2 bg-surface rounded text-xs border border-border focus:outline-none focus:ring-1 focus:ring-primary/50 sm:py-1.5"
                   >
-                    {apiKeys.map((key) => <option key={key.id} value={key.key}>{key.key}</option>)}
+                    {apiKeys.map((key) => <option key={key.id} value={key.id}>{key.keyPrefix || key.name || key.id}</option>)}
                   </select>
                 ) : (
                   <span className="min-w-0 rounded bg-surface/40 px-2 py-2 text-xs text-text-muted sm:py-1.5">
-                    {cloudEnabled ? "No API keys - Create one in Keys page" : "sk_9router (default)"}
+                    {cloudEnabled ? "No API keys - Create one in Keys page" : "Local mode (no key required)"}
                   </span>
                 )}
               </div>

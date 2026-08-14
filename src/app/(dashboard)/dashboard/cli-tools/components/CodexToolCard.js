@@ -6,6 +6,8 @@ import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
 import { matchKnownEndpoint } from "./cliEndpointMatch";
+import { resolveKeyRef } from "@/shared/utils/keyVault";
+
 
 export default function CodexToolCard({ tool, isExpanded, onToggle, baseUrl, apiKeys, activeProviders, cloudEnabled, initialStatus, tunnelEnabled, tunnelPublicUrl, tailscaleEnabled, tailscaleUrl }) {
   const [codexStatus, setCodexStatus] = useState(initialStatus || null);
@@ -25,7 +27,7 @@ export default function CodexToolCard({ tool, isExpanded, onToggle, baseUrl, api
 
   useEffect(() => {
     if (apiKeys?.length > 0 && !selectedApiKey) {
-      setSelectedApiKey(apiKeys[0].key);
+      setSelectedApiKey(apiKeys[0].id);
     }
   }, [apiKeys, selectedApiKey]);
 
@@ -97,10 +99,8 @@ export default function CodexToolCard({ tool, isExpanded, onToggle, baseUrl, api
     setApplying(true);
     setMessage(null);
     try {
-      // Use sk_9router for localhost if no key, otherwise use selected key
-      const keyToUse = (selectedApiKey && selectedApiKey.trim())
-        ? selectedApiKey
-        : (!cloudEnabled ? "sk_9router" : selectedApiKey);
+      // Resolve the selected keyId to a full key via the local vault
+      const keyToUse = resolveKeyRef(selectedApiKey);
 
       const res = await fetch("/api/cli-tools/codex-settings", {
         method: "POST",
@@ -157,9 +157,7 @@ export default function CodexToolCard({ tool, isExpanded, onToggle, baseUrl, api
   };
 
   const getManualConfigs = () => {
-    const keyToUse = (selectedApiKey && selectedApiKey.trim())
-      ? selectedApiKey
-      : (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
+    const keyToUse = resolveKeyRef(selectedApiKey) || "<API_KEY_FROM_DASHBOARD>";
 
     const effectiveSubagentModel = subagentModel || selectedModel;
 

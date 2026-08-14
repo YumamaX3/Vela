@@ -6,6 +6,8 @@ import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
 import { matchKnownEndpoint } from "./cliEndpointMatch";
+import { resolveKeyRef, parseKeyId, storeKey } from "@/shared/utils/keyVault";
+
 
 export default function JcodeToolCard({
   tool,
@@ -47,7 +49,7 @@ export default function JcodeToolCard({
 
   useEffect(() => {
     if (apiKeys?.length > 0 && !selectedApiKey) {
-      setSelectedApiKey(apiKeys[0].key);
+      setSelectedApiKey(apiKeys[0].id);
     }
   }, [apiKeys, selectedApiKey]);
 
@@ -80,10 +82,12 @@ export default function JcodeToolCard({
         if (provider.default_model) {
           setSelectedModel(provider.default_model);
         }
-        // Try to match API key from env file
+        // Try to match API key from env file — capture into the vault, select by keyId
         const envApiKey = jcodeStatus.envApiKey;
-        if (envApiKey && apiKeys?.some(k => k.key === envApiKey)) {
-          setSelectedApiKey(envApiKey);
+        const envKeyId = parseKeyId(envApiKey);
+        if (envApiKey && envKeyId && apiKeys?.some(k => k.id === envKeyId)) {
+          storeKey(envKeyId, envApiKey);
+          setSelectedApiKey(envKeyId);
         }
       }
     }
@@ -125,9 +129,7 @@ export default function JcodeToolCard({
     setApplying(true);
     setMessage(null);
     try {
-      const keyToUse = selectedApiKey?.trim()
-        || (apiKeys?.length > 0 ? apiKeys[0].key : null)
-        || (!cloudEnabled ? "sk_9router" : null);
+      const keyToUse = resolveKeyRef(selectedApiKey) || resolveKeyRef(apiKeys?.[0]?.id);
 
       const res = await fetch("/api/cli-tools/jcode-settings", {
         method: "POST",
@@ -179,9 +181,7 @@ export default function JcodeToolCard({
   };
 
   const getManualConfigs = () => {
-    const keyToUse = (selectedApiKey && selectedApiKey.trim())
-      ? selectedApiKey
-      : (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
+    const keyToUse = resolveKeyRef(selectedApiKey) || "<API_KEY_FROM_DASHBOARD>";
 
     const configToml = `[providers.9router]
 type = "openai-compatible"
