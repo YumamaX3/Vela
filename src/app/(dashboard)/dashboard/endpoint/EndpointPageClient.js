@@ -39,6 +39,13 @@ function formatTokens(n) {
   return `${n}`;
 }
 
+/** Spend formatter for key usage strips — honest about sub-cent dust. */
+function formatCost(c) {
+  if (!c || c <= 0) return "$0.00";
+  if (c < 0.01) return "<$0.01";
+  return `$${c.toFixed(2)}`;
+}
+
 /** Limit badges for a key row — only limits actually set render. */
 function limitBadges(key) {
   const badges = [];
@@ -96,6 +103,10 @@ export default function APIPageClient() {
   // Key categories — filter chip + free-form combobox state
   const [newKeyCategory, setNewKeyCategory] = useState("");
   const [activeCategoryFilter, setActiveCategoryFilter] = useState("all");
+
+  // Per-key usage stats — requests/tokens/spend under each key row
+  const [usagePeriod, setUsagePeriod] = useState("all");
+  const [keyUsage, setKeyUsage] = useState({});
 
   const [requireApiKey, setRequireApiKey] = useState(false);
   const [requireLogin, setRequireLogin] = useState(true);
@@ -384,6 +395,15 @@ export default function APIPageClient() {
       .then((data) => setModelAliases(data.aliases || {}))
       .catch(() => setModelAliases({}));
   }, []);
+
+  // Per-key usage rollup — refetched when the window changes or the key set
+  // does (create/delete). Keys absent from byKey had no traffic in the window.
+  useEffect(() => {
+    fetch(`/api/keys/usage?period=${usagePeriod}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setKeyUsage(data?.byKey || {}))
+      .catch(() => setKeyUsage({}));
+  }, [usagePeriod, keys]);
 
   const resetCreateForm = () => {
     setNewKeyName("");
@@ -1179,14 +1199,33 @@ export default function APIPageClient() {
 
       {/* API Keys */}
       <Card id="require-api-key">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <span className="material-symbols-outlined text-primary">vpn_key</span>
             {translate("API Keys")}
           </h2>
-          <Button icon="add" onClick={openCreateModal}>
-            {translate("Create Key")}
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Usage window — filters the per-key stats strips below */}
+            <div className="flex items-center rounded-[10px] bg-surface-2 border border-border-subtle p-0.5">
+              {[["24h", "24h"], ["7d", "7d"], ["30d", "30d"], ["all", translate("All time")]].map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => setUsagePeriod(value)}
+                  title={translate("Usage window")}
+                  className={`text-[11px] px-2 py-1 rounded-lg transition-colors ${
+                    usagePeriod === value
+                      ? "bg-primary/15 text-primary font-semibold"
+                      : "text-text-muted hover:text-text-main"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <Button icon="add" onClick={openCreateModal}>
+              {translate("Create Key")}
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-border">
@@ -1270,6 +1309,7 @@ export default function APIPageClient() {
               const paused = key.isActive === false;
               const storedOnDevice = hasKey(key.id);
               const scopeCount = Array.isArray(key.allowedModels) ? key.allowedModels.length : 0;
+              const usage = keyUsage[key.id]; // absent → no traffic in the window
               return (
                 <div
                   key={key.id}
@@ -1360,6 +1400,31 @@ export default function APIPageClient() {
                         {key.lastUsedAt ? ` · Last used ${new Date(key.lastUsedAt).toLocaleDateString()}` : " · Never used"}
                         {key.expiresAt ? ` · Expires ${new Date(key.expiresAt).toLocaleDateString()}` : ""}
                       </p>
+                      {/* Usage strip — requests, in/out/total tokens, spend */}
+                      {usage && (
+                        <div className="flex items-center gap-3 flex-wrap mt-1.5 text-[11px] text-text-muted">
+                          <span className="inline-flex items-center gap-1" title="Requests">
+                            <span className="material-symbols-outlined text-[13px] text-primary/70">swap_calls</span>
+                            {usage.requests.toLocaleString()}
+                          </span>
+                          <span className="inline-flex items-center gap-1" title="Input tokens">
+                            <span className="material-symbols-outlined text-[13px] text-sky-500/70">south</span>
+                            {formatTokens(usage.promptTokens)} in
+                          </span>
+                          <span className="inline-flex items-center gap-1" title="Output tokens">
+                            <span className="material-symbols-outlined text-[13px] text-emerald-500/70">north</span>
+                            {formatTokens(usage.completionTokens)} out
+                          </span>
+                          <span className="inline-flex items-center gap-1" title="Total tokens">
+                            <span className="material-symbols-outlined text-[13px] text-violet-500/70">token</span>
+                            {formatTokens(usage.totalTokens)} total
+                          </span>
+                          <span className="inline-flex items-center gap-1 font-medium text-text-main" title="Estimated spend">
+                            <span className="material-symbols-outlined text-[13px] text-amber-500/70">paid</span>
+                            {formatCost(usage.cost)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Toggle
