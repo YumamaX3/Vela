@@ -44,6 +44,15 @@
 - **Keys**: static-import the key crypto on the gate hot path — the per-call
   dynamic `await import()` inside `resolveKey` inflated p99 latency under CPU
   contention
+- **Data dir**: complete the Vela clean break — every remaining module that
+  duplicated the data-dir convention (`mitm/paths.js`, `mitmAliasCache`,
+  `appUpdater`, `updater/updater.js`, `cli/cli.js` crash-recovery + runtime
+  self-heal, `sqliteRuntime`) now resolves to `~/.vela` / `%APPDATA%\vela`
+  instead of 9router's. MITM root CA is Vela's own (`vela-root-ca.crt`,
+  "Vela MITM Root CA" CN), DNS rollback files use `.vela.*` suffixes, tray
+  logs go to `/tmp/vela.log`. Docker image/container/volume, `.env.example`,
+  README paths, and dashboard/landing display paths follow. Nothing Vela
+  writes touches the 9router directory anymore
 
 ## Documentation
 - **Plans**: the Shorekeeper-Sealed Plan for API key governance is born —
