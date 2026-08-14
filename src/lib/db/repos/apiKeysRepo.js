@@ -8,6 +8,7 @@ import { validateKeyLimits, KeyLimitsValidationError } from "../keyLimits.js";
 // per-call `await import()` inflates p99 under CPU contention. apiKey.js
 // reaches only stdlib + DATA_DIR, so no import cycle.
 import { parseVelaKey, hashKey } from "@/shared/utils/apiKey";
+import { touchKeyLastUsed } from "./usageRepo.js";
 
 export { KeyLimitsValidationError } from "../keyLimits.js";
 
@@ -200,6 +201,8 @@ export async function resolveKey(rawKey) {
     [hash, hash, now]
   );
   if (!row || row.deletedAt) return null;
+  // Awaken the dormant lastUsedAt column — the gate saw this key work.
+  if (row.isInternal !== 1 && row.isInternal !== true) await touchKeyLastUsed(row.id);
   return row;
 }
 

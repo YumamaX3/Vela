@@ -689,6 +689,54 @@ export async function getUsageStats(period = "all") {
   return stats;
 }
 
+// Per-key usage rollup for the Endpoints page — one GROUP BY over the ledger.
+// Attribution is by keyId (hash-at-rest: the raw bearer never reaches these
+// rows), so totals survive key rotation. Returns { [keyId]: { requests,
+// promptTokens, completionTokens, cachedTokens, totalTokens, cost,
+// lastUsed } } — keys with zero usage in the window are simply absent.
+const KEY_USAGE_PERIOD_MS = { "24h": 86400000, "7d": 604800000, "30d": 2592000000, "60d": 5184000000 };
+export async function getKeyUsageStats(period = "all") {
+  const db = await getAdapter();
+  const periodKey = KEY_USAGE_PERIOD_MS[period] ? period : "all";
+  const where = periodKey === "all" ? "" : "WHERE timestamp >= ?";
+  const params = periodKey === "all" ? [] : [new Date(Date.now() - KEY_USAGE_PERIOD_MS[periodKey]).toISOString()];
+  const rows = db.all(
+    `SELECT keyId,
+            COUNT(*) AS requests,
+            SUM(promptTokens) AS promptTokens,
+            SUM(completionTokens) AS completionTokens,
+            SUM(cost) AS cost,
+            MAX(timestamp) AS lastUsed
+     FROM usageHistory ${where}
+     GROUP BY keyId`,
+    params
+  );
+  const byKey = {};
+  for (const r of rows) {
+    if (!r.keyId) continue; // local-no-key traffic is not a key's story
+    const promptTokens = r.promptTokens || 0;
+    const completionTokens = r.completionTokens || 0;
+    byKey[r.keyId] = {
+      requests: r.requests || 0,
+      promptTokens,
+      completionTokens,
+      totalTokens: promptTokens + completionTokens,
+      cost: r.cost || 0,
+      lastUsed: r.lastUsed || null,
+    };
+  }
+  return byKey;
+}
+
+// Awakens the dormant lastUsedAt column whenever the gate resolves a key
+// (see apiKeysRepo.resolveKey) — cheap UPDATE, one ledger touch per request.
+export async function touchKeyLastUsed(keyId) {
+  try {
+    const db = await getAdapter();
+    db.run(`UPDATE apiKeys SET lastUsedAt = ? WHERE id = ?`, [new Date().toISOString(), keyId]);
+  } catch {}
+}
+
 export async function getChartData(period = "7d") {
   const db = await getAdapter();
   const now = Date.now();
