@@ -25,6 +25,24 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.13 — The Watcher on the Wall 👁️⛵
+
+*Sealed 2026-08-14 · Milestone Tide: small change → `0.6.12 → 0.6.13`*
+
+## 🔧 Changes & Improvements
+- **MiMo Code Free returns to the providers page.** Upstream had hidden it
+  (Xiaomi ended the free channel), and the card went dark in the Convergence.
+  At the Star's decree, `mimo-free` (`mmf`) is surfaced again — the registry
+  carries the honest state in its comment: live-probed today, the bootstrap
+  endpoint still issues a JWT, but the chat endpoint rejects every known model
+  id (`Unsupported model`), so the card stands watch while requests will fail
+  until the service restores a model or the OAuth replacement is wired.
+- **Golden version headers re-anchored at v0.6.13** — and the v0.6.12 entry
+  corrected: the version *does* ride `X-CLIENT-VERSION` / `X-CORE-VERSION`, so
+  the snapshots had gone stale at that bump.
+
+---
+
 # v0.6.12 — A Jar of Its Own 🏺⛵
 
 *Sealed 2026-08-14 · Milestone Tide: small change → `0.6.11 → 0.6.12`*
@@ -41,7 +59,8 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ## ⚙️ Internal
 - No golden snapshot change — the cookie name does not ride the version
-  headers.
+  headers. *(Corrected in v0.6.13: the version DOES ride the headers; the
+  snapshots were left stale at this bump and re-anchored there.)*
 
 ---
 
