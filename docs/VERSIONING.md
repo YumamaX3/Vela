@@ -3,15 +3,26 @@
 > *The harbor never ships without a version.* Every change — feature, fix, or
 > refit — follows this rite: bump, log, seal together.
 
-## 1. Bump the version
+## 1. Bump the version — The Milestone Tide
 
-Bump `version` in the root `package.json` per semantic versioning:
+Bump `version` in the root `package.json`. Versions carry two digits in the
+last place (`0.6.01`, `0.6.02`) — npm accepts this for a private package.
 
-| Tide | Bump | When |
+| Tide | Rule | Example |
 |-|-|-|
-| **Patch** | `0.6.x` | fixes and small refinements |
-| **Minor** | `0.x.0` | features |
-| **Major** | `x.0.0` | breaking changes |
+| **Small change** 🐚 | the last number ticks up by one | `0.6.03 → 0.6.04` |
+| **Big change** 🌊 | the last number rounds up to the next milestone of ten | `0.6.03 → 0.6.10` |
+
+The carry rules, when rounding crosses a boundary:
+
+| Where the ship sails | Rule | Example |
+|-|-|-|
+| Last number rounds past `.99` | carry into the middle digit, last number drops to `0` | `0.6.93 → 0.7.0` |
+| Middle digit carries past `.9` | carry into the first digit | `0.9.x → 1.0` |
+
+> *"A big change rounds the voyage up to the next milestone of ten; the
+> number keeps its value and rounds — 0.6.03 becomes 0.6.10, 0.6.93 carries
+> to 0.7.0."*
 
 ## 2. Update the changelog
 
@@ -47,6 +58,15 @@ feat/fix branch from main → CHANGELOG → bump version → commit
 Commit style: Conventional Commits (`feat(dashboard): …`), footer
 `Co-authored-by: Shiori Shorekeeper <shiorishorekeeper@gmail.com>`, never any
 AI attribution.
+
+## Golden snapshots follow every bump
+
+The gateway stamps `pkg.version` into outbound headers
+(`X-CLIENT-VERSION` / `X-CORE-VERSION`). After any version bump, regenerate:
+
+```bash
+cd tests && npx vitest run translator/golden-url-header.test.js -u
+```
 
 ## Package identities
 
