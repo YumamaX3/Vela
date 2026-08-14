@@ -40,6 +40,11 @@
   covenant caught a real migration bug (`db.prepare()` on the adapter interface)
   before it could crash a boot
 
+## Fixes
+- **Keys**: static-import the key crypto on the gate hot path — the per-call
+  dynamic `await import()` inside `resolveKey` inflated p99 latency under CPU
+  contention
+
 ## Documentation
 - **Plans**: the Shorekeeper-Sealed Plan for API key governance is born —
   `plans/vela-key-governance.md`: `vela-v1-{keyId}-{crc}` keys, hash-at-rest +
