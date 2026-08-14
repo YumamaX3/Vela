@@ -5,8 +5,8 @@ import {
   markAccountUnavailable,
   clearAccountError,
   extractApiKey,
-  isValidApiKey,
 } from "../services/auth.js";
+import { authorizeApiRequest } from "../services/keyGate.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo, getComboModels } from "../services/model.js";
 import { handleChatCore } from "open-sse/handlers/chatCore.js";
@@ -60,18 +60,15 @@ export async function handleChat(request, clientRawRequest = null) {
     log.debug("AUTH", "No API key provided (local mode)");
   }
 
-  // Enforce API key if enabled in settings
+  // The gate — identity + model scope in one stage pipeline (plan §3.4).
+  // requireApiKey=false passes through; combos gate on ALL members.
   const settings = await getSettings();
-  if (settings.requireApiKey) {
-    if (!apiKey) {
-      log.warn("AUTH", "Missing API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
-    }
-    const valid = await isValidApiKey(apiKey);
-    if (!valid) {
-      log.warn("AUTH", "Invalid API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
-    }
+  {
+    const gateComboModels = await getComboModels(modelStr);
+    // allowInternal — chat is the MITM-facing path; the deterministic internal
+    // key (isInternal=1, loopback-pinned, hidden from every list) resolves here.
+    const gate = await authorizeApiRequest(request, { requestModel: modelStr, comboModels: gateComboModels, settings, allowInternal: true });
+    if (!gate.ok) return gate.response;
   }
 
   if (!modelStr) {

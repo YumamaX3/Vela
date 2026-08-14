@@ -2,9 +2,9 @@ import { handleChat } from "@/sse/handlers/chat.js";
 import {
   clearAccountError,
   getProviderCredentials,
-  isValidApiKey,
   markAccountUnavailable,
 } from "@/sse/services/auth.js";
+import { authorizeApiRequest } from "@/sse/services/keyGate.js";
 import { getSettings } from "@/lib/localDb";
 import { PROVIDER_MODELS } from "@/shared/constants/models";
 import { GEMINI_NATIVE_TTS_FETCH_TIMEOUT_MS } from "open-sse/config/runtimeConfig.js";
@@ -123,17 +123,6 @@ export async function POST(request, { params }) {
   }
 }
 
-function extractGeminiClientApiKey(request) {
-  const authHeader = request.headers.get("Authorization");
-  if (authHeader?.startsWith("Bearer ")) return authHeader.slice(7);
-
-  const googleApiKey = request.headers.get("x-goog-api-key");
-  if (googleApiKey) return googleApiKey;
-
-  const url = new URL(request.url);
-  return url.searchParams.get("key");
-}
-
 function normalizeGeminiNativeModel(model) {
   return String(model || "")
     .replace(/^models\//, "")
@@ -177,21 +166,17 @@ function buildGeminiNativeUrl(requestUrl, model, action) {
   return upstreamUrl.toString();
 }
 
-async function validateGeminiNativeClientKey(request) {
+async function validateGeminiNativeClientKey(request, model) {
+  // The Gemini-native TTS path bypasses chat.js — this is its own enforcement
+  // site (plan §3.5). Full gate pipeline: identity, stages, model scope.
+  // ?key= never reaches here — the guard rejects it with its own honest code.
   const settings = await getSettings();
-  if (!settings.requireApiKey) return null;
-
-  const apiKey = extractGeminiClientApiKey(request);
-  if (!apiKey) {
-    return Response.json({ error: { message: "Missing API key" } }, { status: 401 });
-  }
-
-  const valid = await isValidApiKey(apiKey);
-  if (!valid) {
-    return Response.json({ error: { message: "Invalid API key" } }, { status: 401 });
-  }
-
-  return null;
+  const gate = await authorizeApiRequest(request, { requestModel: model, settings });
+  if (gate.ok) return null;
+  return Response.json(
+    { error: { code: gate.code, message: gate.message } },
+    { status: gate.status },
+  );
 }
 
 function buildGeminiNativeAuthHeaders(credentials) {
@@ -236,7 +221,7 @@ function getSafeGeminiNativeErrorText(error) {
 }
 
 async function forwardGeminiNativeRequest(request, body, model, action) {
-  const authError = await validateGeminiNativeClientKey(request);
+  const authError = await validateGeminiNativeClientKey(request, model);
   if (authError) return authError;
 
   const modelId = normalizeGeminiNativeModel(model);

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import PropTypes from "prop-types";
 import { Card, Button, Input, Modal, CardSkeleton, Toggle, ConfirmModal } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import { storeKey, getKey, hasKey, removeKey, resolveKeyRef } from "@/shared/utils/keyVault";
+import { translate } from "@/i18n/runtime";
 import {
   TUNNEL_BENEFITS,
   TUNNEL_PING_INTERVAL_MS,
@@ -17,12 +18,18 @@ import EndpointRow from "./components/EndpointRow";
 import StatusAlert from "./components/StatusAlert";
 import Tooltip from "./components/Tooltip";
 import SecurityWarning from "./components/SecurityWarning";
-export default function APIPageClient({ machineId }) {
+export default function APIPageClient() {
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
-  const [createdKey, setCreatedKey] = useState(null);
+  const [newKeyDescription, setNewKeyDescription] = useState("");
+  const [newKeyScopeOn, setNewKeyScopeOn] = useState(false);
+  const [newKeyScope, setNewKeyScope] = useState([]);
+  const [createdKey, setCreatedKey] = useState(null); // { key, keyId, keyPrefix, record } — the one-time show
+  const [createdKeyAck, setCreatedKeyAck] = useState(false);
+  const [editingKey, setEditingKey] = useState(null); // draft state for the edit modal
+  const [availableModels, setAvailableModels] = useState([]);
   const [confirmState, setConfirmState] = useState(null);
 
   const [requireApiKey, setRequireApiKey] = useState(false);
@@ -74,8 +81,6 @@ export default function APIPageClient({ machineId }) {
   const [tunnelEverReachable, setTunnelEverReachable] = useState(false);
   const [tsEverReachable, setTsEverReachable] = useState(false);
 
-  // API key visibility toggle state
-  const [visibleKeys, setVisibleKeys] = useState(new Set());
 
   // Client-side local/remote detection (UI hint only, not a security gate)
   const [isRemoteHost, setIsRemoteHost] = useState(false);
@@ -264,6 +269,8 @@ export default function APIPageClient({ machineId }) {
 
       let existing = await fetchKeys();
       // Auto-provision a default key for first-time users so the endpoint works out of the box.
+      // The 201 carries the one-time full key — capture it in the browser vault immediately,
+      // and open the show-once ceremony so the user can save it too.
       if (existing.length === 0) {
         try {
           const createRes = await fetch("/api/keys", {
@@ -271,7 +278,15 @@ export default function APIPageClient({ machineId }) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name: "Default Key" }),
           });
-          if (createRes.ok) existing = await fetchKeys();
+          if (createRes.status === 201) {
+            const data = await createRes.json();
+            if (data.key && data.keyId) {
+              storeKey(data.keyId, data.key);
+              setCreatedKey(data);
+              setCreatedKeyAck(false);
+            }
+            existing = await fetchKeys();
+          }
         } catch { /* fall through to empty render */ }
       }
       setKeys(existing);
@@ -279,6 +294,75 @@ export default function APIPageClient({ machineId }) {
       console.log("Error fetching data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Model catalog for the allowed-models picker (fullModel = provider/model — the
+  // canonical form the gate matches at request time).
+  useEffect(() => {
+    fetch("/api/models")
+      .then((res) => (res.ok ? res.json() : { models: [] }))
+      .then((data) => {
+        const list = (data.models || [])
+          .map((m) => ({ id: m.fullModel, alias: m.alias || m.model }))
+          .sort((a, b) => a.id.localeCompare(b.id));
+        setAvailableModels(list);
+      })
+      .catch(() => setAvailableModels([]));
+  }, []);
+
+  const resetCreateForm = () => {
+    setNewKeyName("");
+    setNewKeyDescription("");
+    setNewKeyScopeOn(false);
+    setNewKeyScope([]);
+  };
+
+  const openCreateModal = () => {
+    resetCreateForm();
+    setShowAddModal(true);
+  };
+
+  const closeCreatedKeyModal = () => {
+    setCreatedKey(null);
+    setCreatedKeyAck(false);
+  };
+
+  const openEditKey = (key) => {
+    setEditingKey({
+      id: key.id,
+      name: key.name || "",
+      description: key.description || "",
+      allowedModels: Array.isArray(key.allowedModels) ? key.allowedModels : [],
+      scopeOn: Array.isArray(key.allowedModels) && key.allowedModels.length > 0,
+      saving: false,
+      error: "",
+    });
+  };
+
+  const handleSaveKey = async () => {
+    if (!editingKey) return;
+    if (!editingKey.name.trim()) return;
+    setEditingKey((prev) => ({ ...prev, saving: true, error: "" }));
+    try {
+      const res = await fetch(`/api/keys/${editingKey.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editingKey.name.trim(),
+          description: editingKey.description,
+          allowedModels: editingKey.scopeOn ? editingKey.allowedModels : null,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setEditingKey(null);
+        await fetchData();
+      } else {
+        setEditingKey((prev) => ({ ...prev, saving: false, error: data.error || "Failed to save key" }));
+      }
+    } catch (error) {
+      setEditingKey((prev) => ({ ...prev, saving: false, error: error.message }));
     }
   };
 
@@ -629,15 +713,22 @@ export default function APIPageClient({ machineId }) {
       const res = await fetch("/api/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newKeyName }),
+        body: JSON.stringify({
+          name: newKeyName,
+          description: newKeyDescription || undefined,
+          allowedModels: newKeyScopeOn ? newKeyScope : undefined,
+        }),
       });
       const data = await res.json();
 
-      if (res.ok) {
-        setCreatedKey(data.key);
-        await fetchData();
-        setNewKeyName("");
+      if (res.status === 201) {
+        // Capture-at-create: this 201 is the only plaintext copy the server ever yields.
+        if (data.key && data.keyId) storeKey(data.keyId, data.key);
+        setCreatedKey(data);
+        setCreatedKeyAck(false);
         setShowAddModal(false);
+        resetCreateForm();
+        await fetchData();
       }
     } catch (error) {
       console.log("Error creating key:", error);
@@ -647,18 +738,14 @@ export default function APIPageClient({ machineId }) {
   const handleDeleteKey = async (id) => {
     setConfirmState({
       title: "Delete API Key",
-      message: "Delete this API key?",
+      message: "Delete this API key?\n\nRequests using it will be rejected immediately. The audit row remains, but the key itself can never be recovered.",
       onConfirm: async () => {
         setConfirmState(null);
         try {
           const res = await fetch(`/api/keys/${id}`, { method: "DELETE" });
           if (res.ok) {
+            removeKey(id); // purge the captured copy alongside the server-side revoke
             setKeys(keys.filter((k) => k.id !== id));
-            setVisibleKeys(prev => {
-              const next = new Set(prev);
-              next.delete(id);
-              return next;
-            });
           }
         } catch (error) {
           console.log("Error deleting key:", error);
@@ -680,20 +767,6 @@ export default function APIPageClient({ machineId }) {
     } catch (error) {
       console.log("Error toggling key:", error);
     }
-  };
-
-  const maskKey = (fullKey) => {
-    if (!fullKey || fullKey.length <= 10) return fullKey || "";
-    return fullKey.slice(0, 6) + "•".repeat(fullKey.length - 10) + fullKey.slice(-4);
-  };
-
-  const toggleKeyVisibility = (keyId) => {
-    setVisibleKeys(prev => {
-      const next = new Set(prev);
-      if (next.has(keyId)) next.delete(keyId);
-      else next.add(keyId);
-      return next;
-    });
   };
 
   const [baseUrl, setBaseUrl] = useState("/v1");
@@ -968,18 +1041,18 @@ export default function APIPageClient({ machineId }) {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <span className="material-symbols-outlined text-primary">vpn_key</span>
-            API Keys
+            {translate("API Keys")}
           </h2>
-          <Button icon="add" onClick={() => setShowAddModal(true)}>
-            Create Key
+          <Button icon="add" onClick={openCreateModal}>
+            {translate("Create Key")}
           </Button>
         </div>
 
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-border">
           <div>
-            <p className="font-medium">Require API key</p>
+            <p className="font-medium">{translate("Require API key")}</p>
             <p className="text-sm text-text-muted">
-              Requests without a valid key will be rejected
+              {translate("Requests without a valid key will be rejected")}
             </p>
           </div>
           <Toggle
@@ -999,79 +1072,124 @@ export default function APIPageClient({ machineId }) {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
               <span className="material-symbols-outlined text-[32px]">vpn_key</span>
             </div>
-            <p className="text-text-main font-medium mb-1">No API keys yet</p>
-            <p className="text-sm text-text-muted mb-4">Create your first API key to get started</p>
-            <Button icon="add" onClick={() => setShowAddModal(true)}>
-              Create Key
+            <p className="text-text-main font-medium mb-1">{translate("No API keys yet")}</p>
+            <p className="text-sm text-text-muted mb-4">{translate("Create your first API key to get started")}</p>
+            <Button icon="add" onClick={openCreateModal}>
+              {translate("Create Key")}
             </Button>
           </div>
         ) : (
           <div className="flex flex-col">
-            {keys.map((key) => (
-              <div
-                key={key.id}
-                className={`group flex items-center justify-between py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 ${key.isActive === false ? "opacity-60" : ""}`}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{key.name}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <code className="text-xs text-text-muted font-mono">
-                      {visibleKeys.has(key.id) ? key.key : maskKey(key.key)}
-                    </code>
-                    <button
-                      onClick={() => toggleKeyVisibility(key.id)}
-                      className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
-                      title={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
-                    >
-                      <span className="material-symbols-outlined text-[14px]">
-                        {visibleKeys.has(key.id) ? "visibility_off" : "visibility"}
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => copy(key.key, key.id)}
-                      className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">
-                        {copied === key.id ? "check" : "content_copy"}
-                      </span>
-                    </button>
-                  </div>
-                  <p className="text-xs text-text-muted mt-1">
-                    Created {new Date(key.createdAt).toLocaleDateString()}
-                  </p>
-                  {key.isActive === false && (
-                    <p className="text-xs text-orange-500 mt-1">Paused</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Toggle
-                    size="sm"
-                    checked={key.isActive ?? true}
-                    onChange={(checked) => {
-                      if (key.isActive && !checked) {
-                        setConfirmState({
-                          title: "Pause API Key",
-                          message: `Pause API key "${key.name}"?\n\nThis key will stop working immediately but can be resumed later.`,
-                          onConfirm: async () => {
-                            setConfirmState(null);
+            {keys.map((key) => {
+              const paused = key.isActive === false;
+              const storedOnDevice = hasKey(key.id);
+              const scopeCount = Array.isArray(key.allowedModels) ? key.allowedModels.length : 0;
+              return (
+                <div
+                  key={key.id}
+                  className={`group py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 ${paused ? "opacity-60" : ""}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium truncate">{key.name}</p>
+                        {paused ? (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">{translate("Paused")}</span>
+                        ) : (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30">{translate("Active")}</span>
+                        )}
+                        {scopeCount > 0 ? (
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30"
+                            title={key.allowedModels.join(", ")}
+                          >
+                            {scopeCount} model{scopeCount === 1 ? "" : "s"}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-2 text-text-muted border border-border-subtle" title="No model restriction">
+                            {translate("All models")}
+                          </span>
+                        )}
+                        {storedOnDevice && (
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-2 text-text-muted border border-border-subtle"
+                            title="Full key captured in this browser's local vault"
+                          >
+                            {translate("stored here")}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <code className="text-xs text-text-muted font-mono">{key.keyPrefix}</code>
+                        {storedOnDevice && (
+                          <>
+                            <button
+                              onClick={() => copy(getKey(key.id), key.id)}
+                              className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
+                              title={translate("Copy full key (from this browser's vault)")}
+                            >
+                              <span className="material-symbols-outlined text-[14px]">
+                                {copied === key.id ? "check" : "content_copy"}
+                              </span>
+                            </button>
+                            <button
+                              onClick={() => removeKey(key.id)}
+                              className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-red-500 transition-all"
+                              title={translate("Forget the full key from this browser's vault")}
+                            >
+                              <span className="material-symbols-outlined text-[14px]">lock_reset</span>
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={() => openEditKey(key)}
+                          className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
+                          title={translate("Edit name, description, allowed models")}
+                        >
+                          <span className="material-symbols-outlined text-[14px]">edit</span>
+                        </button>
+                      </div>
+                      {key.description && (
+                        <p className="text-xs text-text-muted mt-1 truncate">{key.description}</p>
+                      )}
+                      <p className="text-xs text-text-muted mt-1">
+                        Created {new Date(key.createdAt).toLocaleDateString()}
+                        {key.lastUsedAt ? ` · Last used ${new Date(key.lastUsedAt).toLocaleDateString()}` : " · Never used"}
+                        {key.expiresAt ? ` · Expires ${new Date(key.expiresAt).toLocaleDateString()}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Toggle
+                        size="sm"
+                        checked={key.isActive ?? true}
+                        onChange={(checked) => {
+                          if (key.isActive && !checked) {
+                            setConfirmState({
+                              title: "Pause API Key",
+                              message: `Pause API key "${key.name}"?\n\nThis key will stop working immediately but can be resumed later.`,
+                              onConfirm: async () => {
+                                setConfirmState(null);
+                                handleToggleKey(key.id, checked);
+                              }
+                            });
+                          } else {
                             handleToggleKey(key.id, checked);
                           }
-                        });
-                      } else {
-                        handleToggleKey(key.id, checked);
-                      }
-                    }}
-                    title={key.isActive ? "Pause key" : "Resume key"}
-                  />
-                  <button
-                    onClick={() => handleDeleteKey(key.id)}
-                    className="p-2 hover:bg-red-500/10 rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">delete</span>
-                  </button>
+                        }}
+                        title={key.isActive ? translate("Pause key") : translate("Resume key")}
+                      />
+                      <button
+                        onClick={() => handleDeleteKey(key.id)}
+                        className="p-2 hover:bg-red-500/10 rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
+                        title={translate("Delete (revoke)")}
+                      >
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Card>
@@ -1079,69 +1197,202 @@ export default function APIPageClient({ machineId }) {
       {/* Add Key Modal */}
       <Modal
         isOpen={showAddModal}
-        title="Create API Key"
+        title={translate("Create API Key")}
         onClose={() => {
           setShowAddModal(false);
-          setNewKeyName("");
+          resetCreateForm();
         }}
       >
         <div className="flex flex-col gap-4">
           <Input
-            label="Key Name"
+            label={translate("Key Name")}
             value={newKeyName}
             onChange={(e) => setNewKeyName(e.target.value)}
-            placeholder="Production Key"
+            placeholder={translate("Production Key")}
           />
+          <Input
+            label={translate("Description (optional)")}
+            value={newKeyDescription}
+            onChange={(e) => setNewKeyDescription(e.target.value)}
+            placeholder={translate("What this key is used for")}
+          />
+
+          {/* Allowed models */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="text-sm font-medium">{translate("Restrict models")}</p>
+                <p className="text-xs text-text-muted">{translate("Limit which models this key can call")}</p>
+              </div>
+              <Toggle size="sm" checked={newKeyScopeOn} onChange={(c) => { setNewKeyScopeOn(c); if (!c) setNewKeyScope([]); }} />
+            </div>
+            {newKeyScopeOn && (
+              <div className="border border-border-subtle rounded-lg max-h-48 overflow-y-auto">
+                {availableModels.length === 0 && (
+                  <p className="text-xs text-text-muted p-3">{translate("No models available")}</p>
+                )}
+                {availableModels.map((m) => (
+                  <label key={m.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newKeyScope.includes(m.id)}
+                      onChange={(e) => {
+                        setNewKeyScope((prev) => e.target.checked ? [...prev, m.id] : prev.filter((x) => x !== m.id));
+                      }}
+                      className="accent-primary"
+                    />
+                    <span className="text-xs font-mono truncate">{m.id}</span>
+                    {m.alias && m.alias !== m.id.split("/").pop() && (
+                      <span className="text-xs text-text-muted truncate">({m.alias})</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            )}
+            {newKeyScopeOn && newKeyScope.length > 0 && (
+              <p className="text-xs text-text-muted mt-1">{newKeyScope.length} {translate("selected")}</p>
+            )}
+          </div>
+
           <div className="flex gap-2">
             <Button onClick={handleCreateKey} fullWidth disabled={!newKeyName.trim()}>
-              Create
+              {translate("Create")}
             </Button>
             <Button
               onClick={() => {
                 setShowAddModal(false);
-                setNewKeyName("");
+                resetCreateForm();
               }}
               variant="ghost"
               fullWidth
             >
-              Cancel
+              {translate("Cancel")}
             </Button>
           </div>
         </div>
       </Modal>
 
-      {/* Created Key Modal */}
+      {/* Created Key Modal — the one-time show-once ceremony */}
       <Modal
         isOpen={!!createdKey}
-        title="API Key Created"
-        onClose={() => setCreatedKey(null)}
+        title={translate("API Key Created")}
+        onClose={() => { if (createdKeyAck) closeCreatedKeyModal(); }}
       >
         <div className="flex flex-col gap-4">
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
             <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2 font-medium">
-              Save this key now!
+              {translate("Save this key now!")}
             </p>
             <p className="text-sm text-yellow-700 dark:text-yellow-300">
-              This is the only time you will see this key. Store it securely.
+              {translate("This is the only time this key will ever be shown. Vela stores only its hash — if you lose it, create a new key and delete this one.")}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <Input
-              value={createdKey || ""}
+              value={createdKey?.key || ""}
               readOnly
               className="flex-1 font-mono text-sm"
             />
             <Button
               variant="secondary"
               icon={copied === "created_key" ? "check" : "content_copy"}
-              onClick={() => copy(createdKey, "created_key")}
+              onClick={() => copy(createdKey?.key, "created_key")}
             >
-              {copied === "created_key" ? "Copied!" : "Copy"}
+              {copied === "created_key" ? translate("Copied!") : translate("Copy")}
             </Button>
           </div>
-          <Button onClick={() => setCreatedKey(null)} fullWidth>
-            Done
+          <label className="flex items-center gap-2 text-sm text-text-muted cursor-pointer">
+            <input
+              type="checkbox"
+              checked={createdKeyAck}
+              onChange={(e) => setCreatedKeyAck(e.target.checked)}
+              className="accent-primary"
+            />
+            {translate("I have saved this key in a secure location")}
+          </label>
+          <Button onClick={closeCreatedKeyModal} fullWidth disabled={!createdKeyAck}>
+            {translate("Done")}
           </Button>
+        </div>
+      </Modal>
+
+      {/* Edit Key Modal — whitelist mutation (name, description, allowed models) */}
+      <Modal
+        isOpen={!!editingKey}
+        title={translate("Edit API Key")}
+        onClose={() => setEditingKey(null)}
+      >
+        <div className="flex flex-col gap-4">
+          <Input
+            label={translate("Key Name")}
+            value={editingKey?.name || ""}
+            onChange={(e) => setEditingKey((prev) => ({ ...prev, name: e.target.value }))}
+            placeholder={translate("Production Key")}
+          />
+          <Input
+            label={translate("Description (optional)")}
+            value={editingKey?.description || ""}
+            onChange={(e) => setEditingKey((prev) => ({ ...prev, description: e.target.value }))}
+            placeholder={translate("What this key is used for")}
+          />
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="text-sm font-medium">{translate("Restrict models")}</p>
+                <p className="text-xs text-text-muted">{translate("Limit which models this key can call")}</p>
+              </div>
+              <Toggle
+                size="sm"
+                checked={editingKey?.scopeOn || false}
+                onChange={(c) => setEditingKey((prev) => ({ ...prev, scopeOn: c, allowedModels: c ? prev.allowedModels : [] }))}
+              />
+            </div>
+            {editingKey?.scopeOn && (
+              <div className="border border-border-subtle rounded-lg max-h-48 overflow-y-auto">
+                {availableModels.length === 0 && (
+                  <p className="text-xs text-text-muted p-3">{translate("No models available")}</p>
+                )}
+                {availableModels.map((m) => (
+                  <label key={m.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={(editingKey?.allowedModels || []).includes(m.id)}
+                      onChange={(e) => {
+                        setEditingKey((prev) => ({
+                          ...prev,
+                          allowedModels: e.target.checked
+                            ? [...prev.allowedModels, m.id]
+                            : prev.allowedModels.filter((x) => x !== m.id),
+                        }));
+                      }}
+                      className="accent-primary"
+                    />
+                    <span className="text-xs font-mono truncate">{m.id}</span>
+                    {m.alias && m.alias !== m.id.split("/").pop() && (
+                      <span className="text-xs text-text-muted truncate">({m.alias})</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            )}
+            {editingKey?.scopeOn && (
+              <p className="text-xs text-text-muted mt-1">{(editingKey?.allowedModels || []).length} {translate("selected")}</p>
+            )}
+          </div>
+
+          {editingKey?.error && (
+            <p className="text-sm text-red-500">{editingKey.error}</p>
+          )}
+
+          <div className="flex gap-2">
+            <Button onClick={handleSaveKey} fullWidth disabled={!editingKey?.name?.trim() || editingKey?.saving}>
+              {editingKey?.saving ? translate("Saving...") : translate("Save")}
+            </Button>
+            <Button onClick={() => setEditingKey(null)} variant="ghost" fullWidth>
+              {translate("Cancel")}
+            </Button>
+          </div>
         </div>
       </Modal>
 
@@ -1160,7 +1411,7 @@ export default function APIPageClient({ machineId }) {
                   Cloudflare Tunnel
                 </p>
                 <p className="text-sm text-text-muted">
-                  Expose your local 9Router to the internet. No port forwarding, no static IP needed. Share endpoint URL with your team or use it in Cursor, Cline, and other AI tools from anywhere.
+                  Expose your local Vela to the internet. No port forwarding, no static IP needed. Share endpoint URL with your team or use it in Cursor, Cline, and other AI tools from anywhere.
                 </p>
               </div>
             </div>
@@ -1303,8 +1554,3 @@ export default function APIPageClient({ machineId }) {
     </div>
   );
 }
-
-
-APIPageClient.propTypes = {
-  machineId: PropTypes.string.isRequired,
-};

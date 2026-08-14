@@ -124,7 +124,8 @@ function extractApiKey(request) {
   if (apiKeyHeader) return apiKeyHeader;
   const googleApiKeyHeader = request.headers.get("x-goog-api-key");
   if (googleApiKeyHeader) return googleApiKeyHeader;
-  return request.nextUrl.searchParams?.get("key") || null;
+  // ?key= is dead — keys in URLs leak into logs, history, and Referrer headers.
+  return null;
 }
 
 async function hasValidApiKey(request) {
@@ -198,6 +199,14 @@ export async function proxy(request) {
   }
 
   if (isPublicLlmApi(pathname)) {
+    // Keys arrive via Authorization: Bearer only. ?key= is rejected at the single
+    // chokepoint with its own honest code (plan §3.4).
+    if (request.nextUrl.searchParams?.has("key")) {
+      return NextResponse.json(
+        { error: { code: "query_param_key_rejected", message: "API keys in query parameters are not accepted. Use the Authorization: Bearer header." } },
+        { status: 400 }
+      );
+    }
     if (await canAccessPublicLlmApi(request)) return NextResponse.next();
     return NextResponse.json({ error: "API key required for remote API access" }, { status: 401 });
   }
