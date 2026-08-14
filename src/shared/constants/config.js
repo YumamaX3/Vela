@@ -7,9 +7,11 @@ export const APP_CONFIG = {
   version: pkg.version,
 };
 
-// GitHub configuration
+// GitHub configuration — the changelog is served from the gateway itself
+// (public/CHANGELOG.md, mirrored from the root log by scripts/sync-changelog.mjs)
+// because the repo is private and raw.githubusercontent 404s for private repos.
 export const GITHUB_CONFIG = {
-  changelogUrl: "https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/CHANGELOG.md",
+  changelogUrl: "/CHANGELOG.md",
 };
 
 // Updater configuration
