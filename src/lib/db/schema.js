@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -83,8 +83,32 @@ export const TABLES = {
       machineId: "TEXT",
       isActive: "INTEGER DEFAULT 1",
       createdAt: "TEXT NOT NULL",
+      // Governance columns (migration 002; mirrored here for fresh installs + auto-sync)
+      keyVersion: "TEXT",
+      keyHash: "TEXT",
+      keyPrefix: "TEXT",
+      description: "TEXT",
+      allowedModels: "TEXT",
+      isInternal: "INTEGER DEFAULT 0",
+      deletedAt: "TEXT",
+      expiresAt: "TEXT",
+      lastUsedAt: "TEXT",
+      rotatedFrom: "TEXT",
+      rotationPrevHash: "TEXT",
+      rotationPrevKeyId: "TEXT",
+      rotationGraceUntil: "TEXT",
+      tokenBudgetDaily: "INTEGER",
+      spendCapDailyCents: "INTEGER",
+      budgetScope: "TEXT",
+      rateLimitRpm: "INTEGER",
+      ipAllowlist: "TEXT",
     },
-    indexes: ["CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)"],
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)",
+      // UNIQUE lives in the index list too (self-healing via auto-sync);
+      // migration 002 creates it on the upgrade path where auto-sync strips UNIQUE
+      "CREATE UNIQUE INDEX IF NOT EXISTS uq_ak_key_hash ON apiKeys(keyHash)",
+    ],
   },
   combos: {
     columns: {
@@ -113,7 +137,9 @@ export const TABLES = {
       provider: "TEXT",
       model: "TEXT",
       connectionId: "TEXT",
-      apiKey: "TEXT",
+      apiKey: "TEXT", // legacy plaintext column — masked-only from W1, NULLed by migration 002
+      keyId: "TEXT",
+      keyPrefix: "TEXT",
       endpoint: "TEXT",
       promptTokens: "INTEGER DEFAULT 0",
       completionTokens: "INTEGER DEFAULT 0",
@@ -127,6 +153,7 @@ export const TABLES = {
       "CREATE INDEX IF NOT EXISTS idx_uh_provider ON usageHistory(provider)",
       "CREATE INDEX IF NOT EXISTS idx_uh_model ON usageHistory(model)",
       "CREATE INDEX IF NOT EXISTS idx_uh_conn ON usageHistory(connectionId)",
+      "CREATE INDEX IF NOT EXISTS idx_uh_keyId ON usageHistory(keyId)",
     ],
   },
   usageDaily: {

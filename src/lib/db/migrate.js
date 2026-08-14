@@ -3,6 +3,7 @@ import path from "node:path";
 import { LEGACY_FILES, DB_DIR } from "./paths.js";
 import { TABLES, buildCreateTableSql, SCHEMA_VERSION } from "./schema.js";
 import { MIGRATIONS, latestVersion } from "./migrations/index.js";
+import { tombstoneLegacyKeys, scrubPlaintextUsage } from "./migrations/002-apikey-governance.js";
 import { getMetaSync, setMetaSync } from "./helpers/metaStore.js";
 import { makeBackupDir, backupFile, backupDbLite, pruneOldBackups } from "./backup.js";
 import { getAppVersion } from "./version.js";
@@ -271,6 +272,12 @@ export async function runMigrationOnce(adapter) {
         importLegacyUsage(adapter, legacyUsage);
         importLegacyDisabled(adapter, legacyDisabled);
         importLegacyDetails(adapter, legacyDetails);
+        // Legacy import runs AFTER versioned migrations (migration 002's
+        // tombstone/scrub already ran on an empty table) — re-run the same
+        // closure here so imported plaintext sk- keys and usage rows are
+        // tombstoned/scrubbed before they ever live in the new schema.
+        tombstoneLegacyKeys(adapter);
+        scrubPlaintextUsage(adapter);
         setMetaSync(adapter, "appVersion", getAppVersion());
         setMetaSync(adapter, "backupSchemaVersion", SCHEMA_VERSION);
         setMetaSync(adapter, "migratedAt", new Date().toISOString());
