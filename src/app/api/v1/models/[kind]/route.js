@@ -24,7 +24,7 @@ export async function OPTIONS() {
  * GET /v1/models/{kind} - OpenAI-compatible models list filtered by capability.
  * Supported kinds: image, tts, stt, embedding, image-to-text, web.
  */
-export async function GET(_request, { params }) {
+export async function GET(request, { params }) {
   try {
     const { kind } = await params;
     const kindFilter = KIND_SLUG_MAP[kind];
@@ -41,7 +41,10 @@ export async function GET(_request, { params }) {
       );
     }
 
-    const data = await buildModelsList(kindFilter);
+    let data = await buildModelsList(kindFilter);
+    // Display-side scope narrowing (fail-open; dispatch gates stay fail-closed)
+    const { scopeModelsForRequest } = await import("@/sse/services/keyGate.js");
+    data = await scopeModelsForRequest(request, data);
     return Response.json({ object: "list", data }, {
       headers: { "Access-Control-Allow-Origin": "*" },
     });

@@ -1,6 +1,7 @@
 // Public API barrel — all DB functions
 import { getAdapter } from "./driver.js";
 import { stringifyJson, parseJson } from "./helpers/jsonCol.js";
+import { tombstoneLegacyKeys } from "./migrations/002-apikey-governance.js";
 
 // Settings
 export {
@@ -77,7 +78,20 @@ export async function exportDb() {
     providerConnections: db.all(`SELECT * FROM providerConnections`).map((r) => ({ ...parseJson(r.data, {}), id: r.id, provider: r.provider, authType: r.authType, name: r.name, email: r.email, priority: r.priority, isActive: r.isActive === 1, createdAt: r.createdAt, updatedAt: r.updatedAt })),
     providerNodes: db.all(`SELECT * FROM providerNodes`).map((r) => ({ ...parseJson(r.data, {}), id: r.id, type: r.type, name: r.name, createdAt: r.createdAt, updatedAt: r.updatedAt })),
     proxyPools: db.all(`SELECT * FROM proxyPools`).map((r) => ({ ...parseJson(r.data, {}), id: r.id, isActive: r.isActive === 1, testStatus: r.testStatus, createdAt: r.createdAt, updatedAt: r.updatedAt })),
-    apiKeys: db.all(`SELECT * FROM apiKeys`).map((r) => ({ id: r.id, key: r.key, name: r.name, machineId: r.machineId, isActive: r.isActive === 1, createdAt: r.createdAt })),
+    // keyHash (never the raw key) is the identity; the legacy `key` column
+    // holds sentinels only post-W1 but must survive for UNIQUE NOT NULL.
+    apiKeys: db.all(`SELECT * FROM apiKeys`).map((r) => ({
+      id: r.id, key: r.key, name: r.name, machineId: r.machineId, isActive: r.isActive === 1, createdAt: r.createdAt,
+      // Governance columns — must survive backup/restore (plan §3.7)
+      keyVersion: r.keyVersion ?? null, keyHash: r.keyHash ?? null, keyPrefix: r.keyPrefix ?? null,
+      description: r.description ?? null, allowedModels: r.allowedModels ?? null,
+      isInternal: r.isInternal === 1 || r.isInternal === true, deletedAt: r.deletedAt ?? null,
+      expiresAt: r.expiresAt ?? null, lastUsedAt: r.lastUsedAt ?? null,
+      rotatedFrom: r.rotatedFrom ?? null, rotationPrevHash: r.rotationPrevHash ?? null,
+      rotationPrevKeyId: r.rotationPrevKeyId ?? null, rotationGraceUntil: r.rotationGraceUntil ?? null,
+      tokenBudgetDaily: r.tokenBudgetDaily ?? null, spendCapDailyCents: r.spendCapDailyCents ?? null,
+      budgetScope: r.budgetScope ?? null, rateLimitRpm: r.rateLimitRpm ?? null, ipAllowlist: r.ipAllowlist ?? null,
+    })),
     combos: db.all(`SELECT * FROM combos`).map((r) => ({ id: r.id, name: r.name, kind: r.kind, models: parseJson(r.models, []), createdAt: r.createdAt, updatedAt: r.updatedAt })),
     modelAliases: {},
     customModels: [],
@@ -137,10 +151,28 @@ export async function importDb(payload) {
     }
     for (const k of payload.apiKeys || []) {
       db.run(
-        `INSERT OR REPLACE INTO apiKeys(id, key, name, machineId, isActive, createdAt) VALUES(?, ?, ?, ?, ?, ?)`,
-        [k.id, k.key, k.name || null, k.machineId || null, k.isActive === false ? 0 : 1, k.createdAt || new Date().toISOString()]
+        `INSERT OR REPLACE INTO apiKeys(
+          id, key, name, machineId, isActive, createdAt,
+          keyVersion, keyHash, keyPrefix, description, allowedModels, isInternal, deletedAt,
+          expiresAt, lastUsedAt, rotatedFrom, rotationPrevHash, rotationPrevKeyId, rotationGraceUntil,
+          tokenBudgetDaily, spendCapDailyCents, budgetScope, rateLimitRpm, ipAllowlist
+        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          k.id, k.key || `restored-${k.id}`, k.name || null, k.machineId || null,
+          k.isActive === false ? 0 : 1, k.createdAt || new Date().toISOString(),
+          k.keyVersion ?? null, k.keyHash ?? null, k.keyPrefix ?? null,
+          k.description ?? null, k.allowedModels ?? null,
+          k.isInternal === true || k.isInternal === 1 ? 1 : 0, k.deletedAt ?? null,
+          k.expiresAt ?? null, k.lastUsedAt ?? null,
+          k.rotatedFrom ?? null, k.rotationPrevHash ?? null, k.rotationPrevKeyId ?? null, k.rotationGraceUntil ?? null,
+          k.tokenBudgetDaily ?? null, k.spendCapDailyCents ?? null, k.budgetScope ?? null,
+          k.rateLimitRpm ?? null, k.ipAllowlist ?? null,
+        ]
       );
     }
+    // Legacy-import closure (same law as migrate.js): a pre-W1 payload may carry
+    // plaintext sk- keys in the legacy column — tombstone them inside this transaction.
+    tombstoneLegacyKeys(db);
     for (const c of payload.combos || []) {
       db.run(
         `INSERT OR REPLACE INTO combos(id, name, kind, models, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?)`,

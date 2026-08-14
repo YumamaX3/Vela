@@ -125,9 +125,10 @@ export async function deleteApiKey(id) {
 }
 
 /**
- * Resolve a bearer token to its full row (the gate's lookup). Fail-closed:
- * bad format, bad CRC, unknown hash, revoked, soft-deleted → null.
- * Honors a single rotation grace slot (rotationPrevHash within rotationGraceUntil).
+ * Resolve a bearer token to its row (the gate's lookup). Fail-closed:
+ * bad format, bad CRC, unknown hash, soft-deleted → null. Returns the row
+ * even when paused — the GATE speaks the distinct codes (paused → 403,
+ * unknown → 401). Honors a single rotation grace slot.
  */
 export async function resolveKey(rawKey) {
   const db = await getAdapter();
@@ -142,18 +143,17 @@ export async function resolveKey(rawKey) {
         OR (rotationPrevHash = ? AND rotationGraceUntil IS NOT NULL AND rotationGraceUntil > ?)`,
     [hash, hash, now]
   );
-  if (!row) return null;
-  if (row.deletedAt) return null;
-  if (!(row.isActive === 1 || row.isActive === true)) return null;
+  if (!row || row.deletedAt) return null;
   return row;
 }
 
 /**
  * Back-compat boolean wrapper for existing callsites until the gate rewires them.
- * vela- keys only — every sk- token returns false.
+ * vela- keys only — every sk- token returns false; paused keys are invalid here.
  */
 export async function validateApiKey(key) {
-  return (await resolveKey(key)) != null;
+  const row = await resolveKey(key);
+  return row != null && (row.isActive === 1 || row.isActive === true);
 }
 
 /**
