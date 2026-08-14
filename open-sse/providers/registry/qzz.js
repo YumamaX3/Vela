@@ -1,7 +1,7 @@
-// QZZ Solution Router (id.solution.qzz.io) — OpenAI-compatible router.
-// Anthropic-style auth error envelope ("missing API key" /
-// authentication_error). Catalog is key-gated; passthrough routes any model
-// id once a key is connected.
+// IDRouter (id.solution.qzz.io) — OpenAI-compatible router. Anthropic-style
+// auth error envelope ("missing API key" / authentication_error). Catalog
+// from the Star's intel (2026-08-14): DeepSeek V4 Flash variants by client
+// profile (cmc/cp/oc/qd) + qoder-lite.
 export default {
   id: "qzz",
   alias: "qz",
@@ -12,10 +12,10 @@ export default {
   authModes: ["apikey"],
   priority: 88,
   display: {
-    name: "QZZ Router",
+    name: "IDRouter",
     icon: "route",
     color: "#4CE844",
-    textIcon: "QZ",
+    textIcon: "ID",
     website: "https://id.solution.qzz.io",
     notice: { apiKeyUrl: "https://id.solution.qzz.io" },
   },
@@ -24,6 +24,12 @@ export default {
     validateUrl: "https://id.solution.qzz.io/v1/models",
   },
   passthroughModels: true,
-  models: [],
+  models: [
+    { id: "deepseek-v4-flash-cmc", name: "DeepSeek V4 Flash (CMC)" },
+    { id: "deepseek-v4-flash-cp", name: "DeepSeek V4 Flash (CP)" },
+    { id: "deepseek-v4-flash-oc", name: "DeepSeek V4 Flash (OC)" },
+    { id: "deepseek-v4-flash-qd", name: "DeepSeek V4 Flash (QD)" },
+    { id: "qoder-lite", name: "Qoder Lite" },
+  ],
   serviceKinds: ["llm"],
 };

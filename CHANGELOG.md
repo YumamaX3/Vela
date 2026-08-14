@@ -25,6 +25,46 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.21 — The Fleet Takes Its Sails 🕸️⛵
+
+> *"The hulls were charted yesterday; today the Star hands over the true
+> manifests — every model named, every tier priced, every logo home."*
+
+*Sealed 2026-08-14 · the Star's catalogs · Milestone Tide: small change → `0.6.20 → 0.6.21`*
+
+## 🔧 Changes & Improvements
+- **NesaRouter** (`nr`) — full catalog from the Star's dashboard export:
+  **24 free models** (always active, `nesa-free` costs no credits — DeepSeek,
+  MiMo, Nemotron, Laguna, Ling, LongCat, GLM, MiniMax, Step, GPT-OSS, and the
+  full Mistral family) + **14 premium** (GPT 5.6 Sol/Terra/Luna, GPT 5.4 (+Mini),
+  Claude 4.5/4.6 Sonnet, Claude 4.8 Opus, Gemini 3 Flash Preview, Kimi K2.6,
+  DeepSeek V4 Flash/Pro, Step 3.7/3.5 Flash) — premium runs on credits or the
+  IDR Unlimited packages. Card marked hasFree + notice on the pricing split.
+- **FreeAI (JembatanAI)** (`ja`) — 11 models from the Star's intel
+  (Claude Opus 4.8, Sonnet 5, GPT-5.6 Luna, DeepSeek V4 Pro/Flash (+jailbreak
+  variants), MiniMax M3, GLM 5.2, Qwen3.8-Max), ids keep the router prefix
+  (`anthropic/...`, `openai/...`). **Correction sealed**: "FreeAI" is the
+  product name, not a free tier — the misleading `hasFree` flag and free-tier
+  notice are gone.
+- **QZZ Router → IDRouter** — renamed at the Star's decree: the harbor is
+  **IDRouter** (`id.solution.qzz.io`), textIcon `ID`, catalog filled:
+  `deepseek-v4-flash-{cmc,cp,oc,qd}` + `qoder-lite`.
+- **Token Harbor** (`th`) — 18 models scraped live from tokenharbor.ai/models
+  (Claude Opus/Fable/Sonnet 5, GPT-5.6 Sol/Terra/Luna, Kimi K3, Qwen3.8 Max +
+  2.4T A95B, DeepSeek V4 Pro/Flash (+`:free`), GLM 5.2, Gemini 3.7 Flash,
+  MiniMax M3, MiMo V2.5 (+`:free`) / Pro) — card marked hasFree.
+- **WeiZerRouter → WeizeRouter** — renamed + 23 models from the Star's own
+  model directory (all `wz/`-prefixed, validated 2026-08-13 WIB), and **the
+  Star's logo imported** from `Downloads/photo_2026-07-04_19-07-32.jpg` →
+  `public/providers/weizerouter.png` (256×256). The TLS-refusal notice is
+  replaced by the honest directory note.
+
+## ⚙️ Internal
+- Providers + alias baselines re-snapshotted, byte-for-byte clean.
+- Golden version-header snapshots re-anchored at v0.6.21.
+
+---
+
 # v0.6.20 — The Fleet of Eight ⛵🌏
 
 > *"Eight new sails on the horizon — Indonesian gateways, one and all,

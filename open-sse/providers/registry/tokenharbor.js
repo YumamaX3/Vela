@@ -1,6 +1,6 @@
-// Token Harbor — "One API for the world's leading AI models". Standard
-// OpenAI-compatible error envelope (invalid_api_key). Catalog is key-gated;
-// passthrough routes any model id once a key is connected.
+// Token Harbor — "One API for the world's leading AI models". Catalog from
+// tokenharbor.ai/models (2026-08-14): `surface` ids below; free variants use
+// the ":free" suffix. Standard OpenAI error envelope (invalid_api_key).
 export default {
   id: "tokenharbor",
   alias: "th",
@@ -9,6 +9,7 @@ export default {
   authType: "apikey",
   authModes: ["apikey"],
   priority: 86,
+  hasFree: true,
   display: {
     name: "Token Harbor",
     icon: "anchor",
@@ -22,6 +23,25 @@ export default {
     validateUrl: "https://tokenharbor.ai/v1/models",
   },
   passthroughModels: true,
-  models: [],
+  models: [
+    { id: "claude-opus-5", name: "Claude Opus 5" },
+    { id: "claude-fable-5", name: "Claude Fable 5" },
+    { id: "claude-sonnet-5", name: "Claude Sonnet 5" },
+    { id: "gpt-5.6-sol", name: "GPT-5.6 Sol" },
+    { id: "gpt-5.6-terra", name: "GPT-5.6 Terra" },
+    { id: "gpt-5.6-luna", name: "GPT-5.6 Luna" },
+    { id: "kimi-k3", name: "Kimi K3" },
+    { id: "qwen3.8-max", name: "Qwen3.8 Max" },
+    { id: "qwen3.8-2.4t-a95b", name: "Qwen3.8 2.4T A95B" },
+    { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro" },
+    { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash" },
+    { id: "deepseek-v4-flash:free", name: "DeepSeek V4 Flash (Free)" },
+    { id: "glm-5.2", name: "GLM 5.2" },
+    { id: "gemini-3.7-flash", name: "Gemini 3.7 Flash" },
+    { id: "minimax-m3", name: "MiniMax M3" },
+    { id: "mimo-v2.5", name: "MiMo V2.5" },
+    { id: "mimo-v2.5:free", name: "MiMo V2.5 (Free)" },
+    { id: "mimo-v2.5-pro", name: "MiMo V2.5 Pro" },
+  ],
   serviceKinds: ["llm"],
 };
