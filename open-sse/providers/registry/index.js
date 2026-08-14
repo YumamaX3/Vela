@@ -121,6 +121,14 @@ import p118 from "./selfhosted-tts.js";
 import p119 from "./selfhosted-embedding.js";
 import p120 from "./fish-audio.js";
 import p121 from "./alitp-intl.js";
+import p122 from "./bandelbanget.js";
+import p123 from "./jembatanai.js";
+import p124 from "./mytraceroute.js";
+import p125 from "./weizerouter.js";
+import p126 from "./tokenharbor.js";
+import p127 from "./qzz.js";
+import p128 from "./nesarouter.js";
+import p129 from "./codecrafters.js";
 
 export default [
   p0,
@@ -243,4 +251,12 @@ export default [
   p119,
   p120,
   p121,
+  p122,
+  p123,
+  p124,
+  p125,
+  p126,
+  p127,
+  p128,
+  p129,
 ];
