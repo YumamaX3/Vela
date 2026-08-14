@@ -31,6 +31,9 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
+  // The dashboard is browsed via the homelab LAN / Tailscale IP — allow those
+  // origins to load dev HMR + static assets (blocked by default since Next 15.5).
+  allowedDevOrigins: ["192.168.18.248", "100.95.77.63"],
   env: {},
   experimental: {
     // #1529/#1572: LLM clients can send long context or base64 image payloads through /v1 rewrites.
