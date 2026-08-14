@@ -31,12 +31,28 @@ function rowToPublic(row) {
     budgetScope: row.budgetScope || null,
     rateLimitRpm: row.rateLimitRpm ?? null,
     ipAllowlist: safeParse(row.ipAllowlist),
+    category: row.category || null,
   };
 }
 
 function safeParse(v) {
   if (v == null) return null;
   try { return JSON.parse(v); } catch { return null; }
+}
+
+// Free-form key categories — the Star's own labels (friend, hermes, others…).
+// Trimmed, whitespace-collapsed, capped; null/empty means "uncategorized".
+// Shared by the create and update paths so both store the exact same shape.
+const MAX_CATEGORY_LENGTH = 48;
+export function sanitizeCategory(input) {
+  if (input == null) return null;
+  if (typeof input !== "string") throw new Error("Category must be a string");
+  const normalized = input.trim().replace(/\s+/g, " ");
+  if (!normalized) return null;
+  if (normalized.length > MAX_CATEGORY_LENGTH) {
+    throw new Error(`Category must be ${MAX_CATEGORY_LENGTH} characters or fewer`);
+  }
+  return normalized;
 }
 
 // Internal rows and soft-deleted rows are hidden from every list surface.
@@ -64,6 +80,7 @@ export async function createApiKey(name, opts = {}) {
   // never be minted with governance values the gate or UI cannot trust.
   const limits = validateKeyLimits(opts);
   if (!limits.ok) throw new KeyLimitsValidationError(limits.errors);
+  const category = sanitizeCategory(opts.category);
   const db = await getAdapter();
   const { generateApiKey } = await import("@/shared/utils/apiKey");
   const { key, keyId, keyHash, keyPrefix } = generateApiKey();
@@ -71,8 +88,8 @@ export async function createApiKey(name, opts = {}) {
   const createdAt = new Date().toISOString();
   const v = limits.values;
   db.run(
-    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, description, allowedModels, isInternal, rateLimitRpm, tokenBudgetDaily, spendCapDailyCents, budgetScope, expiresAt, ipAllowlist)
-     VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, description, allowedModels, isInternal, rateLimitRpm, tokenBudgetDaily, spendCapDailyCents, budgetScope, expiresAt, ipAllowlist, category)
+     VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       `vela-minted-${id}`,
@@ -90,6 +107,7 @@ export async function createApiKey(name, opts = {}) {
       v.budgetScope ?? null,
       v.expiresAt ?? null,
       v.ipAllowlist != null ? JSON.stringify(v.ipAllowlist) : null,
+      category,
     ]
   );
   return { record: await getApiKeyById(id), key, keyId, keyPrefix };
@@ -105,7 +123,7 @@ export async function createApiKey(name, opts = {}) {
 const MUTABLE_FIELDS = new Set([
   "name", "description", "allowedModels", "isActive",
   "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
-  "budgetScope", "expiresAt", "ipAllowlist",
+  "budgetScope", "expiresAt", "ipAllowlist", "category",
 ]);
 const LIMIT_FIELDS = new Set([
   "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
@@ -132,6 +150,9 @@ export async function updateApiKey(id, data) {
       } else if (k === "isActive") {
         sets.push("isActive = ?");
         vals.push(data[k] ? 1 : 0);
+      } else if (k === "category") {
+        sets.push("category = ?");
+        vals.push(sanitizeCategory(data[k]));
       } else if (LIMIT_FIELDS.has(k)) {
         sets.push(`${k} = ?`);
         vals.push(k === "ipAllowlist" && limits.values[k] != null ? JSON.stringify(limits.values[k]) : limits.values[k] ?? null);

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getApiKeys, createApiKey, KeyLimitsValidationError } from "@/lib/localDb";
+import { getApiKeys, createApiKey, KeyLimitsValidationError, sanitizeCategory } from "@/lib/localDb";
 
 export const dynamic = "force-dynamic";
 
@@ -40,9 +40,18 @@ export async function POST(request) {
       scope = [...new Set(allowedModels.map((m) => m.trim()))];
     }
 
+    // Category — free-form label, validated at the gate (trim/collapse/length cap).
+    let category = null;
+    try {
+      category = sanitizeCategory(body.category);
+    } catch (e) {
+      return NextResponse.json({ error: e.message }, { status: 400 });
+    }
+
     const created = await createApiKey(name.trim(), {
       description: typeof description === "string" ? description.trim() || null : null,
       allowedModels: scope,
+      category,
       // W3 governance opts — validated by the repo (KeyLimitsValidationError
       // → 400 below). Absent fields stay null = unlimited / unrestricted.
       rateLimitRpm: body.rateLimitRpm,
