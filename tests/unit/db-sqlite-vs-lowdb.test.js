@@ -10,7 +10,7 @@ let tempDir;
 let sqliteDb;
 
 beforeAll(async () => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "9router-db-compare-"));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "vela-db-compare-"));
   process.env.DATA_DIR = tempDir;
   vi.resetModules();
   sqliteDb = await import("@/lib/db/index.js");
@@ -18,6 +18,10 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
+  // Close the adapter before removing tempDir — on Windows an open SQLite
+  // handle makes rmSync fail with EPERM.
+  try { global._dbAdapter?.instance?.close?.(); } catch {}
+  delete global._dbAdapter;
   if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
@@ -47,22 +51,25 @@ describe("DB SQLite layer — public API parity", () => {
     expect(await sqliteDb.isCloudEnabled()).toBe(false);
   });
 
-  it("apiKeys: create/get/validate/delete", async () => {
-    const k = await sqliteDb.createApiKey("test-key", "machine-abc");
-    expect(k.id).toBeDefined();
-    expect(k.key).toMatch(/^sk-/);
-    expect(k.machineId).toBe("machine-abc");
-    expect(k.isActive).toBe(true);
+  it("apiKeys: create/get/validate/delete (vela-v1 governance shape)", async () => {
+    // Governance contract (W1 onward): keys are minted as vela-v1-…, shown
+    // once, stored only as hashes. The legacy sk-/machineId shape is extinct
+    // and must be rejected.
+    const k = await sqliteDb.createApiKey("test-key");
+    expect(k.keyId).toBeDefined();
+    expect(k.key).toMatch(/^vela-v1-/);
+    expect(k.keyPrefix).toMatch(/^vela-v1-/);
 
     const all = await sqliteDb.getApiKeys();
-    expect(all.find((x) => x.id === k.id)).toBeDefined();
+    expect(all.find((x) => x.id === k.keyId)).toBeDefined();
 
     expect(await sqliteDb.validateApiKey(k.key)).toBeTruthy();
     expect(await sqliteDb.validateApiKey("invalid")).toBeFalsy();
+    expect(await sqliteDb.validateApiKey("sk-legacy-key")).toBeFalsy(); // sk- is extinct
 
-    const deleted = await sqliteDb.deleteApiKey(k.id);
+    const deleted = await sqliteDb.deleteApiKey(k.keyId);
     expect(deleted).toBe(true);
-    expect(await sqliteDb.getApiKeyById(k.id)).toBeNull();
+    expect(await sqliteDb.getApiKeyById(k.keyId)).toBeNull();
   });
 
   it("providerConnections: CRUD + reorder by priority", async () => {

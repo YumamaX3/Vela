@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteApiKey, getApiKeyById, updateApiKey } from "@/lib/localDb";
+import { deleteApiKey, getApiKeyById, updateApiKey, KeyLimitsValidationError } from "@/lib/localDb";
 
 // GET /api/keys/[id] — masked row (never the full key)
 export async function GET(request, { params }) {
@@ -16,8 +16,11 @@ export async function GET(request, { params }) {
   }
 }
 
-// PUT /api/keys/[id] — whitelist-only mutation (name, description, allowedModels, isActive).
-// Security columns are never writable through this path (repo enforces).
+// PUT /api/keys/[id] — whitelist-only mutation. W1: name, description,
+// allowedModels, isActive. W3: rateLimitRpm, tokenBudgetDaily,
+// spendCapDailyCents, budgetScope, expiresAt, ipAllowlist (validated by the
+// repo — invalid values → 400 with every problem named). Security columns
+// are never writable through this path (repo enforces).
 export async function PUT(request, { params }) {
   try {
     const { id } = await params;
@@ -49,6 +52,11 @@ export async function PUT(request, { params }) {
       }
     }
     if (body.isActive !== undefined) updateData.isActive = !!body.isActive;
+    // W3 governance fields pass through as-is — the repo validates shape,
+    // range, scope membership, expiry-future, and CIDR syntax.
+    for (const f of ["rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents", "budgetScope", "expiresAt", "ipAllowlist"]) {
+      if (body[f] !== undefined) updateData[f] = body[f];
+    }
 
     if (!Object.keys(updateData).length) {
       return NextResponse.json({ key: existing });
@@ -60,6 +68,9 @@ export async function PUT(request, { params }) {
     }
     return NextResponse.json({ key: updated });
   } catch (error) {
+    if (error instanceof KeyLimitsValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.log("Error updating key:", error);
     return NextResponse.json({ error: "Failed to update key" }, { status: 500 });
   }
