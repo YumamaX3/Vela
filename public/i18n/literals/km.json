@@ -1409,5 +1409,6 @@
   "Edit name, description, allowed models": "Edit name, description, allowed models",
   "Copy full key (from this browser's vault)": "Copy full key (from this browser's vault)",
   "Forget the full key from this browser's vault": "Forget the full key from this browser's vault",
-  "Delete (revoke)": "Delete (revoke)"
+  "Delete (revoke)": "Delete (revoke)",
+  "Select models": "Select models"
 }
