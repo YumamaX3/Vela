@@ -60,6 +60,13 @@ function limitsFromRecord(k) {
   };
 }
 
+// Dedup guard for auto-provisioning the first "Default Key". Module scope so it
+// survives re-mounts within a session. fetchData() can run concurrently (StrictMode
+// double-invoke, fast re-mount); without this, two runs both see zero keys and both
+// POST → duplicate keys. Single-threaded JS makes the check-then-set below atomic:
+// the flag is set synchronously before the first await, so the second caller sees it.
+let provisioningDefaultKey = false;
+
 export default function APIPageClient() {
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -317,7 +324,11 @@ export default function APIPageClient() {
       // Auto-provision a default key for first-time users so the endpoint works out of the box.
       // The 201 carries the one-time full key — capture it in the browser vault immediately,
       // and open the show-once ceremony so the user can save it too.
-      if (existing.length === 0) {
+      // Race guard: the flag is set synchronously before the first await, so of two
+      // concurrent callers (StrictMode double-invoke / fast remount) only the first
+      // reaches the POST — the other sees the flag and waits for the server state.
+      if (existing.length === 0 && !provisioningDefaultKey) {
+        provisioningDefaultKey = true;
         try {
           const createRes = await fetch("/api/keys", {
             method: "POST",
@@ -333,7 +344,12 @@ export default function APIPageClient() {
             }
             existing = await fetchKeys();
           }
-        } catch { /* fall through to empty render */ }
+        } catch { /* fall through to empty render */ } finally {
+          // Reset so a future load with zero keys can provision again (e.g. the
+          // user deleted every key). Safe: once the POST lands, fetchKeys sees
+          // ≥1 key and this branch is never entered again.
+          provisioningDefaultKey = false;
+        }
       }
       setKeys(existing);
     } catch (error) {
