@@ -87,16 +87,28 @@ function ledgerDb(rows) {
 const SETTINGS = { requireApiKey: true };
 const VALID_BEARER = { Authorization: "Bearer vela-v1-test" };
 
+// ── peer-token proof (GHSA-pjm4-8fpg-f9p6) ───────────────────────────────
+// x-9r-real-ip is attacker-controlled unless custom-server.js stamped it —
+// proven by echoing the per-process secret. Tests mint a fixture secret and
+// attach the proof wherever a request "really" came from the socket.
+const PEER_TOKEN = "peer-token-fixture";
+const PEER_PROOF = { "x-9r-peer-token": PEER_TOKEN };
+
+const originalNodeEnv = process.env.NODE_ENV;
+
 beforeEach(() => {
   vi.clearAllMocks();
   // In-memory stage state lives on global — reset so tests stay independent.
   delete global._velaRateWindows;
   delete global._velaBudgetCache;
+  process.env.NINEROUTER_PEER_TOKEN = PEER_TOKEN;
   mocks.getAdapter.mockResolvedValue({ run: vi.fn(), all: vi.fn(() => []) });
 });
 
 afterEach(() => {
   vi.useRealTimers();
+  delete process.env.NINEROUTER_PEER_TOKEN;
+  process.env.NODE_ENV = originalNodeEnv;
 });
 
 // ── CIDR parsing & matching ────────────────────────────────────────────────
@@ -392,39 +404,63 @@ describe("spendStage — windowed token budget + spend cap (soft cap)", () => {
 
 // ── extractClientIp ────────────────────────────────────────────────────────
 
-describe("extractClientIp — only the trusted header", () => {
-  it("reads x-9r-real-ip; ignores attacker-controlled forwarding headers", () => {
-    expect(extractClientIp(req({ "x-9r-real-ip": "203.0.113.7", "x-forwarded-for": "1.1.1.1" }))).toBe("203.0.113.7");
-    expect(extractClientIp(req({ "x-forwarded-for": "1.1.1.1" }))).toBeNull();
+describe("extractClientIp — the proven header only", () => {
+  it("reads x-9r-real-ip when peer-token proof is present; ignores forwarding headers", () => {
+    expect(extractClientIp(req({ ...PEER_PROOF, "x-9r-real-ip": "203.0.113.7", "x-forwarded-for": "1.1.1.1" }))).toBe("203.0.113.7");
+    expect(extractClientIp(req({ ...PEER_PROOF, "x-forwarded-for": "1.1.1.1" }))).toBeNull();
+  });
+
+  it("rejects an UNPROVEN x-9r-real-ip — attacker-controlled without the stamp (GHSA-pjm4-8fpg-f9p6)", () => {
+    expect(extractClientIp(req({ "x-9r-real-ip": "203.0.113.7" }))).toBeNull();
+  });
+
+  it("rejects x-9r-real-ip with a WRONG peer token", () => {
+    expect(extractClientIp(req({ "x-9r-peer-token": "wrong-token", "x-9r-real-ip": "203.0.113.7" }))).toBeNull();
+  });
+
+  it("rejects the header when no peer token is configured (process never stamped one)", () => {
+    delete process.env.NINEROUTER_PEER_TOKEN;
+    expect(extractClientIp(req({ "x-9r-peer-token": PEER_TOKEN, "x-9r-real-ip": "203.0.113.7" }))).toBeNull();
+  });
+
+  it("handles absence gracefully", () => {
     expect(extractClientIp(req({}))).toBeNull();
     expect(extractClientIp(null)).toBeNull();
   });
 });
 
-describe("resolveClientIp — override → socket header → loopback Host fallback", () => {
+describe("resolveClientIp — override → proven socket header → dev loopback Host fallback", () => {
   it("explicit override wins over everything", () => {
-    expect(resolveClientIp(req({ "x-9r-real-ip": "203.0.113.7", host: "localhost:32060" }), { clientIp: "10.0.0.1" })).toBe("10.0.0.1");
+    expect(resolveClientIp(req({ ...PEER_PROOF, "x-9r-real-ip": "203.0.113.7", host: "localhost:32060" }), { clientIp: "10.0.0.1" })).toBe("10.0.0.1");
   });
 
-  it("socket-stamped header wins over the Host fallback", () => {
-    expect(resolveClientIp(req({ "x-9r-real-ip": "192.168.18.5", host: "localhost:32060" }), { isInternal: true })).toBe("192.168.18.5");
+  it("socket-stamped PROVEN header wins over the Host fallback", () => {
+    expect(resolveClientIp(req({ ...PEER_PROOF, "x-9r-real-ip": "192.168.18.5", host: "localhost:32060" }), { isInternal: true })).toBe("192.168.18.5");
   });
 
   it("internal key + loopback Host (dev mode, no custom-server) resolves to loopback", () => {
     // The real self-call shapes: pingModelByKind hardcodes 127.0.0.1; browsers
     // use localhost. ([::1]:port is not parsed here — deliberate parity with
-    // dashboardGuard.isLocalRequest's documented Host fallback.)
+    // dashboardGuard's documented dev Host fallback.)
+    process.env.NODE_ENV = "development";
     for (const host of ["localhost:32060", "127.0.0.1:32060", "localhost"]) {
       expect(resolveClientIp(req({ host }), { isInternal: true })).toBe("127.0.0.1");
     }
   });
 
+  it("internal key + loopback Host gets NO fallback in production (Host is spoofable; custom-server stamps the IP)", () => {
+    process.env.NODE_ENV = "production";
+    expect(resolveClientIp(req({ host: "localhost:32060" }), { isInternal: true })).toBeNull();
+  });
+
   it("the Host fallback NEVER applies to external keys — they fail closed", () => {
+    process.env.NODE_ENV = "development";
     expect(resolveClientIp(req({ host: "localhost:32060" }), { isInternal: false })).toBeNull();
     expect(resolveClientIp(req({ host: "localhost:32060" }), {})).toBeNull();
   });
 
   it("an internal key through a PUBLIC host gets no fallback (attacker cannot forge a loopback Host on a public socket)", () => {
+    process.env.NODE_ENV = "development";
     expect(resolveClientIp(req({ host: "gateway.example.com" }), { isInternal: true })).toBeNull();
   });
 });
@@ -432,14 +468,24 @@ describe("resolveClientIp — override → socket header → loopback Host fallb
 // ── full-gate integration ──────────────────────────────────────────────────
 
 describe("authorizeApiRequest — W3 stages wired end-to-end", () => {
-  it("allowlisted key + trusted header match → ok; mismatch → 403 ip_not_allowed", async () => {
+  it("allowlisted key + proven header match → ok; mismatch → 403 ip_not_allowed", async () => {
     mocks.resolveKey.mockResolvedValue(row({ ipAllowlist: '["10.0.0.0/8"]' }));
-    const ok = await authorizeApiRequest(req({ ...VALID_BEARER, "x-9r-real-ip": "10.1.2.3" }), { settings: SETTINGS });
+    const ok = await authorizeApiRequest(req({ ...VALID_BEARER, ...PEER_PROOF, "x-9r-real-ip": "10.1.2.3" }), { settings: SETTINGS });
     expect(ok.ok).toBe(true);
-    const denied = await authorizeApiRequest(req({ ...VALID_BEARER, "x-9r-real-ip": "203.0.113.9" }), { settings: SETTINGS });
+    const denied = await authorizeApiRequest(req({ ...VALID_BEARER, ...PEER_PROOF, "x-9r-real-ip": "203.0.113.9" }), { settings: SETTINGS });
     expect(denied.ok).toBe(false);
     expect(denied.code).toBe(GATE_CODES.IP_NOT_ALLOWED);
     expect(denied.status).toBe(403);
+  });
+
+  it("REGRESSION (GHSA-pjm4-8fpg-f9p6): an UNPROVEN header claiming an allowlisted IP fails closed", async () => {
+    // A remote attacker spoofs x-9r-real-ip to match the key's allowlist.
+    // Without peer-token proof the gate must treat the IP as unknown.
+    mocks.resolveKey.mockResolvedValue(row({ ipAllowlist: '["10.0.0.0/8"]' }));
+    const res = await authorizeApiRequest(req({ ...VALID_BEARER, "x-9r-real-ip": "10.1.2.3" }), { settings: SETTINGS });
+    expect(res.ok).toBe(false);
+    expect(res.code).toBe(GATE_CODES.IP_NOT_ALLOWED);
+    expect(res.status).toBe(403);
   });
 
   it("allowlisted key with NO resolvable client IP fails closed through the gate", async () => {
@@ -452,7 +498,7 @@ describe("authorizeApiRequest — W3 stages wired end-to-end", () => {
   it("explicit clientIp option takes precedence over the header", async () => {
     mocks.resolveKey.mockResolvedValue(row({ ipAllowlist: '["10.0.0.0/8"]' }));
     const res = await authorizeApiRequest(
-      req({ ...VALID_BEARER, "x-9r-real-ip": "203.0.113.9" }),
+      req({ ...VALID_BEARER, ...PEER_PROOF, "x-9r-real-ip": "203.0.113.9" }),
       { settings: SETTINGS, clientIp: "10.9.9.9" }
     );
     expect(res.ok).toBe(true);
@@ -495,15 +541,16 @@ describe("authorizeApiRequest — W3 stages wired end-to-end", () => {
     mocks.getAdapter.mockResolvedValue(
       ledgerDb([usageRow("2026-08-14", keyId, { prompt: 999999 })])
     );
-    const res = await authorizeApiRequest(req({ ...VALID_BEARER, "x-9r-real-ip": "203.0.113.9" }), { settings: SETTINGS });
+    const res = await authorizeApiRequest(req({ ...VALID_BEARER, ...PEER_PROOF, "x-9r-real-ip": "203.0.113.9" }), { settings: SETTINGS });
     expect(res.code).toBe(GATE_CODES.IP_NOT_ALLOWED);
   });
 
-  it("REGRESSION: model-test self-call (internal key, loopback Host, no custom-server header) passes", async () => {
+  it("REGRESSION: model-test self-call (internal key, loopback Host, dev mode) passes", async () => {
     // The model-test ping authenticates as the loopback-pinned internal key and
     // fetches its own /v1. In dev (plain `next dev`), custom-server.js is not
     // loaded, so no x-9r-real-ip is stamped — the gate must resolve the client
-    // via the loopback Host fallback for internal keys.
+    // via the dev-only loopback Host fallback for internal keys.
+    process.env.NODE_ENV = "development";
     mocks.resolveKey.mockResolvedValue(
       row({ isInternal: 1, ipAllowlist: '["127.0.0.1/32","::1/128"]' })
     );
@@ -514,8 +561,22 @@ describe("authorizeApiRequest — W3 stages wired end-to-end", () => {
     expect(res.ok).toBe(true);
   });
 
+  it("REGRESSION guard: same self-call in PRODUCTION fails closed (Host is spoofable; custom-server must stamp the IP)", async () => {
+    process.env.NODE_ENV = "production";
+    mocks.resolveKey.mockResolvedValue(
+      row({ isInternal: 1, ipAllowlist: '["127.0.0.1/32","::1/128"]' })
+    );
+    const res = await authorizeApiRequest(
+      req({ ...VALID_BEARER, host: "localhost:32060" }),
+      { settings: SETTINGS, allowInternal: true }
+    );
+    expect(res.ok).toBe(false);
+    expect(res.code).toBe(GATE_CODES.IP_NOT_ALLOWED);
+  });
+
   it("REGRESSION guard: an external allowlisted key via loopback Host (no custom-server) still fails closed", async () => {
     // The Host fallback must NOT widen external keys — only internal ones get it.
+    process.env.NODE_ENV = "development";
     mocks.resolveKey.mockResolvedValue(
       row({ isInternal: 0, ipAllowlist: '["127.0.0.1/32","::1/128"]' })
     );
