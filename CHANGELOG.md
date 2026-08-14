@@ -111,6 +111,9 @@
   follows on a feat branch
 
 ## Changes
+- **Header**: the Donate button is gone — `DonateModal` removed, the header
+  button/state/import unwired, `donateUrl` dropped from config, and the
+  `Donate` string removed from the 5 locale files that carried it
 - **Config**: move the default port from 20128 to 32060 across the whole harbor —
   app config (`src/shared/constants/config.js`), CLI defaults (`cli/cli.js`,
   `cli/src/cli/api/client.js`, xAI video command), updater, tunnels, MITM defaults,
