@@ -29,6 +29,7 @@ vi.mock("@/lib/auth/oidc", () => ({
 
 vi.mock("@/lib/auth/dashboardSession", () => ({
   getDashboardAuthSession: mocks.getDashboardAuthSession,
+  AUTH_COOKIE_NAME: "vela_auth_token",
 }));
 
 const { GET } = await import("../../src/app/api/auth/status/route.js");
