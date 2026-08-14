@@ -52,9 +52,10 @@ export async function handleEmbeddings(request) {
   }
 
   // The gate — identity + model scope in one stage pipeline (plan §3.4).
+  // allowInternal: the server-side model-test ping authenticates as the internal key.
   const settings = await getSettings();
   {
-    const gate = await authorizeApiRequest(request, { requestModel: modelStr, settings });
+    const gate = await authorizeApiRequest(request, { requestModel: modelStr, settings, allowInternal: true });
     if (!gate.ok) return gate.response;
   }
 

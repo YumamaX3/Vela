@@ -81,7 +81,10 @@ export async function POST(request) {
     } catch { /* No existing config */ }
 
     const endpointUrl = `${baseUrl}/chat/completions#models.ai.azure.com`;
-    const keyToUse = apiKey || "sk_9router";
+    // Local-mode placeholder: only reached when no real key is supplied, which
+    // means requireApiKey=false (loopback pass-through) where the value is never
+    // validated. Never a secret; replace with a real vela- key when enforcing.
+    const keyToUse = apiKey || "vela-local";
 
     const newEntry = {
       name: "9Router",

@@ -6,6 +6,8 @@ import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
 import { matchKnownEndpoint } from "./cliEndpointMatch";
+import { resolveKeyRef, parseKeyId, storeKey } from "@/shared/utils/keyVault";
+
 
 const CLOUD_URL = process.env.NEXT_PUBLIC_CLOUD_URL;
 
@@ -65,7 +67,7 @@ export default function ClaudeToolCard({
 
   useEffect(() => {
     if (apiKeys?.length > 0 && !selectedApiKey) {
-      setSelectedApiKey(apiKeys[0].key);
+      setSelectedApiKey(apiKeys[0].id);
     }
   }, [apiKeys, selectedApiKey]);
 
@@ -128,10 +130,13 @@ export default function ClaudeToolCard({
           }
         }
       });
-      // Only set selectedApiKey if it exists in apiKeys list
+      // Only set selectedApiKey if it exists in apiKeys list. Capture the full
+      // key into the local vault so apply can resolve it, then select by keyId.
       const tokenFromFile = env.ANTHROPIC_AUTH_TOKEN;
-      if (tokenFromFile && apiKeys?.some(k => k.key === tokenFromFile)) {
-        setSelectedApiKey(tokenFromFile);
+      const kidFromFile = parseKeyId(tokenFromFile);
+      if (tokenFromFile && kidFromFile && apiKeys?.some(k => k.id === kidFromFile)) {
+        storeKey(kidFromFile, tokenFromFile);
+        setSelectedApiKey(kidFromFile);
       }
     }
   }, [claudeStatus, apiKeys, tool.defaultModels, onModelMappingChange]);
@@ -166,10 +171,8 @@ export default function ClaudeToolCard({
     try {
       const env = { ANTHROPIC_BASE_URL: getEffectiveBaseUrl() };
 
-      // Get key from dropdown, fallback to first key or sk_9router for localhost
-      const keyToUse = selectedApiKey?.trim()
-        || (apiKeys?.length > 0 ? apiKeys[0].key : null)
-        || (!cloudEnabled ? "sk_9router" : null);
+      // Get key from dropdown (keyId), resolve to the full key via the local vault
+      const keyToUse = resolveKeyRef(selectedApiKey) || resolveKeyRef(apiKeys?.[0]?.id);
 
       if (keyToUse) {
         env.ANTHROPIC_AUTH_TOKEN = keyToUse;
@@ -234,9 +237,7 @@ export default function ClaudeToolCard({
 
   // Generate settings.json content for manual copy
   const getManualConfigs = () => {
-    const keyToUse = (selectedApiKey && selectedApiKey.trim())
-      ? selectedApiKey
-      : (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
+    const keyToUse = resolveKeyRef(selectedApiKey) || "<API_KEY_FROM_DASHBOARD>";
     const env = { ANTHROPIC_BASE_URL: getEffectiveBaseUrl(), ANTHROPIC_AUTH_TOKEN: keyToUse };
     tool.defaultModels.forEach((model) => {
       const targetModel = modelMappings[model.alias];

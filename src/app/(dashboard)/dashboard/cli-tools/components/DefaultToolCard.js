@@ -6,6 +6,8 @@ import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/prov
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import Image from "next/image";
 import ApiKeySelect from "./ApiKeySelect";
+import { resolveKeyRef } from "@/shared/utils/keyVault";
+
 
 export default function DefaultToolCard({ toolId, tool, isExpanded, onToggle, baseUrl, apiKeys, activeProviders = [], cloudEnabled = false, tunnelEnabled = false }) {
   const [copiedField, setCopiedField] = useState(null);
@@ -14,13 +16,11 @@ export default function DefaultToolCard({ toolId, tool, isExpanded, onToggle, ba
   
   // Initialize state directly with computed value - no need for useEffect
   const [selectedApiKey, setSelectedApiKey] = useState(() => 
-    apiKeys?.length > 0 ? apiKeys[0].key : ""
+    apiKeys?.length > 0 ? apiKeys[0].id : ""
   );
 
   const replaceVars = (text) => {
-    const keyToUse = (selectedApiKey && selectedApiKey.trim()) 
-      ? selectedApiKey 
-      : (!cloudEnabled ? "sk_9router" : "your-api-key");
+    const keyToUse = resolveKeyRef(selectedApiKey) || "your-api-key";
     
     // Add /v1 suffix only if not already present (DRY - avoid duplicate)
     const normalizedBaseUrl = baseUrl || "http://localhost:32060";

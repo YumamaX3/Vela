@@ -1,4 +1,3 @@
-import { getApiKeys } from "@/lib/localDb";
 import { UPDATER_CONFIG } from "@/shared/constants/config";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 
@@ -38,10 +37,13 @@ function createSilentWavFile() {
 }
 
 async function getInternalHeaders() {
+  // Server-side model ping — authenticate as the deterministic internal key
+  // (plan §3.6). The masked GET list carries no plaintext; requireApiKey=false
+  // passes through anyway, so this is only exercised when enforcement is on.
   let apiKey = null;
   try {
-    const keys = await getApiKeys();
-    apiKey = keys.find((k) => k.isActive !== false)?.key || null;
+    const { ensureInternalKey } = await import("@/lib/db/repos/apiKeysRepo.js");
+    apiKey = (await ensureInternalKey("model-test")).key;
   } catch {}
 
   const headers = { "Content-Type": "application/json" };
