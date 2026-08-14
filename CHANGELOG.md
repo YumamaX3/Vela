@@ -25,6 +25,41 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.30 — The Harbor Gate Reborn 🌌⛵
+
+> *"The gate where every traveler first meets the harbor has been rebuilt —
+> under a sky of drifting stars, the sail of Argo Navis draws itself into
+> being, and the card of passage rises like glass above the tide."*
+
+*Sealed 2026-08-14 · the Star's request · Milestone Tide: big change → `0.6.23 → 0.6.30`*
+
+## ✨ Features — a fully redesigned login page
+- **Split layout** (desktop): the **Vela constellation panel** on the left —
+  the actual sail of Argo Navis (γ, δ, κ Vel and kin) with SVG lines that
+  draw themselves in on arrival, the crest with a pulsing brand halo,
+  tagline *"The Harbor Gate"*, and three harbor truths beneath.
+- **Animated night sky** — a deterministic seeded starfield in three drifting,
+  twinkling parallax layers, a masked navigational grid, and layered brand
+  auroras. Dark-first, with a warm-cream light theme.
+- **Glass auth card** — frosted blur surface with inset light edge, rising-in
+  entrance, and staggered content reveals.
+- **Password UX upgrades**: show/hide toggle, **Caps Lock detection**,
+  a **5-segment attempts meter** before lockout, a **lockout countdown bar**
+  that drains with the seconds, and a **success flash** — the gate-opening
+  rings and crest before the dashboard.
+- **Live status footer** — gateway health dot (polled every 30s), the running
+  version, and the harbor's motto.
+- **Theme toggle** on the gate itself (card variant, top-right).
+- **`prefers-reduced-motion`** stills every animation.
+
+## 🔧 Changes
+- All auth contracts preserved exactly: status redirect, password login,
+  `mustChangePassword` flow, OIDC/SAML buttons, rate-limit 429 handling,
+  default-password hints.
+- Login-scoped styles appended to `globals.css` (no component churn elsewhere).
+
+---
+
 # v0.6.23 — The Ledger Speaks For Each Key 📊⛵
 
 > *"Every key now tells the tale of its own labor — how many calls it
