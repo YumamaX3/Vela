@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Card, Button, Input, Modal, CardSkeleton, Toggle, ConfirmModal, ModelSelectModal } from "@/shared/components";
+import { Card, Button, Input, Modal, CardSkeleton, Toggle, ConfirmModal, ModelSelectModal, KeyLimitsEditor } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { storeKey, getKey, hasKey, removeKey, resolveKeyRef } from "@/shared/utils/keyVault";
 import { translate } from "@/i18n/runtime";
@@ -18,6 +18,48 @@ import EndpointRow from "./components/EndpointRow";
 import StatusAlert from "./components/StatusAlert";
 import Tooltip from "./components/Tooltip";
 import SecurityWarning from "./components/SecurityWarning";
+
+// ── W3 key-limit UI helpers ────────────────────────────────────────────────
+// Editor shape: { rateLimitRpm, tokenBudget, budgetScope, spendCapCents,
+// expiresAt, ipAllowlist } — maps to repo fields at submit time
+// (tokenBudget→tokenBudgetDaily, spendCapCents→spendCapDailyCents).
+const DEFAULT_LIMITS = Object.freeze({
+  rateLimitRpm: null,
+  tokenBudget: null,
+  budgetScope: "daily",
+  spendCapCents: null,
+  expiresAt: null,
+  ipAllowlist: null,
+});
+
+function formatTokens(n) {
+  if (n >= 1e9) return `${+(n / 1e9).toFixed(1)}B`;
+  if (n >= 1e6) return `${+(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${+(n / 1e3).toFixed(1)}K`;
+  return `${n}`;
+}
+
+/** Limit badges for a key row — only limits actually set render. */
+function limitBadges(key) {
+  const badges = [];
+  if (key.rateLimitRpm != null) badges.push({ k: "rpm", text: `${key.rateLimitRpm} RPM` });
+  if (key.tokenBudgetDaily != null) badges.push({ k: "tok", text: `${formatTokens(key.tokenBudgetDaily)} tok` });
+  if (key.spendCapDailyCents != null) badges.push({ k: "spend", text: `$${(key.spendCapDailyCents / 100).toFixed(0)}` });
+  if (key.ipAllowlist?.length) badges.push({ k: "ip", text: `${key.ipAllowlist.length} IP` });
+  return badges;
+}
+
+function limitsFromRecord(k) {
+  return {
+    rateLimitRpm: k.rateLimitRpm ?? null,
+    tokenBudget: k.tokenBudgetDaily ?? null,
+    budgetScope: k.budgetScope || "daily",
+    spendCapCents: k.spendCapDailyCents ?? null,
+    expiresAt: k.expiresAt ?? null,
+    ipAllowlist: Array.isArray(k.ipAllowlist) ? k.ipAllowlist : null,
+  };
+}
+
 export default function APIPageClient() {
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,6 +72,8 @@ export default function APIPageClient() {
   const [createdKeyAck, setCreatedKeyAck] = useState(false);
   const [editingKey, setEditingKey] = useState(null); // draft state for the edit modal
   const [scopePickerFor, setScopePickerFor] = useState(null); // "create" | "edit" — which form's scope the grouped picker is editing
+  const [createLimits, setCreateLimits] = useState(DEFAULT_LIMITS); // W3 limits for the create form
+  const [createError, setCreateError] = useState("");
   const [activeProviders, setActiveProviders] = useState([]);
   const [modelAliases, setModelAliases] = useState({});
   const [confirmState, setConfirmState] = useState(null);
@@ -318,6 +362,8 @@ export default function APIPageClient() {
     setNewKeyDescription("");
     setNewKeyScopeOn(false);
     setNewKeyScope([]);
+    setCreateLimits(DEFAULT_LIMITS);
+    setCreateError("");
   };
 
   const openCreateModal = () => {
@@ -360,6 +406,7 @@ export default function APIPageClient() {
       description: key.description || "",
       allowedModels: Array.isArray(key.allowedModels) ? key.allowedModels : [],
       scopeOn: Array.isArray(key.allowedModels) && key.allowedModels.length > 0,
+      limits: limitsFromRecord(key), // W3 draft — server record is source of truth
       saving: false,
       error: "",
     });
@@ -370,6 +417,7 @@ export default function APIPageClient() {
     if (!editingKey.name.trim()) return;
     setEditingKey((prev) => ({ ...prev, saving: true, error: "" }));
     try {
+      const L = editingKey.limits;
       const res = await fetch(`/api/keys/${editingKey.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -377,6 +425,13 @@ export default function APIPageClient() {
           name: editingKey.name.trim(),
           description: editingKey.description,
           allowedModels: editingKey.scopeOn ? editingKey.allowedModels : null,
+          // W3 limits — always sent in full so the record matches the form.
+          rateLimitRpm: L.rateLimitRpm,
+          tokenBudgetDaily: L.tokenBudget,
+          spendCapDailyCents: L.spendCapCents,
+          budgetScope: (L.tokenBudget != null || L.spendCapCents != null) ? (L.budgetScope || "daily") : null,
+          expiresAt: L.expiresAt,
+          ipAllowlist: L.ipAllowlist?.length ? L.ipAllowlist : null,
         }),
       });
       const data = await res.json();
@@ -733,6 +788,7 @@ export default function APIPageClient() {
 
   const handleCreateKey = async () => {
     if (!newKeyName.trim()) return;
+    setCreateError("");
 
     try {
       const res = await fetch("/api/keys", {
@@ -742,6 +798,15 @@ export default function APIPageClient() {
           name: newKeyName,
           description: newKeyDescription || undefined,
           allowedModels: newKeyScopeOn ? newKeyScope : undefined,
+          // W3 limits — null fields stay null (unlimited / unrestricted).
+          rateLimitRpm: createLimits.rateLimitRpm,
+          tokenBudgetDaily: createLimits.tokenBudget,
+          spendCapDailyCents: createLimits.spendCapCents,
+          budgetScope: (createLimits.tokenBudget != null || createLimits.spendCapCents != null)
+            ? (createLimits.budgetScope || "daily")
+            : undefined,
+          expiresAt: createLimits.expiresAt,
+          ipAllowlist: createLimits.ipAllowlist?.length ? createLimits.ipAllowlist : undefined,
         }),
       });
       const data = await res.json();
@@ -754,9 +819,11 @@ export default function APIPageClient() {
         setShowAddModal(false);
         resetCreateForm();
         await fetchData();
+      } else {
+        setCreateError(data.error || "Failed to create key");
       }
     } catch (error) {
-      console.log("Error creating key:", error);
+      setCreateError(error.message);
     }
   };
 
@@ -1135,6 +1202,15 @@ export default function APIPageClient() {
                             {translate("All models")}
                           </span>
                         )}
+                        {limitBadges(key).map((b) => (
+                          <span
+                            key={b.k}
+                            className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-2 text-text-muted border border-border-subtle"
+                            title={translate("Key limit")}
+                          >
+                            {b.text}
+                          </span>
+                        ))}
                         {storedOnDevice && (
                           <span
                             className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-2 text-text-muted border border-border-subtle"
@@ -1281,6 +1357,17 @@ export default function APIPageClient() {
             )}
           </div>
 
+          {/* W3 limits — rate, budgets, window, expiry, IP allowlist */}
+          <KeyLimitsEditor
+            key={`create-${showAddModal}`}
+            value={createLimits}
+            onChange={setCreateLimits}
+          />
+
+          {createError && (
+            <p className="text-sm text-red-500">{createError}</p>
+          )}
+
           <div className="flex gap-2">
             <Button onClick={handleCreateKey} fullWidth disabled={!newKeyName.trim()}>
               {translate("Create")}
@@ -1404,6 +1491,15 @@ export default function APIPageClient() {
               </>
             )}
           </div>
+
+          {/* W3 limits — seeded from the server record, saved in full */}
+          {editingKey && (
+            <KeyLimitsEditor
+              key={editingKey.id}
+              value={editingKey.limits}
+              onChange={(limits) => setEditingKey((prev) => (prev ? { ...prev, limits } : prev))}
+            />
+          )}
 
           {editingKey?.error && (
             <p className="text-sm text-red-500">{editingKey.error}</p>

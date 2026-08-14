@@ -85,7 +85,9 @@ describe("internal key — derive, hide, pin, re-key", () => {
     const { authorizeApiRequest } = await import("@/sse/services/keyGate.js");
     const internal = await ensureInternalKey("mitm");
 
-    const request = { headers: new Headers({ Authorization: `Bearer ${internal.key}` }), url: "http://localhost/v1/chat/completions" };
+    // custom-server.js stamps the socket peer into x-9r-real-ip; local MITM
+    // traffic arrives from loopback, which matches the internal key's pin.
+    const request = { headers: new Headers({ Authorization: `Bearer ${internal.key}`, "x-9r-real-ip": "127.0.0.1" }), url: "http://localhost/v1/chat/completions" };
     const settings = { requireApiKey: true };
 
     const denied = await authorizeApiRequest(request, { settings });
@@ -96,6 +98,13 @@ describe("internal key — derive, hide, pin, re-key", () => {
     const allowed = await authorizeApiRequest(request, { settings, allowInternal: true });
     expect(allowed.ok).toBe(true);
     expect(allowed.key.isInternal).toBe(true);
+
+    // The loopback pin is real: a non-loopback peer is rejected even with
+    // allowInternal (W3 ip stage enforces the key's ipAllowlist).
+    const foreign = { headers: new Headers({ Authorization: `Bearer ${internal.key}`, "x-9r-real-ip": "203.0.113.5" }), url: request.url };
+    const pinned = await authorizeApiRequest(foreign, { settings, allowInternal: true });
+    expect(pinned.ok).toBe(false);
+    expect(pinned.code).toBe("ip_not_allowed");
   });
 
   it("rotating API_KEY_SECRET re-keys the internal credential in place", async () => {
