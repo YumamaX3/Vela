@@ -34,13 +34,16 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
   `vela_logo_1024.png`, `vela_logo.svg`, `vela_wordmark.svg` — are imported
   into the harbor as `public/vela-logo-1024.png`, `public/vela-logo.svg`, and
   `public/vela-wordmark.svg`.
-- **The crest flies everywhere**: favicon.svg is recarved from the crest on a
-  dark tile; the PWA manifest gains the full crest (SVG any-size + the 1024px
-  PNG); `favicon.ico` is multi-resolution, and Next.js App Router convention
-  icons (`icon.png`, `apple-icon.png`) ride in `src/app/`.
+- **The crest flies everywhere — bare, as drawn**: `favicon.svg` is a
+  byte-identical copy of `vela-logo.svg` (the Star's decree — full canvas,
+  nothing carved), and the PWA icons (192/512), `favicon.ico`
+  (multi-resolution), and the Next.js App Router convention icons
+  (`icon.png`, `apple-icon.png`) all carry the full-frame crest with a
+  transparent background — no tile, nothing added; the PWA manifest gains
+  the full crest (SVG any-size + the 1024px PNG).
 - **The reborn faces**: the sidebar brand block, the landing Navigation, the
-  landing Footer, and the login page all raise the crest on dark tiles in
-  place of the old upstream glyph — and the three un-translated faces now say
+  landing Footer, and the login page all raise the transparent crest in place
+  of the old upstream glyph — and the three un-translated faces now say
   **Vela** instead of 9Router. CLI/npm/updater strings keep "9Router" — that
   is the real installer package, by covenant.
 - **`qd/qmodel_38max` — Qwen3.8-Max** joins the Qoder registry, sealed into
@@ -48,7 +51,7 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
   provider baseline remain byte-for-byte clean.
 
 ## ⚙️ Internal
-- Golden version-header snapshots regenerated for v0.6.04.
+- Golden version-header snapshots regenerated for v0.6.11.
 
 ---
 

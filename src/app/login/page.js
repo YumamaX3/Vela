@@ -156,8 +156,8 @@ export default function LoginPage() {
       <div className="relative z-10 w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-3">
-            <div className="size-16 rounded-2xl bg-[#0a0a0a] shadow-[var(--shadow-warm)] flex items-center justify-center overflow-hidden">
-              <img src="/vela-logo.svg" alt="Vela" className="size-12" width={48} height={48} />
+            <div className="size-16 flex items-center justify-center">
+              <img src="/vela-logo.svg" alt="Vela" className="size-16" width={64} height={64} />
             </div>
           </div>
           <h1 className="text-3xl font-bold text-primary mb-2">Vela</h1>

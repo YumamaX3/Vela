@@ -8,8 +8,8 @@ export default function Footer() {
           {/* Brand */}
           <div className="col-span-2 lg:col-span-2">
             <div className="flex items-center gap-3 mb-6">
-              <div className="size-6 rounded-md bg-[#0a0a0a] border border-[#3a2f27] flex items-center justify-center overflow-hidden">
-                <img src="/vela-logo.svg" alt="Vela" className="size-4" width={16} height={16} />
+              <div className="size-6 flex items-center justify-center">
+                <img src="/vela-logo.svg" alt="Vela" className="size-6" width={24} height={24} />
               </div>
               <h3 className="text-white text-lg font-bold">Vela</h3>
             </div>
