@@ -1,4 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// W1 gated this route (plan §3.5 site 10). This suite tests the Anthropic
+// token estimator, not the gate — open the seam here; apikey-gate-acl.test.js
+// keeps it closed everywhere else.
+vi.mock("@/sse/services/keyGate.js", () => ({
+  authorizeApiRequest: vi.fn(async () => ({ ok: true, key: null })),
+}));
+vi.mock("@/lib/db/repos/settingsRepo.js", () => ({
+  getSettings: vi.fn(async () => ({})),
+}));
 
 import { POST } from "../../src/app/api/v1/messages/count_tokens/route.js";
 
