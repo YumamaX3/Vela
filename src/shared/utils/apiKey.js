@@ -1,98 +1,117 @@
 import crypto from "crypto";
-
-const API_KEY_SECRET = process.env.API_KEY_SECRET || "endpoint-proxy-api-key-secret";
+import fs from "node:fs";
+import path from "node:path";
+import { DATA_DIR } from "@/lib/dataDir.js";
 
 /**
- * Generate 6-char random keyId
+ * Vela API key format — vela-v1-{keyId}-{crc}   (plan: plans/vela-key-governance.md §3.1)
+ *
+ * - keyId: 128-bit CSPRNG (32 hex chars) — row PRIMARY KEY + non-secret attribution id
+ * - crc:   8 hex of HMAC-SHA256(API_KEY_SECRET, "v1." + keyId) — typo filter + stateless
+ *          pre-reject, compared timing-safe. Rotating API_KEY_SECRET revokes every key.
+ * - No machineId. No sk- format — legacy keys are rejected everywhere.
+ * - Full keys are shown once (201) and stored ONLY as SHA-256 hashes (apiKeysRepo).
+ *   128-bit entropy makes unpeppered SHA-256 rainbow-infeasible (no salt needed).
  */
-function generateKeyId() {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
-  for (let i = 0; i < 6; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+export const KEY_VERSION = "v1";
+const KEY_PREFIX = "vela-";
+
+/**
+ * The HMAC root. Env wins; otherwise a per-install 256-bit secret is generated
+ * under DATA_DIR/api-key-secret (0600) on first use. There is NO hardcoded
+ * fallback — a public default would make every CRC forgeable.
+ * Rotating the secret rotates (invalidates) every minted key at once:
+ * replace the env var / file, restart. Loss of the secret = total lockout;
+ * the file ships in the backup bundle contract for this reason.
+ */
+let cachedSecret = null;
+export function getApiKeySecret() {
+  if (cachedSecret) return cachedSecret;
+  if (process.env.API_KEY_SECRET) {
+    cachedSecret = process.env.API_KEY_SECRET;
+    return cachedSecret;
   }
-  return result;
+  const file = path.join(DATA_DIR, "api-key-secret");
+  try {
+    cachedSecret = fs.readFileSync(file, "utf8").trim();
+    return cachedSecret;
+  } catch {}
+  const generated = crypto.randomBytes(32).toString("hex");
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(file, generated, { mode: 0o600 });
+  cachedSecret = generated;
+  return cachedSecret;
 }
 
-/**
- * Generate CRC (8-char HMAC)
- */
-function generateCrc(machineId, keyId) {
+function computeCrc(keyId) {
   return crypto
-    .createHmac("sha256", API_KEY_SECRET)
-    .update(machineId + keyId)
+    .createHmac("sha256", getApiKeySecret())
+    .update(`${KEY_VERSION}.${keyId}`)
     .digest("hex")
     .slice(0, 8);
 }
 
 /**
- * Generate API key with machineId embedded
- * Format: sk-{machineId}-{keyId}-{crc8}
- * @param {string} machineId - 16-char machine ID
- * @returns {{ key: string, keyId: string }}
+ * Generate a fresh Vela API key.
+ * @returns {{ key: string, keyId: string, keyHash: string, keyPrefix: string }}
  */
-export function generateApiKeyWithMachine(machineId) {
-  const keyId = generateKeyId();
-  const crc = generateCrc(machineId, keyId);
-  const key = `sk-${machineId}-${keyId}-${crc}`;
-  return { key, keyId };
+export function generateApiKey() {
+  const keyId = crypto.randomBytes(16).toString("hex"); // 128-bit
+  const key = `${KEY_PREFIX}${KEY_VERSION}-${keyId}-${computeCrc(keyId)}`;
+  return { key, keyId, keyHash: hashKey(key), keyPrefix: displayPrefix(keyId) };
 }
 
 /**
- * Parse API key and extract machineId + keyId
- * Supports both formats:
- * - New: sk-{machineId}-{keyId}-{crc8}
- * - Old: sk-{random8}
- * @param {string} apiKey
- * @returns {{ machineId: string, keyId: string, isNewFormat: boolean } | null}
+ * Derive an internal-purpose key deterministically (e.g. MITM child process).
+ * The full key is recomputable at every boot from API_KEY_SECRET and stored
+ * nowhere — the sanctioned exception to show-once (plan §3.6).
+ * Rotating API_KEY_SECRET rotates internal keys too.
  */
-export function parseApiKey(apiKey) {
-  if (!apiKey || !apiKey.startsWith("sk-")) return null;
-
-  const parts = apiKey.split("-");
-  
-  // New format: sk-{machineId}-{keyId}-{crc8} = 4 parts
-  if (parts.length === 4) {
-    const [, machineId, keyId, crc] = parts;
-    
-    // Validate CRC
-    const expectedCrc = generateCrc(machineId, keyId);
-    if (crc !== expectedCrc) return null;
-    
-    return { machineId, keyId, isNewFormat: true };
-  }
-  
-  // Old format: sk-{random8} = 2 parts
-  if (parts.length === 2) {
-    return { machineId: null, keyId: parts[1], isNewFormat: false };
-  }
-  
-  return null;
+export function deriveInternalKey(purpose) {
+  const keyId = crypto
+    .createHmac("sha256", getApiKeySecret())
+    .update(`internal:${purpose}`)
+    .digest("hex")
+    .slice(0, 32);
+  const key = `${KEY_PREFIX}${KEY_VERSION}-${keyId}-${computeCrc(keyId)}`;
+  return { key, keyId, keyHash: hashKey(key), keyPrefix: displayPrefix(keyId) };
 }
 
 /**
- * Verify API key CRC (only for new format)
- * @param {string} apiKey
- * @returns {boolean}
+ * Strict parser — accepts ONLY the current vela format, rejects sk- and
+ * anything malformed. CRC is verified timing-safe.
+ * @returns {{ keyId: string, version: string } | null}
  */
-export function verifyApiKeyCrc(apiKey) {
-  const parsed = parseApiKey(apiKey);
-  if (!parsed) return false;
-  
-  // Old format doesn't have CRC, always valid if parsed
-  if (!parsed.isNewFormat) return true;
-  
-  // New format already verified in parseApiKey
-  return true;
+export function parseVelaKey(apiKey) {
+  if (typeof apiKey !== "string" || !apiKey.startsWith(KEY_PREFIX)) return null;
+  const body = apiKey.slice(KEY_PREFIX.length);
+  const parts = body.split("-");
+  if (parts.length !== 3) return null;
+  const [version, keyId, crc] = parts;
+  if (version !== KEY_VERSION) return null;
+  if (!/^[0-9a-f]{32}$/.test(keyId)) return null;
+  if (!/^[0-9a-f]{8}$/.test(crc)) return null;
+  const expected = computeCrc(keyId);
+  const a = Buffer.from(crc, "hex");
+  const b = Buffer.from(expected, "hex");
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  return { keyId, version };
 }
 
-/**
- * Check if API key is new format (contains machineId)
- * @param {string} apiKey
- * @returns {boolean}
- */
-export function isNewFormatKey(apiKey) {
-  const parsed = parseApiKey(apiKey);
-  return parsed?.isNewFormat === true;
+/** SHA-256 hex of the full key — the at-rest identity (show-once contract). */
+export function hashKey(fullKey) {
+  return crypto.createHash("sha256").update(fullKey).digest("hex");
 }
 
+/** Display prefix for lists/logs — e.g. "vela-v1-ab3f…" — never secret material. */
+export function displayPrefix(keyId) {
+  return `${KEY_PREFIX}${KEY_VERSION}-${keyId.slice(0, 4)}…`;
+}
+
+/** Extract the keyId from a vela key WITHOUT CRC verification (identity match only). */
+export function extractKeyIdLoose(apiKey) {
+  if (typeof apiKey !== "string" || !apiKey.startsWith(KEY_PREFIX)) return null;
+  const parts = apiKey.slice(KEY_PREFIX.length).split("-");
+  if (parts.length !== 3) return null;
+  return /^[0-9a-f]{32}$/.test(parts[1]) ? parts[1] : null;
+}
