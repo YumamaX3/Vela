@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteApiKey, getApiKeyById, updateApiKey, KeyLimitsValidationError } from "@/lib/localDb";
+import { deleteApiKey, getApiKeyById, updateApiKey, KeyLimitsValidationError, sanitizeCategory } from "@/lib/localDb";
 
 // GET /api/keys/[id] — masked row (never the full key)
 export async function GET(request, { params }) {
@@ -52,6 +52,14 @@ export async function PUT(request, { params }) {
       }
     }
     if (body.isActive !== undefined) updateData.isActive = !!body.isActive;
+    if (body.category !== undefined) {
+      // null or empty-string clears the category (back to "Uncategorized").
+      try {
+        updateData.category = sanitizeCategory(body.category);
+      } catch (e) {
+        return NextResponse.json({ error: e.message }, { status: 400 });
+      }
+    }
     // W3 governance fields pass through as-is — the repo validates shape,
     // range, scope membership, expiry-future, and CIDR syntax.
     for (const f of ["rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents", "budgetScope", "expiresAt", "ipAllowlist"]) {

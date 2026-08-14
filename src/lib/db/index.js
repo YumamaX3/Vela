@@ -31,7 +31,7 @@ export {
 // API keys
 export {
   getApiKeys, getApiKeyById, createApiKey, updateApiKey, deleteApiKey, validateApiKey,
-  KeyLimitsValidationError,
+  KeyLimitsValidationError, sanitizeCategory,
 } from "./repos/apiKeysRepo.js";
 
 // Combos
