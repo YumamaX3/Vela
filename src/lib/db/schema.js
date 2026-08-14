@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -102,12 +102,17 @@ export const TABLES = {
       budgetScope: "TEXT",
       rateLimitRpm: "INTEGER",
       ipAllowlist: "TEXT",
+      // Free-form key category (migration 003; mirrored here for fresh installs + auto-sync)
+      category: "TEXT",
     },
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)",
       // UNIQUE lives in the index list too (self-healing via auto-sync);
       // migration 002 creates it on the upgrade path where auto-sync strips UNIQUE
       "CREATE UNIQUE INDEX IF NOT EXISTS uq_ak_key_hash ON apiKeys(keyHash)",
+      // Migration 003's partial index — declared here so auto-sync can heal it
+      // if it is ever dropped (plain TEXT column in TABLES cannot carry WHERE).
+      "CREATE INDEX IF NOT EXISTS idx_ak_category ON apiKeys(category) WHERE category IS NOT NULL",
     ],
   },
   combos: {

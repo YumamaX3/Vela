@@ -25,6 +25,37 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.22 — The Catalogue of Keys 🗝️⛵
+
+> *"A harbor grows many keys — for friends, for messengers, for tools. The
+> Star asked for drawers, and now every key knows its kin."*
+
+*Sealed 2026-08-14 · the Star's request · Milestone Tide: small change → `0.6.21 → 0.6.22`*
+
+## ✨ Features
+- **Key categories** — every API key on the Endpoints page can now carry a
+  free-form category (friend, hermes, others… or whatever name you forge):
+  - Create form & edit modal gain a **Category** combobox — pick from the
+    categories your other keys already use, or type a brand-new one.
+  - **Filter chips** above the key list (All · each category · Uncategorized)
+    with live counts.
+  - Each key row shows its category badge alongside Active/Paused and scope.
+- **Storage** — migration `003-key-categories` adds `apiKeys.category`
+  (additive TEXT column + partial index) with the TABLES mirror for fresh
+  installs; `SCHEMA_VERSION` bumped to 3 so the pre-schema backup fires.
+- **Validation** — `sanitizeCategory` trims, collapses whitespace, and caps at
+  48 chars on both create and update paths; empty clears back to
+  Uncategorized; non-string/oversized input → 400 at the gate.
+
+## ⚙️ Internal
+- `apiKeysRepo` whitelists `category` among the mutable fields — security
+  columns remain unwritable through PUT.
+- New test suite `tests/unit/apikey-categories.test.js` (12 tests) — sanitize
+  rules, create/update paths, clearing, 400s, whitelist safety; all six
+  sibling apikey suites re-run green (65 tests).
+
+---
+
 # v0.6.21 — The Fleet Takes Its Sails 🕸️⛵
 
 > *"The hulls were charted yesterday; today the Star hands over the true

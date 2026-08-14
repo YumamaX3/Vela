@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Card, Button, Input, Modal, CardSkeleton, Toggle, ConfirmModal, ModelSelectModal, KeyLimitsEditor } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { storeKey, getKey, hasKey, removeKey, resolveKeyRef } from "@/shared/utils/keyVault";
@@ -60,6 +60,14 @@ function limitsFromRecord(k) {
   };
 }
 
+// ── Key categories ──────────────────────────────────────────────────────────
+// Free-form labels the user assigns to keys (friend, hermes, others…). The
+// server stores the exact trimmed string; the dashboard derives the filter
+// chips from whatever categories exist. `__uncategorized__` is a sentinel for
+// the "no category" bucket (real categories never contain that token).
+const UNCATEGORIZED = "__uncategorized__";
+const categoryOf = (k) => k.category || UNCATEGORIZED;
+
 // Dedup guard for auto-provisioning the first "Default Key". Module scope so it
 // survives re-mounts within a session. fetchData() can run concurrently (StrictMode
 // double-invoke, fast re-mount); without this, two runs both see zero keys and both
@@ -84,6 +92,10 @@ export default function APIPageClient() {
   const [activeProviders, setActiveProviders] = useState([]);
   const [modelAliases, setModelAliases] = useState({});
   const [confirmState, setConfirmState] = useState(null);
+
+  // Key categories — filter chip + free-form combobox state
+  const [newKeyCategory, setNewKeyCategory] = useState("");
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState("all");
 
   const [requireApiKey, setRequireApiKey] = useState(false);
   const [requireLogin, setRequireLogin] = useState(true);
@@ -376,11 +388,29 @@ export default function APIPageClient() {
   const resetCreateForm = () => {
     setNewKeyName("");
     setNewKeyDescription("");
+    setNewKeyCategory("");
     setNewKeyScopeOn(false);
     setNewKeyScope([]);
     setCreateLimits(DEFAULT_LIMITS);
     setCreateError("");
   };
+
+  // Distinct categories across all keys (case-sensitive, stable order by first
+  // appearance) — feeds both the filter chips and the create-form datalist.
+  const categories = useMemo(() => {
+    const seen = new Set();
+    for (const k of keys) if (k.category) seen.add(k.category);
+    return [...seen];
+  }, [keys]);
+
+  // Keys under the active filter. Deleting the last key of a filtered category
+  // would leave a chip with no rows — fall back to "all" so the list never
+  // renders a confusing empty state for an existing chip.
+  const filteredKeys = useMemo(() => {
+    if (activeCategoryFilter === "all") return keys;
+    const matched = keys.filter((k) => categoryOf(k) === activeCategoryFilter);
+    return matched.length ? matched : keys;
+  }, [keys, activeCategoryFilter]);
 
   const openCreateModal = () => {
     resetCreateForm();
@@ -420,6 +450,7 @@ export default function APIPageClient() {
       id: key.id,
       name: key.name || "",
       description: key.description || "",
+      category: key.category || "",
       allowedModels: Array.isArray(key.allowedModels) ? key.allowedModels : [],
       scopeOn: Array.isArray(key.allowedModels) && key.allowedModels.length > 0,
       limits: limitsFromRecord(key), // W3 draft — server record is source of truth
@@ -440,6 +471,7 @@ export default function APIPageClient() {
         body: JSON.stringify({
           name: editingKey.name.trim(),
           description: editingKey.description,
+          category: editingKey.category?.trim() || null,
           allowedModels: editingKey.scopeOn ? editingKey.allowedModels : null,
           // W3 limits — always sent in full so the record matches the form.
           rateLimitRpm: L.rateLimitRpm,
@@ -813,6 +845,7 @@ export default function APIPageClient() {
         body: JSON.stringify({
           name: newKeyName,
           description: newKeyDescription || undefined,
+          category: newKeyCategory.trim() || undefined,
           allowedModels: newKeyScopeOn ? newKeyScope : undefined,
           // W3 limits — null fields stay null (unlimited / unrestricted).
           rateLimitRpm: createLimits.rateLimitRpm,
@@ -1175,6 +1208,51 @@ export default function APIPageClient() {
           </div>
         )}
 
+        {/* Category filter chips — derived from the categories keys carry */}
+        {keys.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap mb-4">
+            <button
+              onClick={() => setActiveCategoryFilter("all")}
+              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                activeCategoryFilter === "all"
+                  ? "bg-primary/15 text-primary border-primary/40 font-semibold"
+                  : "bg-surface-2 text-text-muted border-border-subtle hover:text-text-main"
+              }`}
+            >
+              {translate("All")} · {keys.length}
+            </button>
+            {categories.map((cat) => {
+              const count = keys.filter((k) => k.category === cat).length;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategoryFilter(cat)}
+                  title={cat}
+                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                    activeCategoryFilter === cat
+                      ? "bg-primary/15 text-primary border-primary/40 font-semibold"
+                      : "bg-surface-2 text-text-muted border-border-subtle hover:text-text-main"
+                  }`}
+                >
+                  {cat} · {count}
+                </button>
+              );
+            })}
+            {keys.some((k) => !k.category) && (
+              <button
+                onClick={() => setActiveCategoryFilter(UNCATEGORIZED)}
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                  activeCategoryFilter === UNCATEGORIZED
+                    ? "bg-primary/15 text-primary border-primary/40 font-semibold"
+                    : "bg-surface-2 text-text-muted border-border-subtle hover:text-text-main"
+                }`}
+              >
+                {translate("Uncategorized")} · {keys.filter((k) => !k.category).length}
+              </button>
+            )}
+          </div>
+        )}
+
         {keys.length === 0 ? (
           <div className="text-center py-12">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
@@ -1188,7 +1266,7 @@ export default function APIPageClient() {
           </div>
         ) : (
           <div className="flex flex-col">
-            {keys.map((key) => {
+            {filteredKeys.map((key) => {
               const paused = key.isActive === false;
               const storedOnDevice = hasKey(key.id);
               const scopeCount = Array.isArray(key.allowedModels) ? key.allowedModels.length : 0;
@@ -1205,6 +1283,14 @@ export default function APIPageClient() {
                           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">{translate("Paused")}</span>
                         ) : (
                           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30">{translate("Active")}</span>
+                        )}
+                        {key.category && (
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30"
+                            title={key.category}
+                          >
+                            {key.category}
+                          </span>
                         )}
                         {scopeCount > 0 ? (
                           <span
@@ -1332,6 +1418,14 @@ export default function APIPageClient() {
             value={newKeyDescription}
             onChange={(e) => setNewKeyDescription(e.target.value)}
             placeholder={translate("What this key is used for")}
+          />
+          <Input
+            label={translate("Category (optional)")}
+            value={newKeyCategory}
+            onChange={(e) => setNewKeyCategory(e.target.value)}
+            placeholder={translate("e.g. friend, hermes, others")}
+            list="key-category-options"
+            hint={translate("Group keys by purpose — pick an existing one or type your own")}
           />
 
           {/* Allowed models — grouped per provider, same picker the combos use */}
@@ -1464,6 +1558,14 @@ export default function APIPageClient() {
             value={editingKey?.description || ""}
             onChange={(e) => setEditingKey((prev) => ({ ...prev, description: e.target.value }))}
             placeholder={translate("What this key is used for")}
+          />
+          <Input
+            label={translate("Category (optional)")}
+            value={editingKey?.category || ""}
+            onChange={(e) => setEditingKey((prev) => ({ ...prev, category: e.target.value }))}
+            placeholder={translate("e.g. friend, hermes, others")}
+            list="key-category-options"
+            hint={translate("Leave empty to keep this key uncategorized")}
           />
 
           <div>
@@ -1705,6 +1807,14 @@ export default function APIPageClient() {
         message={confirmState?.message}
         variant="danger"
       />
+
+      {/* Shared datalist for the category comboboxes — pick an existing
+          category or type a brand-new one (friend, hermes, whatever). */}
+      <datalist id="key-category-options">
+        {categories.map((cat) => (
+          <option key={cat} value={cat} />
+        ))}
+      </datalist>
     </div>
   );
 }
