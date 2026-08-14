@@ -82,6 +82,12 @@
   before it could crash a boot
 
 ## Fixes
+- **Endpoint**: the first-time "Default Key" auto-provision is now guarded
+  against concurrent runs — StrictMode's double-invoke raced two loads, both
+  saw zero keys, and both POSTed (visible as duplicate "Default Key" rows).
+  The provisioning flag is set synchronously before the first await, so only
+  one caller ever reaches the POST; the flag resets in `finally` so a page
+  with zero keys can still provision on a later load
 - **Keys**: static-import the key crypto on the gate hot path — the per-call
   dynamic `await import()` inside `resolveKey` inflated p99 latency under CPU
   contention
