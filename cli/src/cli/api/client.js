@@ -296,7 +296,7 @@ async function getApiKeys() {
  * @returns {Promise<Object>} { success, data: { key, name, id, machineId } }
  */
 async function createApiKey(name) {
-  return makeRequest("POST", "/api/keys", { name });
+  return makeRequest("POST", "/api/keys", { name }); // 201 → { key (one-time), keyId, keyPrefix, record }
 }
 
 /**
