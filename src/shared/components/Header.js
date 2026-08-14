@@ -168,13 +168,8 @@ const getPageInfo = (pathname) => {
       icon: "monitor",
       breadcrumbs: [],
     };
-  if (pathname === "/dashboard")
-    return {
-      title: "Endpoint",
-      description: "API endpoint configuration",
-      icon: "api",
-      breadcrumbs: [],
-    };
+  // "/dashboard" itself is the Harbor homepage — it carries its own greeting
+  // hero, so the header title slot stays empty (rendered as null).
   return { title: "", description: "", breadcrumbs: [] };
 };
 

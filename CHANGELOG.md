@@ -1,6 +1,35 @@
 # Unreleased
 
 ## Features
+- **Dashboard Harbor homepage** (`/dashboard`): the dashboard root no longer
+  renders the Endpoint page — it gets its own landing: a time-of-day greeting
+  with a live idle/active pulse, a gradient hero band with the copyable
+  `/v1` endpoint and today's stats (requests / tokens / spend / cache rate),
+  an activity sparkline (last 10 minutes) with top-model bars, a Harbor
+  status card (API-key requirement, dashboard login, cloud sync, tunnel)
+  with a shortcut to key management, and six quick-nav tiles. Every number
+  comes from a real API; every tile leads somewhere real.
+  The header's stale "Endpoint" title for the dashboard root is gone — the
+  homepage carries its own hero, the title slot stays clean.
+- **Sidebar upgrade — Vela brand + grouped navigation**: the rail is reborn
+  around the harbor. Fake macOS traffic lights removed; a Vela brand block
+  (sail glyph in a warm brand gradient, "AI Gateway" tagline, mono version
+  chip) leads; navigation is regrouped into labeled sections — Gateway
+  (Endpoint & Key, Providers, Combos), Analytics (Usage, Quota, Token
+  Saver), Tools (CLI Tools, Media Providers accordion, Proxy Pools,
+  Skills), System (Console Log, Translator, 9Remote, 9English, Settings);
+  a Home item anchors the rail and `/dashboard` is no longer claimed by the
+  Endpoint item; active items carry a 3px brand indicator bar; the update
+  banner is restyled as a success-tinted card; all nav labels now flow
+  through the i18n runtime.
+- **Vela branding**: `APP_CONFIG.name` → "Vela" (sidebar, footer, profile),
+  document title → "Vela — AI Gateway", PWA manifest name/short_name → Vela.
+  CLI/npm strings keep "9Router" — that is the real installer package.
+- **Dev ergonomics**: `allowedDevOrigins` (LAN + Tailscale hosts) in
+  `next.config.mjs` so the dashboard browsed via the homelab IP can load
+  dev HMR/static assets.
+- **i18n**: 39 homepage + sidebar strings seeded across all 34 locales via
+  the governance seeder (110 keys total).
 - **API Keys — Governance wave W3 (limits)**: per-key limits are now enforced
   on every `/v1` request. The gate stage pipeline runs lifetime → IP allowlist
   → rate → spend → model scope:
