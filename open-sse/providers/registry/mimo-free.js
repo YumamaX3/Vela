@@ -1,8 +1,13 @@
-// Xiaomi ended the free MiMo channel ("MiMo free API service has ended").
-// Hidden until/unless a replacement (OAuth MiMo Platform) is wired.
+// Xiaomi ended the free MiMo channel, and upstream hid this provider
+// (commit 6d96e24b). Live-verified 2026-08-14: the bootstrap endpoint still
+// issues a JWT, but the chat endpoint returns 400 "Unsupported model" for
+// every model id probed — the service shell is alive with no routable models.
+// Surfaced again at the Star's decree (v0.6.13) so the card stands watch on
+// the providers page; requests will fail until upstream restores a model or
+// the OAuth MiMo Platform replacement is wired.
 export default {
   id: "mimo-free",
-  hidden: true,
+  hidden: false,
   priority: 50,
   hasFree: true,
   alias: "mmf",
