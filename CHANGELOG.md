@@ -1,5 +1,45 @@
 # Unreleased
 
+## Features
+- **API Keys — Governance (waves W1/W2)**: a full-governance key system replaces
+  the old plaintext `sk-` keys. New keys mint as `vela-v1-{keyId}-{crc}` — a
+  128-bit CSPRNG identity plus a timing-safe HMAC-SHA256 checksum keyed by
+  `API_KEY_SECRET`. Only `vela-` keys are accepted anywhere; every `sk-` key and
+  every `?key=` query param is rejected
+- **Hash-at-rest + show-once**: keys are stored only as a SHA-256 hash behind a
+  unique index and shown in full exactly once, in the 201 create response. The
+  dashboard and CLI each keep a local copy in their own vault; the server never
+  reveals a key again
+- **Secret lifecycle**: `API_KEY_SECRET` is both the HMAC root and the global
+  revocation lever — the environment wins, otherwise it is auto-generated to
+  `DATA_DIR/api-key-secret` (0600). Rotating the secret re-keys the internal key
+- **Stage-pipeline gate**: every `/v1` enforcement site (chat, embeddings,
+  count_tokens, gemini-native and 7 more — 11 sites total) resolves the bearer
+  through `authorizeApiRequest`: lifetime → IP allowlist → rate → spend → model
+  scope, returning an honest gate code (`INVALID_KEY`, `KEY_PAUSED`,
+  `KEY_EXPIRED`, `MODEL_FORBIDDEN`, `QUERY_PARAM_KEY_REJECTED`)
+- **Model scope (ACL)**: a key can be restricted to an allowed-models whitelist;
+  out-of-scope requests receive 403 `MODEL_FORBIDDEN`
+- **Internal key**: a deterministic loopback-only key for server-to-server use —
+  hidden from every listing, derived from the secret, never persisted
+- **Usage attribution**: usage history keys on `keyId`/`keyPrefix`, never the raw
+  bearer token (masked dual-write)
+- **Data directory**: Vela uses its own `vela` data folder — a clean break from
+  `9router`. Legacy plaintext keys are tombstoned on migration and usage rows
+  scrubbed
+- **Dashboard `/dashboard/endpoint`**: governance UI — create with description
+  and a model-scope picker, a show-once modal gated by a save-ack, edit
+  name/description/scope, pause/resume, and badges (Active/Paused, scope count,
+  "stored here")
+- **i18n**: 39 governance strings seeded across 34 locales via
+  `scripts/i18n-seed-literals.mjs` (`--check` detects drift)
+- **Test covenant**: 9 governance suites (format, gate ACL, migration 002,
+  show-once, internal key, usage attribution, backup/restore, secret lifecycle,
+  i18n parity) + an ACL enforcement-site baseline (`verify-apikey-enforcement`)
+  + `known-fails` entries for the inherited db-concurrency timing artifacts. The
+  covenant caught a real migration bug (`db.prepare()` on the adapter interface)
+  before it could crash a boot
+
 ## Documentation
 - **Plans**: the Shorekeeper-Sealed Plan for API key governance is born —
   `plans/vela-key-governance.md`: `vela-v1-{keyId}-{crc}` keys, hash-at-rest +

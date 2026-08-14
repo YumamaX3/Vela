@@ -82,15 +82,17 @@ async function handleCreateKey() {
 
   // Capture-at-create (plan §3.6): the 201 carries the only plaintext copy.
   // Store it in the local CLI vault so setup paths can resolve it later.
-  if (result.data.key && result.data.id) {
-    storeKey(result.data.id, result.data.key);
+  const record = result.data.record || {};
+  const createdId = record.id || result.data.keyId;
+  if (result.data.key && createdId) {
+    storeKey(createdId, result.data.key);
   }
 
   console.log("\n✅ API Key created successfully!");
   console.log("\n⚠️  IMPORTANT: Save this key now. You won't be able to see it again!");
   console.log(`\nKey: ${result.data.key}`);
-  console.log(`Name: ${result.data.name}`);
-  console.log(`ID: ${result.data.id}`);
+  console.log(`Name: ${record.name || ""}`);
+  console.log(`ID: ${createdId || ""}`);
   
   const shouldCopy = await confirm("\nCopy key to clipboard?");
   if (shouldCopy) {
