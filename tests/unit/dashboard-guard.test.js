@@ -176,15 +176,19 @@ describe("dashboard guard public LLM API access", () => {
     expect(mocks.validateApiKey).toHaveBeenCalledWith("sk-valid");
   });
 
-  it("allows remote beta public LLM API with valid Google key query parameter", async () => {
+  it("rejects remote beta public LLM API key supplied via ?key= query parameter", async () => {
     mocks.validateApiKey.mockResolvedValue(true);
 
-    const response = await proxy(request("/v1beta/models?key=sk-valid", {
+    const response = await proxy(request("/v1beta/models?key=vela-valid", {
       host: "router.example.com",
     }));
 
-    expect(response).toBe(mocks.nextResponse);
-    expect(mocks.validateApiKey).toHaveBeenCalledWith("sk-valid");
+    // Governance decree: ?key= is dead — keys in URLs leak into logs, browser
+    // history, and Referrer headers. Rejected at the middleware with an honest
+    // code, before the key is ever validated.
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("query_param_key_rejected");
+    expect(mocks.validateApiKey).not.toHaveBeenCalled();
   });
 });
 
