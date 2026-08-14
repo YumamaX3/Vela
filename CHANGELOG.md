@@ -7,11 +7,15 @@
 change, great or small, bumps `package.json` and earns an entry in this log,
 sealed together in the same commit:
 
-| Tide | Bump | When |
+| Tide | Rule | Example |
 |-|-|-|
-| **Patch** (`0.6.x`) | the third number | fixes and small refinements |
-| **Minor** (`0.x.0`) | the middle number | features — like this Harbor release |
-| **Major** (`x.0.0`) | the first number | breaking tides |
+| **Small change** 🐚 | the last number ticks up by one | `0.6.03 → 0.6.04` |
+| **Big change** 🌊 | the last number rounds up to the next milestone of ten | `0.6.03 → 0.6.10` · `0.6.93 → 0.7.0` |
+
+When a big change rounds past `.99`, the carry flows into the middle digit
+(`0.6.93 → 0.7.0`). The first digit carries the same way at the harbor's
+edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
+`0.6.01`, `0.6.02` — npm accepts this for a private package.
 
 **Legend**: ✨ Features · 🐛 Fixes · 🔧 Changes & Improvements · 📖 Documentation · ⚠️ Breaking · ⚙️ Internal
 
@@ -20,6 +24,20 @@ sealed together in the same commit:
 > keeps their names as they were.*
 
 ---
+
+# v0.6.02 — The Milestone Tide 🌊
+
+*Sealed 2026-08-14 · the first tick under the new rite*
+
+## 🔧 Changes
+- **Versioning rite, redrawn by the Star's decree**: the semver tide gives way
+  to the Milestone Tide — a small change ticks the last number up by one
+  (`0.6.03 → 0.6.04`); a big change rounds the last number up to the next
+  milestone of ten (`0.6.03 → 0.6.10`); rounding past `.99` carries into the
+  middle digit (`0.6.93 → 0.7.0`). Versions carry two digits in the last
+  place (`0.6.01`) — npm accepts the form for a private package. The log's
+  banner and `docs/VERSIONING.md` are recarved to the new rite. This entry is
+  the rite's first small-change tick: `0.6.1 → 0.6.02`
 
 # v0.6.1 — Patch Tide 🩹
 
