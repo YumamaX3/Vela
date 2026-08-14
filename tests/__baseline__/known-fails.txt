@@ -25,3 +25,4 @@ tests/unit/translator-request-normalization.test.js :: request normalization tra
 tests/unit/db-concurrent.test.js :: DB Concurrency — atomic safety 100 parallel saveRequestUsage → no count loss
 tests/unit/db-concurrent.test.js :: DB Concurrency — atomic safety mixed concurrent: usage + details + connections + aliases
 tests/unit/db-concurrent.test.js :: DB Concurrency — atomic safety daily summary aggregates correctly under parallel writes
+tests/translator/golden-request.test.js :: GOLDEN request: OpenAI → Kiro > full body (image base64 + tool_result)
