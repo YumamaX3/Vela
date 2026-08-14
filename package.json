@@ -1,6 +1,6 @@
 {
   "name": "vela-app",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Vela — the AI gateway: one OpenAI-compatible endpoint routing 40+ providers, with full key governance",
   "homepage": "https://github.com/YumamaX3/Vela#readme",
   "repository": {
@@ -9,14 +9,14 @@
   },
   "private": true,
   "scripts": {
-    "dev": "next dev --port 32060",
-    "dev:webpack": "next dev --webpack --port 32060",
-    "build": "next build --webpack",
+    "dev": "node scripts/sync-changelog.mjs && next dev --port 32060",
+    "dev:webpack": "node scripts/sync-changelog.mjs && next dev --webpack --port 32060",
+    "build": "node scripts/sync-changelog.mjs && next build --webpack",
     "postbuild": "node scripts/copy-standalone-assets.mjs",
     "postbuild:bun": "node scripts/copy-standalone-assets.mjs",
     "start": "next start --port 32060",
-    "dev:bun": "bun --bun next dev --webpack --port 32060",
-    "build:bun": "bun --bun next build --webpack",
+    "dev:bun": "bun scripts/sync-changelog.mjs && bun --bun next dev --webpack --port 32060",
+    "build:bun": "bun scripts/sync-changelog.mjs && bun --bun next build --webpack",
     "start:bun": "bun ./.next/standalone/server.js",
     "cli:pack": "npm --prefix cli run pack:cli",
     "cli:publish": "npm --prefix cli run publish:cli"

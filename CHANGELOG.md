@@ -21,6 +21,21 @@ sealed together in the same commit:
 
 ---
 
+# v0.6.1 — Patch Tide 🩹
+
+*Sealed 2026-08-14*
+
+## 🐛 Fixes
+- **Changelog modal**: the dashboard now serves The Ship's Log itself —
+  the GitHub repo is private, so `raw.githubusercontent.com` returns 404
+  for Vela's changelog (the modal rendered "Failed to load changelog:
+  HTTP 404"). The log is mirrored to `public/CHANGELOG.md` by
+  `scripts/sync-changelog.mjs` on every dev startup and build, the modal
+  fetches `/CHANGELOG.md` from the gateway, and `docs/VERSIONING.md`
+  records the mirror rite. The golden version-header snapshots follow the
+  bump (the gateway stamps `pkg.version` into `X-CLIENT-VERSION` /
+  `X-CORE-VERSION`)
+
 # v0.6.0 — The Harbor Release ⛵
 
 > *"The gateway comes home — Vela's first sail under her own name: a harbor
