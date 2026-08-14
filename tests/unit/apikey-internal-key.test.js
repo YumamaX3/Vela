@@ -11,11 +11,18 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 let tempDir;
 const originalDataDir = process.env.DATA_DIR;
 const originalSecret = process.env.API_KEY_SECRET;
+const originalPeerToken = process.env.NINEROUTER_PEER_TOKEN;
+
+// The gate only trusts x-9r-real-ip when custom-server.js proves the stamp with
+// the per-process secret (GHSA-pjm4-8fpg-f9p6). Mint a fixture secret so the
+// loopback-pinned self-call below carries real proof.
+const PEER_TOKEN = "internal-test-peer-token";
 
 beforeEach(() => {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "vela-internal-"));
   process.env.DATA_DIR = tempDir;
   process.env.API_KEY_SECRET = "internal-test-secret";
+  process.env.NINEROUTER_PEER_TOKEN = PEER_TOKEN;
   delete global._dbAdapter;
   vi.resetModules();
 });
@@ -28,6 +35,8 @@ afterEach(() => {
   else process.env.DATA_DIR = originalDataDir;
   if (originalSecret === undefined) delete process.env.API_KEY_SECRET;
   else process.env.API_KEY_SECRET = originalSecret;
+  if (originalPeerToken === undefined) delete process.env.NINEROUTER_PEER_TOKEN;
+  else process.env.NINEROUTER_PEER_TOKEN = originalPeerToken;
 });
 
 describe("internal key — derive, hide, pin, re-key", () => {
@@ -85,9 +94,10 @@ describe("internal key — derive, hide, pin, re-key", () => {
     const { authorizeApiRequest } = await import("@/sse/services/keyGate.js");
     const internal = await ensureInternalKey("mitm");
 
-    // custom-server.js stamps the socket peer into x-9r-real-ip; local MITM
-    // traffic arrives from loopback, which matches the internal key's pin.
-    const request = { headers: new Headers({ Authorization: `Bearer ${internal.key}`, "x-9r-real-ip": "127.0.0.1" }), url: "http://localhost/v1/chat/completions" };
+    // custom-server.js stamps the socket peer into x-9r-real-ip and proves it
+    // with the per-process secret (x-9r-peer-token); local MITM traffic arrives
+    // from loopback, which matches the internal key's pin.
+    const request = { headers: new Headers({ Authorization: `Bearer ${internal.key}`, "x-9r-real-ip": "127.0.0.1", "x-9r-peer-token": PEER_TOKEN }), url: "http://localhost/v1/chat/completions" };
     const settings = { requireApiKey: true };
 
     const denied = await authorizeApiRequest(request, { settings });
@@ -101,7 +111,7 @@ describe("internal key — derive, hide, pin, re-key", () => {
 
     // The loopback pin is real: a non-loopback peer is rejected even with
     // allowInternal (W3 ip stage enforces the key's ipAllowlist).
-    const foreign = { headers: new Headers({ Authorization: `Bearer ${internal.key}`, "x-9r-real-ip": "203.0.113.5" }), url: request.url };
+    const foreign = { headers: new Headers({ Authorization: `Bearer ${internal.key}`, "x-9r-real-ip": "203.0.113.5", "x-9r-peer-token": PEER_TOKEN }), url: request.url };
     const pinned = await authorizeApiRequest(foreign, { settings, allowInternal: true });
     expect(pinned.ok).toBe(false);
     expect(pinned.code).toBe("ip_not_allowed");

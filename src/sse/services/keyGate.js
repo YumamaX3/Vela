@@ -84,12 +84,17 @@ export function lifetimeStage(key) {
 // the repo must not import this file; this file imports the repo).
 export { parseCidr, cidrContains } from "@/lib/db/keyLimits.js";
 import { cidrContains } from "@/lib/db/keyLimits.js";
+import { hasTrustedPeerHeaders } from "@/lib/auth/trustedPeer.js";
 
 /** Derive the real client IP. custom-server.js strips attacker-controlled
- *  forwarding headers and stamps the socket peer (or trusted-proxy value)
- *  into x-9r-real-ip — that header is the only IP the gate trusts. */
+ *  forwarding headers and stamps the socket peer into x-9r-real-ip — proving
+ *  the stamp by echoing the per-process secret as x-9r-peer-token. Without
+ *  that proof the header is attacker-supplied input, so the gate ignores it
+ *  (GHSA-pjm4-8fpg-f9p6; upstream has no key gate, this surface is Vela's). */
 export function extractClientIp(request) {
-  return request?.headers?.get?.("x-9r-real-ip") || null;
+  if (!request) return null;
+  if (!hasTrustedPeerHeaders(request)) return null;
+  return request.headers.get?.("x-9r-real-ip") || null;
 }
 
 /** Loopback hostnames recognized by the Host-header fallback. */
@@ -103,24 +108,23 @@ function isLoopbackHostname(host) {
 
 /**
  * Resolve the client IP for the gate. Order: explicit override → the trusted
- * x-9r-real-ip header (stamped by custom-server.js from the TCP socket) →
- * a narrowly-scoped Host-header fallback.
+ * x-9r-real-ip header (socket-stamped, peer-token-proven) → a narrowly-scoped
+ * Host-header fallback.
  *
  * The fallback exists ONLY so server-to-server self-calls (the model-test ping)
- * work when the process runs as bare `next dev` / `next start` without
- * custom-server.js — there is no TCP-socket IP to stamp in that mode. It is
- * deliberately narrow: it applies only to internal keys (which are already
- * minted loopback-only), and only when the request arrives via a loopback
- * Host. An external attacker cannot set a loopback Host on a public socket,
- * so the fallback cannot widen an external key's IP allowlist — those still
- * fail closed without a socket-stamped IP. Mirrors the documented dev fallback
- * in dashboardGuard.js isLocalRequest().
+ * work when the process runs as bare `next dev` without custom-server.js —
+ * there is no TCP-socket IP to stamp in that mode. It is deliberately narrow:
+ * it applies only to internal keys (already minted loopback-only), only via a
+ * loopback Host, and only in development (Host is spoofable; production
+ * runs custom-server.js, which stamps the proven IP). An external attacker
+ * cannot widen an external key's IP allowlist — those still fail closed
+ * without a proven IP. Mirrors the dev fallback in dashboardGuard.isLoopbackPeer().
  */
 export function resolveClientIp(request, { clientIp = null, isInternal = false } = {}) {
   if (clientIp) return clientIp;
   const stamped = extractClientIp(request);
   if (stamped) return stamped;
-  if (isInternal && isLoopbackHostname(request?.headers?.get?.("host"))) {
+  if (isInternal && process.env.NODE_ENV === "development" && isLoopbackHostname(request?.headers?.get?.("host"))) {
     return "127.0.0.1";
   }
   return null;
