@@ -155,7 +155,12 @@ export default function LoginPage() {
       <div className="landing-grid absolute inset-0 pointer-events-none" aria-hidden="true" />
       <div className="relative z-10 w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary mb-2">9Router</h1>
+          <div className="flex justify-center mb-3">
+            <div className="size-16 rounded-2xl bg-[#0a0a0a] shadow-[var(--shadow-warm)] flex items-center justify-center overflow-hidden">
+              <img src="/vela-logo.svg" alt="Vela" className="size-12" width={48} height={48} />
+            </div>
+          </div>
+          <h1 className="text-3xl font-bold text-primary mb-2">Vela</h1>
           <p className="text-text-muted">
             {samlAvailable
               ? "Sign in with SAML 2.0 Single Sign-On"
