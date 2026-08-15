@@ -1,0 +1,277 @@
+// Storage Covenant Wave A8 — the mysql twin of sqlite/apiKeysRepo.js.
+// Plan line 273: "apiKeys (hash-at-rest, rotation, soft-delete)".
+//
+// Dialect notes (the only currents that differ from the sqlite harbor):
+//   • `key` is a MySQL reserved word — every reference is backticked.
+//   • Soft-revoke NULLs keyHash: both engines treat NULLs as DISTINCT in
+//     UNIQUE indexes (MariaDB included), so revoked rows never collide.
+//   • The throttled lastUsedAt writer is LOCAL to this wave. The sqlite
+//     harbor imports touchKeyLastUsed from usageRepo.js — that repo is A9
+//     territory, and the waves must stay independent. Same throttle (60s),
+//     same fail-open silence; the two writers converge in A9 if warranted.
+import { getMysqlAdapter } from "../../mysql/adapter.js";
+import { validateKeyLimits, KeyLimitsValidationError } from "../../keyLimits.js";
+// Static (not dynamic) import — resolveKey is on the gate hot path and a
+// per-call `await import()` inflates p99 under CPU contention. apiKey.js
+// reaches only stdlib + DATA_DIR, so no import cycle.
+import { parseVelaKey, hashKey } from "@/shared/utils/apiKey";
+
+export { KeyLimitsValidationError } from "../../keyLimits.js";
+
+// ─── Own throttled lastUsedAt writer (see header) ───────────────────────
+const _lastUsedWrites = new Map();
+const LAST_USED_THROTTLE_MS = 60_000;
+async function touchKeyLastUsed(keyId) {
+  const now = Date.now();
+  const prev = _lastUsedWrites.get(keyId) || 0;
+  if (now - prev < LAST_USED_THROTTLE_MS) return;
+  _lastUsedWrites.set(keyId, now);
+  try {
+    const db = await getMysqlAdapter();
+    await db.run(`UPDATE apiKeys SET lastUsedAt = ? WHERE id = ?`, [new Date().toISOString(), keyId]);
+  } catch {}
+}
+
+function rowToPublic(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description || null,
+    keyPrefix: row.keyPrefix || null,
+    allowedModels: safeParse(row.allowedModels),
+    // mysql2 returns TINYINT(1) as 0/1 numbers — the ===1 check is the
+    // harbor's canonical boolean normalization (booleanMode "boolean" is
+    // deliberately OFF in pool.js).
+    isActive: row.isActive === 1 || row.isActive === true,
+    isInternal: row.isInternal === 1 || row.isInternal === true,
+    createdAt: row.createdAt,
+    // W2/W3 columns surface when their waves land
+    expiresAt: row.expiresAt || null,
+    lastUsedAt: row.lastUsedAt || null,
+    rotatedFrom: row.rotatedFrom || null,
+    tokenBudgetDaily: row.tokenBudgetDaily ?? null,
+    spendCapDailyCents: row.spendCapDailyCents ?? null,
+    budgetScope: row.budgetScope || null,
+    rateLimitRpm: row.rateLimitRpm ?? null,
+    ipAllowlist: safeParse(row.ipAllowlist),
+    category: row.category || null,
+  };
+}
+
+function safeParse(v) {
+  if (v == null) return null;
+  try { return JSON.parse(v); } catch { return null; }
+}
+
+// Free-form key categories — the Star's own labels (friend, hermes, others…).
+// Trimmed, whitespace-collapsed, capped; null/empty means "uncategorized".
+// Shared by the create and update paths so both store the exact same shape.
+const MAX_CATEGORY_LENGTH = 48;
+export function sanitizeCategory(input) {
+  if (input == null) return null;
+  if (typeof input !== "string") throw new Error("Category must be a string");
+  const normalized = input.trim().replace(/\s+/g, " ");
+  if (!normalized) return null;
+  if (normalized.length > MAX_CATEGORY_LENGTH) {
+    throw new Error(`Category must be ${MAX_CATEGORY_LENGTH} characters or fewer`);
+  }
+  return normalized;
+}
+
+// Internal rows and soft-deleted rows are hidden from every list surface.
+export async function getApiKeys() {
+  const db = await getMysqlAdapter();
+  const rows = await db.all(
+    `SELECT * FROM apiKeys WHERE isInternal = 0 AND deletedAt IS NULL ORDER BY createdAt ASC`
+  );
+  return rows.map(rowToPublic);
+}
+
+export async function getApiKeyById(id) {
+  const db = await getMysqlAdapter();
+  const row = await db.get(`SELECT * FROM apiKeys WHERE id = ? AND isInternal = 0 AND deletedAt IS NULL`, [id]);
+  return rowToPublic(row);
+}
+
+/**
+ * Mint a new Vela key. Returns { record, key, keyId, keyPrefix } — `key` is the
+ * one-time plaintext shown in the 201 response and NEVER persisted or returned again.
+ * The legacy `key` column keeps a per-row placeholder to satisfy UNIQUE NOT NULL.
+ */
+export async function createApiKey(name, opts = {}) {
+  // W3: limit opts are validated exactly like the update path — a key must
+  // never be minted with governance values the gate or UI cannot trust.
+  const limits = validateKeyLimits(opts);
+  if (!limits.ok) throw new KeyLimitsValidationError(limits.errors);
+  const category = sanitizeCategory(opts.category);
+  const db = await getMysqlAdapter();
+  const { generateApiKey } = await import("@/shared/utils/apiKey");
+  const { key, keyId, keyHash, keyPrefix } = generateApiKey();
+  const id = keyId; // keyId is the row id — one less random identity
+  const createdAt = new Date().toISOString();
+  const v = limits.values;
+  await db.run(
+    `INSERT INTO apiKeys(id, \`key\`, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, description, allowedModels, isInternal, rateLimitRpm, tokenBudgetDaily, spendCapDailyCents, budgetScope, expiresAt, ipAllowlist, category)
+     VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      `vela-minted-${id}`,
+      name,
+      null,
+      createdAt,
+      "v1",
+      keyHash,
+      keyPrefix,
+      opts.description || null,
+      opts.allowedModels != null ? JSON.stringify(opts.allowedModels) : null,
+      v.rateLimitRpm ?? null,
+      v.tokenBudgetDaily ?? null,
+      v.spendCapDailyCents ?? null,
+      v.budgetScope ?? null,
+      v.expiresAt ?? null,
+      v.ipAllowlist != null ? JSON.stringify(v.ipAllowlist) : null,
+      category,
+    ]
+  );
+  return { record: await getApiKeyById(id), key, keyId, keyPrefix };
+}
+
+/**
+ * Whitelisted update — ONLY these fields may change (fixes the blind merge).
+ * Security columns (keyHash, keyVersion, keyPrefix, isInternal, rotatedFrom,
+ * rotationPrevHash, rotationGraceUntil) are never writable through this path.
+ * W3 governance fields pass validateKeyLimits first — an invalid value throws
+ * KeyLimitsValidationError instead of reaching the database.
+ */
+const MUTABLE_FIELDS = new Set([
+  "name", "description", "allowedModels", "isActive",
+  "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
+  "budgetScope", "expiresAt", "ipAllowlist", "category",
+]);
+const LIMIT_FIELDS = new Set([
+  "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
+  "budgetScope", "expiresAt", "ipAllowlist",
+]);
+export async function updateApiKey(id, data) {
+  const present = Object.keys(data || {}).filter((k) => MUTABLE_FIELDS.has(k));
+  const limitInput = {};
+  for (const k of present) if (LIMIT_FIELDS.has(k)) limitInput[k] = data[k];
+  const limits = validateKeyLimits(limitInput);
+  if (!limits.ok) throw new KeyLimitsValidationError(limits.errors);
+
+  const db = await getMysqlAdapter();
+  let result = null;
+  await db.transaction(async (tx) => {
+    const row = await tx.get(`SELECT * FROM apiKeys WHERE id = ? AND isInternal = 0 AND deletedAt IS NULL`, [id]);
+    if (!row) return;
+    const sets = [];
+    const vals = [];
+    for (const k of present) {
+      if (k === "allowedModels") {
+        sets.push("allowedModels = ?");
+        vals.push(data[k] != null ? JSON.stringify(data[k]) : null);
+      } else if (k === "isActive") {
+        sets.push("isActive = ?");
+        vals.push(data[k] ? 1 : 0);
+      } else if (k === "category") {
+        sets.push("category = ?");
+        vals.push(sanitizeCategory(data[k]));
+      } else if (LIMIT_FIELDS.has(k)) {
+        sets.push(`${k} = ?`);
+        vals.push(k === "ipAllowlist" && limits.values[k] != null ? JSON.stringify(limits.values[k]) : limits.values[k] ?? null);
+      } else {
+        sets.push(`${k} = ?`);
+        vals.push(data[k]);
+      }
+    }
+    if (!sets.length) {
+      result = rowToPublic(row);
+      return;
+    }
+    await tx.run(`UPDATE apiKeys SET ${sets.join(", ")} WHERE id = ?`, [...vals, id]);
+    result = rowToPublic(await tx.get(`SELECT * FROM apiKeys WHERE id = ?`, [id]));
+  });
+  return result;
+}
+
+/** Soft-revoke: audit row survives, hash NULLed (MySQL's UNIQUE treats NULLs as distinct). */
+export async function deleteApiKey(id) {
+  const db = await getMysqlAdapter();
+  const res = await db.run(
+    `UPDATE apiKeys SET isActive = 0, keyHash = NULL, deletedAt = ? WHERE id = ? AND isInternal = 0 AND deletedAt IS NULL`,
+    [new Date().toISOString(), id]
+  );
+  return (res?.changes ?? 0) > 0;
+}
+
+/**
+ * Resolve a bearer token to its row (the gate's lookup). Fail-closed:
+ * bad format, bad CRC, unknown hash, soft-deleted → null. Returns the row
+ * even when paused — the GATE speaks the distinct codes (paused → 403,
+ * unknown → 401). Honors a single rotation grace slot.
+ */
+export async function resolveKey(rawKey) {
+  const db = await getMysqlAdapter();
+  const parsed = parseVelaKey(rawKey);
+  if (!parsed) return null;
+  const hash = hashKey(rawKey);
+  const now = new Date().toISOString();
+  const row = await db.get(
+    `SELECT * FROM apiKeys
+     WHERE (keyHash = ?)
+        OR (rotationPrevHash = ? AND rotationGraceUntil IS NOT NULL AND rotationGraceUntil > ?)`,
+    [hash, hash, now]
+  );
+  if (!row || row.deletedAt) return null;
+  // Awaken the dormant lastUsedAt column — the gate saw this key work.
+  if (row.isInternal !== 1 && row.isInternal !== true) await touchKeyLastUsed(row.id);
+  return row;
+}
+
+/**
+ * Back-compat boolean wrapper for existing callsites until the gate rewires them.
+ * vela- keys only — every sk- token returns false; paused keys are invalid here.
+ */
+export async function validateApiKey(key) {
+  const row = await resolveKey(key);
+  return row != null && (row.isActive === 1 || row.isActive === true);
+}
+
+/**
+ * Find-or-create the deterministic internal key for a purpose (e.g. MITM).
+ * The plaintext is derived (never stored); the row carries the hash for
+ * validation and is pinned loopback-only + hidden from all list APIs.
+ */
+export async function ensureInternalKey(purpose) {
+  const db = await getMysqlAdapter();
+  const name = `internal:${purpose}`;
+  const existing = await db.get(`SELECT * FROM apiKeys WHERE name = ? AND isInternal = 1`, [name]);
+  const { deriveInternalKey } = await import("@/shared/utils/apiKey");
+  const derived = deriveInternalKey(purpose);
+  if (existing) {
+    // Rotating API_KEY_SECRET changes the derivation — follow it so the
+    // global revocation lever actually re-keys the internal credential.
+    if (existing.keyHash !== derived.keyHash) {
+      await db.run(`UPDATE apiKeys SET keyHash = ?, keyPrefix = ? WHERE id = ?`, [derived.keyHash, derived.keyPrefix, existing.id]);
+    }
+    return { key: derived.key, keyId: derived.keyId, id: existing.id };
+  }
+  const createdAt = new Date().toISOString();
+  await db.run(
+    `INSERT INTO apiKeys(id, \`key\`, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, allowedModels, isInternal, ipAllowlist)
+     VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, NULL, 1, ?)`,
+    [
+      derived.keyId,
+      `vela-internal-${purpose}`,
+      name,
+      null,
+      createdAt,
+      "v1",
+      derived.keyHash,
+      derived.keyPrefix,
+      JSON.stringify(["127.0.0.1/32", "::1/128"]),
+    ]
+  );
+  return { key: derived.key, keyId: derived.keyId, id: derived.keyId };
+}
