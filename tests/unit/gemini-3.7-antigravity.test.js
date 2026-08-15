@@ -27,10 +27,13 @@ describe("Gemini 3.7 Flash Support & Config (#3286, #3281)", () => {
     expect(caps.maxOutput).toBe(65536);
   });
 
-  it("defines pricing matching gemini-3.6-flash baseline", () => {
-    expect(MODEL_PRICING["gemini-3.7-flash"]).toEqual(MODEL_PRICING["gemini-3.6-flash"]);
-    expect(MODEL_PRICING["gemini-3.7-flash-high"]).toEqual(MODEL_PRICING["gemini-3.6-flash-high"]);
-    expect(MODEL_PRICING["gemini-3.7-flash-medium"]).toEqual(MODEL_PRICING["gemini-3.6-flash-medium"]);
-    expect(MODEL_PRICING["gemini-3.7-flash-low"]).toEqual(MODEL_PRICING["gemini-3.6-flash-low"]);
+  it("defines gemini-3.7-flash pricing at the official 2026 rate (half the 3.6 rate)", () => {
+    // Re-baselined 2026-08-15 (Pricing Covenant): Google's official pricing cut
+    // gemini-3.7-flash to 0.75/3.75 — half the gemini-3.6-flash 1.5/7.5 rate
+    // (models.dev/api.json + ai.google.dev/gemini-api/docs/pricing). The three
+    // thinking-level suffix tiers keep parity with each other.
+    expect(MODEL_PRICING["gemini-3.7-flash"]).toMatchObject({ input: 0.75, output: 3.75 });
+    expect(MODEL_PRICING["gemini-3.7-flash-high"]).toEqual(MODEL_PRICING["gemini-3.7-flash-medium"]);
+    expect(MODEL_PRICING["gemini-3.7-flash-medium"]).toEqual(MODEL_PRICING["gemini-3.7-flash-low"]);
   });
 });
