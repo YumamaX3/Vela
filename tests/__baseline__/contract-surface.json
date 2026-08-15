@@ -1,9 +1,9 @@
 {
-  "sealed": "2026-08-15",
-  "wave": "A10 — Storage Covenant Wave A complete",
-  "total": 74,
-  "parity": 64,
-  "exemptProcess": 10,
+  "sealed": "2026-08-16",
+  "wave": "B2 — the backup engine joins the contract: +7 symbols (2 parity ledger fns + 5 exempt-process engine fns)",
+  "total": 81,
+  "parity": 66,
+  "exemptProcess": 15,
   "exemptPending": 0,
   "exports": [
     "KeyLimitsValidationError",
@@ -61,10 +61,16 @@
     "importDb",
     "initDb",
     "isCloudEnabled",
+    "listBackupLedger",
+    "pruneBackupArtifacts",
+    "purgeOldUsage",
     "reorderProviderConnections",
     "replaceSyncedPricing",
     "resetAllPricing",
     "resetPricing",
+    "restoreBackup",
+    "runBackup",
+    "runRestoreDrill",
     "sanitizeCategory",
     "saveRequestDetail",
     "saveRequestUsage",
@@ -79,6 +85,7 @@
     "updateProviderNode",
     "updateProxyPool",
     "updateSettings",
-    "validateApiKey"
+    "validateApiKey",
+    "writeLedger"
   ]
 }

@@ -16,6 +16,10 @@ export async function GET(request) {
     if (!isCliRequest(request) && !(await verifyDashboardPassword(request.headers.get(PASSWORD_HEADER)))) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
     }
+    // S2 (Storage Covenant Wave B2): exportDb now redacts SECRET_SETTING_KEYS
+    // at the source — this endpoint can never hand out password /
+    // mitmSudoEncrypted / oidcClientSecret again. The completeness law still
+    // holds for every non-secret field.
     const payload = await exportDb();
     return NextResponse.json(payload);
   } catch (error) {
@@ -26,11 +30,19 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { password, ...payload } = await request.json();
+    const { password, adoptSecrets, ...payload } = await request.json();
     if (!isCliRequest(request) && !(await verifyDashboardPassword(password))) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
     }
-    await importDb(payload);
+    // S1 (Storage Covenant Wave B2): the payload is HOSTILE input — size bound
+    // + shape validation happen inside importDb BEFORE any write. The
+    // RESTORE-QUARANTINED fields (password/requireLogin/authMode/oidc*,
+    // apiKeys keyHash/isInternal/deletedAt) restore only under an explicit
+    // adoptSecrets — the default preserves CURRENT values.
+    if (typeof adoptSecrets !== "undefined" && typeof adoptSecrets !== "boolean") {
+      return NextResponse.json({ error: "adoptSecrets must be a boolean" }, { status: 400 });
+    }
+    await importDb(payload, { adoptSecrets: adoptSecrets === true });
 
     // Ensure proxy settings take effect immediately after a DB import.
     try {
@@ -43,9 +55,10 @@ export async function POST(request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.log("Error importing database:", error);
+    const overBound = String(error?.message || "").includes("restore bound");
     return NextResponse.json(
       { error: error?.message || "Failed to import database" },
-      { status: 400 }
+      { status: overBound ? 413 : 400 }
     );
   }
 }

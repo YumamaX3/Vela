@@ -73,5 +73,10 @@ export {
   saveRequestDetail, getRequestDetails, getRequestDetailById, getDistinctProviders,
 } from "./repos/requestDetailsRepo.js";
 
-// Export/import full DB — Wave B1 harbor-home (repos/backupRepo.js facade).
+// Export/import + the backup engine — Wave B1/B2 harbor-home (repos/backupRepo.js facade).
 export { exportDb, importDb, initDb } from "./repos/backupRepo.js";
+export {
+  runBackup, restoreBackup, runRestoreDrill,
+  writeLedger, listBackupLedger,
+  pruneBackupArtifacts, purgeOldUsage,
+} from "./repos/backupRepo.js";

@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -191,6 +191,28 @@ export const TABLES = {
       "CREATE INDEX IF NOT EXISTS idx_rd_provider ON requestDetails(provider)",
       "CREATE INDEX IF NOT EXISTS idx_rd_model ON requestDetails(model)",
       "CREATE INDEX IF NOT EXISTS idx_rd_conn ON requestDetails(connectionId)",
+    ],
+  },
+  // Storage Covenant Wave B2 — the backup ledger. Rows record backup/restore/
+  // drill events. S2 law: this table joins the export-exclusion registry — its
+  // error strings carry paths/driver names/SQL errors, an information channel
+  // that must never flow into an artifact or a resync.
+  backupLedger: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      createdAt: "TEXT NOT NULL",
+      kind: "TEXT NOT NULL", // backup | restore | drill | purge | failed
+      status: "TEXT NOT NULL", // ok | failed
+      artifactId: "TEXT",
+      sizeBytes: "INTEGER",
+      schemaVersion: "INTEGER",
+      sourceMode: "TEXT",
+      targetMode: "TEXT",
+      error: "TEXT", // metadata-only surface; never leaves the ledger (S2)
+      meta: "TEXT",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_bl_created ON backupLedger(createdAt DESC)",
     ],
   },
 };
