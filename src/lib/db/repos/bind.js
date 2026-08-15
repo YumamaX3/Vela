@@ -31,10 +31,10 @@ export async function assertMysqlReachable() {
   await probeMysqlUrl(url.trim()); // throws loud on any connection failure
 }
 
-/** The A6 refusal — the BARREL's raw-SQL functions (exportDb/importDb) are
- *  sqlite-only until Wave B harbors them; under a mysql/mirror posture they
- *  refuse LOUD rather than silently exporting the wrong engine. Repo-level
- *  dispatch lives in bindFacade() below, which binds the config-wave twins. */
+/** The A6 refusal — exportDb/importDb live in repos/backupRepo.js (Wave B1
+ *  harbor-home, plan line 420) and call this gate before dispatching; under a
+ *  mysql/mirror posture they refuse LOUD rather than silently exporting the
+ *  wrong engine. Repo-level dispatch lives in bindFacade() below. */
 export async function assertHarborBound() {
   const mode = getDbMode();
   if (mode === "sqlite") return; // today's harbor — binds verbatim
