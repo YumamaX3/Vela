@@ -23,12 +23,18 @@
 //     two of our tables use it as a column name (apiKeys, kv).
 export const VARCHAR_INDEX_WIDTH = 191;
 
+/** Strip sort suffixes (col DESC/ASC) — a DESC index column is still the
+ *  column itself; MySQL parses the suffix but the identifier is bare. */
+function cleanIndexCol(c) {
+  return c.trim().replace(/\s+(ASC|DESC)$/i, "");
+}
+
 /** Columns that appear in any index or composite PRIMARY KEY of a table. */
 export function indexedColumns(def) {
   const cols = new Set();
   for (const idx of def.indexes || []) {
     const m = idx.match(/ON\s+\w+\s*\(([^)]+)\)/i);
-    if (m) for (const c of m[1].split(",")) cols.add(c.trim());
+    if (m) for (const c of m[1].split(",")) cols.add(cleanIndexCol(c));
   }
   if (def.primaryKey) {
     const m = def.primaryKey.match(/\(([^)]+)\)/);
@@ -98,7 +104,7 @@ export function toMysqlIndexSqls(name, def) {
     let sql = idx.replace(/IF NOT EXISTS\s*/i, "");
     sql = sql.replace(/\s+WHERE\s+.+$/i, ""); // partial index → plain KEY
     sql = sql.replace(/ON\s+(\w+)\s*\(([^)]+)\)/i, (_, t, cols) =>
-      `ON \`${t}\` (${cols.split(",").map((c) => `\`${c.trim()}\``).join(", ")})`);
+      `ON \`${t}\` (${cols.split(",").map((c) => `\`${cleanIndexCol(c)}\``).join(", ")})`);
     return sql;
   });
 }
