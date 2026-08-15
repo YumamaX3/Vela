@@ -22,6 +22,24 @@ import { detectFormatByEndpoint } from "open-sse/translator/formats.js";
 import * as log from "../utils/logger.js";
 import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh.js";
 import { getProjectIdForConnection } from "open-sse/services/projectId.js";
+import { resolveProviderId } from "@/shared/constants/providers.js";
+import { resolvePreferredConnection } from "../services/connectionPreference.js";
+import "../services/freebuffPreference.js"; // registers the freebuff session-affinity resolver
+
+/**
+ * Resolve an advisory connection preference for (provider, model) — e.g. the
+ * freebuff account already holding this model's warm session. Fail-open: any
+ * resolver failure returns null and selection proceeds byte-identical to
+ * default behavior. Exported for the test seam (handleSingleModelChat is
+ * module-private).
+ */
+export async function resolveConnectionPreference(provider, model) {
+  try {
+    return await resolvePreferredConnection(resolveProviderId(provider), model);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Handle chat completion request
@@ -221,8 +239,12 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   let lastError = null;
   let lastStatus = null;
 
+  // Advisory pin (e.g. freebuff session affinity) — resolved once, fail-open.
+  // Iteration >= 2 degrades cleanly: an excluded pin falls through to strategy.
+  const preferredConnectionId = await resolveConnectionPreference(provider, model);
+
   while (true) {
-    const credentials = await getProviderCredentials(provider, excludeConnectionIds, model);
+    const credentials = await getProviderCredentials(provider, excludeConnectionIds, model, { preferredConnectionId });
 
     // All accounts unavailable
     if (!credentials || credentials.allRateLimited) {

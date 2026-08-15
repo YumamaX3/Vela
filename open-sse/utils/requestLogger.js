@@ -69,25 +69,25 @@ function writeJsonFile(sessionPath, filename, data) {
   }
 }
 
-// Mask sensitive data in headers (DISABLED - keep full token for testing)
+// Mask sensitive data in headers before they are written to logs/*.
+// Restored (was disabled "keep full token for testing") — with the opt-in
+// ENABLE_REQUEST_LOGS=true, full Bearer tokens were written unmasked to
+// 4_req_target.json. Full [REDACTED] (the old partial slice leaked 15 chars).
 function maskSensitiveHeaders(headers) {
   if (!headers) return {};
-  return { ...headers };
-  
-  // Old masking code (disabled):
-  // const masked = { ...headers };
-  // const sensitiveKeys = ["authorization", "x-api-key", "cookie", "token"];
-  // 
-  // for (const key of Object.keys(masked)) {
-  //   const lowerKey = key.toLowerCase();
-  //   if (sensitiveKeys.some(sk => lowerKey.includes(sk))) {
-  //     const value = masked[key];
-  //     if (value && value.length > 20) {
-  //       masked[key] = value.slice(0, 10) + "..." + value.slice(-5);
-  //     }
-  //   }
-  // }
-  // return masked;
+  const masked = { ...headers };
+  const sensitiveKeys = ["authorization", "x-api-key", "cookie", "token"];
+
+  for (const key of Object.keys(masked)) {
+    const lowerKey = key.toLowerCase();
+    if (sensitiveKeys.some(sk => lowerKey.includes(sk))) {
+      const value = masked[key];
+      if (value && value.length > 20) {
+        masked[key] = "[REDACTED]";
+      }
+    }
+  }
+  return masked;
 }
 
 // No-op logger when logging is disabled

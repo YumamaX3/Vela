@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import PropTypes from "prop-types";
 import { Modal, Button, Input } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import { DEVICE_CODE_PROVIDERS } from "@/shared/constants/deviceCodeProviders.js";
 
 // Providers using the dynamic-port local callback proxy.
 // Browser OAuth: popup → auto callback → auto exchange → poll-status.
@@ -224,17 +225,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
       }
 
       // Device code flow providers (must match oauth providers with flowType: "device_code")
-      const deviceCodeProviders = [
-        "github",
-        "kiro",
-        "kimi",
-        "kimi-coding",
-        "kilocode",
-        "codebuddy-cn",
-        "codebuddy-intl",
-        "qoder",
-        "grok-cli",
-      ];
+      const deviceCodeProviders = DEVICE_CODE_PROVIDERS;
       if (deviceCodeProviders.includes(provider)) {
         setIsDeviceCode(true);
         setStep("waiting");

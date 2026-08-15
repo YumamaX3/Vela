@@ -7,6 +7,7 @@ import {
   pollForToken
 } from "@/lib/oauth/providers";
 import { createProviderConnection } from "@/models";
+import { DEVICE_CODE_PROVIDERS, NO_PKCE_POLL_PROVIDERS } from "@/shared/constants/deviceCodeProviders.js";
 import {
   startCodexProxy,
   stopCodexProxy,
@@ -205,17 +206,7 @@ export async function GET(request, { params }) {
         : undefined;
       
       // Providers that don't use PKCE for device code (Grok CLI HAR: plain device_code, no challenge)
-      const noPkceDeviceProviders = [
-        "github",
-        "kiro",
-        "kimi",
-        "kimi-coding",
-        "kilocode",
-        "codebuddy-cn",
-        "codebuddy-intl",
-        "qoder",
-        "grok-cli",
-      ];
+      const noPkceDeviceProviders = DEVICE_CODE_PROVIDERS;
       let deviceData;
       if (noPkceDeviceProviders.includes(provider)) {
         deviceData = await requestDeviceCode(provider, undefined, deviceOptions);
@@ -381,7 +372,7 @@ export async function POST(request, { params }) {
       }
 
       // Providers that don't use PKCE for device code
-      const noPkceProviders = ["github", "kimi", "kimi-coding", "kilocode", "codebuddy-cn", "codebuddy-intl"];
+      const noPkceProviders = NO_PKCE_POLL_PROVIDERS;
       let result;
       if (noPkceProviders.includes(provider)) {
         // kimi needs extraData._kimiDeviceId for stable X-Msh-Device-Id (CLIProxyAPI parity)

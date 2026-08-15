@@ -25,6 +25,83 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.40 — The Free Tide Lantern 🏮⛵
+
+> *"A new light joins the fleet — small, generous, burning on no one's coin.
+> Buffy comes aboard with her five voices and her one rule: one session, one
+> model, one hour of warmth per claim. The lantern is lit, and the harbor
+> learns to share it without ever wasting a single drop of oil."*
+
+*Sealed 2026-08-15 · the Star's request · Milestone Tide: big change → `0.6.30 → 0.6.40`*
+
+## ✨ Features — Freebuff joins the fleet
+- **New provider: Freebuff** (`freebuff`, alias `fb`) — Codebuff's free tier,
+  woven natively into the routing engine. Five models: `deepseek/deepseek-v4-flash`,
+  `deepseek/deepseek-v4-pro`, `mimo/mimo-v2.5`, `minimax/minimax-m3`,
+  `openai/gpt-5.6-luna`. Category `freeTier` — real credentials, no virtual
+  no-auth connection, full fallback machinery intact.
+- **Device-code login** — the dashboard's OAuth flow grows a second rite:
+  per-connection fingerprint, `freebuff.com/api/auth/cli/code` device code,
+  browser hand-off, 5-second poll cadence, 5-minute window. The login URL is
+  hostname-allowlisted before the browser ever opens; the token that returns
+  has no refresh — when it dims, the keeper asks you to sign in again, never
+  silently fabricates a refresh.
+- **Session-affinity routing** — freebuff accounts hold ONE model-locked
+  session at a time, so the gateway now resolves an advisory connection
+  preference before account selection: the account already warm on your model
+  is pinned first, fail-open and byte-identical to default behavior when no
+  warm session exists. Warm sessions are rediscovered on restart (GET-only
+  probe) — nothing claimed is ever lost to a reboot.
+- **Quota panel support** — freebuff usage resolves from the read-only
+  `GET /api/v1/freebuff/session` quota API (`rateLimitsByModel` → remaining
+  sessions, plan label). The tracker is GET-only by construction — a usage
+  refresh can never burn a session unit.
+
+## 🔧 Changes
+- **The three-gate wire ceremony** — every freebuff request carries the
+  byte-exact Buffy system marker as opener of the first system message
+  (idempotent — never forged twice), the end_turn tool injected only when the
+  body carries tools, and the top-level `codebuff_metadata` seal
+  (`cost_mode: "free"`, `allow_fallbacks: false`, reasoning fields stripped).
+  The SDK User-Agent is pinned; a wrong one means a 403 at the gate.
+- **Gate-aware error handling** — 409/410/428 session gates reclaim the
+  session once and retry; `model_locked` becomes a 65-minute per-model lock
+  (one session TTL) instead of churning; 429 daily-quota reads `resetAt` and
+  locks account-wide until **Pacific midnight** — deliberately beyond the
+  generic 30-minute cooldown cap, validated and clamped so an untrusted
+  upstream body can never extend a lock past one quota window.
+- **Agent-run lifecycle** — START before the stream, fire-and-forget FINISH
+  after; best-effort, never blocking the request.
+- **Bearer masking restored** — the request logger's sensitive-header mask is
+  re-enabled with a full `[REDACTED]` (the old partial mask leaked 15
+  characters of any Authorization header into the logs).
+- **Test-batch courtesy** — freebuff models are skipped by the models test
+  ping: a batch test would claim the account's one session and burn a daily
+  quota unit for a health check.
+
+## ⚙️ Internal
+- New: `open-sse/config/freebuff.js` (every wire constant in one drift point),
+  `open-sse/providers/registry/freebuff.js`, `open-sse/executors/freebuff.js`
+  (full `execute()` override preserving BaseExecutor connect-timeout/retry
+  semantics), `open-sse/services/freebuffSession.js` (mirror + mutex claims +
+  gate classification), `open-sse/services/usage/freebuff.js`,
+  `src/lib/oauth/providers/freebuff.js`, `src/shared/constants/deviceCodeProviders.js`,
+  `src/sse/services/connectionPreference.js` + `freebuffPreference.js`,
+  `src/app/api/models/test/sessionScarce.js`.
+- Wired: executor + translator registries, usage handler map, OAuth provider
+  map + device-code route, chat handler preference hook, account-lockout
+  branches, models ping guard.
+- **72 new unit tests, all green** — marker/body forging idempotence, gate
+  classification, claim mutex + warm-session affinity, GET-only quota
+  invariant, device-code allowlist + no-refresh invariants, Pacific-midnight
+  lockout math (including DST boundaries), ping guard.
+- Providers + alias baselines re-snapshotted (90 providers / 117 alias tokens)
+  and byte-equal verified; A/B regression proof against pristine `main` shows
+  zero regressions.
+- The sealed plan stands at `plans/freebuff-provider.md`.
+
+---
+
 # v0.6.30 — The Harbor Gate Reborn 🌌⛵
 
 > *"The gate where every traveler first meets the harbor has been rebuilt —

@@ -1,5 +1,6 @@
 import { UPDATER_CONFIG } from "@/shared/constants/config";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
+import { isSessionScarceTestTarget } from "./sessionScarce.js";
 
 const CLI_TOKEN_SALT = "9r-cli-auth";
 
@@ -53,6 +54,12 @@ async function getInternalHeaders() {
 }
 
 export async function pingModelByKind(model, kind, baseUrl = `http://127.0.0.1:${process.env.PORT || UPDATER_CONFIG.appPort}`) {
+  // Session-scarce guard: a freebuff test request would claim a session
+  // (~6/day quota unit) through the chat path — soft-skip BEFORE any fetch.
+  if (isSessionScarceTestTarget(model)) {
+    return { ok: true, latencyMs: 0, error: null, skipped: true, status: 200 };
+  }
+
   const headers = await getInternalHeaders();
   const start = Date.now();
 
