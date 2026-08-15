@@ -1,0 +1,899 @@
+// Storage Covenant Wave A9 — the mysql twin of sqlite/usageRepo.js.
+// Plan line 274: "dedupe via UNIQUE + ON DUPLICATE KEY UPDATE; day-aggregate
+// upsert; GROUP BY parity; concurrent-write scenario (both engines converge
+// to one row)".
+//
+// Dialect currents that differ from the sqlite harbor:
+//   • saveRequestUsage dedupe: sqlite's INSERT...ON CONFLICT DO NOTHING
+//     (changes === 0 marks the duplicate) ≡ a plain INSERT whose ER_DUP_ENTRY
+//     error IS the "existing row" signal (plan lines 98/273). The endpoint
+//     backfill UPDATE runs inside the same connection-bound transaction.
+//   • usageDaily day-aggregate rides ON DUPLICATE KEY UPDATE data = VALUES(data);
+//     _meta's `key` column is backticked (reserved word).
+//   • getKeyUsageStats GROUP BY normalizes COUNT/SUM with Number() (BIGINT safety).
+//   • The cost column is DECIMAL(12,6) on the twin (plan line 245) and
+//     decimalNumbers:true converts aggregates back to JS numbers.
+//
+// The in-memory layer (pending-request counters, recent ring, stats emitter)
+// is duplicated verbatim: its state lives in global._* by design, so both
+// harbors share one live picture regardless of which module initialized it.
+import { EventEmitter } from "events";
+import { getMysqlAdapter } from "../../mysql/adapter.js";
+import { parseJson, stringifyJson } from "../../helpers/jsonCol.js";
+
+// Resolve a bearer token to its stable attribution identity (keyId/keyPrefix).
+// Hash-at-rest means the raw key is never persisted — usage is keyed by keyId so
+// attribution survives rotation. Fail-open: unresolved → null (local-no-key).
+// Imports the A8 mysql twin (wave-local), never the facade.
+async function resolveUsageKeyIdentity(rawKey) {
+  if (!rawKey || typeof rawKey !== "string") return { keyId: null, keyPrefix: null };
+  try {
+    const { resolveKey } = await import("./apiKeysRepo.js");
+    const row = await resolveKey(rawKey);
+    if (!row) return { keyId: null, keyPrefix: null };
+    return { keyId: row.id, keyPrefix: row.keyPrefix || null };
+  } catch {
+    return { keyId: null, keyPrefix: null };
+  }
+}
+
+const PENDING_TIMEOUT_MS = 60 * 1000;
+const RING_CAP = 50;
+const CONN_CACHE_TTL_MS = 30 * 1000;
+const PERIOD_MS = { "24h": 86400000, "7d": 604800000, "30d": 2592000000, "60d": 5184000000 };
+
+// In-memory state shared across Next.js modules
+if (!global._pendingRequests) global._pendingRequests = { byModel: {}, byAccount: {} };
+if (!global._lastErrorProvider) global._lastErrorProvider = { provider: "", ts: 0 };
+if (!global._statsEmitter) {
+  global._statsEmitter = new EventEmitter();
+  global._statsEmitter.setMaxListeners(50);
+}
+if (!global._pendingTimers) global._pendingTimers = {};
+if (!global._recentRing) global._recentRing = { items: [], initialized: false };
+if (!global._connectionMapCache) global._connectionMapCache = { map: {}, ts: 0 };
+if (!global._statsEmitTimers) global._statsEmitTimers = { pending: null, update: null };
+
+const pendingRequests = global._pendingRequests;
+const lastErrorProvider = global._lastErrorProvider;
+const pendingTimers = global._pendingTimers;
+const recentRing = global._recentRing;
+const connCache = global._connectionMapCache;
+const statsEmitTimers = global._statsEmitTimers;
+
+export const statsEmitter = global._statsEmitter;
+
+function scheduleStatsEvent(event, delayMs = 150) {
+  const key = event === "update" ? "update" : "pending";
+  if (statsEmitTimers[key]) return;
+  statsEmitTimers[key] = setTimeout(() => {
+    statsEmitTimers[key] = null;
+    statsEmitter.emit(event);
+  }, delayMs);
+  statsEmitTimers[key]?.unref?.();
+}
+
+function getLocalDateKey(timestamp) {
+  const d = timestamp ? new Date(timestamp) : new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function addToCounter(target, key, values) {
+  if (!target[key]) target[key] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0 };
+  target[key].requests += values.requests || 1;
+  target[key].promptTokens += values.promptTokens || 0;
+  target[key].completionTokens += values.completionTokens || 0;
+  target[key].cachedTokens += values.cachedTokens || 0;
+  target[key].cost += values.cost || 0;
+  if (values.meta) Object.assign(target[key], values.meta);
+}
+
+function aggregateEntryToDay(day, entry) {
+  const promptTokens = entry.tokens?.prompt_tokens || entry.tokens?.input_tokens || 0;
+  const completionTokens = entry.tokens?.completion_tokens || entry.tokens?.output_tokens || 0;
+  const cachedTokens = entry.tokens?.cached_tokens || entry.tokens?.cache_read_input_tokens || 0;
+  const cost = entry.cost || 0;
+  const vals = { promptTokens, completionTokens, cachedTokens, cost };
+
+  day.requests = (day.requests || 0) + 1;
+  day.promptTokens = (day.promptTokens || 0) + promptTokens;
+  day.completionTokens = (day.completionTokens || 0) + completionTokens;
+  day.cachedTokens = (day.cachedTokens || 0) + cachedTokens;
+  day.cost = (day.cost || 0) + cost;
+
+  day.byProvider ||= {};
+  day.byModel ||= {};
+  day.byAccount ||= {};
+  day.byApiKey ||= {};
+  day.byEndpoint ||= {};
+
+  if (entry.provider) addToCounter(day.byProvider, entry.provider, vals);
+
+  const modelKey = entry.provider ? `${entry.model}|${entry.provider}` : entry.model;
+  addToCounter(day.byModel, modelKey, { ...vals, meta: { rawModel: entry.model, provider: entry.provider } });
+
+  if (entry.connectionId) {
+    addToCounter(day.byAccount, entry.connectionId, { ...vals, meta: { rawModel: entry.model, provider: entry.provider } });
+  }
+
+  const apiKeyVal = entry.keyId && typeof entry.keyId === "string" ? entry.keyId : "local-no-key";
+  const akModelKey = `${apiKeyVal}|${entry.model}|${entry.provider || "unknown"}`;
+  addToCounter(day.byApiKey, akModelKey, { ...vals, meta: { rawModel: entry.model, provider: entry.provider, keyId: entry.keyId || null, keyPrefix: entry.keyPrefix || null } });
+
+  const endpoint = entry.endpoint || "Unknown";
+  const epKey = `${endpoint}|${entry.model}|${entry.provider || "unknown"}`;
+  addToCounter(day.byEndpoint, epKey, { ...vals, meta: { endpoint, rawModel: entry.model, provider: entry.provider } });
+}
+
+function pushToRing(entry) {
+  recentRing.items.push(entry);
+  if (recentRing.items.length > RING_CAP) {
+    recentRing.items = recentRing.items.slice(-RING_CAP);
+  }
+}
+
+async function getConnectionMapCached() {
+  if (Date.now() - connCache.ts < CONN_CACHE_TTL_MS) return connCache.map;
+  try {
+    const { getProviderConnections } = await import("./connectionsRepo.js");
+    const all = await getProviderConnections();
+    const map = {};
+    for (const c of all) map[c.id] = c.name || c.email || c.id;
+    connCache.map = map;
+    connCache.ts = Date.now();
+  } catch {}
+  return connCache.map;
+}
+
+async function ensureRingInitialized() {
+  if (recentRing.initialized) return;
+  recentRing.initialized = true;
+  try {
+    const db = await getMysqlAdapter();
+    const rows = await db.all(`SELECT timestamp, provider, model, connectionId, keyId, keyPrefix, endpoint, cost, status, tokens FROM usageHistory ORDER BY id DESC LIMIT ?`, [RING_CAP]);
+    recentRing.items = rows.reverse().map((r) => ({
+      timestamp: r.timestamp, provider: r.provider, model: r.model, connectionId: r.connectionId,
+      keyId: r.keyId, keyPrefix: r.keyPrefix, endpoint: r.endpoint, cost: r.cost, status: r.status,
+      tokens: parseJson(r.tokens, {}),
+    }));
+  } catch {}
+}
+
+async function calculateCost(provider, model, tokens) {
+  if (!tokens || !provider || !model) return 0;
+  try {
+    const { getPricingForModel } = await import("./pricingRepo.js");
+    const pricing = await getPricingForModel(provider, model);
+    if (!pricing) return 0;
+
+    // Delegate the actual math to the single source of truth (avoids the two
+    // copies drifting apart — see open-sse/providers/pricing.js for the
+    // cache-inclusive prompt_tokens convention this assumes).
+    const { calculateCostFromTokens } = await import("open-sse/providers/pricing.js");
+    return calculateCostFromTokens(tokens, pricing);
+  } catch (e) {
+    console.error("Error calculating cost:", e);
+    return 0;
+  }
+}
+
+export function trackPendingRequest(model, provider, connectionId, started, error = false) {
+  const modelKey = provider ? `${model} (${provider})` : model;
+  const timerKey = `${connectionId}|${modelKey}`;
+
+  if (!pendingRequests.byModel[modelKey]) pendingRequests.byModel[modelKey] = 0;
+  pendingRequests.byModel[modelKey] = Math.max(0, pendingRequests.byModel[modelKey] + (started ? 1 : -1));
+  if (pendingRequests.byModel[modelKey] === 0) delete pendingRequests.byModel[modelKey];
+
+  if (connectionId) {
+    if (!pendingRequests.byAccount[connectionId]) pendingRequests.byAccount[connectionId] = {};
+    if (!pendingRequests.byAccount[connectionId][modelKey]) pendingRequests.byAccount[connectionId][modelKey] = 0;
+    pendingRequests.byAccount[connectionId][modelKey] = Math.max(0, pendingRequests.byAccount[connectionId][modelKey] + (started ? 1 : -1));
+    if (pendingRequests.byAccount[connectionId][modelKey] === 0) {
+      delete pendingRequests.byAccount[connectionId][modelKey];
+      if (Object.keys(pendingRequests.byAccount[connectionId]).length === 0) {
+        delete pendingRequests.byAccount[connectionId];
+      }
+    }
+  }
+
+  if (started) {
+    clearTimeout(pendingTimers[timerKey]);
+    pendingTimers[timerKey] = setTimeout(() => {
+      delete pendingTimers[timerKey];
+      if (pendingRequests.byModel[modelKey] > 0) pendingRequests.byModel[modelKey] = 0;
+      if (connectionId && pendingRequests.byAccount[connectionId]?.[modelKey] > 0) {
+        pendingRequests.byAccount[connectionId][modelKey] = 0;
+      }
+      scheduleStatsEvent("pending");
+    }, PENDING_TIMEOUT_MS);
+  } else {
+    clearTimeout(pendingTimers[timerKey]);
+    delete pendingTimers[timerKey];
+  }
+
+  if (!started && error && provider) {
+    lastErrorProvider.provider = provider.toLowerCase();
+    lastErrorProvider.ts = Date.now();
+  }
+
+  scheduleStatsEvent("pending");
+}
+
+export async function getActiveRequests() {
+  const activeRequests = [];
+  const connectionMap = await getConnectionMapCached();
+
+  for (const [connectionId, models] of Object.entries(pendingRequests.byAccount)) {
+    for (const [modelKey, count] of Object.entries(models)) {
+      if (count > 0) {
+        const accountName = connectionMap[connectionId] || `Account ${connectionId.slice(0, 8)}...`;
+        const match = modelKey.match(/^(.*) \((.*)\)$/);
+        activeRequests.push({
+          model: match ? match[1] : modelKey,
+          provider: match ? match[2] : "unknown",
+          account: accountName, count,
+        });
+      }
+    }
+  }
+
+  await ensureRingInitialized();
+  const seen = new Set();
+  const recentRequests = [...recentRing.items]
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    .map((e) => {
+      const t = e.tokens || {};
+      return {
+        timestamp: e.timestamp, model: e.model, provider: e.provider || "",
+        promptTokens: t.prompt_tokens || t.input_tokens || 0,
+        completionTokens: t.completion_tokens || t.output_tokens || 0,
+        status: e.status || "ok",
+      };
+    })
+    .filter((e) => {
+      if (e.promptTokens === 0 && e.completionTokens === 0) return false;
+      const minute = e.timestamp ? e.timestamp.slice(0, 16) : "";
+      const key = `${e.model}|${e.provider}|${e.promptTokens}|${e.completionTokens}|${minute}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 20);
+
+  const errorProvider = (Date.now() - lastErrorProvider.ts < 10000) ? lastErrorProvider.provider : "";
+  return { activeRequests, recentRequests, errorProvider };
+}
+
+export async function saveRequestUsage(entry) {
+  try {
+    const db = await getMysqlAdapter();
+
+    if (!entry.timestamp) entry.timestamp = new Date().toISOString();
+    entry.cost = await calculateCost(entry.provider, entry.model, entry.tokens);
+
+    // Resolve stable attribution identity. The raw bearer token is NEVER
+    // persisted (hash-at-rest, plan §3.6) — masked-dual-write from W1.
+    // Keyless fast-path: skip the async resolution entirely when there is no
+    // bearer token, keeping the hot path light for the overwhelmingly common
+    // local-no-key case.
+    let keyId = null, keyPrefix = null;
+    if (typeof entry.apiKey === "string" && entry.apiKey) {
+      ({ keyId, keyPrefix } = await resolveUsageKeyIdentity(entry.apiKey));
+    }
+    entry.keyId = keyId;
+    entry.keyPrefix = keyPrefix;
+    delete entry.apiKey; // never reach the INSERT
+
+    const tokens = entry.tokens || {};
+    const promptTokens = tokens.prompt_tokens || tokens.input_tokens || 0;
+    const completionTokens = tokens.completion_tokens || tokens.output_tokens || 0;
+
+    let inserted = false;
+
+    // Dedupe identity (Storage Covenant A5/A9, plan lines 270/274): enforced
+    // by the UNIQUE index uq_uh_dedupe, so the write is ATOMIC. The sqlite
+    // harbor's INSERT...ON CONFLICT DO NOTHING (changes === 0 = duplicate)
+    // meets its mysql equivalent here: a plain INSERT whose ER_DUP_ENTRY
+    // (errno 1062) IS the "existing row" signal — the duplicate path then
+    // backfills the endpoint exactly as sqlite does. The four text columns
+    // write '' (not NULL): migration 004 normalized '' as the "unset" form so
+    // the UNIQUE index dedupes keyless rows identically in both engines
+    // (NULLs are DISTINCT in UNIQUE indexes).
+    //
+    // All 3 writes (history insert, daily upsert, lifetime counter) stay in
+    // ONE connection-bound transaction — no interleave between read and write.
+    await db.transaction(async (tx) => {
+      try {
+        await tx.run(
+          `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            entry.timestamp, entry.provider || "", entry.model || "",
+            entry.connectionId || "", entry.keyId || "", entry.keyPrefix || null,
+            entry.endpoint || null,
+            promptTokens, completionTokens, entry.cost || 0, entry.status || "ok",
+            stringifyJson(tokens), stringifyJson({}),
+          ]
+        );
+        inserted = true;
+      } catch (err) {
+        if (err?.code !== "ER_DUP_ENTRY" && err?.errno !== 1062) throw err;
+        // Duplicate group — backfill the endpoint exactly as the sqlite
+        // harbor does (idempotent, endpoint-only).
+        if (entry.endpoint) {
+          await tx.run(
+            `UPDATE usageHistory SET endpoint = ?
+             WHERE timestamp = ? AND provider = ? AND model = ? AND connectionId = ? AND keyId = ?
+               AND promptTokens = ? AND completionTokens = ?
+               AND (endpoint IS NULL OR endpoint = '')`,
+            [
+              entry.endpoint,
+              entry.timestamp, entry.provider || "", entry.model || "",
+              entry.connectionId || "", entry.keyId || "",
+              promptTokens, completionTokens,
+            ]
+          );
+        }
+        return;
+      }
+
+      const dateKey = getLocalDateKey(entry.timestamp);
+      const row = await tx.get(`SELECT data FROM usageDaily WHERE dateKey = ?`, [dateKey]);
+      const day = row ? parseJson(row.data, {}) : {
+        requests: 0, promptTokens: 0, completionTokens: 0, cost: 0,
+        byProvider: {}, byModel: {}, byAccount: {}, byApiKey: {}, byEndpoint: {},
+      };
+      aggregateEntryToDay(day, entry);
+      await tx.run(`INSERT INTO usageDaily(dateKey, data) VALUES(?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data)`, [dateKey, stringifyJson(day)]);
+
+      // Atomic counter increment in same transaction (`key` is reserved)
+      const cur = await tx.get("SELECT value FROM _meta WHERE `key` = 'totalRequestsLifetime'");
+      const next = (cur ? parseInt(cur.value, 10) : 0) + 1;
+      await tx.run("INSERT INTO _meta(`key`, value) VALUES('totalRequestsLifetime', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)", [String(next)]);
+    });
+
+    if (inserted) {
+      pushToRing(entry);
+      scheduleStatsEvent("update", 250);
+    }
+  } catch (e) {
+    console.error("Failed to save usage stats:", e);
+  }
+}
+
+export async function getUsageHistory(filter = {}) {
+  const db = await getMysqlAdapter();
+  const conds = [];
+  const params = [];
+
+  if (filter.provider) { conds.push("provider = ?"); params.push(filter.provider); }
+  if (filter.model) { conds.push("model = ?"); params.push(filter.model); }
+  if (filter.startDate) { conds.push("timestamp >= ?"); params.push(new Date(filter.startDate).toISOString()); }
+  if (filter.endDate) { conds.push("timestamp <= ?"); params.push(new Date(filter.endDate).toISOString()); }
+
+  const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
+  const rows = await db.all(`SELECT timestamp, provider, model, connectionId, keyId, keyPrefix, endpoint, cost, status, tokens FROM usageHistory ${where} ORDER BY id ASC`, params);
+
+  return rows.map((r) => ({
+    timestamp: r.timestamp, provider: r.provider, model: r.model,
+    connectionId: r.connectionId, keyId: r.keyId || null,
+    apiKeyMasked: r.keyPrefix || null, endpoint: r.endpoint,
+    cost: r.cost, status: r.status, tokens: parseJson(r.tokens, {}),
+  }));
+}
+
+async function loadDaysInRange(db, maxDays) {
+  if (maxDays == null) {
+    return await db.all(`SELECT dateKey, data FROM usageDaily`);
+  }
+  const today = new Date();
+  const cutoff = new Date(today.getFullYear(), today.getMonth(), today.getDate() - maxDays + 1);
+  const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
+  return await db.all(`SELECT dateKey, data FROM usageDaily WHERE dateKey >= ?`, [cutoffKey]);
+}
+
+export async function getUsageStats(period = "all") {
+  const db = await getMysqlAdapter();
+
+  const [{ getProviderConnections }, { getApiKeys }, { getProviderNodes }] = await Promise.all([
+    import("./connectionsRepo.js"),
+    import("./apiKeysRepo.js"),
+    import("./nodesRepo.js"),
+  ]);
+
+  let allConnections = [];
+  try { allConnections = await getProviderConnections(); } catch {}
+  const connectionMap = {};
+  for (const c of allConnections) connectionMap[c.id] = c.name || c.email || c.id;
+
+  const providerNodeNameMap = {};
+  try {
+    const nodes = await getProviderNodes();
+    for (const n of nodes) if (n.id && n.name) providerNodeNameMap[n.id] = n.name;
+  } catch {}
+
+  let allApiKeys = [];
+  try { allApiKeys = await getApiKeys(); } catch {}
+  const apiKeyMap = {};
+  // Keyed by keyId — the stable attribution identity (hash-at-rest, plan §3.6)
+  for (const k of allApiKeys) apiKeyMap[k.id] = { name: k.name, id: k.id, keyPrefix: k.keyPrefix, createdAt: k.createdAt };
+
+  // recentRequests from live history (last 100 entries enough for 20 deduped)
+  const recentRows = await db.all(`SELECT timestamp, provider, model, tokens, status FROM usageHistory ORDER BY id DESC LIMIT 100`);
+  const seen = new Set();
+  const recentRequests = recentRows
+    .map((r) => {
+      const t = parseJson(r.tokens, {}) || {};
+      return {
+        timestamp: r.timestamp, model: r.model, provider: r.provider || "",
+        promptTokens: t.prompt_tokens || t.input_tokens || 0,
+        completionTokens: t.completion_tokens || t.output_tokens || 0,
+        cachedTokens: t.cached_tokens || t.cache_read_input_tokens || 0,
+        status: r.status || "ok",
+      };
+    })
+    .filter((e) => {
+      if (e.promptTokens === 0 && e.completionTokens === 0) return false;
+      const minute = e.timestamp ? e.timestamp.slice(0, 16) : "";
+      const key = `${e.model}|${e.provider}|${e.promptTokens}|${e.completionTokens}|${minute}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 20);
+
+  const stats = {
+    totalRequests: 0,
+    totalPromptTokens: 0, totalCompletionTokens: 0, totalCachedTokens: 0, totalCost: 0,
+    byProvider: {}, byModel: {}, byAccount: {}, byApiKey: {}, byEndpoint: {},
+    last10Minutes: [],
+    pending: pendingRequests,
+    activeRequests: [],
+    recentRequests,
+    errorProvider: (Date.now() - lastErrorProvider.ts < 10000) ? lastErrorProvider.provider : "",
+  };
+
+  // Active requests
+  for (const [connectionId, models] of Object.entries(pendingRequests.byAccount)) {
+    for (const [modelKey, count] of Object.entries(models)) {
+      if (count > 0) {
+        const accountName = connectionMap[connectionId] || `Account ${connectionId.slice(0, 8)}...`;
+        const match = modelKey.match(/^(.*) \((.*)\)$/);
+        stats.activeRequests.push({
+          model: match ? match[1] : modelKey,
+          provider: match ? match[2] : "unknown",
+          account: accountName, count,
+        });
+      }
+    }
+  }
+
+  // last10Minutes — query 10min window
+  const now = new Date();
+  const currentMinuteStart = new Date(Math.floor(now.getTime() / 60000) * 60000);
+  const tenMinutesAgo = new Date(currentMinuteStart.getTime() - 9 * 60 * 1000);
+  const bucketMap = {};
+  for (let i = 0; i < 10; i++) {
+    const ts = currentMinuteStart.getTime() - (9 - i) * 60 * 1000;
+    bucketMap[ts] = { requests: 0, promptTokens: 0, completionTokens: 0, cost: 0 };
+    stats.last10Minutes.push(bucketMap[ts]);
+  }
+  const recent10 = await db.all(
+    `SELECT timestamp, promptTokens, completionTokens, cost FROM usageHistory WHERE timestamp >= ? AND timestamp <= ?`,
+    [tenMinutesAgo.toISOString(), now.toISOString()]
+  );
+  for (const r of recent10) {
+    const tt = new Date(r.timestamp).getTime();
+    const minuteStart = Math.floor(tt / 60000) * 60000;
+    if (bucketMap[minuteStart]) {
+      bucketMap[minuteStart].requests++;
+      bucketMap[minuteStart].promptTokens += r.promptTokens || 0;
+      bucketMap[minuteStart].completionTokens += r.completionTokens || 0;
+      bucketMap[minuteStart].cost += r.cost || 0;
+    }
+  }
+
+  const useDailySummary = period !== "24h" && period !== "today";
+
+  if (useDailySummary) {
+    const periodDays = { "7d": 7, "30d": 30, "60d": 60 };
+    const maxDays = periodDays[period] || null;
+    const dayRows = await loadDaysInRange(db, maxDays);
+
+    for (const dr of dayRows) {
+      const dateKey = dr.dateKey;
+      const day = parseJson(dr.data, {});
+      stats.totalPromptTokens += day.promptTokens || 0;
+      stats.totalCompletionTokens += day.completionTokens || 0;
+      stats.totalCachedTokens += day.cachedTokens || 0;
+      stats.totalCost += day.cost || 0;
+
+      for (const [prov, p] of Object.entries(day.byProvider || {})) {
+        if (!stats.byProvider[prov]) stats.byProvider[prov] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0 };
+        stats.byProvider[prov].requests += p.requests || 0;
+        stats.byProvider[prov].promptTokens += p.promptTokens || 0;
+        stats.byProvider[prov].completionTokens += p.completionTokens || 0;
+        stats.byProvider[prov].cachedTokens += p.cachedTokens || 0;
+        stats.byProvider[prov].cost += p.cost || 0;
+      }
+
+      for (const [mk, m] of Object.entries(day.byModel || {})) {
+        const rawModel = m.rawModel || mk.split("|")[0];
+        const provider = m.provider || mk.split("|")[1] || "";
+        const statsKey = provider ? `${rawModel} (${provider})` : rawModel;
+        const providerDisplayName = providerNodeNameMap[provider] || provider;
+        if (!stats.byModel[statsKey]) {
+          stats.byModel[statsKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel, provider: providerDisplayName, lastUsed: dateKey };
+        }
+        stats.byModel[statsKey].requests += m.requests || 0;
+        stats.byModel[statsKey].promptTokens += m.promptTokens || 0;
+        stats.byModel[statsKey].completionTokens += m.completionTokens || 0;
+        stats.byModel[statsKey].cachedTokens += m.cachedTokens || 0;
+        stats.byModel[statsKey].cost += m.cost || 0;
+        if (dateKey > (stats.byModel[statsKey].lastUsed || "")) stats.byModel[statsKey].lastUsed = dateKey;
+      }
+
+      for (const [connId, a] of Object.entries(day.byAccount || {})) {
+        const accountName = connectionMap[connId] || `Account ${connId.slice(0, 8)}...`;
+        const rawModel = a.rawModel || "";
+        const provider = a.provider || "";
+        const providerDisplayName = providerNodeNameMap[provider] || provider;
+        const accountKey = `${rawModel} (${provider} - ${accountName})`;
+        if (!stats.byAccount[accountKey]) {
+          stats.byAccount[accountKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel, provider: providerDisplayName, connectionId: connId, accountName, lastUsed: dateKey };
+        }
+        stats.byAccount[accountKey].requests += a.requests || 0;
+        stats.byAccount[accountKey].promptTokens += a.promptTokens || 0;
+        stats.byAccount[accountKey].completionTokens += a.completionTokens || 0;
+        stats.byAccount[accountKey].cachedTokens += a.cachedTokens || 0;
+        stats.byAccount[accountKey].cost += a.cost || 0;
+        if (dateKey > (stats.byAccount[accountKey].lastUsed || "")) stats.byAccount[accountKey].lastUsed = dateKey;
+      }
+
+      for (const [akKey, ak] of Object.entries(day.byApiKey || {})) {
+        const rawModel = ak.rawModel || "";
+        const provider = ak.provider || "";
+        const providerDisplayName = providerNodeNameMap[provider] || provider;
+        const keyId = ak.keyId;
+        const keyInfo = keyId ? apiKeyMap[keyId] : null;
+        const keyName = keyInfo?.name || (keyId ? `vela-v1-${keyId.slice(0, 8)}…` : "Local (No API Key)");
+        const apiKeyMasked = keyInfo?.keyPrefix || ak.keyPrefix || (keyId ? `vela-v1-${keyId.slice(0, 8)}…` : null);
+        const apiKeyKey = keyId || "local-no-key";
+        if (!stats.byApiKey[akKey]) {
+          stats.byApiKey[akKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel, provider: providerDisplayName, apiKeyMasked, keyName, apiKeyKey, lastUsed: dateKey };
+        }
+        stats.byApiKey[akKey].requests += ak.requests || 0;
+        stats.byApiKey[akKey].promptTokens += ak.promptTokens || 0;
+        stats.byApiKey[akKey].completionTokens += ak.completionTokens || 0;
+        stats.byApiKey[akKey].cachedTokens += ak.cachedTokens || 0;
+        stats.byApiKey[akKey].cost += ak.cost || 0;
+        if (dateKey > (stats.byApiKey[akKey].lastUsed || "")) stats.byApiKey[akKey].lastUsed = dateKey;
+      }
+
+      for (const [epKey, ep] of Object.entries(day.byEndpoint || {})) {
+        const endpoint = ep.endpoint || epKey.split("|")[0] || "Unknown";
+        const rawModel = ep.rawModel || "";
+        const provider = ep.provider || "";
+        const providerDisplayName = providerNodeNameMap[provider] || provider;
+        if (!stats.byEndpoint[epKey]) {
+          stats.byEndpoint[epKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, endpoint, rawModel, provider: providerDisplayName, lastUsed: dateKey };
+        }
+        stats.byEndpoint[epKey].requests += ep.requests || 0;
+        stats.byEndpoint[epKey].promptTokens += ep.promptTokens || 0;
+        stats.byEndpoint[epKey].completionTokens += ep.completionTokens || 0;
+        stats.byEndpoint[epKey].cachedTokens += ep.cachedTokens || 0;
+        stats.byEndpoint[epKey].cost += ep.cost || 0;
+        if (dateKey > (stats.byEndpoint[epKey].lastUsed || "")) stats.byEndpoint[epKey].lastUsed = dateKey;
+      }
+    }
+
+    // Overlay precise lastUsed timestamps from history
+    const overlayCutoff = maxDays ? Date.now() - maxDays * 86400000 : 0;
+    const histRows = await db.all(
+      `SELECT timestamp, provider, model, connectionId, keyId, endpoint FROM usageHistory WHERE timestamp >= ?`,
+      [new Date(overlayCutoff).toISOString()]
+    );
+    for (const e of histRows) {
+      const ts = e.timestamp;
+      const modelKey = e.provider ? `${e.model} (${e.provider})` : e.model;
+      if (stats.byModel[modelKey] && new Date(ts) > new Date(stats.byModel[modelKey].lastUsed)) stats.byModel[modelKey].lastUsed = ts;
+
+      if (e.connectionId) {
+        const accountName = connectionMap[e.connectionId] || `Account ${e.connectionId.slice(0, 8)}...`;
+        const accountKey = `${e.model} (${e.provider} - ${accountName})`;
+        if (stats.byAccount[accountKey] && new Date(ts) > new Date(stats.byAccount[accountKey].lastUsed)) stats.byAccount[accountKey].lastUsed = ts;
+      }
+
+      const apiKeyKey = (e.keyId && typeof e.keyId === "string")
+        ? `${e.keyId}|${e.model}|${e.provider || "unknown"}`
+        : "local-no-key";
+      if (stats.byApiKey[apiKeyKey] && new Date(ts) > new Date(stats.byApiKey[apiKeyKey].lastUsed)) stats.byApiKey[apiKeyKey].lastUsed = ts;
+
+      const endpoint = e.endpoint || "Unknown";
+      const endpointKey = `${endpoint}|${e.model}|${e.provider || "unknown"}`;
+      if (stats.byEndpoint[endpointKey] && new Date(ts) > new Date(stats.byEndpoint[endpointKey].lastUsed)) stats.byEndpoint[endpointKey].lastUsed = ts;
+    }
+  } else {
+    // 24h / today: live history
+    let cutoff;
+    if (period === "today") {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      cutoff = startOfDay.toISOString();
+    } else {
+      cutoff = new Date(Date.now() - PERIOD_MS["24h"]).toISOString();
+    }
+    const filtered = await db.all(
+      `SELECT timestamp, provider, model, connectionId, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, tokens FROM usageHistory WHERE timestamp >= ?`,
+      [cutoff]
+    );
+
+    for (const r of filtered) {
+      const tokens = parseJson(r.tokens, {}) || {};
+      const promptTokens = tokens.prompt_tokens || 0;
+      const completionTokens = tokens.completion_tokens || 0;
+      const cachedTokens = tokens.cached_tokens || tokens.cache_read_input_tokens || 0;
+      const entryCost = r.cost || 0;
+      const providerDisplayName = providerNodeNameMap[r.provider] || r.provider || null;
+
+      stats.totalPromptTokens += promptTokens;
+      stats.totalCompletionTokens += completionTokens;
+      stats.totalCachedTokens += cachedTokens;
+      stats.totalCost += entryCost;
+
+      // migration 004: '' is the normalized form of "unset" — key the display
+      // map on null so live stats and artifacts agree.
+      const prov = r.provider || null;
+      if (!stats.byProvider[prov]) stats.byProvider[prov] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0 };
+      stats.byProvider[prov].requests++;
+      stats.byProvider[prov].promptTokens += promptTokens;
+      stats.byProvider[prov].completionTokens += completionTokens;
+      stats.byProvider[prov].cachedTokens += cachedTokens;
+      stats.byProvider[prov].cost += entryCost;
+
+      const modelKey = r.provider ? `${r.model} (${r.provider})` : r.model;
+      if (!stats.byModel[modelKey]) {
+        stats.byModel[modelKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel: r.model, provider: providerDisplayName, lastUsed: r.timestamp };
+      }
+      stats.byModel[modelKey].requests++;
+      stats.byModel[modelKey].promptTokens += promptTokens;
+      stats.byModel[modelKey].completionTokens += completionTokens;
+      stats.byModel[modelKey].cachedTokens += cachedTokens;
+      stats.byModel[modelKey].cost += entryCost;
+      if (new Date(r.timestamp) > new Date(stats.byModel[modelKey].lastUsed)) stats.byModel[modelKey].lastUsed = r.timestamp;
+
+      if (r.connectionId) {
+        const accountName = connectionMap[r.connectionId] || `Account ${r.connectionId.slice(0, 8)}...`;
+        const accountKey = `${r.model} (${r.provider} - ${accountName})`;
+        if (!stats.byAccount[accountKey]) {
+          stats.byAccount[accountKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel: r.model, provider: providerDisplayName, connectionId: r.connectionId, accountName, lastUsed: r.timestamp };
+        }
+        stats.byAccount[accountKey].requests++;
+        stats.byAccount[accountKey].promptTokens += promptTokens;
+        stats.byAccount[accountKey].completionTokens += completionTokens;
+        stats.byAccount[accountKey].cachedTokens += cachedTokens;
+        stats.byAccount[accountKey].cost += entryCost;
+        if (new Date(r.timestamp) > new Date(stats.byAccount[accountKey].lastUsed)) stats.byAccount[accountKey].lastUsed = r.timestamp;
+      }
+
+      if (r.keyId && typeof r.keyId === "string") {
+        const keyInfo = apiKeyMap[r.keyId];
+        const keyName = keyInfo?.name || `vela-v1-${r.keyId.slice(0, 8)}…`;
+        const apiKeyMasked = keyInfo?.keyPrefix || r.keyPrefix || `vela-v1-${r.keyId.slice(0, 8)}…`;
+        const akKey = `${r.keyId}|${r.model}|${r.provider || "unknown"}`;
+        if (!stats.byApiKey[akKey]) {
+          stats.byApiKey[akKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel: r.model, provider: providerDisplayName, apiKeyMasked, keyName, apiKeyKey: r.keyId, lastUsed: r.timestamp };
+        }
+        const ake = stats.byApiKey[akKey];
+        ake.requests++; ake.promptTokens += promptTokens; ake.completionTokens += completionTokens; ake.cachedTokens += cachedTokens; ake.cost += entryCost;
+        if (new Date(r.timestamp) > new Date(ake.lastUsed)) ake.lastUsed = r.timestamp;
+      } else {
+        if (!stats.byApiKey["local-no-key"]) {
+          stats.byApiKey["local-no-key"] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel: r.model, provider: providerDisplayName, apiKeyMasked: null, keyName: "Local (No API Key)", apiKeyKey: "local-no-key", lastUsed: r.timestamp };
+        }
+        const ake = stats.byApiKey["local-no-key"];
+        ake.requests++; ake.promptTokens += promptTokens; ake.completionTokens += completionTokens; ake.cachedTokens += cachedTokens; ake.cost += entryCost;
+        if (new Date(r.timestamp) > new Date(ake.lastUsed)) ake.lastUsed = r.timestamp;
+      }
+
+      const endpoint = r.endpoint || "Unknown";
+      const epKey = `${endpoint}|${r.model}|${r.provider || "unknown"}`;
+      if (!stats.byEndpoint[epKey]) {
+        stats.byEndpoint[epKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, endpoint, rawModel: r.model, provider: providerDisplayName, lastUsed: r.timestamp };
+      }
+      const epe = stats.byEndpoint[epKey];
+      epe.requests++; epe.promptTokens += promptTokens; epe.completionTokens += completionTokens; epe.cachedTokens += cachedTokens; epe.cost += entryCost;
+      if (new Date(r.timestamp) > new Date(epe.lastUsed)) epe.lastUsed = r.timestamp;
+    }
+  }
+
+  stats.totalRequests = Object.values(stats.byProvider).reduce((sum, p) => sum + (p.requests || 0), 0);
+  return stats;
+}
+
+// Per-key usage rollup for the Endpoints page — one GROUP BY over the ledger.
+// Attribution is by keyId (hash-at-rest: the raw bearer never reaches these
+// rows), so totals survive key rotation. Returns { [keyId]: { requests,
+// promptTokens, completionTokens, cachedTokens, totalTokens, cost,
+// lastUsed } } — keys with zero usage in the window are simply absent.
+// COUNT(*)/SUM arrive as BIGINT/DECIMAL — Number() normalizes both.
+const KEY_USAGE_PERIOD_MS = { "24h": 86400000, "7d": 604800000, "30d": 2592000000, "60d": 5184000000 };
+export async function getKeyUsageStats(period = "all") {
+  const db = await getMysqlAdapter();
+  const periodKey = KEY_USAGE_PERIOD_MS[period] ? period : "all";
+  const where = periodKey === "all" ? "" : "WHERE timestamp >= ?";
+  const params = periodKey === "all" ? [] : [new Date(Date.now() - KEY_USAGE_PERIOD_MS[periodKey]).toISOString()];
+  const rows = await db.all(
+    `SELECT keyId,
+            COUNT(*) AS requests,
+            SUM(promptTokens) AS promptTokens,
+            SUM(completionTokens) AS completionTokens,
+            SUM(cost) AS cost,
+            MAX(timestamp) AS lastUsed
+     FROM usageHistory ${where}
+     GROUP BY keyId`,
+    params
+  );
+  const byKey = {};
+  for (const r of rows) {
+    if (!r.keyId) continue; // local-no-key traffic is not a key's story
+    const promptTokens = Number(r.promptTokens) || 0;
+    const completionTokens = Number(r.completionTokens) || 0;
+    byKey[r.keyId] = {
+      requests: Number(r.requests) || 0,
+      promptTokens,
+      completionTokens,
+      totalTokens: promptTokens + completionTokens,
+      cost: Number(r.cost) || 0,
+      lastUsed: r.lastUsed || null,
+    };
+  }
+  return byKey;
+}
+
+// Awakens the dormant lastUsedAt column whenever the gate resolves a key
+// (see mysql/apiKeysRepo.resolveKey). The A8 twin carried its own throttled
+// writer to keep the waves independent; from A9 the canonical writer lives
+// here, matching the sqlite harbor's seam. Throttled ~60s per keyId; the
+// first touch always lands. Fail-open: a missed touch is cosmetic.
+const _lastUsedWrites = new Map();
+const LAST_USED_THROTTLE_MS = 60_000;
+export async function touchKeyLastUsed(keyId) {
+  const now = Date.now();
+  const prev = _lastUsedWrites.get(keyId) || 0;
+  if (now - prev < LAST_USED_THROTTLE_MS) return;
+  _lastUsedWrites.set(keyId, now);
+  try {
+    const db = await getMysqlAdapter();
+    await db.run(`UPDATE apiKeys SET lastUsedAt = ? WHERE id = ?`, [new Date().toISOString(), keyId]);
+  } catch {}
+}
+
+/**
+ * Parsed usageDaily ledger for every day >= startDateKey, oldest first.
+ * Malformed rows are skipped. Part of the frozen contract — keyGate's spend
+ * stage sums through this seam rather than reaching past the harbor for the
+ * raw adapter.
+ */
+export async function getUsageDailySince(startDateKey) {
+  const db = await getMysqlAdapter();
+  const rows = await db.all(`SELECT data FROM usageDaily WHERE dateKey >= ? ORDER BY dateKey ASC`, [startDateKey]);
+  const days = [];
+  for (const row of rows) {
+    try { days.push(JSON.parse(row.data)); } catch { /* malformed row — skip */ }
+  }
+  return days;
+}
+
+export async function getChartData(period = "7d") {
+  const db = await getMysqlAdapter();
+  const now = Date.now();
+
+  if (period === "today") {
+    const bucketCount = 24;
+    const bucketMs = 3600000;
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const startTime = startOfDay.getTime();
+    const endTime = startTime + bucketCount * bucketMs;
+    const labelFn = (ts) => new Date(ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+    const buckets = Array.from({ length: bucketCount }, (_, i) => ({ label: labelFn(startTime + i * bucketMs), tokens: 0, cost: 0 }));
+
+    const rows = await db.all(
+      `SELECT timestamp, promptTokens, completionTokens, cost FROM usageHistory WHERE timestamp >= ?`,
+      [new Date(startTime).toISOString()]
+    );
+    for (const r of rows) {
+      const t = new Date(r.timestamp).getTime();
+      if (t < startTime || t >= endTime) continue;
+      const idx = Math.floor((t - startTime) / bucketMs);
+      if (idx >= 0 && idx < bucketCount) {
+        buckets[idx].tokens += (r.promptTokens || 0) + (r.completionTokens || 0);
+        buckets[idx].cost += r.cost || 0;
+      }
+    }
+    return buckets;
+  }
+
+  if (period === "24h") {
+    const bucketCount = 24;
+    const bucketMs = 3600000;
+    const labelFn = (ts) => new Date(ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+    const startTime = now - bucketCount * bucketMs;
+    const buckets = Array.from({ length: bucketCount }, (_, i) => ({ label: labelFn(startTime + i * bucketMs), tokens: 0, cost: 0 }));
+
+    const rows = await db.all(
+      `SELECT timestamp, promptTokens, completionTokens, cost FROM usageHistory WHERE timestamp >= ?`,
+      [new Date(startTime).toISOString()]
+    );
+    for (const r of rows) {
+      const t = new Date(r.timestamp).getTime();
+      if (t < startTime || t > now) continue;
+      const idx = Math.min(Math.floor((t - startTime) / bucketMs), bucketCount - 1);
+      buckets[idx].tokens += (r.promptTokens || 0) + (r.completionTokens || 0);
+      buckets[idx].cost += r.cost || 0;
+    }
+    return buckets;
+  }
+
+  const bucketCount = period === "7d" ? 7 : period === "30d" ? 30 : 60;
+  const today = new Date();
+  const labelFn = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+  // Build map of dateKey → day data
+  const dayRows = await loadDaysInRange(db, bucketCount);
+  const dayMap = {};
+  for (const r of dayRows) dayMap[r.dateKey] = parseJson(r.data, {});
+
+  return Array.from({ length: bucketCount }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - (bucketCount - 1 - i));
+    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const dayData = dayMap[dateKey];
+    return {
+      label: labelFn(d),
+      tokens: dayData ? (dayData.promptTokens || 0) + (dayData.completionTokens || 0) : 0,
+      cost: dayData ? (dayData.cost || 0) : 0,
+    };
+  });
+}
+
+function formatLogDate(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(date.getDate())}-${pad(date.getMonth() + 1)}-${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+// No-op: request log is now derived from usageHistory table on read.
+export async function appendRequestLog() {}
+
+export async function getRecentLogs(limit = 200) {
+  try {
+    const db = await getMysqlAdapter();
+    const rows = await db.all(
+      `SELECT timestamp, provider, model, connectionId, promptTokens, completionTokens, status, tokens FROM usageHistory ORDER BY id DESC LIMIT ?`,
+      [limit],
+    );
+    if (!rows.length) return [];
+
+    const connMap = {};
+    try {
+      const { getProviderConnections } = await import("./connectionsRepo.js");
+      const connections = await getProviderConnections();
+      for (const c of connections) connMap[c.id] = c.name || c.email || "";
+    } catch {}
+
+    return rows.map((r) => {
+      const ts = formatLogDate(new Date(r.timestamp));
+      const p = r.provider?.toUpperCase() || "-";
+      const m = r.model || "-";
+      const account = connMap[r.connectionId] || (r.connectionId ? r.connectionId.slice(0, 8) : "-");
+      const tk = r.tokens ? parseJson(r.tokens, {}) : {};
+      const sent = r.promptTokens ?? tk.prompt_tokens ?? "-";
+      const received = r.completionTokens ?? tk.completion_tokens ?? "-";
+      return `${ts} | ${m} | ${p} | ${account} | ${sent} | ${received} | ${r.status || "-"}`;
+    });
+  } catch (e) {
+    console.error("[usageRepo] getRecentLogs failed:", e.message);
+    return [];
+  }
+}
