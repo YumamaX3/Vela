@@ -5,12 +5,22 @@ export default {
   alias: "oc",
   uiAlias: "oc",
   display: {
-    name: "OpenCode Free",
+    name: "OpenCode Zen",
     icon: "terminal",
     color: "#E87040",
-    textIcon: "OC",
+    textIcon: "OZ",
+    website: "https://opencode.ai/auth",
+    notice: {
+      text: "Zen free models run keyless out of the box. Add an OpenCode API key to lift rate limits and reach paid Zen models — connections with a key always take precedence over the keyless lane.",
+      apiKeyUrl: "https://opencode.ai/auth",
+    },
   },
-  category: "free",
+  // freeTier with a keyless fallback lane: auth.js honors real apikey
+  // connections first and only injects the virtual "Public" connection when
+  // none exist (see getProviderCredentials — hybrid noAuth handling).
+  category: "freeTier",
+  authType: "apikey",
+  authModes: ["apikey"],
   noAuth: true,
   transport: {
     baseUrl: "https://opencode.ai",

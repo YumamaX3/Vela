@@ -744,6 +744,19 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
         const valid = !!(data && data.user);
         return { valid, error: valid ? null : "Session expired — re-paste cookie" };
       }
+      case "opencode": {
+        // OpenCode Zen (hybrid lane): prove the stored key against Zen's models
+        // gate — a GET, so the test burns nothing. Mirrors the validate route.
+        const res = await fetchWithConnectionProxy("https://opencode.ai/zen/v1/models", {
+          headers: {
+            Authorization: `Bearer ${connection.apiKey}`,
+            "User-Agent": "opencode",
+            Accept: "application/json",
+          },
+        }, effectiveProxy);
+        const valid = res.status !== 401 && res.status !== 403;
+        return { valid, error: valid ? null : "Invalid API key" };
+      }
       case "opencode-go": {
         const res = await fetchWithConnectionProxy("https://opencode.ai/zen/go/v1/chat/completions", {
           method: "POST",

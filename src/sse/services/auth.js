@@ -3,7 +3,7 @@ import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/con
 import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "open-sse/services/accountFallback.js";
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
 import { FREEBUFF_MODEL_LOCK_MS } from "open-sse/config/freebuff.js";
-import { resolveProviderId, FREE_PROVIDERS } from "@/shared/constants/providers.js";
+import { resolveProviderId, FREE_PROVIDERS, FREE_TIER_PROVIDERS } from "@/shared/constants/providers.js";
 import * as log from "../utils/logger.js";
 
 // Mutex to prevent race conditions during account selection
@@ -45,6 +45,37 @@ function freebuffModelLockedMs(status, errorText, provider) {
 }
 
 /**
+ * The virtual "Public" connection for no-auth free lanes — with the optional
+ * proxy pool from per-provider settings. Shared by the category:"free"
+ * providers and the hybrid freeTier lane below.
+ */
+async function buildVirtualNoAuthConnection(providerId) {
+  const settings = await getSettings();
+  const override = (settings.providerStrategies || {})[providerId] || {};
+  const strategy = override.rotateStrategy || "none";
+  let pickedId = override.proxyPoolId || null;
+  if (strategy !== "none") {
+    const allPools = await getProxyPools({ isActive: true });
+    const poolIds = allPools.filter(p => p.proxyUrl).map(p => p.id);
+    pickedId = pickProxyPoolId(poolIds, strategy, providerId);
+  }
+  const resolvedProxy = await resolveConnectionProxyConfig({ proxyPoolId: pickedId || "" });
+  return {
+    id: "noauth",
+    connectionName: "Public",
+    isActive: true,
+    accessToken: "public",
+    providerSpecificData: {
+      connectionProxyEnabled: resolvedProxy.connectionProxyEnabled,
+      connectionProxyUrl: resolvedProxy.connectionProxyUrl,
+      connectionNoProxy: resolvedProxy.connectionNoProxy,
+      connectionProxyPoolId: resolvedProxy.proxyPoolId || null,
+      vercelRelayUrl: resolvedProxy.vercelRelayUrl || "",
+    },
+  };
+}
+
+/**
  * Get provider credentials from localDb
  * Filters out unavailable accounts and returns the selected account based on strategy
  * @param {string} provider - Provider name
@@ -70,29 +101,19 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
 
     // Inject a virtual connection for no-auth free providers (with optional proxy pool from settings)
     if (FREE_PROVIDERS[providerId]?.noAuth) {
-      const settings = await getSettings();
-      const override = (settings.providerStrategies || {})[providerId] || {};
-      const strategy = override.rotateStrategy || "none";
-      let pickedId = override.proxyPoolId || null;
-      if (strategy !== "none") {
-        const allPools = await getProxyPools({ isActive: true });
-        const poolIds = allPools.filter(p => p.proxyUrl).map(p => p.id);
-        pickedId = pickProxyPoolId(poolIds, strategy, providerId);
+      return buildVirtualNoAuthConnection(providerId);
+    }
+
+    // Hybrid noAuth freeTier lane (e.g. OpenCode Zen): real apikey connections
+    // ALWAYS take precedence — the virtual "Public" connection is injected only
+    // when the provider has no active connections at all. Fall-through with
+    // existing connections lets the normal selection below handle strategy,
+    // model locks and preferred pins exactly as for any keyed provider.
+    if (FREE_TIER_PROVIDERS[providerId]?.noAuth) {
+      const existing = await getProviderConnections({ provider: providerId, isActive: true });
+      if (existing.length === 0) {
+        return buildVirtualNoAuthConnection(providerId);
       }
-      const resolvedProxy = await resolveConnectionProxyConfig({ proxyPoolId: pickedId || "" });
-      return {
-        id: "noauth",
-        connectionName: "Public",
-        isActive: true,
-        accessToken: "public",
-        providerSpecificData: {
-          connectionProxyEnabled: resolvedProxy.connectionProxyEnabled,
-          connectionProxyUrl: resolvedProxy.connectionProxyUrl,
-          connectionNoProxy: resolvedProxy.connectionNoProxy,
-          connectionProxyPoolId: resolvedProxy.proxyPoolId || null,
-          vercelRelayUrl: resolvedProxy.vercelRelayUrl || "",
-        },
-      };
     }
 
     const connections = await getProviderConnections({ provider: providerId, isActive: true });
