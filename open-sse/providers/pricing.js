@@ -1,9 +1,21 @@
 // Pricing rates for AI models — all rates in $/1M tokens
 //
-// Fallback order (first match wins):
-//   1. PROVIDER_PRICING[provider][model]  — provider-specific override
-//   2. MODEL_PRICING[model]               — canonical model price (provider-agnostic)
-//   3. PATTERN_PRICING                    — glob pattern match (e.g. "codex-*")
+// Static resolution chain (first match wins) — the Pricing Covenant [2026-08-15]:
+//   3.0 UNPRICEABLE manifest              — router pseudo-models etc. resolve null + reason
+//   3.a PROVIDER_PRICING[id][model]       — provider/lane-specific override (registry ID key)
+//   3.b PROVIDER_PRICING[alias][model]    — same, via registry alias (fixes alias-keyed lanes)
+//   3.c MODEL_PRICING[model] exact        — canonical exact match
+//   3.d FREE_ALIAS_MAP[model] → sibling   — explicit entries beat inheritance; free models
+//        inherit the paid sibling's EXACT rate (never a glob), with a guarded suffix-strip
+//        fallback (':free'/'-free' → exact sibling only; FREE_DENYLIST blocks infix/router
+//        traps like goldeneye-free-auto)
+//   3.e MODEL_PRICING[stripVendor(model)] — vendor-prefix stripped (deepseek/deepseek-chat)
+//   3.f PATTERN_PRICING                   — glob pattern match, last resort (pre-compiled)
+//
+// The async layers ABOVE this chain (user overrides scope 'pricing', synced rates
+// scope 'pricing_sync') live in src/lib/db/repos/pricingRepo.js — this file stays
+// synchronous and dependency-free (safe for client-free static resolution).
+import { PROVIDER_ID_TO_ALIAS } from "../config/providerModels.js";
 
 /**
  * Canonical model pricing — provider-agnostic.
@@ -30,103 +42,247 @@ export const MODEL_PRICING = {
   "claude-opus-4-6-thinking":     { input: 5.00,  output: 25.00, cached: 0.50,  reasoning: 37.50,  cache_creation: 5.00  },
   "claude-fable-5":               { input: 10.00, output: 50.00, cached: 1.00,  reasoning: 50.00,  cache_creation: 12.50 },
 
-  // === OpenAI / GPT ===
-  "gpt-3.5-turbo":                { input: 0.50,  output: 1.50,  cached: 0.25,  reasoning: 2.25,   cache_creation: 0.50  },
-  "gpt-4":                        { input: 2.50,  output: 10.00, cached: 1.25,  reasoning: 15.00,  cache_creation: 2.50  },
-  "gpt-4-turbo":                  { input: 10.00, output: 30.00, cached: 5.00,  reasoning: 45.00,  cache_creation: 10.00 },
-  "gpt-4o":                       { input: 2.50,  output: 10.00, cached: 1.25,  reasoning: 15.00,  cache_creation: 2.50  },
-  "gpt-4o-mini":                  { input: 0.15,  output: 0.60,  cached: 0.075, reasoning: 0.90,   cache_creation: 0.15  },
-  "gpt-4.1":                      { input: 2.50,  output: 10.00, cached: 1.25,  reasoning: 15.00,  cache_creation: 2.50  },
-  "gpt-5":                        { input: 1.25,  output: 10.00, cached: 0.625, reasoning: 10.00,  cache_creation: 1.25  },
-  "gpt-5-mini":                   { input: 0.25,  output: 2.00,  cached: 0.125, reasoning: 2.00,   cache_creation: 0.25  },
-  "gpt-5-codex":                  { input: 1.25,  output: 10.00, cached: 0.625, reasoning: 10.00,  cache_creation: 1.25  },
-  "gpt-5.1":                      { input: 1.25,  output: 10.00, cached: 0.625, reasoning: 10.00,  cache_creation: 1.25  },
-  "gpt-5.1-codex":                { input: 1.25,  output: 10.00, cached: 0.625, reasoning: 10.00,  cache_creation: 1.25  },
+  // === OpenAI / GPT === [2026-08-15 models.dev/api.json + platform.openai.com]
+  "gpt-3.5-turbo":                { input: 0.50,  output: 1.50,  cached: 0,     reasoning: 1.50,   cache_creation: 0.50  },
+  "gpt-4":                        { input: 30.00, output: 60.00, cached: 15.00, reasoning: 60.00,  cache_creation: 30.00 },
+  "gpt-4-turbo":                  { input: 10.00, output: 30.00, cached: 5.00,  reasoning: 30.00,  cache_creation: 10.00 },
+  "gpt-4o":                       { input: 2.50,  output: 10.00, cached: 1.25,  reasoning: 10.00,  cache_creation: 2.50  },
+  "gpt-4o-mini":                  { input: 0.15,  output: 0.60,  cached: 0.075, reasoning: 0.60,   cache_creation: 0.15  },
+  "gpt-4.1":                      { input: 2.00,  output: 8.00,  cached: 0.50,  reasoning: 8.00,   cache_creation: 2.00  },
+  "gpt-4.1-mini":                 { input: 0.40,  output: 1.60,  cached: 0.10,  reasoning: 1.60,   cache_creation: 0.40  },
+  "gpt-4.1-nano":                 { input: 0.10,  output: 0.40,  cached: 0.025, reasoning: 0.40,   cache_creation: 0.10  },
+  "gpt-5":                        { input: 1.25,  output: 10.00, cached: 0.125, reasoning: 10.00,  cache_creation: 1.25  },
+  "gpt-5-mini":                   { input: 0.25,  output: 2.00,  cached: 0.025, reasoning: 2.00,   cache_creation: 0.25  },
+  "gpt-5-nano":                   { input: 0.05,  output: 0.40,  cached: 0.005, reasoning: 0.40,   cache_creation: 0.05  },
+  "gpt-5-pro":                    { input: 15.00, output: 120.00, cached: 7.50, reasoning: 120.00, cache_creation: 15.00 },
+  "gpt-5-codex":                  { input: 1.25,  output: 10.00, cached: 0.125, reasoning: 10.00,  cache_creation: 1.25  },
+  "gpt-5.1":                      { input: 1.25,  output: 10.00, cached: 0.125, reasoning: 10.00,  cache_creation: 1.25  },
+  "gpt-5.1-codex":                { input: 1.25,  output: 10.00, cached: 0.125, reasoning: 10.00,  cache_creation: 1.25  },
   "gpt-5.1-codex-mini":           { input: 1.50,  output: 6.00,  cached: 0.75,  reasoning: 9.00,   cache_creation: 1.50  },
   "gpt-5.1-codex-mini-high":      { input: 2.00,  output: 8.00,  cached: 1.00,  reasoning: 12.00,  cache_creation: 2.00  },
   "gpt-5.1-codex-max":            { input: 8.00,  output: 32.00, cached: 4.00,  reasoning: 48.00,  cache_creation: 8.00  },
   "gpt-5.2":                      { input: 1.75,  output: 14.00, cached: 0.175, reasoning: 14.00,  cache_creation: 1.75  },
   "gpt-5.2-codex":                { input: 1.75,  output: 14.00, cached: 0.175, reasoning: 14.00,  cache_creation: 1.75  },
+  "gpt-5.2-pro":                  { input: 21.00, output: 168.00, cached: 10.50, reasoning: 168.00, cache_creation: 21.00 },
   "gpt-5.3-codex":                { input: 1.75,  output: 14.00, cached: 0.175, reasoning: 14.00,  cache_creation: 1.75  },
-  "gpt-5.3-codex-spark":         { input: 3.00,  output: 12.00, cached: 0.30,  reasoning: 12.00,  cache_creation: 3.00  },
-  "gpt-5.6":                      { input: 2.50,  output: 15.00, cached: 0.25,  reasoning: 15.00,  cache_creation: 2.50  },
-  "gpt-5.6-luna":                 { input: 1.00,  output: 6.00,  cached: 0.10,  reasoning: 6.00,   cache_creation: 1.00  },
-  "gpt-5.6-terra":                { input: 2.50,  output: 15.00, cached: 0.25,  reasoning: 15.00,  cache_creation: 2.50  },
-  "gpt-5.6-sol":                  { input: 5.00,  output: 30.00, cached: 0.50,  reasoning: 30.00,  cache_creation: 5.00  },
-  "o1":                           { input: 15.00, output: 60.00, cached: 7.50,  reasoning: 90.00,  cache_creation: 15.00 },
-  "o1-mini":                      { input: 3.00,  output: 12.00, cached: 1.50,  reasoning: 18.00,  cache_creation: 3.00  },
+  "gpt-5.3-codex-spark":         { input: 1.75,  output: 14.00, cached: 0.175, reasoning: 14.00,  cache_creation: 1.75  },
+  "gpt-5.4":                      { input: 2.50,  output: 15.00, cached: 0.25,  reasoning: 15.00,  cache_creation: 2.50  },
+  "gpt-5.4-mini":                 { input: 0.75,  output: 4.50,  cached: 0.075, reasoning: 4.50,   cache_creation: 0.75  },
+  "gpt-5.4-nano":                 { input: 0.20,  output: 1.25,  cached: 0.02,  reasoning: 1.25,   cache_creation: 0.20  },
+  "gpt-5.4-pro":                  { input: 30.00, output: 180.00, cached: 15.00, reasoning: 180.00, cache_creation: 30.00 },
+  "gpt-5.5":                      { input: 5.00,  output: 30.00, cached: 0.50,  reasoning: 30.00,  cache_creation: 5.00  },
+  "gpt-5.5-pro":                  { input: 30.00, output: 180.00, cached: 15.00, reasoning: 180.00, cache_creation: 30.00 },
+  "gpt-5.6":                      { input: 5.00,  output: 30.00, cached: 0.50,  reasoning: 30.00,  cache_creation: 6.25  },
+  "gpt-5.6-luna":                 { input: 0.20,  output: 1.20,  cached: 0.02,  reasoning: 1.20,   cache_creation: 0.25  },
+  "gpt-5.6-terra":                { input: 2.00,  output: 12.00, cached: 0.20,  reasoning: 12.00,  cache_creation: 2.50  },
+  "gpt-5.6-sol":                  { input: 5.00,  output: 30.00, cached: 0.50,  reasoning: 30.00,  cache_creation: 6.25  },
+  "o1":                           { input: 15.00, output: 60.00, cached: 7.50,  reasoning: 60.00,  cache_creation: 15.00 },
+  "o1-mini":                      { input: 3.00,  output: 12.00, cached: 1.50,  reasoning: 12.00,  cache_creation: 3.00  },
+  "o1-pro":                       { input: 150.00, output: 600.00, cached: 75.00, reasoning: 600.00, cache_creation: 150.00 },
+  "o3":                           { input: 2.00,  output: 8.00,  cached: 0.50,  reasoning: 8.00,   cache_creation: 2.00  },
+  "o3-mini":                      { input: 1.10,  output: 4.40,  cached: 0.55,  reasoning: 4.40,   cache_creation: 1.10  },
+  "o3-pro":                       { input: 20.00, output: 80.00, cached: 10.00, reasoning: 80.00,  cache_creation: 20.00 },
+  "o4-mini":                      { input: 1.10,  output: 4.40,  cached: 0.275, reasoning: 4.40,   cache_creation: 1.10  },
+  // OpenAI text embeddings [2026-08-15 models.dev]
+  "text-embedding-3-small":       { input: 0.02,  output: 0 },
+  "text-embedding-3-large":       { input: 0.13,  output: 0 },
+  "text-embedding-ada-002":       { input: 0.10,  output: 0 },
 
-  // === Gemini ===
-  "gemini-3.7-flash":              { input: 1.50,  output: 7.50,  cached: 0.15,  reasoning: 11.25,  cache_creation: 1.875 },
-  "gemini-3.7-flash-high":         { input: 1.50,  output: 7.50,  cached: 0.15,  reasoning: 11.25,  cache_creation: 1.875 },
-  "gemini-3.7-flash-medium":       { input: 1.50,  output: 7.50,  cached: 0.15,  reasoning: 11.25,  cache_creation: 1.875 },
-  "gemini-3.7-flash-low":          { input: 1.50,  output: 7.50,  cached: 0.15,  reasoning: 11.25,  cache_creation: 1.875 },
+  // === Gemini === [2026-08-15 models.dev/api.json + ai.google.dev/gemini-api/docs/pricing]
+  // NOTE: gemini-3.7-flash is officially HALF the 3.6 rate (Google price cut);
+  // thinking-level suffixes (-high/-medium/-low) carry the same per-token rate.
+  "gemini-3.7-flash":              { input: 0.75,  output: 3.75,  cached: 0.075, reasoning: 3.75,   cache_creation: 0.75  },
+  "gemini-3.7-flash-high":         { input: 0.75,  output: 3.75,  cached: 0.075, reasoning: 3.75,   cache_creation: 0.75  },
+  "gemini-3.7-flash-medium":       { input: 0.75,  output: 3.75,  cached: 0.075, reasoning: 3.75,   cache_creation: 0.75  },
+  "gemini-3.7-flash-low":          { input: 0.75,  output: 3.75,  cached: 0.075, reasoning: 3.75,   cache_creation: 0.75  },
   "gemini-3.6-flash":              { input: 1.50,  output: 7.50,  cached: 0.15,  reasoning: 11.25,  cache_creation: 1.875 },
   "gemini-3.6-flash-high":         { input: 1.50,  output: 7.50,  cached: 0.15,  reasoning: 11.25,  cache_creation: 1.875 },
   "gemini-3.6-flash-medium":       { input: 1.50,  output: 7.50,  cached: 0.15,  reasoning: 11.25,  cache_creation: 1.875 },
   "gemini-3.6-flash-low":          { input: 1.50,  output: 7.50,  cached: 0.15,  reasoning: 11.25,  cache_creation: 1.875 },
+  "gemini-3.5-flash":              { input: 1.50,  output: 9.00,  cached: 0.15,  reasoning: 9.00,   cache_creation: 1.50  },
   "gemini-3.5-flash-lite":         { input: 0.30,  output: 2.50,  cached: 0.03,  reasoning: 3.75,   cache_creation: 0.375 },
-  "gemini-3.5-flash-high":         { input: 0.50,  output: 3.00,  cached: 0.03,  reasoning: 4.50,   cache_creation: 0.50  },
-  "gemini-3-flash-preview":        { input: 0.50,  output: 3.00,  cached: 0.03,  reasoning: 4.50,   cache_creation: 0.50  },
-  "gemini-3-pro-preview":         { input: 2.00,  output: 12.00, cached: 0.25,  reasoning: 18.00,  cache_creation: 2.00  },
-  "gemini-3.1-pro-low":           { input: 2.00,  output: 12.00, cached: 0.25,  reasoning: 18.00,  cache_creation: 2.00  },
-  "gemini-3.1-pro-high":          { input: 4.00,  output: 18.00, cached: 0.50,  reasoning: 27.00,  cache_creation: 4.00  },
-  "gemini-pro-agent":             { input: 4.00,  output: 18.00, cached: 0.50,  reasoning: 27.00,  cache_creation: 4.00  },
-  "gemini-3-flash-agent":         { input: 0.50,  output: 3.00,  cached: 0.03,  reasoning: 4.50,   cache_creation: 0.50  },
-  "gemini-3.5-flash-low":         { input: 0.50,  output: 3.00,  cached: 0.03,  reasoning: 4.50,   cache_creation: 0.50  },
-  "gemini-3.5-flash-extra-low":   { input: 0.50,  output: 3.00,  cached: 0.03,  reasoning: 4.50,   cache_creation: 0.50  },
-  "gemini-3-flash":               { input: 0.50,  output: 3.00,  cached: 0.03,  reasoning: 4.50,   cache_creation: 0.50  },
-  "gemini-2.5-pro":               { input: 2.00,  output: 12.00, cached: 0.25,  reasoning: 18.00,  cache_creation: 2.00  },
-  "gemini-2.5-flash":             { input: 0.30,  output: 2.50,  cached: 0.03,  reasoning: 3.75,   cache_creation: 0.30  },
-  "gemini-2.5-flash-lite":        { input: 0.15,  output: 1.25,  cached: 0.015, reasoning: 1.875,  cache_creation: 0.15  },
+  "gemini-3.5-flash-high":         { input: 1.50,  output: 9.00,  cached: 0.15,  reasoning: 9.00,   cache_creation: 1.50  },
+  "gemini-3-flash-preview":        { input: 0.50,  output: 3.00,  cached: 0.05,  reasoning: 3.00,   cache_creation: 0.50  },
+  "gemini-flash-latest":           { input: 1.50,  output: 9.00,  cached: 0.15,  reasoning: 9.00,   cache_creation: 1.50  },
+  "gemini-flash-lite-latest":      { input: 0.25,  output: 1.50,  cached: 0.025, reasoning: 1.50,   cache_creation: 0.25  },
+  "gemini-3-pro-preview":         { input: 2.00,  output: 12.00, cached: 0.20,  reasoning: 12.00,  cache_creation: 2.00  },
+  "gemini-3.1-pro-preview":       { input: 2.00,  output: 12.00, cached: 0.20,  reasoning: 12.00,  cache_creation: 2.00  },
+  "gemini-3.1-pro-low":           { input: 2.00,  output: 12.00, cached: 0.20,  reasoning: 12.00,  cache_creation: 2.00  },
+  "gemini-3.1-pro-high":          { input: 4.00,  output: 18.00, cached: 0.40,  reasoning: 18.00,  cache_creation: 4.00  },
+  "gemini-pro-agent":             { input: 4.00,  output: 18.00, cached: 0.40,  reasoning: 18.00,  cache_creation: 4.00  },
+  "gemini-3-flash-agent":         { input: 0.50,  output: 3.00,  cached: 0.05,  reasoning: 3.00,   cache_creation: 0.50  },
+  "gemini-3.5-flash-low":         { input: 1.50,  output: 9.00,  cached: 0.15,  reasoning: 9.00,   cache_creation: 1.50  },
+  "gemini-3.5-flash-extra-low":   { input: 0.30,  output: 2.50,  cached: 0.03,  reasoning: 2.50,   cache_creation: 0.30  },
+  "gemini-3-flash":               { input: 0.50,  output: 3.00,  cached: 0.05,  reasoning: 3.00,   cache_creation: 0.50  },
+  "gemini-2.5-pro":               { input: 1.25,  output: 10.00, cached: 0.125, reasoning: 10.00,  cache_creation: 1.25  },
+  "gemini-2.5-flash":             { input: 0.30,  output: 2.50,  cached: 0.03,  reasoning: 2.50,   cache_creation: 0.30  },
+  "gemini-2.5-flash-lite":        { input: 0.10,  output: 0.40,  cached: 0.01,  reasoning: 0.40,   cache_creation: 0.10  },
 
-  // === Qwen ===
-  "qwen3-coder-plus":             { input: 1.00,  output: 4.00,  cached: 0.50,  reasoning: 6.00,   cache_creation: 1.00  },
-  "qwen3-coder-flash":            { input: 0.50,  output: 2.00,  cached: 0.25,  reasoning: 3.00,   cache_creation: 0.50  },
+  // === Qwen === [2026-08-15 models.dev/api.json — alibaba official]
+  "qwen-flash":                   { input: 0.05,  output: 0.40 },
+  "qwen-turbo":                   { input: 0.05,  output: 0.20,  reasoning: 0.50 },
+  "qwen-plus":                    { input: 0.40,  output: 1.20,  reasoning: 4.00 },
+  "qwen-max":                     { input: 1.60,  output: 6.40 },
+  "qwen3-max":                    { input: 1.20,  output: 6.00 },
+  "qwen3-coder-plus":             { input: 1.00,  output: 5.00,  cached: 0.50,  reasoning: 5.00,   cache_creation: 1.00  },
+  "qwen3-coder-flash":            { input: 0.30,  output: 1.50,  cached: 0.15,  reasoning: 1.50,   cache_creation: 0.30  },
+  "qwen3-coder-30b-a3b-instruct": { input: 0.45,  output: 2.25 },
+  "qwen3-coder-480b-a35b-instruct": { input: 1.50, output: 7.50 },
+  "qwen3.5-plus":                 { input: 0.40,  output: 2.40,  reasoning: 2.40 },
+  "qwen3.5-flash":                { input: 0.25,  output: 2.00 },
+  "qwen3.5-35b-a3b":              { input: 0.25,  output: 2.00 },
+  "qwen3.5-122b-a10b":            { input: 0.40,  output: 3.20 },
+  "qwen3.5-397b-a17b":            { input: 0.60,  output: 3.60 },
+  "qwen3.6-plus":                 { input: 0.50,  output: 3.00,  cached: 0.05,  reasoning: 3.00,   cache_creation: 0.625 },
+  "qwen3.6-flash":                { input: 0.1875, output: 1.125, cache_creation: 0.234375 },
+  "qwen3.6-max-preview":          { input: 1.30,  output: 7.80,  cached: 0.13,  cache_creation: 1.625 },
+  "qwen3.7-max":                  { input: 2.50,  output: 7.50,  cached: 0.50,  cache_creation: 3.125 },
+  "qwen3.7-plus":                 { input: 0.50,  output: 3.00,  cached: 0.05,  cache_creation: 0.625 },
+  "qwen3.8-max":                  { input: 2.00,  output: 6.00,  cached: 0.25,  cache_creation: 2.50 },
+  "qwen3-next-80b-a3b-instruct":  { input: 0.50,  output: 2.00 },
+  "qwen3-next-80b-a3b-thinking":  { input: 0.50,  output: 6.00 },
 
-  // === Kimi ===
-  // Official platform.kimi.ai: cache-hit / cache-miss / output per 1M tokens
+  // === Kimi (Moonshot) === [2026-08-15 models.dev/api.json — moonshotai official]
   "kimi-k3":                      { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.00  },
   "k3":                           { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.00  },
   "kimi-k2.7-code":               { input: 0.95,  output: 4.00,  cached: 0.19,  reasoning: 4.00,   cache_creation: 0.95  },
   "kimi-k2.7-code-highspeed":     { input: 1.90,  output: 8.00,  cached: 0.38,  reasoning: 8.00,   cache_creation: 1.90  },
   "kimi-for-coding":              { input: 0.95,  output: 4.00,  cached: 0.19,  reasoning: 4.00,   cache_creation: 0.95  },
   "kimi-for-coding-highspeed":    { input: 1.90,  output: 8.00,  cached: 0.38,  reasoning: 8.00,   cache_creation: 1.90  },
-  "kimi-k2":                      { input: 1.00,  output: 4.00,  cached: 0.50,  reasoning: 6.00,   cache_creation: 1.00  },
-  "kimi-k2-thinking":             { input: 1.50,  output: 6.00,  cached: 0.75,  reasoning: 9.00,   cache_creation: 1.50  },
-  "kimi-k2.5":                    { input: 1.20,  output: 4.80,  cached: 0.60,  reasoning: 7.20,   cache_creation: 1.20  },
+  "kimi-k2":                      { input: 0.60,  output: 2.50,  cached: 0.15,  reasoning: 2.50,   cache_creation: 0.60  },
+  "kimi-k2-thinking":             { input: 0.60,  output: 2.50,  cached: 0.15,  reasoning: 2.50,   cache_creation: 0.60  },
+  "kimi-k2-thinking-turbo":       { input: 1.15,  output: 8.00,  cached: 0.15,  reasoning: 8.00,   cache_creation: 1.15  },
+  "kimi-k2-turbo-preview":        { input: 2.40,  output: 10.00, cached: 0.60,  reasoning: 10.00,  cache_creation: 2.40  },
+  "kimi-k2.5":                    { input: 0.60,  output: 3.00,  cached: 0.10,  reasoning: 3.00,   cache_creation: 0.60  },
   "kimi-k2.5-thinking":           { input: 1.80,  output: 7.20,  cached: 0.90,  reasoning: 10.80,  cache_creation: 1.80  },
-  "kimi-k2.6":                    { input: 1.00,  output: 4.00,  cached: 0.50,  reasoning: 6.00,   cache_creation: 1.00  },
-  "kimi-latest":                  { input: 1.00,  output: 4.00,  cached: 0.50,  reasoning: 6.00,   cache_creation: 1.00  },
+  "kimi-k2.6":                    { input: 0.95,  output: 4.00,  cached: 0.16,  reasoning: 4.00,   cache_creation: 0.95  },
+  "kimi-latest":                  { input: 0.60,  output: 3.00,  cached: 0.10,  reasoning: 3.00,   cache_creation: 0.60  },
 
-  // === DeepSeek ===
+  // === DeepSeek === [2026-08-15 api-docs.deepseek.com/quick_start/pricing — official]
   "deepseek-chat":                { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,   cache_creation: 0.14  },
   "deepseek-reasoner":            { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,   cache_creation: 0.14  },
   "deepseek-r1":                  { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,   cache_creation: 0.14  },
+  "deepseek-v3.2":                { input: 0.28,  output: 0.42,  cached: 0.028,  reasoning: 0.42,   cache_creation: 0.28  },
   "deepseek-v3.2-chat":           { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,   cache_creation: 0.14  },
   "deepseek-v3.2-reasoner":       { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,   cache_creation: 0.14  },
   "deepseek-v4-flash":            { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,   cache_creation: 0.14  },
   "deepseek-v4-pro":              { input: 0.435, output: 0.87,  cached: 0.003625, reasoning: 0.87,  cache_creation: 0.435 },
 
-  // === GLM ===
-  "glm-4.6":                      { input: 0.50,  output: 2.00,  cached: 0.25,  reasoning: 3.00,   cache_creation: 0.50  },
-  "glm-4.6v":                     { input: 0.75,  output: 3.00,  cached: 0.375, reasoning: 4.50,   cache_creation: 0.75  },
-  "glm-4.7":                      { input: 0.75,  output: 3.00,  cached: 0.375, reasoning: 4.50,   cache_creation: 0.75  },
-  "glm-5":                        { input: 1.00,  output: 4.00,  cached: 0.50,  reasoning: 6.00,   cache_creation: 1.00  },
+  // === GLM (Z.ai) === [2026-08-15 models.dev/api.json — zai official; cache writes free]
+  "glm-4.5":                      { input: 0.60,  output: 2.20,  cached: 0.11,  reasoning: 2.20,   cache_creation: 0     },
+  "glm-4.5-air":                  { input: 0.20,  output: 1.10,  cached: 0.03,  reasoning: 1.10,   cache_creation: 0     },
+  "glm-4.5-flash":                { input: 0,     output: 0,     cached: 0,     reasoning: 0,      cache_creation: 0     },
+  "glm-4.5v":                     { input: 0.60,  output: 1.80 },
+  "glm-4.6":                      { input: 0.60,  output: 2.20,  cached: 0.11,  reasoning: 2.20,   cache_creation: 0     },
+  "glm-4.6v":                     { input: 0.30,  output: 0.90 },
+  "glm-4.7":                      { input: 0.60,  output: 2.20,  cached: 0.11,  reasoning: 2.20,   cache_creation: 0     },
+  "glm-4.7-flash":                { input: 0,     output: 0,     cached: 0,     reasoning: 0,      cache_creation: 0     },
+  "glm-4.7-flashx":               { input: 0.07,  output: 0.40,  cached: 0.01,  reasoning: 0.40,   cache_creation: 0     },
+  "glm-5":                        { input: 1.00,  output: 3.20,  cached: 0.20,  reasoning: 3.20,   cache_creation: 0     },
+  "glm-5-turbo":                  { input: 1.20,  output: 4.00,  cached: 0.24,  reasoning: 4.00,   cache_creation: 0     },
+  "glm-5.1":                      { input: 1.40,  output: 4.40,  cached: 0.26,  reasoning: 4.40,   cache_creation: 0     },
+  "glm-5.2":                      { input: 1.40,  output: 4.40,  cached: 0.26,  reasoning: 4.40,   cache_creation: 0     },
+  "glm-5v-turbo":                 { input: 1.20,  output: 4.00,  cached: 0.24,  reasoning: 4.00,   cache_creation: 0     },
+  "zai-glm-4.7":                  { input: 2.25,  output: 2.75,  cached: 2.25,  reasoning: 2.75,   cache_creation: 0     }, // cerebras lane
 
-  // === MiniMax ===
-  "MiniMax-M3":                   { input: 0.30,  output: 1.20,  cached: 0.06,  reasoning: 1.80,   cache_creation: 0.30  },
-  "MiniMax-M2.1":                 { input: 0.50,  output: 2.00,  cached: 0.25,  reasoning: 3.00,   cache_creation: 0.50  },
-  "MiniMax-M2.5":                 { input: 0.50,  output: 2.00,  cached: 0.25,  reasoning: 3.00,   cache_creation: 0.50  },
-  "MiniMax-M2.7":                 { input: 0.50,  output: 2.00,  cached: 0.25,  reasoning: 3.00,   cache_creation: 0.50  },
-  "minimax-m2.1":                 { input: 0.50,  output: 2.00,  cached: 0.25,  reasoning: 3.00,   cache_creation: 0.50  },
-  "minimax-m2.5":                 { input: 0.60,  output: 2.40,  cached: 0.30,  reasoning: 3.60,   cache_creation: 0.60  },
+  // === MiniMax === [2026-08-15 models.dev/api.json — minimax official]
+  "MiniMax-M3":                   { input: 0.30,  output: 1.20,  cached: 0.06,  reasoning: 1.20,   cache_creation: 0.30  },
+  "MiniMax-M2":                   { input: 0.30,  output: 1.20 },
+  "MiniMax-M2.1":                 { input: 0.30,  output: 1.20,  cached: 0.03,  reasoning: 1.20,   cache_creation: 0.375 },
+  "MiniMax-M2.5":                 { input: 0.30,  output: 1.20,  cached: 0.03,  reasoning: 1.20,   cache_creation: 0.375 },
+  "MiniMax-M2.5-highspeed":       { input: 0.60,  output: 2.40,  cached: 0.06,  reasoning: 2.40,   cache_creation: 0.375 },
+  "MiniMax-M2.7":                 { input: 0.30,  output: 1.20,  cached: 0.06,  reasoning: 1.20,   cache_creation: 0.375 },
+  "MiniMax-M2.7-highspeed":       { input: 0.60,  output: 2.40,  cached: 0.06,  reasoning: 2.40,   cache_creation: 0.375 },
+  "minimax-m2.1":                 { input: 0.30,  output: 1.20,  cached: 0.03,  reasoning: 1.20,   cache_creation: 0.375 },
+  "minimax-m2.5":                 { input: 0.30,  output: 1.20,  cached: 0.03,  reasoning: 1.20,   cache_creation: 0.375 },
+  "minimax-m2.7":                 { input: 0.30,  output: 1.20,  cached: 0.06,  reasoning: 1.20,   cache_creation: 0.375 },
 
-  // === Grok ===
+  // === Grok (xAI) === [2026-08-15 models.dev/api.json — xai official]
   "grok-code-fast-1":             { input: 0.50,  output: 2.00,  cached: 0.25,  reasoning: 3.00,   cache_creation: 0.50  },
+  "grok-4.3":                     { input: 1.25,  output: 2.50,  cached: 0.20,  reasoning: 2.50,   cache_creation: 1.25  },
+  "grok-4.5":                     { input: 2.00,  output: 6.00,  cached: 0.30,  reasoning: 6.00,   cache_creation: 2.00  },
+  "grok-4.6":                     { input: 2.00,  output: 6.00,  cached: 0.50,  reasoning: 6.00,   cache_creation: 2.00  },
+  "grok-4.20-0309-reasoning":     { input: 1.25,  output: 2.50,  cached: 0.20,  reasoning: 2.50,   cache_creation: 1.25  },
+  "grok-4.20-0309-non-reasoning": { input: 1.25,  output: 2.50,  cached: 0.20,  reasoning: 2.50,   cache_creation: 1.25  },
+  "grok-4.20-multi-agent-0309":   { input: 1.25,  output: 2.50,  cached: 0.20,  reasoning: 2.50,   cache_creation: 1.25  },
+  "grok-build-0.1":               { input: 1.00,  output: 2.00,  cached: 0.20,  reasoning: 2.00,   cache_creation: 1.00  },
 
-  // === OpenRouter fallback ===
-  "auto":                         { input: 2.00,  output: 8.00,  cached: 1.00,  reasoning: 12.00,  cache_creation: 2.00  },
+  // === Anthropic (additions) === [2026-08-15 claude.com/pricing — official]
+  "claude-opus-5":                { input: 5.00,  output: 25.00, cached: 0.50,  reasoning: 25.00,  cache_creation: 6.25  },
+  "claude-opus-4-7":              { input: 5.00,  output: 25.00, cached: 0.50,  reasoning: 25.00,  cache_creation: 6.25  },
+  "claude-opus-4-8":              { input: 5.00,  output: 25.00, cached: 0.50,  reasoning: 25.00,  cache_creation: 6.25  },
+  "claude-sonnet-5":              { input: 2.00,  output: 10.00, cached: 0.20,  reasoning: 10.00,  cache_creation: 2.50  },
+
+  // === Perplexity === [2026-08-15 models.dev/api.json]
+  "sonar":                        { input: 1.00,  output: 1.00 },
+  "sonar-pro":                    { input: 3.00,  output: 15.00 },
+  "sonar-reasoning-pro":          { input: 2.00,  output: 8.00 },
+  "sonar-deep-research":          { input: 2.00,  output: 8.00,  reasoning: 3.00 },
+
+  // === Cohere === [2026-08-15 models.dev/api.json]
+  "command-a-03-2025":            { input: 2.50,  output: 10.00 },
+  "command-a-reasoning-08-2025":  { input: 2.50,  output: 10.00 },
+  "command-a-vision-07-2025":     { input: 2.50,  output: 10.00 },
+  "command-a-plus-05-2026":       { input: 2.50,  output: 10.00 },
+  "command-a-translate-08-2025":  { input: 2.50,  output: 10.00 },
+  "command-r-plus-08-2024":       { input: 2.50,  output: 10.00 },
+  "command-r-08-2024":            { input: 0.15,  output: 0.60 },
+  "command-r7b-12-2024":          { input: 0.0375, output: 0.15 },
+  "command-r7b-arabic-02-2025":   { input: 0.0375, output: 0.15 },
+
+  // === Groq === [2026-08-15 models.dev/api.json]
+  "llama-3.3-70b-versatile":      { input: 0.59,  output: 0.79 },
+  "llama-3.1-8b-instant":         { input: 0.05,  output: 0.08 },
+  "gpt-oss-120b":                 { input: 0.15,  output: 0.60,  cached: 0.075, reasoning: 0.60,   cache_creation: 0.15  },
+  "gpt-oss-20b":                  { input: 0.075, output: 0.30,  cached: 0.0375, reasoning: 0.30,  cache_creation: 0.075 },
+
+  // === Cerebras === [2026-08-15 models.dev/api.json]
+  "gemma-4-31b-it":               { input: 0.99,  output: 1.49 },
+  "gemma-4-31b":                  { input: 0.99,  output: 1.49 },
+
+  // === Morph === [2026-08-15 models.dev/api.json]
+  "morph-v3-large":               { input: 0.90,  output: 1.90 },
+  "morph-v3-fast":                { input: 0.80,  output: 1.20 },
+
+  // === StepFun === [2026-08-15 platform.stepfun.ai — official; reseller-confirmed]
+  "step-3.5-flash":               { input: 0.10,  output: 0.30,  cached: 0.02,  reasoning: 0.30,   cache_creation: 0.10  },
+  "step-3.7-flash":               { input: 0.20,  output: 1.15,  cached: 0.04,  reasoning: 1.15,   cache_creation: 0.20  },
+
+  // === Xiaomi MiMo === [2026-08-15 mimo.mi.com — official]
+  "mimo-v2.5":                    { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,  cache_creation: 0.14  },
+  "mimo-v2.5-pro":                { input: 0.435, output: 0.87,  cached: 0.0036, reasoning: 0.87,  cache_creation: 0.435 },
+  "mimo-v2.5-pro-ultraspeed":     { input: 1.305, output: 2.61,  cached: 0.0108, reasoning: 2.61,  cache_creation: 1.305 },
+  "mimo-v2-flash":                { input: 0.10,  output: 0.30 }, // ⚠ reseller-only (official page V2.5 series only)
+
+  // === Volcengine Ark (seed-2.0) === [2026-08-15 volcengine.com — official CNY→USD@7.1]
+  "doubao-seed-2.0-pro":          { input: 0.45,  output: 2.25,  cached: 0.09,  reasoning: 2.25,   cache_creation: 0.45  },
+  "doubao-seed-2.0-lite":         { input: 0.085, output: 0.51,  cached: 0.017, reasoning: 0.51,   cache_creation: 0.085 },
+  "doubao-seed-2.0-mini":         { input: 0.028, output: 0.28,  cached: 0.006, reasoning: 0.28,   cache_creation: 0.028 },
+  "doubao-seed-2.0-code":         { input: 0.45,  output: 2.25,  cached: 0.09,  reasoning: 2.25,   cache_creation: 0.45  },
+
+  // === Baidu Qianfan (ERNIE) === [2026-08-15 cloud.baidu.com — official CNY→USD@7.1]
+  "ernie-4.5-turbo":              { input: 0.113, output: 0.451, cached: 0.028, reasoning: 0.451,  cache_creation: 0.113 },
+  "ernie-x1.1-preview":           { input: 0.141, output: 0.563, reasoning: 0.563 },
+  "ernie-5.1":                    { input: 0.56,  output: 2.54,  reasoning: 2.54 },
+
+  // === Tencent Hunyuan === [2026-08-15 cloud.tencent.com — official]
+  "hunyuan-a13b-instruct":        { input: 0.07,  output: 0.282, reasoning: 0.282 },
+  "hy3":                          { input: 0.132, output: 0.528, cached: 0.033, reasoning: 0.528 }, // ⚠ reseller (official login-walled)
+  "hy3-preview":                  { input: 0.132, output: 0.528, cached: 0.033, reasoning: 0.528 }, // ⚠ reseller
+
+  // === SambaNova === [2026-08-15 cloud.sambanova.ai/pricing — official]
+  "Meta-Llama-3.3-70B-Instruct":  { input: 0.60,  output: 1.20 },
+
+  // === Fireworks === [2026-08-15 docs.fireworks.ai/serverless/pricing — official, size-tier]
+  "llama-v3p3-70b-instruct":      { input: 0.90,  output: 0.90 },
+
+  // === Together === [2026-08-15 together.ai/pricing — official]
+  "Llama-3.3-70B-Instruct":       { input: 1.04,  output: 1.04 },
+
+  // === NVIDIA Nemotron === [2026-08-15 models.dev/api.json]
+  "nemotron-3-super-120b-a12b":   { input: 0.20,  output: 0.80 },
+  "nemotron-3-ultra-550b-a55b":   { input: 0.50,  output: 2.50,  cached: 0.15,  reasoning: 2.50 },
+  "nemotron-3-nano-30b-a3b":      { input: 0.05,  output: 0.20,  cached: 0.025, reasoning: 0.20 },
 
   // === Misc ===
   "oswe-vscode-prime":            { input: 1.00,  output: 4.00,  cached: 0.50,  reasoning: 6.00,   cache_creation: 1.00  },
@@ -261,6 +417,55 @@ export const PROVIDER_PRICING = {
     "z-ai/glm-5.1": { input: 1.05, output: 3.5, cached: 0.525, reasoning: 3.5 },
     "z-ai/glm-5.2": { input: 1.4, output: 4.4, cached: 0.26, reasoning: 4.4 },
   },
+
+  // === Lane tables keyed by REGISTRY ID === [2026-08-15]
+  // Namespaced router ids (vendor/model, @cf/*, accounts/*) that neither
+  // MODEL_PRICING exact keys nor anchored PATTERN_PRICING globs can reach.
+  // Usage rows record the registry id, so these keys must be ids — never aliases.
+
+  // NOTE: GitHub Copilot lives in the `gh` block above — resolved via the
+  // alias stratum (registry id 'github' → alias 'gh'). No id-keyed twin needed.
+
+  // Cloudflare Workers AI — chat-class @cf ids [models.dev cloudflare null; groq/vendor retail]
+  "cloudflare-ai": {
+    "@cf/meta/llama-3.2-1b-instruct": { input: 0.05, output: 0.15 },
+    "@cf/meta/llama-3.2-3b-instruct": { input: 0.05, output: 0.15 },
+    "@cf/meta/llama-3.1-8b-instruct-fp8-fast": { input: 0.05, output: 0.15 },
+    "@cf/meta/llama-3.1-8b-instruct-awq": { input: 0.05, output: 0.15 },
+    "@cf/meta/llama-3.1-70b-instruct-fp8-fast": { input: 0.59, output: 0.79 },
+    "@cf/meta/llama-3.3-70b-instruct-fp8-fast": { input: 0.59, output: 0.79 },
+    "@cf/mistralai/mistral-small-3.1-24b-instruct": { input: 0.15, output: 0.6 },
+    "@cf/qwen/qwq-32b": { input: 0.18, output: 0.7 },
+  },
+
+  // NesaRouter — reseller lane [official family rates; 2026-08-15]
+  nesarouter: {
+    "nesarouter/deepseek-v4-flash": { input: 0.14, output: 0.28, cached: 0.0028, reasoning: 0.28 },
+    "nesarouter/step-3.7-flash": { input: 0.2, output: 1.15, cached: 0.04, reasoning: 1.15 },
+    "nesarouter/step-3.5-flash": { input: 0.1, output: 0.3, cached: 0.02, reasoning: 0.3 },
+  },
+
+  // ClinePass — router lane for mimo family [mimo.mi.com official rates]
+  clinepass: {
+    "cline-pass/mimo-v2.5": { input: 0.14, output: 0.28, cached: 0.0028, reasoning: 0.28 },
+    "cline-pass/mimo-v2.5-pro": { input: 0.435, output: 0.87, cached: 0.0036, reasoning: 0.87 },
+  },
+
+  // Fireworks — accounts/* namespaced ids [docs.fireworks.ai size-tier]
+  fireworks: {
+    "accounts/fireworks/models/llama-v3p3-70b-instruct": { input: 0.9, output: 0.9 },
+  },
+
+  // StepFun — case-variant namespaced id
+  stepfun: {
+    "stepfun/Step-3.5-Flash": { input: 0.1, output: 0.3, cached: 0.02, reasoning: 0.3 },
+    "stepfun/Step-3.7-Flash": { input: 0.2, output: 1.15, cached: 0.04, reasoning: 1.15 },
+  },
+
+  // MiMo router lane
+  mimo: {
+    "mimo/mimo-v2.5": { input: 0.14, output: 0.28, cached: 0.0028, reasoning: 0.28 },
+  },
 };
 
 /**
@@ -341,7 +546,153 @@ export const PATTERN_PRICING = [
   // --- Grok ---
   { pattern: "grok-code-*",     pricing: { input: 0.50,  output: 2.00,  cached: 0.25,  reasoning: 3.00,   cache_creation: 0.50  } },
   { pattern: "grok-*",          pricing: { input: 0.50,  output: 2.00,  cached: 0.25,  reasoning: 3.00,   cache_creation: 0.50  } },
+
+  // --- Catch-all families for namespaced router ids [2026-08-15] ---
+  // Anchored globs could never reach vendor/model or @cf/* ids; these run last
+  // against the vendor-stripped tail so passthrough routers price sensibly.
+  { pattern: "*/gpt-*",         pricing: { input: 1.25,  output: 10.00, cached: 0.625, reasoning: 10.00,  cache_creation: 1.25  } },
+  { pattern: "*/claude-*",      pricing: { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.75  } },
+  { pattern: "*/deepseek-*",    pricing: { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,  cache_creation: 0.14  } },
+  { pattern: "*/kimi-*",        pricing: { input: 0.60,  output: 3.00,  cached: 0.10,  reasoning: 3.00,   cache_creation: 0.60  } },
+  { pattern: "*/llama-*",       pricing: { input: 0.59,  output: 0.79 },
+    // llama family retail approximation for namespaced ids
+  },
+  { pattern: "*/qwen*",         pricing: { input: 0.40,  output: 1.20,  reasoning: 1.20 },
+  },
 ];
+
+/**
+ * FREE_ALIAS_MAP — hand-verified free model → paid sibling inheritance [2026-08-15].
+ * The PRIMARY mechanism for R3 (free models inherit sibling rates everywhere).
+ * Keys are the exact registry model ids; values are sibling ids resolved through
+ * the EXACT strata only (3.a/3.b/3.c — never globs). Census-verified against the
+ * live registry (2026-08-15): every entry here has a sibling that resolves.
+ */
+export const FREE_ALIAS_MAP = {
+  // ── bazaarlink ──
+  "auto:free": "auto",
+  // ── codecrafters / tokenharbor ──
+  "deepseek-v4-flash:free": "deepseek-v4-flash",
+  "mimo-v2.5-free": "mimo-v2.5",
+  "mimo-v2.5:free": "mimo-v2.5",
+  // ── kilo-gateway ──
+  "nvidia/nemotron-3-super-120b-a12b:free": "nvidia/nemotron-3-super-120b-a12b",
+  "nvidia/nemotron-3-ultra-550b-a55b:free": "nvidia/nemotron-3-ultra-550b-a55b",
+  "kwaipilot/kat-coder-pro-v2.5:free": "kwaipilot/kat-coder-pro",
+  // ── nesarouter (sibling exists in-registry) ──
+  "nesarouter/deepseek-v4-flash-free": "nesarouter/deepseek-v4-flash",
+  "nesarouter/step-3.7-flash-free": "nesarouter/step-3.7-flash",
+  "nesarouter/step-3.5-flash-free": "nesarouter/step-3.5-flash",
+  "nesarouter/mimo-v2.5-free": "mimo/mimo-v2.5",
+  "nesarouter/glm-5.2-free": "glm-5.2",
+  "nesarouter/minimax-m2.7-free": "minimax-m2.7",
+  "nesarouter/minimax-m3-free": "MiniMax-M3",
+  // ── tokenrouter ──
+  "moonshotai/kimi-k3-free": "moonshotai/kimi-k3",
+};
+
+/**
+ * FREE_DENYLIST — free-marker shapes where suffix-stripping must NOT fire [2026-08-15].
+ * Infix markers and router tier selectors that the guarded fallback would misprice.
+ */
+export const FREE_DENYLIST = new Set([
+  "goldeneye-free-auto",            // infix marker — sibling is goldeneye-auto
+  "kilo-auto/free",                 // router tier selector, not a suffix
+  "kilo-auto",
+  "nesarouter/nesa-free",           // no paid sibling anywhere
+  "nesarouter/big-pickle-free",     // no paid sibling
+  "nesarouter/nemotron-3-ultra-free",
+  "nesarouter/north-mini-code-free",
+  "nesarouter/laguna-s-2.1-free",
+  "nesarouter/ling-3.0-flash-free",
+  "nesarouter/longcat-2.0-free",
+  "nesarouter/gpt-oss-20b-free",
+  "nesarouter/nemotron-3-nano-30b-a3b-free",
+  "nesarouter/codestral-latest-free",
+  "nesarouter/mistral-small-latest-free",
+  "nesarouter/mistral-medium-latest-free",
+  "nesarouter/ministral-8b-latest-free",
+  "nesarouter/ministral-3b-latest-free",
+  "nesarouter/open-mistral-nemo-free",
+  "nesarouter/devstral-latest-free",
+  "nesarouter/mistral-large-latest-free",
+  "nvidia/llama-nemotron-embed-vl-1b-v2:free",   // embedding, no LLM sibling
+  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+]);
+
+/**
+ * UNPRICEABLE manifest — models no honest price can describe [2026-08-15].
+ * Checked at stratum 3.0, before every other lookup. Reasons are pinned by tests.
+ */
+export const UNPRICEABLE = [
+  { provider: null, model: "best", reason: "router-pseudo-model" },
+  { provider: null, model: "default", reason: "router-pseudo-model" },
+  { provider: null, model: "universal-2", reason: "router-pseudo-model" },
+  { provider: null, model: "universal-3-pro", reason: "router-pseudo-model" },
+  { provider: "kilo-gateway", model: "kilo-auto/free", reason: "router-pseudo-model" },
+  { provider: "github", model: "goldeneye-free-auto", reason: "router-pseudo-model" },
+  { provider: "hyperbolic", model: null, reason: "no-token-pricing" },      // GPU hourly billing
+  { provider: "featherless", model: null, reason: "no-token-pricing" },     // flat subscription
+  // NOTE: codecrafters serves free models through the gateway — they inherit
+  // sibling rates via FREE_ALIAS_MAP, so the lane is NOT provider-unpriceable.
+];
+
+/**
+ * PRICING_SOURCES — provenance beside the rates (never inside them) [2026-08-15].
+ * lane: direct = vendor retail; reseller = reseller-published; subscription =
+ * retail-equivalent estimate for subscription lanes (claude/codex/cursor/kimi/qoder).
+ */
+export const PRICING_SOURCES = {
+  "_bulk": { source: "models.dev/api.json", captured: "2026-08-15", lane: "direct" },
+  openai: { source: "platform.openai.com/docs/pricing", captured: "2026-08-15", lane: "direct" },
+  anthropic: { source: "claude.com/pricing", captured: "2026-08-15", lane: "direct" },
+  google: { source: "ai.google.dev/gemini-api/docs/pricing", captured: "2026-08-15", lane: "direct" },
+  deepseek: { source: "api-docs.deepseek.com/quick_start/pricing", captured: "2026-08-15", lane: "direct" },
+  moonshotai: { source: "models.dev/api.json", captured: "2026-08-15", lane: "direct" },
+  zai: { source: "models.dev/api.json", captured: "2026-08-15", lane: "direct" },
+  alibaba: { source: "models.dev/api.json", captured: "2026-08-15", lane: "direct" },
+  minimax: { source: "models.dev/api.json", captured: "2026-08-15", lane: "direct" },
+  xai: { source: "models.dev/api.json", captured: "2026-08-15", lane: "direct" },
+  mistral: { source: "models.dev/api.json", captured: "2026-08-15", lane: "direct" },
+  perplexity: { source: "models.dev/api.json", captured: "2026-08-15", lane: "direct" },
+  cohere: { source: "models.dev/api.json", captured: "2026-08-15", lane: "direct" },
+  groq: { source: "models.dev/api.json", captured: "2026-08-15", lane: "direct" },
+  cerebras: { source: "models.dev/api.json", captured: "2026-08-15", lane: "direct" },
+  stepfun: { source: "platform.stepfun.ai/docs", captured: "2026-08-15", lane: "direct" },
+  "xiaomi-mimo": { source: "mimo.mi.com", captured: "2026-08-15", lane: "direct" },
+  "volcengine-ark": { source: "volcengine.com/docs/82379/1544106", captured: "2026-08-15", lane: "direct" },
+  baidu: { source: "cloud.baidu.com/doc/qianfan", captured: "2026-08-15", lane: "direct" },
+  tencent: { source: "cloud.tencent.com/document/product/1729/97731", captured: "2026-08-15", lane: "direct" },
+  sambanova: { source: "cloud.sambanova.ai/pricing", captured: "2026-08-15", lane: "direct" },
+  fireworks: { source: "docs.fireworks.ai/serverless/pricing", captured: "2026-08-15", lane: "direct" },
+  together: { source: "together.ai/pricing", captured: "2026-08-15", lane: "direct" },
+  tokenrouter: { source: "api.tokenrouter.com/api/pricing", captured: "2026-08-15", lane: "reseller" },
+  nesarouter: { source: "official family rates", captured: "2026-08-15", lane: "reseller" },
+};
+
+/**
+ * SYNC_VENDOR_MAP — the ONLY URLs the sync endpoint may fetch [2026-08-15].
+ * Hardcoded here (never from a request body) — the SSRF defense. Vendor keys are
+ * selected by the caller; values map models.dev vendor ids → Vela registry ids.
+ */
+export const SYNC_VENDOR_MAP = {
+  modelsdev: {
+    url: "https://models.dev/api.json",
+    role: "primary",
+    vendors: {
+      openai: "openai", anthropic: "anthropic", google: ["gemini", "gemini-cli"],
+      deepseek: "deepseek", moonshotai: "kimi", zai: ["glm", "glm-cn"],
+      alibaba: "alicode", minimax: ["minimax", "minimax-cn"], xai: "xai",
+      mistral: "mistral", perplexity: "perplexity", cohere: "cohere", groq: "groq",
+      cerebras: "cerebras",
+    },
+  },
+  openrouter: {
+    url: "https://openrouter.ai/api/v1/models",
+    role: "cross-check",
+    vendors: {},
+  },
+};
 
 /**
  * Match a model ID against a glob pattern (* = wildcard). Case-insensitive:
@@ -352,37 +703,113 @@ export function matchPattern(pattern, model) {
   return regex.test(model);
 }
 
+// Pre-compile PATTERN_PRICING globs at module load (was recompiled per call —
+// every exact-miss request paid ~N fresh RegExp constructions).
+const COMPILED_PATTERNS = PATTERN_PRICING.map(({ pattern, pricing }) => ({
+  regex: new RegExp("^" + pattern.split("*").map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$", "i"),
+  pricing,
+}));
+
+// UNPRICEABLE fast-path indexes (stratum 3.0)
+const UNPRICEABLE_MODELS = new Set(UNPRICEABLE.filter(u => u.model && u.provider === null).map(u => u.model));
+const UNPRICEABLE_PROVIDERS = new Set(UNPRICEABLE.filter(u => !u.model && u.provider).map(u => u.provider));
+const UNPRICEABLE_PAIRS = new Map(UNPRICEABLE.filter(u => u.model && u.provider).map(u => [`${u.provider}|${u.model}`, u.reason]));
+
+const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
+
 /**
- * Resolve pricing for a model using the 3-step fallback chain:
- *   1. PROVIDER_PRICING[provider][model]
- *   2. MODEL_PRICING[model]
- *   3. PATTERN_PRICING (glob match)
+ * Strip a recognized free-tier suffix from a model id. Returns the bare name,
+ * or null if no suffix present. Only ':free' and '-free' suffixes are markers;
+ * infix/router shapes are handled by FREE_DENYLIST before this is reached.
+ */
+function stripFreeSuffix(model) {
+  if (model.endsWith(":free")) return model.slice(0, -":free".length);
+  if (model.endsWith("-free")) return model.slice(0, -"-free".length);
+  return null;
+}
+
+/** Exact-provider-override lookup across id and alias (strata 3.a + 3.b). */
+function providerOverride(provider, model) {
+  if (!provider) return null;
+  if (has(PROVIDER_PRICING, provider) && has(PROVIDER_PRICING[provider], model)) {
+    return PROVIDER_PRICING[provider][model];
+  }
+  const alias = PROVIDER_ID_TO_ALIAS[provider];
+  if (alias && alias !== provider && has(PROVIDER_PRICING, alias) && has(PROVIDER_PRICING[alias], model)) {
+    return PROVIDER_PRICING[alias][model];
+  }
+  return null;
+}
+
+/**
+ * Resolve pricing for a model via the seven-stratum static chain (see header).
+ * Synchronous and dependency-free; the async user/sync layers wrap this in
+ * src/lib/db/repos/pricingRepo.js.
  *
- * @param {string} provider
+ * @param {string} provider  registry id (usage rows record ids, not aliases)
  * @param {string} model
  * @returns {object|null}
  */
 export function getPricingForModel(provider, model) {
   if (!model) return null;
 
-  // 1. Provider-specific override
-  if (provider && PROVIDER_PRICING[provider]?.[model]) {
-    return PROVIDER_PRICING[provider][model];
+  // 3.0 UNPRICEABLE manifest — router pseudo-models and no-token-pricing lanes
+  if (UNPRICEABLE_MODELS.has(model)) return null;
+  if (UNPRICEABLE_PROVIDERS.has(provider)) return null;
+  if (UNPRICEABLE_PAIRS.has(`${provider}|${model}`)) return null;
+
+  // 3.a + 3.b provider/lane override (id, then alias)
+  const override = providerOverride(provider, model);
+  if (override) return override;
+
+  // 3.c canonical exact match (explicit entry beats inheritance)
+  if (has(MODEL_PRICING, model)) return MODEL_PRICING[model];
+
+  // 3.d FREE inheritance — verified map first, then guarded suffix-strip.
+  // Both arms resolve the sibling through EXACT strata only (never globs).
+  const mappedSibling = has(FREE_ALIAS_MAP, model) ? FREE_ALIAS_MAP[model] : null;
+  if (mappedSibling) {
+    const inherited = providerOverride(provider, mappedSibling) || MODEL_PRICING[mappedSibling];
+    if (inherited) return inherited;
   }
-
-  // 2. Canonical model pricing (strip vendor prefix if needed: "deepseek/deepseek-chat" → "deepseek-chat")
-  const baseModel = model.includes("/") ? model.split("/").pop() : model;
-  if (MODEL_PRICING[baseModel]) return MODEL_PRICING[baseModel];
-  if (MODEL_PRICING[model]) return MODEL_PRICING[model];
-
-  // 3. Pattern match
-  for (const { pattern, pricing } of PATTERN_PRICING) {
-    if (matchPattern(pattern, baseModel) || matchPattern(pattern, model)) {
-      return pricing;
+  if (!has(FREE_DENYLIST, model)) {
+    const stripped = stripFreeSuffix(model);
+    if (stripped) {
+      const inherited = providerOverride(provider, stripped) || MODEL_PRICING[stripped];
+      if (inherited) return inherited;
     }
   }
 
+  // 3.e canonical match with vendor prefix stripped ("deepseek/deepseek-chat")
+  const baseModel = model.includes("/") ? model.split("/").pop() : model;
+  if (has(MODEL_PRICING, baseModel)) return MODEL_PRICING[baseModel];
+
+  // 3.d-tail: re-check FREE inheritance against the stripped base name so
+  // namespaced free ids (vendor/model-free) can inherit their bare sibling.
+  if (!has(FREE_DENYLIST, baseModel)) {
+    const strippedBase = stripFreeSuffix(baseModel);
+    if (strippedBase && has(MODEL_PRICING, strippedBase)) return MODEL_PRICING[strippedBase];
+  }
+
+  // 3.f PATTERN_PRICING glob match (pre-compiled) — last resort
+  for (const { regex, pricing } of COMPILED_PATTERNS) {
+    if (regex.test(model) || regex.test(baseModel)) return pricing;
+  }
+
   return null;
+}
+
+/**
+ * Resolve pricing with its provenance record (source + lane + resolution path).
+ * Returns null when unpriced; {pricing, source, captured, lane, estimate, via}.
+ */
+export function resolvePricingWithProvenance(provider, model) {
+  const pricing = getPricingForModel(provider, model);
+  if (!pricing) return null;
+  const alias = PROVIDER_ID_TO_ALIAS[provider] || provider;
+  const src = PRICING_SOURCES[provider] || PRICING_SOURCES[alias] || PRICING_SOURCES._bulk;
+  const via = has(FREE_ALIAS_MAP, model) || stripFreeSuffix(model) ? "free-inherit" : "static";
+  return { pricing, source: src.source, captured: src.captured, lane: src.lane, estimate: src.lane === "subscription", via };
 }
 
 /**
