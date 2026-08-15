@@ -2,6 +2,7 @@ import { getProviderConnections, validateApiKey, updateProviderConnection, getSe
 import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/connectionProxy";
 import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "open-sse/services/accountFallback.js";
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
+import { FREEBUFF_MODEL_LOCK_MS } from "open-sse/config/freebuff.js";
 import { resolveProviderId, FREE_PROVIDERS } from "@/shared/constants/providers.js";
 import * as log from "../utils/logger.js";
 
@@ -15,6 +16,32 @@ function githubMonthlyResetMs(status, errorText, provider) {
   if (!String(errorText || "").toLowerCase().includes(GITHUB_MONTHLY_USAGE_LIMIT)) return null;
   const now = new Date();
   return Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1);
+}
+
+// Freebuff daily quota: 429 with a validated resetAt (the executor's parseError
+// verifies Number.isFinite + clamps to next Pacific midnight — an untrusted
+// upstream body can never extend the lock past one quota window). Both freebuff
+// branches run BEFORE the capped generic resetsAtMs path below, whose
+// MAX_RATE_LIMIT_COOLDOWN_MS (30 min) would truncate a Pacific-midnight wait
+// (up to ~24h) into 30-minute retry churn against a dead quota.
+function freebuffDailyResetMs(status, errorText, provider, resetsAtMs) {
+  if (resolveProviderId(provider) !== "freebuff" || Number(status) !== 429) return null;
+  if (resetsAtMs && Number.isFinite(resetsAtMs) && resetsAtMs > Date.now()) return resetsAtMs;
+  const m = String(errorText || "").match(/resets at (\d{4}-\d{2}-\d{2}T[\d:.]+Z)/);
+  if (m) {
+    const t = Date.parse(m[1]);
+    if (Number.isFinite(t) && t > Date.now()) return t;
+  }
+  return null;
+}
+
+// Freebuff model_locked: the account's ONE session is locked to another model.
+// 65-minute per-model lock (one session TTL) instead of the generic 2-min, so
+// selection steers to other accounts instead of churning against the lock.
+function freebuffModelLockedMs(status, errorText, provider) {
+  if (resolveProviderId(provider) !== "freebuff" || Number(status) !== 409) return null;
+  if (!String(errorText || "").includes("model_locked")) return null;
+  return FREEBUFF_MODEL_LOCK_MS;
 }
 
 /**
@@ -224,12 +251,24 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
 
   // GitHub premium-request exhaustion is account-wide until the next UTC month.
   const githubResetAtMs = githubMonthlyResetMs(status, errorText, provider);
+  // Freebuff: daily-quota reset (account-wide) and model_locked (per-model).
+  // Both precede the capped generic resetsAtMs branch below.
+  const freebuffResetAtMs = freebuffDailyResetMs(status, errorText, provider, resetsAtMs);
+  const freebuffLockMs = freebuffModelLockedMs(status, errorText, provider);
 
   // Provider-specific precise cooldown (e.g. codex usage_limit_reached resets_at) overrides backoff
   let shouldFallback, cooldownMs, newBackoffLevel;
   if (githubResetAtMs) {
     shouldFallback = true;
     cooldownMs = githubResetAtMs - Date.now();
+    newBackoffLevel = 0;
+  } else if (freebuffResetAtMs) {
+    shouldFallback = true;
+    cooldownMs = freebuffResetAtMs - Date.now();
+    newBackoffLevel = 0;
+  } else if (freebuffLockMs) {
+    shouldFallback = true;
+    cooldownMs = freebuffLockMs;
     newBackoffLevel = 0;
   } else if (resetsAtMs && resetsAtMs > Date.now()) {
     shouldFallback = true;
@@ -241,7 +280,9 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
   if (!shouldFallback) return { shouldFallback: false, cooldownMs: 0 };
 
   const reason = typeof errorText === "string" ? errorText.slice(0, 100) : "Provider error";
-  const lockUpdate = buildModelLockUpdate(githubResetAtMs ? null : model, cooldownMs);
+  // GitHub + freebuff daily quota are account-wide; everything else is per-model.
+  const lockModel = (githubResetAtMs || freebuffResetAtMs) ? null : model;
+  const lockUpdate = buildModelLockUpdate(lockModel, cooldownMs);
 
   await updateProviderConnection(connectionId, {
     ...lockUpdate,

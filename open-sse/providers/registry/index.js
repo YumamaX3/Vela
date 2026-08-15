@@ -129,6 +129,7 @@ import p126 from "./tokenharbor.js";
 import p127 from "./qzz.js";
 import p128 from "./nesarouter.js";
 import p129 from "./codecrafters.js";
+import p130 from "./freebuff.js";
 
 export default [
   p0,
@@ -259,4 +260,5 @@ export default [
   p127,
   p128,
   p129,
+  p130,
 ];
