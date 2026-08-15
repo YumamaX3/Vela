@@ -25,6 +25,38 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.51 — The Harbor Chart Ascended 🗺️⛵
+
+> *"A ship is only as safe as the chart it sails by. The old chart was a
+> scrap — this one names every current, sets every limit, and keeps the
+> sidecar off the open sea."*
+
+*Sealed 2026-08-15 · the Star's decree · Milestone Tide: small change → `0.6.50 → 0.6.51`*
+
+## 🔧 Changes — a full upgrade of `docker-compose.yml`
+- **The real image**: points at the published, private `ghcr.io/yumamax3/vela`
+  — pinned to `${VELA_TAG:-0.6.50}` (never `latest`, per the harbor's own
+  doctrine), with a `build:` block so `docker compose up --build` still works
+  from source.
+- **A healthcheck at last**: `wget --spider /api/health` (public endpoint,
+  busybox-native, no curl dependency) with a 40s warm-up for the standalone
+  Next.js server.
+- **Resource limits**: tunable CPU/memory caps + a memory reservation, a PID
+  limit, and `no-new-privileges` — hardening that does not fight the
+  entrypoint's root→`node` drop.
+- **The sidecar, off the open sea**: `headroom` moves behind the `proxy`
+  profile and loses its host port — it is reachable only by `vela` over the
+  new internal `vela-net` bridge network. Compression stays fail-open.
+- **Ops hygiene**: rotated logs (10m × 3), `init: true` for graceful signal
+  handling, `restart: unless-stopped`, and a themed header chart with the
+  quick-start rites (login → pull → up, and the proxy-profile variant).
+
+*The old chart exposed the compression sidecar directly to the host and ran
+without limits or a heartbeat. The new one closes both gaps — the harbor is
+charted for real deployment now.* 💜
+
+---
+
 # v0.6.50 — The Pricing Covenant 💰🌊⛵
 
 > *"Every model that crosses the gateway shall pay its true rate — researched
