@@ -69,14 +69,16 @@ describe("Storage Covenant A6 — fail-loud boot refusal", () => {
     await expect(assertHarborBound()).rejects.toThrow(); // any error = loud refusal
   }, 15000);
 
-  it("mysql mode with a REACHABLE server still refuses until Waves A7–A9 land the repos", async () => {
+  it("mysql mode with a REACHABLE server: barrel export/import still refuse (await Wave B)", async () => {
+    // A7 bound the config-wave repos, so the seam-level refusal now names the
+    // barrel export/import functions (their harbor lands with the backup engine).
     process.env.DATA_DIR = freshDir();
     process.env.VELA_DB_MODE = "mysql";
     process.env.VELA_MYSQL_URL = "mysql://vela:vela@localhost:3306/vela";
     vi.doMock("@/lib/db/mysql/pool.js", () => ({ probeMysqlUrl: async () => {} }));
     vi.resetModules();
     const { assertHarborBound } = await import("@/lib/db/repos/bind.js");
-    await expect(assertHarborBound()).rejects.toThrow(/Waves A7–A9/);
+    await expect(assertHarborBound()).rejects.toThrow(/Wave B/);
   });
 
   it("mirror mode refuses LOUD (binds in Wave C)", async () => {

@@ -31,22 +31,78 @@ export async function assertMysqlReachable() {
   await probeMysqlUrl(url.trim()); // throws loud on any connection failure
 }
 
-/** The A6 refusal — every non-sqlite posture fails LOUD at the seam, never
- *  silently downgrades. Waves A7–A9 replace this body per posture as the
- *  mysql repos land (A7 config, A8 security, A9 usage). */
+/** The A6 refusal — the BARREL's raw-SQL functions (exportDb/importDb) are
+ *  sqlite-only until Wave B harbors them; under a mysql/mirror posture they
+ *  refuse LOUD rather than silently exporting the wrong engine. Repo-level
+ *  dispatch lives in bindFacade() below, which binds the config-wave twins. */
 export async function assertHarborBound() {
   const mode = getDbMode();
   if (mode === "sqlite") return; // today's harbor — binds verbatim
   if (mode === "mysql") {
-    // Reachability is validated even in A6 so the boot matrix can prove the
-    // LOUD half (unreachable) and the reachable half separately.
+    // Reachability is validated so the boot matrix can prove the LOUD half
+    // (unreachable) separately from the repos-not-yet-bound half.
     await assertMysqlReachable();
     throw new Error(
-      `[DB] VELA_DB_MODE=mysql is reachable but the mysql harbor repos land in Storage Covenant Waves A7–A9 — boot refusal (fail loud, never silent downgrade)`
+      `[DB] VELA_DB_MODE=mysql — the barrel export/import functions land with the Storage Covenant backup engine (Wave B) — boot refusal (fail loud, never silent downgrade)`
     );
   }
   // mirror: Wave C — primary sqlite + pump. Not yet forged.
   throw new Error(
     `[DB] VELA_DB_MODE=mirror binds in Storage Covenant Wave C — boot refusal (fail loud, never silent downgrade)`
   );
+}
+
+// ─── Wave A7 — facade dispatch ────────────────────────────────────────────
+// The config-wave repos are bound through bindFacade(): sqlite re-exports the
+// harbor verbatim; mysql imports the twin. Every name NOT yet forged in the
+// mysql harbor fails LOUD at call time (never silently downgrades) until its
+// wave lands (A8 security, A9 usage).
+//
+// The mysql module path is passed as a LOADER function from each facade (a
+// static `import("../mysql/…")` call site) — never built as a template string
+// here, so bundlers can analyze the target module.
+
+/** The A7 config-wave surface — the repos/mysql config twins cover these. */
+const CONFIG_WAVE_NAMES = new Set([
+  // settingsRepo
+  "mergeWithDefaults", "getSettings", "updateSettings", "isCloudEnabled", "getCloudUrl", "exportSettings",
+  // connectionsRepo
+  "getProviderConnections", "getProviderConnectionById", "createProviderConnection",
+  "updateProviderConnection", "deleteProviderConnection", "deleteProviderConnectionsByProvider",
+  "reorderProviderConnections", "cleanupProviderConnections",
+  // nodesRepo
+  "getProviderNodes", "getProviderNodeById", "createProviderNode", "updateProviderNode", "deleteProviderNode",
+  // proxyPoolsRepo
+  "getProxyPools", "getProxyPoolById", "createProxyPool", "updateProxyPool", "deleteProxyPool",
+  // combosRepo
+  "getCombos", "getComboById", "getComboByName", "createCombo", "updateCombo", "deleteCombo",
+  // aliasRepo
+  "getModelAliases", "setModelAlias", "deleteModelAlias", "getCustomModels",
+  "addCustomModel", "deleteCustomModel", "getMitmAlias", "setMitmAliasAll",
+]);
+
+/** Bind a facade barrel to its posture's harbor.
+ *  @param sqliteRepo the sqlite harbor module (verbatim binding under sqlite)
+ *  @param mysqlLoader `() => import("../mysql/<repo>.js")` — static call site */
+export function bindFacade(sqliteRepo, mysqlLoader) {
+  if (getDbMode() === "sqlite") return sqliteRepo; // verbatim — sync fns stay sync
+  // mysql posture: wrap every config-wave name; everything else refuses loud.
+  const bound = {};
+  for (const [name, fn] of Object.entries(sqliteRepo)) {
+    if (typeof fn !== "function") { bound[name] = fn; continue; }
+    if (!CONFIG_WAVE_NAMES.has(name)) {
+      bound[name] = () => {
+        throw new Error(`[DB] VELA_DB_MODE=mysql — repo fn "${name}" lands in a later Storage Covenant wave (A8 security / A9 usage / Wave C mirror). Boot refusal (fail loud, never silent downgrade).`);
+      };
+      continue;
+    }
+    bound[name] = async (...args) => {
+      const mod = await mysqlLoader();
+      if (typeof mod[name] !== "function") {
+        throw new Error(`[DB] mysql twin is missing "${name}" — the config-wave repo is incomplete`);
+      }
+      return mod[name](...args);
+    };
+  }
+  return bound;
 }
