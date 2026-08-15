@@ -29,6 +29,27 @@ export const PARITY_REGISTRY = new Set([
   // The round-trip legs
   "exportDb",
   "importDb",
+  // ── The paid EXEMPT_PENDING debt — Wave A's seal (A10) ────────────────
+  // Every entry migrated from EXEMPT_PENDING once its wave forged the twin
+  // and the parity gate turned green. The annotations name the paying wave.
+  // Config wave (A7) — parity-config.test.js
+  "getSettings", "exportSettings", "isCloudEnabled", "getCloudUrl",
+  "getProviderConnections", "getProviderConnectionById", "updateProviderConnection",
+  "deleteProviderConnection", "deleteProviderConnectionsByProvider",
+  "reorderProviderConnections", "cleanupProviderConnections",
+  "getProviderNodes", "getProviderNodeById", "updateProviderNode", "deleteProviderNode",
+  "getProxyPools", "getProxyPoolById", "updateProxyPool", "deleteProxyPool",
+  "getCombos", "getComboById", "getComboByName", "updateCombo", "deleteCombo",
+  "getModelAliases", "deleteModelAlias", "getCustomModels", "deleteCustomModel",
+  "getMitmAlias", "setMitmAliasAll",
+  // Security wave (A8) — parity-security.test.js
+  "getApiKeys", "getApiKeyById", "updateApiKey", "deleteApiKey", "validateApiKey",
+  "getDisabledModels", "getDisabledByProvider", "enableModels",
+  "getPricing", "getPricingForModel", "resetPricing", "resetAllPricing",
+  "replaceSyncedPricing", "clearSyncedPricing", "getSyncedPricing",
+  "saveRequestDetail", "getRequestDetails", "getRequestDetailById", "getDistinctProviders",
+  // Usage wave (A9) — parity-usage.test.js
+  "saveRequestUsage", "getUsageHistory", "getKeyUsageStats",
 ]);
 
 /** Never parity-testable — process/global state, wall-clock, pure helpers. */
@@ -45,64 +66,11 @@ export const EXEMPT_PROCESS = {
   sanitizeCategory: "pure string helper — no DB access",
 };
 
-/** Parity coverage scheduled in a later Wave A commit. */
-export const EXEMPT_PENDING = {
-  // Config wave (A7)
-  getSettings: "A7",
-  exportSettings: "A7",
-  isCloudEnabled: "A7",
-  getCloudUrl: "A7",
-  getProviderConnections: "A7",
-  getProviderConnectionById: "A7",
-  updateProviderConnection: "A7",
-  deleteProviderConnection: "A7",
-  deleteProviderConnectionsByProvider: "A7",
-  reorderProviderConnections: "A7",
-  cleanupProviderConnections: "A7",
-  getProviderNodes: "A7",
-  getProviderNodeById: "A7",
-  updateProviderNode: "A7",
-  deleteProviderNode: "A7",
-  getProxyPools: "A7",
-  getProxyPoolById: "A7",
-  updateProxyPool: "A7",
-  deleteProxyPool: "A7",
-  getCombos: "A7",
-  getComboById: "A7",
-  getComboByName: "A7",
-  updateCombo: "A7",
-  deleteCombo: "A7",
-  getModelAliases: "A7",
-  deleteModelAlias: "A7",
-  getCustomModels: "A7",
-  deleteCustomModel: "A7",
-  getMitmAlias: "A7",
-  setMitmAliasAll: "A7",
-  // Security wave (A8)
-  getApiKeys: "A8",
-  getApiKeyById: "A8",
-  updateApiKey: "A8",
-  deleteApiKey: "A8",
-  validateApiKey: "A8",
-  getDisabledModels: "A8",
-  getDisabledByProvider: "A8",
-  enableModels: "A8",
-  getPricing: "A8",
-  getPricingForModel: "A8",
-  resetPricing: "A8",
-  resetAllPricing: "A8",
-  replaceSyncedPricing: "A8",
-  clearSyncedPricing: "A8",
-  getSyncedPricing: "A8",
-  saveRequestDetail: "A8",
-  getRequestDetails: "A8",
-  getRequestDetailById: "A8",
-  getDistinctProviders: "A8",
-  // Usage wave (A9)
-  saveRequestUsage: "A9 — cost lookup + wall-clock; needs faked timers",
-  getUsageHistory: "A9",
-  getKeyUsageStats: "A9",
-};
+/** Parity coverage scheduled in a later Wave A commit — PAID IN FULL at A10.
+ *  Every entry migrated into PARITY_REGISTRY with its paying-wave annotation.
+ *  The object stays (empty) so the census's three-way classification keeps
+ *  its shape; any new pending debt must land here, named with its wave. */
+export const EXEMPT_PENDING = {};
 
 /** The full set of classified symbols — the census compares the barrel to this. */
 export function allClassified() {
