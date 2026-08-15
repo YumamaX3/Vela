@@ -1,18 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Card from "@/shared/components/Card";
 import PricingModal from "@/shared/components/PricingModal";
 
 export default function PricingSettingsPage() {
-  const router = useRouter();
   const [showModal, setShowModal] = useState(false);
   const [currentPricing, setCurrentPricing] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [syncMeta, setSyncMeta] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
 
   useEffect(() => {
     loadPricing();
+    loadSyncMeta();
   }, []);
 
   const loadPricing = async () => {
@@ -27,6 +29,51 @@ export default function PricingSettingsPage() {
       console.error("Failed to load pricing:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadSyncMeta = async () => {
+    try {
+      const res = await fetch("/api/pricing/sync");
+      if (res.ok) {
+        const data = await res.json();
+        setSyncMeta(data.meta || null);
+      }
+    } catch { /* non-fatal */ }
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/pricing/sync", { method: "POST" });
+      const data = await res.json();
+      if (data.ok) {
+        setSyncResult({ ok: true, data });
+        loadPricing();
+        loadSyncMeta();
+      } else {
+        setSyncResult({ ok: false, data });
+      }
+    } catch (error) {
+      console.error("Sync failed:", error);
+      setSyncResult({ ok: false, error: error.message });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleClearSynced = async () => {
+    if (!confirm("Clear synced prices? Your own overrides are not touched.")) return;
+    try {
+      const res = await fetch("/api/pricing/sync", { method: "DELETE" });
+      if (res.ok) {
+        setSyncMeta(null);
+        setSyncResult(null);
+        loadPricing();
+      }
+    } catch (error) {
+      console.error("Failed to clear synced pricing:", error);
     }
   };
 
@@ -60,16 +107,50 @@ export default function PricingSettingsPage() {
             Configure pricing rates for cost tracking and calculations
           </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
-        >
-          Edit Pricing
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="px-4 py-2 border border-primary text-primary rounded hover:bg-primary/10 transition-colors disabled:opacity-50"
+          >
+            {syncing ? "Syncing…" : "Sync Prices"}
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 transition-colors"
+          >
+            Edit Pricing
+          </button>
+        </div>
       </div>
 
+      {/* Sync result feedback */}
+      {syncResult && (
+        <Card className={`p-4 border ${syncResult.ok ? "border-success/40" : "border-red-500/40"}`}>
+          {syncResult.ok ? (
+            <div className="text-sm">
+              <div className="font-semibold text-success">
+                Sync complete — {syncResult.data.entryCount} rates refreshed
+              </div>
+              <div className="text-text-muted mt-1">
+                {syncResult.data.diff?.added ?? 0} added · {syncResult.data.diff?.updated ?? 0} updated ·{" "}
+                {syncResult.data.diff?.removed ?? 0} removed
+                {syncResult.data.crossCheck?.disagreements > 0 &&
+                  ` · ${syncResult.data.crossCheck.disagreements} cross-check disagreement(s)`}
+                {syncResult.data.failed?.length > 0 &&
+                  ` · ${syncResult.data.failed.length} source(s) failed`}
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-red-500">
+              Sync failed: {syncResult.data?.error || syncResult.error || "unknown error"}
+            </div>
+          )}
+        </Card>
+      )}
+
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4">
           <div className="text-text-muted text-sm uppercase font-semibold">
             Total Models
@@ -88,6 +169,14 @@ export default function PricingSettingsPage() {
         </Card>
         <Card className="p-4">
           <div className="text-text-muted text-sm uppercase font-semibold">
+            Last Synced
+          </div>
+          <div className="text-lg font-bold mt-1">
+            {syncMeta?.syncedAt ? new Date(syncMeta.syncedAt).toLocaleString() : "Never"}
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-text-muted text-sm uppercase font-semibold">
             Status
           </div>
           <div className="text-2xl font-bold mt-1 text-success">
@@ -95,6 +184,22 @@ export default function PricingSettingsPage() {
           </div>
         </Card>
       </div>
+
+      {/* Synced pricing management */}
+      {syncMeta && (
+        <Card className="p-4 flex items-center justify-between">
+          <div className="text-sm text-text-muted">
+            <span className="font-semibold text-text">{syncMeta.entryCount ?? "?"} synced rates</span>{" "}
+            from {syncMeta.sources?.length ?? 0} source(s) · these never override your own edits
+          </div>
+          <button
+            onClick={handleClearSynced}
+            className="text-sm text-red-500 hover:bg-red-500/10 border border-red-500/20 rounded px-3 py-1.5 transition-colors"
+          >
+            Clear Synced Prices
+          </button>
+        </Card>
+      )}
 
       {/* Info Section */}
       <Card className="p-6">
@@ -107,6 +212,10 @@ export default function PricingSettingsPage() {
           <p>
             <strong>Pricing Format:</strong> All rates are in <strong>dollars per million tokens</strong> ($/1M tokens).
             Example: An input rate of 2.50 means $2.50 per 1,000,000 input tokens.
+          </p>
+          <p>
+            <strong>Sovereignty:</strong> Your own overrides always win, then synced prices, then built-in defaults.
+            Free models inherit their paid sibling&apos;s rate automatically.
           </p>
           <p>
             <strong>Token Types:</strong>
