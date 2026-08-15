@@ -25,6 +25,29 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.42 — The Keyless Test Restored 🧪🧘⛵
+
+> *"The rebrand moved the lantern to a new shelf — and two of its old hooks
+> stayed behind. This tide hangs them back where the keyless hand can reach."*
+
+*Sealed 2026-08-15 · the Star's report · Milestone Tide: small change → `0.6.41 → 0.6.42`*
+
+## 🐛 Fixes — UI regression from the Zen rebrand (v0.6.41)
+- **Model test button restored for keyless OpenCode Zen**: the provider detail
+  page gated its per-model test buttons on `FREE_PROVIDERS` membership — the
+  freeTier move left Zen out, so with no API key the buttons never mounted even
+  though the keyless lane works. A dedicated keyless-test flag now covers both
+  lanes (the Connections card still renders, so keys can still be added).
+- **Model selector**: Zen re-appears in the always-shown no-auth provider list
+  (same `FREE_PROVIDERS`-only blind spot).
+
+## ⚙️ Internal
+- Contract test pins `noAuth` on the freeTier catalog entry — the flag every
+  keyless UI lane reads. Backend keyless path verified live (`/api/models/test`
+  → `ok:true` with zero connections).
+
+---
+
 # v0.6.41 — The Zen Key Turns 🧘🔑⛵
 
 > *"The lantern on the free shore takes a new name and a wider door —

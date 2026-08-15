@@ -64,6 +64,16 @@ describe("OpenCode Zen registry rebrand", () => {
     expect(FREE_TIER_PROVIDERS["opencode"]?.name).toBe("OpenCode Zen");
     expect(FREE_PROVIDERS["opencode"]).toBeUndefined();
   });
+
+  it("keeps noAuth in the freeTier catalog — the keyless UI lanes read it", async () => {
+    // The provider detail test button, the usage panel and the model selector
+    // all gate their keyless affordances on this flag. Removing it silently
+    // hides the keyless lane again (the v0.6.41 UI regression this pins).
+    const { FREE_TIER_PROVIDERS } = await vi.importActual(
+      "../../src/shared/constants/providers.js"
+    );
+    expect(FREE_TIER_PROVIDERS["opencode"]?.noAuth).toBe(true);
+  });
 });
 
 describe("OpenCodeExecutor hybrid auth headers", () => {
