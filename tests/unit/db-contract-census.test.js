@@ -42,6 +42,11 @@ const EXEMPT = [
   "src/lib/db/helpers/kvStore.js", // helpers/* sync utility
   "src/lib/db/helpers/metaStore.js", // helpers/* sync utility
   "src/lib/db/backup.js", // sealed exempt (safety-net ATTACH backup)
+  // Storage Covenant Wave B4: the backup ENGINE (posture-independent) reaches
+  // the adapter only through getScratchAdapter (the restore drill's scratch
+  // DB — never the live database) + backup.js's hot copy for the pre-restore
+  // safety net. It writes NO persistence statements against the live DB.
+  "src/lib/db/repos/backupEngine.js",
 ];
 function inHarborOrExempt(file) {
   const r = rel(file);

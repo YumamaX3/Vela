@@ -1,77 +1,73 @@
-// Storage Covenant Wave B2 — the backupRepo facade (posture dispatcher).
-// B1 moved exportDb/importDb/initDb here (plan line 420). B2 grows the
-// surface into the full backup engine: the S1/S2 security layers live in the
-// twins (repos/backupSecurity.js + each harbor's export/import), and the
-// artifact pipeline (runBackup / restoreBackup / runRestoreDrill / ledger /
-// retention / purge) lives in the sqlite harbor until its mysql twin lands
-// (Wave B4 — restore-into-any-posture rides the SAME contract, criterion 7).
+// Storage Covenant Wave B4 — the backupRepo facade (posture dispatcher).
+// B1 moved exportDb/importDb here; B2 layered S1/S2 + the engine; B4 splits
+// the surface in two:
 //
-// Dispatch is explicit (not bindFacade): Wave B layers security ON TOP of the
-// twins and the engine functions are posture-scoped. Contract law (bind.js):
-// sqlite re-exports the harbor; mysql/mirror refuse LOUD until the twin binds.
-import { assertHarborBound, getDbMode } from "./bind.js";
+//   ENGINE (posture-independent, re-exported from backupEngine.js): the crypto,
+//   artifact file I/O, secret-file bundle, restore drill, retention pruning.
+//   runBackup/restoreBackup/runRestoreDrill dispatch the DATA calls through
+//   THIS facade, so they work under sqlite AND mysql alike (plan line 284).
+//
+//   DATA (posture twins, dispatched here): exportDb/importDb/initDb/writeLedger/
+//   listBackupLedger/purgeOldUsage — sqlite re-exports repos/sqlite/backupRepo.js;
+//   mysql binds repos/mysql/backupRepo.js (the twin lands here, criterion 7:
+//   restore-into-any-posture rides the SAME contract).
+//
+// Mirror posture still refuses LOUD (Wave C). sqlite binds its harbor; mysql
+// binds repos/mysql/backupRepo.js (the twin lands here, criterion 7:
+// restore-into-any-posture rides the SAME contract).
+import { getDbMode } from "./bind.js";
 
-async function dispatch() {
-  // The boot gate runs FIRST — identical semantics to Wave A (fail loud,
-  // never silent downgrade).
-  await assertHarborBound();
-  if (getDbMode() === "mysql") {
-    throw new Error(
-      `[DB] VELA_DB_MODE=mysql — backupRepo lands with the Storage Covenant backup engine twins (Wave B4) — boot refusal (fail loud, never silent downgrade).`
-    );
+async function dispatchData() {
+  const mode = getDbMode();
+  if (mode === "sqlite") return await import("./sqlite/backupRepo.js");
+  if (mode === "mysql") {
+    // Validate reachability (fail loud, never silent downgrade) before the
+    // twin binds — an unreachable MariaDB must refuse, not half-restore.
+    const { assertMysqlReachable } = await import("./bind.js");
+    await assertMysqlReachable();
+    return await import("./mysql/backupRepo.js");
   }
-  return await import("./sqlite/backupRepo.js");
+  // mirror: Wave C — primary sqlite + pump. Not yet forged.
+  throw new Error(
+    `[DB] VELA_DB_MODE=mirror — backupRepo binds in Storage Covenant Wave C — boot refusal (fail loud, never silent downgrade)`
+  );
 }
 
-// The engine surface — today sqlite-only. Under mysql/mirror these refuse
-// loud at the seam (the engine functions call dispatch() just like export/
-// import), never silently exporting the wrong engine.
+// ─── The DATA twin surface (posture-scoped) ──────────────────────────────
 export async function exportDb(opts) {
-  const mod = await dispatch();
+  const mod = await dispatchData();
   return mod.exportDb(opts);
 }
 
 export async function importDb(payload, opts) {
-  const mod = await dispatch();
+  const mod = await dispatchData();
   return mod.importDb(payload, opts); // S1 adoptSecrets rides opts
 }
 
 export async function initDb() {
-  const mod = await dispatch();
+  const mod = await dispatchData();
   return mod.initDb();
 }
 
-export async function runBackup(opts) {
-  const mod = await dispatch();
-  return mod.runBackup(opts);
-}
-
-export async function restoreBackup(opts) {
-  const mod = await dispatch();
-  return mod.restoreBackup(opts);
-}
-
-export async function runRestoreDrill() {
-  const mod = await dispatch();
-  return mod.runRestoreDrill();
-}
-
 export async function writeLedger(kind, fields) {
-  const mod = await dispatch();
+  const mod = await dispatchData();
   return mod.writeLedger(kind, fields);
 }
 
 export async function listBackupLedger(opts) {
-  const mod = await dispatch();
+  const mod = await dispatchData();
   return mod.listBackupLedger(opts);
 }
 
-export async function pruneBackupArtifacts(opts) {
-  const mod = await dispatch();
-  return mod.pruneBackupArtifacts(opts);
-}
-
 export async function purgeOldUsage(opts) {
-  const mod = await dispatch();
+  const mod = await dispatchData();
   return mod.purgeOldUsage(opts);
 }
+
+// ─── The ENGINE surface (posture-independent, re-exported) ───────────────
+export {
+  runBackup,
+  restoreBackup,
+  runRestoreDrill,
+  pruneBackupArtifacts,
+} from "./backupEngine.js";
