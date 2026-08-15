@@ -137,6 +137,15 @@ describe("Storage Covenant A6 — ddlMap golden rules", () => {
     expect(idxs.some((i) => /CREATE UNIQUE INDEX/.test(i))).toBe(true);
   });
 
+  it("DESC index columns map to the bare column (learned against real MariaDB)", () => {
+    // idx_uh_ts ON usageHistory(timestamp DESC) — the sort suffix is NOT part
+    // of the identifier; MySQL rejects "Key column 'timestamp DESC'".
+    const idxs = toMysqlIndexSqls("usageHistory", TABLES.usageHistory);
+    const ts = idxs.find((i) => i.includes("idx_uh_ts"));
+    expect(ts).toContain("(`timestamp`)");
+    expect(ts).not.toMatch(/DESC/i);
+  });
+
   it("parseMysqlUrl extracts the full connection shape and refuses malformed URLs", () => {
     const cfg = parseMysqlUrl("mysql://us%40er:p%40ss@db.local:3307/vela");
     expect(cfg).toEqual({ host: "db.local", port: 3307, user: "us@er", password: "p@ss", database: "vela" });
