@@ -11,7 +11,7 @@ Provider-agnostic SSE engine: one OpenAI-style request → any provider (LLM cha
 - `config/` — ALL constants/config (no hardcode elsewhere). `providers.js`/`registry/` (provider defs), `providerModels.js` (alias→models matrix), `runtimeConfig.js` (timeouts, token limits), `*Constants.js`.
 - `translator/` — format conversion. `request/<from>-to-<to>.js`, `response/<from>-to-<to>.js`, `schema/` (enums: ROLE, CLAUDE_BLOCK…), `concerns/` (shared logic), `formats.js`+`formats/` (per-format). `index.js` is the registry/entry.
 - `executors/` — per-provider upstream call. `base.js` (BaseExecutor), one file per special provider, `index.js` map.
-- `providers/` — registry build + `capabilities.js` + `pricing.js`. Entry: `index.js` (PROVIDERS).
+- `providers/` — registry build + `capabilities.js` + `pricing.js` (rate tables — see "Pricing model" below). Entry: `index.js` (PROVIDERS).
 - `handlers/` — per-modality cores (chat/image/embedding/tts/stt/search) + sub-provider folders. `chatCore/` has the streaming/non-streaming/sse-to-json handlers.
 - `rtk/` — request token-killer. `index.js` compresses `tool_result` content in-place (OpenAI/Claude/Kiro shapes); `filters/` per-tool compressors + `autodetect.js`; `headroom.js` external compress proxy; `caveman.js` system-prompt injector.
 - `transformer/` — `responsesTransformer.js` (Chat Completions SSE → Codex Responses API SSE), `streamToJsonConverter.js`.
@@ -30,6 +30,17 @@ Provider-agnostic SSE engine: one OpenAI-style request → any provider (LLM cha
 - **Provider**: copy `providers/REGISTRY_TEMPLATE.js` → `providers/registry/{id}.js`; add models to `config/providerModels.js`. Generic providers need no executor (DefaultExecutor handles OpenAI-compatible APIs).
 - **Executor** (only for non-standard upstream): subclass `BaseExecutor` (override `getBaseUrls`/`buildHeaders`/`buildUrl`/`execute`), register in `executors/index.js` map. `getExecutor` falls back to `DefaultExecutor` when absent.
 - **Translator**: add `request|response/<from>-to-<to>.js` calling `register(...)`, then import it in `translator/index.js`. Reuse `schema/` + `concerns/` — don't re-implement parsing.
+
+## Pricing model
+
+`providers/pricing.js` is the static layer; `src/lib/db/repos/pricingRepo.js` is the async overlay. Sovereignty order for any lookup: **user overrides** (kv scope `pricing`) → **synced rates** (scope `pricing_sync`) → the seven-stratum static chain: `UNPRICEABLE` manifest → `PROVIDER_PRICING` lane (registry id, then alias) → `MODEL_PRICING` exact → `FREE_ALIAS_MAP` inheritance (exact strata only, never globs; `FREE_DENYLIST` blocks suffix-strip on infix/router traps) → vendor-stripped exact → pre-compiled `PATTERN_PRICING`.
+
+- Rates are five fields, $/1M tokens: `input, output, cached, reasoning, cache_creation`. Never add a sixth — fallbacks live in the cost math.
+- Usage cost is computed at WRITE time and frozen in the usage DB — no backfill, no recomputation after rate edits.
+- `matchPattern` globs are ANCHORED (`^…$`) and case-insensitive — consumed by `capabilities.js` + `thinkingLevels.js`; preserve semantics when touching `PATTERN_PRICING`.
+- Sync refresh: `POST /api/pricing/sync` fetches ONLY the hardcoded URLs in `SYNC_VENDOR_MAP` (SSRF defense — body selects vendors by key, never URLs), writes scope `pricing_sync` atomically, never touches user overrides. Dashboard shore: `/dashboard/settings/pricing`.
+- Free models inherit their paid sibling's rates everywhere (R3): register siblings in `FREE_ALIAS_MAP` (hand-verified), never invent entries whose sibling doesn't resolve — the census test suite pins this.
+- Rate-table changes: re-run `node tests/__baseline__/snapshot-pricing-census.mjs`; `verify-pricing-census.mjs` fails on silent shrinkage.
 
 ## Pitfalls
 

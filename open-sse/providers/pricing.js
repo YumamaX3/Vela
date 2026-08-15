@@ -569,8 +569,6 @@ export const PATTERN_PRICING = [
  * live registry (2026-08-15): every entry here has a sibling that resolves.
  */
 export const FREE_ALIAS_MAP = {
-  // ── bazaarlink ──
-  "auto:free": "auto",
   // ── codecrafters / tokenharbor ──
   "deepseek-v4-flash:free": "deepseek-v4-flash",
   "mimo-v2.5-free": "mimo-v2.5",
@@ -578,7 +576,14 @@ export const FREE_ALIAS_MAP = {
   // ── kilo-gateway ──
   "nvidia/nemotron-3-super-120b-a12b:free": "nvidia/nemotron-3-super-120b-a12b",
   "nvidia/nemotron-3-ultra-550b-a55b:free": "nvidia/nemotron-3-ultra-550b-a55b",
-  "kwaipilot/kat-coder-pro-v2.5:free": "kwaipilot/kat-coder-pro",
+  // REMOVED (census re-check 2026-08-15):
+  //   "auto:free" → "auto" — bazaarlink registers auto:free but no 'auto'
+  //     sibling exists anywhere; the entry resolved nothing.
+  //   "kwaipilot/kat-coder-pro-v2.5:free" → "kwaipilot/kat-coder-pro" — the
+  //     sibling only exists in the CLINE registry; the kilo-gateway lane has
+  //     no canonical entry and no lane table, so the lookup returned null.
+  //     (kilo's paid id is 'kwaipilot/kat-coder-pro-v2.5' — different version.)
+  //     Priced via the catch-all '*/qwen*' family pattern for now.
   // ── nesarouter (sibling exists in-registry) ──
   "nesarouter/deepseek-v4-flash-free": "nesarouter/deepseek-v4-flash",
   "nesarouter/step-3.7-flash-free": "nesarouter/step-3.7-flash",

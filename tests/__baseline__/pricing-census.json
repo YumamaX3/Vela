@@ -1,0 +1,11 @@
+{
+  "captured": "2026-08-15",
+  "modelPricing": 215,
+  "providerLanes": 8,
+  "laneModels": 128,
+  "patternPricing": 57,
+  "freeAliasMap": 13,
+  "freeDenylist": 22,
+  "unpriceable": 8,
+  "pricingSources": 25
+}
