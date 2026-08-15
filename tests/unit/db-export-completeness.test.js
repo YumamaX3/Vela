@@ -133,7 +133,7 @@ describe("Storage Covenant A3 — export completeness law", () => {
     expect(payload.customModels.length).toBe(1);
 
     // Provenance header
-    expect(payload._meta.schemaVersion).toBe(5);
+    expect(payload._meta.schemaVersion).toBe(6);
     expect(payload._meta.sourceMode).toBe("sqlite");
     expect(payload._meta.sourceDriver).toBeTruthy();
     expect(payload._meta.exportedAt).toBeTruthy();
