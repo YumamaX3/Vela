@@ -405,7 +405,9 @@ describe("Wave B2 — migration 005 + posture refusals", () => {
     process.env.VELA_MYSQL_URL = "mysql://u:p@127.0.0.1:1/vela";
     const db = await import("@/lib/db/index.js");
     await expect(db.runBackup()).rejects.toThrow(/mysql|ECONNREFUSED|connect|refused/i);
-    await expect(db.restoreBackup()).rejects.toThrow(/mysql|ECONNREFUSED|connect|refused/i);
+    // restoreBackup validates artifact existence BEFORE posture dispatch
+    // (engine law) — with no artifacts it refuses loud regardless of posture.
+    await expect(db.restoreBackup()).rejects.toThrow(/artifact not found/i);
   }, 30000);
 
   it("mirror posture refuses LOUD", async () => {
