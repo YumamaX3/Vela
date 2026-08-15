@@ -1,7 +1,14 @@
 // The Twin Harbors posture seam (Storage Covenant, plans/storage-covenant.md).
 // Resolves VELA_DB_MODE once per process; Wave A ships only the sqlite harbor,
 // so repo facades are pure re-exports. From Wave A7 the mysql/mirror harbors
-// bind behind the SAME 74-function contract through this module.
+// bind behind the SAME 74-function contract through this module. Wave C5 binds
+// the mirror posture: the sqlite harbor behind the mirror decorator (primary
+// serves; the outbox pump carries writes to the twin).
+//
+// Import-safety: bind.js is loaded by every repo facade at module init, so its
+// static imports must never reach a facade (cycle). mirrorDecorator.js's chain
+// (outboxRepo, backupSecurity, sqlite/apiKeysRepo) touches no facade — verified.
+import { decorateMirrorRepo } from "../mirror/mirrorDecorator.js";
 
 const MODES = ["sqlite", "mysql", "mirror"];
 
@@ -46,10 +53,11 @@ export async function assertHarborBound() {
       `[DB] VELA_DB_MODE=mysql — the barrel export/import functions land with the Storage Covenant backup engine (Wave B) — boot refusal (fail loud, never silent downgrade)`
     );
   }
-  // mirror: Wave C — primary sqlite + pump. Not yet forged.
-  throw new Error(
-    `[DB] VELA_DB_MODE=mirror binds in Storage Covenant Wave C — boot refusal (fail loud, never silent downgrade)`
-  );
+  // Wave C5 — mirror binds the sqlite PRIMARY (serving) behind the decorator;
+  // the outbox pump carries writes to the twin. The barrel operates on the
+  // primary, so the harbor IS bound — no refusal. (Mode never silently
+  // downgrades; it stays mirror.)
+  return;
 }
 
 // ─── Wave A7 — facade dispatch ────────────────────────────────────────────
@@ -107,7 +115,16 @@ const USAGE_WAVE_NAMES = new Set([
  *  @param sqliteRepo the sqlite harbor module (verbatim binding under sqlite)
  *  @param mysqlLoader `() => import("../mysql/<repo>.js")` — static call site */
 export function bindFacade(sqliteRepo, mysqlLoader) {
-  if (getDbMode() === "sqlite") return sqliteRepo; // verbatim — sync fns stay sync
+  const mode = getDbMode();
+  if (mode === "sqlite") return sqliteRepo; // verbatim — sync fns stay sync
+  if (mode === "mirror") {
+    // Wave C5 — the mirror posture binds the sqlite harbor behind the mirror
+    // decorator: the PRIMARY serves every read + write, and every classified
+    // writer leaves one outbox row for the pump to carry to the twin. Reads
+    // and exempt/uncaptured writers pass through verbatim — the facade sees no
+    // shape change (the decorator preserves the export surface).
+    return decorateMirrorRepo(sqliteRepo);
+  }
   // mysql posture: wrap every bound-wave name; everything else refuses loud.
   const bound = {};
   for (const [name, fn] of Object.entries(sqliteRepo)) {
