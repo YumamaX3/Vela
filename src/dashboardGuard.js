@@ -48,6 +48,11 @@ const ALWAYS_PROTECTED = [
   // never public even when requireLogin is off. (Prefix overlap with the
   // PROTECTED_API_PATHS "/api/pricing" entry is intentional.)
   "/api/pricing/sync",
+  // Storage Covenant Wave B4 (S4): the backup surface — restore must NEVER ride
+  // the deny-by-default /api/* branch that passes when requireLogin===false,
+  // and the CLI-token bypass of /api/settings/database is NOT inherited.
+  // Prefix match covers /api/backup/{status,run,list,restore,drill}.
+  "/api/backup",
 ];
 
 // Require auth, but allow through if requireLogin is disabled
