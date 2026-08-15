@@ -25,6 +25,65 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.60 — The Twin Harbors 🌊🗝️⛵
+
+> *"One harbor was never enough. What SQLite keeps on disk, MariaDB now
+> mirrors across the wire — the same contract, the same seventy-four doors,
+> chosen by a single word: VELA_DB_MODE. And where the two might drift, the
+> parity gates stand watch — proven against the Star's own fleet twin."*
+
+*Sealed 2026-08-15 · the Star's decree · Milestone Tide: big change → `0.6.52 → 0.6.60`*
+
+## ✨ Features — Storage Covenant Wave A (the ten-forge)
+
+- **Three storage postures** — `VELA_DB_MODE=sqlite|mysql|mirror` selects the
+  harbor at boot; `sqlite` is the default and stays byte-compatible with
+  today. `mirror` (sqlite primary + MariaDB pump) refuses LOUD until Wave C
+  forges its pump — never a silent downgrade, never a silent refusal.
+- **The mysql harbor** — `mysql2` in optionalDependencies (pure-JS install);
+  `mysql/pool.js` (min:0/max:8 keepalive pool, one retry on ECONNRESET),
+  `mysql/ddlMap.js` (TABLES → MySQL DDL: TEXT PK→VARCHAR(191),
+  AUTOINCREMENT→BIGINT, partial index→plain KEY, `CHECK(id=1)` preserved,
+  cost pinned DECIMAL(12,6)), and `mysql/bootstrap.js` — an additive
+  information_schema diff that brings any foreign schema to parity, seals
+  the migration-002 security closures, and re-runs idempotently.
+- **Migration 004 — the dedupe identity** — `UNIQUE INDEX uq_uh_dedupe`
+  across `(timestamp, provider, model, connectionId, keyId, promptTokens,
+  completionTokens)` with `''` as the normalized "unset" form on the four
+  text columns (NULLs are DISTINCT in UNIQUE indexes on both engines).
+  `saveRequestUsage` writes are now ATOMIC: sqlite `ON CONFLICT DO NOTHING`
+  ≡ mysql `ER_DUP_ENTRY` — the old SELECT-then-INSERT race is dead.
+- **Nine repos forge mysql twins** — settings, connections, nodes,
+  proxyPools, combos, alias (A7); apiKeys with hash-at-rest + rotation +
+  soft-delete, disabledModels, pricing, requestDetails (A8); and the full
+  usageRepo ledger with day-aggregate upsert + GROUP BY parity (A9). All
+  bind through `bindFacade()` — path-stable facades, bundler-safe static
+  loaders, sync functions stay sync under sqlite.
+- **Fail-loud boot matrix** — missing/malformed/unreachable
+  `VELA_MYSQL_URL` refuses LOUD at the seam; `VELA_DB_DRIVER` pins any one
+  of the four sqlite drivers (`bun:sqlite | better-sqlite3 | node:sqlite |
+  sql.js`) for the parity matrix.
+
+## ⚙️ Internal — the proving tide
+
+- **Six parity gates against the real MariaDB twin** (`VELA_TEST_MYSQL_URL`,
+  opt-in, LOUD skip banner): one deterministic scenario per wave runs blind
+  in BOTH harbors — volatile identity stripped, canonical JSON compared.
+  The 8-way concurrent burst converges to exactly ONE row on both engines.
+- **The driver×mode matrix** — four sqlite drivers × sqlite mode (sql.js's
+  SAVEPOINT corner forced + pinned), mysql boot + refusal, mirror refusal.
+- **The contract surface pin** — `tests/__baseline__/contract-surface.json`
+  freezes the barrel's 74 symbols (64 parity-registered + 10 exempt-process
+  + 0 pending — the EXEMPT_PENDING debt is paid in full);
+  `verify-contract-surface.mjs` guards it. The census ratchet, six baseline
+  sweeps, and the harness bijection all hold.
+
+*Ten commits, one covenant: `plans/storage-covenant.md` line 275 closes —
+"Wave A complete". Waves B (the backup engine) and C (fleet + mirror) stand
+ready on the horizon.* 💜
+
+---
+
 # v0.6.52 — The Chart Joins the Fleet 🗺️🏛️⛵
 
 > *"A chart that ignores the harbor's own conventions charts nothing but
