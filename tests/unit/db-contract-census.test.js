@@ -53,10 +53,11 @@ function inHarborOrExempt(file) {
   return false;
 }
 
-// The single staged debt: the public barrel still issues raw SQL (exportDb /
-// importDb / initDb). Line 420 moves these into repos/sqlite/backupRepo.js;
-// A3 rewrites exportDb. Counted at exactly ONE so it cannot silently grow.
-const STAGED_DEBT = ["src/lib/db/index.js"];
+// The staged barrel debt was PAID in Wave B1 (plan line 420): exportDb/importDb/
+// initDb moved to repos/sqlite/backupRepo.js behind the repos/backupRepo.js
+// facade, and src/lib/db/index.js became a pure re-export barrel. The debt
+// list stays empty — any new raw-SQL file outside the harbor fails the gate.
+const STAGED_DEBT = [];
 
 describe("Storage Covenant A2 — contract census pin", () => {
   const allFiles = walk(SRC);
@@ -86,13 +87,23 @@ describe("Storage Covenant A2 — contract census pin", () => {
     const debtPresent = STAGED_DEBT.filter((d) =>
       adapterUsers.some((f) => rel(f) === d)
     );
-    // The barrel must still be present (it has not been harbored yet) — and the
-    // set of staged-debt files must not have grown beyond the one we named.
+    // The staged-debt set must not have grown beyond what was named (empty
+    // since Wave B1 paid the barrel debt).
     expect(debtPresent).toEqual(STAGED_DEBT);
     const extraDebt = adapterUsers.filter(
       (f) => !rel(f).startsWith("src/lib/db/") || (!inHarborOrExempt(f) && !STAGED_DEBT.includes(rel(f)))
     );
     expect(extraDebt.map(rel)).toEqual([]);
+  });
+
+  it("the barrel is a pure re-export — Wave B1 paid the raw-SQL debt", () => {
+    const barrel = path.join(SRC, "lib/db/index.js");
+    const src = fs.readFileSync(barrel, "utf-8");
+    expect(src).not.toMatch(/from\s+["']\.\/driver\.js["']/);
+    expect(src).not.toMatch(/getAdapter\(/);
+    expect(src).not.toMatch(/\bdb\.(run|get|all|exec)\(/);
+    // exportDb/importDb/initDb must ride the backupRepo facade now.
+    expect(src).toMatch(/from\s+["']\.\/repos\/backupRepo\.js["']/);
   });
 
   it("keyGate (the named A2 violation) no longer imports the raw adapter", () => {
