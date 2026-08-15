@@ -57,6 +57,36 @@ async function initAdapter() {
   // Order per runtime:
   //   Bun:  bun:sqlite → sql.js
   //   Node: better-sqlite3 → node:sqlite (≥22.5) → sql.js
+  //
+  // VELA_DB_DRIVER pins a single driver (parity harness / driver×mode matrix —
+  // Storage Covenant A4/A10). When set, ONLY that driver is tried and failure
+  // is LOUD: the matrix must be able to force the fragile corners (e.g. the
+  // sql.js SAVEPOINT path in CI) instead of silently falling through the chain.
+  const forced = (process.env.VELA_DB_DRIVER || "").toLowerCase().trim();
+  if (forced) {
+    const FORCED = {
+      "bun:sqlite": tryBunSqlite,
+      "better-sqlite3": tryBetterSqlite,
+      "node:sqlite": tryNodeSqlite,
+      "sql.js": trySqlJs,
+    };
+    const tryFn = FORCED[forced];
+    if (!tryFn) {
+      throw new Error(`[DB] unknown VELA_DB_DRIVER "${forced}" — expected bun:sqlite | better-sqlite3 | node:sqlite | sql.js`);
+    }
+    const adapter = await tryFn();
+    if (!adapter) {
+      throw new Error(`[DB] VELA_DB_DRIVER="${forced}" is not available in this runtime`);
+    }
+    if (!state.logged) {
+      console.log(`[DB] Driver: ${adapter.driver} (forced) | file: ${DATA_FILE}`);
+      state.logged = true;
+    }
+    const { runMigrationOnce } = await import("./migrate.js");
+    await runMigrationOnce(adapter);
+    return adapter;
+  }
+
   let adapter = await tryBunSqlite();
   if (!adapter) adapter = await tryBetterSqlite();
   if (!adapter) adapter = await tryNodeSqlite();
