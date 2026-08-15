@@ -28,6 +28,40 @@ export async function enqueueOutbox(entry) {
   enqueueOutboxSync(db, entry);
 }
 
+let _spCounter = 0;
+
+/** Atomic containment for the mirror decorator (Wave C2). Opens a raw
+ *  SAVEPOINT, runs the writer inside it, and — on success — enqueues the
+ *  outbox row in the SAME savepoint before RELEASE, so the writer's mutation
+ *  and its op-log entry commit together or not at all. On writer failure the
+ *  savepoint rolls back (no orphan outbox row, no half-applied write).
+ *
+ *  Proven across better-sqlite3 / node:sqlite / sql.js: a writer's own nested
+ *  db.transaction() rides inside the open savepoint (SAVEPOINTs nest). The
+ *  savepoint is connection-scoped, so it stays open across the writer's
+ *  awaits — every classified writer is async and writes synchronously once the
+ *  adapter resolves, which collapses the plan's fail-open crash window to zero
+ *  for the contained path. The one residual window (process death between the
+ *  writer's internal await and the RELEASE) rolls the savepoint back anyway.
+ *
+ *  Lives in repos/sqlite/ (the harbor) so the mirror orchestration layer never
+ *  touches the driver directly — the census ratchet holds. */
+export async function withOutboxCapture(buildEntry, writerFn) {
+  const db = await getAdapter();
+  const sp = `sp_mirror_${++_spCounter}`;
+  db.exec(`SAVEPOINT ${sp}`);
+  try {
+    const result = await writerFn();
+    const entry = typeof buildEntry === "function" ? buildEntry(result) : buildEntry;
+    if (entry && entry.replayClass) enqueueOutboxSync(db, entry);
+    db.exec(`RELEASE ${sp}`);
+    return result;
+  } catch (e) {
+    try { db.exec(`ROLLBACK TO ${sp}`); db.exec(`RELEASE ${sp}`); } catch {}
+    throw e;
+  }
+}
+
 /** Pending (or failed-retryable) rows in seq order, oldest first. */
 export async function fetchPendingOutbox(limit = 100) {
   const db = await getAdapter();
