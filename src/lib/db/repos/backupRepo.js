@@ -12,14 +12,20 @@
 //   mysql binds repos/mysql/backupRepo.js (the twin lands here, criterion 7:
 //   restore-into-any-posture rides the SAME contract).
 //
-// Mirror posture still refuses LOUD (Wave C). sqlite binds its harbor; mysql
-// binds repos/mysql/backupRepo.js (the twin lands here, criterion 7:
-// restore-into-any-posture rides the SAME contract).
+// Mirror posture (Wave C5): the PRIMARY serves — export/import/ledger/purge all
+// ride the sqlite harbor (the primary is the truth; the twin follows through
+// the pump/sweep/resync). Storm 1's hidden blessing lives here: a mirror's
+// MariaDB replica is itself a recovery SOURCE (export from the twin via
+// repos/mysql/backupRepo.js directly, restore into any posture).
 import { getDbMode } from "./bind.js";
 
 async function dispatchData() {
   const mode = getDbMode();
-  if (mode === "sqlite") return await import("./sqlite/backupRepo.js");
+  if (mode === "sqlite" || mode === "mirror") {
+    // mirror: the primary (sqlite) serves the backup contract — the twin is
+    // kept faithful by the pump (C3) + sweep/resync (C4), never by backups.
+    return await import("./sqlite/backupRepo.js");
+  }
   if (mode === "mysql") {
     // Validate reachability (fail loud, never silent downgrade) before the
     // twin binds — an unreachable MariaDB must refuse, not half-restore.
@@ -27,9 +33,8 @@ async function dispatchData() {
     await assertMysqlReachable();
     return await import("./mysql/backupRepo.js");
   }
-  // mirror: Wave C — primary sqlite + pump. Not yet forged.
   throw new Error(
-    `[DB] VELA_DB_MODE=mirror — backupRepo binds in Storage Covenant Wave C — boot refusal (fail loud, never silent downgrade)`
+    `[DB] unknown posture "${mode}" — dispatchData refuses (fail loud, never silent downgrade)`
   );
 }
 

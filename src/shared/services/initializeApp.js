@@ -125,6 +125,15 @@ async function runHeavyStartup() {
   import("@/shared/services/backupScheduler.js")
     .then(({ configureBackupScheduler }) => configureBackupScheduler())
     .catch((e) => console.log("[backup] scheduler start failed:", e.message));
+
+  // Storage Covenant Wave C5 — the mirror startup matrix. Under VELA_DB_MODE=
+  // mirror this arms pump + usage-resync + divergence sweep (the primary keeps
+  // serving; a down twin never blocks boot, mode never silently downgrades).
+  // Under sqlite/mysql it stops the rhythms. configureMirrorStartup is
+  // idempotent and fail-open by law.
+  import("@/shared/services/mirrorStartup.js")
+    .then(({ configureMirrorStartup }) => configureMirrorStartup())
+    .catch((e) => console.log("[mirror] startup failed:", e.message));
 }
 
 function hasQuotaAutoPingEnabled(settings) {
