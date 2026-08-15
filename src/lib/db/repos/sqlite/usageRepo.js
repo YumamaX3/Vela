@@ -730,11 +730,37 @@ export async function getKeyUsageStats(period = "all") {
 
 // Awakens the dormant lastUsedAt column whenever the gate resolves a key
 // (see apiKeysRepo.resolveKey) — cheap UPDATE, one ledger touch per request.
+// Throttled ~60s per keyId INSIDE the repo (the Twin Harbors seam) so the hot
+// path does not rewrite the same row on every request; the first touch always
+// lands so a fresh key stamps immediately. Fail-open: a missed touch is
+// cosmetic — lastUsedAt catches up on the next un-throttled request.
+const _lastUsedWrites = new Map();
+const LAST_USED_THROTTLE_MS = 60_000;
 export async function touchKeyLastUsed(keyId) {
+  const now = Date.now();
+  const prev = _lastUsedWrites.get(keyId) || 0;
+  if (now - prev < LAST_USED_THROTTLE_MS) return;
+  _lastUsedWrites.set(keyId, now);
   try {
     const db = await getAdapter();
     db.run(`UPDATE apiKeys SET lastUsedAt = ? WHERE id = ?`, [new Date().toISOString(), keyId]);
   } catch {}
+}
+
+/**
+ * Parsed usageDaily ledger for every day >= startDateKey, oldest first.
+ * Malformed rows are skipped. Part of the frozen contract — keyGate's spend
+ * stage sums through this seam rather than reaching past the harbor for the
+ * raw adapter.
+ */
+export async function getUsageDailySince(startDateKey) {
+  const db = await getAdapter();
+  const rows = db.all(`SELECT data FROM usageDaily WHERE dateKey >= ? ORDER BY dateKey ASC`, [startDateKey]);
+  const days = [];
+  for (const row of rows) {
+    try { days.push(JSON.parse(row.data)); } catch { /* malformed row — skip */ }
+  }
+  return days;
 }
 
 export async function getChartData(period = "7d") {
