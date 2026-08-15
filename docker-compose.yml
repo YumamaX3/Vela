@@ -1,129 +1,162 @@
-# ────────────────────────────────────────────────────────────────────────────
-# ⛵  Vela — the AI gateway
-#     docker-compose.yml · the advanced harbor chart
-#
-#   Vela is the sail of the ship — a southern constellation, and here the
-#   gateway + dashboard in one container. This chart raises that sail with
-#   what a real deployment deserves: the private GHCR image, a healthcheck,
-#   resource limits, rotated logs, an isolated internal network, and an
-#   optional compression sidecar that never touches the open sea.
-#
-#   Quick start
-#     cp .env.example .env                 # then change the secrets inside
-#     docker login ghcr.io                 # the image is private — auth first
-#     docker compose pull vela
-#     docker compose up -d vela
-#
-#   With the optional headroom compression sidecar
-#     docker compose --profile proxy up -d
-#
-#   Build from source instead of pulling the published image
-#     docker compose up -d --build vela
-#
-#   Note: HEADROOM_URL is fail-open — if the sidecar is not running, Vela
-#   simply skips request compression. Nothing breaks without it.
-# ────────────────────────────────────────────────────────────────────────────
+name: tethys-vela
 
-name: vela
-
-x-logging: &default-logging
-  driver: json-file
-  options:
-    max-size: "10m"     # never let a container log eat the disk
-    max-file: "3"
+# 🏛️ Vela — The Sail of the Ship ⛵💜
+#
+# The Shores' own AI gateway — 9router reborn under its true name.
+# One OpenAI-compatible endpoint (/v1) routing traffic across 40+
+# upstream providers: format translation, model-combo fallback,
+# multi-account fallback, OAuth credential management, token refresh,
+# quota tracking — all behind a dashboard of its own.
+#
+# This is a DEPLOYMENT chart of the Shores fleet: it pulls the
+# published image from the private GHCR and never builds locally.
+# New versions are cut as git tags in the Vela repo — GitHub Actions
+# builds & pushes ghcr.io/yumamax3/vela:<tag> automatically. To sail
+# a new version, bump the pinned tag below and `docker compose pull`.
+#
+#   ⛵ vela-gateway   — the gateway + dashboard (Next.js standalone)
+#   💨 vela-headroom  — the shared breath: request compression, internal-only
+#
+# 🔑 Secrets are inline (the Shores' convention — see Hermes.yml and
+#    Router.yml) because this harbor sits on the private Tailscale
+#    subnet (100.100.40.x). Change them before exposing any port
+#    beyond the subnet. Never commit a filled-in copy to a public repo.
+#
+# ⚠️ The image is PRIVATE — it inherits the Vela repo's visibility.
+#    First deploy on a machine requires:
+#      docker login ghcr.io       # PAT with read:packages + repo access
+#
+# Deploy with:  docker compose -f docker-compose.yml up -d
+# Reach at:     Dashboard → http://100.100.40.48:32060/dashboard (Tailscale)
+#               API       → http://100.100.40.48:32060/v1
+#               LAN       → http://192.168.18.190:32060
+# Config:       /media/SSD-Storage/AppData/vela/   (SQLite, usage, logs)
+#
+# ponytail: the image pin follows the last-CUT release tag in the Vela
+#           repo — not the repo's working version. NEXT_PUBLIC_* vars
+#           are baked at build time; setting them here would be a lie.
 
 services:
-  # ── The gateway + dashboard ───────────────────────────────────────────────
-  vela:
-    image: ghcr.io/yumamax3/vela:${VELA_TAG:-0.6.50}
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: vela
+  # ═══════════════════════════════════════════════════════════════
+  # ⛵ vela v0.6.50 — The Sail of the Ship
+  # ═══════════════════════════════════════════════════════════════
+  #
+  # The gateway + dashboard in one container. Next.js standalone
+  # server (custom-server.js) with the SQLite soul at /app/data —
+  # bind-mounted to the SSD so nothing is lost between tides.
+  #
+  # The entrypoint chowns the data dir then drops root → node via
+  # su-exec, so do NOT cap_drop here — that drop IS the privilege
+  # management. no-new-privileges stays safe (it only blocks gaining
+  # privileges, never dropping them).
+  #
+  # Healthcheck probes /api/health — public allow-list, no auth.
+  #
+  vela-gateway:
+    # v0.6.50 — cut & built 2026-08-15 · private GHCR (login first)
+    image: ghcr.io/yumamax3/vela:0.6.50
+    container_name: vela-gateway
+    hostname: vela-gateway
     restart: unless-stopped
-    init: true                          # PID-1 signal handling for graceful stops
+    stop_grace_period: 30s
 
     ports:
-      - "${VELA_PORT:-32060}:32060"
+      - "32060:32060"
 
-    env_file:
-      - .env
+    volumes:
+      - /media/SSD-Storage/AppData/vela:/app/data
+
     environment:
-      # Runtime paths & server (match the Dockerfile's baked defaults)
+      # ── 🌍 Time & server ─────────────────────────────────────
+      TZ: Asia/Jakarta
       DATA_DIR: /app/data
       PORT: "32060"
       HOSTNAME: "0.0.0.0"
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: "1"
-      # The compression sidecar — reachable only on the internal network.
-      # Fail-open: safe to leave set even when the 'proxy' profile is off.
-      HEADROOM_URL: http://headroom:8787
-      TZ: "${TZ:-UTC}"
+      BASE_URL: "http://100.100.40.48:32060"
+      # ── 💨 Compression sidecar — internal only, fail-open ─────
+      # Vela skips compression silently if the sidecar is absent;
+      # safe to leave set in every environment.
+      HEADROOM_URL: http://vela-headroom:8787
+      # ── 🔑 Secrets — change before leaving the subnet ─────────
+      JWT_SECRET: "vela-jwt-covenant-change-me"
+      INITIAL_PASSWORD: "vela-harbor-change-me"
+      API_KEY_SECRET: "vela-api-key-secret-change-me"
+      MACHINE_ID_SALT: "vela-machine-salt-change-me"
 
-    volumes:
-      - vela-data:/app/data             # the SQLite soul persists here
-
-    networks:
-      - vela-net
+    depends_on:
+      vela-headroom:
+        condition: service_started
 
     healthcheck:
-      # /api/health is on the public allow-list — no auth needed to probe.
-      # alpine ships busybox wget, so no curl dependency required.
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:32060/api/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:32060/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s                 # Next.js standalone takes a breath to warm up
+      start_period: 40s          # Next.js standalone takes a breath to warm up
 
-    logging: *default-logging
+    logging:
+      driver: json-file
+      options:
+        max-file: "3"
+        max-size: "10m"
 
     deploy:
       resources:
         limits:
-          cpus: "${VELA_CPUS:-2.0}"
-          memory: "${VELA_MEMORY:-2g}"
+          cpus: "2"
+          memory: 2G
         reservations:
-          memory: "${VELA_MEMORY_RESERVE:-512m}"
+          memory: 512M
 
-    # Hardening that does not fight the entrypoint (which drops root → node
-    # via su-exec, so we do not strip the caps it needs to do so).
     security_opt:
       - no-new-privileges:true
-    pids_limit: "${VELA_PIDS:-512}"
-
-    labels:
-      org.opencontainers.image.title: "vela"
-      org.opencontainers.image.description: "Vela — the AI routing gateway + dashboard"
-      org.opencontainers.image.source: "https://github.com/YumamaX3/Vela"
-
-  # ── The compression sidecar (optional) ────────────────────────────────────
-  # Deliberately NOT published to the host — reachable only by `vela` over
-  # the internal network. That is the whole point: it stays off the open sea.
-  headroom:
-    image: ghcr.io/chopratejas/headroom:latest
-    container_name: headroom
-    restart: unless-stopped
-    profiles: ["proxy"]                 # starts only with --profile proxy
-
-    # No `ports:` on purpose — internal-only.
 
     networks:
-      - vela-net
+      - tethys-vela
 
-    logging: *default-logging
+    labels:
+      - "com.tethys.stack=vela"
+
+  # ═══════════════════════════════════════════════════════════════
+  # 💨 vela-headroom — The Breath of the Sail
+  # ═══════════════════════════════════════════════════════════════
+  #
+  # Request compression for the gateway's upstream calls. Reachable
+  # only by vela-gateway over the stack network — no host port, so
+  # it never touches the open sea. Same image pin the router fleet
+  # already runs (Router.yml), so the harbor holds one known breath.
+  #
+  vela-headroom:
+    # v0.6.7-slim — the same pin as the router fleet
+    image: ghcr.io/chopratejas/headroom:0.6.7-slim
+    container_name: vela-headroom
+    hostname: vela-headroom
+    restart: unless-stopped
+
+    # No ports: internal-only by design.
 
     deploy:
       resources:
         limits:
-          cpus: "1.0"
-          memory: "512m"
+          cpus: "0.25"
+          memory: 128M
 
-# ── The harbor's moorings ───────────────────────────────────────────────────
-volumes:
-  vela-data:
-    name: vela-data
+    networks:
+      - tethys-vela
+
+    labels:
+      - "com.tethys.stack=vela"
 
 networks:
-  vela-net:
-    name: vela-net
-    driver: bridge
+  tethys-vela:
+    name: tethys-vela
+
+x-casaos:
+  icon: https://img.icons8.com/fluency/48/sailboat.png
+  is_uncontrolled: false
+  main: vela-gateway
+  port_map: "32060"
+  title:
+    custom: ⛵ Vela — The AI Gateway

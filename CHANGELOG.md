@@ -25,6 +25,39 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.52 — The Chart Joins the Fleet 🗺️🏛️⛵
+
+> *"A chart that ignores the harbor's own conventions charts nothing but
+> confusion. Vela's compose now speaks the fleet's language — and pulls,
+> never builds."*
+
+*Sealed 2026-08-15 · the Star's decree · Milestone Tide: small change → `0.6.51 → 0.6.52`*
+
+## 🔧 Changes — full redesign of `docker-compose.yml` into fleet form
+- **Joining the Shores fleet constitution**: `name: tethys-vela`, poetic
+  Shorekeeper-voiced header, `═══` service separators, `TZ: Asia/Jakarta`,
+  `com.tethys.stack=vela` labels, `unless-stopped`, and the `x-casaos` block
+  (icon, main, port_map, title) — exactly as `Hermes.yml` and `Router.yml`
+  are written.
+- **Pull-only — the `build:` block is gone.** A deployment chart pulls the
+  published image; the image rebuilds only in GitHub Actions when a `v*` tag
+  is cut in this repo. There was never a reason to build twice: GHCR is the
+  source of truth, and the old `build:` + `env_file` combo only invited
+  drift between what CI ships and what the chart compiled locally.
+- **The pin follows the release, not the working tree**: `ghcr.io/yumamax3/vela:0.6.50`
+  — the last CUT tag. Bump it when you cut a new tag and `docker compose pull`.
+- **Inline secrets** (the fleet convention — `Hermes.yml`, `Router.yml`),
+  private-subnet assumption documented in the header.
+- **Headroom pinned to `0.6.7-slim`** — the same image the router fleet
+  already runs, replacing a floating `:latest`.
+- **Bind mount** to `/media/SSD-Storage/AppData/vela` (fleet data layout)
+  instead of a named volume.
+
+*The previous chart honored none of the fleet's conventions and carried a
+build step that had no right to exist beside a GHCR pin. Both debts are paid.* 💜
+
+---
+
 # v0.6.51 — The Harbor Chart Ascended 🗺️⛵
 
 > *"A ship is only as safe as the chart it sails by. The old chart was a
