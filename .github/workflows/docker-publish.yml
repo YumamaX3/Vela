@@ -8,7 +8,6 @@ on:
 
 env:
   GHCR_IMAGE: ghcr.io/${{ github.repository }}
-  DOCKERHUB_IMAGE: decolua/9router
 
 jobs:
   build-and-push:
@@ -29,19 +28,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ${{ env.GHCR_IMAGE }}
-            ${{ env.DOCKERHUB_IMAGE }}
+          images: ${{ env.GHCR_IMAGE }}
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=latest,enable={{is_default_branch}}
@@ -58,3 +49,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           provenance: false
           sbom: false
+
+# The image ships to ghcr.io ONLY. This repository is private, and pushes made
+# with GITHUB_TOKEN inherit that visibility — the package is private by
+# inheritance, pullable only by users with repo access. No Docker Hub target:
+# the upstream 'decolua/9router' leftover was removed with the Vela rebrand.
