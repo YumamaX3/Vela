@@ -395,6 +395,22 @@ export async function POST(request) {
           break;
         }
 
+        case "opencode": {
+          // OpenCode Zen (hybrid lane): prove the stored key against the Zen
+          // models gate — the same door chat traffic knocks on. A GET keeps the
+          // probe free of quota burn (unlike a chat ping on the free lane).
+          const res = await fetch("https://opencode.ai/zen/v1/models", {
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "User-Agent": "opencode",
+              "Accept": "application/json",
+            },
+            signal: AbortSignal.timeout(8000),
+          });
+          isValid = res.status !== 401 && res.status !== 403;
+          break;
+        }
+
         case "opencode-go": {
           const res = await fetch("https://opencode.ai/zen/go/v1/chat/completions", {
             method: "POST",

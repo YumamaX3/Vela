@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { FREE_PROVIDERS, AI_PROVIDERS } from "@/shared/constants/providers";
+import { FREE_PROVIDERS, FREE_TIER_PROVIDERS, AI_PROVIDERS } from "@/shared/constants/providers";
 
 // Keep providers without serviceKinds (default LLM) or with "llm" in serviceKinds
 function isLLMProvider(id) {
@@ -243,7 +243,10 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           ...c,
           nodeName: nodeNameMap[c.provider] || null,
         }));
-        const noAuthProviders = Object.values(FREE_PROVIDERS)
+        // Always include noAuth free providers (e.g. opencode) regardless of
+        // connections — spanning both the category:"free" map and the hybrid
+        // freeTier noAuth lane (OpenCode Zen: keyless until a key is added).
+        const noAuthProviders = [...Object.values(FREE_PROVIDERS), ...Object.values(FREE_TIER_PROVIDERS)]
           .filter((p) => p.noAuth && !seen.has(p.id) && isLLMProvider(p.id))
           .map((p) => ({ provider: p.id, name: p.name }));
         setProviders([...unique, ...noAuthProviders]);

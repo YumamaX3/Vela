@@ -56,9 +56,16 @@ export class OpenCodeExecutor extends BaseExecutor {
     const downstreamUa = lower["user-agent"] || "";
     const isOpencodeDownstream = downstreamUa.toLowerCase().includes("opencode");
 
+    // Hybrid lane: a connection holding an OpenCode API key (apikey connection)
+    // rides authenticated Zen — lifted limits, paid models. The virtual
+    // keyless connection (accessToken "public", injected by auth.js when no
+    // apikey connection exists) keeps the free zen lane open.
+    const key = credentials?.apiKey || credentials?.accessToken;
+    const hasKey = typeof key === "string" && key && key !== "public";
+
     return {
       "Content-Type": "application/json",
-      "Authorization": "Bearer public",
+      "Authorization": hasKey ? `Bearer ${key}` : "Bearer public",
       "User-Agent": isOpencodeDownstream ? downstreamUa : OPENCODE_UA,
       "x-opencode-client": lower["x-opencode-client"] || "desktop",
       "x-opencode-session": lower["x-opencode-session"] || this._currentSessionId || generateSessionId(),
