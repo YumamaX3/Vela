@@ -10,7 +10,7 @@
 import { errorResponse } from "open-sse/utils/error.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
 import { resolveKey, getApiKeyById } from "@/lib/db/repos/apiKeysRepo.js";
-import { getAdapter } from "@/lib/db/driver.js";
+import { touchKeyLastUsed, getUsageDailySince } from "@/lib/db/repos/usageRepo.js";
 import { parseModel } from "./model.js";
 
 export const GATE_CODES = {
@@ -57,16 +57,14 @@ function safeParse(v) {
   try { return JSON.parse(v); } catch { return null; }
 }
 
-// ── lastUsedAt: fire-and-forget, throttled ~60s per keyId ────────────────
-const _lastUsedWrites = new Map();
+// ── lastUsedAt: fire-and-forget through the repo seam ────────────────────
+// The throttle now lives INSIDE touchKeyLastUsed (the Twin Harbors seam) so
+// every harbor — sqlite today, mysql/mirror from Wave A6 — owns its own
+// write cadence. keyGate merely touches; it no longer reaches for the raw
+// adapter. resolveKey also touches (its own call site), so the seam's
+// per-keyId throttle is what keeps both from double-writing within 60s.
 function touchLastUsed(keyId) {
-  const now = Date.now();
-  const prev = _lastUsedWrites.get(keyId) || 0;
-  if (now - prev < 60_000) return;
-  _lastUsedWrites.set(keyId, now);
-  getAdapter()
-    .then((db) => db.run(`UPDATE apiKeys SET lastUsedAt = ? WHERE id = ?`, [new Date().toISOString(), keyId]))
-    .catch(() => {});
+  touchKeyLastUsed(keyId).catch(() => {});
 }
 
 // ── Stages ────────────────────────────────────────────────────────────────
@@ -232,14 +230,13 @@ function scopeLabel(scope) {
   return { daily: "Daily", weekly: "Weekly", monthly: "Monthly", yearly: "Yearly" }[scope] || "Daily";
 }
 
-/** Sum tokens + cost for one keyId across usageDaily rows ≥ startDateKey. */
+/** Sum tokens + cost for one keyId across usageDaily rows ≥ startDateKey.
+ *  Reads through the repo seam (getUsageDailySince) so the spend stage never
+ *  touches the raw adapter — the ledger stays behind the harbor boundary. */
 export async function sumKeyUsage(keyId, startDateKey) {
-  const db = await getAdapter();
-  const rows = db.all(`SELECT data FROM usageDaily WHERE dateKey >= ? ORDER BY dateKey ASC`, [startDateKey]);
+  const days = await getUsageDailySince(startDateKey);
   let tokens = 0, costCents = 0;
-  for (const row of rows) {
-    let day = null;
-    try { day = JSON.parse(row.data); } catch { continue; }
+  for (const day of days) {
     if (!day?.byApiKey) continue;
     for (const entry of Object.values(day.byApiKey)) {
       if (entry?.meta?.keyId !== keyId) continue;
