@@ -25,6 +25,42 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.41 — The Zen Key Turns 🧘🔑⛵
+
+> *"The lantern on the free shore takes a new name and a wider door —
+> OpenCode Zen keeps its keyless path for anyone who arrives empty-handed,
+> and now opens its armory to those who carry a key of their own."*
+
+*Sealed 2026-08-15 · the Star's request · Milestone Tide: small change → `0.6.40 → 0.6.41`*
+
+## ✨ Features — OpenCode Free becomes OpenCode Zen
+- **Rebrand**: the provider formerly shown as *OpenCode Free* is now
+  **OpenCode Zen** (id and alias `oc` unchanged — every wire path intact),
+  moved into the **Free Tier** section of the providers dashboard.
+- **API keys**: OpenCode Zen now accepts API-key connections (opencode.ai/auth).
+  Keys are validated against Zen's models gate at add-time and at connection
+  test — a GET probe that burns nothing.
+
+## 🔧 Changes
+- **Hybrid lane**: a connection holding an OpenCode key always takes
+  precedence; the keyless `Bearer public` lane stays open when no key is
+  connected. The executor sends your key when one is present, `public`
+  otherwise — both lanes keep the `x-opencode-*` session headers.
+- Free Zen models keep flowing without a key (models fetcher untouched);
+  the usage panel still lists Zen when unconnected.
+
+## ⚙️ Internal
+- `open-sse/providers/registry/opencode.js` — name, category `freeTier`,
+  apikey auth modes + notice; `open-sse/executors/opencode.js` — key-aware
+  Authorization; `src/sse/services/auth.js` — hybrid freeTier noAuth lane
+  (virtual Public connection only when no active connections exist);
+  validate + connection-test probes; UsageStats freeTier noAuth inclusion.
+- New test suite `tests/unit/opencode-zen.test.js` (12 tests); full-suite A/B
+  against pristine main shows zero regressions (91 vs 94 — the 3 deltas are
+  known flakes); providers + alias baselines byte-equal.
+
+---
+
 # v0.6.40 — The Free Tide Lantern 🏮⛵
 
 > *"A new light joins the fleet — small, generous, burning on no one's coin.
