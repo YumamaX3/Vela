@@ -81,25 +81,40 @@ const CONFIG_WAVE_NAMES = new Set([
   "addCustomModel", "deleteCustomModel", "getMitmAlias", "setMitmAliasAll",
 ]);
 
+/** The A8 security-wave surface — apiKeys (hash-at-rest, rotation,
+ *  soft-delete), disabledModels, pricing, requestDetails. */
+const SECURITY_WAVE_NAMES = new Set([
+  // apiKeysRepo
+  "sanitizeCategory", "getApiKeys", "getApiKeyById", "createApiKey", "updateApiKey",
+  "deleteApiKey", "resolveKey", "validateApiKey", "ensureInternalKey",
+  // disabledModelsRepo
+  "getDisabledModels", "getDisabledByProvider", "disableModels", "enableModels",
+  // pricingRepo
+  "getPricing", "getPricingForModel", "updatePricing", "resetPricing", "resetAllPricing",
+  "replaceSyncedPricing", "clearSyncedPricing", "getSyncedPricing",
+  // requestDetailsRepo
+  "saveRequestDetail", "getRequestDetails", "getDistinctProviders", "getRequestDetailById",
+]);
+
 /** Bind a facade barrel to its posture's harbor.
  *  @param sqliteRepo the sqlite harbor module (verbatim binding under sqlite)
  *  @param mysqlLoader `() => import("../mysql/<repo>.js")` — static call site */
 export function bindFacade(sqliteRepo, mysqlLoader) {
   if (getDbMode() === "sqlite") return sqliteRepo; // verbatim — sync fns stay sync
-  // mysql posture: wrap every config-wave name; everything else refuses loud.
+  // mysql posture: wrap every bound-wave name; everything else refuses loud.
   const bound = {};
   for (const [name, fn] of Object.entries(sqliteRepo)) {
     if (typeof fn !== "function") { bound[name] = fn; continue; }
-    if (!CONFIG_WAVE_NAMES.has(name)) {
+    if (!CONFIG_WAVE_NAMES.has(name) && !SECURITY_WAVE_NAMES.has(name)) {
       bound[name] = () => {
-        throw new Error(`[DB] VELA_DB_MODE=mysql — repo fn "${name}" lands in a later Storage Covenant wave (A8 security / A9 usage / Wave C mirror). Boot refusal (fail loud, never silent downgrade).`);
+        throw new Error(`[DB] VELA_DB_MODE=mysql — repo fn "${name}" lands in a later Storage Covenant wave (A9 usage / Wave C mirror). Boot refusal (fail loud, never silent downgrade).`);
       };
       continue;
     }
     bound[name] = async (...args) => {
       const mod = await mysqlLoader();
       if (typeof mod[name] !== "function") {
-        throw new Error(`[DB] mysql twin is missing "${name}" — the config-wave repo is incomplete`);
+        throw new Error(`[DB] mysql twin is missing "${name}" — the repo twin is incomplete`);
       }
       return mod[name](...args);
     };
