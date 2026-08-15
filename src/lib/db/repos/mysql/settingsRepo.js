@@ -1,14 +1,16 @@
-import { getAdapter } from "../../driver.js";
+// Storage Covenant Wave A7 — the mysql twin of sqlite/settingsRepo.js.
+// Native async (mysql2 is network-bound); ON DUPLICATE KEY UPDATE rides the
+// settings PRIMARY KEY (id). The merge logic is the SHARED pure core in
+// repos/settingsDefaults.js — both twins merge identically.
+import { getMysqlAdapter } from "../../mysql/adapter.js";
 import { parseJson, stringifyJson } from "../../helpers/jsonCol.js";
-// Storage Covenant A7: the pure settings core lives in the seam so BOTH
-// harbors merge identically — no default drift between twins.
 import { mergeWithDefaults } from "../settingsDefaults.js";
 
 export { mergeWithDefaults }; // the facade contract re-exports it
 
 async function readRaw() {
-  const db = await getAdapter();
-  const row = db.get(`SELECT data FROM settings WHERE id = 1`);
+  const db = await getMysqlAdapter();
+  const row = await db.get(`SELECT data FROM settings WHERE id = 1`);
   return row ? parseJson(row.data, {}) : {};
 }
 
@@ -17,16 +19,16 @@ export async function getSettings() {
   return mergeWithDefaults(raw);
 }
 
-// Atomic read-merge-write inside transaction (prevents losing concurrent updates)
+// Atomic read-merge-write inside a connection-bound transaction.
 export async function updateSettings(updates) {
-  const db = await getAdapter();
+  const db = await getMysqlAdapter();
   let next;
-  db.transaction(function () {
-    const row = db.get(`SELECT data FROM settings WHERE id = 1`);
+  await db.transaction(async (tx) => {
+    const row = await tx.get(`SELECT data FROM settings WHERE id = 1`);
     const current = row ? parseJson(row.data, {}) : {};
     next = { ...current, ...updates };
-    db.run(
-      `INSERT INTO settings(id, data) VALUES(1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data`,
+    await tx.run(
+      `INSERT INTO settings(id, data) VALUES(1, ?) ON DUPLICATE KEY UPDATE data = VALUES(data)`,
       [stringifyJson(next)],
     );
   });

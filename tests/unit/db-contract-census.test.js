@@ -47,6 +47,8 @@ function inHarborOrExempt(file) {
   const r = rel(file);
   if (EXEMPT.includes(r)) return true;
   if (r.startsWith("src/lib/db/repos/sqlite/")) return true; // the harbor
+  if (r.startsWith("src/lib/db/repos/mysql/")) return true; // the mysql twin harbor (A7+)
+  if (r.startsWith("src/lib/db/mysql/")) return true; // mysql foundation (pool adapter, A6)
   if (r.startsWith("src/lib/db/migrations/")) return true; // migrate machinery
   return false;
 }
