@@ -8,7 +8,7 @@ import path from "path";
 describe("AUDIT-002: API key masking", () => {
   it("source should contain maskApiKey function", () => {
     const source = fs.readFileSync(
-      path.resolve("src/lib/db/repos/usageRepo.js"),
+      path.resolve("src/lib/db/repos/sqlite/usageRepo.js"),
       "utf-8"
     );
     expect(source).toContain("function maskApiKey");
@@ -16,7 +16,7 @@ describe("AUDIT-002: API key masking", () => {
 
   it("getUsageHistory should use apiKeyMasked instead of apiKey", () => {
     const source = fs.readFileSync(
-      path.resolve("src/lib/db/repos/usageRepo.js"),
+      path.resolve("src/lib/db/repos/sqlite/usageRepo.js"),
       "utf-8"
     );
     // The REST response should use apiKeyMasked
@@ -31,7 +31,7 @@ describe("AUDIT-002: API key masking", () => {
 
   it("getUsageStats should use apiKeyMasked in byApiKey entries", () => {
     const source = fs.readFileSync(
-      path.resolve("src/lib/db/repos/usageRepo.js"),
+      path.resolve("src/lib/db/repos/sqlite/usageRepo.js"),
       "utf-8"
     );
     // Both code paths (daily summary + 24h live) should use apiKeyMasked
@@ -50,7 +50,7 @@ describe("AUDIT-002: API key masking", () => {
 
   it("byApiKey object keys should use masked key, not raw key", () => {
     const source = fs.readFileSync(
-      path.resolve("src/lib/db/repos/usageRepo.js"),
+      path.resolve("src/lib/db/repos/sqlite/usageRepo.js"),
       "utf-8"
     );
     // The 24h path should use apiKeyMasked in the akKey template
