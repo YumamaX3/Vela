@@ -1,30 +1,129 @@
+# ────────────────────────────────────────────────────────────────────────────
+# ⛵  Vela — the AI gateway
+#     docker-compose.yml · the advanced harbor chart
+#
+#   Vela is the sail of the ship — a southern constellation, and here the
+#   gateway + dashboard in one container. This chart raises that sail with
+#   what a real deployment deserves: the private GHCR image, a healthcheck,
+#   resource limits, rotated logs, an isolated internal network, and an
+#   optional compression sidecar that never touches the open sea.
+#
+#   Quick start
+#     cp .env.example .env                 # then change the secrets inside
+#     docker login ghcr.io                 # the image is private — auth first
+#     docker compose pull vela
+#     docker compose up -d vela
+#
+#   With the optional headroom compression sidecar
+#     docker compose --profile proxy up -d
+#
+#   Build from source instead of pulling the published image
+#     docker compose up -d --build vela
+#
+#   Note: HEADROOM_URL is fail-open — if the sidecar is not running, Vela
+#   simply skips request compression. Nothing breaks without it.
+# ────────────────────────────────────────────────────────────────────────────
+
+name: vela
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"     # never let a container log eat the disk
+    max-file: "3"
+
 services:
+  # ── The gateway + dashboard ───────────────────────────────────────────────
   vela:
-    image: vela:latest
+    image: ghcr.io/yumamax3/vela:${VELA_TAG:-0.6.50}
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: vela
-    restart: always
+    restart: unless-stopped
+    init: true                          # PID-1 signal handling for graceful stops
+
     ports:
-      - "32060:32060"
-    volumes:
-      - vela-data:/app/data
+      - "${VELA_PORT:-32060}:32060"
+
     env_file:
       - .env
     environment:
+      # Runtime paths & server (match the Dockerfile's baked defaults)
       DATA_DIR: /app/data
       PORT: "32060"
       HOSTNAME: "0.0.0.0"
       NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      # The compression sidecar — reachable only on the internal network.
+      # Fail-open: safe to leave set even when the 'proxy' profile is off.
       HEADROOM_URL: http://headroom:8787
-    depends_on:
-      - headroom
+      TZ: "${TZ:-UTC}"
 
+    volumes:
+      - vela-data:/app/data             # the SQLite soul persists here
+
+    networks:
+      - vela-net
+
+    healthcheck:
+      # /api/health is on the public allow-list — no auth needed to probe.
+      # alpine ships busybox wget, so no curl dependency required.
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:32060/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s                 # Next.js standalone takes a breath to warm up
+
+    logging: *default-logging
+
+    deploy:
+      resources:
+        limits:
+          cpus: "${VELA_CPUS:-2.0}"
+          memory: "${VELA_MEMORY:-2g}"
+        reservations:
+          memory: "${VELA_MEMORY_RESERVE:-512m}"
+
+    # Hardening that does not fight the entrypoint (which drops root → node
+    # via su-exec, so we do not strip the caps it needs to do so).
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: "${VELA_PIDS:-512}"
+
+    labels:
+      org.opencontainers.image.title: "vela"
+      org.opencontainers.image.description: "Vela — the AI routing gateway + dashboard"
+      org.opencontainers.image.source: "https://github.com/YumamaX3/Vela"
+
+  # ── The compression sidecar (optional) ────────────────────────────────────
+  # Deliberately NOT published to the host — reachable only by `vela` over
+  # the internal network. That is the whole point: it stays off the open sea.
   headroom:
     image: ghcr.io/chopratejas/headroom:latest
     container_name: headroom
-    restart: always
-    ports:
-      - "8787:8787"
+    restart: unless-stopped
+    profiles: ["proxy"]                 # starts only with --profile proxy
 
+    # No `ports:` on purpose — internal-only.
+
+    networks:
+      - vela-net
+
+    logging: *default-logging
+
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: "512m"
+
+# ── The harbor's moorings ───────────────────────────────────────────────────
 volumes:
   vela-data:
     name: vela-data
+
+networks:
+  vela-net:
+    name: vela-net
+    driver: bridge
