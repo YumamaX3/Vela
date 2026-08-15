@@ -150,12 +150,27 @@ describe("Storage Covenant A10 — boot matrix", () => {
   });
 
   describe("mirror posture", () => {
-    it("refuses LOUD until Wave C (A10 pins the refusal; the pump lands in C)", async () => {
+    it("binds the sqlite PRIMARY behind the decorator (Wave C5) — never refuses, never downgrades", async () => {
       process.env.DATA_DIR = freshDir();
       process.env.VELA_DB_MODE = "mirror";
+      delete process.env.VELA_MYSQL_URL; // mirror boots WITHOUT a reachable twin
       vi.resetModules();
-      const { assertHarborBound } = await import("@/lib/db/repos/bind.js");
-      await expect(assertHarborBound()).rejects.toThrow(/Wave C/);
-    }, 15000);
+      const { assertHarborBound, getDbMode } = await import("@/lib/db/repos/bind.js");
+      await expect(assertHarborBound()).resolves.toBeUndefined(); // bound, not refusing
+      expect(getDbMode()).toBe("mirror"); // never silently downgrades
+
+      // The facade serves reads through the decorated sqlite harbor and a
+      // classified writer leaves an outbox row (the pump carries it to the twin).
+      const { initDb } = await import("@/lib/db/index.js");
+      await initDb();
+      const { createCombo } = await import("@/lib/db/repos/combosRepo.js");
+      const combo = await createCombo({ name: "c5-matrix-combo", kind: "fallback", models: ["m1"] });
+      expect(combo.id).toBeTruthy();
+      const { getAdapter } = await import("@/lib/db/driver.js");
+      const rows = (await getAdapter()).all(`SELECT fnName, replayClass FROM outbox`);
+      expect(rows.length).toBe(1);
+      expect(rows[0].fnName).toBe("createCombo");
+      expect(rows[0].replayClass).toBe("identity-carrying");
+    }, 30000);
   });
 });
