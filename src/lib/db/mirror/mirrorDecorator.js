@@ -25,6 +25,7 @@
 //     an outage window must not become an unbounded plaintext journal).
 import { classifyWriter, REPLAY_CLASS } from "./replayRegistry.js";
 import { withOutboxCapture } from "../repos/sqlite/outboxRepo.js";
+import { getKeyHashForMirror } from "../repos/sqlite/apiKeysRepo.js";
 
 /** Writers classified in the registry but deliberately NOT captured.
  *  touchKeyLastUsed: writes apiKeys.lastUsedAt — a sweep-excluded idempotent
@@ -38,11 +39,13 @@ const IDENTITY_EXTRACT = {
   createCombo: (r) => (r ? { id: r.id, createdAt: r.createdAt, updatedAt: r.updatedAt } : null),
   // S3: hash + prefix + createdAt ONLY — never the plaintext key, never the
   // keyId (the row id IS the keyId; a leaked keyId + API_KEY_SECRET re-derives
-  // internal keys). The replay dedupes on keyHash (uq_ak_key_hash), so it
-  // never needs the id.
+  // internal keys). record is a PUBLIC projection (keyHash hidden by design),
+  // so the hash is fetched transiently via getKeyHashForMirror — it crosses
+  // this threshold and rides the outbox identity column, but the keyId is
+  // NEVER persisted. Replay dedupes on keyHash (uq_ak_key_hash), never the id.
   createApiKey: (r) =>
     r?.record
-      ? { createdAt: r.record.createdAt, keyHash: r.record.keyHash, keyPrefix: r.record.keyPrefix }
+      ? { createdAt: r.record.createdAt, keyHash: getKeyHashForMirror(r.keyId), keyPrefix: r.record.keyPrefix }
       : null,
   // S3: row identity only — never accessToken/refreshToken/apiKey.
   createProviderConnection: (r) => (r ? { id: r.id, createdAt: r.createdAt, updatedAt: r.updatedAt } : null),
@@ -61,7 +64,8 @@ function wasNoOp(fnName, result) {
   return false;
 }
 
-/** Build the outbox entry for one completed writer call, or null to skip. */
+/** Build the outbox entry for one completed writer call, or null to skip.
+ *  SYNC — withOutboxCapture checks entry.replayClass inside the savepoint. */
 function buildEntry(fnName, args, result) {
   const replayClass = classifyWriter(fnName);
   if (!replayClass) return null;

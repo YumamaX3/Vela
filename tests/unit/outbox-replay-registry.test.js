@@ -1,8 +1,8 @@
 // Storage Covenant Wave C1 — the outbox + replay-class registry exit gate.
 // Plan: plans/storage-covenant.md Wave C (outbox op-log + replay-class
 // taxonomy, binding law). Pinned here:
-//   1. A fresh DB migrates to schemaVersion 6 with the outbox table (full
-//      column census) — migration 006.
+//   1. A fresh DB migrates to schemaVersion 7 with the outbox table (full
+//      column census) — migration 006 (007 adds the pump's mirrorSeq cursor).
 //   2. SQLITE-ONLY LAW: outbox is NOT in TABLES — syncSchemaFromTables/
 //      mysql bootstrap must never replicate the pump's op-log onto the twin.
 //   3. S3: EXPORT_EXCLUDED_TABLES names outbox (sealed in B2, re-asserted
@@ -46,12 +46,12 @@ const OUTBOX_COLUMNS = [
 ];
 
 describe("Wave C1 — migration 006 + the sqlite-only law", () => {
-  it("a fresh DB migrates to schemaVersion 6 with the outbox table", async () => {
+  it("a fresh DB migrates to schemaVersion 7 with the outbox table", async () => {
     const db = await import("@/lib/db/index.js");
     await db.initDb();
     const { getAdapter } = await import("@/lib/db/driver.js");
     const adapter = await getAdapter();
-    expect(adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`).value).toBe("6");
+    expect(adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`).value).toBe("7");
     const cols = adapter.all(`PRAGMA table_info(outbox)`).map((r) => r.name).sort();
     expect(cols).toEqual([...OUTBOX_COLUMNS].sort());
     // AUTOINCREMENT on seq — sqlite_sequence proves it.

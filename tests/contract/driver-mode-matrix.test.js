@@ -96,7 +96,7 @@ describe("Storage Covenant A10 — boot matrix", () => {
 
         // schemaVersion pinned by migration 006 (mirror outbox)
         const sv = adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`);
-        expect(sv.value).toBe("6");
+        expect(sv.value).toBe("7");
         adapter.exec(`DELETE FROM kv WHERE scope = 'matrix'`);
       }, 30000);
     }

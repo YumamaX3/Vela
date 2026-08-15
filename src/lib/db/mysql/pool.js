@@ -8,6 +8,15 @@
 // The mysql repos (Waves A7–A9) are written natively against this shape; the
 // bind.js facade layer unwraps the promises, exactly as the covenant names.
 import { setTimeout as delay } from "node:timers/promises";
+import { AsyncLocalStorage } from "node:async_hooks";
+
+/** Transaction nesting (Wave C3) — a db.transaction() invoked while already
+ *  inside a transaction RIDES the outer connection instead of opening a
+ *  second one: the pump's apply (dedupe row + repo dispatch) must be ONE
+ *  mysql transaction, and the twin repos open their own db.transaction().
+ *  Waves A7–A9 never nest, so their behavior is untouched — the pass-through
+ *  fires only when a transaction is already open on the current async chain. */
+const txContext = new AsyncLocalStorage();
 
 /** Parse VELA_MYSQL_URL=mysql://user:pass@host:3306/db — loud on bad shape. */
 export function parseMysqlUrl(raw) {
@@ -90,8 +99,11 @@ export function wrapMysqlPool(pool) {
     },
     // Connection-bound transaction shim (plan line 134): fn receives a
     // conn-scoped adapter so every statement rides ONE connection — the
-    // mysql twin of sqlite's sync, no-yield transaction.
+    // mysql twin of sqlite's sync, no-yield transaction. Nested calls ride
+    // the outer transaction's connection (txContext) — see header.
     async transaction(fn) {
+      const outer = txContext.getStore();
+      if (outer) return fn(outer);
       const conn = await pool.getConnection();
       const scoped = {
         async run(sql, params = []) { const [r] = await conn.query(sql, params); return runResult(r); },
@@ -101,8 +113,12 @@ export function wrapMysqlPool(pool) {
       };
       try {
         await conn.beginTransaction();
-        await fn(scoped);
+        // Return the callback's value — the sqlite contract the shape mirrors
+        // (better-sqlite3's transaction() returns fn's result); the Wave A7–A9
+        // repos ignore it via closure vars, but mirrorApplyRepo (C3) needs it.
+        const result = await txContext.run(scoped, () => fn(scoped));
         await conn.commit();
+        return result;
       } catch (err) {
         try { await conn.rollback(); } catch {}
         throw err;
