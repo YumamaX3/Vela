@@ -44,6 +44,10 @@ const ALWAYS_PROTECTED = [
   "/api/version/update",
   "/api/oauth/cursor/auto-import",
   "/api/oauth/kiro/auto-import",
+  // Pricing Covenant: mutating endpoint that triggers server-side outbound fetches —
+  // never public even when requireLogin is off. (Prefix overlap with the
+  // PROTECTED_API_PATHS "/api/pricing" entry is intentional.)
+  "/api/pricing/sync",
 ];
 
 // Require auth, but allow through if requireLogin is disabled
