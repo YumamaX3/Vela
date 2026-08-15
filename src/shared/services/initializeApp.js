@@ -118,6 +118,13 @@ async function runHeavyStartup() {
   import("@/sse/services/backgroundTokenRefresh.js")
     .then(({ startBackgroundTokenRefresh }) => startBackgroundTokenRefresh())
     .catch((e) => console.log("[BackgroundTokenRefresh] scheduler start failed:", e.message));
+
+  // Storage Covenant Wave B3 — the backup scheduler. Env-only policy
+  // (VELA_BACKUP_ENABLED), default OFF, fail-open by law. configureBackupScheduler
+  // is idempotent and self-gates on the enabled flag.
+  import("@/shared/services/backupScheduler.js")
+    .then(({ configureBackupScheduler }) => configureBackupScheduler())
+    .catch((e) => console.log("[backup] scheduler start failed:", e.message));
 }
 
 function hasQuotaAutoPingEnabled(settings) {
