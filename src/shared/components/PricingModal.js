@@ -1,12 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { getDefaultPricing, formatCost } from "open-sse/providers/pricing.js";
+import { useState, useEffect, useRef } from "react";
+
+// Pricing Covenant C6: NO import of open-sse/providers/pricing.js here —
+// that would ship the whole rate table into the client bundle and render
+// stale pre-sync rates as a fallback. Everything flows through the API:
+// /api/pricing (merged view) and /api/pricing/defaults (static fallback).
+
+const PRICING_FIELDS = ["input", "output", "cached", "reasoning", "cache_creation"];
 
 export default function PricingModal({ isOpen, onClose, onSave }) {
   const [pricingData, setPricingData] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const initialRef = useRef(null); // snapshot for dirty-row diff
 
   useEffect(() => {
     if (isOpen) {
@@ -21,18 +28,23 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
       if (response.ok) {
         const data = await response.json();
         setPricingData(data);
-      } else {
-        // Fallback to defaults
-        const defaults = getDefaultPricing();
-        setPricingData(defaults);
+        initialRef.current = data;
+        return;
       }
     } catch (error) {
       console.error("Failed to load pricing:", error);
-      const defaults = getDefaultPricing();
-      setPricingData(defaults);
-    } finally {
-      setLoading(false);
     }
+    // Fallback: static defaults via the real endpoint (never the bundled table)
+    try {
+      const res = await fetch("/api/pricing/defaults");
+      if (res.ok) {
+        const defaults = await res.json();
+        const view = { ...(defaults.providers || {}), _canonical: defaults.canonical || {} };
+        setPricingData(view);
+        initialRef.current = view;
+      }
+    } catch { /* leave empty state visible */ }
+    finally { setLoading(false); }
   };
 
   const handlePricingChange = (provider, model, field, value) => {
@@ -48,13 +60,44 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
     });
   };
 
+  // Build a PATCH body containing ONLY rows that differ from the snapshot
+  // (the old full-table save laundered every rendered default into the user
+  // override scope — write amplification and sovereignty confusion).
+  const buildDirtyRows = () => {
+    const dirty = {};
+    const before = initialRef.current || {};
+    for (const [provider, models] of Object.entries(pricingData)) {
+      if (provider === "_canonical") continue; // canonical table is read-only here
+      for (const [model, rates] of Object.entries(models)) {
+        const was = before[provider]?.[model] || {};
+        const changed = PRICING_FIELDS.some(f => (rates[f] ?? 0) !== (was[f] ?? 0));
+        if (changed) {
+          if (!dirty[provider]) dirty[provider] = {};
+          dirty[provider][model] = rates;
+        }
+      }
+    }
+    return dirty;
+  };
+
+  const dirtyCount = () => {
+    const dirty = buildDirtyRows();
+    return Object.values(dirty).reduce((n, models) => n + Object.keys(models).length, 0);
+  };
+
   const handleSave = async () => {
+    const dirty = buildDirtyRows();
+    if (Object.keys(dirty).length === 0) {
+      onSave?.();
+      onClose();
+      return;
+    }
     setSaving(true);
     try {
       const response = await fetch("/api/pricing", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(pricingData)
+        body: JSON.stringify(dirty)
       });
 
       if (response.ok) {
@@ -73,13 +116,12 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
   };
 
   const handleReset = async () => {
-    if (!confirm("Reset all pricing to defaults? This cannot be undone.")) return;
+    if (!confirm("Reset your pricing overrides to defaults? Synced prices are kept.")) return;
 
     try {
       const response = await fetch("/api/pricing", { method: "DELETE" });
       if (response.ok) {
-        const defaults = getDefaultPricing();
-        setPricingData(defaults);
+        loadPricing();
       }
     } catch (error) {
       console.error("Failed to reset pricing:", error);
@@ -89,9 +131,7 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
 
   if (!isOpen) return null;
 
-  // Get all unique providers and models for display
   const allProviders = Object.keys(pricingData).sort();
-  const pricingFields = ["input", "output", "cached", "reasoning", "cache_creation"];
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -119,6 +159,7 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
                 <p className="text-text-muted">
                   All rates are in <strong>dollars per million tokens</strong> ($/1M tokens).
                   Example: Input rate of 2.50 means $2.50 per 1,000,000 input tokens.
+                  Your edits override synced and built-in rates.
                 </p>
               </div>
 
@@ -128,34 +169,38 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
                 return (
                   <div key={provider} className="border border-border rounded-lg overflow-hidden">
                     <div className="bg-bg-subtle px-4 py-2 font-semibold text-sm">
-                      {provider.toUpperCase()}
+                      {provider === "_canonical" ? "CANONICAL (built-in)" : provider.toUpperCase()}
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead className="bg-bg-hover text-text-muted uppercase text-xs">
                           <tr>
                             <th className="px-3 py-2 text-left">Model</th>
-                            <th className="px-3 py-2 text-right">Input</th>
-                            <th className="px-3 py-2 text-right">Output</th>
-                            <th className="px-3 py-2 text-right">Cached</th>
-                            <th className="px-3 py-2 text-right">Reasoning</th>
-                            <th className="px-3 py-2 text-right">Cache Creation</th>
+                            {PRICING_FIELDS.map(f => (
+                              <th key={f} className="px-3 py-2 text-right">{f.replace("_", " ")}</th>
+                            ))}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
                           {models.map(model => (
                             <tr key={model} className="hover:bg-bg-subtle/50">
                               <td className="px-3 py-2 font-medium">{model}</td>
-                              {pricingFields.map(field => (
+                              {PRICING_FIELDS.map(field => (
                                 <td key={field} className="px-3 py-2">
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    value={pricingData[provider][model][field] || 0}
-                                    onChange={(e) => handlePricingChange(provider, model, field, e.target.value)}
-                                    className="w-20 px-2 py-1 text-right bg-bg-base border border-border rounded focus:outline-none focus:border-primary"
-                                  />
+                                  {provider === "_canonical" ? (
+                                    <span className="text-text-muted block text-right px-2">
+                                      {pricingData[provider][model]?.[field] ?? 0}
+                                    </span>
+                                  ) : (
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      value={pricingData[provider][model][field] || 0}
+                                      onChange={(e) => handlePricingChange(provider, model, field, e.target.value)}
+                                      className="w-20 px-2 py-1 text-right bg-bg-base border border-border rounded focus:outline-none focus:border-primary"
+                                    />
+                                  )}
                                 </td>
                               ))}
                             </tr>
@@ -181,11 +226,14 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
           <button
             onClick={handleReset}
             className="px-4 py-2 text-sm text-red-500 hover:bg-red-500/10 rounded border border-red-500/20 transition-colors"
-            disabled={saving}
+            disabled={saving || loading}
           >
-            Reset to Defaults
+            Reset My Overrides
           </button>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-3">
+            {!loading && dirtyCount() > 0 && (
+              <span className="text-xs text-text-muted">{dirtyCount()} changed model(s)</span>
+            )}
             <button
               onClick={onClose}
               className="px-4 py-2 text-sm text-text-muted hover:text-text border border-border rounded transition-colors"
