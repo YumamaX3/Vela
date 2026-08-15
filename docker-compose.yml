@@ -17,10 +17,11 @@ name: tethys-vela
 #   ⛵ vela-gateway   — the gateway + dashboard (Next.js standalone)
 #   💨 vela-headroom  — the shared breath: request compression, internal-only
 #
-# 🔑 Secrets are inline (the Shores' convention — see Hermes.yml and
-#    Router.yml) because this harbor sits on the private Tailscale
-#    subnet (100.100.40.x). Change them before exposing any port
-#    beyond the subnet. Never commit a filled-in copy to a public repo.
+# 🔑 Secrets are inline and ALREADY SET (the Shores' convention — see
+#    Hermes.yml and Router.yml) because this harbor sits on the private
+#    Tailscale subnet (100.100.40.x). The chart is deploy-ready as-is:
+#    `docker compose up -d` and nothing else. If any port ever leaves the
+#    subnet, rotate every secret below first.
 #
 # ⚠️ The image is PRIVATE — it inherits the Vela repo's visibility.
 #    First deploy on a machine requires:
@@ -79,11 +80,16 @@ services:
       # Vela skips compression silently if the sidecar is absent;
       # safe to leave set in every environment.
       HEADROOM_URL: http://vela-headroom:8787
-      # ── 🔑 Secrets — change before leaving the subnet ─────────
-      JWT_SECRET: "vela-jwt-covenant-change-me"
-      INITIAL_PASSWORD: "vela-harbor-change-me"
-      API_KEY_SECRET: "vela-api-key-secret-change-me"
-      MACHINE_ID_SALT: "vela-machine-salt-change-me"
+      # ── 🔑 Secrets — set 2026-08-15, deploy-ready ───────────────
+      # JWT_SECRET signs the dashboard session cookies.
+      # API_KEY_SECRET derives the endpoint API-key hashes.
+      # MACHINE_ID_SALT salts the machine identity.
+      # INITIAL_PASSWORD is the dashboard's FIRST-login password —
+      #   walk through the door with it, then change it in Settings.
+      JWT_SECRET: "4d3e3bfef5bab423d189025cf0f99f4f5b257e6837c5e8e3ba028b86291587e4"
+      INITIAL_PASSWORD: "cf227f624f2a21475774"
+      API_KEY_SECRET: "f87359fb10e9a134dbddaf5691292aa98def18e48fb5799c"
+      MACHINE_ID_SALT: "721d5042e7d681a37b9770e021279c6a"
 
     depends_on:
       vela-headroom:
