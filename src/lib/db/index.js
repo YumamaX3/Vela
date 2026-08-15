@@ -3,7 +3,7 @@ import { getAdapter } from "./driver.js";
 import { stringifyJson, parseJson } from "./helpers/jsonCol.js";
 import { tombstoneLegacyKeys } from "./migrations/002-apikey-governance.js";
 import { SCHEMA_VERSION } from "./schema.js";
-import { getDbMode } from "./repos/bind.js";
+import { getDbMode, assertHarborBound } from "./repos/bind.js";
 
 // Settings
 export {
@@ -96,6 +96,10 @@ export {
 // A3's exit gate is round-trip equality, which redaction would contradict.
 
 export async function exportDb({ includeRequestDetails = false } = {}) {
+  // Wave A6 boot gate (fail loud, never silent downgrade): the sqlite harbor
+  // is the only bound harbor until Waves A7–A9 land the mysql repos. A
+  // mysql/mirror posture refuses here instead of exporting the wrong engine.
+  await assertHarborBound();
   const db = await getAdapter();
   const { exportSettings } = await import("./repos/settingsRepo.js");
   const settings = await exportSettings();
@@ -194,6 +198,8 @@ export async function importDb(payload) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new Error("Invalid database payload");
   }
+  // Wave A6 boot gate (fail loud, never silent downgrade) — see exportDb.
+  await assertHarborBound();
   const db = await getAdapter();
 
   db.transaction(() => {
