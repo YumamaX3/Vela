@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -139,11 +139,17 @@ export const TABLES = {
     columns: {
       id: "INTEGER PRIMARY KEY AUTOINCREMENT",
       timestamp: "TEXT NOT NULL",
-      provider: "TEXT",
-      model: "TEXT",
-      connectionId: "TEXT",
+      // Dedupe columns (migration 004): NOT NULL DEFAULT '' — '' is the
+      // normalized form of "unset" so the UNIQUE dedupe index treats absent
+      // values identically in SQLite and MySQL (NULLs are DISTINCT in UNIQUE
+      // indexes). Fresh installs get the constraint here; upgraded DBs keep
+      // nullable columns (auto-sync never alters columns) — migration 004
+      // backfilled NULL→'' and writers write '' from A5 onward.
+      provider: "TEXT NOT NULL DEFAULT ''",
+      model: "TEXT NOT NULL DEFAULT ''",
+      connectionId: "TEXT NOT NULL DEFAULT ''",
       apiKey: "TEXT", // legacy plaintext column — masked-only from W1, NULLed by migration 002
-      keyId: "TEXT",
+      keyId: "TEXT NOT NULL DEFAULT ''",
       keyPrefix: "TEXT",
       endpoint: "TEXT",
       promptTokens: "INTEGER DEFAULT 0",
@@ -159,6 +165,9 @@ export const TABLES = {
       "CREATE INDEX IF NOT EXISTS idx_uh_model ON usageHistory(model)",
       "CREATE INDEX IF NOT EXISTS idx_uh_conn ON usageHistory(connectionId)",
       "CREATE INDEX IF NOT EXISTS idx_uh_keyId ON usageHistory(keyId)",
+      // Migration 004's dedupe identity — declared here so auto-sync heals it
+      // if it is ever dropped (mirrors the uq_ak_key_hash pattern in apiKeys).
+      "CREATE UNIQUE INDEX IF NOT EXISTS uq_uh_dedupe ON usageHistory(timestamp, provider, model, connectionId, keyId, promptTokens, completionTokens)",
     ],
   },
   usageDaily: {

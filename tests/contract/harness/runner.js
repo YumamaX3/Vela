@@ -89,11 +89,13 @@ export async function seedWorld(api, { seedUsage = true } = {}) {
   if (seedUsage) {
     // Usage is seeded via raw SQL on the underlying adapter — the usage repos
     // are Wave A9 and their write path is what we are proving, not consuming.
+    // keyId writes '' (not NULL): migration 004 normalized '' as the dedupe
+    // "unset" form — a NULL keyId here would violate the post-A5 write contract.
     const { getAdapter } = await import("@/lib/db/driver.js");
     const db = await getAdapter();
     db.run(
       `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [now, "openai", "gpt-4o", "conn-1", "key-1", "vela-v1-seed", "/v1/chat", 100, 50, 0.0012, "success", JSON.stringify({ cached: 10 }), JSON.stringify({ seed: true })]
+      [now, "openai", "gpt-4o", "conn-1", "", "vela-v1-seed", "/v1/chat", 100, 50, 0.0012, "success", JSON.stringify({ cached: 10 }), JSON.stringify({ seed: true })]
     );
     db.run(
       `INSERT INTO usageDaily(dateKey, data) VALUES(?, ?)`,
