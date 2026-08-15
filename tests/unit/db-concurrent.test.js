@@ -18,6 +18,10 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
+  // Close the adapter before removing the temp dir — on Windows open
+  // SQLite file handles make rmSync EPERM (matches every other db test).
+  try { global._dbAdapter?.instance?.close?.(); } catch {}
+  delete global._dbAdapter;
   if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
@@ -29,7 +33,7 @@ describe("DB Concurrency — atomic safety", () => {
     const promises = [];
     for (let i = 0; i < N; i++) {
       promises.push(db.saveRequestUsage({
-        provider: "openai", model: "gpt-4", connectionId: "c1",
+        provider: "openai", model: "gpt-4", connectionId: `c1-${i}`,
         tokens: { prompt_tokens: 10, completion_tokens: 5 },
         endpoint: "/v1/chat", status: "ok",
       }));
@@ -70,7 +74,7 @@ describe("DB Concurrency — atomic safety", () => {
     const ops = [];
     for (let i = 0; i < 50; i++) {
       ops.push(db.saveRequestUsage({
-        provider: "anthropic", model: `m-${i % 3}`, connectionId: "c2",
+        provider: "anthropic", model: `m-${i}`, connectionId: "c2",
         tokens: { prompt_tokens: 20 }, status: "ok",
       }));
       ops.push(db.setModelAlias(`a-${i}`, `target-${i}`));
@@ -154,7 +158,7 @@ describe("DB Concurrency — atomic safety", () => {
     const promises = [];
     for (let i = 0; i < N; i++) {
       promises.push(db.saveRequestUsage({
-        provider: "google", model: "gemini-pro", connectionId: "cG",
+        provider: "google", model: "gemini-pro", connectionId: `cG-${i}`,
         tokens: { prompt_tokens: 100, completion_tokens: 50 },
         status: "ok",
       }));
@@ -167,5 +171,37 @@ describe("DB Concurrency — atomic safety", () => {
     expect(g.requests).toBe(N);
     expect(g.promptTokens).toBe(N * 100);
     expect(g.completionTokens).toBe(N * 50);
+  });
+
+  it("intentional dedupe: identical parallel entries collapse to one row (uq_uh_dedupe)", async () => {
+    // The other cases in this file keep their parallel entries DISTINCT
+    // (varying connectionId/model per call) so they prove no-loss concurrency.
+    // THIS case proves the inverse: when entries are truly identical — same
+    // timestamp, same attribution, same tokens — the dedupe UNIQUE index
+    // (migration 004, Storage Covenant plan line 270) collapses them
+    // ATOMICALLY to exactly one row; the mysql twin treats the same event as
+    // ER_DUP_ENTRY ≡ "existing row". This is the behavior the three former
+    // db-concurrent known-fails were asserting against (plan line 441).
+    const N = 12;
+    const timestamp = new Date().toISOString();
+    const promises = [];
+    for (let i = 0; i < N; i++) {
+      promises.push(db.saveRequestUsage({
+        timestamp, // pinned — force a shared dedupe identity
+        provider: "dedupe-check", model: "gpt-4", connectionId: "cD",
+        tokens: { prompt_tokens: 7, completion_tokens: 3 },
+        endpoint: "/v1/chat", status: "ok",
+      }));
+    }
+    await Promise.all(promises);
+
+    const { getAdapter } = await import("@/lib/db/driver.js");
+    const adapter = await getAdapter();
+    const rows = adapter.all(
+      `SELECT id, endpoint FROM usageHistory WHERE provider = ? AND model = ? AND connectionId = ? AND timestamp = ?`,
+      ["dedupe-check", "gpt-4", "cD", timestamp]
+    );
+    expect(rows.length).toBe(1); // collapsed atomically — never 12, never 0
+    expect(rows[0].endpoint).toBe("/v1/chat"); // endpoint backfill survives the collapse
   });
 });

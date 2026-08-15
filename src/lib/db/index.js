@@ -127,13 +127,17 @@ export async function exportDb({ includeRequestDetails = false } = {}) {
       })),
       combos: db.all(`SELECT * FROM combos`).map((r) => ({ id: r.id, name: r.name, kind: r.kind, models: parseJson(r.models, []), createdAt: r.createdAt, updatedAt: r.updatedAt })),
       usageHistory: db.all(`SELECT * FROM usageHistory ORDER BY id ASC`).map((r) => ({
-        id: r.id, timestamp: r.timestamp, provider: r.provider, model: r.model,
-        connectionId: r.connectionId,
+        id: r.id, timestamp: r.timestamp,
+        // Dedupe columns store '' as "unset" from migration 004 onward —
+        // normalize back to null so artifact shapes are unchanged (the mysql
+        // twin and its readers apply the same normalization, plan line 270).
+        provider: r.provider || null, model: r.model || null,
+        connectionId: r.connectionId || null,
         // The legacy plaintext apiKey column is banned from artifacts — it is
         // NULL post-migration-002, but force it null so no artifact can ever
         // carry a plaintext key even from a partially-migrated DB.
         apiKey: null,
-        keyId: r.keyId, keyPrefix: r.keyPrefix, endpoint: r.endpoint,
+        keyId: r.keyId || null, keyPrefix: r.keyPrefix, endpoint: r.endpoint,
         promptTokens: r.promptTokens, completionTokens: r.completionTokens,
         cost: r.cost, status: r.status, tokens: parseJson(r.tokens, null), meta: parseJson(r.meta, null),
       })),
@@ -290,10 +294,13 @@ export async function importDb(payload) {
     }
 
     // Usage ledger restore (completeness law) — idempotent upserts preserve ids.
+    // Dedupe columns write '' as "unset" (migration 004 contract) so restored
+    // rows honor uq_uh_dedupe identically in both engines; ''-normalized
+    // exports restore byte-identical.
     for (const h of payload.usageHistory || []) {
       db.run(
         `INSERT OR REPLACE INTO usageHistory(id, timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [h.id, h.timestamp, h.provider ?? null, h.model ?? null, h.connectionId ?? null, h.keyId ?? null, h.keyPrefix ?? null, h.endpoint ?? null, h.promptTokens ?? 0, h.completionTokens ?? 0, h.cost ?? 0, h.status ?? null, stringifyJson(h.tokens ?? null), stringifyJson(h.meta ?? null)]
+        [h.id, h.timestamp, h.provider || "", h.model || "", h.connectionId || "", h.keyId || "", h.keyPrefix ?? null, h.endpoint ?? null, h.promptTokens ?? 0, h.completionTokens ?? 0, h.cost ?? 0, h.status ?? null, stringifyJson(h.tokens ?? null), stringifyJson(h.meta ?? null)]
       );
     }
     for (const d of payload.usageDaily || []) {

@@ -279,43 +279,50 @@ export async function saveRequestUsage(entry) {
 
     let inserted = false;
 
-    // All 3 writes (history insert, daily upsert, lifetime counter) in ONE transaction.
-    // better-sqlite3 is sync → no JS yield mid-transaction → no race in same process.
+    // Dedupe identity (Storage Covenant A5, plan line 270): enforced by the
+    // UNIQUE index uq_uh_dedupe from migration 004, so the write is ATOMIC —
+    // the old SELECT-then-INSERT raced across processes and over-collapsed
+    // same-millisecond writes. ON CONFLICT DO NOTHING ≡ the mysql twin's
+    // ER_DUP_ENTRY treatment (plan lines 98/274). The four text columns write
+    // '' (not NULL): migration 004 normalized '' as the "unset" form so the
+    // UNIQUE index dedupes keyless rows identically in both engines (NULLs
+    // are DISTINCT in UNIQUE indexes). changes === 0 marks a duplicate.
+    //
+    // All 3 writes (history insert, daily upsert, lifetime counter) stay in
+    // ONE transaction — better-sqlite3 is sync → no JS yield mid-transaction
+    // → no race in same process.
     db.transaction(() => {
-      const existing = db.get(
-        `SELECT id, endpoint FROM usageHistory
-         WHERE timestamp = ?
-           AND COALESCE(provider, '') = COALESCE(?, '')
-           AND COALESCE(model, '') = COALESCE(?, '')
-           AND COALESCE(connectionId, '') = COALESCE(?, '')
-           AND COALESCE(keyId, '') = COALESCE(?, '')
-           AND promptTokens = ?
-           AND completionTokens = ?
-         ORDER BY id DESC LIMIT 1`,
+      const res = db.run(
+        `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(timestamp, provider, model, connectionId, keyId, promptTokens, completionTokens) DO NOTHING`,
         [
-          entry.timestamp, entry.provider || null, entry.model || null,
-          entry.connectionId || null, entry.keyId || null,
-          promptTokens, completionTokens,
-        ]
-      );
-
-      if (existing) {
-        if (!existing.endpoint && entry.endpoint) {
-          db.run(`UPDATE usageHistory SET endpoint = ? WHERE id = ?`, [entry.endpoint, existing.id]);
-        }
-        return;
-      }
-
-      db.run(
-        `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          entry.timestamp, entry.provider || null, entry.model || null,
-          entry.connectionId || null, entry.keyId || null, entry.keyPrefix || null,
+          entry.timestamp, entry.provider || "", entry.model || "",
+          entry.connectionId || "", entry.keyId || "", entry.keyPrefix || null,
           entry.endpoint || null,
           promptTokens, completionTokens, entry.cost || 0, entry.status || "ok",
           stringifyJson(tokens), stringifyJson({}),
         ]
       );
+
+      if (!res || Number(res.changes ?? 0) === 0) {
+        // Duplicate group — backfill the endpoint exactly as the old
+        // SELECT-then-INSERT path did (idempotent, endpoint-only).
+        if (entry.endpoint) {
+          db.run(
+            `UPDATE usageHistory SET endpoint = ?
+             WHERE timestamp = ? AND provider = ? AND model = ? AND connectionId = ? AND keyId = ?
+               AND promptTokens = ? AND completionTokens = ?
+               AND (endpoint IS NULL OR endpoint = '')`,
+            [
+              entry.endpoint,
+              entry.timestamp, entry.provider || "", entry.model || "",
+              entry.connectionId || "", entry.keyId || "",
+              promptTokens, completionTokens,
+            ]
+          );
+        }
+        return;
+      }
 
       const dateKey = getLocalDateKey(entry.timestamp);
       const row = db.get(`SELECT data FROM usageDaily WHERE dateKey = ?`, [dateKey]);
@@ -615,19 +622,22 @@ export async function getUsageStats(period = "all") {
       const completionTokens = tokens.completion_tokens || 0;
       const cachedTokens = tokens.cached_tokens || tokens.cache_read_input_tokens || 0;
       const entryCost = r.cost || 0;
-      const providerDisplayName = providerNodeNameMap[r.provider] || r.provider;
+      const providerDisplayName = providerNodeNameMap[r.provider] || r.provider || null;
 
       stats.totalPromptTokens += promptTokens;
       stats.totalCompletionTokens += completionTokens;
       stats.totalCachedTokens += cachedTokens;
       stats.totalCost += entryCost;
 
-      if (!stats.byProvider[r.provider]) stats.byProvider[r.provider] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0 };
-      stats.byProvider[r.provider].requests++;
-      stats.byProvider[r.provider].promptTokens += promptTokens;
-      stats.byProvider[r.provider].completionTokens += completionTokens;
-      stats.byProvider[r.provider].cachedTokens += cachedTokens;
-      stats.byProvider[r.provider].cost += entryCost;
+      // migration 004: '' is the normalized form of "unset" — key the display
+      // map on null so live stats and artifacts agree.
+      const prov = r.provider || null;
+      if (!stats.byProvider[prov]) stats.byProvider[prov] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0 };
+      stats.byProvider[prov].requests++;
+      stats.byProvider[prov].promptTokens += promptTokens;
+      stats.byProvider[prov].completionTokens += completionTokens;
+      stats.byProvider[prov].cachedTokens += cachedTokens;
+      stats.byProvider[prov].cost += entryCost;
 
       const modelKey = r.provider ? `${r.model} (${r.provider})` : r.model;
       if (!stats.byModel[modelKey]) {
