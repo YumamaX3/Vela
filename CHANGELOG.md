@@ -25,6 +25,91 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.50 — The Pricing Covenant 💰🌊⛵
+
+> *"Every model that crosses the gateway shall pay its true rate — researched
+> from the source, stamped with the date, and inherited by its free siblings
+> as one price, one truth. No more zero-cost illusions, no more stale tables,
+> no more guessing what a million tokens cost."*
+
+*Sealed 2026-08-15 · the Star's decree · Milestone Tide: big change → `0.6.42 → 0.6.50`*
+
+## ✨ Features — deep pricing research, applied
+- **2026-08-15 rate census** — the rate table grew 101 → **215 canonical
+  models**, researched from models.dev/api.json and official vendor pages
+  (OpenAI, Anthropic, Google, DeepSeek, Z.ai, Moonshot, MiniMax, xAI, StepFun,
+  Xiaomi, Volcengine, Baidu, Tencent, SambaNova, Fireworks, Together, Cohere,
+  Groq, Cerebras + reseller lanes). Provenance preserved beside the rates —
+  every entry knows its source and capture date. Harvest artifact:
+  `plans/research/models-dev-harvest-2026-08-15.json` (~220 verified entries,
+  19 vendors) with an honest *unverifiable* ledger (GPU-billing, flat-rate,
+  subscription-walled, and login-walled models).
+- **~40 rates corrected**: `gpt-4` (30/60), `gpt-4.1` family, `gemini-3.7-flash`
+  at HALF the previous rate (a real Google price cut), `gemini-3.5-flash`
+  (1.5/9), `gemini-2.5-pro` (1.25/10), the whole Kimi family (`kimi-k2` 0.6/2.5
+  with turbo variants), GLM with free cache writes (`cache_creation: 0`),
+  MiniMax family (0.3/1.2), and more.
+- **Free models inherit their paid sibling's rates — everywhere** (the Star's
+  decree): resolution, display, AND usage cost alike. One price, one truth.
+  `FREE_ALIAS_MAP` holds 13 hand-verified sibling pairs; a guarded
+  suffix-strip fallback covers namespaced free ids, and `FREE_DENYLIST` (22
+  shapes) blocks infix markers and router tier traps from ever inheriting.
+- **The Sync Shore** — `/dashboard/settings/pricing` gains a **Sync Prices**
+  button: one click refreshes rates from models.dev (primary) with an
+  OpenRouter cross-check that counts disagreements, commits only the
+  `pricing_sync` scope, and reports added/updated/removed. A Last Synced card
+  and **Clear Synced Prices** affordance complete the shore — your own
+  overrides are never touched by either.
+- **UNPRICEABLE manifest** — router pseudo-models (`best`, `default`,
+  `universal-*`) and no-token-pricing lanes (Hyperbolic GPU-hourly, Featherless
+  flat subscription) resolve to honest nulls. The UI renders them as "—" —
+  never a misleading $0.00.
+
+## 🔧 Changes
+- **Seven-stratum resolver** — the sync, pure, dependency-free chain every
+  lookup walks: UNPRICEABLE → provider lane (registry id, then alias) → exact
+  canonical → free inheritance (exact strata only, never globs) →
+  vendor-stripped exact → pre-compiled pattern globs. Patterns are compiled
+  once at module load instead of per request. `matchPattern` keeps its exact
+  anchored-glob semantics (capabilities and thinking-levels depend on it).
+- **Sovereignty merge** — user overrides always win, then synced rates, then
+  built-in defaults; two independent reset affordances. The merged view
+  exposes the canonical table (`_canonical`) so every model is visible and
+  editable in settings.
+- **PricingModal rebuilt** — the client bundle no longer ships the whole rate
+  table; defaults flow through the real `GET /api/pricing/defaults` endpoint
+  (the unreachable `GET_DEFAULTS` export is deleted). Saves now PATCH only
+  dirty rows — the old full-table save laundered every rendered default into
+  your override scope.
+- **SSRF-hardened sync endpoint** — `POST /api/pricing/sync` fetches ONLY the
+  hardcoded URLs in `SYNC_VENDOR_MAP` (the request body selects vendors by key,
+  never URLs), refuses redirects, caps responses at 20MB / 15s, clamps rates
+  to [0, 10000] $/M, allowlists key charset + length, and rejects prototype
+  keys. The route stays auth-protected even when `requireLogin` is off.
+
+## 📖 Documentation
+- `plans/pricing-covenant.md` — the sealed ADR: seven strata, alternatives,
+  consequences, four adversarial passes, and the forge's verification record.
+- `open-sse/AGENTS.md` — new **Pricing model** section: sovereignty order,
+  five-field rate shape, frozen usage costs, sync shore, census gate.
+
+## ⚙️ Internal — the proving tide
+- `tests/unit/pricing-covenant.test.js` — **27 covenant pins**, every one
+  traced through the resolver before it was allowed to exist: shape lint,
+  inheritance + usage-cost math, denylist negatives, UNPRICEABLE, matchPattern
+  compat, pattern precedence, dual-key alias resolution, provenance, harvest
+  bake-verification, and sovereignty fixtures. All green first run.
+- `tests/__baseline__/pricing-census.json` — the never-shrink census gate:
+  215 canonical · 8 lanes · 128 lane models · 57 patterns · 13 free-map ·
+  22 denylist · 8 unpriceable · 25 sources.
+- Regression verdict: full suite **+27 green**; the known-red checkout
+  baseline untouched (zero file overlap with the covenant diff).
+
+*Debts recorded: media-model pricing deferred by the Star's word; historical
+usage costs keep their frozen rates — no backfill, no recomputation.* 💜
+
+---
+
 # v0.6.42 — The Keyless Test Restored 🧪🧘⛵
 
 > *"The rebrand moved the lantern to a new shelf — and two of its old hooks
