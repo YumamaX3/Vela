@@ -122,7 +122,16 @@ export async function exportDb({ includeRequestDetails = false } = {}) {
 }
 
 // ─── importDb — S1 trust crossing ────────────────────────────────────────
-export async function importDb(payload, { adoptSecrets = false } = {}) {
+// adoptSecrets  — restore the payload's RESTORE-QUARANTINED settings + key
+//                 identity (hostile-input restore; requires re-confirm).
+// adoptKeys     — Wave C4 mirror full-resync: adopt the payload's KEY identity
+//                 (keyHash/isInternal/deletedAt) while settings still ride the
+//                 safe quarantine path. A primary→twin resync is the primary's
+//                 own truth flowing to its replica — NOT hostile input — so key
+//                 identity must land verbatim or key-gated traffic breaks. The
+//                 twin's mirror-minted rows use `mirror:${keyHash}` ids, so the
+//                 by-id quarantine re-stitch would otherwise null the keyHash.
+export async function importDb(payload, { adoptSecrets = false, adoptKeys = false } = {}) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new Error("Invalid database payload");
   }
@@ -165,7 +174,7 @@ export async function importDb(payload, { adoptSecrets = false } = {}) {
     ? payload.settings
     : quarantineSettingsPayload(payload.settings);
   const keysToRestore = (payload.apiKeys || []).map((k) =>
-    adoptSecrets ? k : quarantineKeyRow(k)
+    adoptSecrets || adoptKeys ? k : quarantineKeyRow(k)
   );
 
   db.transaction(() => {
@@ -209,10 +218,10 @@ export async function importDb(payload, { adoptSecrets = false } = {}) {
       );
     }
     for (const k of keysToRestore) {
-      const cur = adoptSecrets ? null : currentQuarantined.keys.get(k.id);
-      const keyHash = adoptSecrets ? (k.keyHash ?? null) : (cur?.keyHash ?? null);
-      const isInternal = adoptSecrets ? (k.isInternal === true || k.isInternal === 1) : (cur?.isInternal ?? false);
-      const deletedAt = adoptSecrets ? (k.deletedAt ?? null) : (cur?.deletedAt ?? null);
+      const cur = adoptSecrets || adoptKeys ? null : currentQuarantined.keys.get(k.id);
+      const keyHash = adoptSecrets || adoptKeys ? (k.keyHash ?? null) : (cur?.keyHash ?? null);
+      const isInternal = adoptSecrets || adoptKeys ? (k.isInternal === true || k.isInternal === 1) : (cur?.isInternal ?? false);
+      const deletedAt = adoptSecrets || adoptKeys ? (k.deletedAt ?? null) : (cur?.deletedAt ?? null);
       db.run(
         `INSERT OR REPLACE INTO apiKeys(
           id, key, name, machineId, isActive, createdAt,
