@@ -58,6 +58,17 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
   default-password hints.
 - Login-scoped styles appended to `globals.css` (no component churn elsewhere).
 
+## 📖 Documentation
+- **Plans**: the Shorekeeper-Sealed Plan for the Freebuff provider is born —
+  `plans/freebuff-provider.md`: Codebuff's free tier woven into Vela's fleet
+  natively — device-code login, the three-gate wire ceremony (Buffy marker,
+  SDK User-Agent, top-level `codebuff_metadata`), session-claim + agent-run
+  lifecycle, a generic fail-open connection-preference hook for session-affinity
+  routing, persisted claim state that survives restarts, Pacific-midnight
+  lockouts beyond the 30-minute cap, and a GET-only quota tracker that can
+  never burn a session. Sealed after a reforged frame, four adversarial passes
+  and a 4.2/5 arbiter panel; implementation follows on `feat/freebuff-provider`
+
 ---
 
 # v0.6.23 — The Ledger Speaks For Each Key 📊⛵
