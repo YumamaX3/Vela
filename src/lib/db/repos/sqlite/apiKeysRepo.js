@@ -2,7 +2,7 @@
 // Plan: plans/vela-key-governance.md §3.2. Full keys are minted by createApiKey
 // (returned ONCE in the 201 payload) and stored only as SHA-256 hashes; list
 // endpoints return masked rows without the `key` field.
-import { getAdapter } from "../../driver.js";
+import { getAdapter, getAdapterSync } from "../../driver.js";
 import { validateKeyLimits, KeyLimitsValidationError } from "../../keyLimits.js";
 // Static (not dynamic) import — resolveKey is on the gate hot path and a
 // per-call `await import()` inflates p99 under CPU contention. apiKey.js
@@ -112,6 +112,18 @@ export async function createApiKey(name, opts = {}) {
     ]
   );
   return { record: await getApiKeyById(id), key, keyId, keyPrefix };
+}
+
+/** Wave C3 — the mirror decorator's identity fetch. createApiKey's `record`
+ *  is a PUBLIC projection (rowToPublic hides keyHash by design), but S3 law
+ *  names the HASH as the outbox cargo for identity-carrying key ops. This
+ *  returns the raw hash for the row's current lifetime only — the caller
+ *  (mirrorDecorator) must NEVER persist the keyId, and the hash rides only
+ *  the outbox identity column (export-excluded by name). Sync by design: it
+ *  runs inside the containment savepoint with the adapter already resolved. */
+export function getKeyHashForMirror(keyId) {
+  const row = getAdapterSync().get(`SELECT keyHash FROM apiKeys WHERE id = ?`, [keyId]);
+  return row?.keyHash ?? null;
 }
 
 /**

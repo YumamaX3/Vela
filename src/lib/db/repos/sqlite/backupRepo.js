@@ -43,7 +43,7 @@ export {
 
 // S1 bounds + S3 exclusions (identical law to the mysql twin).
 export const MAX_PAYLOAD_BYTES = 512 * 1024 * 1024;
-export const EXPORT_EXCLUDED_TABLES = ["backupLedger", "outbox"];
+export const EXPORT_EXCLUDED_TABLES = ["backupLedger", "outbox", "mirrorSeq"];
 
 // ─── exportDb — completeness + S2 redaction + S3 exclusions ──────────────
 export async function exportDb({ includeRequestDetails = false } = {}) {

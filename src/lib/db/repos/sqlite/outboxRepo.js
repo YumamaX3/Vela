@@ -11,6 +11,7 @@
 // synchronously.
 import { getAdapter } from "../../driver.js";
 import { stringifyJson } from "../../helpers/jsonCol.js";
+import { REDACTED_SENTINEL } from "../backupSecurity.js";
 
 /** Record one captured writer invocation. Returns nothing — the pump reads
  *  pending rows by seq order. Args/identity are JSON-serialized; the S3
@@ -102,4 +103,65 @@ export async function pruneAppliedOutbox(olderThanMs = 24 * 60 * 60 * 1000) {
   const cutoff = new Date(Date.now() - olderThanMs).toISOString();
   const res = db.run(`DELETE FROM outbox WHERE status = 'applied' AND appliedAt < ?`, [cutoff]);
   return { pruned: res?.changes ?? 0 };
+}
+
+// ─── Wave C3 — the pump's seam ────────────────────────────────────────────
+
+/** S3 clause three — args may carry secrets (OAuth tokens, provider keys).
+ *  After the FIRST apply attempt the twin either has the row (args spent) or
+ *  will poison out; either way the plaintext cargo is burned here so an
+ *  outage window never becomes an unbounded token journal in data.sqlite. */
+export async function redactOutboxArgs(seq) {
+  const db = await getAdapter();
+  db.run(`UPDATE outbox SET args = ? WHERE seq = ?`, [REDACTED_SENTINEL, seq]);
+}
+
+/** A replay that can never apply but is NOT poison: an exempt-class row the
+ *  pump walked past, or an identity-carrying row whose identity was lost
+ *  (redacted args + null identity after the crash window). Terminal, audited
+ *  via the error column — never retried, never head-of-line-blocking. */
+export async function markOutboxSkipped(seq, error) {
+  const db = await getAdapter();
+  db.run(
+    `UPDATE outbox SET status = 'skipped', appliedAt = ?, error = ? WHERE seq = ?`,
+    [new Date().toISOString(), String(error ?? "").slice(0, 2000), seq]
+  );
+}
+
+/** The sqlite side of the apply cursor (migration 007). The mysql twin's
+ *  counterpart is the seq-dedupe table — the two converge as the pump drains. */
+export async function getMirrorCursor() {
+  const db = await getAdapter();
+  const row = db.get(`SELECT lastAppliedSeq, lastFailedSeq FROM mirrorSeq WHERE id = 1`);
+  return { lastAppliedSeq: row?.lastAppliedSeq ?? 0, lastFailedSeq: row?.lastFailedSeq ?? 0 };
+}
+
+/** Advance the cursor. Either field may be null to leave that side untouched. */
+export async function setMirrorCursor(appliedSeq, failedSeq) {
+  const db = await getAdapter();
+  db.run(
+    `UPDATE mirrorSeq SET
+       lastAppliedSeq = CASE WHEN ? IS NULL THEN lastAppliedSeq ELSE ? END,
+       lastFailedSeq  = CASE WHEN ? IS NULL THEN lastFailedSeq  ELSE ? END
+     WHERE id = 1`,
+    [appliedSeq ?? null, appliedSeq ?? null, failedSeq ?? null, failedSeq ?? null]
+  );
+}
+
+/** S3 clause three (age-out) — rows older than the window leave the journal
+ *  REGARDLESS of status. Poison rows stay visible in the ledger alert; the
+ *  outbox itself must stay bounded even through a long twin outage. Returns
+ *  how many STILL-PENDING ops aged out so the pump can alert loudly. */
+export async function pruneOutboxWindow(days = 7) {
+  const db = await getAdapter();
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const aging = db.get(
+    `SELECT COUNT(*) AS n FROM outbox WHERE createdAt < ? AND status IN ('pending', 'retry')`,
+    [cutoff]
+  );
+  const res = db.run(
+    `DELETE FROM outbox WHERE createdAt < ? AND status IN ('pending', 'retry', 'applied')`,
+    [cutoff]
+  );
+  return { pruned: res?.changes ?? 0, agedPending: aging?.n ?? 0 };
 }
