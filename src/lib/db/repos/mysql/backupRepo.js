@@ -20,7 +20,7 @@ import {
 
 // S1 bounds + S3 exclusions — identical law to the sqlite twin.
 export const MAX_PAYLOAD_BYTES = 512 * 1024 * 1024;
-export const EXPORT_EXCLUDED_TABLES = ["backupLedger", "outbox"];
+export const EXPORT_EXCLUDED_TABLES = ["backupLedger", "outbox", "mirrorSeq"];
 
 export async function exportDb({ includeRequestDetails = false } = {}) {
   const db = await getMysqlAdapter();

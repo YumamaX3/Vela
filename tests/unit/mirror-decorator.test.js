@@ -125,7 +125,12 @@ describe("Wave C2 — identity capture", () => {
     const created = await apiKeys.createApiKey("c2-key");
     const [row] = await outboxRows();
     const identity = JSON.parse(row.identity);
-    expect(identity.keyHash).toBe(created.record.keyHash);
+    // record is a PUBLIC projection (no keyHash) — the decorator fetches the
+    // hash transiently (C3). Assert against the sqlite row's truth.
+    const { getAdapter } = await import("@/lib/db/driver.js");
+    const rawKey = (await getAdapter()).get(`SELECT keyHash FROM apiKeys WHERE id = ?`, [created.keyId]);
+    expect(identity.keyHash).toBe(rawKey.keyHash);
+    expect(identity.keyHash).toBeTruthy(); // the S3 cargo is REAL, never undefined
     expect(identity.keyPrefix).toBe(created.record.keyPrefix);
     expect(identity.createdAt).toBe(created.record.createdAt);
     expect(identity.id).toBeUndefined(); // S3 — the row id IS the keyId; never captured
