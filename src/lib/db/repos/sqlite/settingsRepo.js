@@ -48,6 +48,10 @@ export async function getCloudUrl() {
   );
 }
 
+// S2 (Storage Covenant Wave B2) — secret-field redaction applies BELOW the
+// completeness law: exportSettings() never leaks password / mitmSudoEncrypted /
+// oidcClientSecret. The HTTP route strip is defense-in-depth, not the gate.
 export async function exportSettings() {
-  return await readRaw();
+  const { redactSecretSettings } = await import("../backupSecurity.js");
+  return redactSecretSettings(await readRaw());
 }

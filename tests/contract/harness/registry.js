@@ -29,6 +29,9 @@ export const PARITY_REGISTRY = new Set([
   // The round-trip legs
   "exportDb",
   "importDb",
+  // Wave B2 — the backup ledger repo (parity-backup.test.js exercises the
+  // round-trip: backup row written in the live DB, read back, metadata-only).
+  "writeLedger", "listBackupLedger",
   // ── The paid EXEMPT_PENDING debt — Wave A's seal (A10) ────────────────
   // Every entry migrated from EXEMPT_PENDING once its wave forged the twin
   // and the parity gate turned green. The annotations name the paying wave.
@@ -64,6 +67,16 @@ export const EXEMPT_PROCESS = {
   initDb: "trivial adapter warm-up — no observable data",
   KeyLimitsValidationError: "class export, not a function",
   sanitizeCategory: "pure string helper — no DB access",
+  // Wave B2 backup engine — process/infra surface. runBackup/restoreBackup/
+  // runRestoreDrill/pruneBackupArtifacts write ARTIFACT FILES + ledger rows
+  // under BACKUPS_DIR (not the DB under parity comparison); purgeOldUsage is
+  // wall-clock windowed (fixed-date parity coverage lands with Wave B4's
+  // cross-engine restore suite — named here as scheduled debt).
+  runBackup: "artifact-file writer + ledger row; engine-process surface",
+  restoreBackup: "artifact-file reader + import; engine-process surface",
+  runRestoreDrill: "scratch-DB drill — deliberately never touches the parity DB",
+  pruneBackupArtifacts: "artifact-file pruning by mtime — no DB data",
+  purgeOldUsage: "wall-clock windowed purge — fixed-date parity lands Wave B4",
 };
 
 /** Parity coverage scheduled in a later Wave A commit — PAID IN FULL at A10.

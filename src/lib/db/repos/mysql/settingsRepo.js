@@ -50,6 +50,9 @@ export async function getCloudUrl() {
   );
 }
 
+// S2 (Storage Covenant Wave B2) — same redaction law as the sqlite twin:
+// exportSettings() never leaks password / mitmSudoEncrypted / oidcClientSecret.
 export async function exportSettings() {
-  return await readRaw();
+  const { redactSecretSettings } = await import("../backupSecurity.js");
+  return redactSecretSettings(await readRaw());
 }
