@@ -1,5 +1,14 @@
 // Facade — path-stable entry point for the settingsRepo contract.
-// Wave A of the Storage Covenant: the sqlite harbor is the only implementation,
-// so this facade is a pure re-export (zero indirection, sync functions stay sync).
-// bind.js dispatches to the mysql/mirror harbors from Wave A6 onward.
-export * from "./sqlite/settingsRepo.js";
+// Storage Covenant A7: bindFacade dispatches by posture — sqlite re-exports
+// the harbor verbatim (sync fns stay sync); mysql binds repos/mysql twins.
+import * as sqlite from "./sqlite/settingsRepo.js";
+import { bindFacade } from "./bind.js";
+
+const bound = bindFacade(sqlite, () => import("../repos/mysql/settingsRepo.js"));
+
+export const mergeWithDefaults = bound.mergeWithDefaults;
+export const getSettings = bound.getSettings;
+export const updateSettings = bound.updateSettings;
+export const isCloudEnabled = bound.isCloudEnabled;
+export const getCloudUrl = bound.getCloudUrl;
+export const exportSettings = bound.exportSettings;

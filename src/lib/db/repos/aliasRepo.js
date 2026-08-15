@@ -1,5 +1,16 @@
 // Facade — path-stable entry point for the aliasRepo contract.
-// Wave A of the Storage Covenant: the sqlite harbor is the only implementation,
-// so this facade is a pure re-export (zero indirection, sync functions stay sync).
-// bind.js dispatches to the mysql/mirror harbors from Wave A6 onward.
-export * from "./sqlite/aliasRepo.js";
+// Storage Covenant A7: bindFacade dispatches by posture — sqlite re-exports
+// the harbor verbatim (sync fns stay sync); mysql binds repos/mysql twins.
+import * as sqlite from "./sqlite/aliasRepo.js";
+import { bindFacade } from "./bind.js";
+
+const bound = bindFacade(sqlite, () => import("../repos/mysql/aliasRepo.js"));
+
+export const getModelAliases = bound.getModelAliases;
+export const setModelAlias = bound.setModelAlias;
+export const deleteModelAlias = bound.deleteModelAlias;
+export const getCustomModels = bound.getCustomModels;
+export const addCustomModel = bound.addCustomModel;
+export const deleteCustomModel = bound.deleteCustomModel;
+export const getMitmAlias = bound.getMitmAlias;
+export const setMitmAliasAll = bound.setMitmAliasAll;
