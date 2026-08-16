@@ -39,6 +39,10 @@ yarn-error.log*
 .env*
 !.env.example
 
+# the LIVE deployment chart holds real secrets — it stays on the fleet
+# box, untracked. The repo keeps docker-compose.example.yml as the template.
+docker-compose.yml
+
 # vercel
 .vercel
 
