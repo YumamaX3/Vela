@@ -14,6 +14,7 @@
 // guard and run ONCE, tracked in _meta.mysqlSecurityClosures.
 import { TABLES } from "../schema.js";
 import { toMysqlTableSql, toMysqlIndexSqls, toMysqlColumnAdd, indexedColumns, indexNameOf } from "./ddlMap.js";
+import { LEGACY_STATUS_MAP } from "../../usageStatus.js";
 
 async function existingColumns(adapter, table) {
   const rows = await adapter.all(
@@ -34,7 +35,7 @@ async function existingIndexes(adapter, table) {
 /** Bring one foreign MariaDB/MySQL schema to TABLES parity (additive only).
  *  Returns a small report for logging/test assertion. */
 export async function bootstrapMysql(adapter) {
-  const report = { tables: 0, columns: 0, indexes: 0, closures: "already-applied" };
+  const report = { tables: 0, columns: 0, indexes: 0, closures: "already-applied", backfillM008: "already-applied" };
 
   for (const [name, def] of Object.entries(TABLES)) {
     // CREATE TABLE IF NOT EXISTS is idempotent — safe on every boot.
@@ -82,6 +83,49 @@ export async function bootstrapMysql(adapter) {
       ["mysqlSecurityClosures", JSON.stringify({ tombstoneLegacyKeys: stamped, scrubPlaintextUsage: stamped })]
     );
     report.closures = "applied";
+  }
+
+  // Migration-008 statusClass backfill — the mysql twin of the sqlite
+  // batched backfill (008-usage-telemetry.js). Columns/indexes arrive via
+  // the additive TABLES diff above; this DML closure is ported explicitly
+  // and tracked in _meta so it runs once per database. Batched in 10k-row
+  // chunks (phase12 W1-3 lock budget); only unclassified rows are touched.
+  const m008Meta = await adapter.get(`SELECT value FROM _meta WHERE \`key\` = ?`, ["mysqlM008Backfill"]);
+  if (!m008Meta) {
+    const report008 = {};
+    for (const [raw, cls] of Object.entries(LEGACY_STATUS_MAP)) {
+      let updated = 0;
+      let guard = 0;
+      while (guard++ < 1000) {
+        // Derived-table wrap: MariaDB rejects LIMIT inside an IN(...) subquery
+        // ("LIMIT & IN/ALL/ANY/SOME subquery"), so the batch materializes in an
+        // inner SELECT and the UPDATE matches the derived table. Portable to
+        // both engines.
+        const res = await adapter.run(
+          `UPDATE usageHistory SET statusClass = ? WHERE id IN (
+             SELECT id FROM (
+               SELECT id FROM usageHistory
+               WHERE (statusClass IS NULL OR statusClass = '') AND status = ?
+               LIMIT 10000
+             ) AS batch
+           )`,
+          [cls, raw]
+        );
+        const n = Number(res?.affectedRows ?? res?.changes ?? 0);
+        updated += n;
+        if (n === 0) break;
+      }
+      if (updated > 0) report008[cls] = updated;
+    }
+    // Same '' = unknown invariant as the sqlite twin (migration 008 step 4).
+    await adapter.run(`UPDATE usageHistory SET statusClass = '' WHERE statusClass IS NULL`);
+    await adapter.run(
+      `INSERT INTO _meta(\`key\`, value) VALUES(?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)`,
+      ["mysqlM008Backfill", JSON.stringify({ applied: new Date().toISOString(), updated: report008 })]
+    );
+    report.backfillM008 = "applied";
+  } else {
+    report.backfillM008 = "already-applied";
   }
 
   return report;

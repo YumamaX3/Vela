@@ -16,8 +16,12 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = path.resolve(".");
+// Resolve from THIS file, never cwd — vitest launches from tests/ (or /app
+// in Docker), so path.resolve(".") pointed at tests/src and the census
+// scanned nothing. tests/unit → repo root, stable in every launch dir.
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const SRC = path.join(ROOT, "src");
 
 // Raw-adapter access = importing getAdapter or the driver module.

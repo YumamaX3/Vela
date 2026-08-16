@@ -38,10 +38,13 @@ async function load() {
 }
 
 function insertUsage(db, { keyId, ts, prompt = 0, completion = 0, cost = 0 }) {
+  // Migration 004 made connectionId/keyId NOT NULL DEFAULT '' ('' = the
+  // normalized "unset" form so the dedupe UNIQUE treats keyless rows the same
+  // in both harbors) — fixtures write '' exactly as the live writer does.
   db.run(
     `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta)
-     VALUES(?, ?, ?, NULL, NULL, ?, NULL, NULL, ?, ?, ?, 'ok', '{}', '{}')`,
-    [ts, "openai", "gpt-test", keyId, prompt, completion, cost]
+     VALUES(?, ?, ?, '', NULL, ?, NULL, NULL, ?, ?, ?, 'ok', '{}', '{}')`,
+    [ts, "openai", "gpt-test", keyId ?? "", prompt, completion, cost]
   );
 }
 

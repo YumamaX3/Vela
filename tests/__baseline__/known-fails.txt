@@ -23,3 +23,6 @@ tests/unit/translator-request-normalization.test.js :: request normalization fil
 tests/unit/translator-request-normalization.test.js :: request normalization parseSSELine supports provider raw NDJSON stream lines
 tests/unit/translator-request-normalization.test.js :: request normalization translateRequest keeps /v1/messages Claude->OpenAI text payloads string-safe
 tests/translator/golden-request.test.js :: GOLDEN request: OpenAI → Kiro > full body (image base64 + tool_result)
+tests/contract/parity-backup.test.js :: Wave B2 — migration 005 + posture refusals mirror posture refuses LOUD
+tests/contract/mysql-foundation.test.js :: Storage Covenant A6 — fail-loud boot refusal > mirror mode refuses LOUD (binds in Wave C)
+tests/contract/parity-backup-api.test.js :: Wave B4 — guard + registry alignment > dashboardGuard's ALWAYS_PROTECTED includes /api/backup

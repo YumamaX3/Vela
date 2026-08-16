@@ -66,6 +66,9 @@ export {
   statsEmitter, trackPendingRequest, getActiveRequests,
   saveRequestUsage, getUsageHistory, getUsageStats, getChartData,
   appendRequestLog, getRecentLogs, getKeyUsageStats,
+  // Usage Observatory W1-D — the SSE contract reads the per-provider health
+  // frame through the facade (twin-parity, posture-consistent).
+  getProviderHealthFrame,
 } from "./repos/usageRepo.js";
 
 // Request details

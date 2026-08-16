@@ -438,7 +438,22 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     return createErrorResult(statusCode, errMsg, resetsAtMs);
   }
 
-  const sharedCtx = { provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, reqTag, log };
+  // Observatory W1-B — RTK savings contract (Gate 14): meta.rtk = {bytesSaved,
+  // tokensSavedEst}. bytesSaved comes from compressMessages — BYTES, not tokens.
+  // tokensSavedEst is pxpipe's estimate when it applied, else floor(bytesSaved/4)
+  // (always labeled estimated downstream). Fail-open: no savings → rtk stays null.
+  let rtk = null;
+  try {
+    const bytesSaved = rtkStats ? Math.max(0, (rtkStats.bytesBefore || 0) - (rtkStats.bytesAfter || 0)) : 0;
+    const pxpipeEst = pxpipeSummary?.applied ? Number(pxpipeSummary.tokensSavedEst) || 0 : 0;
+    if (bytesSaved > 0 || pxpipeEst > 0) {
+      rtk = { bytesSaved, tokensSavedEst: pxpipeEst > 0 ? pxpipeEst : Math.floor(bytesSaved / 4) };
+    }
+  } catch { /* fail-open: savings never break the request */ }
+
+  // Upstream HTTP status rides the success path (error paths return above and
+  // never write usage — the dropped gateway_error stays unobserved by design).
+  const sharedCtx = { provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, rtk, httpStatus: providerResponse.status, reqTag, log };
   const appendLog = (extra) => appendRequestLog({ model, provider, connectionId, ...extra }).catch(() => { });
   const trackDone = () => trackPendingRequest(model, provider, connectionId, false);
 
