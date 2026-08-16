@@ -25,6 +25,37 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.92 — The Observatory W2-A: The First Partition 🔭🧱⛵
+
+> *"Before the cockpit can be built, the instrument it inherits must be
+> taken apart — gently, so nothing changes but the shape of the parts.
+> The stream becomes a hook; the live feed finds a home of its own."*
+
+*Sealed 2026-08-16 · Usage Observatory W2 sub-stage (a) — decompose, zero
+behavior change · Milestone Tide: small change → `0.6.91 → 0.6.92`*
+
+## 🔧 Changes & Improvements — The Decomposition (W2-A)
+
+- **`useUsageStream(period)` extracted** — the unified usage-data stream
+  (REST fetch by period + SSE real-time merge of
+  activeRequests/recentRequests/errorProvider/pending) now lives in
+  `src/app/(dashboard)/dashboard/usage/hooks/useUsageStream.js`. Same
+  effects, same merge semantics, same ref guards — verbatim
+- **`RecentRequests` rehomed** — the live-feed rail (with its per-row
+  ticking `TimeAgo`) moves from inside `UsageStats.js` to
+  `.../usage/components/RecentRequests.js`, byte-identical except the
+  `export default` keyword and trailing-whitespace cleanup
+- **`UsageStats.js` slimmed** — 537 → 409 lines; the orchestrator now
+  composes the hook and the rehomed child. Its public contract is
+  unchanged (`{ period, setPeriod, hidePeriodSelector }`)
+- **Zero behavior change proven** — `next build` clean (144/144), usage
+  suites green, extraction diffed against the pre-commit original
+
+> *The cockpit decks (Overview · Analytics · Requests · Accounts & Limits)
+> ride the next tides of W2.*
+
+---
+
 # v0.6.91 — The Telescope's Repaired Lens 🔭🔧⛵
 
 > *"An instrument that fails only under the harshest light is still broken.
