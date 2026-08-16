@@ -1,0 +1,220 @@
+name: vela
+
+# ⛵ Vela — Deployment Chart (EXAMPLE)
+#
+# This is the repo's template chart. Copy it to `docker-compose.yml`
+# (which stays untracked — it holds YOUR deployment's secrets), fill in
+# every `set-me` placeholder, then `docker compose up -d`.
+#
+#   cp docker-compose.example.yml docker-compose.yml
+#
+# Vela is a local AI routing gateway + dashboard: one OpenAI-compatible
+# endpoint (/v1) routing traffic across 40+ upstream providers — format
+# translation, model-combo fallback, multi-account fallback, OAuth
+# credential management, token refresh, quota tracking.
+#
+# The chart pulls the published image from GHCR. New versions are cut as
+# git tags — GitHub Actions builds & pushes ghcr.io/yumamax3/vela:<tag>.
+# To sail a new version, bump the pinned tag below and `docker compose pull`.
+#
+#   ⛵ vela-gateway   — the gateway + dashboard (Next.js standalone)
+#   🪞 vela-twin      — OPTIONAL MariaDB twin for mysql|mirror postures
+#   💨 vela-headroom  — OPTIONAL request-compression sidecar (internal-only)
+#
+# ⚠️ The image is PRIVATE — it inherits the Vela repo's visibility.
+#    First deploy on a machine requires:
+#      docker login ghcr.io       # PAT with read:packages + repo access
+#
+# 🗝️ Storage postures (Storage Covenant, v0.6.70+):
+#    VELA_DB_MODE selects the harbor — sqlite (default), mysql (MariaDB IS
+#    the harbor), or mirror (sqlite PRIMARY serves; writes pump to a MariaDB
+#    twin). The twin credential rides an UNTRACKED .env next to the chart
+#    (never committed):  VELA_MYSQL_URL=mysql://user:pass@host:3306/db
+#    Without it, `compose up` refuses LOUD under mirror/mysql.
+#
+# 🛟 Backups: the sealed backup engine (AES-256-GCM) is opt-in below.
+#    VELA_BACKUP_ENCRYPTION_KEY loss = permanently unrecoverable backups —
+#    store a copy offline with the same care as the DB itself.
+
+services:
+  # ═══════════════════════════════════════════════════════════════
+  # ⛵ vela-gateway — the gateway + dashboard
+  # ═══════════════════════════════════════════════════════════════
+  vela-gateway:
+    image: ghcr.io/yumamax3/vela:0.6.70   # bump to the release you want
+    container_name: vela-gateway
+    hostname: vela-gateway
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+    ports:
+      - "32060:32060"
+
+    volumes:
+      # Persistent data dir (SQLite, backups, usage, logs). Point it at
+      # real storage — a mounted volume or an absolute path on the host.
+      - ./data:/app/data
+
+    environment:
+      # ── 🌍 Time & server ─────────────────────────────────────
+      TZ: UTC
+      DATA_DIR: /app/data
+      PORT: "32060"
+      HOSTNAME: "0.0.0.0"
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      BASE_URL: "http://localhost:32060"
+      # ── 💨 Compression sidecar — internal only, fail-open ─────
+      # Vela skips compression silently if the sidecar is absent.
+      HEADROOM_URL: http://vela-headroom:8787
+      # ── 🔑 Secrets — SET THESE (generate fresh, one per deployment) ──
+      # JWT_SECRET signs the dashboard session cookies (64 hex chars).
+      # API_KEY_SECRET derives the endpoint API-key hashes.
+      # MACHINE_ID_SALT salts the machine identity.
+      # INITIAL_PASSWORD is the dashboard's FIRST-login password —
+      #   walk through the door with it, then change it in Settings.
+      JWT_SECRET: "set-me-64-hex-chars"
+      INITIAL_PASSWORD: "set-me"
+      API_KEY_SECRET: "set-me"
+      MACHINE_ID_SALT: "set-me"
+      # ── 🗝️ Storage posture (opt-in — default is sqlite) ──────
+      # sqlite  — everything lives in the local SQLite file (default).
+      # mirror  — sqlite PRIMARY serves; writes pump to a MariaDB twin.
+      # mysql   — MariaDB IS the harbor.
+      # A down twin degrades mirror/mysql — never silently downgrades.
+      # For mirror/mysql: create an untracked `.env` next to this chart:
+      #   VELA_MYSQL_URL=mysql://vela:<password>@<host>:3306/vela
+      # VELA_DB_MODE: "sqlite"
+      # VELA_MYSQL_URL: "${VELA_MYSQL_URL:?set VELA_MYSQL_URL in the chart .env}"
+      #
+      # Sealed backups — the engine REFUSES to run without the key.
+      # Artifacts land in <data>/backups.
+      # VELA_BACKUP_ENABLED: "false"
+      # VELA_BACKUP_ENCRYPTION_KEY: ""
+      # VELA_BACKUP_INTERVAL_HOURS: "24"
+      # VELA_BACKUP_RETAIN_DAILY: "7"
+      # VELA_BACKUP_RETAIN_WEEKLY: "4"
+      #
+      # S3 off-site — SEALED bytes only, fail-open, MinIO path-style.
+      # VELA_BACKUP_S3_ENABLED: "false"
+      # VELA_BACKUP_S3_ENDPOINT: ""
+      # VELA_BACKUP_S3_BUCKET: "vela-backups"
+      # VELA_BACKUP_S3_ACCESS_KEY: ""
+      # VELA_BACKUP_S3_SECRET_KEY: ""
+      # VELA_BACKUP_S3_REGION: "us-east-1"
+
+    depends_on:
+      vela-headroom:
+        condition: service_started
+
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:32060/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s          # Next.js standalone takes a breath to warm up
+
+    logging:
+      driver: json-file
+      options:
+        max-file: "3"
+        max-size: "10m"
+
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          memory: 512M
+
+    security_opt:
+      - no-new-privileges:true
+
+    networks:
+      - vela
+
+    labels:
+      - "com.tethys.stack=vela"
+
+  # ═══════════════════════════════════════════════════════════════
+  # 🪞 vela-twin — OPTIONAL containerized MariaDB twin
+  # ═══════════════════════════════════════════════════════════════
+  #
+  # Uncomment for the mirror/mysql postures when you want the twin IN
+  # the stack (internal-only — no host port). Or point VELA_MYSQL_URL
+  # at an existing MariaDB instead.
+  #
+  # vela-twin:
+  #   image: mariadb:11
+  #   container_name: vela-twin
+  #   hostname: vela-twin
+  #   restart: unless-stopped
+  #
+  #   environment:
+  #     MARIADB_DATABASE: vela
+  #     MARIADB_USER: vela
+  #     MARIADB_PASSWORD: "set-me-and-match-VELA_MYSQL_URL"
+  #     MARIADB_ROOT_PASSWORD: "set-me-root"
+  #     TZ: UTC
+  #
+  #   volumes:
+  #     - ./data-twin:/var/lib/mysql
+  #
+  #   healthcheck:
+  #     test: ["CMD", "healthcheck.sh"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 30s
+  #
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: "1"
+  #         memory: 1G
+  #
+  #   security_opt:
+  #     - no-new-privileges:true
+  #
+  #   networks:
+  #     - vela
+  #
+  #   labels:
+  #     - "com.tethys.stack=vela"
+
+  # ═══════════════════════════════════════════════════════════════
+  # 💨 vela-headroom — OPTIONAL request-compression sidecar
+  # ═══════════════════════════════════════════════════════════════
+  #
+  # Internal-only (no host port). The gateway fails open without it.
+  #
+  vela-headroom:
+    image: ghcr.io/chopratejas/headroom:0.6.7-slim
+    container_name: vela-headroom
+    hostname: vela-headroom
+    restart: unless-stopped
+
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+
+    networks:
+      - vela
+
+    labels:
+      - "com.tethys.stack=vela"
+
+networks:
+  vela:
+    name: vela
+
+x-casaos:
+  icon: https://img.icons8.com/fluency/48/sailboat.png
+  is_uncontrolled: false
+  main: vela-gateway
+  port_map: "32060"
+  title:
+    custom: ⛵ Vela — The AI Gateway
