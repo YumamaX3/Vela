@@ -212,7 +212,8 @@ export default function HomePageClient() {
           <QuickTile icon="dns" label={translate("Providers")} href="/dashboard/providers" />
           <QuickTile icon="layers" label={translate("Combos")} href="/dashboard/combos" />
           <QuickTile icon="bar_chart" label={translate("Usage")} href="/dashboard/usage" />
-          <QuickTile icon="data_usage" label={translate("Quota")} href="/dashboard/quota" />
+          {/* Usage Observatory W2-F — quota absorbed into the Accounts & Limits bearing */}
+          <QuickTile icon="data_usage" label={translate("Accounts & Limits")} href="/dashboard/usage?tab=limits" />
           <QuickTile icon="terminal" label={translate("CLI Tools")} href="/dashboard/cli-tools" />
         </div>
       </div>
