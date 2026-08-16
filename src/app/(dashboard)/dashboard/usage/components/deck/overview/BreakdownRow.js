@@ -12,6 +12,7 @@ import Card from "@/shared/components/Card";
 import { useMetrics } from "../../../hooks/useMetrics";
 import { t } from "../../../lib/t";
 import { statusClassOptions } from "../../../lib/statusOptions";
+import { STATUS_COLORS } from "../../../lib/statusColors";
 
 const fmt = (n) => new Intl.NumberFormat().format(Math.round(n || 0));
 const fmtCost = (n) => (!n || n <= 0 ? "$0.00" : n < 0.01 ? "<$0.01" : `$${n.toFixed(2)}`);
@@ -21,14 +22,6 @@ const tooltipStyle = {
   border: "1px solid var(--color-border)",
   borderRadius: "8px",
   fontSize: "12px",
-};
-
-const STATUS_COLORS = {
-  ok: "#4ade80",
-  client_error: "#f59e0b",
-  upstream_error: "#ef4444",
-  timeout: "#fb923c",
-  rate_limited: "#a78bfa",
 };
 
 function BarPanel({ title, subtitle, items, maxValue, renderValue, onItemClick, activeKey }) {
