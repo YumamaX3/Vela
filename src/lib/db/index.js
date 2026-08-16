@@ -72,6 +72,16 @@ export {
   // via getProviderHealthFrame underneath.
   getProviderHealthFrame,
   getPerProviderFrame,
+  // Usage Observatory W2-B — the Metrics REST API consumes the full
+  // aggregation layer through the facade. Every name the route layer
+  // imports MUST ride this chain (the W1-D lesson: a facade export that
+  // stops at the facade is a build-time break waiting to surface).
+  getFilteredSeries,
+  getBreakdown,
+  getPercentiles,
+  getKpis,
+  getLedgerRows,
+  getExportCursor,
 } from "./repos/usageRepo.js";
 
 // Request details

@@ -134,12 +134,55 @@ export const GOVERNANCE_STRINGS = [
   "Reload Page",
 ];
 
+// Usage Observatory — the Compass Deck cockpit (W2-B). Hard cap ≤40 new
+// literals (Tidebreaker S4); the four anchor question-strings seed all
+// locales, and later waves (W2-C..W2-G) compose ChartPanel/panel copy from
+// this shared set rather than adding bespoke strings.
+export const USAGE_OBSERVATORY_STRINGS = [
+  "Usage Observatory",
+  "live",
+  "Export CSV",
+  "Overview",
+  "Analytics",
+  "Requests",
+  "Accounts & Limits",
+  "Where did the money go?",
+  "Is it healthy?",
+  "What happened?",
+  "What are my limits?",
+  "All providers",
+  "All models",
+  "All keys",
+  "All statuses",
+  "Search model, provider, endpoint…",
+  "Auto",
+  "1h",
+  "6h",
+  "1d",
+  "Clear filters",
+  "OK",
+  "Client error",
+  "Upstream error",
+  "Timeout",
+  "Rate limited",
+  "As of",
+  "estimated",
+  "dedupe may undercount",
+  "Cost and savings are estimates computed from pricing at write time",
+  "Duplicate provider/model rows may undercount totals slightly",
+  "Health panels arrive with the next tide",
+  "Latency, error mix, cache share and savings — collecting since the telemetry upgrade.",
+];
+
 export function listLocaleFiles() {
   return fs
     .readdirSync(LITERALS_DIR)
     .filter((f) => f.endsWith(".json"))
     .sort();
 }
+
+// Every wave's literal group seeds the same locale files, English-first.
+export const ALL_LITERAL_GROUPS = [GOVERNANCE_STRINGS, USAGE_OBSERVATORY_STRINGS];
 
 const checkOnly = process.argv.includes("--check");
 let drift = 0;
@@ -149,26 +192,30 @@ for (const file of listLocaleFiles()) {
   const full = path.join(LITERALS_DIR, file);
   const map = JSON.parse(fs.readFileSync(full, "utf8"));
   let changed = false;
-  for (const str of GOVERNANCE_STRINGS) {
-    if (!(str in map)) {
-      drift++;
-      if (!checkOnly) {
-        map[str] = str; // English-first placeholder until translated
-        changed = true;
-        added++;
+  for (const group of ALL_LITERAL_GROUPS) {
+    for (const str of group) {
+      if (!(str in map)) {
+        drift++;
+        if (!checkOnly) {
+          map[str] = str; // English-first placeholder until translated
+          changed = true;
+          added++;
+        }
       }
     }
   }
   if (changed) fs.writeFileSync(full, JSON.stringify(map, null, 2) + "\n");
 }
 
+const totalKeys = ALL_LITERAL_GROUPS.reduce((n, g) => n + g.length, 0);
+
 if (checkOnly) {
   if (drift) {
-    console.error(`❌ i18n drift: ${drift} governance key(s) missing across locale files.`);
+    console.error(`❌ i18n drift: ${drift} key(s) missing across locale files.`);
     console.error("   Run: node scripts/i18n-seed-literals.mjs");
     process.exit(1);
   }
-  console.log(`✅ i18n parity: all ${GOVERNANCE_STRINGS.length} governance keys present in every locale file`);
+  console.log(`✅ i18n parity: all ${totalKeys} literal keys present in every locale file`);
 } else {
   console.log(`✅ i18n seed: ${added} key(s) added across locale files (${drift} were missing)`);
 }
