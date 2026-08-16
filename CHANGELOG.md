@@ -25,6 +25,56 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.7.20 — The Observatory W2-D: Is It Healthy? 🔭🩺
+
+> *"The telescope now answers the second question: is it healthy? Three live
+> tiles read the gateway's pulse — error rate, p95 latency, active now — and
+> six panels turn the telemetry into diagnosis: latency percentiles with a
+> TTFT toggle, error mix stacked by status, cache share, cost per Mtok, usage
+> by key, and RTK savings. Every panel is honest about what the data funds —
+> and plain about what it doesn't yet."*
+
+*Sealed 2026-08-16 · Usage Observatory W2 sub-stage (d) — the Analytics deck
+· Milestone Tide: big change (rounds to the next milestone of ten) →
+`0.7.10 → 0.7.20`*
+
+## ✨ Features — The Analytics Deck (W2-D)
+
+- **`AnalyticsPulse` — the compact live header** — three live tiles reading
+  the gateway's health: **error rate** (rolled from the ≤30s `perProvider`
+  SSE frame, turning red past 10%), **p95 latency** (from the two-tier
+  percentiles endpoint, honest about exact vs approximate), and **active now**
+  (the live request gauge)
+- **Six `ChartPanel` panels** in a 2-up grid, each funded from existing
+  metrics endpoints — no new engine functions:
+  - **LatencyPanel** — window p50/p95/p99 bars with a Latency/TTFT toggle;
+    exact nearest-rank ≤3d, approximate rollup histogram beyond (coverage
+    shown); collecting-state when no samples exist yet
+  - **ErrorMix** — stacked bars by statusClass over time (requests-only),
+    ok anchored first so failures stack visibly above healthy traffic
+  - **CacheShare** — cached tokens over time + window cache-share percentage
+  - **CostPerMtok** — $/Mtok by model, merging cost + totalTokens breakdowns
+    client-side (top-8, horizontal bars)
+  - **UsageByKey** — requests by API key over time (top-6 + Other)
+  - **RtkSavings** — honest window total + delta; no fabricated time-series,
+    because the daily rollup persists no RTK counter (documented, arrives
+    when the rollup does)
+- **`ChartPanel` chrome + `stackedPivot` helper** — one shared frame (title,
+  subtitle, `~ estimated` marker, collecting honesty, optional action slot)
+  and one shared stacked-series pivot so all panels read as one instrument
+
+## 🔧 Changes & Improvements
+
+- **Honesty over fabrication** — panels the telemetry does not yet fund
+  render collecting-states or window values, never invented charts. The
+  i18n budget stays at exactly 40/40: novel panel titles fall back to
+  English via `t()` (functional, logged as translation debt), composed from
+  the seeded set wherever possible
+- **`AnalyticsDeck` replaces the W2-B collecting placeholder** — the deck is
+  now fully live, with HealthTimeline strips deferred to W4 as sealed
+
+---
+
 # v0.7.10 — The Observatory W2-C: Where Did the Money Go? 🔭💰
 
 > *"The telescope now answers the first question every harbor asks at dawn:
