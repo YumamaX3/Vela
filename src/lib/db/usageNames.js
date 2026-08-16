@@ -107,16 +107,33 @@ if (!global._usageEnrichmentCache) global._usageEnrichmentCache = { ts: 0, conne
 const enrichCache = global._usageEnrichmentCache;
 
 /** { connectionMap, providerNodeNameMap, apiKeyMap } — 30s cache, fail-open.
- *  @param repos "./repos/sqlite" or "./repos/mysql" (caller-relative string) */
+ *  @param repos "./repos/sqlite" or "./repos/mysql" (caller-relative string).
+ *
+ *  The enrichment repos load through LITERAL dynamic imports (the same
+ *  pattern bindFacade uses) rather than `import(\`${repos}/...\`)` — a
+ *  template-literal specifier has no static resolution handle, so Next's
+ *  build-time resolver fails with "Can't resolve <dynamic>" even though
+ *  vitest resolves it fine at runtime. Literals keep the import lazy (a
+ *  static import would close an eager cycle: usageRepo → usageAggregation →
+ *  usageNames → apiKeysRepo → usageRepo) while remaining statically
+ *  resolvable. Unknown `repos` values fall back to the sqlite harbor — the
+ *  identifier covenant upstream means callers never send one anyway. */
 export async function getUsageEnrichment(repos) {
   if (Date.now() - enrichCache.ts < ENRICH_TTL_MS && enrichCache.loadedFor === repos) {
     return enrichCache;
   }
-  const [{ getProviderConnections }, { getProviderNodes }, { getApiKeys }] = await Promise.all([
-    import(`${repos}/connectionsRepo.js`),
-    import(`${repos}/nodesRepo.js`),
-    import(`${repos}/apiKeysRepo.js`),
-  ]);
+  const loadHarbor = (twin) => (twin === "./repos/mysql"
+    ? Promise.all([
+        import("./repos/mysql/connectionsRepo.js"),
+        import("./repos/mysql/nodesRepo.js"),
+        import("./repos/mysql/apiKeysRepo.js"),
+      ])
+    : Promise.all([
+        import("./repos/sqlite/connectionsRepo.js"),
+        import("./repos/sqlite/nodesRepo.js"),
+        import("./repos/sqlite/apiKeysRepo.js"),
+      ]));
+  const [{ getProviderConnections }, { getProviderNodes }, { getApiKeys }] = await loadHarbor(repos);
   const connectionMap = {};
   try {
     for (const c of await getProviderConnections()) connectionMap[c.id] = c.name || c.email || c.id;

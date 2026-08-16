@@ -25,6 +25,40 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.91 — The Telescope's Repaired Lens 🔭🔧⛵
+
+> *"An instrument that fails only under the harshest light is still broken.
+> The tests looked through and saw clearly — but the build's static eye found
+> two cracks the W1 seal missed. Now every lens is ground, and the whole ship
+> compiles again."*
+
+*Sealed 2026-08-16 · Milestone Tide: small change → `0.6.90 → 0.6.91`*
+
+## 🐛 Fixes — Two Latent W1 Breaks, Found by `next build`
+
+The W1 seal ran vitest + lint but never `next build` — and two W1 defects
+resolve fine at runtime yet break the build's static resolver. Both repaired
+and proven by a clean build (144/144 pages). **Lesson crystallized: a wave
+that ships UI-adjacent code proves itself with `next build`, not just the
+test suites.**
+
+- **`getPerProviderFrame` missing from the export chain** (W1-D) — the SSE
+  route imports it from the shim, and the facade exports it, but the barrel
+  (`src/lib/db/index.js`) and shim (`src/lib/usageDb.js`) never re-exported
+  it. The vitest route test mocks `@/lib/usageDb` wholesale, hiding the gap;
+  the build rejected it. Both links now carry the export
+- **Template-literal dynamic imports in the enrichment layer** (W1-C) —
+  `import(\`${repos}/...\`)` has no static resolution handle, so Turbopack
+  failed with "Can't resolve `<dynamic>`" even though vitest resolved it at
+  runtime. Replaced with literal dynamic imports behind a twin switch — the
+  same pattern `bindFacade` uses — keeping the import lazy (a static import
+  would close an eager cycle: usageRepo → usageAggregation → usageNames →
+  apiKeysRepo → usageRepo) while remaining statically resolvable. The
+  `repos` contract (`"./repos/sqlite"` / `"./repos/mysql"`) is unchanged;
+  twin parity re-proven (17/17)
+
+---
+
 # v0.6.90 — The Usage Observatory W1: The Telescope 🔭📊⛵
 
 > *"You cannot steer by a deck you have never measured. So the first

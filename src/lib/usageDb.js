@@ -4,5 +4,6 @@ export {
   saveRequestUsage, getUsageHistory, getUsageStats, getChartData,
   appendRequestLog, getRecentLogs, getKeyUsageStats,
   saveRequestDetail, getRequestDetails, getRequestDetailById,
-  getProviderHealthFrame, // Usage Observatory W1-D — SSE perProvider frame
+  getProviderHealthFrame, // Usage Observatory W1-D — raw health scanner
+  getPerProviderFrame,    // W1-D — the ≤30s memoized frame the SSE route imports
 } from "@/lib/db/index.js";
