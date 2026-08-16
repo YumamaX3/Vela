@@ -131,10 +131,18 @@ describe("Wave C5 — the startup matrix (posture-scoped rhythms, fail-open)", (
     // must arm the rhythms anyway (the primary keeps serving; mode stays mirror).
     expect(() => configureMirrorStartup()).not.toThrow();
 
-    // Give the boot catch-up a beat to attempt (it will degrade, not crash).
-    await new Promise((r) => setTimeout(r, 50));
-
+    // Condition-based wait for the arm, never a fixed sleep: arming completes
+    // when startMirrorRhythms' three dynamic imports resolve, and a cold
+    // module graph (fresh vite transform cache — e.g. when this test runs
+    // first or alone) can take far longer than any fixed window to load
+    // them. The law under test is "arms even though the twin is down", not
+    // "arms within N ms" — so poll the armed state with a generous budget.
     const { getMirrorPumpStatus } = await import("@/lib/db/mirror/mirrorPump.js");
+    const armDeadline = Date.now() + 3000;
+    while (!getMirrorPumpStatus().running && Date.now() < armDeadline) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+
     const pump = getMirrorPumpStatus();
     expect(pump.running).toBe(true); // armed even though the twin is down
     const { getDbMode } = await import("@/lib/db/repos/bind.js");

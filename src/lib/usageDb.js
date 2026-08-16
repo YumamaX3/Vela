@@ -4,4 +4,5 @@ export {
   saveRequestUsage, getUsageHistory, getUsageStats, getChartData,
   appendRequestLog, getRecentLogs, getKeyUsageStats,
   saveRequestDetail, getRequestDetails, getRequestDetailById,
+  getProviderHealthFrame, // Usage Observatory W1-D — SSE perProvider frame
 } from "@/lib/db/index.js";

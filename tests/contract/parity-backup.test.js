@@ -114,7 +114,7 @@ describe("Wave B2 — S5 crypto spec", () => {
     const sealed = sealArtifact(plain, KEY, { schemaVersion: 7 });
     const { plain: opened, header } = openArtifact(sealed, KEY);
     expect(opened.toString("utf8")).toBe(plain.toString("utf8"));
-    expect(header.manifest.schemaVersion).toBe(7);
+    expect(header.manifest.schemaVersion).toBe(7); // round-trips what was sealed — not a live-census pin
     expect(header.kdf).toBe("scrypt");
     expect(header.N).toBe(2 ** 17);
     expect(header.r).toBe(8);
@@ -170,7 +170,7 @@ describe("Wave B2 — the backup engine round-trip", () => {
     const result = await db.runBackup({ trigger: "test" });
     expect(result.ok).toBe(true);
     expect(fs.existsSync(result.file)).toBe(true);
-    expect(result.manifest.schemaVersion).toBe(7);
+    expect(result.manifest.schemaVersion).toBe(8);
     expect(result.manifest.secretBundle.length).toBeGreaterThan(0);
 
     // Mutate the live DB, then restore — the payload comes back.
@@ -291,7 +291,7 @@ describe("Wave B2 — S2 redaction + S3 exclusions", () => {
     expect(payload.settings.requireLogin).toBe(true);
     expect(payload.kvScopes.b2scope).toEqual({ k1: "v1" });
     expect(payload.combos.some((c) => c.name === "b2-combo")).toBe(true);
-    expect(payload._meta.schemaVersion).toBe(7);
+    expect(payload._meta.schemaVersion).toBe(8);
   });
 
   it("exportSettings redacts at the source", async () => {
@@ -389,11 +389,11 @@ describe("Wave B2 — retention + purge", () => {
 });
 
 describe("Wave B2 — migration 005 + posture refusals", () => {
-  it("a fresh DB migrates to schemaVersion 7 with backupLedger", async () => {
+  it("a fresh DB migrates to schemaVersion 8 with backupLedger", async () => {
     await freshDb();
     const { getAdapter } = await import("@/lib/db/driver.js");
     const adapter = await getAdapter();
-    expect(adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`).value).toBe("7");
+    expect(adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`).value).toBe("8");
     const tables = adapter.all(`SELECT name FROM sqlite_master WHERE type='table'`).map((r) => r.name);
     expect(tables).toContain("backupLedger");
   });

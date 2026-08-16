@@ -146,11 +146,56 @@ async function usageScenario(api) {
 
   const recentLogs = canonSort(await api.getRecentLogs(200));
 
-  const world = { history, dupRows, keyUsage, daily, chart7d, stats, recentLogs };
+  // ─── W1-C aggregation layer — the 7 twin-parity fns ride one world ──────
+  // Both tiers (exact ≤3d + rollup 7d+), the identifier maps' OUTPUTS, the
+  // KPI double-range, keyset ledger, and the export cursor. A `now` anchored
+  // on the scenario's T0 keeps both legs' windows identical.
+  const NOW = new Date(T0).getTime() + 2 * 3_600_000; // 14:00 on T0's day
+  const agg = {
+    seriesExact: await api.getFilteredSeries({ period: "24h", granularity: "1h", metric: "requests", now: NOW }),
+    seriesCached: await api.getFilteredSeries({ period: "24h", granularity: "1d", metric: "cachedTokens", now: NOW }),
+    seriesRollup: await api.getFilteredSeries({ period: "7d", granularity: "1d", metric: "requests", now: NOW }),
+    breakdownProvider: await api.getBreakdown({ dimension: "provider", metric: "requests", period: "24h", now: NOW }),
+    breakdownKeyRollup: await api.getBreakdown({ dimension: "keyId", metric: "requests", period: "7d", now: NOW }),
+    percentilesExact: await api.getPercentiles({ period: "24h", now: NOW }),
+    percentilesRollup: await api.getPercentiles({ period: "7d", now: NOW }),
+    healthFrame: await api.getProviderHealthFrame({ windowMs: 4 * 3_600_000, now: NOW }),
+    kpis: await api.getKpis({ period: "24h", now: NOW }),
+    ledger: await api.getLedgerRows({ period: "24h", now: NOW, limit: 3, sort: "timestamp", order: "desc" }),
+    ledgerNullSort: await api.getLedgerRows({ period: "24h", now: NOW, limit: 4, sort: "latencyMs", order: "desc" }),
+  };
+  // The cursor is an identity, not data — walk it and compare COUNT + ORDER,
+  // never the ids themselves (AUTOINCREMENT counters are per-engine).
+  const cursorIds = [];
+  for await (const row of await api.getExportCursor({ period: "24h", now: NOW, cap: 50 })) {
+    cursorIds.push(row.id);
+  }
+  agg.exportCount = cursorIds.length;
+  agg.exportDistinct = new Set(cursorIds).size;
+  // Cost parity at 5dp: cost is the ONLY REAL(sqlite) vs DECIMAL(12,6)(mysql)
+  // aggregate in the layer — their sums can straddle a 1e-6 rounding boundary
+  // (this seed's total lands exactly on .5), so cost compares at 1e-5. Token
+  // and request counts are integers — exact on both engines, no softening.
+  const round5 = (v) => Math.round(v * 1e5) / 1e5;
+  for (const k of ["value", "previous", "delta"]) agg.kpis.cost[k] = round5(agg.kpis.cost[k]);
+  for (const item of agg.ledger.items) item.cost = round5(item.cost);
+  for (const item of agg.ledgerNullSort.items) item.cost = round5(item.cost);
+
+  const world = { history, dupRows, keyUsage, daily, chart7d, stats, recentLogs, agg };
   // Canonicalize volatile key identity BEFORE any ordering-sensitive step —
-  // see the byApiKey note above.
+  // see the byApiKey note above. The ledger rows carry keyId identity too.
   const normalized = normalizeKeyIdentity(world, keyA, keyB);
   normalized.stats.byApiKey = canonSort(normalized.stats.byApiKey);
+  // Row ids + cursor ids are per-engine identities — strip them BEFORE the
+  // order-sensitive sorts so value shapes compare, never counters.
+  for (const k of ["ledger", "ledgerNullSort"]) {
+    normalized.agg[k].items = normalized.agg[k].items.map(({ id, ...rest }) => rest);
+    normalized.agg[k].nextCursor = normalized.agg[k].nextCursor ? "«CURSOR»" : null;
+  }
+  normalized.agg.breakdownProvider.items = canonSort(normalized.agg.breakdownProvider.items);
+  normalized.agg.breakdownKeyRollup.items = canonSort(normalized.agg.breakdownKeyRollup.items);
+  normalized.agg.ledger.items = canonSort(normalized.agg.ledger.items);
+  normalized.agg.ledgerNullSort.items = canonSort(normalized.agg.ledgerNullSort.items);
   return normalized;
 }
 
@@ -199,7 +244,7 @@ describe.skipIf(!MYSQL_URL)("Storage Covenant A9 — usage-wave parity vs real M
     const mysqlWorld = await buildMysqlWorld();
 
     const keys = Object.keys(sqliteWorld);
-    expect(keys.length).toBeGreaterThanOrEqual(7);
+    expect(keys.length).toBeGreaterThanOrEqual(8);
     for (const k of keys) {
       expect(
         JSON.stringify(canon(mysqlWorld[k])),
@@ -222,6 +267,21 @@ describe.skipIf(!MYSQL_URL)("Storage Covenant A9 — usage-wave parity vs real M
     expect(sqliteWorld.stats.byProvider.anthropic.requests).toBe(3);
     expect(sqliteWorld.stats.byProvider.dup.requests).toBe(1);
     expect(sqliteWorld.recentLogs.length).toBe(10);
+
+    // W1-C aggregation spot-checks — the world holds real data, not zeros.
+    const agg = sqliteWorld.agg;
+    expect(agg.seriesExact.points.reduce((a, p) => a + p.value, 0)).toBe(10); // all rows in-window
+    expect(agg.seriesRollup.meta.source).toBe("usageDaily");
+    expect(agg.breakdownProvider.items.find((i) => i.provider === "openai").value).toBe(5);
+    expect(agg.percentilesExact.meta.approximate).toBe(false);
+    expect(agg.percentilesExact.latency.count ?? agg.percentilesExact.meta.count).toBe(0); // no latencyMs seeded → honest empty
+    expect(agg.percentilesRollup.meta.approximate).toBe(true);
+    expect(agg.healthFrame.perProvider.openai.requests).toBe(5);
+    expect(agg.kpis.requests.value).toBe(10);
+    expect(agg.ledger.items.length).toBe(3);
+    expect(agg.ledgerNullSort.items.length).toBe(4);
+    expect(agg.exportCount).toBe(10);
+    expect(agg.exportDistinct).toBe(10); // the cursor walks every row exactly once
   }, 90000);
 
   it("the FACADE seam dispatches usage symbols to the mysql twin under VELA_DB_MODE=mysql", async () => {

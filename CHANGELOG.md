@@ -25,6 +25,98 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.90 — The Usage Observatory W1: The Telescope 🔭📊⛵
+
+> *"You cannot steer by a deck you have never measured. So the first
+> instrument rises: a telescope that records every tide's true shape —
+> how long it ran, where it broke, what it cost — and answers in
+> milliseconds no matter how deep the water."*
+
+*Sealed 2026-08-16 · Usage Observatory Wave 1 ("The Telescope") · Milestone Tide: big change → `0.6.80 → 0.6.90`*
+
+The sealed plan lives at `plans/mirror-usage-observatory/SEALED-PLAN.md`
+(4 waves: Telescope → Cockpit → Governance → Experimental). W1 lays the
+entire telemetry + aggregation foundation — **no UI yet** — and every claim
+below is proven by a test, not a promise.
+
+## ✨ Features — The Telemetry Layer
+
+- **Migration 008** — four telemetry columns on `usageHistory`
+  (`latencyMs`, `ttftMs`, `httpStatus`, `statusClass`) + four composite
+  indexes that fund every Observatory query
+  (`timestamp,provider` / `timestamp,keyId` / `timestamp,statusClass` /
+  `timestamp,latencyMs` — the last a time-windowed percentile skip-scan).
+  Batched 10k-row `statusClass` backfill of legacy statuses; idempotent on
+  any prior state. The MySQL twin gets the same schema additively via
+  bootstrap, with a `_meta`-tracked one-time backfill closure
+- **The NULL-when-absent covenant** — telemetry columns ride `NULL` when a
+  value was not measured, never `0`-faked. The forced-SSE-to-JSON path
+  passes `ttftMs: null` on purpose; the row honors it
+- **Hot-path instrumentation** — all four chatCore handlers (streaming,
+  non-streaming, forced-SSE-to-JSON, and the requestDetail seam) now record
+  latency/ttft/httpStatus. Fail-open end to end: a telemetry error can never
+  break a chat request
+- **`statusClass` taxonomy** — `src/lib/usageStatus.js`: ok, client_error,
+  upstream_error, rate_limited, timeout, auth_error. (`gateway_error` was
+  proven a phantom and deliberately absent — Gate 14 correction)
+- **RTK savings funded at write time** — `meta.rtk` carries
+  `bytesSaved`/`tokensSavedEst`, and `meta.rtkSavedCostUsd` is computed at
+  INSERT via the pricing chain (sovereign override → provider default),
+  ready to surface as the W2 savings KPI
+
+## ✨ Features — The Aggregation Layer
+
+- **Seven functions, engine-neutral** — one machinery module
+  (`usageAggregation.js`) + one identifier covenant (`usageNames.js`), bound
+  as thin delegates on both twins behind `bind.js`:
+  - `getFilteredSeries` — two-tier: exact ≤3d from `usageHistory`, rollup
+    7d+ from `usageDaily` (O(days), not O(rows))
+  - `getBreakdown` — by provider / model / key / endpoint, same two tiers
+  - `getPercentiles` — exact nearest-rank ≤3d; histogram from `latencyBuckets`
+    beyond, with coverage honesty (pre-008 days excluded)
+  - `getProviderHealthFrame` — windowed per-provider error anatomy
+  - `getKpis` — single-query double-range (current vs previous window,
+    6 metrics × 12 CASE expressions)
+  - `getLedgerRows` — keyset pagination following the SORT column, portable
+    NULLS-LAST, enriched with connection/key names
+  - `getExportCursor` — capped async-generator drain (200k row ceiling)
+- **The identifier covenant** — frozen `DIMENSIONS` / `GRANULARITIES` /
+  `SORTABLE_COLUMNS` / `METRICS` / `PERIODS` maps; nothing caller-supplied
+  ever reaches a SQL identifier; unknown values throw `FilterParamError`
+  (`INVALID_FILTER_PARAM` → 400)
+- **SSE contract** — `/api/usage/stream` rewritten: `perProvider` rides a
+  ≤30s server-shared memo (fail-open serves the last good frame), full-stats
+  recompute coalesced ≥15s per client, quick pushes carry the live picture
+  between windows
+
+## 🐛 Fixes found by the wave
+
+- **`telemetryInt(null) → 0`** — `Number(null) === 0` coerced an explicit
+  "unmeasured" ttft into a false zero; both twins now guard `null`/
+  `undefined` before coercion
+- **MariaDB `LIMIT & IN/ALL/ANY/SOME subquery`** — migration 008's backfill
+  crashed live twin boots; repaired with the derived-table wrap MariaDB
+  demands
+- **mirror-startup test race** — a fixed 50ms wait against a cold module
+  graph became condition-based polling (the law tested is "arms even though
+  the twin is down", not "arms within N ms")
+
+## ⚙️ The Proof — Tests & Benchmark Ritual
+
+- **10 suites, 86 tests green** + parity: migration 008 (7), telemetry W1-B,
+  aggregation W1-C (17), SSE W1-D (7), chatCore seam W1-E (4), apikey
+  usage ×2, census + sqlite-vs-lowdb
+- **Twin parity** — `contract/parity-usage.test.js` extended with the full
+  aggregation scenario; identical results from SQLite and the live MariaDB
+  twin (REAL vs DECIMAL cost boundaries normalized to 5dp)
+- **The benchmark ritual** — 100k seeded bursty rows across 35 days
+  (deterministic LCG), N=11 after 2 warmups, p95: series 0ms, breakdown
+  0ms, percentiles 1ms (exact tier 9ms), health frame 0ms, KPIs 11ms,
+  ledger 5ms — all under the 300ms budget. SQLite mandatory, MySQL
+  SKIP-LOUD, sql.js labeled never judged
+
+---
+
 # v0.6.80 — The Charted Harbor & The Lifted Shadow 🗺️💰⛵
 
 > *"A ship without charts is only drifting. So every deck is drawn — the
