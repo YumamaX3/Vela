@@ -25,6 +25,76 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.70 — The Sealed Vault & The Mirror's Pulse 🗝️🪞⛵
+
+> *"A backup never restored is a hope. So the vault seals itself in
+> AES-256-GCM, drills its own artifacts open, and ships its sealed bytes
+> off-site under SigV4. And the mirror stops being a promise — outbox,
+> pump, watermark, sweep: the twin harbors beat with one pulse."*
+
+*Sealed 2026-08-16 · the Star's decree · Milestone Tide: big change → `0.6.60 → 0.6.70`*
+
+## ✨ Features — Storage Covenant Waves B + C
+
+### Wave B — the sealed vault (the backup engine)
+
+- **Encrypted artifacts** — `VELABAK1` format: scrypt (N=2¹⁷/r=8/p=1) from
+  `VELA_BACKUP_ENCRYPTION_KEY` (env-only, min-entropy check), per-artifact
+  salt + IV, AES-256-GCM with the auth tag verified BEFORE any restore step.
+  Secret-file bundle (jwt-secret, api-key-secret, machine-id) rides inside;
+  restore returns `restartRequired`. Artifacts written 0600.
+- **The scheduler** — `VELA_BACKUP_ENABLED` + interval + retention tiers
+  (newest per day for `retainDaily`, per ISO-week for `retainWeekly`).
+  Usage purge runs AFTER the backup so purged rows live in the artifact.
+- **Restore + drill** — schema-compat gate, pre-restore safety backup,
+  restore into the live posture; and the RESTORE DRILL: decrypt the newest
+  artifact into a scratch sqlite DB — "a backup never restored is a hope."
+- **The dashboard card** — `/api/backup/{run,list,status,restore,drill}`
+  (session + ALWAYS_PROTECTED) behind the profile page's BackupCard.
+
+### Wave C — the mirror's pulse (+ fleet)
+
+- **The outbox + replay classes** (C1–C2) — migration 006/007; a decorator
+  captures every classified writer as one outbox row (identity-carrying
+  captures the GENERATED id, never the key — S3).
+- **The pump** (C3) — seq-ordered drain against the twin, poison policy
+  (quarantine, never block), boot catch-up drains the outage backlog.
+- **Divergence sweep + usage-resync** (C4) — engine-agnostic fingerprint
+  (order + PK independent), drain-window guard (pending outbox = lag, not
+  drift), watermark usage-resync (forward-only cursor), full-resync with the
+  twin's own secrets stitched back over the S2 sentinels.
+- **The mirror bind** (C5) — `VELA_DB_MODE=mirror` binds the sqlite PRIMARY
+  behind the decorator; startup arms pump + resync + sweep; a down twin
+  degrades the mirror, NEVER silently downgrades the mode.
+- **S3 off-site** (C6) — pure SigV4 signer (pinned byte-exact to AWS's own
+  docs example), undici transport, opt-in, FAIL-OPEN (the local artifact is
+  the truth), credentials env-only, uploads only the SEALED bytes + a rolling
+  `latest.velabak` alias for the boot-strap restore pattern.
+- **The fleet leg** (C7) — the Dockerfile carries mysql2's FULL runtime
+  closure (10 packages — the dynamic import the file-tracer can't follow);
+  `scripts/docker-smoke-mysql.sh` boots `VELA_DB_MODE=mysql` against a
+  throwaway MariaDB; a local test guards the closure so a future mysql2 dep
+  bump can never silently break the image.
+
+## ⚙️ Internal — the proving tide
+
+- **S1–S4 security laws** — restore is a trust crossing (schema-version +
+  size bounds before any write); `SECRET_SETTING_KEYS` redacted to
+  `[REDACTED]` in every export; the outbox excluded by name with args
+  redacted + 7-day age-out; the backup routes ALWAYS_PROTECTED.
+- **The parity twin proved live** — mirror pump + sweep legs ran against the
+  real MariaDB twin behind the double opt-in (drift-injection → sweep flags
+  → resync restores — proven in both sqlite and live legs).
+- **Regression discipline** — every wave sealed against a before/after
+  failure-set diff; the inherited debt (~100 pre-existing failures) unchanged,
+  zero covenant-attributable regressions across all seventeen waves.
+
+*Waves B1–B4 + C1–C7, fourteen commits: the Storage Covenant
+(`plans/storage-covenant.md`) is COMPLETE — A1 → C7, every line sealed.
+The fleet chart rides the new image; the vault keeps the ship's soul.* 💜
+
+---
+
 # v0.6.60 — The Twin Harbors 🌊🗝️⛵
 
 > *"One harbor was never enough. What SQLite keeps on disk, MariaDB now
