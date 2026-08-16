@@ -25,6 +25,81 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.7.0 — The Observatory W2-B: The Compass Deck ⛵🧭🔭
+
+> *"A telescope measures. A compass steers. The instrument now sits inside a
+> cockpit: a header that shows the bearing, a needle that sets the course,
+> four deck tabs that ask the questions money, health, history, and limits
+> always ask — and beneath it all, a metrics API that answers them. The
+> Observatory stops being a page and starts being a place."*
+
+*Sealed 2026-08-16 · Usage Observatory W2 sub-stage (b) — cockpit chrome,
+compass filters, and the Metrics REST API · Milestone Tide: big change
+(carry) → `0.6.92 → 0.7.0`*
+
+## ✨ Features — The Cockpit (W2-B)
+
+- **The Compass Deck** — `/dashboard/usage` is rebuilt around a cockpit
+  composition: a `CockpitHeader` (title + live pulse dot + CSV export link),
+  a `TabRail` with four question-bearing tabs (Overview · Analytics ·
+  Requests · Accounts & Limits, keyboard-navigable with arrow keys), a sticky
+  `NeedleBar` of global filters, and an `HonestyStrip` that names the data's
+  caveats (as-of stamp, timezone, `~ estimated`, dedupe-undercount note). The
+  old overview/logs/details page is retired — its content survives inside the
+  decks (Overview drives `UsageStats`, Requests reuses `RequestDetailsTab`,
+  Limits reuses `ProviderLimits`), and the dead logs tab is gone
+- **`useCompassFilters` — the URL is the single source of truth** — every
+  facet (period · provider · model · key · status · q · gran) reads from and
+  writes to search params via `router.replace({scroll:false})`. FACETS
+  constancy keeps the shared facets in the same order on every deck; tab
+  switches never clear filters (the dormant-facet round-trip); and
+  auto-granularity derives `1h`/`1d` from the period unless `gran` overrides
+- **The Metrics REST API** — six endpoints behind the dashboard guard, all
+  honoring the identifier covenant (caller-supplied values never reach a SQL
+  identifier; unknown values return a `400 INVALID_FILTER_PARAM` with the
+  offending `field`): `/api/usage/metrics/kpis`, `/timeseries`, `/breakdown`,
+  `/percentiles`, `/ledger` (keyset-paginated, enriched rows), and `/export`
+  (streaming CSV)
+- **CSV export, hardened** — every cell is quoted, and any cell leading with
+  `=`, `+`, `-`, or `@` is padded with a leading tab so a spreadsheet can
+  never execute it as a formula. The export is single-flight (a concurrent
+  request gets `429 EXPORT_IN_PROGRESS`), capped at `EXPORT_ROW_CAP` rows with
+  a truncation note written into the CSV itself, and rate-throttled
+- **Quota absorption** — `/dashboard/quota` is retired into the Usage
+  Observatory's Accounts & Limits deck. A permanent redirect carries old
+  bookmarks to `/dashboard/usage?tab=limits`; the sidebar and the Home quick
+  tile now point there directly
+
+## 🔧 Changes & Improvements
+
+- **`dashboardGuard` — the export surface is ALWAYS_PROTECTED** —
+  `/api/usage/metrics/export` escalates to JWT-only regardless of the
+  login requirement, checked before the general `/api/usage` read protection.
+  The W2-B census test pins this ordering so a future refactor cannot
+  silently drop the escalation
+- **`t(key, params)` i18n helper** — the cockpit speaks through the runtime
+  translator with `{param}` interpolation and English fallback, keeping every
+  new string a seeded, translatable literal
+- **i18n seeding** — 33 new Observatory literals seeded English-first across
+  every locale file (behavior-neutral; the runtime falls back to English for
+  untranslated keys). Parity verified: all 143 literal keys present in every
+  locale file
+
+## ⚙️ Internal
+
+- **Metrics API test suite (14 tests)** — identifier-covenant 400s for every
+  frozen map (granularity · metric · dimension · period · sort) plus a
+  malformed `after` cursor; happy-path shapes for all five read endpoints;
+  CSV formula-injection padding; concurrent-export single-flight behavior;
+  and the `dashboardGuard` registration census. All green
+- **Six aggregation functions exported** — `getFilteredSeries`,
+  `getBreakdown`, `getPercentiles`, `getKpis`, `getLedgerRows`, and
+  `getExportCursor` now ride the barrel (`src/lib/db/index.js`) and the
+  backward-compat shim (`src/lib/usageDb.js`) so the API layer imports them
+  through the posture-aware facade
+
+---
+
 # v0.6.92 — The Observatory W2-A: The First Partition 🔭🧱⛵
 
 > *"Before the cockpit can be built, the instrument it inherits must be

@@ -53,6 +53,12 @@ const ALWAYS_PROTECTED = [
   // and the CLI-token bypass of /api/settings/database is NOT inherited.
   // Prefix match covers /api/backup/{status,run,list,restore,drill}.
   "/api/backup",
+  // Usage Observatory W2-B (phase13): the streaming CSV export is an
+  // unbounded-stream surface — it escalates above requireLogin=false like the
+  // backup surface does (Gate-11 decision: only export escalates, reads stay
+  // posture-consistent). The other /api/usage/metrics/* reads ride the
+  // deny-by-default branch (JWT-or-requireLogin) by construction.
+  "/api/usage/metrics/export",
 ];
 
 // Require auth, but allow through if requireLogin is disabled
