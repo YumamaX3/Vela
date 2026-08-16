@@ -25,6 +25,51 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.7.31 — The Observatory W2-F: Per-Key Usage Bars 🔭⚖️
+
+> *"The Accounts & Limits deck now shows who is calling and how much — a bar
+> per API key over the last thirty days, normalized to the busiest one. Click
+> a bar and the Observatory crosses to the Requests ledger already filtered to
+> that key. The quota redirect, the sidebar bearing, and the dropped period
+> facet were sealed earlier; this finishes the deck the plan called for."*
+
+*Sealed 2026-08-16 · Usage Observatory W2 sub-stage (f) — the Accounts &
+Limits deck · Small change (last number ticks up by one) → `0.7.30 → 0.7.31`*
+
+## ✨ Features — Per-Key Usage Bars (W2-F)
+
+- **`KeyUsagePanel`** — merges `/api/keys` (masked list) with
+  `/api/keys/usage` (keyId-keyed rollup) over a fixed honest 30-day window.
+  One bar per key, normalized to the busiest key's cost; each row shows
+  requests, total tokens, and est. cost, plus a Paused badge and last-used
+  date. Attribution is keyId-based (hash-at-rest), so totals survive key
+  rotation.
+- **Bar click crosses to the Requests deck** — the same facet-then-cross
+  gesture the StatusMix donut uses: one atomic URL write (`setFacets`) sets
+  the key facet and switches the bearing to `requests`.
+
+## 🔧 Changes & Improvements
+
+- **`LimitsDeck` gains the panel above the quota body** — `ProviderLimits`
+  rides verbatim underneath; the deck now answers "who spends" alongside
+  "what are the limits."
+- **Honesty over fabrication** — budget bars ride W3 (the
+  gateway→key→model hierarchy, multi-window, 50/80/100 thresholds); the
+  panel says so plainly. The period facet stays dropped on this bearing
+  (limits don't respect time — NeedleBar already hides it).
+- **i18n stays 40/40** — novel panel strings fall back to English via
+  `t()`; the seeded shared set covers the rest.
+
+## ⚙️ Internal
+
+- W2-F scope already sealed in prior commits: the `/dashboard/quota` →
+  `?tab=limits` permanent redirect (`next.config.mjs`), the sidebar
+  "Accounts & Limits" deep-link, and the dropped period/granularity facets.
+  This entry delivers the one remaining sealed-plan item — the per-key
+  usage bars.
+
+---
+
 # v0.7.30 — The Observatory W2-E: What Happened? 🔭📜
 
 > *"The telescope now answers the third question: what happened? A
