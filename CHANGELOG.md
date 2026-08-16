@@ -25,6 +25,67 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.7.30 — The Observatory W2-E: What Happened? 🔭📜
+
+> *"The telescope now answers the third question: what happened? A
+> server-paginated ledger of every request the gateway carried — sortable by
+> any column, searchable, keyboard-first, and honest about what it cannot
+> show: conversation payloads stay redacted by covenant. Fresh rows never
+> reflow a read; they wait behind a pill until you call them."*
+
+*Sealed 2026-08-16 · Usage Observatory W2 sub-stage (e) — the Requests deck
+· Milestone Tide: big change (rounds to the next milestone of ten) →
+`0.7.20 → 0.7.30`*
+
+## ✨ Features — The Requests Deck (W2-E)
+
+- **Server-paginated keyset ledger** — `LedgerTable` over
+  `GET /api/usage/metrics/ledger`: the first page loads with the Needle
+  facets + sort; "Show more" appends the next keyset page (never OFFSET —
+  the walk is O(page), the cursor carries the sort column's own value).
+  Fresh rows never re-sort under the cursor.
+- **Sortable columns** — Time, Provider, Model, Key, Input, Output, Cost,
+  Latency, Status. Sort clicks write `sort` + `order` atomically to the
+  URL via a new `setFacets` compass helper — one navigation, bookmarkable,
+  dormant facets survive. The identifier covenant validates server-side;
+  the client mirror (`usageEnrich.js`) keeps the header from offering a
+  column the engine would refuse.
+- **Deck-local search facet** — debounced into the URL `q` param; the
+  engine's census LIKE over model/provider/endpoint does the filtering
+  server-side (the ledger never filters client-side).
+- **Keyboard navigation** — rows are focusable; ↑/↓ traverse, Enter/Space
+  opens the drawer. Sort headers carry `aria-sort`.
+- **'N new requests' pill** — derived from the SSE `recentRequests` ids
+  not yet on screen; applying it resets the cursor to the freshest window.
+  The table never reflows while you read.
+- **Drawer detail** — every telemetry column (tokens, est. cost, latency,
+  TTFT, HTTP status, RTK savings) plus the honesty clause: conversation
+  payloads stay redacted in the Observatory. The deep request-details tab
+  (the W2-B seed) is retired by this composition.
+
+## 🔧 Changes & Improvements
+
+- **`useCompassFilters` gains `setFacets` + sort state** — additive only;
+  every existing consumer unchanged. Sort/order ride the URL like every
+  other facet.
+- **`statusColors.js` extracted** — the migration-008 palette is now one
+  copy shared by the Overview donut and the Requests deck pills/drawer
+  (BreakdownRow's local map retires).
+- **i18n stays 40/40** — novel deck strings (column labels, drawer fields)
+  fall back to English via `t()`; the seeded shared set covers the rest.
+  Logged as translation debt, not spent.
+
+## ⚙️ Internal
+
+- **Engine contract tests** (`usage-ledger-w2e.test.js`, 5 tests) — the
+  client/server sort-mirror drift guard, `q` search over model + provider,
+  keyset continuation on a non-timestamp sort (no overlap, full walk covers
+  every row exactly once), and NULLS LAST on nullable latencyMs.
+- **The engine needed no changes** — W1-C's census already funded `q`;
+  W2-E is pure deck work atop the sealed aggregation layer.
+
+---
+
 # v0.7.20 — The Observatory W2-D: Is It Healthy? 🔭🩺
 
 > *"The telescope now answers the second question: is it healthy? Three live

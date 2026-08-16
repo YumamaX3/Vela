@@ -64,6 +64,20 @@ export function useCompassFilters() {
     router.replace(`?${params.toString()}`, { scroll: false });
   }, [searchParams, router]);
 
+  /** Set several facets in ONE URL write (W2-E): two sequential setFacet
+   *  calls in the same handler both read the pre-update searchParams, so the
+   *  second would clobber the first — sort+order must move atomically. */
+  const setFacets = useCallback((entries) => {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const [name, value] of Object.entries(entries)) {
+      const facet = FACETS[name];
+      const paramKey = facet ? facet.param : name;
+      if (value === null || value === undefined || value === "") params.delete(paramKey);
+      else params.set(paramKey, String(value));
+    }
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }, [searchParams, router]);
+
   const setTab = useCallback((next) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", next);
@@ -106,12 +120,23 @@ export function useCompassFilters() {
 
   const hasActiveFilters = Boolean(provider || model || key || status || q);
 
+  // W2-E — Requests deck sort state (deck-local, URL-riding like every facet).
+  // The engine's identifier covenant validates the column server-side; the
+  // client mirror (usageEnrich.js) keeps the header from offering invalids.
+  const sort = searchParams.get("sort") || "timestamp";
+  const order = searchParams.get("order") === "asc" ? "asc" : "desc";
+  const setSort = useCallback((column) => {
+    const nextOrder = sort === column && order === "desc" ? "asc" : "desc";
+    setFacets({ sort: column, order: nextOrder });
+  }, [sort, order, setFacets]);
+
   return {
     tab, setTab,
     period, provider, model, key, status, q,
     granParam, granularity,
+    sort, order, setSort,
     filters, metricsQuery, hasActiveFilters,
-    setFacet, clearFilters,
+    setFacet, setFacets, clearFilters,
   };
 }
 
