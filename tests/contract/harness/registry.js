@@ -53,6 +53,13 @@ export const PARITY_REGISTRY = new Set([
   "saveRequestDetail", "getRequestDetails", "getRequestDetailById", "getDistinctProviders",
   // Usage wave (A9) — parity-usage.test.js
   "saveRequestUsage", "getUsageHistory", "getKeyUsageStats",
+  // Observatory aggregation layer (W1-C + W2-C, retired by W2-G) —
+  // parity-usage.test.js usageScenario runs all eight across BOTH twins
+  // (the sqlite harbor + the live MariaDB), the stacked-series fn grafted
+  // in at W2-G. Engine-neutral by construction (one shared impl), proven
+  // convergent in the real.
+  "getFilteredSeries", "getBreakdown", "getStackedSeries", "getPercentiles",
+  "getProviderHealthFrame", "getKpis", "getLedgerRows", "getExportCursor",
 ]);
 
 /** Never parity-testable — process/global state, wall-clock, pure helpers. */
@@ -87,14 +94,9 @@ export const EXEMPT_PROCESS = {
  *  the Observatory's W2-G seal; named here so the census keeps the debt
  *  visible until it is paid. */
 export const EXEMPT_PENDING = {
-  getFilteredSeries: "Observatory W1-C aggregation — parity leg scheduled W2-G",
-  getBreakdown: "Observatory W1-C aggregation — parity leg scheduled W2-G",
-  getStackedSeries: "Observatory W2-C aggregation — parity leg scheduled W2-G",
-  getPercentiles: "Observatory W1-C aggregation — parity leg scheduled W2-G",
-  getProviderHealthFrame: "Observatory W1-C aggregation — parity leg scheduled W2-G",
-  getKpis: "Observatory W1-C aggregation (dialect fragments) — parity leg scheduled W2-G",
-  getLedgerRows: "Observatory W1-C aggregation — parity leg scheduled W2-G",
-  getExportCursor: "Observatory W1-C aggregation — parity leg scheduled W2-G",
+  // The Observatory's aggregation-layer debt was retired at W2-G (2026-08-16):
+  // parity-usage.test.js's usageScenario runs all eight across BOTH twins,
+  // and the census pin keeps this ledger empty until new scheduled debt lands.
 };
 
 /** The full set of classified symbols — the census compares the barrel to this. */
