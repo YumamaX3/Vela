@@ -19,3 +19,15 @@ export const getUsageDailySince = bound.getUsageDailySince;
 export const getChartData = bound.getChartData;
 export const appendRequestLog = bound.appendRequestLog;
 export const getRecentLogs = bound.getRecentLogs;
+// Usage Observatory W1-C — the 7-function aggregation layer (sealed plan
+// item 4). getExportCursor returns the async iterator; under the mysql
+// posture the bind wrapper makes it a Promise OF the iterator, so callers
+// always `await` first, then `for await` — one contract, both harbors.
+export const getFilteredSeries = bound.getFilteredSeries;
+export const getBreakdown = bound.getBreakdown;
+export const getPercentiles = bound.getPercentiles;
+export const getProviderHealthFrame = bound.getProviderHealthFrame;
+export const getKpis = bound.getKpis;
+export const getLedgerRows = bound.getLedgerRows;
+export const getExportCursor = bound.getExportCursor;
+export const getPerProviderFrame = bound.getPerProviderFrame; // W1-D memo

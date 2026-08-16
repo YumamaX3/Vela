@@ -20,6 +20,90 @@
 import { EventEmitter } from "events";
 import { getMysqlAdapter } from "../../mysql/adapter.js";
 import { parseJson, stringifyJson } from "../../helpers/jsonCol.js";
+import { deriveStatusClass } from "../../../usageStatus.js";
+
+// Usage Observatory W1-B (plans/mirror-usage-observatory/SEALED-PLAN.md W1.3):
+// the write-time enrichment covenant, mirrored verbatim from the sqlite twin
+// (parity-by-construction). Everything here is fail-open: absent measurements
+// stay NULL, unpriceable RTK stays unfunded, classification falls back to ''.
+//
+//   latencyMs / ttftMs / httpStatus — NULL when the caller had no signal
+//   statusClass — deriveStatusClass({status, httpStatus})
+//   meta.rtk = {bytesSaved, tokensSavedEst} — the Gate-14 contract
+//   meta.rtkSavedCostUsd — tokensSavedEst × the request's own model input
+//     rate via the pricing chain at write time; null when unpriceable
+//   latencyBuckets — 7 fixed log-scale edges (sealed plan item 6)
+function latencyBucketOf(latencyMs) {
+  const n = Number(latencyMs);
+  if (!Number.isFinite(n) || n < 0) return null;
+  if (n < 100) return 0;
+  if (n < 250) return 1;
+  if (n < 500) return 2;
+  if (n < 1000) return 3;
+  if (n < 2500) return 4;
+  if (n < 5000) return 5;
+  return 6;
+}
+
+/** Telemetry integers ride NULL when absent (never 0-faked, never NaN).
+ *  Number(null) === 0, so null/undefined are guarded BEFORE coercion — the
+ *  forced-SSE path passes ttftMs: null to mean "unmeasured", and that must
+ *  stay NULL in the row, not 0. */
+function telemetryInt(v) {
+  if (v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+}
+
+/** Build the `meta` column value: rtk savings carried through when present. */
+function buildUsageMeta(entry) {
+  const r = entry.rtk;
+  if (r && (Number(r.bytesSaved) > 0 || Number.isFinite(Number(r.tokensSavedEst)))) {
+    const meta = { rtk: { bytesSaved: Number(r.bytesSaved) || 0 } };
+    const est = Number(r.tokensSavedEst);
+    if (Number.isFinite(est)) meta.rtk.tokensSavedEst = est;
+    return meta;
+  }
+  return {};
+}
+
+/** RTK Savings $ at write time — rtkSavedTokens × this request's own model
+ *  input rate via the same pricing chain as cost. Never throws; null when
+ *  unpriceable (the UI shows '—'). */
+async function fundRtkSavedCost(entry, meta) {
+  try {
+    const est = Number(meta?.rtk?.tokensSavedEst);
+    if (!Number.isFinite(est) || est <= 0) return;
+    const { getPricingForModel } = await import("./pricingRepo.js");
+    const pricing = await getPricingForModel(entry.provider, entry.model);
+    if (!pricing) return; // unpriceable — honest null
+    meta.rtkSavedCostUsd = est * (Number(pricing.input) / 1e6);
+  } catch { /* fail-open: cost stays unfunded */ }
+}
+
+/** Telemetry enrichment of the usageDaily rollup (sealed plan item 1: the
+ *  day's JSON shape grows — statusByProvider + latencyBuckets, no schema
+ *  change). Fail-open by construction: old days simply lack the fields. */
+function aggregateTelemetryToDay(day, entry, statusClass) {
+  const providerKey = entry.provider || "";
+  if (statusClass) {
+    day.statusByProvider ||= {};
+    const cell = (day.statusByProvider[providerKey] ||= {});
+    if (statusClass === "ok") {
+      cell.ok = (cell.ok || 0) + 1;
+    } else {
+      cell.errors = (cell.errors || 0) + 1;
+      cell[statusClass] = (cell[statusClass] || 0) + 1;
+    }
+  }
+  const bucket = latencyBucketOf(entry.latencyMs);
+  if (bucket !== null) {
+    day.latencyBuckets ||= {};
+    const buckets = (day.latencyBuckets[providerKey] ||= {});
+    const key = `b${bucket}`;
+    buckets[key] = (buckets[key] || 0) + 1;
+  }
+}
 
 // Resolve a bearer token to its stable attribution identity (keyId/keyPrefix).
 // Hash-at-rest means the raw key is never persisted — usage is keyed by keyId so
@@ -289,6 +373,17 @@ export async function saveRequestUsage(entry) {
     const promptTokens = tokens.prompt_tokens || tokens.input_tokens || 0;
     const completionTokens = tokens.completion_tokens || tokens.output_tokens || 0;
 
+    // Observatory telemetry (W1-B): NULL when absent, never 0-faked. statusClass
+    // derives from exactly what lands in the `status` column (entry.status ||
+    // "ok" — completed usage is ok) + httpStatus when instrumented, so the row
+    // and the day-rollup — and every era of data — can never disagree.
+    const latencyMs = telemetryInt(entry.latencyMs);
+    const ttftMs = telemetryInt(entry.ttftMs);
+    const httpStatus = telemetryInt(entry.httpStatus);
+    const statusClass = deriveStatusClass({ status: entry.status || "ok", httpStatus: entry.httpStatus ?? null });
+    const meta = buildUsageMeta(entry);
+    await fundRtkSavedCost(entry, meta); // fail-open: unfunded stays null
+
     let inserted = false;
 
     // Dedupe identity (Storage Covenant A5/A9, plan lines 270/274): enforced
@@ -303,16 +398,21 @@ export async function saveRequestUsage(entry) {
     //
     // All 3 writes (history insert, daily upsert, lifetime counter) stay in
     // ONE connection-bound transaction — no interleave between read and write.
+    // Observatory telemetry rides the first INSERT — the dedupe UNIQUE does
+    // not include the telemetry columns, so a duplicate group's telemetry is
+    // dropped with the conflict (endpoint-only backfill below). Accepted at
+    // Gate 14: telemetry on the first write, never retrofit.
     await db.transaction(async (tx) => {
       try {
         await tx.run(
-          `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass) VALUES(?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             entry.timestamp, entry.provider || "", entry.model || "",
             entry.connectionId || "", entry.keyId || "", entry.keyPrefix || null,
             entry.endpoint || null,
             promptTokens, completionTokens, entry.cost || 0, entry.status || "ok",
-            stringifyJson(tokens), stringifyJson({}),
+            stringifyJson(tokens), stringifyJson(meta),
+            latencyMs, ttftMs, httpStatus, statusClass,
           ]
         );
         inserted = true;
@@ -344,6 +444,7 @@ export async function saveRequestUsage(entry) {
         byProvider: {}, byModel: {}, byAccount: {}, byApiKey: {}, byEndpoint: {},
       };
       aggregateEntryToDay(day, entry);
+      aggregateTelemetryToDay(day, entry, statusClass); // W1-B: rollup telemetry
       await tx.run(`INSERT INTO usageDaily(dateKey, data) VALUES(?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data)`, [dateKey, stringifyJson(day)]);
 
       // Atomic counter increment in same transaction (`key` is reserved)
@@ -895,5 +996,83 @@ export async function getRecentLogs(limit = 200) {
   } catch (e) {
     console.error("[usageRepo] getRecentLogs failed:", e.message);
     return [];
+  }
+}
+
+// ─── Usage Observatory W1-C — the 7-function aggregation layer ────────────
+// Verbatim twin of sqlite/usageRepo.js's W1-C surface: the machinery is the
+// SAME engine-neutral copy (../usageAggregation.js); this twin owns the
+// mysql adapter access + its dialect fragments (compile-time constants — the
+// ONLY mysql-specific literals, never caller input; phase13 R8).
+import {
+  filteredSeriesImpl,
+  breakdownImpl,
+  percentilesImpl,
+  providerHealthFrameImpl,
+  kpisImpl,
+  ledgerRowsImpl,
+  exportCursorImpl,
+} from "../../usageAggregation.js";
+
+/** mysql's JSON dialect for the two JSON-backed KPI expressions. DECIMAL(20,6)
+ *  keeps cost sums in the harness's 6dp precision law; decimalNumbers:true
+ *  converts back to JS numbers on the way out. */
+const MYSQL_KPI_DIALECT = Object.freeze({
+  cachedRowExpr:
+    "COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(tokens, '$.cached_tokens')) AS UNSIGNED), 0) + COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(tokens, '$.cache_read_input_tokens')) AS UNSIGNED), 0)",
+  rtkRowExpr: "COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(meta, '$.rtkSavedCostUsd')) AS DECIMAL(20,6)), 0)",
+});
+
+export async function getFilteredSeries(opts) {
+  return filteredSeriesImpl(await getMysqlAdapter(), opts);
+}
+
+export async function getBreakdown(opts) {
+  return breakdownImpl(await getMysqlAdapter(), opts);
+}
+
+export async function getPercentiles(opts) {
+  return percentilesImpl(await getMysqlAdapter(), opts);
+}
+
+export async function getProviderHealthFrame(opts) {
+  return providerHealthFrameImpl(await getMysqlAdapter(), opts);
+}
+
+export async function getKpis(opts) {
+  return kpisImpl(await getMysqlAdapter(), { ...opts, dialect: MYSQL_KPI_DIALECT });
+}
+
+export async function getLedgerRows(opts) {
+  return ledgerRowsImpl(await getMysqlAdapter(), { ...opts, repos: "./repos/mysql" });
+}
+
+export function getExportCursor(opts) {
+  return (async function* () {
+    yield* exportCursorImpl(await getMysqlAdapter(), { ...opts, repos: "./repos/mysql" });
+  })();
+}
+
+// ─── Usage Observatory W1-D — the SSE contract's memoized health frame ────
+// Verbatim twin of the sqlite harbor's memo (parity-by-construction): sealed
+// plan item 7 + phase13 R5 — one server-global memo, TTL ≤30s, shared across
+// all SSE clients; a failing twin serves the last good frame (fail-open).
+const PERPROVIDER_MEMO_TTL_MS = 30_000;
+if (!global.__velaPerProviderMemo) global.__velaPerProviderMemo = { frame: null, ts: 0 };
+const perProviderMemo = global.__velaPerProviderMemo;
+
+export async function getPerProviderFrame(windowMs = 60_000) {
+  const now = Date.now();
+  if (perProviderMemo.frame && now - perProviderMemo.ts < PERPROVIDER_MEMO_TTL_MS) {
+    return perProviderMemo.frame;
+  }
+  try {
+    const frame = await getProviderHealthFrame({ windowMs, now });
+    perProviderMemo.frame = frame;
+    perProviderMemo.ts = now;
+    return frame;
+  } catch {
+    // Fail-open: serve the stale frame if we have one, else an empty window.
+    return perProviderMemo.frame || { perProvider: {}, windowMs, ts: now };
   }
 }

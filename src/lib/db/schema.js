@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -158,6 +158,13 @@ export const TABLES = {
       status: "TEXT",
       tokens: "TEXT",
       meta: "TEXT",
+      // Usage Observatory migration 008 — telemetry columns. NULL means
+      // pre-instrumentation (never 0-faked); statusClass is the normalized,
+      // indexable slug from src/lib/usageStatus.js ('' = unknown).
+      latencyMs: "INTEGER",
+      ttftMs: "INTEGER",
+      httpStatus: "INTEGER",
+      statusClass: "TEXT DEFAULT ''",
     },
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_uh_ts ON usageHistory(timestamp DESC)",
@@ -165,6 +172,13 @@ export const TABLES = {
       "CREATE INDEX IF NOT EXISTS idx_uh_model ON usageHistory(model)",
       "CREATE INDEX IF NOT EXISTS idx_uh_conn ON usageHistory(connectionId)",
       "CREATE INDEX IF NOT EXISTS idx_uh_keyId ON usageHistory(keyId)",
+      // Migration 008's Observatory composites — mirror of the migration's
+      // CREATE INDEX set so auto-sync heals them if ever dropped (the m004
+      // uq_uh_dedupe precedent below).
+      "CREATE INDEX IF NOT EXISTS idx_uh_ts_provider ON usageHistory(timestamp, provider)",
+      "CREATE INDEX IF NOT EXISTS idx_uh_ts_keyId ON usageHistory(timestamp, keyId)",
+      "CREATE INDEX IF NOT EXISTS idx_uh_ts_status ON usageHistory(timestamp, statusClass)",
+      "CREATE INDEX IF NOT EXISTS idx_uh_ts_latency ON usageHistory(timestamp, latencyMs)",
       // Migration 004's dedupe identity — declared here so auto-sync heals it
       // if it is ever dropped (mirrors the uq_ak_key_hash pattern in apiKeys).
       "CREATE UNIQUE INDEX IF NOT EXISTS uq_uh_dedupe ON usageHistory(timestamp, provider, model, connectionId, keyId, promptTokens, completionTokens)",

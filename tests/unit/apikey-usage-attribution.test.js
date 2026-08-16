@@ -95,7 +95,9 @@ describe("usage attribution — keyId threading, never plaintext", () => {
 
     const db = await getAdapter();
     const row = db.get(`SELECT * FROM usageHistory`);
-    expect(row.keyId).toBeNull();
+    // Migration 004 normalized '' as "unset" (NOT NULL DEFAULT '') — the
+    // writer emits '' for unattributed rows; only keyPrefix stays NULL.
+    expect(row.keyId).toBe("");
     expect(row.keyPrefix).toBeNull();
     expect(row.apiKey).toBeNull();
   });
