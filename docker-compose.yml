@@ -34,6 +34,11 @@ name: tethys-vela
 #               LAN       → http://192.168.18.190:32060
 # Config:       /media/SSD-Storage/AppData/vela/   (SQLite, usage, logs)
 #
+# 🪞 The mirror posture (v0.6.70) needs ONE untracked file next to this
+#    chart on the fleet box — `.env` (never committed):
+#      VELA_MYSQL_URL=mysql://vela:<password>@<host>:3306/vela
+#    pointing at the twin MariaDB. Without it, `compose up` refuses LOUD.
+#
 # ponytail: the image pin follows the last-CUT release tag in the Vela
 #           repo — not the repo's working version. NEXT_PUBLIC_* vars
 #           are baked at build time; setting them here would be a lie.
@@ -103,13 +108,18 @@ services:
       API_KEY_SECRET: "f87359fb10e9a134dbddaf5691292aa98def18e48fb5799c"
       MACHINE_ID_SALT: "721d5042e7d681a37b9770e021279c6a"
       # ── 🗝️ Storage Covenant (v0.6.70) — ALL opt-in, default dark ───
-      # VELA_DB_MODE selects the posture: sqlite (default — the ship as
-      # it sails today), mysql (MariaDB IS the harbor), or mirror (sqlite
-      # PRIMARY serves; the outbox pump carries writes to the twin — see
-      # the vela-twin service below). A down twin degrades the mirror;
-      # the mode never silently downgrades.
-      # VELA_DB_MODE: "sqlite"
-      # VELA_MYSQL_URL: "mysql://vela:<password>@vela-twin:3306/vela"
+      # VELA_DB_MODE selects the posture: sqlite (default), mysql (MariaDB
+      # IS the harbor), or mirror (sqlite PRIMARY serves; the outbox pump
+      # carries writes to the twin). A down twin degrades the mirror; the
+      # mode never silently downgrades. MIRROR waked 2026-08-16 by the Star.
+      #
+      # The twin is the HOST's own MariaDB (created 2026-08-16) — no
+      # vela-twin container needed. Its credential rides an UNTRACKED .env
+      # next to this chart on the fleet box (the Star's decree — never
+      # committed):  VELA_MYSQL_URL=mysql://vela:<password>@<host>:3306/vela
+      # The :? form refuses LOUD at compose-time if the .env is missing.
+      VELA_DB_MODE: "mirror"
+      VELA_MYSQL_URL: "${VELA_MYSQL_URL:?VELA_MYSQL_URL must be set in the chart .env next to docker-compose.yml}"
       #
       # Sealed backups (Wave B) — the engine REFUSES to run without the
       # key. Its LOSS = permanently unrecoverable backups; store a copy
@@ -166,18 +176,14 @@ services:
       - "com.tethys.stack=vela"
 
   # ═══════════════════════════════════════════════════════════════
-  # 🪞 vela-twin — The Mirror's Other Shore (opt-in, v0.6.70)
+  # 🪞 vela-twin — The Mirror's Other Shore (opt-in template, v0.6.70)
   # ═══════════════════════════════════════════════════════════════
   #
-  # The MariaDB twin for VELA_DB_MODE=mysql|mirror. COMMENTED OUT by
-  # default — the harbor sails sqlite as-is. To wake the mirror:
-  #   1. Uncomment this service (and set the password below),
-  #   2. Set VELA_DB_MODE: "mirror" + VELA_MYSQL_URL on vela-gateway,
-  #   3. `docker compose up -d` — the mirror pumps writes to the twin;
-  #      a down twin degrades the mirror, never the primary.
-  #
-  # Internal-only by design (no host port — same stance as headroom).
-  # The gateway reaches it over the stack network as `vela-twin`.
+  # NOT used today — the mirror's twin is the HOST's own MariaDB
+  # (database `vela`, created 2026-08-16 by the Star; its credential rides
+  # the untracked chart .env, same as VELA_MYSQL_URL on the gateway).
+  # This commented template stays ready for the day a CONTAINERIZED twin
+  # is wanted instead (stack-internal, no host port — headroom's stance).
   #
   # vela-twin:
   #   image: mariadb:11
