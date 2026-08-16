@@ -321,5 +321,12 @@
   "Cost and savings are estimates computed from pricing at write time": "Cost and savings are estimates computed from pricing at write time",
   "Duplicate provider/model rows may undercount totals slightly": "Duplicate provider/model rows may undercount totals slightly",
   "Health panels arrive with the next tide": "Health panels arrive with the next tide",
-  "Latency, error mix, cache share and savings — collecting since the telemetry upgrade.": "Latency, error mix, cache share and savings — collecting since the telemetry upgrade."
+  "Latency, error mix, cache share and savings — collecting since the telemetry upgrade.": "Latency, error mix, cache share and savings — collecting since the telemetry upgrade.",
+  "Est. Cost": "Est. Cost",
+  "Input Tokens": "Input Tokens",
+  "Output Tokens": "Output Tokens",
+  "Cached Tokens": "Cached Tokens",
+  "RTK Savings": "RTK Savings",
+  "Top Spenders": "Top Spenders",
+  "Status mix": "Status mix"
 }

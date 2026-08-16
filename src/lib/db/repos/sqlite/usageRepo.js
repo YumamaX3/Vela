@@ -995,6 +995,7 @@ export async function getRecentLogs(limit = 200) {
 import {
   filteredSeriesImpl,
   breakdownImpl,
+  stackedSeriesImpl,
   percentilesImpl,
   providerHealthFrameImpl,
   kpisImpl,
@@ -1015,6 +1016,10 @@ export async function getFilteredSeries(opts) {
 
 export async function getBreakdown(opts) {
   return breakdownImpl(await getAdapter(), opts);
+}
+
+export async function getStackedSeries(opts) {
+  return stackedSeriesImpl(await getAdapter(), opts);
 }
 
 export async function getPercentiles(opts) {

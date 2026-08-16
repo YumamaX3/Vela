@@ -25,6 +25,88 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.7.10 — The Observatory W2-C: Where Did the Money Go? 🔭💰
+
+> *"The telescope now answers the first question every harbor asks at dawn:
+> where did the money go? Six KPI cards with honest deltas, a live topology
+> that glows where providers bleed, traffic and cost stacked by provider,
+> spenders ranked, and a status mix you can slice straight into the ledger.
+> One deck, five rows, all of it click-to-filter."*
+
+*Sealed 2026-08-16 · Usage Observatory W2 sub-stage (c) — the stacked-series
+engine and the Overview deck · Milestone Tide: big change (rounds to the next
+milestone of ten) → `0.7.0 → 0.7.10`*
+
+## ✨ Features — The Overview Deck (W2-C)
+
+- **`stackedSeriesImpl` — time × dimension stacked series** — the engine's
+  seventh aggregation function. Two-tier like its siblings: an exact indexed
+  scan bucketed in JS for windows ≤3 days, the `usageDaily` rollup
+  day-groups beyond. Top-6 keys keep their own series; the long tail folds
+  into a single `Other` series so charts stay legible. The rollup tier honors
+  the dimension's OWN filter and funds `statusClass` from the
+  `statusByProvider` telemetry (requests-only, refusing cost/tokens loudly).
+  Wired through both twins (`getStackedSeries` in sqlite + mysql repos,
+  facade, barrel, shim) and served at `/api/usage/metrics/stacked`
+- **The Overview deck — five sealed rows** — `OverviewDeck` replaces the W2-B
+  thin `UsageStats` wrapper with the Deck-1 composition:
+  - **Row A — `KpiRow`**: six KPI cards (Requests · Est. Cost · Input ·
+    Output · Cached · RTK Savings) with delta-vs-previous-period arrows, the
+    sealed 24/11/12 type scale, tabular-nums, and a `$/Mtok` subtext on the
+    cost card. Only cost-funded cards carry the `~ estimated` marker — tokens
+    are measured, never `~`
+  - **Row B — `LiveRow`**: `ProviderTopology` gains the Observatory graft —
+    error halos encode each provider's rolling error rate from the ≤30s
+    `perProvider` SSE frame (a red glow that deepens with the rate), and
+    click-to-filter sets the Needle's provider facet. Flanked by the Live
+    Feed rail (last-8 requests via SSE) with pause-on-hover
+  - **Row C — `TrafficRow`**: `TrafficStackedArea` (requests by provider,
+    top-6 + Other, click-to-filter) beside `CostArea` (cost over time,
+    compare-ghost slot reserved for W3)
+  - **Row D — `BreakdownRow`**: TopProviders + TopModels cost bars
+    (click-to-filter) and a StatusMix donut whose slices set the status facet
+    and cross to the Requests deck pre-filtered
+  - **Row E — `SpendersRow`**: Top Spenders table reusing `UsageTable.js`
+    (localStorage expansion kept), sorted cost-descending, fed by the shared
+    `useUsageStream` subscription alongside Row B
+- **`useMetrics` + `useProviders` hooks** — one fetch hook shared by every
+  REST-driven row (initial spinner vs refetch indicator, fail-open), and a
+  connected-provider hook extracted from `UsageStats` so the deck owns its
+  topology picture without importing the orchestrator
+
+## 🔧 Changes & Improvements
+
+- **`breakdownImpl` rollup repair** — the rollup tier now funds the
+  `statusClass` dimension from the `statusByProvider` day counters
+  (requests-only) instead of silently falling through to `byEndpoint`; a
+  non-requests metric at that dimension refuses with a `FilterParamError`
+- **`DIMENSIONS` extended** — the frozen identifier map gains `statusClass`
+  so breakdown/stacked can group by status class under the identifier
+  covenant; census tests check frozenness only, so the extension is test-safe
+- **`useUsageStream` merges `perProvider`** — the ≤30s memoized health frame
+  rides the SSE stream additively (old consumers ignore fields they don't
+  read), funding the topology halos
+- **`usageGrouping.js`** — the sort/group helpers extracted verbatim from
+  `UsageStats` so Row E reuses them without the orchestrator
+
+## ⚙️ Internal
+
+- **i18n budget at exactly 40/40** (the Tidebreaker S4 hard cap) — seven
+  Overview labels seeded across all 34 locales; W2-D onward compose from the
+  shared set
+- **Parity census repaired** — the eight Observatory aggregation functions
+  (engine-neutral by construction: one shared impl, both twins calling the
+  same machinery) move to `EXEMPT_PENDING` with the parity leg scheduled for
+  W2-G; `getPerProviderFrame` is exempt as process state. The census turns
+  green
+- **Tests** — `usage-metrics-stacked-w2c.test.js` (14 tests: identifier
+  covenant 400s, exact/rollup tiers, cost golden sums, top-N + Other fold,
+  own-filter honoring, statusClass funding, twin parity). Full suite is a net
+  improvement: failures fell 177 → 91 and passing rose 2331 → 2336, with zero
+  regressions on the Observatory surface
+
+---
+
 # v0.7.0 — The Observatory W2-B: The Compass Deck ⛵🧭🔭
 
 > *"A telescope measures. A compass steers. The instrument now sits inside a

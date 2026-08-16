@@ -183,15 +183,28 @@ export async function breakdownImpl(db, { filters = {}, period = "7d", dimension
   if (endMs - startMs > EXACT_WINDOW_MS) {
     // Rollup tier: aggregate the JSON counters per dimension lead.
     const days = await loadDaysInRange(db, startMs, endMs, filters);
-    const groupField = dimension === "provider" ? "byProvider" : dimension === "model" ? "byModel" : dimension === "keyId" ? "byApiKey" : "byEndpoint";
-    const pick = ROLLUP_METRIC_VALUE[metric] || (() => 0);
     const acc = new Map();
-    for (const { dayData } of days) {
-      const group = dayData[groupField];
-      if (!group) continue;
-      for (const [key, cell] of Object.entries(group)) {
-        const lead = key.split("|")[0];
-        acc.set(lead, (acc.get(lead) || 0) + pick(cell));
+    if (dimension === "statusClass") {
+      // statusClass has no byStatusClass day-group — fund it from the
+      // statusByProvider telemetry counters (request counts only). A non-
+      // requests metric has no rollup source at this dimension → refuse loud
+      // rather than fabricate cost/token-per-status.
+      if (metric !== "requests") throw new FilterParamError("metric", metric);
+      for (const { dayData } of days) {
+        for (const [status, count] of dayStatusCounts(dayData)) {
+          acc.set(status, (acc.get(status) || 0) + count);
+        }
+      }
+    } else {
+      const groupField = dimension === "provider" ? "byProvider" : dimension === "model" ? "byModel" : dimension === "keyId" ? "byApiKey" : "byEndpoint";
+      const pick = ROLLUP_METRIC_VALUE[metric] || (() => 0);
+      for (const { dayData } of days) {
+        const group = dayData[groupField];
+        if (!group) continue;
+        for (const [key, cell] of Object.entries(group)) {
+          const lead = key.split("|")[0];
+          acc.set(lead, (acc.get(lead) || 0) + pick(cell));
+        }
       }
     }
     const items = [...acc.entries()].map(([value, v]) => ({ [dimension]: value, value: round6(v) }));
@@ -225,6 +238,169 @@ export async function breakdownImpl(db, { filters = {}, period = "7d", dimension
 }
 
 function round6(v) { return Math.round(v * 1e6) / 1e6; }
+
+// ─── getStackedSeries — time × dimension, top-N + Other ────────────────────
+// Funds the Overview deck's stacked areas (Row C traffic/cost by provider) and
+// the Analytics deck's UsageByKey/ErrorMix. ONE engine copy, both tiers: ≤3d an
+// exact indexed scan bucketed in JS; 7d+ the usageDaily rollup day-groups
+// (O(days), never O(rows)). Top-N keys keep their own series; the long tail
+// folds into a single "Other" series so the chart stays legible.
+
+export const STACKED_TOP_N = 6; // sealed plan Deck-1 Row C: top-6 + Other
+
+/** Rollup day-group field per dimension (the writers' compound-key covenant —
+ *  the leading segment of every key is the dimension's OWN value). statusClass
+ *  has no counter group; it rides statusByProvider instead (see dayStatusCounts). */
+const ROLLUP_STACK_GROUP = Object.freeze({
+  provider: "byProvider",
+  model: "byModel",
+  keyId: "byApiKey",
+  endpoint: "byEndpoint",
+});
+
+/** The day's per-status request counts from statusByProvider — ok plus each
+ *  individual non-ok class. `errors` is the sum of those classes, so it is
+ *  skipped to keep the partition honest (never double-counted). */
+function dayStatusCounts(dayData) {
+  const out = new Map();
+  const sp = dayData.statusByProvider;
+  if (!sp) return out;
+  for (const cell of Object.values(sp)) {
+    if (!cell) continue;
+    if (cell.ok) out.set("ok", (out.get("ok") || 0) + cell.ok);
+    for (const [k, v] of Object.entries(cell)) {
+      if (k === "ok" || k === "errors") continue;
+      out.set(k, (out.get(k) || 0) + num(v));
+    }
+  }
+  return out;
+}
+
+/** ≤3d: one indexed range scan, grouped by (time bucket × dimension lead). */
+async function stackedExact(db, { filters, startMs, endMs, bucketMs, metric, col }) {
+  const { where, params } = censusWithWindow(filters, startMs, endMs);
+  const acc = new Map(); // dim -> Map(bucket -> sum)
+  const add = (dim, bucket, v) => {
+    let m = acc.get(dim);
+    if (!m) { m = new Map(); acc.set(dim, m); }
+    m.set(bucket, (m.get(bucket) || 0) + v);
+  };
+  if (metric === "cachedTokens") {
+    // No portable JSON SQL — JS scan of the indexed range (exact tier only).
+    const rows = await db.all(`SELECT timestamp, ${col} AS dim, tokens FROM usageHistory ${where}`, params);
+    for (const r of rows) {
+      const b = Math.floor(new Date(r.timestamp).getTime() / bucketMs) * bucketMs;
+      const tok = typeof r.tokens === "string" ? safeJson(r.tokens) : (r.tokens || {});
+      add(r.dim ?? "", b, num(tok?.cached_tokens) + num(tok?.cache_read_input_tokens));
+    }
+    return acc;
+  }
+  const rows = await db.all(
+    `SELECT timestamp, ${col} AS dim, ${METRICS[metric]} AS value FROM usageHistory ${where} GROUP BY timestamp, ${col} ORDER BY timestamp ASC`,
+    params
+  );
+  for (const r of rows) {
+    const b = Math.floor(new Date(r.timestamp).getTime() / bucketMs) * bucketMs;
+    add(r.dim ?? "", b, num(r.value));
+  }
+  return acc;
+}
+
+/** 7d+: walk the usageDaily day-groups — O(days). The dimension's OWN filter
+ *  is honored (consistent with rollupDayMetric); cross-dimension filters ride
+ *  the rollup shape's existing fidelity (same precedent as breakdownImpl). */
+async function stackedFromRollup(db, { filters, startMs, endMs, bucketMs, metric, dimension }) {
+  const days = await loadDaysInRange(db, startMs, endMs, filters);
+  const acc = new Map(); // dim -> Map(bucket -> sum)
+  const add = (dim, bucket, v) => {
+    let m = acc.get(dim);
+    if (!m) { m = new Map(); acc.set(dim, m); }
+    m.set(bucket, (m.get(bucket) || 0) + v);
+  };
+  if (dimension === "statusClass") {
+    // Only request counts survive the rollup at this dimension.
+    if (metric !== "requests") throw new FilterParamError("metric", metric);
+    for (const { dayData } of days) {
+      const bucket = Math.floor(dayData.__dayStartMs / bucketMs) * bucketMs;
+      for (const [status, count] of dayStatusCounts(dayData)) {
+        if (filters.statusClass && status !== filters.statusClass) continue;
+        add(status, bucket, count);
+      }
+    }
+    return acc;
+  }
+  const groupField = ROLLUP_STACK_GROUP[dimension];
+  if (!groupField) throw new FilterParamError("dimension", dimension);
+  const pick = ROLLUP_METRIC_VALUE[metric];
+  if (!pick) throw new FilterParamError("metric", metric);
+  const ownFilter = dimension === "provider" ? filters.provider
+    : dimension === "model" ? filters.model
+    : dimension === "keyId" ? filters.keyId
+    : filters.endpoint;
+  for (const { dayData } of days) {
+    const group = dayData[groupField];
+    if (!group) continue;
+    const bucket = Math.floor(dayData.__dayStartMs / bucketMs) * bucketMs;
+    for (const [key, cell] of Object.entries(group)) {
+      const lead = key.split("|")[0];
+      if (ownFilter && lead !== ownFilter) continue;
+      add(lead, bucket, pick(cell));
+    }
+  }
+  return acc;
+}
+
+/** Fold the (dim → bucket → sum) accumulator into top-N + Other series. */
+function shapeStacked(acc, { dimension, metric, granularity, source, startMs, endMs }) {
+  const totals = [...acc.entries()].map(([key, buckets]) => ({
+    key,
+    total: [...buckets.values()].reduce((a, b) => a + b, 0),
+    buckets,
+  })).sort((a, b) => b.total - a.total);
+
+  const pointsOf = (buckets) => [...buckets.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([t, value]) => ({ t, value: round6(value) }));
+
+  const series = totals.slice(0, STACKED_TOP_N).map(({ key, total, buckets }) => ({
+    key, total: round6(total), points: pointsOf(buckets),
+  }));
+
+  const rest = totals.slice(STACKED_TOP_N);
+  if (rest.length) {
+    const otherBuckets = new Map();
+    let otherTotal = 0;
+    for (const { total, buckets } of rest) {
+      otherTotal += total;
+      for (const [t, v] of buckets) otherBuckets.set(t, (otherBuckets.get(t) || 0) + v);
+    }
+    series.push({ key: "Other", total: round6(otherTotal), points: pointsOf(otherBuckets) });
+  }
+
+  return {
+    series,
+    meta: { source, dimension, metric, granularity, topN: STACKED_TOP_N, startMs, endMs },
+  };
+}
+
+/** Shared entry: resolve period + granularity + metric + dimension, pick tier. */
+export async function stackedSeriesImpl(db, { filters = {}, period = "7d", dimension = "provider", granularity = "1d", metric = "requests", now = Date.now() } = {}) {
+  if (!DIMENSIONS[dimension]) throw new FilterParamError("dimension", dimension);
+  if (!METRICS[metric] && metric !== "cachedTokens") throw new FilterParamError("metric", metric);
+  if (!Object.prototype.hasOwnProperty.call(GRANULARITIES, granularity)) throw new FilterParamError("granularity", granularity);
+  const { startMs, endMs } = resolvePeriodWindow(period, now);
+  const bucketMs = GRANULARITIES[granularity];
+  const col = DIMENSIONS[dimension];
+  const exact = endMs - startMs <= EXACT_WINDOW_MS;
+  const acc = exact
+    ? await stackedExact(db, { filters, startMs, endMs, bucketMs, metric, col })
+    : await stackedFromRollup(db, { filters, startMs, endMs, bucketMs, metric, dimension });
+  return shapeStacked(acc, {
+    dimension, metric, granularity,
+    source: exact ? "usageHistory" : "usageDaily",
+    startMs, endMs,
+  });
+}
 
 // ─── getPercentiles — two-tier honesty ─────────────────────────────────────
 

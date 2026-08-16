@@ -28,6 +28,7 @@ export const DIMENSIONS = Object.freeze({
   model: "model",
   keyId: "keyId",
   endpoint: "endpoint",
+  statusClass: "statusClass", // W2-C — the error-anatomy/status-mix dimension
 });
 
 /** Series time-bucket sizes — frozen (bucketing is JS-side, so these are
