@@ -30,7 +30,8 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 > *"A ship without charts is only drifting. So every deck is drawn — the
 > hull, the keel, the rigging — in eleven tongues. And the ledger stops
 > lying: every sail's true cost is named, and eleven thousand rows of
-> silence remember what they were worth."*
+> silence remember what they were worth. And by the Star's decree, every
+> free sail now carries its paid sibling's worth."*
 
 *Sealed 2026-08-16 · the Star's decree · Milestone Tide: big change → `0.6.70 → 0.6.80`*
 
@@ -69,6 +70,17 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 - **Ollama `:` separators** — `gpt-oss:120b` / `gpt-oss:20b` exact aliases
 - **Honest display** — `formatCost` + the Usage table / overview cards now
   show `<$0.01` for sub-cent dust instead of a lying `$0.00`
+
+### The Free-Sibling Decree (the Star's word, 2026-08-16)
+
+- **Every free model carries its non-free sibling's price.** FREE
+  inheritance (`FREE_ALIAS_MAP` + guarded `-free`/`:free` suffix-strip +
+  namespaced tail) previously resolved siblings through EXACT strata only —
+  so a free model whose paid sibling existed only as a family pattern
+  inherited nothing. It now resolves the sibling's WORTH through the full
+  non-recursive chain: lane override → exact → vendor-strip → family pattern
+  (`resolveSiblingRate`). Denylisted shapes stay null (no paid sibling
+  exists — honest). `ProviderTopology`'s "9Router" label → Vela.
 
 ## ⚙️ Internal
 

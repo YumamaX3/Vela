@@ -70,6 +70,49 @@ describe("Pricing Shadow — mistral aliases & ollama separators", () => {
   });
 });
 
+describe("Pricing Shadow — the free-sibling decree (2026-08-16)", () => {
+  // The Star's decree: every free model carries its non-free sibling's price.
+  // resolveSiblingRate resolves the sibling's WORTH through the full
+  // non-recursive chain: lane override → exact → vendor-strip → family
+  // pattern. Previously the arms stopped at exact strata, so a free model
+  // whose paid sibling existed only as a family pattern inherited nothing.
+
+  it("free models whose sibling is only pattern-priced inherit the family rate", () => {
+    // 'deepseek-v4-flash' has an exact entry, but try one that does not:
+    // 'kimi-k2.5' exact exists; use a truly pattern-only sibling family:
+    // llama has NO exact entry anywhere — only '*/llama-*' family glob.
+    expect(getPricingForModel("openrouter", "meta-llama/llama-3.3-70b-versatile:free")).toBeTruthy();
+    expect(getPricingForModel("openrouter", "meta-llama/llama-3.3-70b-versatile:free").output).toBeGreaterThan(0);
+    expect(getPricingForModel("kilocode", "stepfun/step-3.7-flash:free").input).toBe(0.20);
+  });
+
+  it("namespaced free ids (vendor/model-free) inherit through the full chain", () => {
+    expect(getPricingForModel("opencode", "google/gemini-2.5-flash:free").input).toBe(0.30);
+    expect(getPricingForModel("kilocode", "google/gemini-2.5-flash:free").output).toBe(2.50);
+  });
+
+  it("exact-sibling inheritance is unchanged (explicit still wins)", () => {
+    expect(getPricingForModel("opencode", "deepseek-v4-flash-free").input).toBe(0.14);
+    expect(getPricingForModel("opencode", "mimo-v2.5-free").output).toBe(0.28);
+  });
+
+  it("denylisted free shapes stay null — no accidental sibling rates", () => {
+    expect(getPricingForModel("opencode", "nemotron-3-ultra-free")).toBeNull();
+    expect(getPricingForModel("opencode", "north-mini-code-free")).toBeNull();
+  });
+
+  it("the decree holds across a sweep of -free/:free shapes", () => {
+    const shapes = [
+      "qwen3-coder-flash:free", "qwen3-coder-flash-free",
+      "claude-sonnet-4.5-free", "gpt-5-mini:free",
+      "glm-5-free", "minimax-m3-free",
+    ];
+    for (const m of shapes) {
+      expect(getPricingForModel("openrouter", m), `${m} must resolve`).toBeTruthy();
+    }
+  });
+});
+
 describe("Pricing Shadow — honest display", () => {
   it("formatCost shows <$0.01 for sub-cent dust, never a lying $0.00", () => {
     expect(formatCost(0.0026)).toBe("<$0.01");
