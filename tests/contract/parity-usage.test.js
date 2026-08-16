@@ -70,7 +70,17 @@ const canonSort = (arr) => [...arr].sort((a, b) =>
   JSON.stringify(canon(a)).localeCompare(JSON.stringify(canon(b)))
 );
 
-const T0 = "2026-08-10T12:00:00.000Z"; // noon UTC — stable local dateKey in both legs
+// T0 anchors every seeded row. A FIXED calendar date ages out of the rolling
+// wall-clock windows (getUsageStats("7d") / getChartData("7d")) the moment the
+// suite's run-date drifts past it — the 2026-08-10 pin failed at midnight on
+// 2026-08-17. Anchor T0 relative to the present instead: noon local keeps a
+// stable dateKey in BOTH legs, and it always sits inside the 7-day window.
+// Computed ONCE at module load, so the sqlite + mysql worlds share the
+// identical timestamp (the parity law is value-shape, never wall-clock).
+const __t0 = new Date();
+__t0.setHours(12, 0, 0, 0);
+if (__t0.getTime() > Date.now()) __t0.setDate(__t0.getDate() - 1); // pre-noon → yesterday's noon
+const T0 = __t0.toISOString();
 
 /** Volatile key identity leaks into byApiKey KEYS, keyName ("vela-v1-<8>…"),
  *  and apiKeyMasked (keyPrefix). Replace each world's OWN generated tokens
@@ -121,7 +131,10 @@ async function usageScenario(api) {
   const keyUsageRaw = await api.getKeyUsageStats("all");
   // Volatile keyId identity → compare sorted VALUE shapes (requests 3 vs 2).
   const keyUsage = canonSort(Object.values(round6(keyUsageRaw)));
-  const daily = round6(await api.getUsageDailySince("2026-08-01"));
+  // Since-bound tracks the dynamic T0 — a fixed date would age out of the
+  // rollup's reach the same way the seed did. ~40 days back always covers it.
+  const dailySince = new Date(__t0.getTime() - 40 * 86400000).toISOString().slice(0, 10);
+  const daily = round6(await api.getUsageDailySince(dailySince));
   const chart7d = round6(await api.getChartData("7d"));
 
   const stats = await api.getUsageStats("7d");
@@ -157,6 +170,8 @@ async function usageScenario(api) {
     seriesRollup: await api.getFilteredSeries({ period: "7d", granularity: "1d", metric: "requests", now: NOW }),
     breakdownProvider: await api.getBreakdown({ dimension: "provider", metric: "requests", period: "24h", now: NOW }),
     breakdownKeyRollup: await api.getBreakdown({ dimension: "keyId", metric: "requests", period: "7d", now: NOW }),
+    // W2-G — the W2-C stacked-series fn joins the parity world (time × dimension).
+    stackedProvider: await api.getStackedSeries({ period: "24h", dimension: "provider", granularity: "1h", metric: "requests", now: NOW }),
     percentilesExact: await api.getPercentiles({ period: "24h", now: NOW }),
     percentilesRollup: await api.getPercentiles({ period: "7d", now: NOW }),
     healthFrame: await api.getProviderHealthFrame({ windowMs: 4 * 3_600_000, now: NOW }),
@@ -194,6 +209,9 @@ async function usageScenario(api) {
   }
   normalized.agg.breakdownProvider.items = canonSort(normalized.agg.breakdownProvider.items);
   normalized.agg.breakdownKeyRollup.items = canonSort(normalized.agg.breakdownKeyRollup.items);
+  // Stacked series: canon-sort the series array (each element carries its
+  // time-ordered points, so the sort key is fully deterministic).
+  normalized.agg.stackedProvider.series = canonSort(normalized.agg.stackedProvider.series);
   normalized.agg.ledger.items = canonSort(normalized.agg.ledger.items);
   normalized.agg.ledgerNullSort.items = canonSort(normalized.agg.ledgerNullSort.items);
   return normalized;
@@ -273,6 +291,10 @@ describe.skipIf(!MYSQL_URL)("Storage Covenant A9 — usage-wave parity vs real M
     expect(agg.seriesExact.points.reduce((a, p) => a + p.value, 0)).toBe(10); // all rows in-window
     expect(agg.seriesRollup.meta.source).toBe("usageDaily");
     expect(agg.breakdownProvider.items.find((i) => i.provider === "openai").value).toBe(5);
+    // W2-G — the stacked-series parity spot-checks (24h ≤3d → exact leg)
+    expect(agg.stackedProvider.meta.source).toBe("usageHistory");
+    expect(agg.stackedProvider.series.find((s) => s.key === "openai").total).toBe(5);
+    expect(agg.stackedProvider.series.find((s) => s.key === "anthropic").total).toBe(3);
     expect(agg.percentilesExact.meta.approximate).toBe(false);
     expect(agg.percentilesExact.latency.count ?? agg.percentilesExact.meta.count).toBe(0); // no latencyMs seeded → honest empty
     expect(agg.percentilesRollup.meta.approximate).toBe(true);
