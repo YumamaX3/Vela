@@ -142,6 +142,24 @@ export const MODEL_PRICING = {
   "qwen3-next-80b-a3b-instruct":  { input: 0.50,  output: 2.00 },
   "qwen3-next-80b-a3b-thinking":  { input: 0.50,  output: 6.00 },
 
+  // === Mistral === [mistral.ai/pricing — aliases (-latest) resolve to their
+  // pinned model's retail rate; exact MODEL_PRICING keys win over the
+  // 'mistral*' glob, which carries family estimates]
+  "mistral-large-latest":         { input: 2.00,  output: 6.00 },
+  "mistral-medium-latest":        { input: 0.40,  output: 2.00 },
+  "mistral-small-latest":         { input: 0.10,  output: 0.30 },
+  "ministral-3b-latest":          { input: 0.04,  output: 0.04 },
+  "ministral-8b-latest":          { input: 0.10,  output: 0.10 },
+  "open-mistral-nemo":            { input: 0.15,  output: 0.15 },
+  "open-mistral-nemo-latest":     { input: 0.15,  output: 0.15 },
+  "open-mixtral-8x22b":           { input: 0.65,  output: 0.65 },
+  "open-mixtral-8x22b-latest":    { input: 0.65,  output: 0.65 },
+  "codestral-latest":             { input: 0.30,  output: 0.90 },
+  "codestral-2405":               { input: 0.30,  output: 0.90 },
+  "devstral-small-latest":        { input: 0.10,  output: 0.30 },
+  "magistral-medium-latest":      { input: 2.00,  output: 5.00 },
+  "magistral-small-latest":       { input: 0.50,  output: 1.50 },
+
   // === Kimi (Moonshot) === [2026-08-15 models.dev/api.json — moonshotai official]
   "kimi-k3":                      { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.00  },
   "k3":                           { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.00  },
@@ -235,6 +253,9 @@ export const MODEL_PRICING = {
   "llama-3.1-8b-instant":         { input: 0.05,  output: 0.08 },
   "gpt-oss-120b":                 { input: 0.15,  output: 0.60,  cached: 0.075, reasoning: 0.60,   cache_creation: 0.15  },
   "gpt-oss-20b":                  { input: 0.075, output: 0.30,  cached: 0.0375, reasoning: 0.30,  cache_creation: 0.075 },
+  // Ollama uses ":" separators (gpt-oss:120b) — alias to the base model's rate
+  "gpt-oss:120b":                 { input: 0.15,  output: 0.60,  cached: 0.075, reasoning: 0.60,   cache_creation: 0.15  },
+  "gpt-oss:20b":                  { input: 0.075, output: 0.30,  cached: 0.0375, reasoning: 0.30,  cache_creation: 0.075 },
 
   // === Cerebras === [2026-08-15 models.dev/api.json]
   "gemma-4-31b-it":               { input: 0.99,  output: 1.49 },
@@ -300,6 +321,25 @@ export const PROVIDER_PRICING = {
   // GitHub Copilot (gh) — explicit override, matches canonical gpt-5.3-codex rate
   gh: {
     "gpt-5.3-codex": { input: 1.75, output: 14.00, cached: 0.175, reasoning: 14.00, cache_creation: 1.75 },
+  },
+  // Qoder (qd) — subscription lane with opaque model ids. Retail-equivalent
+  // estimates [2026-08-16]: each id is a thin alias over a priced base
+  // model (per registry/qoder.js names), so every lane row carries the base
+  // model's exact retail rate. Honors the header promise at the top of this
+  // file ("retail-equivalent estimates for subscription lanes … qoder").
+  // Tier selectors (ultimate/auto/performance/efficient) stay unpriced — no
+  // honest per-token rate exists for a router's own tier picker.
+  qoder: {
+    "qmodel_38max":  { input: 2.00,  output: 6.00,  cached: 0.25,   cache_creation: 2.50 },   // → Qwen3.8-Max
+    "qmodel_preview":{ input: 2.00,  output: 6.00,  cached: 0.25,   cache_creation: 2.50 },   // → Qwen3.8-Max-Preview
+    "qmodel_latest": { input: 2.50,  output: 7.50,  cached: 0.50,   cache_creation: 3.125 },  // → Qwen3.7-Max
+    "qmodel":        { input: 0.50,  output: 3.00,  cached: 0.05,   cache_creation: 0.625 },  // → Qwen3.7-Plus
+    "kmodel_latest": { input: 3.00,  output: 15.00, cached: 0.30,   reasoning: 15.00, cache_creation: 3.00 },  // → Kimi-K3
+    "kmodel":        { input: 0.95,  output: 4.00,  cached: 0.19,   reasoning: 4.00,  cache_creation: 0.95 },  // → Kimi-K2.7-Code
+    "gm51model":     { input: 1.40,  output: 4.40,  cached: 0.26,   reasoning: 4.40 },         // → GLM-5.2
+    "dmodel":        { input: 0.435, output: 0.87,  cached: 0.003625, reasoning: 0.87, cache_creation: 0.435 }, // → DeepSeek-V4-Pro
+    "dfmodel":       { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,  cache_creation: 0.14 },   // → DeepSeek-V4-Flash
+    "mmodel":        { input: 0.30,  output: 1.20,  cached: 0.06,   reasoning: 1.20,  cache_creation: 0.30 },   // → MiniMax-M3
   },
   // TokenRouter — exact rates from https://api.tokenrouter.com/api/pricing ($1/1M tokens).
   // Ratio→USD: input = model_ratio×2, output = model_ratio×completion_ratio×2.
@@ -831,7 +871,9 @@ export function getDefaultPricing() {
  * @returns {string}
  */
 export function formatCost(cost) {
-  if (cost === null || cost === undefined || isNaN(cost)) return "$0.00";
+  if (cost === null || cost === undefined || isNaN(cost) || cost <= 0) return "$0.00";
+  // Honest about sub-cent dust — a $0.0026 request is not $0.00 [pricing shadow fix].
+  if (cost < 0.01) return "<$0.01";
   return `$${cost.toFixed(2)}`;
 }
 
