@@ -6,9 +6,11 @@
 //   3.b PROVIDER_PRICING[alias][model]    — same, via registry alias (fixes alias-keyed lanes)
 //   3.c MODEL_PRICING[model] exact        — canonical exact match
 //   3.d FREE_ALIAS_MAP[model] → sibling   — explicit entries beat inheritance; free models
-//        inherit the paid sibling's EXACT rate (never a glob), with a guarded suffix-strip
-//        fallback (':free'/'-free' → exact sibling only; FREE_DENYLIST blocks infix/router
-//        traps like goldeneye-free-auto)
+//        inherit the paid sibling's WORTH, resolved lane-override → exact → vendor-strip →
+//        family pattern (never re-entering free inheritance), with a guarded suffix-strip
+//        fallback (':free'/'-free'; FREE_DENYLIST blocks infix/router traps like
+//        goldeneye-free-auto) [2026-08-16: the Star's decree — every free model
+//        carries its non-free sibling's price]
 //   3.e MODEL_PRICING[stripVendor(model)] — vendor-prefix stripped (deepseek/deepseek-chat)
 //   3.f PATTERN_PRICING                   — glob pattern match, last resort (pre-compiled)
 //
@@ -787,6 +789,26 @@ function providerOverride(provider, model) {
 }
 
 /**
+ * Resolve a FREE sibling's worth through the full non-recursive chain:
+ * lane override → canonical exact → vendor-stripped exact → family pattern.
+ * Never re-enters free inheritance (cycle guard) and never consults
+ * UNPRICEABLE (a free marker does not unprice the paid sibling).
+ * [2026-08-16 — the Star's decree: every free model carries its non-free
+ * sibling's price, even when the sibling is only pattern-priced.]
+ */
+function resolveSiblingRate(provider, sibling) {
+  const override = providerOverride(provider, sibling);
+  if (override) return override;
+  if (has(MODEL_PRICING, sibling)) return MODEL_PRICING[sibling];
+  const base = sibling.includes("/") ? sibling.split("/").pop() : sibling;
+  if (base !== sibling && has(MODEL_PRICING, base)) return MODEL_PRICING[base];
+  for (const { regex, pricing } of COMPILED_PATTERNS) {
+    if (regex.test(sibling) || regex.test(base)) return pricing;
+  }
+  return null;
+}
+
+/**
  * Resolve pricing for a model via the seven-stratum static chain (see header).
  * Synchronous and dependency-free; the async user/sync layers wrap this in
  * src/lib/db/repos/pricingRepo.js.
@@ -811,16 +833,18 @@ export function getPricingForModel(provider, model) {
   if (has(MODEL_PRICING, model)) return MODEL_PRICING[model];
 
   // 3.d FREE inheritance — verified map first, then guarded suffix-strip.
-  // Both arms resolve the sibling through EXACT strata only (never globs).
+  // Both arms resolve the sibling's WORTH through the full non-recursive
+  // chain (lane → exact → vendor-strip → family pattern) — the Star's
+  // decree 2026-08-16: every free model carries its non-free sibling's price.
   const mappedSibling = has(FREE_ALIAS_MAP, model) ? FREE_ALIAS_MAP[model] : null;
   if (mappedSibling) {
-    const inherited = providerOverride(provider, mappedSibling) || MODEL_PRICING[mappedSibling];
+    const inherited = resolveSiblingRate(provider, mappedSibling);
     if (inherited) return inherited;
   }
   if (!has(FREE_DENYLIST, model)) {
     const stripped = stripFreeSuffix(model);
     if (stripped) {
-      const inherited = providerOverride(provider, stripped) || MODEL_PRICING[stripped];
+      const inherited = resolveSiblingRate(provider, stripped);
       if (inherited) return inherited;
     }
   }
@@ -830,10 +854,14 @@ export function getPricingForModel(provider, model) {
   if (has(MODEL_PRICING, baseModel)) return MODEL_PRICING[baseModel];
 
   // 3.d-tail: re-check FREE inheritance against the stripped base name so
-  // namespaced free ids (vendor/model-free) can inherit their bare sibling.
+  // namespaced free ids (vendor/model-free) inherit their sibling's full
+  // worth — exact first, then family pattern [2026-08-16 decree].
   if (!has(FREE_DENYLIST, baseModel)) {
     const strippedBase = stripFreeSuffix(baseModel);
-    if (strippedBase && has(MODEL_PRICING, strippedBase)) return MODEL_PRICING[strippedBase];
+    if (strippedBase) {
+      const inherited = resolveSiblingRate(provider, strippedBase);
+      if (inherited) return inherited;
+    }
   }
 
   // 3.f PATTERN_PRICING glob match (pre-compiled) — last resort
