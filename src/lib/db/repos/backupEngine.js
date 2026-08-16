@@ -193,7 +193,24 @@ export async function runBackup({ trigger = "manual" } = {}) {
       sourceMode: manifest.sourceMode,
       meta: { trigger, secretBundleFiles: manifest.secretBundle },
     });
-    return { ok: true, artifactId, file, sizeBytes: sealed.length, manifest };
+
+    // Wave C6 — the off-site leg (fail-open by law). Uploads ONLY the sealed
+    // bytes (client-side encryption already done above) to S3 when the off-site
+    // env is armed; a failure NEVER fails the local backup — it lands in the
+    // ledger as s3Offsite/failed and the local artifact stays the truth.
+    let offsite = null;
+    const { isS3Enabled, uploadArtifactToS3 } = await import("./s3Offsite.js");
+    if (isS3Enabled()) {
+      offsite = await uploadArtifactToS3({ artifactId, buffer: sealed });
+      await repo.writeLedger("s3Offsite", {
+        status: offsite.ok ? "ok" : "failed",
+        artifactId,
+        sizeBytes: sealed.length,
+        error: offsite.ok ? undefined : offsite.error,
+        meta: { trigger },
+      });
+    }
+    return { ok: true, artifactId, file, sizeBytes: sealed.length, manifest, offsite };
   } catch (err) {
     await repo.writeLedger("failed", { status: "failed", error: err?.message, meta: { trigger } });
     throw err;
