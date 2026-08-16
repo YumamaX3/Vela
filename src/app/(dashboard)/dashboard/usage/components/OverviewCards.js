@@ -4,7 +4,8 @@ import PropTypes from "prop-types";
 import Card from "@/shared/components/Card";
 
 const fmt = (n) => new Intl.NumberFormat().format(n || 0);
-const fmtCost = (n) => `$${(n || 0).toFixed(2)}`;
+// Honest about sub-cent dust — a $0.0026 request is not $0.00 [pricing shadow fix].
+const fmtCost = (n) => (!n || n <= 0 ? "$0.00" : n < 0.01 ? "<$0.01" : `$${n.toFixed(2)}`);
 
 export default function OverviewCards({ stats }) {
   return (

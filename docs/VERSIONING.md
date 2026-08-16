@@ -47,12 +47,11 @@ the dev/build scripts, re-run that script to refresh the served copy.
 
 ## 3. Seal together
 
-Version bump + changelog entry + code ride the **same commit**, through the
-workflow covenant:
+Version bump + changelog entry + code ride the **same commit**, straight on
+`main` (the Star's decree, 2026-08-14 — no feature branches):
 
 ```
-feat/fix branch from main → CHANGELOG → bump version → commit
-→ push branch → ff-merge main → push main → delete branch both places
+work on main → CHANGELOG → bump version → commit → push main
 ```
 
 Commit style: Conventional Commits (`feat(dashboard): …`), footer

@@ -25,6 +25,62 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.6.80 — The Charted Harbor & The Lifted Shadow 🗺️💰⛵
+
+> *"A ship without charts is only drifting. So every deck is drawn — the
+> hull, the keel, the rigging — in eleven tongues. And the ledger stops
+> lying: every sail's true cost is named, and eleven thousand rows of
+> silence remember what they were worth."*
+
+*Sealed 2026-08-16 · the Star's decree · Milestone Tide: big change → `0.6.70 → 0.6.80`*
+
+## 📖 Documentation — The Docs Forge
+
+- **README.md reforged** — the Vela flagship: banner + wordmark, badge row,
+  architecture diagram, Why-Vela matrix, key features (routing, resilience,
+  cost intelligence, RTK saver, Storage Covenant), three quick-start paths,
+  docs table, repo map, provenance & license
+- **`docs/` site born — 9 new charts** + hub: `README.md` (harbor map),
+  `ARCHITECTURE.md` (request lifecycle + mermaid, translator engine,
+  provider registry, executors, combos, RTK, DB layer, mirror machinery,
+  backup engine, pricing covenant, security), `DEPLOYMENT.md`,
+  `ENVIRONMENT.md` (the full env contract), `STORAGE.md`, `PROVIDERS.md`
+  (the 129-provider fleet roster), `API.md`, `TROUBLESHOOTING.md`
+- **CLAUDE.md rewritten** — the crew's papers, aligned to the current
+  architecture (SQLite layer, storage postures, Docker mysql2 closure,
+  the tests-suite-is-not-all-green truth)
+- **DOCKER.md reforged** — GHCR image, volumes, the split compose chart
+  (example/live), storage postures in Docker, Headroom sidecar, upgrades
+- **10 locale READMEs fully translated** — zh-CN, id-ID, ja-JP, vi, pt-BR,
+  es, fr, ru, th, fa_IR — structure-identical to the flagship
+- `VERSIONING.md` aligned to the main-branch decree; `.env.example`
+  re-headed Vela; every claim in every doc verified against the code
+
+## 🐛 Fixes — The Pricing Shadow ($0 est-cost)
+
+- **Root cause** — cost is frozen into `usageHistory` at WRITE time; models
+  with no pricing entry resolved `null` → $0, forever
+- **Qoder lane priced** — every opaque subscription-lane id
+  (`qmodel_38max`, `qmodel`, `dfmodel`, `mmodel`…) now carries its base
+  model's retail-equivalent rate in `PROVIDER_PRICING` (the header promised
+  qoder estimates but shipped none). Tier selectors honestly stay unpriced
+- **Mistral `-latest` aliases** — 14 exact `MODEL_PRICING` entries so
+  `mistral-large-latest` and kin resolve their pinned models' rates
+- **Ollama `:` separators** — `gpt-oss:120b` / `gpt-oss:20b` exact aliases
+- **Honest display** — `formatCost` + the Usage table / overview cards now
+  show `<$0.01` for sub-cent dust instead of a lying `$0.00`
+
+## ⚙️ Internal
+
+- `scripts/backfill-usage-cost.mjs` — one-shot, dry-run-safe ledger repair:
+  re-prices historical cost=0 rows against the current chain and rebuilds
+  affected `usageDaily` rollups (schema-adaptive; single transaction).
+  First run: **11,786 rows re-priced, $1,054.86 recovered**
+- `tests/unit/pricing-shadow.test.js` — regression pins (qoder lane, mistral
+  aliases, ollama separators, honest formatCost); 34 pricing tests green
+
+---
+
 # v0.6.70 — The Sealed Vault & The Mirror's Pulse 🗝️🪞⛵
 
 > *"A backup never restored is a hope. So the vault seals itself in
