@@ -40,6 +40,23 @@ COPY --from=builder /app/node_modules/next ./node_modules/next
 # sql.js loads dist/sql-wasm.wasm by path at runtime; tracing only follows JS imports,
 # so the last-resort DB driver would abort with ENOENT on the missing binary.
 COPY --from=builder /app/node_modules/sql.js ./node_modules/sql.js
+# mysql2 loads via a runtime dynamic import (src/lib/db/mysql/pool.js); file tracing
+# does not follow it, so the mysql/mirror postures would boot with no mysql2 present.
+# mysql2 is pure JS (no native bindings) but NOT self-contained — its 9 runtime deps
+# load only through that same untraced import, so the WHOLE closure must ride along.
+# (Closure computed at Wave C7; the Docker smoke — VELA_DB_MODE=mysql against a
+#  throwaway MariaDB — fails loud if any dep is missing. Extend this list if mysql2
+#  ever gains a dependency.)
+COPY --from=builder /app/node_modules/mysql2 ./node_modules/mysql2
+COPY --from=builder /app/node_modules/aws-ssl-profiles ./node_modules/aws-ssl-profiles
+COPY --from=builder /app/node_modules/generate-function ./node_modules/generate-function
+COPY --from=builder /app/node_modules/iconv-lite ./node_modules/iconv-lite
+COPY --from=builder /app/node_modules/is-property ./node_modules/is-property
+COPY --from=builder /app/node_modules/long ./node_modules/long
+COPY --from=builder /app/node_modules/lru.min ./node_modules/lru.min
+COPY --from=builder /app/node_modules/named-placeholders ./node_modules/named-placeholders
+COPY --from=builder /app/node_modules/safer-buffer ./node_modules/safer-buffer
+COPY --from=builder /app/node_modules/sql-escaper ./node_modules/sql-escaper
 
 RUN mkdir -p /app/data && chown -R node:node /app && \
   mkdir -p /app/data-home && chown node:node /app/data-home && \
