@@ -25,6 +25,70 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.7.40 — The Observatory W2-G: Cockpit Seal 🔭🪞
+
+> *"The Cockpit wave closes. Every sealed-plan obligation is proven green
+> and sealed into the ship's log — the phase13 security tests stand guard
+> (redaction inheritance joins the CSV-padding and concurrent-export tests),
+> the EXEMPT_PENDING parity debt is paid for all eight aggregation functions,
+> and the visual verification protocol sailed four breakpoints, keyboard
+> navigation, a non-en locale, and an honest RTL finding. The Cockpit is
+> complete; W3 Governance waits on the horizon."*
+
+*Sealed 2026-08-17 · Usage Observatory W2-G — the Cockpit seal · Big change
+(full wave sealed — last number rounds up to the next milestone of ten)
+→ `0.7.31 → 0.7.40`*
+
+## ✨ Features — W2-G Verification & Seal
+
+- **Drawer redaction-inheritance test** (`usage-redaction-w2g.test.js`) —
+  pins the phase13 redaction law: the four payload keys stored by
+  `/api/usage/request-details` (`request`, `providerRequest`,
+  `providerResponse`, `response`) always return `{redacted:true}`; seeded
+  secrets never surface anywhere in the response body, while surrounding
+  metadata (model, provider, status, tokens, latency) survives intact. The
+  CSV `=,+,-,@`-padding and concurrent-export rejection tests shipped in
+  W2-B (`usage-metrics-api-w2b.test.js`); all three phase13 obligations
+  green (17 tests).
+- **Parity debt paid** — the eight Observatory aggregation functions
+  (`getFilteredSeries`, `getBreakdown`, `getStackedSeries`,
+  `getPercentiles`, `getProviderHealthFrame`, `getKpis`, `getLedgerRows`,
+  `getExportCursor`) move from `EXEMPT_PROCESS` to `PARITY_REGISTRY`.
+  `parity-usage.test.js` exercises them across both twins (stacked-series
+  spot-checks grafted into the scenario); the census pin keeps the exempt
+  ledger clean.
+- **T0 anchor repaired** — the parity suite's fixed seed date (2026-08-10)
+  aged out of the rolling 7-day windows; T0 now anchors to noon local
+  relative to the run date, computed once at module load so both twins
+  share an identical timestamp (the parity law is value-shape, never
+  wall-clock).
+
+## 📖 Verification Evidence
+
+- **Visual protocol sailed** — 4 breakpoints (1440 / 1024 / 768 / 320),
+  keyboard navigation (ArrowUp/ArrowDown traverse ledger rows, Enter opens
+  the drawer, Escape closes it), non-en locale (`id` renders Indonesian
+  shell strings), and RTL recorded. All evidence lives in
+  `plans/mirror-usage-observatory/verification/` (REPORT.md + 21
+  screenshots + the `cdp.mjs` harness).
+- **RTL honesty finding** — no RTL layout mirroring exists anywhere in
+  `src/`: an RTL locale (`ar`) renders Arabic glyphs but the layout stays
+  LTR. Pre-existing app-wide debt, not introduced by W2 — banked for a
+  future wave.
+- **i18n budget held at 40/40** — 34 locales, 4 anchor question-strings
+  seeded across all locales as English placeholders (recorded translation
+  debt, acceptable per the sealed plan); novel strings fall back to
+  English via `t()`.
+
+## ⚙️ Internal
+
+- Golden snapshots regenerated at v0.7.40 (the version rides in
+  `buildHeaders` — User-Agent, X-CLIENT-VERSION, X-CORE-VERSION).
+- W2-G carries zero `src/` changes — pure verification, tests, and debt
+  payment. The sealed Cockpit UI is exactly what W2-F shipped.
+
+---
+
 # v0.7.31 — The Observatory W2-F: Per-Key Usage Bars 🔭⚖️
 
 > *"The Accounts & Limits deck now shows who is calling and how much — a bar
