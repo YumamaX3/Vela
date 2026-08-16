@@ -172,6 +172,16 @@ export const USAGE_OBSERVATORY_STRINGS = [
   "Duplicate provider/model rows may undercount totals slightly",
   "Health panels arrive with the next tide",
   "Latency, error mix, cache share and savings — collecting since the telemetry upgrade.",
+  // W2-C Overview deck rows (budget: 33 → 40, the hard cap). KPI metric labels
+  // form the ONE shared set W2-D Analytics reuses; Row E + Status mix own their
+  // titles. Row C/D chart titles compose from these metric labels, never bespoke.
+  "Est. Cost",
+  "Input Tokens",
+  "Output Tokens",
+  "Cached Tokens",
+  "RTK Savings",
+  "Top Spenders",
+  "Status mix",
 ];
 
 export function listLocaleFiles() {

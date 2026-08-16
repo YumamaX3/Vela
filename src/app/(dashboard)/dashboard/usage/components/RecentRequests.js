@@ -3,7 +3,9 @@
 // Extracted verbatim from src/shared/components/UsageStats.js: the live
 // feed rail beside the provider topology. Shows the most recent completed
 // requests with a per-row ticking "time ago" cell. Zero behavior change —
-// same markup, same classes, same TimeAgo cadence.
+// same markup, same classes, same TimeAgo cadence. (The W2-C pause-on-hover
+// lives in the deck's LiveRow — it freezes which array this rail renders,
+// so this component stays exactly as extracted.)
 "use client";
 
 import { useState, useEffect } from "react";

@@ -59,6 +59,10 @@ export function useUsageStream(period) {
             recentRequests: data.recentRequests,
             errorProvider: data.errorProvider,
             pending: data.pending,
+            // W2-C: the ≤30s memoized per-provider health frame (W1-D) funds
+            // the topology halos. Additive merge — old consumers (UsageStats)
+            // ignore fields they don't read.
+            perProvider: data.perProvider,
           };
         });
         if (hasLoadedStats.current) setLoading(false);

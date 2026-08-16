@@ -105,12 +105,13 @@ const SECURITY_WAVE_NAMES = new Set([
 ]);
 
 /** The A9 usage-wave surface — the full usageRepo contract. W1-C adds the
- *  Usage Observatory's 7-function aggregation layer (sealed plan item 4). */
+ *  Usage Observatory's 7-function aggregation layer (sealed plan item 4);
+ *  W2-C adds getStackedSeries (time×dimension, top-N + Other). */
 const USAGE_WAVE_NAMES = new Set([
   "trackPendingRequest", "getActiveRequests", "saveRequestUsage", "getUsageHistory",
   "getUsageStats", "getKeyUsageStats", "touchKeyLastUsed", "getUsageDailySince",
   "getChartData", "appendRequestLog", "getRecentLogs",
-  "getFilteredSeries", "getBreakdown", "getPercentiles", "getProviderHealthFrame",
+  "getFilteredSeries", "getBreakdown", "getStackedSeries", "getPercentiles", "getProviderHealthFrame",
   "getKpis", "getLedgerRows", "getExportCursor",
   "getPerProviderFrame", // W1-D: the memoized SSE health frame
 ]);
