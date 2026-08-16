@@ -28,9 +28,9 @@ name: vela
 # 🗝️ Storage postures (Storage Covenant, v0.6.70+):
 #    VELA_DB_MODE selects the harbor — sqlite (default), mysql (MariaDB IS
 #    the harbor), or mirror (sqlite PRIMARY serves; writes pump to a MariaDB
-#    twin). The twin credential rides an UNTRACKED .env next to the chart
-#    (never committed):  VELA_MYSQL_URL=mysql://user:pass@host:3306/db
-#    Without it, `compose up` refuses LOUD under mirror/mysql.
+#    twin). Everything rides INLINE in the chart — no .env indirection.
+#    Keep your filled-in chart OUT of git (gitignore docker-compose.yml, or
+#    manage it off-repo), since it will then carry real credentials.
 #
 # 🛟 Backups: the sealed backup engine (AES-256-GCM) is opt-in below.
 #    VELA_BACKUP_ENCRYPTION_KEY loss = permanently unrecoverable backups —
@@ -82,10 +82,9 @@ services:
       # mirror  — sqlite PRIMARY serves; writes pump to a MariaDB twin.
       # mysql   — MariaDB IS the harbor.
       # A down twin degrades mirror/mysql — never silently downgrades.
-      # For mirror/mysql: create an untracked `.env` next to this chart:
-      #   VELA_MYSQL_URL=mysql://vela:<password>@<host>:3306/vela
+      # For mirror/mysql set the twin URL INLINE below (no .env):
       # VELA_DB_MODE: "sqlite"
-      # VELA_MYSQL_URL: "${VELA_MYSQL_URL:?set VELA_MYSQL_URL in the chart .env}"
+      # VELA_MYSQL_URL: "mysql://vela:set-me@host:3306/vela"
       #
       # Sealed backups — the engine REFUSES to run without the key.
       # Artifacts land in <data>/backups.
