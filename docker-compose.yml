@@ -15,6 +15,7 @@ name: tethys-vela
 # a new version, bump the pinned tag below and `docker compose pull`.
 #
 #   ⛵ vela-gateway   — the gateway + dashboard (Next.js standalone)
+#   🪞 vela-twin      — the MariaDB twin (opt-in, for mysql|mirror postures)
 #   💨 vela-headroom  — the shared breath: request compression, internal-only
 #
 # 🔑 Secrets are inline and ALREADY SET (the Shores' convention — see
@@ -39,12 +40,19 @@ name: tethys-vela
 
 services:
   # ═══════════════════════════════════════════════════════════════
-  # ⛵ vela v0.6.50 — The Sail of the Ship
+  # ⛵ vela v0.6.70 — The Sail of the Ship
   # ═══════════════════════════════════════════════════════════════
   #
   # The gateway + dashboard in one container. Next.js standalone
   # server (custom-server.js) with the SQLite soul at /app/data —
   # bind-mounted to the SSD so nothing is lost between tides.
+  #
+  # v0.6.70 carries the full Storage Covenant: three storage postures
+  # (sqlite|mysql|mirror via VELA_DB_MODE), the sealed backup engine
+  # (AES-256-GCM artifacts + scheduler + restore drill), the mirror's
+  # pulse (outbox→pump→divergence sweep→usage-resync), and S3 off-site
+  # (SigV4, opt-in). Every one of those knobs is OPT-IN below — the
+  # chart still boots the default sqlite posture as-is.
   #
   # The entrypoint chowns the data dir then drops root → node via
   # su-exec, so do NOT cap_drop here — that drop IS the privilege
@@ -54,8 +62,12 @@ services:
   # Healthcheck probes /api/health — public allow-list, no auth.
   #
   vela-gateway:
-    # v0.6.50 — cut & built 2026-08-15 · private GHCR (login first)
-    image: ghcr.io/yumamax3/vela:0.6.50
+    # v0.6.70 — cut & built 2026-08-16 · private GHCR (login first)
+    # Carries the FULL Storage Covenant: twin harbors (sqlite|mysql|mirror),
+    # the sealed backup engine (AES-256-GCM artifacts + scheduler + restore
+    # + drill), the mirror's pulse (outbox→pump→sweep→usage-resync), S3
+    # off-site (SigV4, opt-in), and mysql2's full runtime closure.
+    image: ghcr.io/yumamax3/vela:0.6.70
     container_name: vela-gateway
     hostname: vela-gateway
     restart: unless-stopped
@@ -90,6 +102,34 @@ services:
       INITIAL_PASSWORD: "cf227f624f2a21475774"
       API_KEY_SECRET: "f87359fb10e9a134dbddaf5691292aa98def18e48fb5799c"
       MACHINE_ID_SALT: "721d5042e7d681a37b9770e021279c6a"
+      # ── 🗝️ Storage Covenant (v0.6.70) — ALL opt-in, default dark ───
+      # VELA_DB_MODE selects the posture: sqlite (default — the ship as
+      # it sails today), mysql (MariaDB IS the harbor), or mirror (sqlite
+      # PRIMARY serves; the outbox pump carries writes to the twin — see
+      # the vela-twin service below). A down twin degrades the mirror;
+      # the mode never silently downgrades.
+      # VELA_DB_MODE: "sqlite"
+      # VELA_MYSQL_URL: "mysql://vela:<password>@vela-twin:3306/vela"
+      #
+      # Sealed backups (Wave B) — the engine REFUSES to run without the
+      # key. Its LOSS = permanently unrecoverable backups; store a copy
+      # offline with the same care as the DB itself. Artifacts land in
+      # /app/data/backups (inside the SSD mount).
+      # VELA_BACKUP_ENABLED: "false"
+      # VELA_BACKUP_ENCRYPTION_KEY: ""
+      # VELA_BACKUP_INTERVAL_HOURS: "24"
+      # VELA_BACKUP_RETAIN_DAILY: "7"
+      # VELA_BACKUP_RETAIN_WEEKLY: "4"
+      # VELA_BACKUP_INCLUDE_REQUEST_DETAILS: "false"
+      #
+      # S3 off-site (Wave C6) — SEALED bytes only, fail-open (the local
+      # artifact stays the truth), MinIO path-style, credentials env-only.
+      # VELA_BACKUP_S3_ENABLED: "false"
+      # VELA_BACKUP_S3_ENDPOINT: ""
+      # VELA_BACKUP_S3_BUCKET: "vela-backups"
+      # VELA_BACKUP_S3_ACCESS_KEY: ""
+      # VELA_BACKUP_S3_SECRET_KEY: ""
+      # VELA_BACKUP_S3_REGION: "us-east-1"
 
     depends_on:
       vela-headroom:
@@ -124,6 +164,60 @@ services:
 
     labels:
       - "com.tethys.stack=vela"
+
+  # ═══════════════════════════════════════════════════════════════
+  # 🪞 vela-twin — The Mirror's Other Shore (opt-in, v0.6.70)
+  # ═══════════════════════════════════════════════════════════════
+  #
+  # The MariaDB twin for VELA_DB_MODE=mysql|mirror. COMMENTED OUT by
+  # default — the harbor sails sqlite as-is. To wake the mirror:
+  #   1. Uncomment this service (and set the password below),
+  #   2. Set VELA_DB_MODE: "mirror" + VELA_MYSQL_URL on vela-gateway,
+  #   3. `docker compose up -d` — the mirror pumps writes to the twin;
+  #      a down twin degrades the mirror, never the primary.
+  #
+  # Internal-only by design (no host port — same stance as headroom).
+  # The gateway reaches it over the stack network as `vela-twin`.
+  #
+  # vela-twin:
+  #   image: mariadb:11
+  #   container_name: vela-twin
+  #   hostname: vela-twin
+  #   restart: unless-stopped
+  #
+  #   environment:
+  #     MARIADB_DATABASE: vela
+  #     MARIADB_USER: vela
+  #     MARIADB_PASSWORD: "set-me-and-match-VELA_MYSQL_URL"
+  #     MARIADB_ROOT_PASSWORD: "set-me-root"
+  #     TZ: Asia/Jakarta
+  #
+  #   volumes:
+  #     - /media/SSD-Storage/AppData/vela-twin:/var/lib/mysql
+  #
+  #   healthcheck:
+  #     test: ["CMD", "healthcheck.sh"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 30s
+  #
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: "1"
+  #         memory: 1G
+  #       reservations:
+  #         memory: 256M
+  #
+  #   security_opt:
+  #     - no-new-privileges:true
+  #
+  #   networks:
+  #     - tethys-vela
+  #
+  #   labels:
+  #     - "com.tethys.stack=vela"
 
   # ═══════════════════════════════════════════════════════════════
   # 💨 vela-headroom — The Breath of the Sail
