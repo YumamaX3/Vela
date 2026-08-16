@@ -7,6 +7,6 @@ export {
   getProviderHealthFrame, // Usage Observatory W1-D — raw health scanner
   getPerProviderFrame,    // W1-D — the ≤30s memoized frame the SSE route imports
   // Usage Observatory W2-B — the Metrics REST API layer
-  getFilteredSeries, getBreakdown, getPercentiles,
+  getFilteredSeries, getBreakdown, getStackedSeries, getPercentiles,
   getKpis, getLedgerRows, getExportCursor,
 } from "@/lib/db/index.js";

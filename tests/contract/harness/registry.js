@@ -77,13 +77,25 @@ export const EXEMPT_PROCESS = {
   runRestoreDrill: "scratch-DB drill — deliberately never touches the parity DB",
   pruneBackupArtifacts: "artifact-file pruning by mtime — no DB data",
   purgeOldUsage: "wall-clock windowed purge — fixed-date parity lands Wave B4",
+  getPerProviderFrame: "≤30s server-global memo over getProviderHealthFrame — process state, not data",
 };
 
-/** Parity coverage scheduled in a later Wave A commit — PAID IN FULL at A10.
- *  Every entry migrated into PARITY_REGISTRY with its paying-wave annotation.
- *  The object stays (empty) so the census's three-way classification keeps
- *  its shape; any new pending debt must land here, named with its wave. */
-export const EXEMPT_PENDING = {};
+/** Parity coverage scheduled — the Observatory's aggregation layer (W1-C +
+ *  W2-C). Engine-neutral by construction (ONE shared impl, both twins call
+ *  the same machinery with dialect fragments only in kpisImpl), so divergence
+ *  risk concentrates in the JSON dialect fragments. The parity leg lands with
+ *  the Observatory's W2-G seal; named here so the census keeps the debt
+ *  visible until it is paid. */
+export const EXEMPT_PENDING = {
+  getFilteredSeries: "Observatory W1-C aggregation — parity leg scheduled W2-G",
+  getBreakdown: "Observatory W1-C aggregation — parity leg scheduled W2-G",
+  getStackedSeries: "Observatory W2-C aggregation — parity leg scheduled W2-G",
+  getPercentiles: "Observatory W1-C aggregation — parity leg scheduled W2-G",
+  getProviderHealthFrame: "Observatory W1-C aggregation — parity leg scheduled W2-G",
+  getKpis: "Observatory W1-C aggregation (dialect fragments) — parity leg scheduled W2-G",
+  getLedgerRows: "Observatory W1-C aggregation — parity leg scheduled W2-G",
+  getExportCursor: "Observatory W1-C aggregation — parity leg scheduled W2-G",
+};
 
 /** The full set of classified symbols — the census compares the barrel to this. */
 export function allClassified() {

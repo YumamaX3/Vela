@@ -78,6 +78,7 @@ export {
   // stops at the facade is a build-time break waiting to surface).
   getFilteredSeries,
   getBreakdown,
+  getStackedSeries, // W2-C — time × dimension, top-N + Other
   getPercentiles,
   getKpis,
   getLedgerRows,

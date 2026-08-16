@@ -32,16 +32,31 @@ function getProviderImageUrl(providerId) {
 
 // Custom provider node - rectangle with image + name
 function ProviderNode({ data }) {
-  const { label, color, imageUrl, textIcon, active } = data;
+  const { label, color, imageUrl, textIcon, active, haloRate = 0, onClick } = data;
   const [imgError, setImgError] = useState(false);
+
+  // W2-C: the error halo is the S1 channel — a red glow whose intensity
+  // encodes the provider's rolling error rate (perProvider ≤30s frame). A
+  // healthy provider carries no halo; the glow deepens with the rate.
+  const haloStyle = active
+    ? `0 0 16px ${color}40`
+    : haloRate > 0
+      ? `0 0 ${8 + haloRate * 18}px ${2 + haloRate * 6}px rgba(239, 68, 68, ${0.25 + haloRate * 0.55})`
+      : "none";
+  const haloBorder = !active && haloRate > 0 ? `rgba(239, 68, 68, ${0.4 + haloRate * 0.6})` : "var(--color-border)";
+
   return (
     <div
-      className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg border-2 transition-all duration-300 bg-bg"
+      className={`flex items-center gap-2.5 px-4 py-2.5 rounded-lg border-2 transition-all duration-300 bg-bg ${onClick ? "cursor-pointer hover:brightness-110" : ""}`}
       style={{
-        borderColor: active ? color : "var(--color-border)",
-        boxShadow: active ? `0 0 16px ${color}40` : "none",
+        borderColor: active ? color : haloBorder,
+        boxShadow: haloStyle,
         minWidth: "150px",
       }}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
     >
       <Handle type="target" position={Position.Top} id="top" className="!bg-transparent !border-0 !w-0 !h-0" />
       <Handle type="target" position={Position.Bottom} id="bottom" className="!bg-transparent !border-0 !w-0 !h-0" />
@@ -260,7 +275,9 @@ const nodeTypes = { provider: ProviderNode, router: RouterNode };
 const edgeTypes = { topology: TopologyEdge };
 
 // Place N nodes evenly along an ellipse around the router center.
-function buildLayout(providers, activeSet, lastSet, errorSet) {
+// W2-C: `haloMap` (provider → 0..1 error rate) and `onProviderClick`
+// (click-to-filter) are the Observatory graft — both optional, both additive.
+function buildLayout(providers, activeSet, lastSet, errorSet, haloMap = {}, onProviderClick = null) {
   const nodeW = 180;
   const nodeH = 30;
   const routerW = 120;
@@ -304,12 +321,15 @@ function buildLayout(providers, activeSet, lastSet, errorSet) {
     const last = !active && lastSet.has(p.provider?.toLowerCase());
     const error = !active && errorSet.has(p.provider?.toLowerCase());
     const nodeId = `provider-${p.provider}`;
+    const haloRate = Math.max(0, Math.min(1, haloMap[p.provider?.toLowerCase()] || 0));
     const data = {
       label: (config.name !== p.provider ? config.name : null) || p.nodeName || p.name || p.provider,
       color: config.color || "#6b7280",
       imageUrl: getProviderImageUrl(p.provider),
       textIcon: config.textIcon || (p.provider || "?").slice(0, 2).toUpperCase(),
       active,
+      haloRate,
+      onClick: onProviderClick ? () => onProviderClick(p.provider) : undefined,
     };
 
     // Distribute evenly starting from top (−π/2), clockwise
@@ -354,7 +374,7 @@ function buildLayout(providers, activeSet, lastSet, errorSet) {
   return { nodes, edges };
 }
 
-export default function ProviderTopology({ providers = [], activeRequests = [], lastProvider = "", errorProvider = "" }) {
+export default function ProviderTopology({ providers = [], activeRequests = [], lastProvider = "", errorProvider = "", perProvider = {}, onProviderClick = null }) {
   // Serialize to stable string keys so useMemo only re-runs when values actually change
   const activeKey = useMemo(
     () => activeRequests.map((r) => r.provider?.toLowerCase()).filter(Boolean).sort().join(","),
@@ -366,6 +386,31 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
   const rawActiveSet = useMemo(() => new Set(activeKey ? activeKey.split(",") : []), [activeKey]);
   const lastSet = useMemo(() => new Set(lastKey ? [lastKey] : []), [lastKey]);
   const errorSet = useMemo(() => new Set(errorKey ? [errorKey] : []), [errorKey]);
+
+  // W2-C: the perProvider ≤30s frame (errors/requests per provider) becomes
+  // the halo map — provider (lowercased, matching buildLayout's lookup) →
+  // error rate 0..1. Serialized like the active set so the layout memo only
+  // re-runs when a rate actually shifts.
+  const haloKey = useMemo(
+    () =>
+      Object.entries(perProvider || {})
+        .map(([name, f]) => {
+          const req = f?.requests || 0;
+          const rate = req > 0 ? (f?.errors || 0) / req : 0;
+          return `${name.toLowerCase()}:${rate.toFixed(2)}`;
+        })
+        .sort()
+        .join(","),
+    [perProvider]
+  );
+  const haloMap = useMemo(() => {
+    const m = {};
+    for (const part of haloKey ? haloKey.split(",") : []) {
+      const idx = part.lastIndexOf(":");
+      if (idx > 0) m[part.slice(0, idx)] = Number(part.slice(idx + 1)) || 0;
+    }
+    return m;
+  }, [haloKey]);
 
   // Track firstSeen per active provider; drop provider if running too long (BE stuck)
   const firstSeenRef = useRef({});
@@ -399,8 +444,8 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
   }, [rawActiveSet, tick]);
 
   const { nodes, edges } = useMemo(
-    () => buildLayout(providers, activeSet, lastSet, errorSet),
-    [providers, activeSet, lastSet, errorSet]
+    () => buildLayout(providers, activeSet, lastSet, errorSet, haloMap, onProviderClick),
+    [providers, activeSet, lastSet, errorSet, haloMap, onProviderClick]
   );
 
   // Stable key — only remount when provider list changes
@@ -484,4 +529,7 @@ ProviderTopology.propTypes = {
   })),
   lastProvider: PropTypes.string,
   errorProvider: PropTypes.string,
+  // W2-C Observatory graft
+  perProvider: PropTypes.object,
+  onProviderClick: PropTypes.func,
 };

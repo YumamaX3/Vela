@@ -25,6 +25,7 @@ export const getRecentLogs = bound.getRecentLogs;
 // always `await` first, then `for await` — one contract, both harbors.
 export const getFilteredSeries = bound.getFilteredSeries;
 export const getBreakdown = bound.getBreakdown;
+export const getStackedSeries = bound.getStackedSeries; // W2-C — time × dimension
 export const getPercentiles = bound.getPercentiles;
 export const getProviderHealthFrame = bound.getProviderHealthFrame;
 export const getKpis = bound.getKpis;
