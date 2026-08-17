@@ -34,7 +34,6 @@ import {
   QODER_CHAT_URL_ENCODED,
   QODER_CHAT_BASE_ALT,
   QODER_CHAT_SIG_PATH,
-  QODER_MODEL_MAP,
 } from "../shared/qoder/constants.js";
 import { getQoderModelConfig, resolveQoderModels, isQoderPat, resolveQoderCredentials } from "../services/qoderModels.js";
 
@@ -217,13 +216,109 @@ async function buildQoderRequestBody({ model, body, credentials, log, proxyOptio
 
 /**
  * Check if a qoder error message indicates a billing/quota block.
- * Signatures: code 112 (quota exhausted), code 10605 (queue throttle), pricingUrl field.
+ * Signatures: code 112 (quota exhausted), pricingUrl field.
+ * NOTE: code 10605 is NOT a billing signal — it is the queue admission
+ * ticket handled by parseQueueAdmission (wait + retry in place).
  */
 function isBillingBlock(inner) {
   if (!inner || typeof inner !== "string") return false;
   const lowerMsg = inner.toLowerCase();
-  // Match: {"code":"112",...}, {"code":"10605",...}, or pricingUrl field
-  return /\"code\"\s*:\s*\"(112|10605)\"/.test(inner) || lowerMsg.includes("pricingurl");
+  // Match: {"code":"112",...} or pricingUrl field
+  return /\"code\"\s*:\s*\"112\"/.test(inner) || lowerMsg.includes("pricingurl");
+}
+
+// ── Queue gate (code 10605) ────────────────────────────────────────────────
+// A saturated qoder lane answers 200 + a first SSE frame whose statusCodeValue
+// is 403 and whose body carries the admission ticket, double-encoded through
+// three JSON levels: {"code":"10605","message":"{\"isQueued\":true,
+// \"modelKey\":\"qmodel_38max\",\"queueCount\":7722,\"queueType\":\"slow\",
+// \"retryAfterSeconds\":30,...}"}. The frames we actually observed stop at
+// level 2 — extract the queue fields by regex so no nesting depth matters.
+// The upstream's own instruction rides inside: wait retryAfterSeconds, retry.
+
+const QODER_QUEUE_MAX_ATTEMPTS = 10;
+const QODER_QUEUE_MAX_WAIT_S = 30;
+
+/**
+ * Parse a qoder "10605" queue-admission body (any nesting depth) into its
+ * queue fields. Returns { retryAfterSeconds, isQueued, queueCount, queueType,
+ * modelKey }, or null when the body carries no admission ticket.
+ *
+ * Nested levels keep their escape backslashes in the outer string
+ * (`\"isQueued\":true` after one parse, `\\\"…` after two…), so every
+ * field pattern tolerates any number of leading backslashes per quote.
+ */
+function parseQueueAdmission(inner) {
+  if (!inner || typeof inner !== "string") return null;
+  if (!new RegExp('\\\\*"code\\\\*"\\s*:\\s*\\\\*"10605\\\\*"').test(inner)) return null;
+  const num = (name) => {
+    const m = inner.match(new RegExp(`\\\\*"${name}\\\\*"\\s*:\\s*(\\d+(?:\\.\\d+)?)`));
+    return m && Number.isFinite(Number(m[1])) ? Number(m[1]) : null;
+  };
+  const str = (name) => {
+    const m = inner.match(new RegExp(`\\\\*"${name}\\\\*"\\s*:\\s*\\\\*"([^"\\\\]*)\\\\*"`));
+    return m ? m[1] : null;
+  };
+  const bool = (name) => new RegExp(`\\\\*"${name}\\\\*"\\s*:\\s*true`).test(inner);
+  return {
+    retryAfterSeconds: num("retryAfterSeconds"),
+    isQueued: bool("isQueued"),
+    queueCount: num("queueCount"),
+    queueType: str("queueType"),
+    modelKey: str("modelKey"),
+  };
+}
+
+/**
+ * How long to wait before re-issuing a queued request: honor the server's
+ * retryAfterSeconds (capped — a wedged upstream must not hang the gateway),
+ * else exponential backoff by attempt.
+ */
+function queueWaitMs(admission, attempt) {
+  const s = admission?.retryAfterSeconds;
+  if (s != null && Number.isFinite(s) && s > 0) {
+    return Math.min(s, QODER_QUEUE_MAX_WAIT_S) * 1000;
+  }
+  return Math.min(2000 * 2 ** Math.max(0, attempt - 1), 10000);
+}
+
+/**
+ * Read the upstream SSE stream until its terminal frame (or a hard 8-minute
+ * cap — the queue gate must never hold a request open forever). Returns the
+ * last frame parsed as { statusCodeValue, body } — qoder ends streams with a
+ * terminal status frame (billing blocks arrive exactly this way), never with
+ * a [DONE] alone, so null means "no terminal frame arrived".
+ */
+async function drainToTerminalFrame(reader, decoder) {
+  let buffer = "";
+  let lastFrame = null;
+  const started = Date.now();
+  while (Date.now() - started < 8 * 60 * 1000) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let nl;
+    while ((nl = buffer.indexOf("\n")) !== -1) {
+      const line = buffer.slice(0, nl).replace(/\r$/, "").trim();
+      buffer = buffer.slice(nl + 1);
+      if (!line.startsWith("data:")) continue;
+      const data = line.slice(5).trimStart();
+      if (data === "[DONE]") continue;
+      try { lastFrame = JSON.parse(data); } catch { /* not a frame — keep draining */ }
+    }
+  }
+  await reader.cancel().catch(() => {});
+  return lastFrame;
+}
+
+function describeQueueAdmission(a, attempt) {
+  const parts = [];
+  if (a?.modelKey) parts.push(`model=${a.modelKey}`);
+  if (a?.queueType) parts.push(`lane=${a.queueType}`);
+  if (typeof a?.queueCount === "number") parts.push(`queue=${a.queueCount}`);
+  if (typeof a?.retryAfterSeconds === "number") parts.push(`retryAfter=${a.retryAfterSeconds}s`);
+  parts.push(`waited through ${attempt} ${attempt === 1 ? "attempt" : "attempts"}`);
+  return `qoder queue gate open — admission denied after the queue ${parts.join(", ")}`;
 }
 
 /**
@@ -236,7 +331,7 @@ async function peekFirstQoderFrame(reader, decoder) {
   let consumed = "";
   while (true) {
     const { done, value } = await reader.read();
-    if (done) return { isBilling: false, consumed, upstreamDone: true };
+    if (done) return { isBilling: false, isQueue: false, consumed, upstreamDone: true };
 
     consumed += decoder.decode(value, { stream: true });
     const nl = consumed.indexOf("\n");
@@ -246,18 +341,22 @@ async function peekFirstQoderFrame(reader, decoder) {
     if (!line.startsWith("data:")) continue;
 
     const data = line.slice(5).trimStart();
-    if (data === "[DONE]") return { isBilling: false, consumed };
+    if (data === "[DONE]") return { isBilling: false, isQueue: false, consumed };
 
     let envelope;
-    try { envelope = JSON.parse(data); } catch { return { isBilling: false, consumed }; }
+    try { envelope = JSON.parse(data); } catch { return { isBilling: false, isQueue: false, consumed }; }
 
     const statusVal = typeof envelope.statusCodeValue === "number" ? envelope.statusCodeValue : 200;
     const inner = typeof envelope.body === "string" ? envelope.body : "";
 
-    if (statusVal !== 200 && isBillingBlock(inner)) {
-      return { isBilling: true, statusVal, message: inner || `qoder billing block (${statusVal})` };
+    if (statusVal !== 200) {
+      const admission = parseQueueAdmission(inner);
+      if (admission) return { isQueue: true, isBilling: false, admission, consumed };
+      if (isBillingBlock(inner)) {
+        return { isBilling: true, isQueue: false, statusVal, message: inner || `qoder billing block (${statusVal})` };
+      }
     }
-    return { isBilling: false, consumed };
+    return { isBilling: false, isQueue: false, consumed };
   }
 }
 
@@ -276,9 +375,11 @@ async function peekFirstQoderFrame(reader, decoder) {
  * response.text() which hangs until the socket closes — so on terminal
  * events we cancel the upstream reader and close our stream immediately.
  *
- * NEW: Peek first frame to detect billing blocks (code 112/10605/pricingUrl).
- * If detected, return 403 response so chatCore marks connection unavailable
- * and triggers combo fallback instead of leaking error text into chat.
+ * NEW: Peek first frame to detect billing blocks (code 112/pricingUrl) and
+ * queue admissions (code 10605). Billing → 403 so chatCore marks the
+ * connection unavailable and triggers combo fallback. Queue → { queue: true }
+ * marker for the queue gate in execute(): wait retryAfterSeconds, re-issue
+ * the whole request in place, until the lane admits us or attempts exhaust.
  */
 async function wrapQoderSSE(response, model) {
   if (!response.ok || !response.body) return response;
@@ -286,8 +387,16 @@ async function wrapQoderSSE(response, model) {
   const decoder = new TextDecoder();
   const reader = response.body.getReader();
 
-  // Peek first frame to detect billing block
+  // Peek first frame to detect billing block or queue admission
   const peek = await peekFirstQoderFrame(reader, decoder);
+  if (peek?.isQueue) {
+    // Queue admission — NOT an error. Signal the gate; execute() waits and
+    // re-issues the request with the identical signed body.
+    await reader.cancel().catch(() => {});
+    const r = new Response(null, { status: 200 });
+    r.queue = { admission: peek.admission };
+    return r;
+  }
   if (peek?.isBilling) {
     // Billing block detected — return 403 so chatCore fails this connection
     await reader.cancel().catch(() => {});
@@ -496,6 +605,8 @@ export class QoderExecutor extends BaseExecutor {
       return { response: fakeResp, url, headers: {}, transformedBody: body };
     }
 
+    // Signed body: computed ONCE. The queue gate retries re-issue this exact
+    // payload — stable session/record ids make the retry idempotent upstream.
     const plainBody = Buffer.from(JSON.stringify(payload), "utf8");
     const encodedBodyStr = qoderEncodeBody(plainBody);
     const encodedBodyBuf = Buffer.from(encodedBodyStr, "latin1");
@@ -535,30 +646,93 @@ export class QoderExecutor extends BaseExecutor {
       ...cosyHeaders,
     };
 
-    // Abort if upstream doesn't return response headers within connect timeout.
     const timeoutMs = this.config?.timeoutMs || FETCH_CONNECT_TIMEOUT_MS;
-    const connectCtrl = new AbortController();
-    const connectTimer = setTimeout(() => connectCtrl.abort(new Error("fetch connect timeout")), timeoutMs);
-    const mergedSignal = signal ? AbortSignal.any([signal, connectCtrl.signal]) : connectCtrl.signal;
 
-    let response;
+    // ── Queue gate ─────────────────────────────────────────────────────────
+    // A saturated lane answers the first SSE frame with code 10605 — an
+    // admission ticket carrying retryAfterSeconds. Wait (capped), re-issue
+    // the identical signed request, up to QODER_QUEUE_MAX_ATTEMPTS. Exhausted
+    // → honest 429 for combo fallback. NOT 403: chatCore's 401/403 path
+    // would churn token refreshes over a queue, not an auth failure.
+    let lastAdmission = null;
+    for (let attempt = 1; attempt <= QODER_QUEUE_MAX_ATTEMPTS; attempt++) {
+      if (signal?.aborted) {
+        return {
+          response: new Response(
+            JSON.stringify({ error: { message: "qoder queue wait aborted" } }),
+            { status: 499, headers: { "Content-Type": "application/json" } },
+          ),
+          url, headers: {}, transformedBody: payload,
+        };
+      }
+
+      // Abort if upstream doesn't return response headers within connect timeout.
+      const connectCtrl = new AbortController();
+      const connectTimer = setTimeout(() => connectCtrl.abort(new Error("fetch connect timeout")), timeoutMs);
+      const mergedSignal = signal ? AbortSignal.any([signal, connectCtrl.signal]) : connectCtrl.signal;
+
+      let response;
+      try {
+        response = await proxyAwareFetch(
+          url,
+          { method: "POST", headers, body: encodedBodyBuf, signal: mergedSignal },
+          proxyOptions,
+        );
+      } finally {
+        clearTimeout(connectTimer);
+      }
+
+      if (!response.ok) {
+        // Pass error response through unchanged so chatCore can capture it.
+        return { response, url, headers, transformedBody: payload };
+      }
+
+      const wrapped = await wrapQoderSSE(response, `qoder/${qoderKey}`);
+      if (!wrapped?.queue) {
+        return { response: wrapped, url, headers, transformedBody: payload };
+      }
+
+      // Queue admission — the lane is full. Wait as instructed, try again.
+      lastAdmission = wrapped.queue.admission || lastAdmission;
+      if (attempt >= QODER_QUEUE_MAX_ATTEMPTS) break;
+
+      const waitMs = queueWaitMs(lastAdmission, attempt);
+      log?.warn?.("QODER", `queue gate: lane full (code 10605), waiting ${Math.round(waitMs / 1000)}s before retry ${attempt + 1}/${QODER_QUEUE_MAX_ATTEMPTS}`);
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+
+    // Queue never admitted us — drain one upstream frame for the real reason
+    // if it's cheaply there, then surface an honest 429.
+    const probeCtrl = new AbortController();
+    const probeTimer = setTimeout(() => probeCtrl.abort(new Error("queue probe timeout")), 3000);
+    let detailFrame = null;
     try {
-      response = await proxyAwareFetch(
+      const probe = await proxyAwareFetch(
         url,
-        { method: "POST", headers, body: encodedBodyBuf, signal: mergedSignal },
+        { method: "POST", headers, body: encodedBodyBuf, signal: probeCtrl.signal },
         proxyOptions,
       );
-    } finally {
-      clearTimeout(connectTimer);
+      if (probe.ok && probe.body) {
+        detailFrame = await drainToTerminalFrame(probe.body.getReader(), new TextDecoder());
+      } else {
+        await probe.body?.cancel().catch(() => {});
+      }
+    } catch { /* probe is best-effort — the gate message stands alone */ } finally {
+      clearTimeout(probeTimer);
     }
 
-    if (!response.ok) {
-      // Pass error response through unchanged so chatCore can capture it.
-      return { response, url, headers, transformedBody: payload };
-    }
-
-    const wrapped = await wrapQoderSSE(response, `qoder/${qoderKey}`);
-    return { response: wrapped, url, headers, transformedBody: payload };
+    const detail = parseQueueAdmission(detailFrame?.body || "");
+    const reason = detail
+      ? describeQueueAdmission(detail, QODER_QUEUE_MAX_ATTEMPTS)
+      : describeQueueAdmission(lastAdmission, QODER_QUEUE_MAX_ATTEMPTS);
+    log?.warn?.("QODER", `queue gate exhausted: ${reason}`);
+    return {
+      response: new Response(
+        JSON.stringify({ error: { message: reason, code: 429 } }),
+        { status: 429, headers: { "Content-Type": "application/json" } },
+      ),
+      url, headers, transformedBody: payload,
+    };
   }
 
   // Qoder device tokens don't refresh through OAuth — the upstream returns
@@ -582,4 +756,8 @@ export const __test__ = {
   wrapQoderSSE,
   buildQoderRequestBody,
   isBillingBlock,
+  parseQueueAdmission,
+  queueWaitMs,
+  QODER_QUEUE_MAX_ATTEMPTS,
+  QODER_QUEUE_MAX_WAIT_S,
 };
