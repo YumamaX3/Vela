@@ -9,8 +9,9 @@ import m005 from "./005-backup-ledger.js";
 import m006 from "./006-outbox.js";
 import m007 from "./007-mirror-seq.js";
 import m008 from "./008-usage-telemetry.js";
+import m009 from "./009-saved-views.js";
 
-export const MIGRATIONS = [m001, m002, m003, m004, m005, m006, m007, m008].sort((a, b) => a.version - b.version);
+export const MIGRATIONS = [m001, m002, m003, m004, m005, m006, m007, m008, m009].sort((a, b) => a.version - b.version);
 
 export function latestVersion() {
   return MIGRATIONS.length ? MIGRATIONS[MIGRATIONS.length - 1].version : 0;

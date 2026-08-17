@@ -59,6 +59,11 @@ const ALWAYS_PROTECTED = [
   // posture-consistent). The other /api/usage/metrics/* reads ride the
   // deny-by-default branch (JWT-or-requireLogin) by construction.
   "/api/usage/metrics/export",
+  // Usage Observatory W4-A (sealed plan W4): the saved-view surface —
+  // ALWAYS_PROTECTED write endpoint by the plan's own words. The guard is
+  // method-agnostic, so the whole prefix (GET list included) requires JWT or
+  // CLI token; the Needle UI fails open when the dashboard runs without login.
+  "/api/usage/views",
 ];
 
 // Require auth, but allow through if requireLogin is disabled

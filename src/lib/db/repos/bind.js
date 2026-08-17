@@ -126,6 +126,11 @@ const OBSERVATORY_W3_NAMES = new Set([
   "getDigestState", "setDigestState", // W3-D — once-per-week dedupe marker
 ]);
 
+// Usage Observatory W4-A — saved views (migration 009, posture-bound).
+const OBSERVATORY_W4_NAMES = new Set([
+  "listSavedViews", "getSavedView", "saveSavedView", "deleteSavedView",
+]);
+
 /** Bind a facade barrel to its posture's harbor.
  *  @param sqliteRepo the sqlite harbor module (verbatim binding under sqlite)
  *  @param mysqlLoader `() => import("../mysql/<repo>.js")` — static call site */
@@ -144,7 +149,7 @@ export function bindFacade(sqliteRepo, mysqlLoader) {
   const bound = {};
   for (const [name, fn] of Object.entries(sqliteRepo)) {
     if (typeof fn !== "function") { bound[name] = fn; continue; }
-    if (!CONFIG_WAVE_NAMES.has(name) && !SECURITY_WAVE_NAMES.has(name) && !USAGE_WAVE_NAMES.has(name) && !OBSERVATORY_W3_NAMES.has(name)) {
+    if (!CONFIG_WAVE_NAMES.has(name) && !SECURITY_WAVE_NAMES.has(name) && !USAGE_WAVE_NAMES.has(name) && !OBSERVATORY_W3_NAMES.has(name) && !OBSERVATORY_W4_NAMES.has(name)) {
       bound[name] = () => {
         throw new Error(`[DB] VELA_DB_MODE=mysql — repo fn "${name}" lands in a later Storage Covenant wave (Wave C mirror). Boot refusal (fail loud, never silent downgrade).`);
       };
