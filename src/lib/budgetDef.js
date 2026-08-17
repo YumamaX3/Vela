@@ -41,6 +41,32 @@ export function budgetId(scope, subject) {
   return `${scope}:${subject}`;
 }
 
+// ── Window math (local-date convention) ────────────────────────────────────
+// usageDaily stores LOCAL dateKeys, so budget windows reset on local
+// boundaries. Shared by the gate (enforcement, W3-B) and the alert layer
+// (breach-staleness, W3-C) so neither re-derives it. Weeks start Monday (ISO).
+
+function localDateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Start dateKey of the window containing `now` (local-time boundaries). */
+export function quotaWindowStart(window, now = new Date()) {
+  switch (window) {
+    case "week": {
+      const dow = now.getDay() || 7; // Sunday → 7
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - (dow - 1));
+      return localDateKey(monday);
+    }
+    case "month":
+      return localDateKey(new Date(now.getFullYear(), now.getMonth(), 1));
+    case "day":
+    default:
+      return localDateKey(now);
+  }
+}
+
 // ── Write-side validation ──────────────────────────────────────────────────
 
 export class BudgetValidationError extends Error {

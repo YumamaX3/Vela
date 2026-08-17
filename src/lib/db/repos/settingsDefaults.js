@@ -64,6 +64,15 @@ export const DEFAULT_SETTINGS = {
   pxpipeAutoInstall: true,
   pxpipeMinChars: 25000,
   pxpipeTimeoutMs: 15000,
+  // Usage Observatory W3-C — budget alert channels. Webhook URLs are
+  // operator-supplied and secret-bearing (a Discord webhook URL carries a
+  // token) — the delivery layer never logs them.
+  budgetAlerts: {
+    discordEnabled: false,
+    discordWebhookUrl: "",
+    n8nEnabled: false,
+    n8nWebhookUrl: "",
+  },
 };
 
 // Merge raw settings with defaults; backward-compat for missing keys

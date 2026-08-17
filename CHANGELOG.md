@@ -25,6 +25,61 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.7.43 — The Observatory W3-C: The Alert Channels 🔭📣
+
+> *"A cap that bites in silence is a trap, not a covenant. W3-C gives the
+> budget engine its voice — the dashboard banner names every breach the
+> moment it lands, and the Discord and n8n webhooks carry the word beyond
+> the ship. Fire once per crossing, never twice in the same window."*
+
+*Sealed 2026-08-17 · Usage Observatory W3 sub-stage (c) — alert channels ·
+Small change (last number ticks up by one) → `0.7.42 → 0.7.43`*
+
+## ✨ Features — Alert Channels (W3-C)
+
+- **`src/sse/services/budgetAlerts.js`** — the delivery layer. Hysteresis
+  (fire once per upward threshold crossing per window), dedupe (repeats at
+  the same/lower level are swallowed), and window re-arm (the state key
+  changes when the window rolls over, so a fresh window fires fresh).
+  Webhook fan-out reads `settings.budgetAlerts` and posts to Discord (content
+  + colored embed — amber below 100%, red at the hard cap) and n8n
+  (`{source:"vela-budget-alert", ...alert}`), each with a 5s timeout.
+- **`src/app/api/usage/budgets/alerts/route.js`** — `GET` returns the active
+  breaches, worst first, for the banner. Read-only; posture-consistent
+  protection via the dashboardGuard `/api/usage` prefix.
+- **`BudgetAlertBanner.js`** — the cockpit banner. Polls the alerts route on
+  a gentle cadence, renders the worst offenders across every bearing, and
+  degrades silently on a failed poll.
+- **`AlertConfigCard.js`** — the Limits-deck config card. Discord + n8n
+  toggles with webhook URL inputs; PATCHes `settings.budgetAlerts`.
+
+## 🔧 Changes
+
+- **`src/app/api/settings/route.js`** — GET masks `budgetAlerts` (presence
+  flags only, never the secret webhook URLs, mirroring the oidcConfigured /
+  hasPassword precedent); PATCH deep-merges the nested object so a partial
+  client payload can never clobber a stored URL.
+- **`src/lib/db/repos/settingsDefaults.js`** — `budgetAlerts` defaults.
+- **`src/lib/budgetDef.js`** — `quotaWindowStart` relocated here (the shared
+  seam both the gate and the alerts layer need, breaking any import cycle).
+- **`src/sse/services/budgetGate.js`** — `emitBudgetAlert` now fans out
+  through `recordBudgetAlert`; the re-export keeps existing imports resolving.
+
+## ⚙️ Internal
+
+- Delivery is fail-open throughout — a broken webhook, an unreadable settings
+  row, or a thrown fetch never blocks the gate's emission or denial.
+- Secret hygiene: webhook URLs are never logged and never echoed back by the
+  settings GET. Non-http(s) URLs are refused (no `file://` or `javascript:`).
+- 16 new contract tests (`budget-alerts-w3c.test.js`); W3-B/C + i18n parity
+  green. Full-suite HEAD-vs-W3-C diff shows zero regressions (W3-C's failure
+  set is a strict subset of HEAD's — all residual failures are environment
+  flakes in files with no import path into any W3 module).
+- Golden snapshots regenerated for the version ride
+  (`0.7.42 → 0.7.43` in buildHeaders).
+
+---
+
 # v0.7.42 — The Observatory W3-B: The Budget Engine Enforces 🔭⚖️
 
 > *"Definitions are nothing until they bind. W3-B forges budgetGate — the

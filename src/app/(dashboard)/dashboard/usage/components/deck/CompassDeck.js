@@ -22,6 +22,7 @@ import OverviewDeck from "./OverviewDeck";
 import AnalyticsDeck from "./AnalyticsDeck";
 import RequestsDeck from "./RequestsDeck";
 import LimitsDeck from "./LimitsDeck";
+import BudgetAlertBanner from "./BudgetAlertBanner";
 
 function DeckArea({ compass }) {
   switch (compass.tab) {
@@ -39,6 +40,9 @@ function CompassDeckInner() {
   return (
     <div className="flex min-w-0 flex-col gap-4 px-1 sm:px-0">
       <CockpitHeader compass={compass} />
+
+      {/* W3-C — active budget breaches ride across every bearing */}
+      <BudgetAlertBanner />
 
       {/* Tab rail — the four bearings */}
       <TabRail tab={compass.tab} setTab={compass.setTab} />

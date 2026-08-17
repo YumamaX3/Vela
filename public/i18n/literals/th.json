@@ -1490,5 +1490,19 @@
   "Latency, error mix, cache share and savings — collecting since the telemetry upgrade.": "Latency, error mix, cache share and savings — collecting since the telemetry upgrade.",
   "RTK Savings": "RTK Savings",
   "Top Spenders": "Top Spenders",
-  "Status mix": "Status mix"
+  "Status mix": "Status mix",
+  "Budget alerts": "Budget alerts",
+  "and {n} more": "and {n} more",
+  "Alert channels": "Alert channels",
+  "Budget alerts fire at 50%, 80%, and 100% of each budget window.": "Budget alerts fire at 50%, 80%, and 100% of each budget window.",
+  "Discord webhook": "Discord webhook",
+  "Send budget alerts to a Discord channel.": "Send budget alerts to a Discord channel.",
+  "Discord webhook URL": "Discord webhook URL",
+  "n8n webhook": "n8n webhook",
+  "Send budget alerts to an n8n workflow.": "Send budget alerts to an n8n workflow.",
+  "n8n webhook URL": "n8n webhook URL",
+  "Save failed": "Save failed",
+  "Saving…": "Saving…",
+  "Stored — replace to change": "Stored — replace to change",
+  "Webhook URLs are stored masked — never echoed back.": "Webhook URLs are stored masked — never echoed back."
 }
