@@ -90,7 +90,7 @@ describe("Migration 002 — governance schema", () => {
       ["legacy1", "sk-plaintext-secret", "Legacy Key", null, 1, new Date().toISOString()]
     );
     db.run(`INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [new Date().toISOString(), "p", "m", null, "sk-plaintext-secret", null, 1, 1, 0, "ok", "{}", "{}"]);
+      [new Date().toISOString(), "p", "m", "", "sk-plaintext-secret", null, 1, 1, 0, "ok", "{}", "{}"]);
     db.run(`UPDATE _meta SET value = '1' WHERE key = 'schemaVersion'`);
     db.close?.();
 

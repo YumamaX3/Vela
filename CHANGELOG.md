@@ -25,6 +25,64 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.7.42 — The Observatory W3-B: The Budget Engine Enforces 🔭⚖️
+
+> *"Definitions are nothing until they bind. W3-B forges budgetGate — the
+> Observatory hierarchy's enforcement stage — and wires it into keyGate. Now
+> a gateway ceiling, a key ceiling, and a model ceiling each hold with their
+> own honest 429, and the soft 50/80/100 crossings emit alert records for
+> W3-C's channels. Governance reads the same ledger the dashboard trusts."*
+
+*Sealed 2026-08-17 · Usage Observatory W3 sub-stage (b) — budget engine ·
+Small change (last number ticks up by one) → `0.7.41 → 0.7.42`*
+
+## ✨ Features — Budget Engine (W3-B)
+
+- **`src/sse/services/budgetGate.js`** — the enforcement module. A SEPARATE
+  instrument from the legacy per-key caps (`budgetDef.js` legislates the two
+  vocabularies never collide): scopes gateway|key|model, windows day|week|month,
+  evaluated against the frozen `getUsageDailySince` ledger seam.
+- **Hard caps → distinct 429s** — `gateway_budget_exceeded`,
+  `key_budget_exceeded`, `model_budget_exceeded` (the sealed plan's
+  "distinct 429" obligation), first breach in repo order wins.
+- **Soft thresholds → alerts, never denial** — 50/80/100 crossings emit
+  alert records (`onBudgetAlert` listeners + a bounded ring via
+  `getRecentBudgetAlerts`) — W3-C's hook point. A broken listener can never
+  block the gate.
+- **Keyless passthrough still governed** — gateway and model budgets bind
+  even when `requireApiKey=false`; a cap that cannot reach keyless traffic is
+  a cap anyone can walk around by omitting the key.
+- **Hot-path caches** — days-cache + per-budget sums-cache, both on the 5s
+  TTL the legacy spend stage established; budgets sharing a window share one
+  ledger fetch.
+
+## 🔧 Changes
+
+- **`src/sse/services/keyGate.js`** — wires `budgetStage` in after
+  `modelScopeStage` (cheapest-first: ledger reads sit last) and on the keyless
+  passthrough. Legacy `budget_exceeded` keeps precedence — it fires earlier in
+  the pipeline when both instruments are crossed.
+
+## 🐛 Fixes
+
+- **`tests/unit/apikey-migration-002.test.js`** — pre-existing A5-era fixture:
+  it inserted `connectionId = null` into `usageHistory`, but migration 004's
+  dedupe covenant made that column `NOT NULL DEFAULT ''` on fresh installs.
+  Now seeds `''`, matching the writers' post-A5 contract. (Fails on committed
+  HEAD; unrelated to W3-B.)
+
+## ⚙️ Internal
+
+- Honest fail-open degradation: budget config or ledger unreadable → the
+  budget stage degrades open (flagged), the gate never 500s on a storage
+  hiccup. The legacy stage and the rest of the pipeline are untouched.
+- 25 new contract tests (`budget-gate-w3b.test.js`); full gate + budget sweep
+  green; full-suite failure count falls from 95 (HEAD) to 93 (fixture fix).
+- Golden snapshots regenerated for the version ride
+  (`0.7.41 → 0.7.42` in buildHeaders).
+
+---
+
 # v0.7.41 — The Observatory W3-A: The Budget Definitions 🔭🛡️
 
 > *"The Governance wave opens. Before the engine can hold a hard cap, it must
