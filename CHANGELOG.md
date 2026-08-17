@@ -25,6 +25,38 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.2 — Qoder Roster Sync: Lite + GLM-5.3 Aboard, Preview Retired ⛵🔧
+
+> *"The Star read the live roster off his own account and handed it over —
+> the catalog follows the source, never the other way around."*
+
+*Sealed 2026-08-17 · qoder model-catalog sync to the upstream live list ·
+Small change (catalog + pricing + tests, no migration) → `0.9.1 → 0.9.2`*
+
+## 🔧 Changes — The Roster Sync
+
+- **`registry/qoder.js` matches the live list.** Added `qd/lite` (Lite tier)
+  and `qd/gmodel` (GLM-5.3); retired `qd/qmodel_preview`
+  (Qwen3.8-Max-Preview), which no longer exists upstream. Order now follows
+  the upstream listing — tier selectors first, frontier models after.
+- **`QODER_MODEL_MAP` identity map completed** (shared/qoder/constants.js) —
+  `qmodel_38max`, `kmodel_latest`, `gmodel` added. Additions only: the map
+  never deletes, and the executor is dynamic anyway (it fetches model config
+  from qoder's live API per credential).
+- **The pricing covenant keeps its promise.** `gmodel` carries a
+  retail-equivalent estimate (1.60 / 4.80, flat GLM-5.x drift — honestly
+  marked). `qmodel_preview`'s lane row retires with its model. `lite` joins
+  the tier selectors that stay unpriced on purpose — no honest per-token
+  rate exists for a router's own tier picker.
+- **The shadow test follows.** pricing-shadow.test.js updates its lane pin,
+  TIER_SELECTORS gains `lite`, and the null-rate assertion covers it.
+
+## ⚙️ Internal
+
+- Golden URL-header snapshot re-sealed at 0.9.2 (21 pins).
+
+---
+
 # v0.9.1 — The Observatory W4-D: Provider Health Timeline 🩺📊
 
 > *"The pulse tiles say how the harbor feels right now. The timeline says
