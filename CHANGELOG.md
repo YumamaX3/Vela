@@ -25,6 +25,57 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.7.45 — The Observatory W3-E: The Compare Ghost 🔭👻
+
+> *"The KPIs already whispered Δ against the previous window. The chart
+> now shows it: arm Compare, and the period behind the current one rises
+> as a dashed ghost on the same axis — aligned bucket for bucket, and
+> where the windows do not align, an honest gap, never a shifted lie."*
+
+*Sealed 2026-08-17 · Usage Observatory W3 sub-stage (e) — compare-periods ·
+Small change (last number ticks up by one) → `0.7.44 → 0.7.45`*
+
+## ✨ Features — Compare-Periods (W3-E)
+
+- **Engine — `src/lib/db/usageAggregation.js`**: the compare ghost. The tier
+  pick (exact ≤3d / usageDaily rollup beyond) is extracted into
+  `seriesForWindow` so BOTH windows run the same tier; `filteredSeriesImpl`
+  gains `previous: true` — it runs the equal-length window immediately before
+  the current one (`[startMs−len, startMs)` — the same window kpisImpl's
+  CASE WHEN double-range uses) and aligns it onto the current axis
+  bucket-for-bucket (current bucket `t` ↔ previous bucket `t − len`).
+  Misaligned windows ("today") degrade to honest `null` gaps; "all" and empty
+  windows return `previous: []` with null prev-bounds. Engine-neutral — both
+  twins ride one copy; no bind/facade change.
+- **API — timeseries route**: `?previous=1|true` (parsePrevious in
+  `_lib/params.js`) returns `{ points, previous, meta{…prevStartMs, prevEndMs} }`.
+  The identifier covenant is untouched — unknown period/granularity/metric
+  still reject with `INVALID_FILTER_PARAM` even with `previous=true`.
+- **UI — CostArea compare overlay** (`usage/components/deck/overview/TrafficRow.js`):
+  a Compare toggle on the Est. Cost card refetches with `metric=cost&previous=1`
+  and renders the previous-window series as a dashed grey ghost behind the
+  cost curve (zip-by-index onto the current axis; `connectNulls=false` so
+  honest gaps break the line). The tooltip names both series.
+- **i18n** — W3E_COMPARE_STRINGS ("Compare", "Compare with previous period",
+  "previous period") seeded across all locales → 170 keys, parity clean.
+
+## 🔍 Recon Note
+
+The sealed plan named three items; two were already forged — kpisImpl's
+CASE WHEN double-range (W1-C) and the KPI Δ columns (W2-C's DeltaBadge).
+The net-new work of W3-E is the ghost itself: the reserved CostArea slot,
+now filled.
+
+## ✅ Tests
+
+- `tests/unit/usage-compare-w3e.test.js` — 8 tests: opt-out shape, exact-tier
+  whole-bucket alignment, filter integrity across the window, honest
+  null-gap degradation on misaligned "today", "all" empty-previous, rollup-tier
+  alignment on the 7d default path, and the identifier covenant + parsePrevious
+  shape. All green; lint clean; golden snapshots regenerated (21 × 0.7.45).
+
+---
+
 # v0.7.44 — The Observatory W3-D: The Weekly Digest 🔭📬
 
 > *"The alarms tell you when something is wrong. The digest tells you what

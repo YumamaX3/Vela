@@ -159,17 +159,55 @@ function localDateKey(ms) {
 
 function safeJson(s) { try { return JSON.parse(s); } catch { return null; } }
 
-/** Shared entry: resolve period + granularity + metric, pick the tier. */
-export async function filteredSeriesImpl(db, { filters = {}, period = "7d", granularity = "1d", metric = "requests", now = Date.now() } = {}) {
+/** One window of the series — picks the tier (exact ≤3d / rollup 7d+) and
+ *  returns {points, source}. Extracted so the compare ghost can run the SAME
+ *  tier over the previous window without duplicating the tier logic. */
+async function seriesForWindow(db, { startMs, endMs, bucketMs, metric, filters }) {
+  const opts = { startMs, endMs, bucketMs, metric, filters, where: censusWithWindow(filters, startMs, endMs) };
+  if (endMs - startMs <= EXACT_WINDOW_MS) {
+    return { points: await seriesExact(db, opts), source: "usageHistory" };
+  }
+  return { points: await seriesFromRollup(db, opts), source: "usageDaily" };
+}
+
+/** Shared entry: resolve period + granularity + metric, pick the tier.
+ *
+ *  W3-E compare ghost: when `previous` is true, ALSO run the equal-length
+ *  window immediately before the current one ([startMs−len, startMs) — the
+ *  same window kpisImpl's Δ columns use) through the same tier, then align it
+ *  onto the current axis bucket-for-bucket: the current bucket at time `t`
+ *  pairs with the previous bucket at `t − len`. When `len` is not a whole
+ *  multiple of the bucket size ("today") the lookup misses and those buckets
+ *  degrade to an honest `null` gap — never a shifted lie. "all" and empty
+ *  windows have no previous window → `previous: []`. */
+export async function filteredSeriesImpl(db, { filters = {}, period = "7d", granularity = "1d", metric = "requests", previous = false, now = Date.now() } = {}) {
   if (!METRICS[metric] && metric !== "cachedTokens") throw new FilterParamError("metric", metric);
   if (!Object.prototype.hasOwnProperty.call(GRANULARITIES, granularity)) throw new FilterParamError("granularity", granularity);
   const { startMs, endMs } = resolvePeriodWindow(period, now);
   const bucketMs = GRANULARITIES[granularity];
-  const opts = { startMs, endMs, bucketMs, metric, filters, where: censusWithWindow(filters, startMs, endMs) };
-  const points = endMs - startMs <= EXACT_WINDOW_MS
-    ? await seriesExact(db, opts)
-    : await seriesFromRollup(db, opts);
-  return { points, meta: { source: endMs - startMs <= EXACT_WINDOW_MS ? "usageHistory" : "usageDaily", granularity, startMs, endMs } };
+
+  const cur = await seriesForWindow(db, { startMs, endMs, bucketMs, metric, filters });
+  const meta = { source: cur.source, granularity, startMs, endMs };
+
+  if (!previous) return { points: cur.points, meta };
+
+  const windowLen = endMs - startMs;
+  if (startMs <= 0 || windowLen <= 0) {
+    return { points: cur.points, previous: [], meta: { ...meta, prevStartMs: null, prevEndMs: null } };
+  }
+  const prevStartMs = startMs - windowLen;
+  const prevEndMs = startMs;
+  const prev = await seriesForWindow(db, { startMs: prevStartMs, endMs: prevEndMs, bucketMs, metric, filters });
+  const prevByBucket = new Map(prev.points.map((p) => [p.t, p.value]));
+  const aligned = cur.points.map((p) => ({
+    t: p.t,
+    value: prevByBucket.has(p.t - windowLen) ? prevByBucket.get(p.t - windowLen) : null,
+  }));
+  return {
+    points: cur.points,
+    previous: aligned,
+    meta: { ...meta, prevStartMs, prevEndMs },
+  };
 }
 
 // ─── getBreakdown ───────────────────────────────────────────────────────────

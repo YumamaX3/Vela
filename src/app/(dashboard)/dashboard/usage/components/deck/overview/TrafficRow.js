@@ -1,11 +1,12 @@
 // Usage Observatory W2-C — Row C: traffic over time (sealed plan Deck-1 row 3).
 // TrafficStackedArea — requests by provider (top-6 + Other) from the stacked
 // endpoint, each band click-to-filter into the Needle. Beside it, CostArea —
-// the cost curve from the timeseries endpoint, carrying a reserved
-// compare-ghost slot that W3 fills with the previous-period overlay.
+// the cost curve from the timeseries endpoint. W3-E filled the reserved
+// compare-ghost slot: a Compare toggle fetches the previous-window series and
+// overlays it as a dashed grey ghost behind the cost curve.
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -108,23 +109,49 @@ function TrafficStackedArea({ compass }) {
   );
 }
 
+// W3-E — the compare-periods ghost. When the Star arms Compare, the card
+// refetches with `previous=1`; the server aligns the previous window onto the
+// current axis bucket-for-bucket (an honest null gap where the windows don't
+// align) and the ghost renders as a dashed grey line behind the cost curve.
 function CostArea({ compass }) {
-  const { data } = useMetrics("timeseries", compass.metricsQuery, "metric=cost");
+  const [compare, setCompare] = useState(false);
+  const extra = compare ? "metric=cost&previous=1" : "metric=cost";
+  const { data } = useMetrics("timeseries", compass.metricsQuery, extra);
   const granularity = data?.meta?.granularity || compass.granularity;
 
-  const rows = useMemo(
-    () => (data?.points || []).map((p) => ({ ...p, label: bucketLabel(p.t, granularity) })),
-    [data, granularity]
-  );
-
-  // W3 compare-ghost slot: the previous-period overlay renders here once the
-  // compare-periods current lands. Reserved deliberately empty (sealed plan).
+  // The server's `previous` array is aligned onto the current axis (same
+  // length, same bucket t) — zip by index. Where the previous window had no
+  // data (or doesn't align), prevValue is null → the ghost breaks honestly.
+  const rows = useMemo(() => {
+    const pts = data?.points || [];
+    const prev = data?.previous || [];
+    return pts.map((p, i) => ({
+      ...p,
+      prevValue: prev[i] ? prev[i].value : null,
+      label: bucketLabel(p.t, granularity),
+    }));
+  }, [data, granularity]);
 
   return (
     <Card className="flex min-w-0 flex-col gap-2 p-4" padding="none">
-      <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-        {t("Est. Cost")}
-      </span>
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+          {t("Est. Cost")}
+        </span>
+        <button
+          type="button"
+          onClick={() => setCompare((v) => !v)}
+          title={t("Compare with previous period")}
+          className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors ${
+            compare
+              ? "border-primary bg-primary/10 text-primary"
+              : "border-border text-text-muted hover:bg-bg-hover"
+          }`}
+        >
+          <span className="material-symbols-outlined text-[13px] leading-none">compare</span>
+          {t("Compare")}
+        </button>
+      </div>
       {rows.length === 0 ? (
         <EmptyChart />
       ) : (
@@ -139,7 +166,26 @@ function CostArea({ compass }) {
             <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.1} />
             <XAxis dataKey="label" tick={{ fontSize: 10, fill: "currentColor", fillOpacity: 0.5 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
             <YAxis tick={{ fontSize: 10, fill: "currentColor", fillOpacity: 0.5 }} tickLine={false} axisLine={false} tickFormatter={fmtCost} width={56} />
-            <Tooltip contentStyle={tooltipStyle} formatter={(value) => [fmtCost(value), t("Est. Cost")]} />
+            <Tooltip
+              contentStyle={tooltipStyle}
+              formatter={(value, name) => [
+                fmtCost(value),
+                name === "prevValue" ? `${t("Est. Cost")} (${t("previous period")})` : t("Est. Cost"),
+              ]}
+            />
+            {compare && (
+              <Area
+                type="monotone"
+                dataKey="prevValue"
+                stroke="#64748b"
+                strokeWidth={1.5}
+                strokeDasharray="4 3"
+                fill="transparent"
+                dot={false}
+                activeDot={{ r: 3 }}
+                connectNulls={false}
+              />
+            )}
             <Area type="monotone" dataKey="value" stroke="#f59e0b" strokeWidth={2} fill="url(#gradOverviewCost)" dot={false} activeDot={{ r: 4 }} />
           </AreaChart>
         </ResponsiveContainer>
