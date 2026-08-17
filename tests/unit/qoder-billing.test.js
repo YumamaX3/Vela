@@ -1,9 +1,13 @@
 /**
  * Unit tests for qoder billing error detection.
  *
- * Ensures that billing blocks (code 112, 10605, pricingUrl) are detected
- * on the first SSE frame and returned as 403 responses so chatCore can
- * mark the connection unavailable and trigger combo failover.
+ * Ensures that billing blocks (code 112, pricingUrl) are detected on the
+ * first SSE frame and returned as 403 responses so chatCore can mark the
+ * connection unavailable and trigger combo failover.
+ *
+ * NOTE: code 10605 left this covenant on 2026-08-17 — it is a queue
+ * admission ticket, not a billing block. The queue gate owns it now; see
+ * qoder-queue.test.js.
  */
 
 import { describe, it, expect } from "vitest";
@@ -17,9 +21,9 @@ describe("isBillingBlock", () => {
     expect(isBillingBlock(msg)).toBe(true);
   });
 
-  it("detects code 10605 (queue throttle)", () => {
+  it("does NOT detect code 10605 — it is a queue admission, not billing (2026-08-17)", () => {
     const msg = '{"code":"10605","message":"Queue limit"}';
-    expect(isBillingBlock(msg)).toBe(true);
+    expect(isBillingBlock(msg)).toBe(false);
   });
 
   it("detects pricingUrl field", () => {
@@ -69,17 +73,17 @@ describe("wrapQoderSSE billing detection", () => {
     expect(json.error.message).toContain("112");
   });
 
-  it("returns 403 response when first frame is billing block (code 10605)", async () => {
-    const billingEnv = JSON.stringify({
-      statusCodeValue: 429,
+  it("a 10605 first frame is a queue admission — never a 403 billing response (2026-08-17)", async () => {
+    const queueEnv = JSON.stringify({
+      statusCodeValue: 403,
       body: '{"code":"10605","message":"Queue limit"}',
     });
-    const upstream = `data: ${billingEnv}\n\n`;
+    const upstream = `data: ${queueEnv}\n\n`;
 
     const wrapped = await wrapQoderSSE(makeResponse([upstream]), "qoder/ultimate");
 
-    expect(wrapped.status).toBe(403);
-    expect(wrapped.ok).toBe(false);
+    expect(wrapped.queue).toBeDefined();
+    expect(wrapped.status).not.toBe(403);
   });
 
   it("returns 403 response when first frame has pricingUrl", async () => {
