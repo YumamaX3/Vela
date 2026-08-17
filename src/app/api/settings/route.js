@@ -27,6 +27,7 @@ export async function GET() {
       safeSettings.budgetAlerts = {
         discordEnabled: !!ba.discordEnabled,
         n8nEnabled: !!ba.n8nEnabled,
+        weeklyDigestEnabled: !!ba.weeklyDigestEnabled,
         hasDiscordWebhook: !!(typeof ba.discordWebhookUrl === "string" && ba.discordWebhookUrl.trim()),
         hasN8nWebhook: !!(typeof ba.n8nWebhookUrl === "string" && ba.n8nWebhookUrl.trim()),
       };
@@ -99,6 +100,7 @@ export async function PATCH(request) {
       body.budgetAlerts = {
         discordEnabled: "discordEnabled" in patch ? !!patch.discordEnabled : !!current.discordEnabled,
         n8nEnabled: "n8nEnabled" in patch ? !!patch.n8nEnabled : !!current.n8nEnabled,
+        weeklyDigestEnabled: "weeklyDigestEnabled" in patch ? !!patch.weeklyDigestEnabled : !!current.weeklyDigestEnabled,
         discordWebhookUrl:
           typeof patch.discordWebhookUrl === "string" && patch.discordWebhookUrl.trim()
             ? patch.discordWebhookUrl.trim()
@@ -119,6 +121,14 @@ export async function PATCH(request) {
       Object.prototype.hasOwnProperty.call(body, "outboundNoProxy")
     ) {
       applyOutboundProxyEnv(settings);
+    }
+
+    // W3-D: the weekly digest scheduler is settings-driven (budgetAlerts
+    // .weeklyDigestEnabled) — arm/disarm it on any budgetAlerts change.
+    if (Object.prototype.hasOwnProperty.call(body, "budgetAlerts")) {
+      import("@/sse/services/usageDigest.js")
+        .then(({ configureDigestScheduler }) => configureDigestScheduler())
+        .catch((error) => console.warn("[digest] scheduler configure failed:", error.message));
     }
 
     // Invalidate combo rotation state when strategy settings change
