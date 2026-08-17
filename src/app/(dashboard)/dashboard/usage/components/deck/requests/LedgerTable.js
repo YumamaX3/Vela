@@ -230,7 +230,23 @@ export default function LedgerTable({ compass }) {
         </div>
       </Card>
 
-      {drawerRow && <LedgerDrawer row={drawerRow} onClose={() => setDrawerRow(null)} />}
+      {drawerRow && (
+        <LedgerDrawer
+          row={drawerRow}
+          onClose={() => setDrawerRow(null)}
+          // W4-C — tag saves flow upward: the drawer row reflects the stored
+          // set instantly, and the ledger re-fetches its page so the row's
+          // chips stay true without a manual facet touch.
+          onRowUpdate={(next) => {
+            setDrawerRow(next);
+            setPage((prev) => ({
+              ...prev,
+              items: prev.items.map((r) => (r.id === next.id ? { ...r, tags: next.tags } : r)),
+            }));
+            setRefreshKey((k) => k + 1);
+          }}
+        />
+      )}
     </>
   );
 }

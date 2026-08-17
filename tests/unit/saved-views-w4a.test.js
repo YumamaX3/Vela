@@ -54,12 +54,12 @@ function jsonReq(method, qs = "", body = undefined) {
 const VIEW = { name: "Money this week", params: "tab=overview&period=7d&prov=openai" };
 
 describe("W4-A saved views — migration 009 + schema mirror", () => {
-  it("migration registry and schema mirror advanced to 9", async () => {
+  it("migration registry and schema mirror advanced to 10", async () => {
     const { MIGRATIONS, latestVersion } = await import("@/lib/db/migrations/index.js");
-    expect(latestVersion()).toBe(9);
-    expect(MIGRATIONS.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(latestVersion()).toBe(10);
+    expect(MIGRATIONS.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     const { TABLES, SCHEMA_VERSION } = await import("@/lib/db/schema.js");
-    expect(SCHEMA_VERSION).toBe(9);
+    expect(SCHEMA_VERSION).toBe(10);
     expect(TABLES.usageViews).toBeTruthy();
     expect(TABLES.usageViews.columns.name).toBe("TEXT NOT NULL");
   });

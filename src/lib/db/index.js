@@ -86,6 +86,12 @@ export {
   getExportCursor,
 } from "./repos/usageRepo.js";
 
+// Usage Observatory W4-C — request tags (facade → repos/usageTagsRepo.js).
+// The census pin demands every harness-registry name resolve from THIS barrel;
+// the PUT tags route imports the facade directly, but the barrel keeps the
+// bijection honest.
+export { getTagsForUsageIds, getUsageTags, setUsageTags } from "./repos/usageTagsRepo.js";
+
 // Request details
 export {
   saveRequestDetail, getRequestDetails, getRequestDetailById, getDistinctProviders,

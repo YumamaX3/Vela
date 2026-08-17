@@ -170,7 +170,7 @@ describe("Wave B2 — the backup engine round-trip", () => {
     const result = await db.runBackup({ trigger: "test" });
     expect(result.ok).toBe(true);
     expect(fs.existsSync(result.file)).toBe(true);
-    expect(result.manifest.schemaVersion).toBe(9);
+    expect(result.manifest.schemaVersion).toBe(10);
     expect(result.manifest.secretBundle.length).toBeGreaterThan(0);
 
     // Mutate the live DB, then restore — the payload comes back.
@@ -291,7 +291,7 @@ describe("Wave B2 — S2 redaction + S3 exclusions", () => {
     expect(payload.settings.requireLogin).toBe(true);
     expect(payload.kvScopes.b2scope).toEqual({ k1: "v1" });
     expect(payload.combos.some((c) => c.name === "b2-combo")).toBe(true);
-    expect(payload._meta.schemaVersion).toBe(9);
+    expect(payload._meta.schemaVersion).toBe(10);
   });
 
   it("exportSettings redacts at the source", async () => {
@@ -389,11 +389,11 @@ describe("Wave B2 — retention + purge", () => {
 });
 
 describe("Wave B2 — migration 005 + posture refusals", () => {
-  it("a fresh DB migrates to schemaVersion 8 with backupLedger", async () => {
+  it("a fresh DB migrates to schemaVersion 10 with backupLedger", async () => {
     await freshDb();
     const { getAdapter } = await import("@/lib/db/driver.js");
     const adapter = await getAdapter();
-    expect(adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`).value).toBe("8");
+    expect(adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`).value).toBe("10");
     const tables = adapter.all(`SELECT name FROM sqlite_master WHERE type='table'`).map((r) => r.name);
     expect(tables).toContain("backupLedger");
   });

@@ -129,6 +129,8 @@ const OBSERVATORY_W3_NAMES = new Set([
 // Usage Observatory W4-A — saved views (migration 009, posture-bound).
 const OBSERVATORY_W4_NAMES = new Set([
   "listSavedViews", "getSavedView", "saveSavedView", "deleteSavedView",
+  // W4-C — request tags (migration 010, posture-bound).
+  "getTagsForUsageIds", "getUsageTags", "setUsageTags",
 ]);
 
 /** Bind a facade barrel to its posture's harbor.

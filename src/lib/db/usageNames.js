@@ -128,13 +128,15 @@ export async function getUsageEnrichment(repos) {
         import("./repos/mysql/connectionsRepo.js"),
         import("./repos/mysql/nodesRepo.js"),
         import("./repos/mysql/apiKeysRepo.js"),
+        import("./repos/mysql/usageTagsRepo.js"),
       ])
     : Promise.all([
         import("./repos/sqlite/connectionsRepo.js"),
         import("./repos/sqlite/nodesRepo.js"),
         import("./repos/sqlite/apiKeysRepo.js"),
+        import("./repos/sqlite/usageTagsRepo.js"),
       ]));
-  const [{ getProviderConnections }, { getProviderNodes }, { getApiKeys }] = await loadHarbor(repos);
+  const [{ getProviderConnections }, { getProviderNodes }, { getApiKeys }, tagsRepo] = await loadHarbor(repos);
   const connectionMap = {};
   try {
     for (const c of await getProviderConnections()) connectionMap[c.id] = c.name || c.email || c.id;
@@ -153,5 +155,10 @@ export async function getUsageEnrichment(repos) {
   enrichCache.connectionMap = connectionMap;
   enrichCache.providerNodeNameMap = providerNodeNameMap;
   enrichCache.apiKeyMap = apiKeyMap;
+  // W4-C — the tag repo module rides the cache too. Tags are per-request and
+  // unbounded, so they are NOT preloaded into a map here; the ledger does one
+  // bounded IN query per page via getTagsForUsageIds. Fail-open: if the twin
+  // failed to load, tags stay an honest [].
+  enrichCache.tagsRepo = tagsRepo;
   return enrichCache;
 }

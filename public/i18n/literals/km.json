@@ -1531,5 +1531,10 @@
   "Most failures are {statusClass} ({pct}% of errors)": "Most failures are {statusClass} ({pct}% of errors)",
   "{provider} accounts for {pct}% of spend in this window": "{provider} accounts for {pct}% of spend in this window",
   "Spend is {times}× the previous period": "Spend is {times}× the previous period",
-  "p95 latency is {secs}s in this window": "p95 latency is {secs}s in this window"
+  "p95 latency is {secs}s in this window": "p95 latency is {secs}s in this window",
+  "Tags": "Tags",
+  "No tags yet": "No tags yet",
+  "Add tag…": "Add tag…",
+  "Could not save tags": "Could not save tags",
+  "Remove tag {tag}": "Remove tag {tag}"
 }
