@@ -77,6 +77,13 @@ export const FREEBUFF_RUN_FETCH_TIMEOUT_MS = 20 * 1000;
 export const FREEBUFF_SESSION_STALE_STATUSES = new Set([409, 410, 428]);
 export const FREEBUFF_RECLAIMABLE_CODES = new Set(["session_superseded", "session_expired"]);
 export const FREEBUFF_MODEL_LOCKED_CODE = "model_locked";
+
+// Egress IP-scoped codes that justify instant re-pick (C16 LOCKED)
+export const FREEBUFF_REPICK_CODES = new Set(["country_blocked", "ip_capped"]);
+
+// Instant re-pick policy for blocked claims (decree: cap + budget)
+export const FREEBUFF_REPICK_MAX_ATTEMPTS = 3;
+export const FREEBUFF_REPICK_BUDGET_MS = 45_000; // 45s total latency budget
 export const FREEBUFF_CLAIM_BLOCKED_CODES = new Set([
   "country_blocked", "banned", "ip_capped", "rate_limited",
   "spend_limited", "model_unavailable", "premium_slot_taken",
