@@ -3,15 +3,17 @@
 // 11 enforcement sites. Fail-closed, distinct honest codes, ordered stages.
 //
 // Stage order (cheapest denial first):
-//   extract → identity → [lifetime W2] → [ipGate W3] → [rateGate W3] →
-//   [spendGate W3] → modelScope
+//   extract → identity → lifetime → ipGate → rateGate → spendGate (legacy
+//   per-key caps) → modelScope → budgetGate (Observatory hierarchy, W3-B —
+//   gateway|key|model scopes, distinct *_budget_exceeded 429 codes; it reads
+//   the ledger, so it sits last, after the in-memory stages)
 //
-// W2/W3 stages register into STAGES as their waves land — call sites never change.
 import { errorResponse } from "open-sse/utils/error.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
 import { resolveKey, getApiKeyById } from "@/lib/db/repos/apiKeysRepo.js";
 import { touchKeyLastUsed, getUsageDailySince } from "@/lib/db/repos/usageRepo.js";
 import { parseModel } from "./model.js";
+import { budgetStage } from "./budgetGate.js";
 
 export const GATE_CODES = {
   INVALID_KEY: "invalid_api_key",
@@ -294,6 +296,12 @@ export async function spendStage(key) {
 
 const STAGES = [lifetimeStage, ipStage, rateStage, spendStage];
 
+// Observatory budget hierarchy (W3-B). Kept OUT of STAGES because it needs
+// requestModel (model-scope budgets) which the per-key stages do not, and it
+// also applies on the keyless passthrough where no key object exists. It is
+// the most expensive stage (ledger read), so it runs last — after the cheap
+// in-memory stages have already passed.
+
 function modelMatchesScope(scopeSet, modelStr) {
   if (!modelStr) return false;
   if (scopeSet.has(modelStr)) return true;
@@ -326,7 +334,10 @@ export function modelScopeStage(key, { requestModel, comboModels } = {}) {
 
 /**
  * The gate. Returns { ok: true, key: ResolvedKey } or { ok: false, response }.
- * - settings.requireApiKey === false → passes through (key: null) — behavior frozen
+ * - settings.requireApiKey === false → identity/ACL stages skip (key: null) —
+ *   behavior frozen since key governance — BUT Observatory gateway/model
+ *   budgets still bind the keyless passthrough (W3-B): a cap that cannot reach
+ *   keyless traffic is a cap anyone can walk around by omitting the key.
  * - allowInternal: only MITM-facing paths pass true
  */
 export async function authorizeApiRequest(
@@ -334,7 +345,11 @@ export async function authorizeApiRequest(
   { requestModel = null, comboModels = null, settings, clientIp = null, allowInternal = false } = {}
 ) {
   const requireKey = settings ? !!settings.requireApiKey : true;
-  if (!requireKey) return { ok: true, key: null, skipped: true };
+  if (!requireKey) {
+    const budgetVerdict = await budgetStage(null, { requestModel });
+    if (!budgetVerdict.ok) return budgetVerdict;
+    return { ok: true, key: null, skipped: true };
+  }
 
   const token = extractKeyFromHeaders(request);
   if (!token) return deny(HTTP_STATUS.UNAUTHORIZED, GATE_CODES.INVALID_KEY, "Missing API key");
@@ -362,6 +377,12 @@ export async function authorizeApiRequest(
 
   const scopeVerdict = modelScopeStage(key, { requestModel, comboModels });
   if (!scopeVerdict.ok) return scopeVerdict;
+
+  // Observatory budget hierarchy (W3-B) — last stage: it reads the ledger, and
+  // its distinct *_budget_exceeded 429 codes sit on top of the legacy
+  // budget_exceeded code (which fires earlier in STAGES if both are crossed).
+  const budgetVerdict = await budgetStage(key, { requestModel });
+  if (!budgetVerdict.ok) return budgetVerdict;
 
   touchLastUsed(key.keyId);
   return { ok: true, key };
