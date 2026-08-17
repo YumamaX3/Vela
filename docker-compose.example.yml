@@ -189,7 +189,13 @@ services:
   # Internal-only (no host port). The gateway fails open without it.
   #
   vela-headroom:
-    image: ghcr.io/chopratejas/headroom:0.6.7-slim
+    # Release-pinned slim image (headroom moved to the headroomlabs-ai org
+    # in 2026; the old chopratejas registry stopped at 0.27.0). The bare
+    # `slim` tag also exists but drifts with every main-branch build — pin
+    # the release you want instead. Note: the 0.35.0 release's root-user
+    # slim tags were never published (failed upstream build jobs), so the
+    # slim pin uses the -nonroot flavor.
+    image: ghcr.io/headroomlabs-ai/headroom:0.35.0-slim-nonroot
     container_name: vela-headroom
     hostname: vela-headroom
     restart: unless-stopped
