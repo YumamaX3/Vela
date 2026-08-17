@@ -1109,5 +1109,8 @@
   "Stored — replace to change": "Stored — replace to change",
   "Webhook URLs are stored masked — never echoed back.": "Webhook URLs are stored masked — never echoed back.",
   "Weekly digest": "Weekly digest",
-  "Send a summary of last week's usage to the channels above every Monday.": "Send a summary of last week's usage to the channels above every Monday."
+  "Send a summary of last week's usage to the channels above every Monday.": "Send a summary of last week's usage to the channels above every Monday.",
+  "Compare": "Compare",
+  "Compare with previous period": "Compare with previous period",
+  "previous period": "previous period"
 }

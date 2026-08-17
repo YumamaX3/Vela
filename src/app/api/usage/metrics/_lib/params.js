@@ -42,6 +42,14 @@ export function parseGranularity(searchParams, fallback = "1d") {
   return searchParams.get("gran") || fallback;
 }
 
+/** W3-E compare ghost — `previous=1|true` asks for the previous-window
+ *  overlay; anything else (or absent) leaves it off. Boolean-shaped, never
+ *  an identifier, so it rides the same shape-shaping discipline. */
+export function parsePrevious(searchParams) {
+  const raw = searchParams.get("previous");
+  return raw === "1" || raw === "true";
+}
+
 // ─── Coarse rate limit on metrics/* (phase13 DoS rail) ─────────────────────
 // Deliberately coarse: a global sliding window over ALL metrics reads. The
 // deployment is a local gateway — one noisy client should not starve the
