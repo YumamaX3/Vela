@@ -48,6 +48,7 @@ import {
   clampFreebuffResetMs,
   getPersistedSession,
 } from "../services/freebuffSession.js";
+import fleet from "@/lib/network/proxyFleet.js"; // Fleet Captain for re-pick arbitration
 
 export class FreebuffGateError extends Error {
   constructor(message, status, gate) {

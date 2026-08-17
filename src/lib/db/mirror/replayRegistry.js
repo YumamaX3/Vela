@@ -73,6 +73,10 @@ export const REPLAY_CLASSES = {
   cleanupProviderConnections: REPLAY_CLASS.RMW_STALE_HAZARD,
 
   // ─── exempt ────────────────────────────────────────────────────────────
+  // Proxy Covenant: fitness writes through batched upsert — divergence sweep + watermark resync
+  upsertFitnessBatch: REPLAY_CLASS.EXEMPT,
+  resetFitness: REPLAY_CLASS.EXEMPT, // deletion follows same pattern as deleteProxyPool
+
   saveRequestUsage: REPLAY_CLASS.EXEMPT, // divergence sweep + usage watermark resync
   saveRequestDetail: REPLAY_CLASS.EXEMPT, // writeBuffer → flush mints ids at flush time — uncaptureable (Phase 10)
   appendRequestLog: REPLAY_CLASS.EXEMPT, // no-op stub kept for contract stability
