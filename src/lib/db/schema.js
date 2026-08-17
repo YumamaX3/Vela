@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -261,6 +261,31 @@ export const TABLES = {
     },
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_bl_created ON backupLedger(createdAt DESC)",
+    ],
+  },
+  // Proxy Covenant — migration 011. fitness table for fleet intelligence.
+  // PK = (poolId, provider) per decree C14. unfitUntil TTL enables geo-blocks
+  // that self-heal. egressCountry seeded by probes and stamped on country_blocked.
+  // joins TABLES for export completeness + mysql twin DDL via bootstrap diff.
+  proxyFitness: {
+    columns: {
+      poolId: "TEXT NOT NULL",
+      provider: "TEXT NOT NULL DEFAULT ''",
+      successCount: "INTEGER NOT NULL DEFAULT 0",
+      failureCount: "INTEGER NOT NULL DEFAULT 0",
+      successEwma: "REAL NOT NULL DEFAULT 0.5",
+      latencyEwmaMs: "INTEGER NOT NULL DEFAULT 0",
+      lastOutcomeAt: "TEXT",
+      unfit: "INTEGER NOT NULL DEFAULT 0",
+      unfitReason: "TEXT",
+      unfitUntil: "TEXT",
+      egressIp: "TEXT",
+      egressCountry: "TEXT",
+      updatedAt: "TEXT NOT NULL",
+    },
+    primaryKey: "PRIMARY KEY (poolId, provider)",
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_pf_pool ON proxyFitness(poolId)",
     ],
   },
 };

@@ -215,6 +215,7 @@ function resolveConnectionProxyUrl(targetUrl, proxyOptions) {
 
 /**
  * Create proxy dispatcher lazily (undici-compatible)
+ * SOCKS5 support via Socks5ProxyAgent (undici 7.29.0)
  */
 async function getDispatcher(proxyUrl) {
   const normalized = normalizeProxyUrl(proxyUrl);
@@ -225,8 +226,25 @@ async function getDispatcher(proxyUrl) {
     if (proxyDispatchers.size >= MEMORY_CONFIG.proxyDispatchersMaxSize) {
       proxyDispatchers.delete(proxyDispatchers.keys().next().value);
     }
-    const { ProxyAgent } = await import("undici");
-    proxyDispatchers.set(normalized, new ProxyAgent({ uri: normalized }));
+
+    let protocol;
+    try {
+      protocol = new URL(normalized).protocol;
+    } catch {
+      protocol = "http:";
+    }
+
+    let Dispatcher;
+    if (/^socks5:\/\//i.test(normalized)) {
+      // SOCKS5 branch - undici 7.29.0 exports Socks5ProxyAgent
+      ({ Socks5ProxyAgent } = await import("undici"));
+      Dispatcher = new Socks5ProxyAgent({ uri: normalized });
+    } else {
+      ({ ProxyAgent } = await import("undici"));
+      Dispatcher = new ProxyAgent({ uri: normalized });
+    }
+
+    proxyDispatchers.set(normalized, Dispatcher);
   }
 
   return proxyDispatchers.get(normalized);

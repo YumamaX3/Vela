@@ -25,6 +25,66 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.4 — The Proxy Fleet Captain: Self-Healing Multi-Mode Proxy System 🚢💜
+
+> *"The fleet learns which exit works best for each provider. Geo-blocks no longer burn lockouts—they become fitness signals, teaching the system to rotate intelligently."*
+
+*Sealed 2026-08-17 · Fleet Captain architecture + SOCKS5 + instant re-pick · Big change (full proxy covenant upgrade) → `0.9.3 → 0.9.4`*
+
+## ✨ Features — Fleet Intelligence Layer
+
+- **Centralized Fleet Captain** — One module owns selection policy, fitness store, health scheduling, geo-probing, and re-pick arbitration. `src/lib/network/proxyFleet.js` provides a clean API: `pick()`, `resolveForConnection()`, `recordOutcome()`, `repick()`, `checkAllPools()`—replacing scattered logic across auth.js, connectionProxy.js, and freebuff executor with one source of truth.
+- **Fitness Persistence (Migration 011)** — New `proxyFitness` table with per-(pool,provider) granularity survives restarts via twin parity (sqlite/mysql/mirror). EWMA-based scoring (α=0.3) + read-time decay toward neutral 0.5 with 7-day half-life. Unfit TTL auto-heals after country_blocked (24h) or ip_capped (1h) expires. Bounded flush writes ≤4 rows/min under mirror posture—outbox flood avoided.
+- **SOCKS5 Wiring** — Socks5ProxyAgent (undici 7.29.0) enters the main fetch path alongside ProxyAgent. `getDispatcher()` scheme branches on `socks5://` prefix; bare host:port still defaults to http:// (backward-compatible). Dead `socks-proxy-agent@^8.0.5` dep removed from package.json (zero imports). Proxy pools accept socks5:// URLs validated at API route layer (`VALID_PROXY_TYPES += "socks5"`).
+- **Instant Re-Pick for Freebuff** — Claim blocks {country_blocked, ip_capped} trigger immediate re-pick within same request: mark unfit → draw next fit pool → rebuild credentials + proxyOptions → re-enter claimSession. Cap 3 attempts, 45s budget, zero-quota blocked claims verified. Honest exhaustion surfaces named 403 with poolsTried list when exhausted. Pin policy = block-override: pinned pool respected until geo-block proves it unfit, then drawn from ALL active fit pools with pinned first whenever fit.
+- **API Tooling Suite** — Bulk health check (concurrency-capped, auto-disable confirm), IP-echo egress probe, batch import/export, real-time fitness projection endpoints added. Pools page toolbar gains bulk ops; providers/[id] panel gains Fleet Status widget showing per-provider fitness scores.
+- **Block-Aware Fitness Recording** — `recordClaimGate(poolId, providerId, code)` marks unfit for egress-scoped codes only. `recordOutcome()` logs transport success/error. Signal wiring into auth.js/ chat.js completes fitness observation chain.
+
+## 🔧 Changes & Improvements
+
+- **Replay Class Classification** — `upsertFitnessBatch` & `resetFitness` registered as EXEMPT in replayRegistry (divergence-sweep path like usage rows). Migration 011 joins TABLES for export completeness + mysql twin DDL via bootstrap additive diff.
+- **Validation Tests** — Comprehensive suite validates criteria C1–C16: migration number correctness (011 = latestVersion()+1), fitness key granularity, byte-identical legacy behavior until first signal, zero-quota blocked claims assertion, re-pick code set locking. Baseline guard ensures no regression.
+- **Auth/Chat Signal Hooks** — Fleet Captain integrated into hot-path via `global.dbClient` pattern; fire-and-forget recording wrapped in try/catch (never throw in write path). Fit-open degradation law enforced on all public APIs.
+
+## 📖 Documentation
+
+- **Sealed Plan** — plans/proxy-covenant.md documents problem statement, HMW question, sealed decrees, criteria C1–C16 matrix, implementation order, failure modes, rollback procedure. Mirror P4–14 ceremony artifact preserved.
+
+## ⚙️ Internal
+
+- **Database Schema Update** — SCHEMA_VERSION bumped 10→11, proxyFitness table joins declarative schema definition. Migration registry updated in migrations/index.js.
+- **Provider Page Integration** — FleetStatusPanel component renders real-time fitness view on per-provider pages. Existing bulkProxyPoolId/providerStrategy state extends with strategy selector dropdown (none/round-robin/random/smart).
+
+## 🎯 Criteria Validation Matrix
+
+| Criterion | Validation | Status |
+|-|-|-|-|
+| C1 | socks5:// dispatched via Socks5ProxyAgent | ✅ |
+| C2 | Fitness persisted + read-time decay | ✅ |
+| C3 | Smart strategy fitness-weighted | ✅ |
+| C4 | Block codes → unfit → instant re-pick | ✅ |
+| C5 | Per-provider proxy panel | ✅ |
+| C6 | Bulk health + probe + import/export | ✅ |
+| C7 | Twin parity sqlite/mysql/mirror | ✅ |
+| C8 | Baseline green + additive tests | ✅ |
+| C9 | Commit ritual clean (no secrets) | ✅ |
+| C10 | Bounded outbox writes | ✅ |
+| C11 | Migration = 011 | ✅ |
+| C12 | Zero quota on blocked claims | ✅ |
+| C13 | Block-override pin policy | ✅ |
+| C14 | Per-(pool,provider) granularity | ✅ |
+| C15 | Byte-identical legacy pre-signal | ✅ |
+| C16 | Re-pick codes locked {country_blocked, ip_capped} | ✅ |
+
+## 🏗️ Implementation Summary
+
+- **Files Created**: Migration 011 + schema + repos + replayRegistry update + Fleet Captain core + API routes + UI components + test suite (~25 files total)
+- **Files Modified**: proxyFetch.js, freebuff config/executor, auth.js, package.json (+ version bump) (~10 files)
+- **LOC Added**: ~2,000 new lines across core modules, routes, UI, tests
+- **Backward Compatible**: All existing strategies untouched; smart additive opt-in; neutral fitness = legacy behavior
+
+---
+
 # v0.9.3 — The Qoder Queue Gate: 10605 Is an Admission Ticket, Not a Bill 🎫
 
 > *"A full lane does not say no — it hands you a numbered ticket and tells
