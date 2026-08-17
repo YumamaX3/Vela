@@ -999,6 +999,7 @@ import {
   percentilesImpl,
   providerHealthFrameImpl,
   kpisImpl,
+  insightsImpl,
   ledgerRowsImpl,
   exportCursorImpl,
 } from "../../usageAggregation.js";
@@ -1068,4 +1069,10 @@ export async function getPerProviderFrame(windowMs = 60_000) {
     // Fail-open: serve the stale frame if we have one, else an empty window.
     return perProviderMemo.frame || { perProvider: {}, windowMs, ts: now };
   }
+}
+
+// W4-B — auto-insights (the Lookout). Engine-neutral evaluator in
+// usageInsights.js; this twin owns the dialect fragments (same as getKpis).
+export async function getInsights(opts) {
+  return insightsImpl(await getAdapter(), { ...opts, dialect: SQLITE_KPI_DIALECT });
 }

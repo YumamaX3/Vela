@@ -29,6 +29,7 @@ export const getStackedSeries = bound.getStackedSeries; // W2-C — time × dime
 export const getPercentiles = bound.getPercentiles;
 export const getProviderHealthFrame = bound.getProviderHealthFrame;
 export const getKpis = bound.getKpis;
+export const getInsights = bound.getInsights; // W4-B — the Lookout signal registry
 export const getLedgerRows = bound.getLedgerRows;
 export const getExportCursor = bound.getExportCursor;
 export const getPerProviderFrame = bound.getPerProviderFrame; // W1-D memo

@@ -81,6 +81,7 @@ export {
   getStackedSeries, // W2-C — time × dimension, top-N + Other
   getPercentiles,
   getKpis,
+  getInsights, // W4-B — the Lookout signal registry
   getLedgerRows,
   getExportCursor,
 } from "./repos/usageRepo.js";

@@ -25,6 +25,58 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.8.1 — The Observatory W4-B: The Lookout 🔭👁️
+
+> *"The decks show you what happened. The Lookout shows you what to
+> notice — a signal registry that watches the same window you are looking
+> at, speaks only when the sample is large enough to accuse, and stays
+> honestly quiet when it is not."*
+
+*Sealed 2026-08-17 · Usage Observatory W4 sub-stage (b) — auto-insights ·
+Small change (last number ticks up by one) → `0.8.0 → 0.8.1`*
+
+## ✨ Features — Auto-Insights (W4-B)
+
+- **The signal registry — `src/lib/usageInsights.js`.** Five signals, each
+  with threshold + attribution + i18n template + evidence deep-link:
+  `elevated_errors` (≥8% classified-error rate, high at ≥20%),
+  `error_class_dominant` (one class ≥40% of an already-elevated mix),
+  `cost_concentration` (one provider ≥60% of window spend, $0.01 noise floor),
+  `cost_spike` (≥2× the previous window, with $ floors), `high_latency`
+  (p95 ≥5s, high at ≥10s). Severity-ordered, capped at 4.
+- **Column guards.** Every signal demands a minimum sample before it may
+  speak (20 classified requests / 50 telemetry rows); unclassified rows are
+  excluded from denominators, never counted against them. The quiet-state is
+  honest — no signals → an empty list → the strip says so.
+- **Engine — `insightsImpl`** (usageAggregation.js). Pre-fetches the four
+  feeds (kpis double-range, statusClass breakdown, provider cost, p95) over
+  the SAME window + census the decks use; a broken feed degrades to quiet,
+  but a `FilterParamError` always propagates to an honest 400. Engine-neutral
+  — one copy rides both twins (`getInsights` joins the facade chain, the bind
+  gate, and the contract census registry).
+- **API — `GET /api/usage/metrics/insights`** behind dashboardGuard's
+  JWT-or-requireLogin, like every sibling metrics route.
+- **UI — InsightsStrip** on the Overview deck, between the KPI row and the
+  live row: severity-colored pills that steer the Needle to the facet set
+  that proves the signal (`data-i18n-skip` on the interpolated values),
+  fail-open on fetch failure.
+- **i18n** — W4B_INSIGHT_STRINGS (7 keys) seeded across all locales →
+  188 keys, parity clean.
+
+## ✅ Tests & Gate
+
+- `tests/unit/usage-insights-w4b.test.js` — 18 tests: every threshold
+  boundary, every column guard, unclassified-row exclusion, registry
+  discipline (ordering, cap, contract shape, null-world quiet), and the
+  route against a real sqlite twin (quiet world, error-heavy world,
+  identifier-covenant 400). All green; lint clean.
+- Regression gate (failure-set diff, HEAD vs worktree): **0 regressions** —
+  the census pin caught `getInsights` needing its registry home, and the pin
+  was given one in the same seal.
+- Golden snapshots regenerated (21 × 0.8.1).
+
+---
+
 # v0.8.0 — The Observatory W4-A: Saved Views 🔭🔖
 
 > *"The needle remembers. Every compass bearing you have ever set — the

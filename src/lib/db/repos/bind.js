@@ -112,7 +112,7 @@ const USAGE_WAVE_NAMES = new Set([
   "getUsageStats", "getKeyUsageStats", "touchKeyLastUsed", "getUsageDailySince",
   "getChartData", "appendRequestLog", "getRecentLogs",
   "getFilteredSeries", "getBreakdown", "getStackedSeries", "getPercentiles", "getProviderHealthFrame",
-  "getKpis", "getLedgerRows", "getExportCursor",
+  "getKpis", "getInsights", "getLedgerRows", "getExportCursor",
   "getPerProviderFrame", // W1-D: the memoized SSE health frame
 ]);
 

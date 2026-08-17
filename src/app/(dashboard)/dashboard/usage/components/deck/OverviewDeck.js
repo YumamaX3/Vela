@@ -12,6 +12,7 @@
 
 import { useUsageStream } from "../../hooks/useUsageStream";
 import KpiRow from "./overview/KpiRow";
+import InsightsStrip from "./overview/InsightsStrip";
 import LiveRow from "./overview/LiveRow";
 import TrafficRow from "./overview/TrafficRow";
 import BreakdownRow from "./overview/BreakdownRow";
@@ -24,6 +25,7 @@ export default function OverviewDeck({ compass }) {
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <KpiRow compass={compass} />
+      <InsightsStrip compass={compass} />
       <LiveRow compass={compass} stats={stats} />
       <TrafficRow compass={compass} />
       <BreakdownRow compass={compass} />
