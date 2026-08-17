@@ -741,3 +741,152 @@ export async function insightsImpl(db, { filters = {}, period = "24h", now = Dat
   const insights = evaluateInsights({ kpis, statusBreakdown, providerCost, latency });
   return { insights, meta: { period, count: insights.length } };
 }
+
+// ─── Usage Observatory W4-D — provider health timeline strips ───────────────
+// Uptime-style daily strips on the Analytics deck: one strip per provider,
+// one cell per day — ok green, errors carry the dominant class's color, and
+// a day with no traffic stays honestly hollow. Both tiers ride the SAME
+// window + census the decks use: ≤3d walks usageHistory with LOCAL-day
+// buckets (the rollup writer keys days by local date — the exact tier must
+// bucket identically or the two tiers would disagree at the boundary), 7d+
+// reads the usageDaily.statusByProvider rollup (O(days), never O(rows)).
+//
+// The statusClass census applies to the exact tier alone — pre-aggregated
+// rollup days can't filter by status (the same fidelity precedent as
+// stackedFromRollup's cross-dimension filters). Pre-008 days have no
+// statusByProvider telemetry; those cells stay hollow — collecting, never
+// fabricated.
+
+/** Local-day key (YYYY-MM-DD) — the rollup writer's own convention. */
+function w4dLocalDayKey(ms) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Roll the day's statusByProvider cell into the provider's daily counter. */
+function w4dRollCell(counter, cell) {
+  const ok = num(cell?.ok);
+  const errors = num(cell?.errors);
+  counter.requests += ok + errors;
+  counter.errors += errors;
+  for (const [k, v] of Object.entries(cell || {})) {
+    if (k === "ok" || k === "errors") continue;
+    counter.classes[k] = (counter.classes[k] || 0) + num(v);
+  }
+}
+
+export const HEALTH_TIMELINE_MAX_DAYS = 92; // never an unbounded strip
+export const HEALTH_TIMELINE_MAX_PROVIDERS = 20; // legibility rail
+
+/** Engine-neutral timeline builder. `repos` is the twin-relative enrichment
+ *  harbor ("./repos/sqlite" | "./repos/mysql") — same law as the ledger. */
+export async function healthTimelineImpl(db, { filters = {}, period = "7d", now = Date.now(), repos = "./repos/sqlite" } = {}) {
+  const { startMs, endMs } = resolvePeriodWindow(period, now);
+  const dayMs = 86_400_000;
+
+  // The day axis — local calendar days touched by the window, oldest first.
+  const days = [];
+  const firstKey = w4dLocalDayKey(startMs);
+  let cursor = new Date(`${firstKey}T00:00:00`).getTime();
+  const endKey = w4dLocalDayKey(endMs);
+  while (cursor <= endMs && days.length < HEALTH_TIMELINE_MAX_DAYS) {
+    days.push({ key: w4dLocalDayKey(cursor), startMs: cursor });
+    cursor += dayMs;
+  }
+  // Belt: the axis never overshoots (local-day arithmetic is exact, but the
+  // guard makes the cap a fact rather than a hope).
+  if (days.length && days[days.length - 1].key > endKey) days.pop();
+
+  // provider -> dayKey -> { requests, errors, classes: {} }
+  const perProvider = new Map();
+  const counterFor = (provider, dayKey) => {
+    let m = perProvider.get(provider);
+    if (!m) { m = new Map(); perProvider.set(provider, m); }
+    let c = m.get(dayKey);
+    if (!c) { c = { requests: 0, errors: 0, classes: {} }; m.set(dayKey, c); }
+    return c;
+  };
+
+  const exact = endMs - startMs <= EXACT_WINDOW_MS;
+  let source;
+  if (exact) {
+    source = "usageHistory";
+    const census = buildUsageCensus(filters);
+    const clauses = ["timestamp >= ?", "timestamp < ?", ...census.clauses];
+    const params = [iso(startMs), iso(endMs), ...census.params];
+    const rows = await db.all(
+      `SELECT timestamp, provider, statusClass FROM usageHistory WHERE ${clauses.join(" AND ")}`,
+      params
+    );
+    for (const r of rows) {
+      const provider = r.provider || "";
+      const c = counterFor(provider, w4dLocalDayKey(new Date(r.timestamp).getTime()));
+      c.requests += 1;
+      const cls = r.statusClass || "";
+      if (cls && cls !== "ok") {
+        c.errors += 1;
+        c.classes[cls] = (c.classes[cls] || 0) + 1;
+      }
+    }
+  } else {
+    source = "usageDaily.statusByProvider";
+    // Pre-aggregated days — the statusClass census cannot apply (fidelity
+    // precedent: stackedFromRollup honors the dimension's OWN filter only).
+    const daysRows = await loadDaysInRange(db, startMs, endMs, {
+      provider: filters.provider || undefined,
+    });
+    for (const { dayData } of daysRows) {
+      const dayKey = w4dLocalDayKey(dayData.__dayStartMs);
+      const sp = dayData.statusByProvider;
+      if (!sp) continue; // pre-telemetry day — hollow cells, honest
+      for (const [provider, cell] of Object.entries(sp)) {
+        if (!cell) continue;
+        // The provider facet rides the rollup tier too (the statusClass census
+        // cannot — pre-aggregated days). Same fidelity as stackedFromRollup.
+        if (filters.provider && provider !== filters.provider) continue;
+        w4dRollCell(counterFor(provider, dayKey), cell);
+      }
+    }
+  }
+
+  // Enrich the provider names the same way the decks do (fail-open).
+  const enrich = await getUsageEnrichment(repos).catch(() => null);
+  const displayName = (provider) =>
+    (enrich && enrich.providerNodeNameMap && enrich.providerNodeNameMap[provider]) || provider || "(unknown)";
+
+  // One strip per provider that touched the window — traffic desc, capped.
+  const strips = [...perProvider.entries()]
+    .map(([provider, dayMap]) => {
+      let total = 0;
+      let totalErrors = 0;
+      const cells = days.map((d) => {
+        const c = dayMap.get(d.key) || null;
+        if (!c || c.requests === 0) return { date: d.key, requests: 0, errors: 0, dominant: null };
+        total += c.requests;
+        totalErrors += c.errors;
+        let dominant = null;
+        let best = 0;
+        for (const [cls, n] of Object.entries(c.classes)) {
+          if (n > best) { best = n; dominant = cls; }
+        }
+        return { date: d.key, requests: c.requests, errors: c.errors, dominant };
+      });
+      return {
+        provider,
+        providerDisplayName: displayName(provider),
+        totalRequests: total,
+        totalErrors,
+        cells,
+      };
+    })
+    .filter((s) => s.totalRequests > 0)
+    .sort((a, b) => b.totalRequests - a.totalRequests || a.provider.localeCompare(b.provider))
+    .slice(0, HEALTH_TIMELINE_MAX_PROVIDERS);
+
+  return {
+    strips,
+    days: days.map((d) => d.key),
+    truncated: perProvider.size > HEALTH_TIMELINE_MAX_PROVIDERS,
+    meta: { period, source, startMs, endMs },
+  };
+}

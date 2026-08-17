@@ -1000,6 +1000,7 @@ import {
   providerHealthFrameImpl,
   kpisImpl,
   insightsImpl,
+  healthTimelineImpl,
   ledgerRowsImpl,
   exportCursorImpl,
 } from "../../usageAggregation.js";
@@ -1075,4 +1076,10 @@ export async function getPerProviderFrame(windowMs = 60_000) {
 // usageInsights.js; this twin owns the dialect fragments (same as getKpis).
 export async function getInsights(opts) {
   return insightsImpl(await getAdapter(), { ...opts, dialect: SQLITE_KPI_DIALECT });
+}
+
+// W4-D — provider health timeline strips. Engine-neutral two-tier builder in
+// usageAggregation.js; this twin passes its own harbor for the enrichment.
+export async function getHealthTimeline(opts) {
+  return healthTimelineImpl(await getAdapter(), { ...opts, repos: "./repos/sqlite" });
 }

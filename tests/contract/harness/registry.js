@@ -59,7 +59,7 @@ export const PARITY_REGISTRY = new Set([
   // in at W2-G. Engine-neutral by construction (one shared impl), proven
   // convergent in the real.
   "getFilteredSeries", "getBreakdown", "getStackedSeries", "getPercentiles",
-  "getProviderHealthFrame", "getKpis", "getInsights", "getLedgerRows", "getExportCursor",
+  "getProviderHealthFrame", "getKpis", "getInsights", "getHealthTimeline", "getLedgerRows", "getExportCursor",
   // W4-C request tags — the ledger annotation layer (migration 010)
   "getTagsForUsageIds", "getUsageTags", "setUsageTags",
 ]);

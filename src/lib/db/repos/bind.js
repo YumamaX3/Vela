@@ -114,6 +114,7 @@ const USAGE_WAVE_NAMES = new Set([
   "getFilteredSeries", "getBreakdown", "getStackedSeries", "getPercentiles", "getProviderHealthFrame",
   "getKpis", "getInsights", "getLedgerRows", "getExportCursor",
   "getPerProviderFrame", // W1-D: the memoized SSE health frame
+  "getHealthTimeline", // W4-D: provider health timeline strips
 ]);
 
 /** The Observatory W3 governance surface — the quotaRepo (budget

@@ -9,4 +9,5 @@ export {
   // Usage Observatory W2-B — the Metrics REST API layer
   getFilteredSeries, getBreakdown, getStackedSeries, getPercentiles,
   getKpis, getInsights, getLedgerRows, getExportCursor,
+  getHealthTimeline, // Usage Observatory W4-D — provider health timeline strips
 } from "@/lib/db/index.js";

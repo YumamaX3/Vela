@@ -82,6 +82,7 @@ export {
   getPercentiles,
   getKpis,
   getInsights, // W4-B — the Lookout signal registry
+  getHealthTimeline, // W4-D — provider health timeline strips
   getLedgerRows,
   getExportCursor,
 } from "./repos/usageRepo.js";

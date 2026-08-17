@@ -30,6 +30,7 @@ export const getPercentiles = bound.getPercentiles;
 export const getProviderHealthFrame = bound.getProviderHealthFrame;
 export const getKpis = bound.getKpis;
 export const getInsights = bound.getInsights; // W4-B — the Lookout signal registry
+export const getHealthTimeline = bound.getHealthTimeline; // W4-D — provider health timeline strips
 export const getLedgerRows = bound.getLedgerRows;
 export const getExportCursor = bound.getExportCursor;
 export const getPerProviderFrame = bound.getPerProviderFrame; // W1-D memo

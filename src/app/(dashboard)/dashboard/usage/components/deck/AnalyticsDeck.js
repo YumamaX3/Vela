@@ -5,10 +5,12 @@
 // LatencyPanel · ErrorMix · CacheShare · CostPerMtok · UsageByKey ·
 // RtkSavings. Every panel is funded from existing metrics endpoints; panels
 // the telemetry doesn't yet fund render honest collecting-states, never
-// fabricated charts. HealthTimeline strips ride W4.
+// fabricated charts. W4-D landed the HealthTimeline strips — the uptime row
+// that leads the deck.
 "use client";
 
 import AnalyticsPulse from "./analytics/AnalyticsPulse";
+import HealthTimeline from "./analytics/HealthTimeline";
 import LatencyPanel from "./analytics/LatencyPanel";
 import ErrorMix from "./analytics/ErrorMix";
 import CacheShare from "./analytics/CacheShare";
@@ -19,6 +21,9 @@ import RtkSavings from "./analytics/RtkSavings";
 export default function AnalyticsDeck({ compass }) {
   return (
     <div className="flex min-w-0 flex-col gap-4">
+      {/* W4-D — the uptime row. Full-width above the pulse: the fastest read
+          on "is it healthy?" is one strip per provider, one cell per day. */}
+      <HealthTimeline compass={compass} />
       <AnalyticsPulse compass={compass} />
       <div className="grid min-w-0 grid-cols-1 gap-3 xl:grid-cols-2">
         <LatencyPanel compass={compass} />
