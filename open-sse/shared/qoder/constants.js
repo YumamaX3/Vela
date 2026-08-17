@@ -52,13 +52,18 @@ export const QODER_MODEL_MAP = {
   performance: "performance",
   efficient: "efficient",
   lite: "lite",
-  // Frontier models
+  // Frontier models (synced to the live roster 2026-08-17; identity map —
+  // never delete an id, the executor itself is dynamic and these entries
+  // only gate "is this a known qoder model?" checks)
   qmodel: "qmodel",
   qmodel_latest: "qmodel_latest",
+  qmodel_38max: "qmodel_38max",
   dmodel: "dmodel",
   dfmodel: "dfmodel",
+  gmodel: "gmodel",
   gm51model: "gm51model",
   kmodel: "kmodel",
+  kmodel_latest: "kmodel_latest",
   mmodel: "mmodel",
 };
 

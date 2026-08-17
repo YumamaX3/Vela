@@ -25,17 +25,21 @@ export default {
       url: "https://openapi.qoder.sh/api/v2/quota/usage",
     },
   },
+  // Roster synced to qoder's live list 2026-08-17 (the Star's own account):
+  // lite + gmodel (GLM-5.3) added; qmodel_preview (Qwen3.8-Max-Preview)
+  // retired upstream.
   models: [
-    { id: "ultimate", name: "Ultimate" },
     { id: "auto", name: "Auto" },
+    { id: "ultimate", name: "Ultimate" },
     { id: "performance", name: "Performance" },
     { id: "efficient", name: "Efficient" },
+    { id: "lite", name: "Lite" },
     { id: "qmodel_38max", name: "Qwen3.8-Max" },
-    { id: "qmodel_preview", name: "Qwen3.8-Max-Preview" },
     { id: "qmodel_latest", name: "Qwen3.7-Max" },
     { id: "qmodel", name: "Qwen3.7-Plus" },
     { id: "kmodel_latest", name: "Kimi-K3" },
     { id: "kmodel", name: "Kimi-K2.7-Code" },
+    { id: "gmodel", name: "GLM-5.3" },
     { id: "gm51model", name: "GLM-5.2" },
     { id: "dmodel", name: "DeepSeek-V4-Pro" },
     { id: "dfmodel", name: "DeepSeek-V4-Flash" },
