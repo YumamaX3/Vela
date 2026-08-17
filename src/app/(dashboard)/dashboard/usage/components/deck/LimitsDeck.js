@@ -18,10 +18,14 @@ import { Suspense } from "react";
 import { CardSkeleton } from "@/shared/components/Loading";
 import ProviderLimits from "../ProviderLimits";
 import KeyUsagePanel from "./limits/KeyUsagePanel";
+import AlertConfigCard from "./limits/AlertConfigCard";
 
 export default function LimitsDeck({ compass }) {
   return (
     <div className="flex min-w-0 flex-col gap-4">
+      {/* W3-C — where the alert channels are armed */}
+      <AlertConfigCard />
+
       {/* Per-key usage bars — who is calling, and how much */}
       <KeyUsagePanel compass={compass} />
 
