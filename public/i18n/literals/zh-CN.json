@@ -1520,5 +1520,12 @@
   "Failed to save view": "Failed to save view",
   "A view named \"{name}\" already exists — saving replaces it.": "A view named \"{name}\" already exists — saving replaces it.",
   "Replace": "Replace",
-  "Delete view": "Delete view"
+  "Delete view": "Delete view",
+  "Insights": "Insights",
+  "Nothing unusual in this window": "Nothing unusual in this window",
+  "{pct}% of requests in this window failed — error rate is elevated": "{pct}% of requests in this window failed — error rate is elevated",
+  "Most failures are {statusClass} ({pct}% of errors)": "Most failures are {statusClass} ({pct}% of errors)",
+  "{provider} accounts for {pct}% of spend in this window": "{provider} accounts for {pct}% of spend in this window",
+  "Spend is {times}× the previous period": "Spend is {times}× the previous period",
+  "p95 latency is {secs}s in this window": "p95 latency is {secs}s in this window"
 }

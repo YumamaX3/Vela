@@ -238,8 +238,21 @@ export const W4A_SAVED_VIEWS_STRINGS = [
   "Delete view",
 ];
 
+// W4-B auto-insights — the Lookout signal registry. Templates carry the
+// registry's attribution params; the signal kinds themselves are stable
+// registry keys (never rendered raw).
+export const W4B_INSIGHT_STRINGS = [
+  "Insights",
+  "Nothing unusual in this window",
+  "{pct}% of requests in this window failed — error rate is elevated",
+  "Most failures are {statusClass} ({pct}% of errors)",
+  "{provider} accounts for {pct}% of spend in this window",
+  "Spend is {times}× the previous period",
+  "p95 latency is {secs}s in this window",
+];
+
 // Every wave's literal group seeds the same locale files, English-first.
-export const ALL_LITERAL_GROUPS = [GOVERNANCE_STRINGS, USAGE_OBSERVATORY_STRINGS, W3C_ALERT_STRINGS, W3D_DIGEST_STRINGS, W3E_COMPARE_STRINGS, W4A_SAVED_VIEWS_STRINGS];
+export const ALL_LITERAL_GROUPS = [GOVERNANCE_STRINGS, USAGE_OBSERVATORY_STRINGS, W3C_ALERT_STRINGS, W3D_DIGEST_STRINGS, W3E_COMPARE_STRINGS, W4A_SAVED_VIEWS_STRINGS, W4B_INSIGHT_STRINGS];
 
 const checkOnly = process.argv.includes("--check");
 let drift = 0;

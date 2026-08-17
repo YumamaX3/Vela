@@ -22,6 +22,7 @@ import {
   resolvePeriodWindow,
   getUsageEnrichment,
 } from "./usageNames.js";
+import { evaluateInsights } from "../usageInsights.js";
 
 const PERCENTILES = [
   ["p50", 0.5],
@@ -691,4 +692,42 @@ export async function* exportCursorImpl(db, { filters = {}, period = "60d", sort
     if (!page.nextCursor || page.items.length === 0) return;
     after = page.nextCursor;
   }
+}
+
+// ─── Usage Observatory W4-B — auto-insights (the Lookout) ───────────────────
+// Engine-neutral orchestrator: pre-fetches the four feeds the signal registry
+// evaluates (kpis double-range, statusClass breakdown, provider cost, p95
+// latency) and hands them to the pure evaluator in usageInsights.js. Each
+// feed rides the SAME window + census the decks use, so an insight is always
+// about what the Compass is looking at right now.
+//
+// The latency feed is column-guarded honestly: pre-008 rows have NULL
+// latencyMs, so percentiles' own count gate decides whether the signal may
+// speak (minLatencySample in usageInsights.js). The statusClass breakdown
+// excludes unclassified rows at the evaluator ("" never counts).
+//
+// All four feeds resolve independently — a feed that throws (e.g. a missing
+// rollup day) degrades to null, and the registry treats null feeds as quiet.
+// The ONE exception that must never be swallowed: a FilterParamError — the
+// caller's identifier was invalid, and the API layer maps that to an honest
+// 400, not a silent quiet-state.
+async function fetchFeed(fn) {
+  try {
+    return await fn();
+  } catch (e) {
+    if (e instanceof FilterParamError) throw e;
+    return null; // a broken feed must never sink the strip
+  }
+}
+
+export async function insightsImpl(db, { filters = {}, period = "24h", now = Date.now(), dialect } = {}) {
+  const base = { filters, period, now };
+  const [kpis, statusBreakdown, providerCost, latency] = await Promise.all([
+    fetchFeed(() => kpisImpl(db, { ...base, dialect })),
+    fetchFeed(() => breakdownImpl(db, { ...base, dimension: "statusClass", metric: "requests" })),
+    fetchFeed(() => breakdownImpl(db, { ...base, dimension: "provider", metric: "cost" })),
+    fetchFeed(() => percentilesImpl(db, base)),
+  ]);
+  const insights = evaluateInsights({ kpis, statusBreakdown, providerCost, latency });
+  return { insights, meta: { period, count: insights.length } };
 }
