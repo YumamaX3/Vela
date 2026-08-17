@@ -632,13 +632,20 @@ export async function ledgerRowsImpl(db, { filters = {}, period = "7d", sort = "
   );
 
   const enrich = await getUsageEnrichment(repos);
-  const items = rows.map((r) => buildLedgerRow(r, enrich));
+  // W4-C — one bounded IN query per ledger page (never per row). Fail-open:
+  // a tags twin hiccup leaves every row an honest [] — the ledger never dies
+  // for an annotation.
+  let tagMap = new Map();
+  if (rows.length && enrich.tagsRepo) {
+    try { tagMap = await enrich.tagsRepo.getTagsForUsageIds(rows.map((r) => r.id)); } catch { /* fail-open */ }
+  }
+  const items = rows.map((r) => buildLedgerRow(r, enrich, tagMap));
   const last = rows[rows.length - 1];
   const nextCursor = items.length === lim ? { v: last[sort] ?? null, id: last.id } : null;
   return { items, nextCursor, meta: { sort, order: dir === "ASC" ? "asc" : "desc", limit: lim, startMs, endMs } };
 }
 
-function buildLedgerRow(r, enrich) {
+function buildLedgerRow(r, enrich, tagMap) {
   const tokens = typeof r.tokens === "string" ? safeJson(r.tokens) : (r.tokens || {});
   const meta = typeof r.meta === "string" ? safeJson(r.meta) : (r.meta || {});
   const keyInfo = r.keyId ? enrich.apiKeyMap[r.keyId] : null;
@@ -665,6 +672,9 @@ function buildLedgerRow(r, enrich) {
     httpStatus: r.httpStatus ?? null,
     rtk: meta?.rtk ? { bytesSaved: num(meta.rtk.bytesSaved), tokensSavedEst: meta.rtk.tokensSavedEst ?? null } : null,
     rtkSavedCostUsd: meta?.rtkSavedCostUsd ?? null,
+    // W4-C — operator-authored annotations; escape-on-render (React) and
+    // CSV-safe (formula-guarded csvCell) ride the display layers.
+    tags: (tagMap && tagMap.get(r.id)) || [],
   };
 }
 

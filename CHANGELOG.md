@@ -25,6 +25,67 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.0 — The Observatory W4-C: Request Tags 🏷️🗂️
+
+> *"The decks show you what happened. Tags let you say what it MEANT —
+> a ledger you can annotate, a drawer you can write in, an export that
+> carries your marks to the shore of any spreadsheet."*
+
+*Sealed 2026-08-17 · Usage Observatory W4 sub-stage (c) — request tags ·
+Big change (migration 010 — milestones ride schema bumps) → `0.8.1 → 0.9.0`*
+
+## ✨ Features — Request Tags (W4-C)
+
+- **Migration 010 — `usageRequestTags`.** A dedicated annotation table
+  (usageId → name, ordered by insertion), indexed by request and UNIQUE
+  per (usageId, name). The schema mirror and registry advance to
+  SCHEMA_VERSION 10 in the same commit; every prior-wave pin advances
+  with them — including one W4-A-era pin the rite had missed in
+  parity-backup (healed, not ignored).
+- **The validation covenant — `src/lib/requestTagDef.js`.** ≤64 chars,
+  charset allow-list (`^[A-Za-z0-9][A-Za-z0-9 _\-./:]{0,63}$` — no commas,
+  quotes, or angle brackets, so a tag can never break a CSV cell or an
+  HTML context), ≤8 tags per request, case-insensitive dedupe. Honored
+  end-to-end: validation at the route, parameterized SQL in the twins,
+  escape-on-render (React) and CSV safety (the export's formula-guarded
+  csvCell) at the display layers.
+- **Repo twins + facade.** `repos/{sqlite,mysql}/usageTagsRepo.js` —
+  one bounded IN query per ledger page (`getTagsForUsageIds`), REPLACE
+  semantics in a transaction (`setUsageTags`), oldest-first reads
+  (`getUsageTags`). The census gains all three names, and the public
+  barrel re-exports the facade so the bijection stays total.
+- **PUT `/api/usage/metrics/ledger/tags`.** Replace a request's tag set;
+  200 echoes the stored set (the server is the truth), honest 400s with
+  the full error list otherwise. Rides the `/api/usage` guard prefix —
+  the same posture as the ledger it annotates, no escalation.
+- **Ledger rows carry tags.** Every ledger item (screen AND export)
+  gains `tags: []` from one batched lookup per page — fail-open: a tags
+  hiccup never dims the ledger.
+- **Drawer tag editor — `TagEditor.js`.** Chips with remove, validated
+  add input, optimistic update with rollback + honest error line.
+- **Row chips.** Up to two tag chips ride the model cell, overflow as
+  `+N` with the full set in the title.
+- **CSV export gains `tags`.** A quoted, comma-space joined column;
+  the allow-list makes the join unambiguous by construction.
+- **i18n.** W4C_TAG_STRINGS (7 keys) seeded across all locales — the
+  literal census now stands at 195, parity verified.
+
+## 🧪 Tests
+
+- `tests/unit/request-tags-w4c.test.js` — 14 tests: the pure validation
+  contract, migration/schema mirror pins, repo round-trip + batch
+  lookup, the PUT route's 200s and honest 400s, ledger rows carrying
+  tags, and the CSV column.
+
+## ⚙️ Internal
+
+- The schema-pin rite advanced 9 → 10 across seven pin files (and found
+  its eighth — parity-backup's fresh-DB stamp, missed at W4-A).
+- Regression gate: 0 regressions against HEAD (93 → 91 failures, two
+  healed; +14 tests, all green).
+
+---
+
 # v0.8.1 — The Observatory W4-B: The Lookout 🔭👁️
 
 > *"The decks show you what happened. The Lookout shows you what to

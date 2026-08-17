@@ -13,6 +13,7 @@ import Drawer from "@/shared/components/Drawer";
 import { t } from "../../../lib/t";
 import { STATUS_COLORS, statusClassLabel } from "../../../lib/statusColors";
 import { fmtTokens, fmtRowCost, fmtMs, fmtDateTime } from "../../../lib/ledgerFmt";
+import TagEditor from "./TagEditor";
 
 function Field({ label, children }) {
   return (
@@ -23,7 +24,7 @@ function Field({ label, children }) {
   );
 }
 
-export default function LedgerDrawer({ row, onClose }) {
+export default function LedgerDrawer({ row, onClose, onRowUpdate }) {
   if (!row) return null;
   const color = STATUS_COLORS[row.statusClass] || "#64748b";
   const totalTokens = (row.promptTokens || 0) + (row.completionTokens || 0);
@@ -60,6 +61,17 @@ export default function LedgerDrawer({ row, onClose }) {
           <Field label={t("Key")}>{row.keyName || row.keyPrefix || "—"}</Field>
           {row.accountName && <Field label={t("Account")}>{row.accountName}</Field>}
           {row.endpoint && <Field label={t("Endpoint")}>{row.endpoint}</Field>}
+        </div>
+
+        {/* W4-C — request tags. Operator annotations about this request;
+            saved through the validated PUT route, echoed back by the server. */}
+        <div className="rounded-lg border border-border bg-bg-subtle p-4">
+          <span className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t("Tags")}</span>
+          <TagEditor
+            usageId={row.id}
+            tags={row.tags || []}
+            onChange={(tags) => onRowUpdate && onRowUpdate({ ...row, tags })}
+          />
         </div>
 
         {/* Tokens + cost */}

@@ -71,11 +71,11 @@ async function seedOutbox(entries) {
 }
 
 describe("Wave C3 — migration 007 + the sqlite-only law", () => {
-  it("a fresh DB migrates to schemaVersion 9 with the mirrorSeq cursor", async () => {
+  it("a fresh DB migrates to schemaVersion 10 with the mirrorSeq cursor", async () => {
     await freshDb();
     const { getAdapter } = await import("@/lib/db/driver.js");
     const adapter = await getAdapter();
-    expect(adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`).value).toBe("9");
+    expect(adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`).value).toBe("10");
     const cols = adapter.all(`PRAGMA table_info(mirrorSeq)`).map((r) => r.name).sort();
     expect(cols).toEqual(["id", "lastAppliedSeq", "lastFailedSeq"]);
     // The seed row exists; CHECK keeps it a single-row table.
