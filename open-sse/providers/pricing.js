@@ -329,15 +329,15 @@ export const PROVIDER_PRICING = {
   // model (per registry/qoder.js names), so every lane row carries the base
   // model's exact retail rate. Honors the header promise at the top of this
   // file ("retail-equivalent estimates for subscription lanes … qoder").
-  // Tier selectors (ultimate/auto/performance/efficient) stay unpriced — no
-  // honest per-token rate exists for a router's own tier picker.
+  // Tier selectors (ultimate/auto/performance/efficient/lite) stay unpriced —
+  // no honest per-token rate exists for a router's own tier picker.
   qoder: {
     "qmodel_38max":  { input: 2.00,  output: 6.00,  cached: 0.25,   cache_creation: 2.50 },   // → Qwen3.8-Max
-    "qmodel_preview":{ input: 2.00,  output: 6.00,  cached: 0.25,   cache_creation: 2.50 },   // → Qwen3.8-Max-Preview
     "qmodel_latest": { input: 2.50,  output: 7.50,  cached: 0.50,   cache_creation: 3.125 },  // → Qwen3.7-Max
     "qmodel":        { input: 0.50,  output: 3.00,  cached: 0.05,   cache_creation: 0.625 },  // → Qwen3.7-Plus
     "kmodel_latest": { input: 3.00,  output: 15.00, cached: 0.30,   reasoning: 15.00, cache_creation: 3.00 },  // → Kimi-K3
     "kmodel":        { input: 0.95,  output: 4.00,  cached: 0.19,   reasoning: 4.00,  cache_creation: 0.95 },  // → Kimi-K2.7-Code
+    "gmodel":        { input: 1.60,  output: 4.80,  cached: 0.30,   reasoning: 4.80 },         // → GLM-5.3 [2026-08-17 estimate, flat GLM-5.x retail drift]
     "gm51model":     { input: 1.40,  output: 4.40,  cached: 0.26,   reasoning: 4.40 },         // → GLM-5.2
     "dmodel":        { input: 0.435, output: 0.87,  cached: 0.003625, reasoning: 0.87, cache_creation: 0.435 }, // → DeepSeek-V4-Pro
     "dfmodel":       { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,  cache_creation: 0.14 },   // → DeepSeek-V4-Flash

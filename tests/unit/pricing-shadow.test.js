@@ -19,11 +19,11 @@ describe("Pricing Shadow — qoder lane (subscription retail-equivalents)", () =
   const QODER_LANE = {
     // [model, expected input rate] — registry/qoder.js name → base model rate
     qmodel_38max: 2.00,      // Qwen3.8-Max
-    qmodel_preview: 2.00,    // Qwen3.8-Max-Preview
     qmodel_latest: 2.50,     // Qwen3.7-Max
     qmodel: 0.50,            // Qwen3.7-Plus
     kmodel_latest: 3.00,     // Kimi-K3
     kmodel: 0.95,            // Kimi-K2.7-Code
+    gmodel: 1.60,            // GLM-5.3
     gm51model: 1.40,         // GLM-5.2
     dmodel: 0.435,           // DeepSeek-V4-Pro
     dfmodel: 0.14,           // DeepSeek-V4-Flash
@@ -40,9 +40,10 @@ describe("Pricing Shadow — qoder lane (subscription retail-equivalents)", () =
   });
 
   it("the registry's full qoder model list prices every non-tier-selector", () => {
-    // Tier selectors (ultimate/auto/performance/efficient) stay unpriced —
-    // no honest per-token rate exists for a router's own tier picker.
-    const TIER_SELECTORS = new Set(["ultimate", "auto", "performance", "efficient"]);
+    // Tier selectors (ultimate/auto/performance/efficient/lite) stay
+    // unpriced — no honest per-token rate exists for a router's own
+    // tier picker.
+    const TIER_SELECTORS = new Set(["ultimate", "auto", "performance", "efficient", "lite"]);
     for (const id of Object.keys(QODER_LANE)) {
       expect(TIER_SELECTORS.has(id)).toBe(false);
       expect(PROVIDER_PRICING.qoder[id], `qoder lane row for ${id}`).toBeTruthy();
@@ -50,7 +51,7 @@ describe("Pricing Shadow — qoder lane (subscription retail-equivalents)", () =
   });
 
   it("tier selectors honestly stay unpriced (null, not a fake rate)", () => {
-    for (const tier of ["ultimate", "auto", "performance", "efficient"]) {
+    for (const tier of ["ultimate", "auto", "performance", "efficient", "lite"]) {
       expect(getPricingForModel("qoder", tier)).toBeNull();
     }
   });
