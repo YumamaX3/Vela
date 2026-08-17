@@ -262,8 +262,18 @@ export const W4C_TAG_STRINGS = [
   "Remove tag {tag}",
 ];
 
+// W4-D provider health timeline — the Analytics deck's uptime row.
+export const W4D_TIMELINE_STRINGS = [
+  "Provider health",
+  "Daily strips per provider — green is clean, colored cells name the dominant trouble, hollow days saw no traffic.",
+  "{n} requests",
+  "{n} errors",
+  "No traffic in this window",
+  "Showing the top {n} providers by traffic",
+];
+
 // Every wave's literal group seeds the same locale files, English-first.
-export const ALL_LITERAL_GROUPS = [GOVERNANCE_STRINGS, USAGE_OBSERVATORY_STRINGS, W3C_ALERT_STRINGS, W3D_DIGEST_STRINGS, W3E_COMPARE_STRINGS, W4A_SAVED_VIEWS_STRINGS, W4B_INSIGHT_STRINGS, W4C_TAG_STRINGS];
+export const ALL_LITERAL_GROUPS = [GOVERNANCE_STRINGS, USAGE_OBSERVATORY_STRINGS, W3C_ALERT_STRINGS, W3D_DIGEST_STRINGS, W3E_COMPARE_STRINGS, W4A_SAVED_VIEWS_STRINGS, W4B_INSIGHT_STRINGS, W4C_TAG_STRINGS, W4D_TIMELINE_STRINGS];
 
 const checkOnly = process.argv.includes("--check");
 let drift = 0;

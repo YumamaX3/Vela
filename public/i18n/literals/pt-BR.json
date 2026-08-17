@@ -1136,5 +1136,11 @@
   "Add tag…": "Add tag…",
   "Saving": "Saving",
   "Could not save tags": "Could not save tags",
-  "Remove tag {tag}": "Remove tag {tag}"
+  "Remove tag {tag}": "Remove tag {tag}",
+  "Provider health": "Provider health",
+  "Daily strips per provider — green is clean, colored cells name the dominant trouble, hollow days saw no traffic.": "Daily strips per provider — green is clean, colored cells name the dominant trouble, hollow days saw no traffic.",
+  "{n} requests": "{n} requests",
+  "{n} errors": "{n} errors",
+  "No traffic in this window": "No traffic in this window",
+  "Showing the top {n} providers by traffic": "Showing the top {n} providers by traffic"
 }

@@ -1010,6 +1010,7 @@ import {
   stackedSeriesImpl,
   percentilesImpl,
   insightsImpl,
+  healthTimelineImpl,
   providerHealthFrameImpl,
   kpisImpl,
   ledgerRowsImpl,
@@ -1053,6 +1054,12 @@ export async function getKpis(opts) {
 // usageInsights.js; this twin owns the dialect fragments (same as getKpis).
 export async function getInsights(opts) {
   return insightsImpl(await getMysqlAdapter(), { ...opts, dialect: MYSQL_KPI_DIALECT });
+}
+
+// W4-D — provider health timeline strips (parity-by-construction with the
+// sqlite twin; the engine-neutral builder rides usageAggregation.js).
+export async function getHealthTimeline(opts) {
+  return healthTimelineImpl(await getMysqlAdapter(), { ...opts, repos: "./repos/mysql" });
 }
 
 export async function getLedgerRows(opts) {
