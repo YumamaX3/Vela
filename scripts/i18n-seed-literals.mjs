@@ -223,8 +223,23 @@ export const W3E_COMPARE_STRINGS = [
   "previous period",
 ];
 
+// W4-A saved views — the Needle bar's Views menu.
+export const W4A_SAVED_VIEWS_STRINGS = [
+  "Saved views",
+  "Views",
+  "No saved views yet",
+  "Saved views keep your compass settings one click away.",
+  "Save current view",
+  "View name",
+  "View name is required",
+  "Failed to save view",
+  "A view named \"{name}\" already exists — saving replaces it.",
+  "Replace",
+  "Delete view",
+];
+
 // Every wave's literal group seeds the same locale files, English-first.
-export const ALL_LITERAL_GROUPS = [GOVERNANCE_STRINGS, USAGE_OBSERVATORY_STRINGS, W3C_ALERT_STRINGS, W3D_DIGEST_STRINGS, W3E_COMPARE_STRINGS];
+export const ALL_LITERAL_GROUPS = [GOVERNANCE_STRINGS, USAGE_OBSERVATORY_STRINGS, W3C_ALERT_STRINGS, W3D_DIGEST_STRINGS, W3E_COMPARE_STRINGS, W4A_SAVED_VIEWS_STRINGS];
 
 const checkOnly = process.argv.includes("--check");
 let drift = 0;

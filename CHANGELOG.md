@@ -25,6 +25,63 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.8.0 — The Observatory W4-A: Saved Views 🔭🔖
+
+> *"The needle remembers. Every compass bearing you have ever set — the
+> deck, the window, the provider, the filter — can now be named and kept.
+> One click to save the view; one click to return to it. Migration 009,
+> reserved since W3-A, at last takes the table it was promised."*
+
+*Sealed 2026-08-17 · Usage Observatory W4 sub-stage (a) — saved views ·
+Big change (milestone of ten) → `0.7.45 → 0.8.0` — migration 008 sailed as
+v0.6.90; migration 009 claims the next milestone.*
+
+## ✨ Features — Saved Views (W4-A)
+
+- **Migration 009 — the released reservation.** `usageViews` (id, name,
+  params, createdAt, updatedAt) + `uq_uv_name` UNIQUE + `idx_uv_created`;
+  schema.js mirror gains the table, SCHEMA_VERSION 8→9; the mysql twin rides
+  bootstrap.js's additive TABLES diff. The 009 line reserved in W3-A is no
+  longer reserved — it is real.
+- **Posture-bound twins.** `repos/{sqlite,mysql}/savedViewsRepo.js` behind
+  `repos/savedViewsRepo.js` (bindFacade); `OBSERVATORY_W4_NAMES` joins the
+  bind gate — mysql/mirror dispatch rides the same seam as every W3 surface.
+- **The identifier covenant's sibling — `src/lib/savedViewDef.js`.** name ≤64
+  trimmed, params ≤2048, and a key whitelist over the full compass vocabulary
+  (tab + every facet param + sort/order) — a saved view can only ever
+  re-shape the compass, never carry foreign state into the URL. MAX_SAVED_VIEWS = 50.
+- **ALWAYS_PROTECTED endpoint — `/api/usage/views`** (the sealed plan's own
+  words). GET list (newest first) · POST save (201 create / 200 upsert on a
+  duplicate name, 409 at the cap) · DELETE ?id= (404 absent). Every honest
+  400 repeats the error list; malformed JSON never 500s.
+- **ViewsMenu on the Needle bar.** Save the current compass (URL is the
+  payload), apply in one click (`router.replace("?" + params)`), replace on
+  name collision, delete on hover — fail-open throughout, so an unreachable
+  API leaves the menu quiet, never broken.
+- **i18n** — W4A_SAVED_VIEWS_STRINGS (11 keys) seeded across all locales →
+  181 keys, parity clean.
+
+## 🔧 Test-Pin Rite
+
+Migration 009 advances `_meta.schemaVersion` to 9 — the same rite migration
+008 performed. Seven prior-wave test files carried live pins at 8 and advanced
+in this seal (usage-telemetry-008, db-export-completeness, mirror-pump,
+outbox-replay-registry, driver-mode-matrix, parity-sqlite-shakeout, and
+parity-backup's live-pair); the scrypt `header.r` parameter and the
+round-trip pin (`toBe(7)`) were deliberately untouched.
+
+## ✅ Tests & Gate
+
+- `tests/unit/saved-views-w4a.test.js` — 16 tests: migration registry/schema
+  mirror, table existence, read/write surface, upsert semantics, leading-`?`
+  normalization, the honest 400s (six shapes + `__proto__` naming), the 409
+  cap, DELETE + bad-id handling. All green; lint clean.
+- Regression gate (failure-set diff, HEAD vs worktree): **0 regressions**;
+  four environmental flakes happened to settle on the worktree run.
+- Golden snapshots regenerated (21 × 0.8.0).
+
+---
+
 # v0.7.45 — The Observatory W3-E: The Compare Ghost 🔭👻
 
 > *"The KPIs already whispered Δ against the previous window. The chart

@@ -72,7 +72,7 @@ describe("Migration 008 — usage telemetry", () => {
     expect(rows.map((r) => r.statusClass)).toEqual(["ok", "ok", "upstream_error", ""]);
 
     const stamped = db2.get(`SELECT value FROM _meta WHERE key='schemaVersion'`);
-    expect(parseInt(stamped.value, 10)).toBe(8);
+    expect(parseInt(stamped.value, 10)).toBe(9);
   });
 
   it("backfill is idempotent and never touches classified rows", async () => {
