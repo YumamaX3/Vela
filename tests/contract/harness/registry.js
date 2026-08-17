@@ -60,6 +60,8 @@ export const PARITY_REGISTRY = new Set([
   // convergent in the real.
   "getFilteredSeries", "getBreakdown", "getStackedSeries", "getPercentiles",
   "getProviderHealthFrame", "getKpis", "getInsights", "getLedgerRows", "getExportCursor",
+  // W4-C request tags — the ledger annotation layer (migration 010)
+  "getTagsForUsageIds", "getUsageTags", "setUsageTags",
 ]);
 
 /** Never parity-testable — process/global state, wall-clock, pure helpers. */

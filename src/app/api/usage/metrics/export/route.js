@@ -44,6 +44,12 @@ const COLUMNS = [
   ["rtkBytesSaved", "rtk.bytesSaved"],
   ["rtkTokensSavedEst", "rtk.tokensSavedEst"],
   ["rtkSavedCostUsd", "rtkSavedCostUsd"],
+  // W4-C — operator request tags. The ledger row carries them as an array;
+  // rowToLine joins them below. The charset allow-list (requestTagDef.js)
+  // excludes commas, quotes, and angle brackets by construction, so the
+  // ", " join can never forge a new cell — and csvCell still guards the
+  // whole cell with quoting + the formula tab-pad.
+  ["tags", null],
 ];
 
 /** One CSV cell: always quoted, internal quotes doubled, and a leading tab
@@ -58,7 +64,12 @@ function csvCell(v) {
 function rowToLine(row) {
   return COLUMNS.map(([header]) => {
     const dot = header.indexOf(".");
-    if (dot === -1) return csvCell(row[header]);
+    if (dot === -1) {
+      const v = row[header];
+      // W4-C — array cells (tags) join on ", "; the allow-list keeps commas
+      // out of any single tag, so the join is unambiguous inside the quotes.
+      return csvCell(Array.isArray(v) ? v.join(", ") : v);
+    }
     const sub = row[header.slice(0, dot)];
     return csvCell(sub ? sub[header.slice(dot + 1)] : null);
   }).join(",");

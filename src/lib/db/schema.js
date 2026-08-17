@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -206,6 +206,22 @@ export const TABLES = {
     indexes: [
       "CREATE UNIQUE INDEX IF NOT EXISTS uq_uv_name ON usageViews(name)",
       "CREATE INDEX IF NOT EXISTS idx_uv_created ON usageViews(createdAt DESC)",
+    ],
+  },
+  // Usage Observatory W4-C (migration 010) — request tags, an annotation
+  // layer OVER usageHistory (no foreign key — the schema's cross-table
+  // style). The ledger's batch tag lookup rides idx_urt_usageId; the
+  // PUT-replace API rides uq_urt_usageId_name.
+  usageRequestTags: {
+    columns: {
+      id: "INTEGER PRIMARY KEY AUTOINCREMENT",
+      usageId: "INTEGER NOT NULL",
+      name: "TEXT NOT NULL",
+      createdAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_urt_usageId ON usageRequestTags(usageId)",
+      "CREATE UNIQUE INDEX IF NOT EXISTS uq_urt_usageId_name ON usageRequestTags(usageId, name)",
     ],
   },
   requestDetails: {

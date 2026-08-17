@@ -251,8 +251,19 @@ export const W4B_INSIGHT_STRINGS = [
   "p95 latency is {secs}s in this window",
 ];
 
+// W4-C request tags — the ledger drawer's annotation surface.
+export const W4C_TAG_STRINGS = [
+  "Tags",
+  "No tags yet",
+  "Add tag…",
+  "Add",
+  "Saving",
+  "Could not save tags",
+  "Remove tag {tag}",
+];
+
 // Every wave's literal group seeds the same locale files, English-first.
-export const ALL_LITERAL_GROUPS = [GOVERNANCE_STRINGS, USAGE_OBSERVATORY_STRINGS, W3C_ALERT_STRINGS, W3D_DIGEST_STRINGS, W3E_COMPARE_STRINGS, W4A_SAVED_VIEWS_STRINGS, W4B_INSIGHT_STRINGS];
+export const ALL_LITERAL_GROUPS = [GOVERNANCE_STRINGS, USAGE_OBSERVATORY_STRINGS, W3C_ALERT_STRINGS, W3D_DIGEST_STRINGS, W3E_COMPARE_STRINGS, W4A_SAVED_VIEWS_STRINGS, W4B_INSIGHT_STRINGS, W4C_TAG_STRINGS];
 
 const checkOnly = process.argv.includes("--check");
 let drift = 0;
