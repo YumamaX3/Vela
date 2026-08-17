@@ -25,6 +25,53 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.3 — The Qoder Queue Gate: 10605 Is an Admission Ticket, Not a Bill 🎫
+
+> *"A full lane does not say no — it hands you a numbered ticket and tells
+> you when to come back. We used to tear those tickets up as billing errors."*
+
+*Sealed 2026-08-17 · qoder queue-admission handler · Small change
+(executor logic + tests, no migration) → `0.9.2 → 0.9.3`*
+
+## ✨ Features — The Queue Gate
+
+- **10605 reclassified: queue admission, not billing.** Qoder answers a
+  saturated lane with 200 + a first SSE frame whose statusCodeValue is 403
+  and whose body carries the admission ticket — double-encoded, with
+  `isQueued`, `modelKey`, `queueCount`, `queueType`, `retryAfterSeconds`
+  (observed in production on qmodel_38max, slow lane, 7,722 deep). The
+  server's own instruction rides inside: wait `retryAfterSeconds`, retry.
+  The old code lumped 10605 into `isBillingBlock` and killed the connection
+  with a 403 — now the ticket is honored.
+- **Wait-and-reissue in place.** `execute()` runs the queue gate: parse the
+  ticket with `parseQueueAdmission` (escape-tolerant — every nesting level
+  keeps its backslashes, so fields are found at any depth), wait the
+  server-specified seconds (capped at 30s so a wedged upstream can never
+  hang the gateway; exponential backoff 2→10s when the server says zero),
+  then re-issue the IDENTICAL signed payload — stable session/record ids
+  make the retry idempotent upstream, and the credential-keyed model
+  catalog cache makes each re-issue cheap. Up to 10 attempts (the Star's
+  decree: deep queues like the 7,722-strong slow lane deserve the longer
+  patience; each wait itself is capped at 30s).
+- **Honest 429 when the gate exhausts.** A lane that never admits within
+  the budget returns 429 to chatCore — honest for the Observatory,
+  combo-fallback friendly, and it skips the 401/403 token-refresh churn
+  a queue is not. A final best-effort probe pulls the upstream's own last
+  frame into the reason (`lane=slow, queue=7722, retryAfter=30s, waited
+  through 10 attempts`) whenever it arrives within 3s.
+- **The billing covenant stands untouched.** Code 112 and pricingUrl still
+  return 403 → connection marked unavailable → combo failover. Only the
+  ticket left the billing family.
+
+## ⚙️ Internal
+
+- Executor imports tidied — the unused QODER_MODEL_MAP import swept.
+- New suite: `tests/unit/qoder-queue.test.js` (18 tests, both observed
+  production shapes included); qoder-billing pins updated to the new
+  classification. Golden URL-header snapshot re-sealed at 0.9.3 (21 pins).
+
+---
+
 # v0.9.2 — Qoder Roster Sync: Lite + GLM-5.3 Aboard, Preview Retired ⛵🔧
 
 > *"The Star read the live roster off his own account and handed it over —
