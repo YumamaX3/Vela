@@ -25,6 +25,65 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.7.44 — The Observatory W3-D: The Weekly Digest 🔭📬
+
+> *"The alarms tell you when something is wrong. The digest tells you what
+> the week WAS. Once every Monday, the ledger's shape — requests, tokens,
+> cost, and who spent it — rides the channels the operator already armed.
+> Fire once per week, never twice, never with a secret in sight."*
+
+*Sealed 2026-08-17 · Usage Observatory W3 sub-stage (d) — weekly digest ·
+Small change (last number ticks up by one) → `0.7.43 → 0.7.44`*
+
+## ✨ Features — Weekly Digest (W3-D)
+
+- **`src/sse/services/usageDigest.js`** — the digest engine + scheduler.
+  Summarizes the LAST 7 DAYS of the usage ledger (requests, tokens, est.
+  cost, top-5 providers/models/keys by cost) over the same frozen
+  `getUsageDailySince` seam budgetGate uses. A delta against the prior week
+  is deliberately W3-E's compare-periods item — one period, honestly.
+- **Once-per-week guarantee** — the last-sent marker (`lastSentWeek`) rides
+  the kv store via digestRepo (scope "digest"); the hourly scheduler tick +
+  kv dedupe mean exactly one digest per week even across restarts. A manual
+  send (`POST /api/usage/digest/send`) bypasses the week dedupe but never
+  the enabled-channel check.
+- **Reuses W3-C's channels** — the digest rides the SAME operator-configured
+  Discord + n8n webhooks (`isHttpUrl` + `postJson` exported from
+  budgetAlerts.js). No new webhook surface to configure.
+
+## 🔧 Changes
+
+- **`src/lib/db/repos/digestRepo.js`** + sqlite/mysql twins — the kv-backed
+  marker (W3-A budgetRepo precedent: posture-bound, twin-parity,
+  export-covered generically; no migration — 009 stays reserved for W4).
+- **`src/lib/db/repos/bind.js`** — `getDigestState`/`setDigestState` join
+  OBSERVATORY_W3_NAMES.
+- **`src/app/api/settings/route.js`** — masking exposes
+  `weeklyDigestEnabled`; PATCH deep-merge handles it; a budgetAlerts change
+  arms/disarms the digest scheduler.
+- **`src/lib/db/repos/settingsDefaults.js`** — `weeklyDigestEnabled` default
+  + a `mergeWithDefaults` backfill so pre-W3-D budgetAlerts rows gain the
+  flag without losing stored values.
+- **`initializeApp.js`** — `configureDigestScheduler` at boot (settings-driven,
+  default OFF, idempotent, fail-open).
+- **`AlertConfigCard.js`** — the "Weekly digest" toggle joins the alert
+  channels.
+
+## ⚙️ Internal
+
+- Delivery reuses W3-C's fail-open, secret-safe posture: webhook URLs never
+  logged or echoed; non-http(s) URLs refused; a delivery error never throws
+  out of the tick.
+- 14 new contract tests (`usage-digest-w3d.test.js`); W3 suite + i18n parity
+  green. Full-suite regression gate: no flagged file imports any W3-D module;
+  the exact flagged-file combo reproduces HEAD's result (2 fail / 83 pass);
+  individual flagged files all pass. The residual full-suite failures are the
+  documented ~100 environmental-flake family.
+- Golden snapshots regenerated for the version ride
+  (`0.7.43 → 0.7.44` in buildHeaders).
+
+---
+
 # v0.7.43 — The Observatory W3-C: The Alert Channels 🔭📣
 
 > *"A cap that bites in silence is a trap, not a covenant. W3-C gives the

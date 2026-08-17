@@ -118,10 +118,12 @@ const USAGE_WAVE_NAMES = new Set([
 
 /** The Observatory W3 governance surface — the quotaRepo (budget
  *  definitions) contract. Definitions ride the kv store (scope "budgets"),
- *  so the twins are thin kv plumbing in repos/{sqlite,mysql}/budgetRepo.js. */
+ *  so the twins are thin kv plumbing in repos/{sqlite,mysql}/budgetRepo.js.
+ *  W3-D adds the weekly-digest marker (kv scope "digest") — same precedent. */
 const OBSERVATORY_W3_NAMES = new Set([
   "listBudgets", "getBudget", "upsertBudget", "updateBudget", "setBudgetActive", "removeBudget",
   "budgetId", // pure constructor, re-exported verbatim from budgetDef
+  "getDigestState", "setDigestState", // W3-D — once-per-week dedupe marker
 ]);
 
 /** Bind a facade barrel to its posture's harbor.

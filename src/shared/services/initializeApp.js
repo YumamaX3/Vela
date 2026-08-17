@@ -134,6 +134,14 @@ async function runHeavyStartup() {
   import("@/shared/services/mirrorStartup.js")
     .then(({ configureMirrorStartup }) => configureMirrorStartup())
     .catch((e) => console.log("[mirror] startup failed:", e.message));
+
+  // Usage Observatory W3-D — the weekly usage digest scheduler. Settings-driven
+  // (budgetAlerts.weeklyDigestEnabled), default OFF; once-per-week delivery is
+  // deduped by the kv marker. configureDigestScheduler is idempotent and
+  // fail-open by law.
+  import("@/sse/services/usageDigest.js")
+    .then(({ configureDigestScheduler }) => configureDigestScheduler())
+    .catch((e) => console.log("[digest] scheduler start failed:", e.message));
 }
 
 function hasQuotaAutoPingEnabled(settings) {

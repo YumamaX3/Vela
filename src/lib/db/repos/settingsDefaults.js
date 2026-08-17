@@ -72,6 +72,9 @@ export const DEFAULT_SETTINGS = {
     discordWebhookUrl: "",
     n8nEnabled: false,
     n8nWebhookUrl: "",
+    // Usage Observatory W3-D — the weekly usage digest rides the same
+    // operator-configured channels as the budget alerts.
+    weeklyDigestEnabled: false,
   },
 };
 
@@ -90,6 +93,13 @@ export function mergeWithDefaults(raw) {
         merged[key] = defVal;
       }
     }
+  }
+  // W3-D backfill: an existing budgetAlerts row written before the weekly
+  // digest lands misses `weeklyDigestEnabled` — the shallow merge above keeps
+  // the stored object verbatim, so top up missing keys from the defaults
+  // (defaults first, stored values win → URLs and flags are preserved).
+  if (merged.budgetAlerts && typeof merged.budgetAlerts === "object") {
+    merged.budgetAlerts = { ...DEFAULT_SETTINGS.budgetAlerts, ...merged.budgetAlerts };
   }
   return merged;
 }

@@ -1,13 +1,16 @@
-// Usage Observatory W3-C — the alert channel configuration card.
+// Usage Observatory W3-C + W3-D — the alert channel configuration card.
 //
 // Where the Star arms the budget alert channels: Discord webhook + n8n
-// webhook toggles, each with its URL input. Reads the MASKED shape from
-// GET /api/settings (presence flags only — the webhook URLs are secret-bearing
-// and never round-trip to the client), and PATCHes settings.budgetAlerts.
-// The server deep-merges: an omitted/empty URL keeps the stored one, so the
-// input reads as a "replace" field, never an echo of the secret.
+// webhook toggles, each with its URL input, and the weekly usage digest
+// toggle (W3-D) that rides the same channels every Monday. Reads the MASKED
+// shape from GET /api/settings (presence flags only — the webhook URLs are
+// secret-bearing and never round-trip to the client), and PATCHes
+// settings.budgetAlerts. The server deep-merges: an omitted/empty URL keeps
+// the stored one, so the input reads as a "replace" field, never an echo of
+// the secret.
 //
-// Delivery itself is fail-open (budgetAlerts.js) — this card only configures.
+// Delivery itself is fail-open (budgetAlerts.js / usageDigest.js) — this card
+// only configures.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -18,7 +21,7 @@ import { t } from "../../../lib/t";
 const isHttpUrl = (v) => !v || /^https?:\/\//i.test(v.trim());
 
 export default function AlertConfigCard() {
-  const [form, setForm] = useState(null); // { discordEnabled, n8nEnabled }
+  const [form, setForm] = useState(null); // { discordEnabled, n8nEnabled, weeklyDigestEnabled }
   const [flags, setFlags] = useState({}); // { hasDiscordWebhook, hasN8nWebhook }
   const [discordUrl, setDiscordUrl] = useState("");
   const [n8nUrl, setN8nUrl] = useState("");
@@ -30,10 +33,14 @@ export default function AlertConfigCard() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const ba = d?.budgetAlerts || {};
-        setForm({ discordEnabled: !!ba.discordEnabled, n8nEnabled: !!ba.n8nEnabled });
+        setForm({
+          discordEnabled: !!ba.discordEnabled,
+          n8nEnabled: !!ba.n8nEnabled,
+          weeklyDigestEnabled: !!ba.weeklyDigestEnabled,
+        });
         setFlags({ hasDiscordWebhook: !!ba.hasDiscordWebhook, hasN8nWebhook: !!ba.hasN8nWebhook });
       })
-      .catch(() => setForm({ discordEnabled: false, n8nEnabled: false })); // fail-open
+      .catch(() => setForm({ discordEnabled: false, n8nEnabled: false, weeklyDigestEnabled: false })); // fail-open
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -48,6 +55,7 @@ export default function AlertConfigCard() {
       const patch = {
         discordEnabled: !!form.discordEnabled,
         n8nEnabled: !!form.n8nEnabled,
+        weeklyDigestEnabled: !!form.weeklyDigestEnabled,
       };
       // Empty URL = keep the stored one (server deep-merge); only send when set.
       if (discordUrl.trim()) patch.discordWebhookUrl = discordUrl.trim();
@@ -125,6 +133,17 @@ export default function AlertConfigCard() {
               aria-label={t("n8n webhook URL")}
               data-i18n-skip="true"
               className="w-full rounded-[10px] border border-border bg-bg px-3 py-1.5 font-mono text-[12px] text-text placeholder:text-text-muted/60 focus:border-primary focus:outline-none"
+            />
+          </div>
+
+          {/* Weekly digest — W3-D, rides the channels above */}
+          <div className="border-t border-border pt-3">
+            <Toggle
+              checked={form.weeklyDigestEnabled}
+              onChange={(v) => setForm((f) => ({ ...f, weeklyDigestEnabled: v }))}
+              label={t("Weekly digest")}
+              description={t("Send a summary of last week's usage to the channels above every Monday.")}
+              size="md"
             />
           </div>
 
