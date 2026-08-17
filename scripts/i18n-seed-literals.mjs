@@ -210,8 +210,14 @@ export function listLocaleFiles() {
     .sort();
 }
 
+// W3-D weekly digest — the Limits-deck toggle copy.
+export const W3D_DIGEST_STRINGS = [
+  "Weekly digest",
+  "Send a summary of last week's usage to the channels above every Monday.",
+];
+
 // Every wave's literal group seeds the same locale files, English-first.
-export const ALL_LITERAL_GROUPS = [GOVERNANCE_STRINGS, USAGE_OBSERVATORY_STRINGS, W3C_ALERT_STRINGS];
+export const ALL_LITERAL_GROUPS = [GOVERNANCE_STRINGS, USAGE_OBSERVATORY_STRINGS, W3C_ALERT_STRINGS, W3D_DIGEST_STRINGS];
 
 const checkOnly = process.argv.includes("--check");
 let drift = 0;

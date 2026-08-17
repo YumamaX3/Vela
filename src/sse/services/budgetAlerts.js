@@ -112,6 +112,11 @@ function isHttpUrl(url) {
   return trimmed.startsWith("http://") || trimmed.startsWith("https://");
 }
 
+// W3-D reuses the delivery plumbing (the weekly digest rides the same
+// operator-configured webhooks). Both helpers are secret-safe: neither logs
+// the URL. Exported for usageDigest.js — budgetAlerts never imports it back.
+export { isHttpUrl, postJson };
+
 function formatAlertLine(alert) {
   const capLabel = alert.capType === "token" ? "tokens" : `$${(alert.cap / 100).toFixed(2)}`;
   const usedLabel = alert.capType === "token" ? `${alert.used} tokens` : `$${(alert.used / 100).toFixed(2)}`;

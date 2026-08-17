@@ -1504,5 +1504,7 @@
   "Save failed": "Save failed",
   "Saving…": "Saving…",
   "Stored — replace to change": "Stored — replace to change",
-  "Webhook URLs are stored masked — never echoed back.": "Webhook URLs are stored masked — never echoed back."
+  "Webhook URLs are stored masked — never echoed back.": "Webhook URLs are stored masked — never echoed back.",
+  "Weekly digest": "Weekly digest",
+  "Send a summary of last week's usage to the channels above every Monday.": "Send a summary of last week's usage to the channels above every Monday."
 }
