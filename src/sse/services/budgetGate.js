@@ -25,37 +25,17 @@
 
 import { errorResponse } from "open-sse/utils/error.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
-import { QUOTA_CODES } from "@/lib/budgetDef.js";
+import { QUOTA_CODES, quotaWindowStart } from "@/lib/budgetDef.js";
 import { parseModel, getModelInfo } from "./model.js";
+import { recordBudgetAlert } from "./budgetAlerts.js";
+
+// Re-exported so existing imports from budgetGate keep resolving — the
+// window math now lives in the shared budgetDef seam (W3-C needs it for
+// breach staleness without importing the gate).
+export { quotaWindowStart };
 
 function deny(status, code, message) {
   return { ok: false, code, message, status, response: errorResponse(status, `${message} (${code})`) };
-}
-
-// ── Window math (local-date convention) ───────────────────────────────────
-// usageDaily stores LOCAL dateKeys, so budget windows reset on local
-// boundaries — same convention as keyGate's windowStartDateKey, with the
-// Observatory's own day|week|month vocabulary (weeks start Monday, ISO).
-
-function obsDateKey(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-/** Start dateKey of the window containing `now` (local-time boundaries). */
-export function quotaWindowStart(window, now = new Date()) {
-  switch (window) {
-    case "week": {
-      const dow = now.getDay() || 7; // Sunday → 7
-      const monday = new Date(now);
-      monday.setDate(now.getDate() - (dow - 1));
-      return obsDateKey(monday);
-    }
-    case "month":
-      return obsDateKey(new Date(now.getFullYear(), now.getMonth(), 1));
-    case "day":
-    default:
-      return obsDateKey(now);
-  }
 }
 
 // ── Alert plumbing — W3-C's hook point ─────────────────────────────────────
@@ -87,6 +67,9 @@ function emitBudgetAlert(alert) {
   const ring = alertRing();
   ring.push(alert);
   if (ring.length > ALERT_RING_MAX) ring.splice(0, ring.length - ALERT_RING_MAX);
+  // W3-C delivery layer: hysteresis + dedupe decide what fans out to the
+  // banner/webhooks; the ring keeps the raw signal for debugging regardless.
+  try { recordBudgetAlert(alert); } catch { /* delivery never blocks the gate */ }
   for (const fn of alertListeners) {
     try { fn(alert); } catch { /* a broken channel never blocks the gate */ }
   }

@@ -184,6 +184,25 @@ export const USAGE_OBSERVATORY_STRINGS = [
   "Status mix",
 ];
 
+// W3-C alert channels — cockpit banner + the Limits-deck config card.
+export const W3C_ALERT_STRINGS = [
+  "Budget alerts",
+  "and {n} more",
+  "Alert channels",
+  "Budget alerts fire at 50%, 80%, and 100% of each budget window.",
+  "Discord webhook",
+  "Send budget alerts to a Discord channel.",
+  "Discord webhook URL",
+  "n8n webhook",
+  "Send budget alerts to an n8n workflow.",
+  "n8n webhook URL",
+  "Saved",
+  "Save failed",
+  "Saving…",
+  "Stored — replace to change",
+  "Webhook URLs are stored masked — never echoed back.",
+];
+
 export function listLocaleFiles() {
   return fs
     .readdirSync(LITERALS_DIR)
@@ -192,7 +211,7 @@ export function listLocaleFiles() {
 }
 
 // Every wave's literal group seeds the same locale files, English-first.
-export const ALL_LITERAL_GROUPS = [GOVERNANCE_STRINGS, USAGE_OBSERVATORY_STRINGS];
+export const ALL_LITERAL_GROUPS = [GOVERNANCE_STRINGS, USAGE_OBSERVATORY_STRINGS, W3C_ALERT_STRINGS];
 
 const checkOnly = process.argv.includes("--check");
 let drift = 0;

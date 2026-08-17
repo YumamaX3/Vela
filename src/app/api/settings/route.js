@@ -19,6 +19,18 @@ export async function GET() {
     const settings = await getSettings();
     const { password, oidcClientSecret, ...safeSettings } = settings;
     safeSettings.oidcConfigured = !!(safeSettings.oidcIssuerUrl && safeSettings.oidcClientId && oidcClientSecret);
+    // W3-C: budget webhook URLs are secret-bearing (a Discord webhook URL
+    // carries a token) — never echo them back. Expose presence flags only,
+    // mirroring the oidcConfigured / hasPassword precedent.
+    if (safeSettings.budgetAlerts) {
+      const ba = safeSettings.budgetAlerts;
+      safeSettings.budgetAlerts = {
+        discordEnabled: !!ba.discordEnabled,
+        n8nEnabled: !!ba.n8nEnabled,
+        hasDiscordWebhook: !!(typeof ba.discordWebhookUrl === "string" && ba.discordWebhookUrl.trim()),
+        hasN8nWebhook: !!(typeof ba.n8nWebhookUrl === "string" && ba.n8nWebhookUrl.trim()),
+      };
+    }
     
     const enableRequestLogs = process.env.ENABLE_REQUEST_LOGS === "true";
     const enableTranslator = process.env.ENABLE_TRANSLATOR === "true";
@@ -74,6 +86,28 @@ export async function PATCH(request) {
       if (!body.oidcClientSecret || !String(body.oidcClientSecret).trim()) {
         delete body.oidcClientSecret;
       }
+    }
+
+    // W3-C: budgetAlerts is a nested object — updateSettings shallow-merges
+    // top-level keys, so a partial client payload would clobber stored
+    // webhook URLs. Deep-merge against the current values; an empty-string
+    // URL means "keep the stored one" (the UI shows a placeholder, never the
+    // secret itself).
+    if (Object.prototype.hasOwnProperty.call(body, "budgetAlerts")) {
+      const current = ((await getSettings()) || {}).budgetAlerts || {};
+      const patch = body.budgetAlerts && typeof body.budgetAlerts === "object" ? body.budgetAlerts : {};
+      body.budgetAlerts = {
+        discordEnabled: "discordEnabled" in patch ? !!patch.discordEnabled : !!current.discordEnabled,
+        n8nEnabled: "n8nEnabled" in patch ? !!patch.n8nEnabled : !!current.n8nEnabled,
+        discordWebhookUrl:
+          typeof patch.discordWebhookUrl === "string" && patch.discordWebhookUrl.trim()
+            ? patch.discordWebhookUrl.trim()
+            : (typeof current.discordWebhookUrl === "string" ? current.discordWebhookUrl : ""),
+        n8nWebhookUrl:
+          typeof patch.n8nWebhookUrl === "string" && patch.n8nWebhookUrl.trim()
+            ? patch.n8nWebhookUrl.trim()
+            : (typeof current.n8nWebhookUrl === "string" ? current.n8nWebhookUrl : ""),
+      };
     }
 
     const settings = await updateSettings(body);
