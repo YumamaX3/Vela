@@ -116,6 +116,14 @@ const USAGE_WAVE_NAMES = new Set([
   "getPerProviderFrame", // W1-D: the memoized SSE health frame
 ]);
 
+/** The Observatory W3 governance surface — the quotaRepo (budget
+ *  definitions) contract. Definitions ride the kv store (scope "budgets"),
+ *  so the twins are thin kv plumbing in repos/{sqlite,mysql}/budgetRepo.js. */
+const OBSERVATORY_W3_NAMES = new Set([
+  "listBudgets", "getBudget", "upsertBudget", "updateBudget", "setBudgetActive", "removeBudget",
+  "budgetId", // pure constructor, re-exported verbatim from budgetDef
+]);
+
 /** Bind a facade barrel to its posture's harbor.
  *  @param sqliteRepo the sqlite harbor module (verbatim binding under sqlite)
  *  @param mysqlLoader `() => import("../mysql/<repo>.js")` — static call site */
@@ -134,7 +142,7 @@ export function bindFacade(sqliteRepo, mysqlLoader) {
   const bound = {};
   for (const [name, fn] of Object.entries(sqliteRepo)) {
     if (typeof fn !== "function") { bound[name] = fn; continue; }
-    if (!CONFIG_WAVE_NAMES.has(name) && !SECURITY_WAVE_NAMES.has(name) && !USAGE_WAVE_NAMES.has(name)) {
+    if (!CONFIG_WAVE_NAMES.has(name) && !SECURITY_WAVE_NAMES.has(name) && !USAGE_WAVE_NAMES.has(name) && !OBSERVATORY_W3_NAMES.has(name)) {
       bound[name] = () => {
         throw new Error(`[DB] VELA_DB_MODE=mysql — repo fn "${name}" lands in a later Storage Covenant wave (Wave C mirror). Boot refusal (fail loud, never silent downgrade).`);
       };
