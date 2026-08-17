@@ -25,6 +25,58 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.1 — The Observatory W4-D: Provider Health Timeline 🩺📊
+
+> *"The pulse tiles say how the harbor feels right now. The timeline says
+> how each provider held up across the days — one strip per shore, one cell
+> per day, hollow where no ships sailed. No fabricated clean."*
+
+*Sealed 2026-08-17 · Usage Observatory W4 sub-stage (d) — provider health
+timeline strips · Small change (no migration — engine + UI only) →
+`0.9.0 → 0.9.1`*
+
+## ✨ Features — Health Timeline Strips (W4-D)
+
+- **The two-tier engine — `healthTimelineImpl` in usageAggregation.js.**
+  ≤3d walks usageHistory bucketed by LOCAL day (the rollup writer's own key
+  convention, so both tiers agree at the boundary); 7d+ reads the
+  usageDaily.statusByProvider rollup — O(days), never O(rows). The provider
+  facet rides both tiers; the statusClass census applies to the exact tier
+  alone (pre-aggregated rollup days can't filter by status — the same
+  fidelity precedent as stackedFromRollup).
+- **Honesty rails:** pre-telemetry days (no statusByProvider) render hollow,
+  a day with no traffic stays hollow (never a fabricated clean), the day
+  axis caps at 92, and strips cap at the top 20 providers by traffic with
+  an honest `truncated` flag.
+- **Repo twins + facade + census.** sqlite/mysql twins, the facade export,
+  the usageDb shim, the bind wave-name, the census registry, and the public
+  barrel all gain `getHealthTimeline` in one commit — the bijection stays
+  total.
+- **GET `/api/usage/metrics/health-timeline`.** Reads inherit the `/api/usage`
+  guard prefix; unknown periods answer an honest 400 INVALID_FILTER_PARAM.
+- **HealthTimeline.js — the uptime row.** Full-width at the top of the
+  Analytics deck: one strip per provider, one cell per day — green is clean,
+  colored cells name the dominant trouble (the shared status palette), a
+  per-strip uptime % rides the right rail, and tooltips carry the full
+  counts. Fail-open like every panel.
+- **i18n.** W4D_TIMELINE_STRINGS (6 keys) seeded across all locales — the
+  literal census now stands at 201, parity verified.
+
+## 🧪 Tests
+
+- `tests/unit/health-timeline-w4d.test.js` — 9 tests: day-axis shape, the
+  ok/errors/dominant partition, hollow-day honesty, provider facet on BOTH
+  tiers, rollup source + identical day keys, pre-telemetry hollow cells,
+  the day cap, and the honest 400.
+
+## ⚙️ Internal
+
+- Regression gate: 0 regressions against HEAD (91 failures both sides; +9
+  tests, all green). A lesson crystallized: migration 004's dedupe UNIQUE
+  collapses same-timestamp test rows — seed with staggered timestamps.
+
+---
+
 # v0.9.0 — The Observatory W4-C: Request Tags 🏷️🗂️
 
 > *"The decks show you what happened. Tags let you say what it MEANT —
