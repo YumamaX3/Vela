@@ -25,6 +25,60 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.7.41 — The Observatory W3-A: The Budget Definitions 🔭🛡️
+
+> *"The Governance wave opens. Before the engine can hold a hard cap, it must
+> know what the caps ARE — so W3-A forges quotaRepo, the budget-definition
+> seam: scopes gateway|key|model, windows day|week|month, the 50/80/100
+> soft-threshold vocabulary, and an honest config API. Definitions ride the
+> kv store as config — no new table, no migration, for the sealed plan
+> reserves migration 009 for W4's saved views."*
+
+*Sealed 2026-08-17 · Usage Observatory W3 sub-stage (a) — budget schema
+foundation · Small change (last number ticks up by one) → `0.7.40 → 0.7.41`*
+
+## ✨ Features — quotaRepo + Budget Config API (W3-A)
+
+- **`src/lib/budgetDef.js`** — the frozen vocabulary, shared by the gate
+  (enforcement, W3-B), the repo (validation + persistence), and the
+  dashboard: `QUOTA_SCOPES` (gateway|key|model), `QUOTA_WINDOWS`
+  (day|week|month), `QUOTA_THRESHOLDS` [50, 80, 100], distinct per-scope
+  denial codes (`gateway_budget_exceeded` / `key_budget_exceeded` /
+  `model_budget_exceeded`), and `validateBudgetDefinition` with honest
+  error messages (scope/window/caps validation, ≤256-char subject cap).
+- **`quotaRepo`** — `repos/budgetRepo.js` facade + sqlite/mysql twins
+  (bind.js registers `OBSERVATORY_W3_NAMES`). Budget definitions ride the
+  kv store (scope `budgets`) — posture-bound, twin-parity, export-covered
+  generically (Storage Covenant A3), and NO new migration (009 is reserved
+  for W4 saved views per SEALED-PLAN line 46). Contract: `listBudgets`
+  (5s hot-path cache matching the spend stage TTL), `getBudget`,
+  `upsertBudget`, `updateBudget` (id-changing scope/subject moves
+  re-check the cap), `setBudgetActive`, `removeBudget`.
+- **`GET/POST/PATCH/DELETE /api/usage/budgets`** — the config surface.
+  Query-param addressing (`?id=`) because model-budget ids carry `/`
+  (`model:openai/gpt-4o`) and path segments would meet the encoded-slash
+  trap. Protection rides the existing `/api/usage` PROTECTED_API_PATHS
+  prefix (phase13 Gate-11 posture: config surfaces stay posture-consistent
+  with the reads; only the unbounded export stream escalates). Honest
+  envelope: 201 create / 400 invalid input (errors list verbatim) /
+  404 absent id / 409 when the MAX_BUDGETS (200) DoS rail bites.
+
+## ⚙️ Internal
+
+- DoS rails: MAX_SUBJECT_LENGTH 256 (a hostile writer cannot bloat the kv
+  scope the gate reads on every authorization) and MAX_BUDGETS 200
+  (create-only — an upsert of an existing id replaces, never grows). One
+  fix found on the way: `getAll()` returns an OBJECT, so the rail counts
+  `Object.keys(...).length`, never `.length` (which was `undefined` and
+  silently skipped the check).
+- 25 new tests — repo contract (vocabulary, honest validation, kv
+  round-trip, ordering, cache invalidation) + API contract (read surface,
+  201/400/404/409 envelopes, id-changing PATCH, MAX_BUDGETS rail). Census
+  pin green — the kvStore helper is census-exempt, raw SQL never touches
+  the gate.
+
+---
+
 # v0.7.40 — The Observatory W2-G: Cockpit Seal 🔭🪞
 
 > *"The Cockpit wave closes. Every sealed-plan obligation is proven green
