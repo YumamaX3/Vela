@@ -348,5 +348,16 @@
   "Send a summary of last week's usage to the channels above every Monday.": "Send a summary of last week's usage to the channels above every Monday.",
   "Compare": "Compare",
   "Compare with previous period": "Compare with previous period",
-  "previous period": "previous period"
+  "previous period": "previous period",
+  "Saved views": "Saved views",
+  "Views": "Views",
+  "No saved views yet": "No saved views yet",
+  "Saved views keep your compass settings one click away.": "Saved views keep your compass settings one click away.",
+  "Save current view": "Save current view",
+  "View name": "View name",
+  "View name is required": "View name is required",
+  "Failed to save view": "Failed to save view",
+  "A view named \"{name}\" already exists — saving replaces it.": "A view named \"{name}\" already exists — saving replaces it.",
+  "Replace": "Replace",
+  "Delete view": "Delete view"
 }

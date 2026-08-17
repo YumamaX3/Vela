@@ -170,7 +170,7 @@ describe("Wave B2 — the backup engine round-trip", () => {
     const result = await db.runBackup({ trigger: "test" });
     expect(result.ok).toBe(true);
     expect(fs.existsSync(result.file)).toBe(true);
-    expect(result.manifest.schemaVersion).toBe(8);
+    expect(result.manifest.schemaVersion).toBe(9);
     expect(result.manifest.secretBundle.length).toBeGreaterThan(0);
 
     // Mutate the live DB, then restore — the payload comes back.
@@ -291,7 +291,7 @@ describe("Wave B2 — S2 redaction + S3 exclusions", () => {
     expect(payload.settings.requireLogin).toBe(true);
     expect(payload.kvScopes.b2scope).toEqual({ k1: "v1" });
     expect(payload.combos.some((c) => c.name === "b2-combo")).toBe(true);
-    expect(payload._meta.schemaVersion).toBe(8);
+    expect(payload._meta.schemaVersion).toBe(9);
   });
 
   it("exportSettings redacts at the source", async () => {

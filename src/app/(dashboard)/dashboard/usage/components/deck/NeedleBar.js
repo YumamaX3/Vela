@@ -10,6 +10,7 @@
 import { useState, useEffect } from "react";
 import { t } from "../../lib/t";
 import { statusClassOptions } from "../../lib/statusOptions";
+import ViewsMenu from "./ViewsMenu";
 
 const PERIOD_OPTIONS = [
   { value: "today", label: "Today" },
@@ -120,15 +121,19 @@ export default function NeedleBar({ compass }) {
         </select>
       )}
 
-      {hasActiveFilters && (
-        <button
-          onClick={clearFilters}
-          className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-text-muted hover:bg-bg-hover hover:text-text"
-        >
-          <span className="material-symbols-outlined text-[14px]">filter_alt_off</span>
-          {t("Clear filters")}
-        </button>
-      )}
+      {/* Right edge — clear filters + the W4-A saved-views menu */}
+      <div className="ml-auto flex items-center gap-1">
+        {hasActiveFilters && (
+          <button
+            onClick={clearFilters}
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-text-muted hover:bg-bg-hover hover:text-text"
+          >
+            <span className="material-symbols-outlined text-[14px]">filter_alt_off</span>
+            {t("Clear filters")}
+          </button>
+        )}
+        <ViewsMenu compass={compass} />
+      </div>
     </div>
   );
 }

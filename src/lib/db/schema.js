@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -189,6 +189,24 @@ export const TABLES = {
       dateKey: "TEXT PRIMARY KEY",
       data: "TEXT NOT NULL",
     },
+  },
+  // Usage Observatory W4-A (migration 009) — saved compass views. `params`
+  // is the full compass query string (tab + every facet); applying a view
+  // is a plain `router.replace("?" + params)`. UNIQUE(name) lets the API
+  // upsert; idx_uv_created serves the newest-first list. Declared here so
+  // the mysql twin's additive TABLES diff and the backup drill both see it.
+  usageViews: {
+    columns: {
+      id: "INTEGER PRIMARY KEY AUTOINCREMENT",
+      name: "TEXT NOT NULL",
+      params: "TEXT NOT NULL",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE UNIQUE INDEX IF NOT EXISTS uq_uv_name ON usageViews(name)",
+      "CREATE INDEX IF NOT EXISTS idx_uv_created ON usageViews(createdAt DESC)",
+    ],
   },
   requestDetails: {
     columns: {

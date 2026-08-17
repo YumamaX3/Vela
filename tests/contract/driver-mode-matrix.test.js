@@ -94,9 +94,9 @@ describe("Storage Covenant A10 — boot matrix", () => {
         })).toThrow(/intentional rollback probe/);
         expect(adapter.get(`SELECT value FROM kv WHERE scope = 'matrix' AND key = 'doomed'`)).toBeFalsy();
 
-        // schemaVersion pinned by migration 008 (usage telemetry)
+        // schemaVersion pinned by migration 009 (saved views)
         const sv = adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`);
-        expect(sv.value).toBe("8");
+        expect(sv.value).toBe("9");
         adapter.exec(`DELETE FROM kv WHERE scope = 'matrix'`);
       }, 30000);
     }
