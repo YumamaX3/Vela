@@ -59,7 +59,7 @@ export const PARITY_REGISTRY = new Set([
   // in at W2-G. Engine-neutral by construction (one shared impl), proven
   // convergent in the real.
   "getFilteredSeries", "getBreakdown", "getStackedSeries", "getPercentiles",
-  "getProviderHealthFrame", "getKpis", "getLedgerRows", "getExportCursor",
+  "getProviderHealthFrame", "getKpis", "getInsights", "getLedgerRows", "getExportCursor",
 ]);
 
 /** Never parity-testable — process/global state, wall-clock, pure helpers. */

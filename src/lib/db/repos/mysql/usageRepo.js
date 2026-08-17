@@ -1009,6 +1009,7 @@ import {
   breakdownImpl,
   stackedSeriesImpl,
   percentilesImpl,
+  insightsImpl,
   providerHealthFrameImpl,
   kpisImpl,
   ledgerRowsImpl,
@@ -1046,6 +1047,12 @@ export async function getProviderHealthFrame(opts) {
 
 export async function getKpis(opts) {
   return kpisImpl(await getMysqlAdapter(), { ...opts, dialect: MYSQL_KPI_DIALECT });
+}
+
+// W4-B — auto-insights (the Lookout). Engine-neutral evaluator in
+// usageInsights.js; this twin owns the dialect fragments (same as getKpis).
+export async function getInsights(opts) {
+  return insightsImpl(await getMysqlAdapter(), { ...opts, dialect: MYSQL_KPI_DIALECT });
 }
 
 export async function getLedgerRows(opts) {
