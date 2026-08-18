@@ -1,7 +1,7 @@
 /**
  * Fleet Captain boot hook — load fitness + start scheduler on server start
  */
-import proxyFleet from "./proxyFleet.js";
+import proxyFleet, { init } from "./proxyFleet.js";
 
 export async function startFleet() {
   try {
@@ -12,6 +12,9 @@ export async function startFleet() {
     console.warn("[fleetStartup] Fleet Captain init failed:", err.message);
   }
 }
+
+// Alias init for instrumentation.js compatibility
+export { init };
 
 // Auto-execute if this is the main entry point
 if (typeof require !== "undefined" && require.main === module) {
