@@ -9,11 +9,10 @@
 
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import Card from '@/shared/components/Card';
-import ProviderTopology from '@/app/(dashboard)/dashboard/usage/components/ProviderTopology';
-
-// Lazy-load heavy components
-const Sparkline = dynamic(() => import('@/shared/components/Sparkline'), { ssr: false });
+// Dashboard components (JS files with no TS declarations)
+import Card from '@/shared/components/Card.js';
+const ProviderTopology = dynamic(() => import('@/app/(dashboard)/dashboard/usage/components/ProviderTopology.js'), { ssr: false });
+const Sparkline = dynamic(() => import('@/shared/components/Sparkline.js'), { ssr: false });
 
 /**
  * HeroStat — Stats displayed in the hero gradient band
