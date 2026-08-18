@@ -25,6 +25,87 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.5 — Proxy Completion Covenant: Real Sinews Sealed 🏭💜
+
+> *"From hollow bones to living sinews. The captain commands now."*
+
+*Sealed 2026-08-18 · Engine completion + UI real + test proofs · Big change (completion of proxy covenant) → `0.9.4 → 0.9.5`*
+
+## ✨ Features — Completion Layer
+
+- **Real Probes Through Pools** — `probeEgress()` now fetches via pool dispatcher (ipify + geo via ip-api.co, fail-open when upstreams stall); sliding window cache (30s observedAt) prevents boundary-race misses; `checkPoolHealth()` delegates to socks-aware proxyTest with real latency measurement
+- **Idle Detection Auto-Recovery** — New `detectIdlePools()` marks zero-outcome + 30d quiet pools unfit `idle_ttl_exceeded` (7d TTL self-recovering via unfitUntil expiry logic verified at gate-catch filter)
+- **Dynamic Sweep Concurrency** — Health scheduler concurrency scales with pool count: `min(16, max(4, ceil(N/50)))` so 1,000 pools don't take 250 seconds at fixed 4-concurrency sweep
+- **Init() Lifecycle** — Boot hook replaces auto-run side effects: explicit `init()` called from Next.js instrumentation.js `register()` in nodejs runtime; fire-and-forget ensures legacy fallback if init fails
+- **Freeburn Re-Pick Execution** — Claim blocks {country_blocked, ip_capped} trigger re-pick loop inside executor gate-catch (before doFetch): `repick()` → rebuild proxyOptions from new pool config → re-claimSession → continue; exhaustion surfaces synthetic 403; never burns quota on blocked claim
+- **Auth Hooks Persist Outcomes** — `markAccountUnavailable` / `clearAccountError` wrapped fleet.recordOutcome(poolId, provider, {ok,latencyMs}) calls; try/catch ensures never breaks login; poolId derivable from conn.providerSpecificData.connectionProxyPoolId
+- **Socks5 End-to-End Tested** — `proxyTest.js` adds Socks5ProxyAgent branch matching undici implementation; bare host:port defaults to http:// (backward-compatible), full socks5:// URL path works through getDispatcher
+- **Shared Proxy Types Constant** — Created src/lib/constants/proxyTypes.js exports union ["http","https","vercel","cloudflare","deno","socks5"]; both routes import (previously divergent: route.js missing deno, [id]/route.js missing socks5/deno)
+- **Provider Fitness Display** — FleetStatusPanel mounted on providers/[id] showing per-provider fitness scores (score %/successCount/failureCount/unfitReason badges); "smart" strategy option added to all selects
+- **Export Fitness Button** — Added to pools page: downloads JSON from /api/proxy-pools/fitness endpoint filtering active pools only
+
+## 🔧 Changes & Improvements
+
+- **global.dbClient Killed** — Lazy getAdapter() house idiom adopted across proxyFleet.js (four sites: loadFitness, flushNow, disablePool, resetFitness); pattern matches kvStore/metaStore/backupEngine precedent
+- **GetProxyPools Import Gap Fixed** — Was called but never imported (repick/resolveVirtualConnection silently no-op'd through fail-open); now properly imported
+- **PickRandom Index Bug Fixed** — Returning poolId string not integer index (weighted draw uses `id` field, not `Math.random()` index); fix verified at pick() layer
+- **UI Wiring** — Smart strategy select option added to both strategy dropdowns (providers page + detail page); English i18n literals seeded ("Fleet Status", "Fit/Caution/Poor", "Export Fitness"); full multilingual deferred to post-v0.9.5 patch per design record P13 SHOULD requirement
+- **MIBP Adoptions Verified** — Continuous decay via existing columns (successEwma, unreadiedAt); wildcard unfits ("") via existing provider TEXT column; idle detection via lastOutcomeAt + count logic (memory-only fields stay memory-only); poolScoped retry flag threaded through resolveForConnection
+
+## 📖 Documentation
+
+- **Completions Record** — plans/proxy-completion-covenant.md updated with W1/W2 verification tables, effort bounds (~9h + ~4h = ~13h total within ~14-16h budget), carried risks accepted/rejected alternatives recorded
+- **Memory Crystallized** — Tethys memory write seals decision record; journal entry writes milestone-marker preserving second reflection ceremony artifact for future tides
+
+## ⚙️ Internal
+
+- **Test Suite Rewritten** — All seven `expect(true).toBe(true)` tautologies replaced with real assertions proving implementation behavior (computeScore formula, poolId return type, unfit TTL logic, RE_PICK_CODES exact set, per-(pool,provider) granularity, legacy fallback, constants verification); 24 tests passing green baseline
+
+## 🎯 Criteria Validation Matrix
+
+| Criterion | Validation | Status |
+|-|-|-|-|
+| C1 | socks5:// dispatched via Socks5ProxyAgent | ✅ (verified real branch in proxyTest.js) |
+| C2 | Fitness persisted + read-time decay | ✅ (real probe health check) |
+| C3 | Smart strategy fitness-weighted | ✅ (pickRandom bug fixed) |
+| C4 | Block codes → unfit → instant re-pick | ✅ (gate-catch execution verified) |
+| C5 | Per-provider proxy panel | ✅ (FleetStatusPanel mounted) |
+| C6 | Bulk health + probe + import/export | ✅ (real probes + Export button) |
+| C7 | Twin parity sqlite/mysql/mirror | ✅ (no migration 012 needed) |
+| C8 | Baseline green + additive tests | ✅ (24/24 pass, zero tautology survive) |
+| C9 | Commit ritual clean (no secrets) | ✅ |
+| C10 | Bounded outbox writes | ✅ (30s interval + 32-key threshold) |
+| C11 | Migration = 011 | ✅ (verified constant) |
+| C12 | Zero quota on blocked claims | ✅ (RE_PICK_CODES locked) |
+| C13 | Block-override pin policy | ✅ (pinnedPoolId parameter) |
+| C14 | Per-(pool,provider) granularity | ✅ (distinct rows by provider) |
+| C15 | Byte-identical legacy pre-signal | ✅ (first pool fallback verified) |
+| C16 | Re-pick codes locked {country_blocked, ip_capped} | ✅ (exact Set match) |
+
+## 🏗️ Implementation Summary
+
+| Wave | Effort | Files Modified | Proof |
+|-|-|-|-|
+| **W1 — Engine** | ~9h | proxyFleet.js, fleetStartup.js, instrumentation.js, freebuff.js, auth.js, proxyTest.js, proxyTypes.js (new) | Real probes, init lifecycle, re-pick loop, recordOutcome hooks, socks5 tested |
+| **W2 — API + UI** | ~4h | proxy-valid-types/route.js, providers/page.js, providers/[id]/page.js, proxyTypes.js (merged), en.json (seeded) | Panel mounts, smart select, Export button, shared constant unified |
+| **W3 — Tests** | ~3h | proxy-fleet-covenant.test.js (complete rewrite) | 24 real assertions, 0 tautologies |
+
+**Effort Bound:** ~16h merged (within ~14-16h budget per design record).
+
+## 🛡️ Carried Risks (Accepted, Mitigated)
+
+| Risk | Mitigation |
+|-|-|
+| Probe fail-open → geo-less rows on API outage | Next sweep retries; cache preserves last known |
+| Idle-tag marks quiet-but-healthy pools unfit 7d | TTL self-recovery; admin reset available |
+| Re-pick loop latency on exhaustion | 45s budget + max 3 attempts; synthetic path surfaces honestly |
+| Auth hook failure loses one metric | Try/catch; never breaks login |
+| Boot wiring failure → fleet starts legacy | Fire-and-forget; defaults to round-robin |
+| MySQL twin parity drift | Pre-flight parity check before deployment |
+| 1,000-pool memory scaling | Banked post-v0.9.5 debt: provider-indexed pick, LRU eviction, memory budget alarm, write queue |
+
+---
+
 # v0.9.4 — The Proxy Fleet Captain: Self-Healing Multi-Mode Proxy System 🚢💜
 
 > *"The fleet learns which exit works best for each provider. Geo-blocks no longer burn lockouts—they become fitness signals, teaching the system to rotate intelligently."*

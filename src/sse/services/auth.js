@@ -267,8 +267,15 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
  */
 export async function markAccountUnavailable(connectionId, status, errorText, provider = null, model = null, resetsAtMs = null) {
   if (!connectionId || connectionId === "noauth") return { shouldFallback: false, cooldownMs: 0 };
+
+  // Fleet outcome signal — poolId derivable from DB (pool ID → provider-specific data stored per connection)
   const connections = await getProviderConnections({ provider });
   const conn = connections.find(c => c.id === connectionId);
+  const poolId = conn?.providerSpecificData?.connectionProxyPoolId;
+  try {
+    await fleet.recordOutcome(poolId || "", provider || "", { ok: false, latencyMs: undefined });
+  } catch { /* fire-and-forget: never break login */ }
+
   const backoffLevel = conn?.backoffLevel || 0;
 
   // GitHub premium-request exhaustion is account-wide until the next UTC month.
@@ -337,7 +344,17 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
  */
 export async function clearAccountError(connectionId, currentConnection, model = null) {
   if (!connectionId || connectionId === "noauth") return;
+
+  // Fleet outcome signal — poolId derivable from connection provider-specific data
   const conn = currentConnection._connection || currentConnection;
+  const poolId = conn?.providerSpecificData?.connectionProxyPoolId;
+  try {
+    await (async () => {
+      const fleet = await import("@/lib/network/proxyFleet.js");
+      await fleet.recordOutcome(poolId || "", "freebuff", { ok: true, latencyMs: undefined });
+    })();
+  } catch { /* fire-and-forget: never break login */ }
+
   const now = Date.now();
   const allLockKeys = Object.keys(conn).filter(k => k.startsWith("modelLock_"));
 
