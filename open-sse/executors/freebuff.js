@@ -238,36 +238,23 @@ export class FreebuffExecutor extends BaseExecutor {
 
     // ── the ceremony ────────────────────────────────────────────────────────
     let session, runId, currentProxyOptions = proxyOptions || {};
-    try {
-      session = await ensureSession(credentials, model, currentProxyOptions, signal, log);
-      const agentId0 = FREEBUFF_MODEL_AGENT_IDS[model] || session.agentId || FREEBUFF_FALLBACK_AGENT_ID;
-      runId = await this.startRun(agentId0, credentials, currentProxyOptions, log);
-    } catch (err) {
-      // Claim refused with a structured gate (model_locked / blocked / quota) —
-      // surface it as a gate-shaped response so chat.js locks + falls back
-      // correctly (a bare throw would collapse to a generic 502).
-      const gate = err?.freebuffGate;
-      if (gate && ["model_locked", "blocked", "quota"].includes(gate.kind)) {
-        const status = gate.kind === "model_locked" ? 409 : gate.kind === "quota" ? 429 : 403;
-        const payload = {
-          error: {
-            message: `freebuff: ${gate.code || "claim_failed"}${gate.message ? ` — ${gate.message.slice(0, 160)}` : ""}`,
-            type: gate.kind === "quota" ? "rate_limit_error" : gate.kind === "blocked" ? "permission_error" : "rate_limit_error",
-            code: gate.code || gate.kind,
-            ...(gate.kind === "quota" && Number.isFinite(gate.resetAt)
-              ? { resetAt: clampFreebuffResetMs(gate.resetAt) }
-              : {}),
-          },
-        };
-        return {
-          response: syntheticResponse(status, payload),
-          url, headers: this.buildHeaders(credentials, stream, url, model), transformedBody: body,
-        };
-      }
-      // Egress IP-scoped blocked claims → instant re-pick loop (C16 LOCKED)
-      const poolId = credentials?.providerSpecificData?.connectionProxyPoolId;
-      if (gate.kind === "blocked" && RE_PICK_CODES.has(gate.code || "")) {
-        if (poolId) {
+    let claimedOnce = false;
+
+    while (!claimedOnce || true) {
+      try {
+        session = await ensureSession(credentials, model, currentProxyOptions, signal, log);
+        const agentId0 = FREEBUFF_MODEL_AGENT_IDS[model] || session.agentId || FREEBUFF_FALLBACK_AGENT_ID;
+        runId = await this.startRun(agentId0, credentials, currentProxyOptions, log);
+        claimedOnce = true;
+      } catch (err) {
+        // Claim refused with a structured gate (model_locked / blocked / quota) —
+        // surface it as a gate-shaped response so chat.js locks + falls back
+        // correctly (a bare throw would collapse to a generic 502).
+        const gate = err?.freebuffGate;
+
+        // Egress IP-scoped blocked claims → instant re-pick loop (C16 LOCKED)
+        const poolId = credentials?.providerSpecificData?.connectionProxyPoolId;
+        if (gate?.kind === "blocked" && RE_PICK_CODES.has(gate.code || "") && poolId) {
           const providerId = "freebuff";
           const excludePoolIds = [poolId];
           const { repick } = await import("@/lib/network/proxyFleet.js");
@@ -278,10 +265,8 @@ export class FreebuffExecutor extends BaseExecutor {
             const resolved = await resolveConnectionProxyConfig({ proxyPoolId: result.poolId });
             currentProxyOptions = resolved;
             log?.debug?.("FREEBUFF", `re-pick: ${poolId} → ${result.poolId}, rebuilding proxy options`);
-            // Re-claim with new proxyOptions - restart the ceremony
-            session = null;
-            runId = null;
-            throw new Error(`FREEBUFF_REPICK_${result.poolId}`); // trigger outer retry
+            // Restart loop with new proxy options
+            continue;
           } else {
             log?.warn?.("FREEBUFF", `re-pick exhausted (${excludePoolIds.join(",")}) — surface blocked claim`);
             const status = 429;
@@ -298,22 +283,30 @@ export class FreebuffExecutor extends BaseExecutor {
             };
           }
         }
-      }
-      throw err;
-    } catch (err) {
-      // Catch REPICK signals and restart ceremony
-      if (err?.message?.startsWith("FREEBUFF_REPICK_")) {
-        const newPoolId = err.message.replace("FREEBUFF_REPICK_", "");
-        log?.debug?.("FREEBUFF", `Restarting ceremony for re-picked pool: ${newPoolId}`);
-        session = await ensureSession(credentials, model, currentProxyOptions, signal, log);
-        const agentIdNew = FREEBUFF_MODEL_AGENT_IDS[model] || session.agentId || FREEBUFF_FALLBACK_AGENT_ID;
-        runId = await this.startRun(agentIdNew, credentials, currentProxyOptions, log);
-        // Continue with main loop
-      } else {
+
+        if (gate && ["model_locked", "blocked", "quota"].includes(gate.kind)) {
+          const status = gate.kind === "model_locked" ? 409 : gate.kind === "quota" ? 429 : 403;
+          const payload = {
+            error: {
+              message: `freebuff: ${gate.code || "claim_failed"}${gate.message ? ` — ${gate.message.slice(0, 160)}` : ""}`,
+              type: gate.kind === "quota" ? "rate_limit_error" : gate.kind === "blocked" ? "permission_error" : "rate_limit_error",
+              code: gate.code || gate.kind,
+              ...(gate.kind === "quota" && Number.isFinite(gate.resetAt)
+                ? { resetAt: clampFreebuffResetMs(gate.resetAt) }
+                : {}),
+            },
+          };
+          return {
+            response: syntheticResponse(status, payload),
+            url, headers: this.buildHeaders(credentials, stream, url, model), transformedBody: body,
+          };
+        }
         throw err;
       }
+
+      const agentId = FREEBUFF_MODEL_AGENT_IDS[model] || session.agentId || FREEBUFF_FALLBACK_AGENT_ID;
+      break; // Successfully claimed, exit claim loop
     }
-    const agentId = FREEBUFF_MODEL_AGENT_IDS[model] || session.agentId || FREEBUFF_FALLBACK_AGENT_ID;
     let reclaimedOnce = false;
 
     const doFetch = async () => {

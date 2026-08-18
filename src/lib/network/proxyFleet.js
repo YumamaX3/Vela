@@ -31,7 +31,6 @@ import { getFitnessRows, upsertFitnessBatch, resetFitness } from "../db/repos/pr
 import { getProxyPools, getProxyPoolById, updateProxyPool } from "../db/repos/proxyPoolsRepo.js";
 import { getAdapter } from "../db/driver.js";
 import { resolveConnectionProxyConfig } from "./connectionProxy.js";
-import { proxyAwareFetch } from "../../open-sse/utils/proxyFetch.js";
 
 const RE_PICK_CODES = new Set(["country_blocked", "ip_capped"]); // C16 LOCKED
 const MAX_REPICKS = 3;
