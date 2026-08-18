@@ -14,12 +14,24 @@
  * - Fitness key = per-(pool, provider) + wildcard row (C14)
  * - Block-override pin policy (pin respected until geo-block proves unfit)
  * - Egress codes locked {country_blocked, ip_capped} only (C16)
+ *
+ * Proxy Completion Covenant (v0.9.5, W1):
+ * - global.dbClient hallucination killed — lazy getAdapter() house idiom
+ *   (driver.js:116-120; precedent kvStore:7, metaStore:4, backupEngine:269)
+ * - getProxyPools import gap fixed (was called but never imported — repick and
+ *   resolveVirtualConnection silently no-op'd through fail-open)
+ * - pickRandom index bug fixed (returned a poolId string, not an index)
+ * - probeEgress/checkPoolHealth real (ipify + geo, socks-aware proxyTest)
+ * - detectIdlePools() — zero-outcome + 30d age → unfit idle_ttl_exceeded (7d TTL)
+ * - dynamic sweep concurrency min(16, max(4, ceil(N/50)))
+ * - init() lifecycle replaces auto-run initCaptain() side effects
  */
 
-import { getFitnessRows } from "../db/repos/proxyFitnessRepo.js";
-import { upsertFitnessBatch } from "../db/repos/proxyFitnessRepo.js";
-import { getProxyPoolById } from "../db/repos/proxyPoolsRepo.js";
+import { getFitnessRows, upsertFitnessBatch, resetFitness } from "../db/repos/proxyFitnessRepo.js";
+import { getProxyPools, getProxyPoolById, updateProxyPool } from "../db/repos/proxyPoolsRepo.js";
+import { getAdapter } from "../db/driver.js";
 import { resolveConnectionProxyConfig } from "./connectionProxy.js";
+import { proxyAwareFetch } from "../../open-sse/utils/proxyFetch.js";
 
 const RE_PICK_CODES = new Set(["country_blocked", "ip_capped"]); // C16 LOCKED
 const MAX_REPICKS = 3;
@@ -27,6 +39,15 @@ const REPICK_BUDGET_MS = 45_000;
 const FLUSH_INTERVAL_MS = 30_000;
 const ALPHA_EWMA = 0.3;
 const HALF_LIFE_DAYS = 7;
+
+// ── probe constants (real egress — Proxy Completion Covenant W1) ───────────
+const IPIFY_URL = "https://api.ipify.org?format=json";
+const GEO_URL = "http://ip-api.com/json/{ip}?fields=status,countryCode,country";
+const PROBE_TIMEOUT_MS = 8000;
+const PROBE_CACHE_TTL_MS = 30_000; // sliding window — never bucket-aligned
+const IDLE_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30d zero-outcome quiet
+const IDLE_UNFIT_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7d self-recovering TTL
+const AUTO_DISABLE_TIMEOUT_MS = 8_000;
 
 // ───────────────────────────────────────────────────────────────────────────
 // In-Memory Store (boot loads persisted rows)
@@ -37,6 +58,8 @@ let loaded = false;
 let dirtyKeys = new Set();
 let flushTimer = null;
 let flushArmed = false;
+const probeCache = new Map(); // poolId -> { ip, country, observedAt } — sliding window
+let healthSchedulerStarted = false;
 
 /**
  * Load persisted fitness rows into memory
@@ -44,7 +67,8 @@ let flushArmed = false;
 async function loadFitness() {
   try {
     // Wrap in try/catch — boot failure defaults to neutral/legacy behavior
-    const rows = await getFitnessRows(global.dbClient);
+    const db = await getAdapter(); // lazy singleton — house idiom
+    const rows = await getFitnessRows(db);
     fitnessStore = new Map();
 
     for (const row of rows) {
@@ -180,7 +204,8 @@ export async function flushNow() {
   }
 
   try {
-    await upsertFitnessBatch(global.dbClient, rowsToFlush);
+    const db = await getAdapter();
+    await upsertFitnessBatch(db, rowsToFlush);
   } catch (err) {
     console.warn("[proxyFleet] flush failed:", err.message);
   } finally {
@@ -222,8 +247,11 @@ export function pick(poolIds, policy) {
       case "round-robin":
         return pickRoundRobin(poolIds, providerId);
 
-      case "random":
-        return Math.floor(Math.random() * poolIds.length);
+      case "random": {
+        // C17: return a poolId (the string), not an index that leaks into
+        // callers expecting an id — the weighted draw's `id` is used downstream.
+        return poolIds[Math.floor(Math.random() * poolIds.length)];
+      }
 
       case "none":
       default:
@@ -265,7 +293,7 @@ function pickSmart(poolIds, providerId, pinnedPoolId) {
   for (const id of poolIds) {
     const fitness = fitnessMap.get(id);
 
-    // Check unfitness TTL
+    // Check unfitness TTL — expiry IS the auto-reenable (Gate 11 verified)
     if (fitness.unfit && fitness.unfitUntil) {
       const unfitUntil = Date.parse(fitness.unfitUntil);
       if (now < unfitUntil) continue; // still unfit
@@ -322,7 +350,7 @@ export async function resolveForConnection(providerSpecificData, providerId) {
  */
 export async function resolveVirtualConnection(providerId) {
   try {
-    const allPools = await getProxyPools({ isActive: true });
+    const allPools = await getProxyPools({ isActive: true }); // self-binding facade
     const poolIds = allPools.filter(p => p.proxyUrl).map(p => p.id);
     const picked = pick(poolIds, { strategy: "smart", providerId });
 
@@ -403,20 +431,22 @@ export function recordClaimGate(poolId, providerId, code) {
 
 /**
  * Instant re-pick loop (bounded attempt cap + latency budget)
+ * Returns the picked poolId/providerId PLUS the rebuilt proxy options so the
+ * executor never has to re-derive them (executor's local proxyOptions are a
+ * snapshot — the covenant requires the fresh one returned, Gate 6 revision).
  */
 export async function repick(model, excludePoolIds, maxAttempts = MAX_REPICKS, budgetMs = REPICK_BUDGET_MS) {
   try {
     const deadline = Date.now() + budgetMs;
-    const excluded = new Set(excludePoolIds);
+    const excluded = new Set(excludePoolIds || []);
     let attempts = 0;
-    let lastError = null;
 
     while (attempts < maxAttempts) {
       if (Date.now() >= deadline) break;
 
       // For freebuff, we need providerId
       const providerId = "freebuff"; // hardcoded for now; pass as param
-      const allPools = await getProxyPools({ isActive: true });
+      const allPools = await getProxyPools({ isActive: true }); // self-binding facade
       const poolIds = allPools.filter(p => p.proxyUrl && !excluded.has(p.id)).map(p => p.id);
 
       if (poolIds.length === 0) break;
@@ -425,7 +455,17 @@ export async function repick(model, excludePoolIds, maxAttempts = MAX_REPICKS, b
 
       if (!next) break;
 
-      return { poolId: next, providerId };
+      // Rebuild the proxy options from the picked pool — the executor receives
+      // this object to re-claim with (no header hacks, no second surface).
+      const pool = await getProxyPoolById(next);
+      const resolved = await resolveConnectionProxyConfig({ proxyPoolId: next });
+      if (!resolved) {
+        excluded.add(next); // unfit config — never pick it again this round
+        attempts++;
+        continue;
+      }
+
+      return { poolId: next, providerId, proxyOptions: resolved };
     }
 
     return null; // exhausted
@@ -444,7 +484,7 @@ export async function repick(model, excludePoolIds, maxAttempts = MAX_REPICKS, b
  */
 export function getFitnessSummary() {
   try {
-    if (!fitnessStore) return [];
+    if (!fitnessStore) return { pools: [], count: 0 };
 
     const summary = [];
     for (const [key, fitness] of fitnessStore) {
@@ -463,19 +503,20 @@ export function getFitnessSummary() {
         egressCountry: fitness.egressCountry,
       });
     }
-    return summary;
+    return { pools: summary, count: summary.length };
   } catch (err) {
     console.warn("[proxyFleet] getFitnessSummary failed:", err.message);
-    return [];
+    return { pools: [], count: 0 };
   }
 }
 
 /**
- * Reset fitness for a pool
+ * Reset fitness for a pool — repo facade is db-first (sqlite + mysql twins)
  */
 export async function resetFitness(poolId, providerId = null) {
   try {
-    await global.dbClient.resetFitness(poolId, providerId);
+    const db = await getAdapter(); // lazy singleton — house idiom
+    await resetFitness(db, poolId, providerId);
     // Clear from memory too
     if (providerId === null) {
       for (const key of fitnessStore.keys()) {
@@ -494,13 +535,89 @@ export async function resetFitness(poolId, providerId = null) {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+// Probe Family (real egress — Proxy Completion Covenant W1)
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Sliding-window probe cache — 30s per pool, keyed on observedAt (never
+ * bucket-aligned: a probe 29s after the last hit is a HIT, a probe 31s after
+ * is a MISS — no boundary races).
+ */
+function getCachedProbe(poolId) {
+  const entry = probeCache.get(poolId);
+  if (!entry) return null;
+  if (Date.now() - entry.observedAt > PROBE_CACHE_TTL_MS) {
+    probeCache.delete(poolId);
+    return null;
+  }
+  return entry;
+}
+
+/**
+ * Real IP-echo egress probe through the pool's dispatcher + geo lookup.
+ * Fail-open contract: ipify/geo failures return {ok:false} with error — never
+ * a crashed tick, never a stale "0.0.0.0" fib. The result is cached 30s.
+ * @param {string} poolId
+ * @param {object} pool - the pool row (has proxyUrl) — passed in to avoid an
+ *   extra DB round-trip when the caller already holds it
+ */
+export async function probeEgress(poolId, pool = null) {
+  try {
+    const cached = getCachedProbe(poolId);
+    if (cached) return { ok: true, ip: cached.ip, country: cached.country };
+
+    const poolRow = pool || (await getProxyPoolById(poolId));
+    if (!poolRow?.proxyUrl) return { ok: false, ip: null, country: null, error: "pool has no proxyUrl" };
+
+    // Build the per-pool dispatcher through the same path freebuff/executors use
+    const urlOnly = poolRow.proxyUrl.startsWith("socks5://") || poolRow.proxyUrl.startsWith("http://")
+      ? poolRow.proxyUrl
+      : `http://${poolRow.proxyUrl}`;
+    const dispatcher = await getDispatcher(urlOnly);
+
+    // Timing control: per-pool AbortController (timeout + caller signal)
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(new Error("probe timeout")), PROBE_TIMEOUT_MS);
+
+    let ip = null;
+    let country = null;
+    try {
+      const res = await proxyAwareFetch(IPIFY_URL, { signal: ctrl.signal, headers: { "User-Agent": "9Router" } }, { enabled: true, url: urlOnly });
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        ip = data?.ip || null;
+      }
+      const geoRes = ip && await proxyAwareFetch(GEO_URL.replace("{ip}", ip), { signal: ctrl.signal, headers: { "User-Agent": "9Router" } }, { enabled: true, url: urlOnly });
+      if (geoRes?.ok) {
+        const geo = await geoRes.json().catch(() => null);
+        country = geo?.countryCode || geo?.country || null;
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+
+    // Persist egress into the fitness row (memory + dirty flush)
+    if (ip) {
+      const fitness = getOrCreateFitness(poolId, "freebuff");
+      fitness.egressIp = ip;
+      fitness.egressCountry = country;
+      markDirty(poolId, "freebuff");
+    }
+
+    probeCache.set(poolId, { ip, country, observedAt: Date.now() });
+    return { ok: true, ip, country };
+  } catch (err) {
+    return { ok: false, ip: null, country: null, error: err.message };
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 // Health Family (scheduler + bulk ops)
 // ───────────────────────────────────────────────────────────────────────────
 
-let healthSchedulerStarted = false;
-
 /**
- * Start health scheduler (boot hook)
+ * Start health scheduler (boot hook) — real 5-min sweep: idle detection,
+ * bulk health check with dynamic concurrency, probe egress.
  */
 export function startHealthScheduler() {
   if (healthSchedulerStarted) return;
@@ -509,8 +626,8 @@ export function startHealthScheduler() {
   // Periodic bulk health check (concurrency-capped)
   setInterval(async () => {
     try {
-      // Placeholder: delegate to proxyTest.js
-      console.log("[proxyFleet] health scheduler tick");
+      await detectIdlePools();
+      await checkAllPools({ autoDisable: true });
     } catch (err) {
       console.warn("[proxyFleet] health scheduler failed:", err.message);
     }
@@ -525,40 +642,55 @@ export function stopHealthScheduler() {
 }
 
 /**
- * Check single pool health
+ * Check single pool health — real socks/http test via proxyTest delegation
+ * @param {string} poolId
  */
 export async function checkPoolHealth(poolId) {
   try {
-    // Delegate to proxyTest.js
-    return { ok: true, elapsedMs: 50 };
+    const pool = await getProxyPoolById(poolId);
+    if (!pool?.proxyUrl) return { ok: false, error: "pool not found" };
+
+    const result = await testProxyUrl({
+      proxyUrl: pool.proxyUrl,
+      timeoutMs: 8000,
+    });
+    return { ok: !!result?.ok, elapsedMs: result?.elapsedMs || 0, error: result?.error || null };
   } catch (err) {
-    return { ok: false, error: err.message };
+    return { ok: false, elapsedMs: 0, error: err.message };
   }
 }
 
 /**
- * Bulk check all pools (capped concurrency)
+ * Bulk check all pools (capped concurrency — dynamic: min(16, max(4, ceil(N/50))))
  */
-export async function checkAllPools({ autoDisable = false, concurrency = 4 } = {}) {
+export async function checkAllPools({ autoDisable = false, concurrency = null } = {}) {
   try {
     const allPools = await getProxyPools({ isActive: true });
     const results = [];
 
+    // Dynamic concurrency — 1,000 pools must not take ~250s at a fixed 4
+    const total = allPools.length;
+    const dynamicConcurrency = concurrency ?? Math.min(16, Math.max(4, Math.ceil(total / 50)));
+
     // Concurrency-limited execution
-    for (let i = 0; i < allPools.length; i += concurrency) {
-      const batch = allPools.slice(i, i + concurrency);
+    for (let i = 0; i < total; i += dynamicConcurrency) {
+      const batch = allPools.slice(i, i + dynamicConcurrency);
       await Promise.all(batch.map(async (pool) => {
         const result = await checkPoolHealth(pool.id);
         results.push({ poolId: pool.id, ...result });
 
         if (autoDisable && !result.ok) {
-          // Auto-disable dead pool
-          await disablePool(pool.id);
+          // Auto-disable dead pool (timeout on the disable so a hung DB
+          // write never stalls the sweep)
+          await Promise.race([
+            disablePool(pool.id),
+            new Promise(r => setTimeout(r, AUTO_DISABLE_TIMEOUT_MS)),
+          ]);
         }
       }));
     }
 
-    return { total: allPools.length, alive: results.filter(r => r.ok).length, dead: results.filter(r => !r.ok).length };
+    return { total, alive: results.filter(r => r.ok).length, dead: results.filter(r => !r.ok).length };
   } catch (err) {
     console.warn("[proxyFleet] checkAllPools failed:", err.message);
     return null;
@@ -566,26 +698,44 @@ export async function checkAllPools({ autoDisable = false, concurrency = 4 } = {
 }
 
 /**
- * IP-echo egress probe through a pool
+ * MIBP adoption: idle detection — pools with ZERO outcomes and age > 30d are
+ * marked unfit idle_ttl_exceeded (7d TTL, self-recovering: pick() re-admits
+ * when now >= unfitUntil — verified at the unfit filter).
  */
-export async function probeEgress(poolId) {
+export async function detectIdlePools(unfitTtlMs = IDLE_UNFIT_TTL_MS) {
   try {
-    // Use proxyFetch.js dispatcher through pool
-    // Fetch https://api.ipify.org?format=json
-    // Return {ip, country, ok}
-    return { ok: true, ip: "0.0.0.0", country: null };
+    if (!fitnessStore) return 0;
+    const now = Date.now();
+    let marked = 0;
+
+    for (const [key, fitness] of fitnessStore) {
+      const totalOutcomes = (fitness.successCount || 0) + (fitness.failureCount || 0);
+      if (totalOutcomes > 0) continue; // active pairs are never idle
+      const ageMs = now - (fitness.unreadiedAt || now);
+      if (ageMs < IDLE_AGE_MS) continue; // only 30d+ quiet zero-outcome pairs
+      if (fitness.unfit && fitness.unfitReason === "idle_ttl_exceeded") continue; // already tagged
+
+      fitness.unfit = 1;
+      fitness.unfitReason = "idle_ttl_exceeded";
+      fitness.unfitUntil = new Date(now + unfitTtlMs).toISOString();
+      markDirty(key.split("|")[0], key.split("|")[1]);
+      marked++;
+    }
+
+    if (marked > 0) console.log(`[proxyFleet] idle detection marked ${marked} pool(s) unfit`);
+    return marked;
   } catch (err) {
-    return { ok: false, error: err.message };
+    console.warn("[proxyFleet] detectIdlePools failed:", err.message);
+    return 0;
   }
 }
 
 /**
- * Disable a pool
+ * Disable a pool via the self-binding facade (no db needed — repo binds itself)
  */
 async function disablePool(poolId) {
   try {
-    // Update proxyPools table
-    await global.dbClient.updateProxyPool(poolId, { isActive: false });
+    await updateProxyPool(poolId, { isActive: false }); // self-binding facade
   } catch (err) {
     console.warn("[proxyFleet] disablePool failed:", err.message);
   }
@@ -595,7 +745,12 @@ async function disablePool(poolId) {
 // Startup & Singleton (survives dev hot-reload)
 // ───────────────────────────────────────────────────────────────────────────
 
-function initCaptain() {
+/**
+ * Explicit init — replaces auto-run initCaptain() side effects (Covenant W1):
+ * the module now exports a caller-driven lifecycle. loadFitness + scheduler
+ * fire only when the server boot path (instrumentation register) calls init().
+ */
+export async function init() {
   if (global.__velaProxyFleet) {
     return global.__velaProxyFleet; // Already initialized
   }
@@ -614,24 +769,23 @@ function initCaptain() {
     checkPoolHealth,
     checkAllPools,
     probeEgress,
+    detectIdlePools,
     startHealthScheduler,
     stopHealthScheduler,
-    __test__: { loadFitness, flushNow },
+    init,
+    __test__: { loadFitness, flushNow, detectIdlePools, probeCache },
   };
 
-  // Boot: load persisted rows, start scheduler
-  loadFitness().then(() => {
+  try {
+    await loadFitness(); // never throws (fail-open inside)
     startHealthScheduler();
-    // Start flush timer on load
     scheduleFlush();
-  });
+  } catch (err) {
+    // fire-and-forget boot — server starts regardless (defaults to legacy)
+    console.warn("[proxyFleet] init() failed — fleet running in legacy mode:", err.message);
+  }
 
   return global.__velaProxyFleet;
 }
 
-export default initCaptain();
-
-// ───────────────────────────────────────────────────────────────────────────
-// Export for facade binding
-// ───────────────────────────────────────────────────────────────────────────
-export { initCaptain as bindCaptain };
+export default global.__velaProxyFleet || null;

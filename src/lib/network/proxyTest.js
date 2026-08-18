@@ -41,14 +41,26 @@ export async function testProxyUrl({ proxyUrl, testUrl, timeoutMs } = {}) {
   let dispatcher;
 
   try {
+    // Proxy protocol detection: http(s)/socks5
+    const normalized = normalizeString(proxyUrl);
+    if (!normalized) return { ok: false, status: 400, error: "proxyUrl required" };
+
+    const protocol = (() => {
+      try { return new URL(normalized).protocol; } catch { return null; }
+    })();
+
     try {
-      dispatcher = new ProxyAgent({ uri: normalizedProxyUrl });
+      // SOCKS5 branch — undici Socks5ProxyAgent
+      if (/^socks5:\/\//i.test(normalized)) {
+        ({ Socks5ProxyAgent } = await import("undici"));
+        dispatcher = new Socks5ProxyAgent({ uri: normalized });
+      } else {
+        // HTTP(s) proxy
+        ({ ProxyAgent } = await import("undici"));
+        dispatcher = new ProxyAgent({ uri: normalized });
+      }
     } catch (err) {
-      return {
-        ok: false,
-        status: 400,
-        error: `Invalid proxy URL: ${err?.message || String(err)}`,
-      };
+      return { ok: false, status: 400, error: `Invalid proxy URL: ${err?.message || String(err)}` };
     }
 
     const controller = new AbortController();

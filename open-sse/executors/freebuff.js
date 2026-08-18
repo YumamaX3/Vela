@@ -48,7 +48,7 @@ import {
   clampFreebuffResetMs,
   getPersistedSession,
 } from "../services/freebuffSession.js";
-import fleet from "@/lib/network/proxyFleet.js"; // Fleet Captain for re-pick arbitration
+import { RE_PICK_CODES } from "../config/freebuff.js";
 
 export class FreebuffGateError extends Error {
   constructor(message, status, gate) {
@@ -237,11 +237,11 @@ export class FreebuffExecutor extends BaseExecutor {
     };
 
     // ── the ceremony ────────────────────────────────────────────────────────
-    let session, runId;
+    let session, runId, currentProxyOptions = proxyOptions || {};
     try {
-      session = await ensureSession(credentials, model, proxyOptions, signal, log);
+      session = await ensureSession(credentials, model, currentProxyOptions, signal, log);
       const agentId0 = FREEBUFF_MODEL_AGENT_IDS[model] || session.agentId || FREEBUFF_FALLBACK_AGENT_ID;
-      runId = await this.startRun(agentId0, credentials, proxyOptions, log);
+      runId = await this.startRun(agentId0, credentials, currentProxyOptions, log);
     } catch (err) {
       // Claim refused with a structured gate (model_locked / blocked / quota) —
       // surface it as a gate-shaped response so chat.js locks + falls back
@@ -263,6 +263,43 @@ export class FreebuffExecutor extends BaseExecutor {
           response: syntheticResponse(status, payload),
           url, headers: this.buildHeaders(credentials, stream, url, model), transformedBody: body,
         };
+      }
+      // Egress IP-scoped blocked claims → instant re-pick loop (C16 LOCKED)
+      const poolId = credentials?.providerSpecificData?.connectionProxyPoolId;
+      if (!poolId) {
+        throw err; // no poolId, cannot re-pick
+      }
+      if (gate.kind === "blocked" && RE_PICK_CODES.has(gate.code || "")) {
+        const providerId = "freebuff";
+        const excludePoolIds = [poolId];
+        const { repick } = await import("@/lib/network/proxyFleet.js");
+        const result = await repick(model, excludePoolIds, FREEBUFF_REPICK_MAX_ATTEMPTS, FREEBUFF_REPICK_BUDGET_MS);
+        if (result) {
+          // Rebuild proxyOptions from the new pool's config (executor's local proxyOptions are a snapshot)
+          const { resolveConnectionProxyConfig } = await import("@/lib/network/connectionProxy.js");
+          const resolved = await resolveConnectionProxyConfig({ proxyPoolId: result.poolId });
+          currentProxyOptions = resolved;
+          log?.debug?.("FREEBUFF", `re-pick: ${poolId} → ${result.poolId}, rebuilding proxy options`);
+          // Re-claim with new proxyOptions
+          session = await ensureSession(credentials, model, currentProxyOptions, signal, log);
+          const agentIdNew = FREEBUFF_MODEL_AGENT_IDS[model] || session.agentId || FREEBUFF_FALLBACK_AGENT_ID;
+          runId = await this.startRun(agentIdNew, credentials, currentProxyOptions, log);
+          continue; // retry the chat with the fresh session + new proxyOptions
+        } else {
+          log?.warn?.("FREEBUFF", `re-pick exhausted (${excludePoolIds.join(",")}) — surface blocked claim`);
+          const status = 429;
+          const payload = {
+            error: {
+              message: `freebuff: egress blocked (re-pick exhausted)`,
+              type: "rate_limit_error",
+              code: "ip_capped_exhausted",
+            },
+          };
+          return {
+            response: syntheticResponse(status, payload),
+            url, headers: this.buildHeaders(credentials, stream, url, model), transformedBody: body,
+          };
+        }
       }
       throw err;
     }
