@@ -510,29 +510,8 @@ export function getFitnessSummary() {
   }
 }
 
-/**
- * Reset fitness for a pool — repo facade is db-first (sqlite + mysql twins)
- */
-export async function resetFitness(poolId, providerId = null) {
-  try {
-    const db = await getAdapter(); // lazy singleton — house idiom
-    await resetFitness(db, poolId, providerId);
-    // Clear from memory too
-    if (providerId === null) {
-      for (const key of fitnessStore.keys()) {
-        const [kPoolId] = key.split("|");
-        if (kPoolId === poolId) {
-          fitnessStore.delete(key);
-        }
-      }
-    } else {
-      const key = `${poolId}|${providerId}`;
-      fitnessStore.delete(key);
-    }
-  } catch (err) {
-    console.warn("[proxyFleet] resetFitness failed:", err.message);
-  }
-}
+// NOTE: resetFitness function removed - now uses imported version from proxyFitnessRepo.js
+// This was causing duplicate declaration error during webpack bundling
 
 // ───────────────────────────────────────────────────────────────────────────
 // Probe Family (real egress — Proxy Completion Covenant W1)
