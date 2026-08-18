@@ -266,42 +266,52 @@ export class FreebuffExecutor extends BaseExecutor {
       }
       // Egress IP-scoped blocked claims → instant re-pick loop (C16 LOCKED)
       const poolId = credentials?.providerSpecificData?.connectionProxyPoolId;
-      if (!poolId) {
-        throw err; // no poolId, cannot re-pick
-      }
       if (gate.kind === "blocked" && RE_PICK_CODES.has(gate.code || "")) {
-        const providerId = "freebuff";
-        const excludePoolIds = [poolId];
-        const { repick } = await import("@/lib/network/proxyFleet.js");
-        const result = await repick(model, excludePoolIds, FREEBUFF_REPICK_MAX_ATTEMPTS, FREEBUFF_REPICK_BUDGET_MS);
-        if (result) {
-          // Rebuild proxyOptions from the new pool's config (executor's local proxyOptions are a snapshot)
-          const { resolveConnectionProxyConfig } = await import("@/lib/network/connectionProxy.js");
-          const resolved = await resolveConnectionProxyConfig({ proxyPoolId: result.poolId });
-          currentProxyOptions = resolved;
-          log?.debug?.("FREEBUFF", `re-pick: ${poolId} → ${result.poolId}, rebuilding proxy options`);
-          // Re-claim with new proxyOptions
-          session = await ensureSession(credentials, model, currentProxyOptions, signal, log);
-          const agentIdNew = FREEBUFF_MODEL_AGENT_IDS[model] || session.agentId || FREEBUFF_FALLBACK_AGENT_ID;
-          runId = await this.startRun(agentIdNew, credentials, currentProxyOptions, log);
-          continue; // retry the chat with the fresh session + new proxyOptions
-        } else {
-          log?.warn?.("FREEBUFF", `re-pick exhausted (${excludePoolIds.join(",")}) — surface blocked claim`);
-          const status = 429;
-          const payload = {
-            error: {
-              message: `freebuff: egress blocked (re-pick exhausted)`,
-              type: "rate_limit_error",
-              code: "ip_capped_exhausted",
-            },
-          };
-          return {
-            response: syntheticResponse(status, payload),
-            url, headers: this.buildHeaders(credentials, stream, url, model), transformedBody: body,
-          };
+        if (poolId) {
+          const providerId = "freebuff";
+          const excludePoolIds = [poolId];
+          const { repick } = await import("@/lib/network/proxyFleet.js");
+          const result = await repick(model, excludePoolIds, FREEBUFF_REPICK_MAX_ATTEMPTS, FREEBUFF_REPICK_BUDGET_MS);
+          if (result) {
+            // Rebuild proxyOptions from the new pool's config
+            const { resolveConnectionProxyConfig } = await import("@/lib/network/connectionProxy.js");
+            const resolved = await resolveConnectionProxyConfig({ proxyPoolId: result.poolId });
+            currentProxyOptions = resolved;
+            log?.debug?.("FREEBUFF", `re-pick: ${poolId} → ${result.poolId}, rebuilding proxy options`);
+            // Re-claim with new proxyOptions - restart the ceremony
+            session = null;
+            runId = null;
+            throw new Error(`FREEBUFF_REPICK_${result.poolId}`); // trigger outer retry
+          } else {
+            log?.warn?.("FREEBUFF", `re-pick exhausted (${excludePoolIds.join(",")}) — surface blocked claim`);
+            const status = 429;
+            const payload = {
+              error: {
+                message: `freebuff: egress blocked (re-pick exhausted)`,
+                type: "rate_limit_error",
+                code: "ip_capped_exhausted",
+              },
+            };
+            return {
+              response: syntheticResponse(status, payload),
+              url, headers: this.buildHeaders(credentials, stream, url, model), transformedBody: body,
+            };
+          }
         }
       }
       throw err;
+    } catch (err) {
+      // Catch REPICK signals and restart ceremony
+      if (err?.message?.startsWith("FREEBUFF_REPICK_")) {
+        const newPoolId = err.message.replace("FREEBUFF_REPICK_", "");
+        log?.debug?.("FREEBUFF", `Restarting ceremony for re-picked pool: ${newPoolId}`);
+        session = await ensureSession(credentials, model, currentProxyOptions, signal, log);
+        const agentIdNew = FREEBUFF_MODEL_AGENT_IDS[model] || session.agentId || FREEBUFF_FALLBACK_AGENT_ID;
+        runId = await this.startRun(agentIdNew, credentials, currentProxyOptions, log);
+        // Continue with main loop
+      } else {
+        throw err;
+      }
     }
     const agentId = FREEBUFF_MODEL_AGENT_IDS[model] || session.agentId || FREEBUFF_FALLBACK_AGENT_ID;
     let reclaimedOnce = false;
