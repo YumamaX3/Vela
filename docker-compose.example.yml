@@ -41,7 +41,7 @@ services:
   # ⛵ vela-gateway — the gateway + dashboard
   # ═══════════════════════════════════════════════════════════════
   vela-gateway:
-    image: ghcr.io/yumamax3/vela:0.9.4   # bump to the release you want
+    image: ghcr.io/yumamax3/vela:0.9.6   # bump to the release you want
     container_name: vela-gateway
     hostname: vela-gateway
     restart: unless-stopped
