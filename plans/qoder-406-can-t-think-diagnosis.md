@@ -170,6 +170,22 @@ Generic patterns like `*qwen*` work well for standard families but miss aliases:
 - These don't start with `qwen` literally but use `qwen` wire format
 - Specific override blocks handle exceptions better than generic patterns
 
+### 4. A Registry Fix Alone Does Not Ship — the Build Must Actually Build
+
+The v0.9.7 Docker image build exposed a second, **pre-existing** truth: `npm run build` had been broken (webpack + Next type-check) by unrelated proxy-fleet (`v0.9.4`/`v0.9.5`) and dashboard work merged before this release. W1's data-only change compiled fine; the release could not ship until the build itself was repaired. Repairs landed in the same release:
+
+| File | Defect → Fix |
+|-|-|
+| `src/lib/db/migrations/011-proxy-fitness.js` | Missing migration contract → added `export default { version: 11, name, up, down }` |
+| `open-sse/executors/freebuff.js` | Imported `RE_PICK_CODES` (undefined) → `FREEBUFF_REPICK_CODES as RE_PICK_CODES` |
+| `src/types/js-modules.d.ts` (new) | TS2307 on `Card.js`/`Sparkline.js`/`ProviderTopology.js` → `declare module` shims |
+| `count_tokens/route.js` | TS2344 (route exported a helper) → made `estimateAnthropicInputTokens` local |
+| `src/lib/modelsList.js` (new) | TS2344 on `/v1/models` route helper → extracted `buildModelsList` out of the route module; `route.js` + `[kind]/route.js` import it |
+| `tsconfig.json` | webpack couldn't resolve `@/*` → added `paths`; dropped deprecated `baseUrl` |
+| `package.json` | Next type-check needed React types → added `@types/react` |
+
+**Lesson:** always run the project's own build gate before tagging a release — a green diff is not a shippable artifact.
+
 ---
 
 ## ✅ Prevention

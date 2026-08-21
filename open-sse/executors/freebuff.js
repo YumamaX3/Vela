@@ -48,7 +48,7 @@ import {
   clampFreebuffResetMs,
   getPersistedSession,
 } from "../services/freebuffSession.js";
-import { RE_PICK_CODES } from "../config/freebuff.js";
+import { FREEBUFF_REPICK_CODES as RE_PICK_CODES } from "../config/freebuff.js";
 
 export class FreebuffGateError extends Error {
   constructor(message, status, gate) {

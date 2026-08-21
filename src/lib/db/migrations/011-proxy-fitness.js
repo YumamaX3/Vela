@@ -7,7 +7,7 @@
  * egressCountry seeded by geo-probes and stamped on country_blocked events.
  */
 
-export const up = (db) => {
+const up = (db) => {
   db.exec(`
     CREATE TABLE IF NOT EXISTS proxyFitness (
       poolId TEXT NOT NULL,
@@ -30,6 +30,10 @@ export const up = (db) => {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_pf_pool ON proxyFitness(poolId)`);
 };
 
-export const down = (db) => {
+const down = (db) => {
   db.exec('DROP TABLE IF EXISTS proxyFitness');
 };
+
+// Export named functions AND default object matching migration contract (001-initial pattern)
+export default { version: 11, name: 'proxy-fitness', up, down };
+export { up, down };
