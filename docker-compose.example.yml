@@ -41,11 +41,12 @@ services:
   # ⛵ vela-gateway — the gateway + dashboard
   # ═══════════════════════════════════════════════════════════════
   vela-gateway:
-    # v0.9.9 — Flagship Observatory (cut 2026-08-21).
-    # Dashboard redesign: landing with Spotlight+CountUp stat cards, Usage
-    # as a six-bearing observatory (Overview · Analytics · Requests · Quota
-    # · Providers · Logs), and the /quota page restored as its own shore.
-    image: ghcr.io/yumamax3/vela:0.9.9   # bump to the release you want
+    # v0.9.10 — Single-Page Usage + Separate Quota (cut 2026-08-21).
+    # /dashboard/usage rebuilt from scratch: one page, no tabs, a warm
+    # KPI hero band (Requests · Input Tokens · Output Tokens · Est. Cost),
+    # traffic chart, top models + spenders. /dashboard/quota restored as
+    # its own page like 9router.
+    image: ghcr.io/yumamax3/vela:0.9.10   # bump to the release you want
     container_name: vela-gateway
     hostname: vela-gateway
     restart: unless-stopped
