@@ -41,12 +41,11 @@ services:
   # ⛵ vela-gateway — the gateway + dashboard
   # ═══════════════════════════════════════════════════════════════
   vela-gateway:
-    # v0.9.10 — Single-Page Usage + Separate Quota (cut 2026-08-21).
-    # /dashboard/usage rebuilt from scratch: one page, no tabs, a warm
-    # KPI hero band (Requests · Input Tokens · Output Tokens · Est. Cost),
-    # traffic chart, top models + spenders. /dashboard/quota restored as
-    # its own page like 9router.
-    image: ghcr.io/yumamax3/vela:0.9.10   # bump to the release you want
+    # v0.9.11 — Warm-Dark Command Deck (cut 2026-08-21).
+    # Dashboard home is now a warm-dark command deck (Live Traffic
+    # hero band, providers rail, recent activity, quick actions incl.
+    # Quota). Usage stays a single page; /quota its own page.
+    image: ghcr.io/yumamax3/vela:0.9.11   # bump to the release you want
     container_name: vela-gateway
     hostname: vela-gateway
     restart: unless-stopped
