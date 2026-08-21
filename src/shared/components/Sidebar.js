@@ -37,10 +37,10 @@ const navGroups = [
     title: "Analytics",
     items: [
       { href: "/dashboard/usage", label: "Usage", icon: "bar_chart" },
-      // Usage Observatory W2-F: quota is absorbed into the Usage Observatory's
-      // Accounts & Limits deck; the nav deep-links to that bearing, and
-      // /dashboard/quota answers with a 301 redirect (W2-F seal).
-      { href: "/dashboard/usage?tab=limits", label: "Accounts & Limits", icon: "data_usage" },
+      // Flagship Observatory: the quota shore stands on its own again —
+      // /dashboard/quota is a real page (account-level command center),
+      // shared QuotaPanel with the Usage "quota" bearing.
+      { href: "/dashboard/quota", label: "Quota", icon: "data_usage" },
       { href: "/dashboard/token-saver", label: "Token Saver", icon: "savings" },
     ],
   },

@@ -866,3 +866,173 @@ html:not(.dark) .login-card {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================================
+   Vela Flagship Observatory — Design Tokens (Phase 1 Foundation)
+   Core token set from docs/superpowers/plans/2026-08-21-vela-flagship-observatory.md
+   paper (#FDFAF6), ink (#0A0A0A), orange scale (#E56A4A primary), radius 10/14px
+   ============================================================ */
+:root {
+  /* Observatory paper palette - the foundation */
+  --color-observatory-paper-base: #FDFAF6;
+  --color-observatory-paper-50: #FDFBF9;
+  --color-observatory-paper-100: #F9F7F3;
+  --color-observatory-paper-200: #F2EFE8;
+  --color-observatory-paper-300: #EBE6DD;
+  --color-observatory-paper-400: #DAD3C6;
+  --color-observatory-paper-500: #CAC0B2;
+  --color-observatory-paper-600: #B8AF9E;
+  --color-observatory-paper-700: #A39685;
+  --color-observatory-paper-800: #8A7A66;
+  --color-observatory-paper-900: #6E5B4A;
+
+  /* Observatory ink palette - the text */
+  --color-observatory-ink-base: #0A0A0A;
+  --color-observatory-ink-50: #FFFFFF;
+  --color-observatory-ink-100: #F7F7F7;
+  --color-observatory-ink-200: #EEEEEE;
+  --color-observatory-ink-300: #DDDDDD;
+  --color-observatory-ink-400: #CCCCCC;
+  --color-observatory-ink-500: #999999;
+  --color-observatory-ink-600: #666666;
+  --color-observatory-ink-700: #333333;
+  --color-observatory-ink-800: #1A1A1A;
+  --color-observatory-ink-900: #0A0A0A;
+
+  /* Observatory orange accent scale - the glow */
+  --color-observatory-orange-base: #E56A4A;
+  --color-observatory-orange-50: #FFF3F0;
+  --color-observatory-orange-100: #FFE5DE;
+  --color-observatory-orange-200: #FFCEBE;
+  --color-observatory-orange-300: #FFAA8B;
+  --color-observatory-orange-400: #FF8F6D;
+  --color-observatory-orange-500: #E56A4A;
+  --color-observatory-orange-600: #CC5236;
+  --color-observatory-orange-700: #A64027;
+  --color-observatory-orange-800: #7A2F1D;
+  --color-observatory-orange-900: #4D1E12;
+
+  /* Observatory surface layers - card elevations */
+  --color-observatory-surface-overlay: #FFFFFF;
+  --color-observatory-surface-elevated: #FDFBF9;
+  --color-observatory-surface-base: #FDFBF9;
+  --color-observatory-surface-muted: #F5F2EC;
+
+  /* Observatory status colors - semantic meaning */
+  --color-observatory-success: #10B981;
+  --color-observatory-warning: #F59E0B;
+  --color-observatory-error: #EF4444;
+  --color-observatory-info: #3B82F6;
+
+  /* Observatory typography scales */
+  --font-observatory-display: 'Inter', system-ui, sans-serif;
+  --font-observatory-body: 'Inter', system-ui, sans-serif;
+
+  /* Observatory spacing multipliers */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+
+  /* Observatory shadows - depth indicators */
+  --shadow-observatory-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --shadow-observatory-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.12), 0 1px 2px 0 rgba(0, 0, 0, 0.08);
+  --shadow-observatory-md: 0 4px 6px -1px rgba(0, 0, 0, 0.10), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-observatory-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.10), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-observatory-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.10), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-observatory-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --shadow-observatory-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+
+  /* Observatory focus ring - accessibility */
+  --ring-observatory: 0 0 0 3px rgba(229, 106, 74, 0.25);
+
+  /* Observatory transitions - timing functions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 350ms ease;
+}
+
+.dark {
+  /* Observatory paper palette - light variants for dark mode */
+  --color-observatory-paper-base: #1A1A1A;
+  --color-observatory-paper-50: #1F1F1E;
+  --color-observatory-paper-100: #262626;
+  --color-observatory-paper-200: #303030;
+  --color-observatory-paper-300: #3A3A3A;
+  --color-observatory-paper-400: #444444;
+  --color-observatory-paper-500: #555555;
+  --color-observatory-paper-600: #666666;
+  --color-observatory-paper-700: #777777;
+  --color-observatory-paper-800: #888888;
+  --color-observatory-paper-900: #999999;
+
+  /* Observatory ink palette - inverted for dark mode */
+  --color-observatory-ink-base: #EDEDED;
+  --color-observatory-ink-50: #0A0A0A;
+  --color-observatory-ink-100: #1A1A1A;
+  --color-observatory-ink-200: #262626;
+  --color-observatory-ink-300: #333333;
+  --color-observatory-ink-400: #444444;
+  --color-observatory-ink-500: #666666;
+  --color-observatory-ink-600: #888888;
+  --color-observatory-ink-700: #AAAAAA;
+  --color-observatory-ink-800: #DDDDDD;
+  --color-observatory-ink-900: #EDEDED;
+
+  /* Observatory orange accent scale - brighter for dark mode visibility */
+  --color-observatory-orange-base: #E56A4A;
+  --color-observatory-orange-50: #FFE5DE;
+  --color-observatory-orange-100: #FFCEBE;
+  --color-observatory-orange-200: #FFAA8B;
+  --color-observatory-orange-300: #FF8F6D;
+  --color-observatory-orange-400: #FF8F6D;
+  --color-observatory-orange-500: #E56A4A;
+  --color-observatory-orange-600: #CC5236;
+  --color-observatory-orange-700: #A64027;
+  --color-observatory-orange-800: #8A331F;
+  --color-observatory-orange-900: #6D291F;
+
+  /* Observatory surface layers - dark mode elevations */
+  --color-observatory-surface-overlay: #262626;
+  --color-observatory-surface-elevated: #1F1F1E;
+  --color-observatory-surface-base: #1A1A1A;
+  --color-observatory-surface-muted: #262626;
+
+  /* Observatory shadows - darker shadows for depth */
+  --shadow-observatory-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-observatory-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-observatory-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
+  --shadow-observatory-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+  --shadow-observatory-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px rgba(0, 0, 0, 0.5);
+  --shadow-observatory-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.85);
+  --shadow-observatory-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.25);
+
+  /* Observatory focus ring - lighter for dark mode */
+  --ring-observatory: 0 0 0 3px rgba(229, 106, 74, 0.35);
+}
+
+/* Observatory utility classes */
+@theme inline {
+  --color-observatory-paper-base: var(--color-observatory-paper-base);
+  --color-observatory-ink-base: var(--color-observatory-ink-base);
+  --color-observatory-orange-base: var(--color-observatory-orange-base);
+  --color-observatory-surface-overlay: var(--color-observatory-surface-overlay);
+  --color-observatory-surface-elevated: var(--color-observatory-surface-elevated);
+  --color-observatory-surface-base: var(--color-observatory-surface-base);
+  --color-observatory-surface-muted: var(--color-observatory-surface-muted);
+  --color-observatory-success: var(--color-observatory-success);
+  --color-observatory-warning: var(--color-observatory-warning);
+  --color-observatory-error: var(--color-observatory-error);
+  --color-observatory-info: var(--color-observatory-info);
+  --shadow-observatory-xs: var(--shadow-observatory-xs);
+  --shadow-observatory-sm: var(--shadow-observatory-sm);
+  --shadow-observatory-md: var(--shadow-observatory-md);
+  --shadow-observatory-lg: var(--shadow-observatory-lg);
+  --shadow-observatory-xl: var(--shadow-observatory-xl);
+  --shadow-observatory-2xl: var(--shadow-observatory-2xl);
+  --shadow-observatory-inner: var(--shadow-observatory-inner);
+  --ring-observatory: var(--ring-observatory);
+}

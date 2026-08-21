@@ -1,0 +1,251 @@
+{
+  "vela": {
+    "observatory": {
+      "title": "Vela Flagship Observatory",
+      "subtitle": "Real-time Gateway Intelligence",
+      "description": "Monitor your AI gateway usage, performance, and key statistics in one unified view.",
+      "loading": "Loading observatory data...",
+      "error": {
+        "fetchFailed": "Failed to fetch observatory data",
+        "networkError": "Network connection error",
+        "timeout": "Request timed out"
+      }
+    },
+    "dashboard": {
+      "title": "Dashboard Overview",
+      "metrics": {
+        "totalRequests": "Total Requests",
+        "successfulRequests": "Successful Requests",
+        "failedRequests": "Failed Requests",
+        "averageLatency": "Average Latency",
+        "peakRPS": "Peak RPS",
+        "tokensUsed": "Tokens Consumed",
+        "costUSD": "Cost (USD)"
+      },
+      "chart": {
+        "requestsOverTime": "Requests Over Time",
+        "latencyDistribution": "Latency Distribution",
+        "topEndpoints": "Top Endpoints"
+      }
+    },
+    "keys": {
+      "title": "API Keys Management",
+      "list": {
+        "header": "Your API Keys",
+        "noKeys": "No API keys found. Create your first key to get started.",
+        "name": "Name",
+        "createdAt": "Created At",
+        "lastUsed": "Last Used",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "create": {
+        "title": "Create New API Key",
+        "nameLabel": "Key Name",
+        "namePlaceholder": "e.g., Production Key",
+        "expiresAtLabel": "Expires In (optional)",
+        "expiresOptions": {
+          "never": "Never",
+          "30days": "30 days",
+          "90days": "90 days",
+          "1year": "1 year"
+        },
+        "submit": "Create Key"
+      },
+      "view": {
+        "title": "Key Details",
+        "keyId": "Key ID",
+        "previewKey": "Preview Key",
+        "fullKey": "Full Key Value",
+        "warning": "This is the only time you'll see the full key value. Store it securely!",
+        "usageStats": "Usage Statistics",
+        "metrics": {
+          "requestsToday": "Requests Today",
+          "requestsThisMonth": "Requests This Month",
+          "tokensConsumed": "Tokens Consumed",
+          "costThisMonth": "Cost This Month"
+        },
+        "revoke": "Revoke Key",
+        "revokeConfirm": "Are you sure you want to revoke this key? It will be permanently disabled."
+      }
+    },
+    "charts": {
+      "requestsChart": {
+        "title": "Request Volume",
+        "label": "Requests",
+        "empty": "No request data available for selected period"
+      },
+      "latencyChart": {
+        "title": "Latency Analysis",
+        "label": "Latency (ms)",
+        "p50": "50th percentile",
+        "p95": "95th percentile",
+        "p99": "99th percentile"
+      },
+      "topEndpointsChart": {
+        "title": "Most Used Endpoints",
+        "label": "Requests",
+        "model": "Model"
+      }
+    },
+    "common": {
+      "loading": "Loading...",
+      "error": "Error",
+      "retry": "Retry",
+      "close": "Close",
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "edit": "Edit",
+      "copy": "Copy",
+      "copied": "Copied to clipboard",
+      "refresh": "Refresh",
+      "search": "Search...",
+      "filter": "Filter",
+      "sort": "Sort by",
+      "none": "None",
+      "all": "All",
+      "active": "Active",
+      "inactive": "Inactive",
+      "pending": "Pending",
+      "completed": "Completed",
+      "unknown": "Unknown",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "thisWeek": "This Week",
+      "thisMonth": "This Month",
+      "last7Days": "Last 7 Days",
+      "last30Days": "Last 30 Days",
+      "custom": "Custom",
+      "timeRange": {
+        "1h": "Last Hour",
+        "6h": "Last 6 Hours",
+        "24h": "Last 24 Hours",
+        "7d": "Last 7 Days",
+        "30d": "Last 30 Days"
+      },
+      "pagination": {
+        "itemsPerPage": "items per page",
+        "of": "of",
+        "previous": "Previous",
+        "next": "Next"
+      }
+    },
+    "messages": {
+      "success": {
+        "created": "Successfully created",
+        "updated": "Successfully updated",
+        "deleted": "Successfully deleted",
+        "revoked": "Key has been revoked"
+      },
+      "error": {
+        "created": "Failed to create",
+        "updated": "Failed to update",
+        "deleted": "Failed to delete",
+        "generic": "Something went wrong"
+      },
+      "info": {
+        "copied": "Key copied to clipboard",
+        "refreshing": "Refreshing data...",
+        "loading": "Loading data..."
+      }
+    }
+  },
+  "analytics": {
+    "summary": {
+      "title": "Analytics Summary",
+      "periodComparison": "vs previous period",
+      "increase": "Increase",
+      "decrease": "Decrease",
+      "stable": "No change"
+    },
+    "trends": {
+      "requestVolume": "Request volume trend",
+      "latencyChanges": "Latency changes over time",
+      "costProjection": "Projected cost for current period"
+    }
+  },
+  "notifications": {
+    "keyLimitWarning": "You've reached 80% of your maximum API keys limit",
+    "expiringSoon": "Your API key expires in 7 days",
+    "anomalyDetected": "Unusual activity detected on API key usage"
+  },
+  "observatory": {
+    "live": "live",
+    "Export CSV": "Export CSV",
+    "Overview": "Overview",
+    "Analytics": "Analytics",
+    "Requests": "Requests",
+    "Quota": "Quota",
+    "Providers": "Providers",
+    "Logs": "Logs",
+    "Where did the money go?": "Where did the money go?",
+    "Is it healthy?": "Is it healthy?",
+    "What happened?": "What happened?",
+    "What are my quotas?": "What are my quotas?",
+    "How do providers perform?": "How do providers perform?",
+    "What does the traffic look like?": "What does the traffic look like?",
+    "Provider usage": "Provider usage",
+    "Requests": "Requests",
+    "Tokens": "Tokens",
+    "Spend": "Spend",
+    "Request logs": "Request logs",
+    "Last updated": "Last updated",
+    "Refresh": "Refresh",
+    "time": "Time",
+    "model": "Model",
+    "latency": "Latency",
+    "status": "Status",
+    "cost": "Cost",
+    "No request logs yet — send a request to see them here.": "No request logs yet — send a request to see them here.",
+    "API key quotas": "API key quotas",
+    "No API keys found": "No API keys found",
+    "Budget tracking": "Budget tracking",
+    "No budgets configured": "No budgets configured",
+    "Used": "Used",
+    "Current plan": "Current plan",
+    "Free": "Free",
+    "Pro": "Pro",
+    "Enterprise": "Enterprise",
+    "Paused": "Paused",
+    "Last used": "Last used",
+    "View requests": "View requests",
+    "last 30 days": "last 30 days",
+    "Budget bars arrive with the next tide": "Budget bars arrive with the next tide",
+    "No providers yet": "No providers yet",
+    "Gateway endpoint": "Gateway endpoint",
+    "Point your AI tools at this OpenAI-compatible endpoint — Vela routes, translates, and governs every request.": "Point your AI tools at this OpenAI-compatible endpoint — Vela routes, translates, and governs every request.",
+    "Copy": "Copy",
+    "Requests today": "Requests today",
+    "Tokens today": "Tokens today",
+    "Spend today": "Spend today",
+    "Cache rate": "Cache rate",
+    "Activity": "Activity",
+    "Requests in the last 10 minutes": "Requests in the last 10 minutes",
+    "Top models today": "Top models today",
+    "No traffic yet — send a request to see it here.": "No traffic yet — send a request to see it here.",
+    "No requests in the last 10 minutes": "No requests in the last 10 minutes",
+    "Harbor status": "Harbor status",
+    "Governance and exposure": "Governance and exposure",
+    "API key required": "API key required",
+    "Dashboard login": "Dashboard login",
+    "Cloud sync": "Cloud sync",
+    "Tunnel": "Tunnel",
+    "Manage API keys": "Manage API keys",
+    "Quick nav": "Quick nav",
+    "Endpoint & Key": "Endpoint & Key",
+    "Providers": "Providers",
+    "Combos": "Combos",
+    "Usage": "Usage",
+    "Accounts & Limits": "Accounts & Limits",
+    "CLI Tools": "CLI Tools",
+    "Idle": "Idle",
+    "active": "active",
+    "Your gateway, at a glance": "Your gateway, at a glance",
+    "Show more": "Show more",
+    "Loading": "Loading",
+    "Search model, provider, endpoint…": "Search model, provider, endpoint…",
+    "Failed to fetch request details": "Failed to fetch request details",
+    "What are my limits?": "What are my limits?"
+  }
+}
