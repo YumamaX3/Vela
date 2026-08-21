@@ -41,7 +41,13 @@ services:
   # ⛵ vela-gateway — the gateway + dashboard
   # ═══════════════════════════════════════════════════════════════
   vela-gateway:
-    image: ghcr.io/yumamax3/vela:0.9.6   # bump to the release you want
+    # v0.9.7 — Registry Truth for qoder Reasoning Lanes (cut 2026-08-21).
+    # qd/* (Qoder) lanes now advertise reasoning:true with correct
+    # thinkingFormat per family (qwen/kimi/zai/deepseek/minimax) — the
+    # registry lie that made thinking-capable clients disable thinking is
+    # fixed. Also carries the build-gate repair (migration 011 contract,
+    # freebuff re-pick import, route-helper extraction, tsconfig aliases).
+    image: ghcr.io/yumamax3/vela:0.9.7   # bump to the release you want
     container_name: vela-gateway
     hostname: vela-gateway
     restart: unless-stopped

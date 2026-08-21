@@ -29,7 +29,7 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 > *"The registry told clients one thing when production said another. We fixed the lie."*
 
-*Sealed 2026-08-21 · qoder model capability registry fix + regression tests + 406 diagnosis plan · Small change (registry entries only) → `0.9.5 → 0.9.7`*
+*Sealed 2026-08-21 · qoder model capability registry fix + regression tests + 406 diagnosis plan + build-gate repair + compose pin · `0.9.5 → 0.9.7`*
 
 ## 🐛 Fixes — Provider Capability Overrides
 
