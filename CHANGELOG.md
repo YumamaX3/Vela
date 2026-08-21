@@ -29,7 +29,7 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 > *"The marketing says 1M everywhere. The live catalog said otherwise. We set the registry to the truth — window by window, lane by lane."*
 
-*Sealed 2026-08-21 · real per-key Qoder context windows + reasoning flags + error hardening · `0.9.7 → 0.9.8`*
+*Sealed 2026-08-21 · real per-key Qoder context windows + reasoning flags + error hardening + empirical 1M verification · `0.9.7 → 0.9.8`*
 
 ## 🔧 Real Per-Key Windows & Reasoning (from the live Qoder catalog, 2026-08-21)
 
@@ -44,9 +44,9 @@ The web's "Qoder is 1M everywhere" is wrong. Pulling the live catalog via the ac
 | `performance` | Performance | **1,000,000** | – |
 | `qmodel` / `qmodel_latest` | Qwen3.7-Plus/Max | **1,000,000** | – |
 | `kmodel` | Kimi-K2.7-Code | 256,000 | – |
-| `gmodel` | GLM-5.3 | 180,000 | ✅ |
-| `qmodel_38max` | Qwen3.8-Max | 180,000 | ✅ |
-| `auto` / `efficient` / `lite` / `kmodel_latest` | tier selectors | 180,000 | – |
+| `gmodel` | GLM-5.3 | **1,000,000** | ✅ |
+| `qmodel_38max` | Qwen3.8-Max | **1,000,000** | ✅ |
+| `auto` / `efficient` / `lite` | tier selectors | 180,000 | – |
 
 - `open-sse/providers/capabilities.js` — real per-key windows + **truthful** reasoning flags (only the 6 `is_reasoning:true` lanes claim it; the 9 non-reasoning lanes no longer over-advertise).
 - `open-sse/executors/qoder.js` — new `classifyQoderError` maps 418 (provider_error), 504 (timeout), 403+10605 (queue), 403+112 (billing) to short honest messages; **no more raw upstream JSON leaking into client streams**.
