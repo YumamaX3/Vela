@@ -25,6 +25,30 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.10 — Single-Page Usage + Separate Quota 🏛️💜
+
+> *"The usage page was a machine. It is now a window."*
+
+*Sealed 2026-08-21 · usage redesigned from scratch (Mirror + Prism): one page, no tabs, big KPI cards, /quota restored · `0.9.8 → 0.9.10`*
+
+## ✨ `/dashboard/usage` — Single Page, No Tabs
+- Old CompassDeck 4-tab structure **fully removed** (35 files deleted)
+- **KPI hero band**: warm orange gradient band with 4 big white cards
+  - Requests (bolt) · Input Tokens (input) · Output Tokens (output) · Est. Cost (payments)
+  - Large bold tabular numbers, delta badges vs previous period, $/Mtok subtext
+- **Traffic chart**: SVG area+line in brand orange
+- **Two-col grid**: Top Models (horizontal bars) + Top Spenders (per-key spend)
+- Period selector (Last 7 days / Today / 24h / 30d) + refresh
+- All data real (`/api/usage/metrics/kpis` + timeseries + breakdown)
+
+## ✨ `/dashboard/quota` — Restored as Its Own Page (like 9router)
+- Plan status card (billingPlan from `/api/settings`, Active badge)
+- Per-account quota gauges reusing the 9router `ProviderLimits` heritage
+- Reached from sidebar "Quota" → `/dashboard/quota`
+
+## 🎨 Blend
+- Warm-light 9router tokens (paper, ink, brand orange `#E56A4A`), Material Symbols icons, responsive 4→2→1
+
 # v0.9.8 — Qoder Full Truth Upgrade 💜🗼
 
 > *"The marketing says 1M everywhere. The live catalog said otherwise. We set the registry to the truth — window by window, lane by lane."*
