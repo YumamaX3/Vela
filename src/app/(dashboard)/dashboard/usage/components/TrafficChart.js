@@ -1,4 +1,6 @@
-// Traffic Chart Component — SVG area+line chart for time-series data
+// Traffic Chart Component — SVG area+line chart for time-series data.
+// Reads /api/usage/metrics/timeseries which returns { points: [{ t, value }], meta }
+// — never a plain array. Falls back honestly when the series is empty.
 "use client";
 
 import { useMetrics } from "../hooks/useMetrics";
@@ -12,6 +14,8 @@ export default function TrafficChart({ period }) {
     ""
   );
 
+  const points = Array.isArray(data?.points) ? data.points : [];
+
   if (loading) {
     return (
       <div className="h-64 flex items-center justify-center bg-surface-2 rounded-xl p-4 border border-border-subtle">
@@ -20,7 +24,7 @@ export default function TrafficChart({ period }) {
     );
   }
 
-  if (!data || data.length === 0) {
+  if (points.length === 0) {
     return (
       <div className="h-64 flex items-center justify-center bg-white rounded-xl p-4 border border-border-subtle">
         <p className="text-text-muted text-sm">No data available for this period</p>
@@ -28,8 +32,13 @@ export default function TrafficChart({ period }) {
     );
   }
 
-  const points = data.map((d, i) => `${i * (100 / (data.length - 1))},${d.y}`).join(" ");
-  const areaPath = `${points} 100,100 0,100`;
+  const maxV = Math.max(...points.map((d) => d.value || 0), 1);
+  const minV = Math.min(...points.map((d) => d.value || 0), 0);
+  const range = Math.max(maxV - minV, 1);
+  const stepX = points.length > 1 ? 100 / (points.length - 1) : 0;
+  const coords = points.map((d, i) => `${(i * stepX).toFixed(2)},${(92 - ((d.value - minV) / range) * 80).toFixed(2)}`);
+  const line = coords.join(" ");
+  const areaPath = `0,100 ${line} 100,100`;
 
   return (
     <div className="h-64 relative overflow-hidden bg-white rounded-xl p-4 border border-border-subtle">
@@ -39,7 +48,7 @@ export default function TrafficChart({ period }) {
 
         {/* Line */}
         <polyline
-          points={points}
+          points={line}
           fill="none"
           stroke="#E56A4A"
           strokeWidth="2"
@@ -55,13 +64,6 @@ export default function TrafficChart({ period }) {
           </linearGradient>
         </defs>
       </svg>
-
-      {/* X-axis labels */}
-      <div className="flex justify-between px-2 pb-2 mt-2 text-xs text-text-muted/60">
-        {data.filter((_, i) => i % Math.ceil(data.length / 6) === 0).map((d, i) => (
-          <span key={i}>{d.x}</span>
-        ))}
-      </div>
     </div>
   );
 }
