@@ -55,4 +55,38 @@ describe("getCapabilitiesForModel", () => {
     expect(getCapabilitiesForModel("kiro", "gpt-5.6-luna-agentic")).toMatchObject(kiroGpt56Expected);
     expect(getCapabilitiesForModel("kiro", "gpt-5.6-sol-thinking-agentic")).toMatchObject(kiroGpt56Expected);
   });
+
+  // Qoder (alias qd) — every frontier lane reasons natively. Proven by the
+  // model-reasoning-audit battery (2026-08-21): each qd/* emits real hidden
+  // reasoning tokens. This block fixes the registry lie where qd/* fell back
+  // to DEFAULT caps (reasoning:false), making thinking-capable clients
+  // disable thinking — the root of "qd/qmodel_38max can't think".
+  const qoderQwen = { reasoning: true, thinkingFormat: "qwen", contextWindow: 200000, maxOutput: 64000 };
+  const qoderZai = { reasoning: true, thinkingFormat: "zai", contextWindow: 200000, maxOutput: 64000 };
+  const qoderKimi = { reasoning: true, thinkingFormat: "kimi", contextWindow: 200000, maxOutput: 64000 };
+  const qoderDeepseek = { reasoning: true, thinkingFormat: "deepseek", contextWindow: 200000, maxOutput: 64000 };
+
+  it("reports Qoder qwen-family models as reasoning (qwen wire format)", () => {
+    for (const model of ["qmodel_38max", "qmodel_latest", "qmodel", "auto", "ultimate", "performance", "efficient", "lite"]) {
+      expect(getCapabilitiesForModel("qoder", model)).toMatchObject(qoderQwen);
+    }
+  });
+
+  it("reports Qoder GLM lanes as reasoning (zai wire format)", () => {
+    expect(getCapabilitiesForModel("qoder", "gmodel")).toMatchObject(qoderZai);
+    expect(getCapabilitiesForModel("qoder", "gm51model")).toMatchObject(qoderZai);
+  });
+
+  it("reports Qoder Kimi and DeepSeek lanes as reasoning", () => {
+    expect(getCapabilitiesForModel("qoder", "kmodel_latest")).toMatchObject(qoderKimi);
+    expect(getCapabilitiesForModel("qoder", "kmodel")).toMatchObject(qoderKimi);
+    expect(getCapabilitiesForModel("qoder", "dmodel")).toMatchObject(qoderDeepseek);
+    expect(getCapabilitiesForModel("qoder", "dfmodel")).toMatchObject(qoderDeepseek);
+  });
+
+  it("does NOT report retired or unknown qoder keys as reasoning", () => {
+    // qmodel_preview was retired upstream 2026-08-17 and has no entry — must fall to the safe floor.
+    expect(getCapabilitiesForModel("qoder", "qmodel_preview").reasoning).toBe(false);
+    expect(getCapabilitiesForModel("qoder", "totally-unknown").reasoning).toBe(false);
+  });
 });

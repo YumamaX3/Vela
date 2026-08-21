@@ -25,6 +25,50 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.7 — Registry Truth for qodex Reasoning Lanes 💜🗼
+
+> *"The registry told clients one thing when production said another. We fixed the lie."*
+
+*Sealed 2026-08-21 · qoder model capability registry fix + regression tests + 406 diagnosis plan · Small change (registry entries only) → `0.9.5 → 0.9.7`*
+
+## 🐛 Fixes — Provider Capability Overrides
+
+- **PROVIDER_CAPABILITIES["qoder"] block added** — All 15 qd/* model lanes now explicitly marked as reasoning-capable with correct thinkingFormat per family:
+  - Qwen-family models (`qmodel_38max`, `qmodel_latest`, `qmodel`) → `thinkingFormat: "qwen"`
+  - Kimi-family models (`kmodel_latest`, `kmodel`) → `thinkingFormat: "kimi"`
+  - GLM/Z.ai models (`gmodel`, `gm51model`) → `thinkingFormat: "zai"`
+  - DeepSeek models (`dmodel`, `dfmodel`) → `thinkingFormat: "deepseek"`
+  - MiniMax model (`mmodel`) → `thinkingFormat: "minimax"`
+  - Tier selectors (`lite`, `auto`, `ultimate`, `performance`, `efficient`) → `thinkingFormat: "qwen"`
+- **Root cause of Issue #406 resolved** — Models previously fell through lookup chain to DEFAULT_CAPABILITIES.reasoning=false; providers-specific override ensures all qd/* variants return reasoning:true with proper wire format from first lookup attempt
+- **Registry source-of-truth aligned** — Live catalog lookup (models.dev/api.json) and battery audit trail (2026-08-21) both confirm qodex models emit hidden reasoning tokens; registry now reflects that truth instead of lying silently
+
+## 🧪 Tests — Regression Suite
+
+- **tests/unit/capabilities.test.js** extended with 4 new assertions:
+  - PROVIDER_CAPABILITIES lookup precedence over pattern match
+  - qoder provider capability injection validates reasoning=true across all 15 lanes
+  - registry truth vs client expectation gap resolved (simulates real-world query path)
+  - all qd/* lanes return correct thinkingFormat per family
+- **Total test suite**: 8/8 passing (up from 4), zero regressions in existing tests
+
+## 📄 Plans — Diagnosis Artifacts
+
+- **plans/qoder-406-can-t-think-diagnosis.md** — Complete root cause analysis document tracing registry lie discovery, lookup flow failure, fix implementation, verification evidence, prevention mechanisms
+- **git-history-qoder-sweep-report.md** — Archaeological record of entire issue lifecycle from symptom to resolution, code evolution snapshots, test coverage metrics, lessons learned crystallized
+
+## 🎯 Criteria Validation Matrix
+
+| Criterion | Validation | Status |
+|-|-|-|
+| C1 | All 15 qd/* models receive reasoning:true | ✅ PASS |
+| C2 | Correct thinkingFormat per lane family | ✅ PASS |
+| C3 | PROVIDER_CAPABILITIES blocks before PATTERN fallback | ✅ PASS |
+| C4 | Unit tests prove fix works | ✅ PASS |
+| C5 | Registry aligns with live catalog truth | ✅ PASS |
+
+---
+
 # v0.9.5 — Proxy Completion Covenant: Real Sinews Sealed 🏭💜
 
 > *"From hollow bones to living sinews. The captain commands now."*
