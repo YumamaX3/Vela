@@ -138,6 +138,30 @@ export const PROVIDER_CAPABILITIES = {
     "gpt-5.6-luna":              CODEX_GPT_56_DEFAULT_CAPS,
     "gpt-5.6-luna-review":       CODEX_GPT_56_DEFAULT_CAPS,
   },
+  // Qoder (alias qd) — all frontier lanes reason natively (proven by the
+  // model-reasoning-audit battery 2026-08-21: every qd/* emits real hidden
+  // reasoning tokens). Qwen-family keys carry the qwen wire format; the GLM
+  // lane uses zai. Without this block, qd/* fell through to the static
+  // DEFAULT caps (reasoning:false) and thinking-capable clients disabled
+  // thinking — the registry lie behind "qd/qmodel_38max can't think".
+  // Windows follow the live catalog (200k/64k on 2026-08-21).
+  "qoder": {
+    "qmodel_38max":   { reasoning: true, thinkingFormat: "qwen", contextWindow: 200000, maxOutput: 64000 },
+    "qmodel_latest":  { reasoning: true, thinkingFormat: "qwen", contextWindow: 200000, maxOutput: 64000 },
+    "qmodel":         { reasoning: true, thinkingFormat: "qwen", contextWindow: 200000, maxOutput: 64000 },
+    "kmodel_latest":  { reasoning: true, thinkingFormat: "kimi", contextWindow: 200000, maxOutput: 64000 },
+    "kmodel":         { reasoning: true, thinkingFormat: "kimi", contextWindow: 200000, maxOutput: 64000 },
+    "gmodel":         { reasoning: true, thinkingFormat: "zai", contextWindow: 200000, maxOutput: 64000 },
+    "gm51model":      { reasoning: true, thinkingFormat: "zai", contextWindow: 200000, maxOutput: 64000 },
+    "dmodel":         { reasoning: true, thinkingFormat: "deepseek", contextWindow: 200000, maxOutput: 64000 },
+    "dfmodel":        { reasoning: true, thinkingFormat: "deepseek", contextWindow: 200000, maxOutput: 64000 },
+    "mmodel":         { reasoning: true, thinkingFormat: "minimax", contextWindow: 200000, maxOutput: 64000 },
+    "lite":           { reasoning: true, thinkingFormat: "qwen", contextWindow: 200000, maxOutput: 64000 },
+    "auto":           { reasoning: true, thinkingFormat: "qwen", contextWindow: 200000, maxOutput: 64000 },
+    "ultimate":       { reasoning: true, thinkingFormat: "qwen", contextWindow: 200000, maxOutput: 64000 },
+    "performance":    { reasoning: true, thinkingFormat: "qwen", contextWindow: 200000, maxOutput: 64000 },
+    "efficient":      { reasoning: true, thinkingFormat: "qwen", contextWindow: 200000, maxOutput: 64000 },
+  },
   "kiro": {
     "gpt-5.6-sol": KIRO_GPT_5_6_CAPABILITIES,
     "gpt-5.6-terra": KIRO_GPT_5_6_CAPABILITIES,
