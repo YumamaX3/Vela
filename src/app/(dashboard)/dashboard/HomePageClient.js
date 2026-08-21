@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import { Card, CardSkeleton } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { translate } from "@/i18n/runtime";
+import CountUp from "@/shared/components/ui/CountUp";
+import SpotlightCard from "@/shared/components/ui/SpotlightCard";
 
 function greetingKey() {
   const h = new Date().getHours();
@@ -135,10 +137,22 @@ export default function HomePageClient() {
             </p>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <HeroStat label={translate("Requests today")} value={compact(stats?.totalRequests || 0)} />
-            <HeroStat label={translate("Tokens today")} value={compact(totalTokens)} />
-            <HeroStat label={translate("Spend today")} value={money(stats?.totalCost || 0)} />
-            <HeroStat label={translate("Cache rate")} value={`${cacheRate}%`} />
+            <SpotlightCard key="requests" glowSize={80} bordered={false}>
+              <CountUp start={0} end={stats?.totalRequests || 0} duration={1.5} decimals={0} className="text-2xl font-semibold text-white" />
+              <p className="text-xs text-white/75 mt-1">{translate("Requests today")}</p>
+            </SpotlightCard>
+            <SpotlightCard key="tokens" glowSize={80} bordered={false}>
+              <CountUp start={0} end={totalTokens} duration={1.5} decimals={0} className="text-2xl font-semibold text-white" />
+              <p className="text-xs text-white/75 mt-1">{translate("Tokens today")}</p>
+            </SpotlightCard>
+            <SpotlightCard key="spend" glowSize={80} bordered={false}>
+              <CountUp start={0} end={Math.round((stats?.totalCost || 0) * 100)} duration={1.5} decimals={2} className="text-2xl font-semibold text-success" />
+              <p className="text-xs text-white/75 mt-1">{translate("Spend today")}</p>
+            </SpotlightCard>
+            <SpotlightCard key="cache" glowSize={80} bordered={false}>
+              <span className="text-2xl font-semibold text-white">{cacheRate}%</span>
+              <p className="text-xs text-white/75 mt-1">{translate("Cache rate")}</p>
+            </SpotlightCard>
           </div>
         </div>
       </div>
@@ -212,8 +226,8 @@ export default function HomePageClient() {
           <QuickTile icon="dns" label={translate("Providers")} href="/dashboard/providers" />
           <QuickTile icon="layers" label={translate("Combos")} href="/dashboard/combos" />
           <QuickTile icon="bar_chart" label={translate("Usage")} href="/dashboard/usage" />
-          {/* Usage Observatory W2-F — quota absorbed into the Accounts & Limits bearing */}
-          <QuickTile icon="data_usage" label={translate("Accounts & Limits")} href="/dashboard/usage?tab=limits" />
+          {/* Flagship Observatory — the quota shore stands on its own again */}
+          <QuickTile icon="data_usage" label={translate("Quota")} href="/dashboard/quota" />
           <QuickTile icon="terminal" label={translate("CLI Tools")} href="/dashboard/cli-tools" />
         </div>
       </div>

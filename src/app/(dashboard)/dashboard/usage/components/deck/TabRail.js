@@ -12,7 +12,9 @@ const BEARINGS = [
   { value: "overview", icon: "paid", label: "Overview", question: "Where did the money go?" },
   { value: "analytics", icon: "monitor_heart", label: "Analytics", question: "Is it healthy?" },
   { value: "requests", icon: "receipt_long", label: "Requests", question: "What happened?" },
-  { value: "limits", icon: "speed", label: "Accounts & Limits", question: "What are my limits?" },
+  { value: "quota", icon: "data_usage", label: "Quota", question: "What are my quotas?" },
+  { value: "providers", icon: "cloud", label: "Providers", question: "How do providers perform?" },
+  { value: "logs", icon: "table_chart", label: "Logs", question: "What does the traffic look like?" },
 ];
 
 export default function TabRail({ tab, setTab }) {

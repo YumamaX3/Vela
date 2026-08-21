@@ -23,12 +23,18 @@ import AnalyticsDeck from "./AnalyticsDeck";
 import RequestsDeck from "./RequestsDeck";
 import LimitsDeck from "./LimitsDeck";
 import BudgetAlertBanner from "./BudgetAlertBanner";
+import ProvidersDeck from "./ProvidersDeck";
+import LogsDeck from "./LogsDeck";
+import QuotaPanel from "./QuotaPanel";
 
 function DeckArea({ compass }) {
   switch (compass.tab) {
     case "analytics": return <AnalyticsDeck compass={compass} />;
     case "requests": return <RequestsDeck compass={compass} />;
     case "limits": return <LimitsDeck compass={compass} />;
+    case "quota": return <QuotaPanel compass={compass} />;
+    case "providers": return <ProvidersDeck compass={compass} />;
+    case "logs": return <LogsDeck compass={compass} />;
     case "overview":
     default: return <OverviewDeck compass={compass} />;
   }
