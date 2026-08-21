@@ -25,6 +25,23 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.14 — The Shape Truth Fix 🩹💜
+
+> *"The ledger always had the numbers. The page just didn't know their shape."*
+
+*Sealed 2026-08-21 · fixes `t.map is not a function` on /dashboard/usage · `0.9.13 → 0.9.14`*
+
+## 🐛 Fix — `/dashboard/usage` TopModels / TopSpenders / TrafficChart
+- All three read the breakdown/timeseries responses as **plain arrays**, but the real APIs return objects:
+  - `/api/usage/metrics/breakdown` → `{ items: [{ model|keyId, value }], meta }`
+  - `/api/usage/metrics/timeseries` → `{ points: [{ t, value }], meta }`
+- `.map` on the object crashed with **TypeError: t.map is not a function**
+- Now: `data?.items` / `data?.points` with `Array.isArray` guards, and the **correct params** (`dimension=model&metric=requests`, `dimension=keyId&metric=cost` — the old code sent a nonexistent `groupBy`)
+- TrafficChart now plots real values with honest scaling; TopModels shows request counts; TopSpenders shows per-key spend
+
+## 🐛 Fix — Homepage
+- `activeRequests` is an **array** (per-account active rows), not a count — the hero now shows `activeRequests.length`
+
 # v0.9.13 — The KPI Envelope Fix 🩹💜
 
 > *"The numbers were always there. The page just didn't know how to hold them."*
