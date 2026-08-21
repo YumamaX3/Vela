@@ -37,7 +37,7 @@ export default function NeedleBar({ compass }) {
   const [keys, setKeys] = useState([]);
   const [models, setModels] = useState([]);
 
-  const showPeriod = tab !== "quota"; // honesty — quota doesn't respect time
+  const showPeriod = tab !== "limits"; // honesty — limits don't respect time
 
   useEffect(() => {
     let alive = true;
@@ -55,7 +55,7 @@ export default function NeedleBar({ compass }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-bg-subtle/60 px-3 py-2">
-      {/* Shared facet 1 — period (dropped on the quota deck) */}
+      {/* Shared facet 1 — period (dropped on the limits deck) */}
       {showPeriod && (
         <div className="grid grid-cols-5 items-center gap-1 rounded-md border border-border bg-bg-subtle p-0.5">
           {PERIOD_OPTIONS.map((p) => (
@@ -112,7 +112,7 @@ export default function NeedleBar({ compass }) {
         className={`${selectCls} w-44 flex-1 sm:flex-none`}
       />
 
-      {/* Granularity override (timeseries facet — dropped on quota deck) */}
+      {/* Granularity override (timeseries facet — dropped on limits deck) */}
       {showPeriod && (
         <select className={selectCls} value={granParam} onChange={(e) => setFacet("gran", e.target.value)}>
           {GRANULARITY_OPTIONS.map((g) => (
