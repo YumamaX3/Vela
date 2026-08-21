@@ -25,6 +25,17 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.13 — The KPI Envelope Fix 🩹💜
+
+> *"The numbers were always there. The page just didn't know how to hold them."*
+
+*Sealed 2026-08-21 · fixes React error #31 on /dashboard/usage · `0.9.12 → 0.9.13`*
+
+## 🐛 Fix — `/dashboard/usage` KPI cards
+- The KPI hero band read flat fields (`kpis.requests`, `kpis.requestsPrev`) but the real `/api/usage/metrics/kpis` returns **envelopes** `{value, previous, delta}` — rendering the object directly crashed the page with **React error #31** ("Objects are not valid as a React child")
+- Now reads `kpis.requests.value`, `.previous`, `.delta` (and the token/cost twins), computes the delta percent and `$/Mtok` from the envelope, and formats costs honestly
+- **The big KPI cards (Requests · Input Tokens · Output Tokens · Est. Cost) now render correctly**
+
 # v0.9.12 — The Redesigned Sidebar + Request Logs 🏛️💜
 
 > *"The way you steer the ship should be as beautiful as the ship itself."*
