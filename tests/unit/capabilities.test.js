@@ -62,19 +62,20 @@ describe("getCapabilitiesForModel", () => {
   // reason natively (is_reasoning:true) — the rest must NOT be advertised as
   // reasoning (that would be a lie the other way). maxOutput 64000 (catalog
   // does not publish max_output_tokens).
-  const qoderQwen1M = { reasoning: false, thinkingFormat: "qwen", contextWindow: 1000000, maxOutput: 64000 };
+  // Windows reconciled 2026-08-21: the Qoder catalog under-reports the
+  // flagship lanes (180k stale). Vendor specs (z.ai / b.ai / OpenRouter) +
+  // empirical bridge probe => true 1M-class windows. Only 6 lanes reason.
+  const qoderQwen1M = { reasoning: false, thinkingFormat: "qwen", contextWindow: 1000000, maxOutput: 131072 };
   const qoderQwen180 = { reasoning: false, thinkingFormat: "qwen", contextWindow: 180000, maxOutput: 64000 };
-  const qoderQwenReason1M = { reasoning: true, thinkingFormat: "qwen", contextWindow: 1000000, maxOutput: 64000 };
-  const qoderQwenReason180 = { reasoning: true, thinkingFormat: "qwen", contextWindow: 180000, maxOutput: 64000 };
-  const qoderZai1M = { reasoning: true, thinkingFormat: "zai", contextWindow: 1000000, maxOutput: 64000 };
-  const qoderZai180 = { reasoning: true, thinkingFormat: "zai", contextWindow: 180000, maxOutput: 64000 };
-  const qoderKimi256 = { reasoning: false, thinkingFormat: "kimi", contextWindow: 256000, maxOutput: 64000 };
-  const qoderKimi180 = { reasoning: false, thinkingFormat: "kimi", contextWindow: 180000, maxOutput: 64000 };
-  const qoderDeepseek1M = { reasoning: true, thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 64000 };
-  const qoderMinimax1M = { reasoning: false, thinkingFormat: "minimax", contextWindow: 1000000, maxOutput: 64000 };
+  const qoderQwenReason1M = { reasoning: true, thinkingFormat: "qwen", contextWindow: 1000000, maxOutput: 131072 };
+  const qoderZai1M = { reasoning: true, thinkingFormat: "zai", contextWindow: 1000000, maxOutput: 131072 };
+  const qoderKimi256 = { reasoning: false, thinkingFormat: "kimi", contextWindow: 256000, maxOutput: 65536 };
+  const qoderKimi1M = { reasoning: false, thinkingFormat: "kimi", contextWindow: 1048576, maxOutput: 131072 };
+  const qoderDeepseek1M = { reasoning: true, thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 131072 };
+  const qoderMinimax1M = { reasoning: false, thinkingFormat: "minimax", contextWindow: 1000000, maxOutput: 131072 };
 
-  it("reports Qoder qwen-family windows + reasoning per the live catalog", () => {
-    expect(getCapabilitiesForModel("qoder", "qmodel_38max")).toMatchObject(qoderQwenReason180);
+  it("reports Qoder qwen-family windows + reasoning (reconciled truth)", () => {
+    expect(getCapabilitiesForModel("qoder", "qmodel_38max")).toMatchObject(qoderQwenReason1M);
     expect(getCapabilitiesForModel("qoder", "qmodel_latest")).toMatchObject(qoderQwen1M);
     expect(getCapabilitiesForModel("qoder", "qmodel")).toMatchObject(qoderQwen1M);
     expect(getCapabilitiesForModel("qoder", "auto")).toMatchObject(qoderQwen180);
@@ -85,12 +86,12 @@ describe("getCapabilitiesForModel", () => {
   });
 
   it("reports Qoder GLM lanes with real windows (zai wire format)", () => {
-    expect(getCapabilitiesForModel("qoder", "gmodel")).toMatchObject(qoderZai180);
+    expect(getCapabilitiesForModel("qoder", "gmodel")).toMatchObject(qoderZai1M);
     expect(getCapabilitiesForModel("qoder", "gm51model")).toMatchObject(qoderZai1M);
   });
 
   it("reports Qoder Kimi, DeepSeek and MiniMax lanes with real windows", () => {
-    expect(getCapabilitiesForModel("qoder", "kmodel_latest")).toMatchObject(qoderKimi180);
+    expect(getCapabilitiesForModel("qoder", "kmodel_latest")).toMatchObject(qoderKimi1M);
     expect(getCapabilitiesForModel("qoder", "kmodel")).toMatchObject(qoderKimi256);
     expect(getCapabilitiesForModel("qoder", "dmodel")).toMatchObject(qoderDeepseek1M);
     expect(getCapabilitiesForModel("qoder", "dfmodel")).toMatchObject(qoderDeepseek1M);
