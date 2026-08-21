@@ -60,7 +60,7 @@ export default function HomePageClient() {
   const cached = stats?.totalCachedTokens || 0;
   const cacheRate = totalTokens > 0 ? Math.round((cached / (totalTokens + cached)) * 100) : 0;
   const cost = stats?.totalCost != null ? stats.totalCost : (stats?.totalCostCents != null ? stats.totalCostCents / 100 : 0);
-  const active = stats?.activeRequests || 0;
+  const active = Array.isArray(stats?.activeRequests) ? stats.activeRequests.length : (stats?.activeRequests || 0);
 
   const timeline = stats?.last10Minutes || [];
   const spark = Array.isArray(timeline) ? timeline.map((p) => p?.requests || p?.count || 0) : [];
