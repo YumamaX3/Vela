@@ -25,30 +25,6 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
-# v0.9.9 — The Flagship Observatory 🏛️💜
-
-> *"The harbor was good. It is now an observatory."*
-
-*Sealed 2026-08-21 · dashboard redesign (Mirror + Prism): landing, 6-tab usage observatory, restored /quota page · `0.9.8 → 0.9.9`*
-
-## ✨ Dashboard Landing — The Harbor
-- Stat cards upgraded to **SpotlightCard + CountUp** (requests/tokens/spend/cache today) with real data
-- New **Quota** quick-nav tile → `/dashboard/quota`
-
-## ✨ Usage — The Six-Bearing Observatory
-- CompassDeck now routes **six tabs**: Overview · Analytics · Requests · **Quota** · **Providers** · **Logs**
-- **ProvidersDeck** (new): per-provider cards (requests/tokens/spend) from `/api/usage/providers`, CountUp + Spotlight
-- **LogsDeck** (new): request-log table with 30s auto-refresh (paused when hidden) + manual refresh
-
-## ✨ `/dashboard/quota` — The Quota Shore Restored
-- Account-level command center: plan status band, per-key quota gauges (used/limit via `QuotaProgressBar`), budget tracker
-- **Shared `QuotaPanel`** component used by both the page and the Usage Quota tab (zero duplication)
-- Sidebar "Accounts & Limits" → **"Quota"** → `/dashboard/quota`
-
-## 🎨 Foundation
-- `CountUp` / `SpotlightCard` / `ScrollReveal` components themed to the Vela warm-light tokens
-- Observatory design tokens in `globals.css`, i18n strings in `src/locales/en.json`
-
 # v0.9.8 — Qoder Full Truth Upgrade 💜🗼
 
 > *"The marketing says 1M everywhere. The live catalog said otherwise. We set the registry to the truth — window by window, lane by lane."*
