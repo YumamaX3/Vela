@@ -186,6 +186,30 @@ The v0.9.7 Docker image build exposed a second, **pre-existing** truth: `npm run
 
 **Lesson:** always run the project's own build gate before tagging a release — a green diff is not a shippable artifact.
 
+### 5. The Live Catalog Is Truth — Not Marketing, Not Our Guess
+
+The web's "Qoder is 1M everywhere" is **wrong**. Pulling the live Qoder catalog via the account PATs showed the real per-lane windows and reasoning flags:
+
+| Key | Display | **Real ctx** | reasoning |
+|---|---|---|---|
+| dfmodel / dmodel | DeepSeek-V4-Flash/Pro | **1,000,000** | ✅ |
+| gm51model | GLM-5.2 | **1,000,000** | ✅ |
+| ultimate | Ultimate | **1,000,000** | ✅ |
+| mmodel | MiniMax-M3 | **1,000,000** | – |
+| performance | Performance | **1,000,000** | – |
+| qmodel / qmodel_latest | Qwen3.7-Plus/Max | **1,000,000** | – |
+| kmodel | Kimi-K2.7-Code | 256,000 | – |
+| gmodel | GLM-5.3 | 180,000 | ✅ |
+| qmodel_38max | Qwen3.8-Max | 180,000 | ✅ |
+| auto / efficient / lite / kmodel_latest | tier selectors | 180,000 | – |
+
+**v0.9.8 upgrade (2026-08-21), still in the forge:**
+1. `capabilities.js` — real per-key windows (1M/256k/180k) + **truthful** per-key reasoning (only the 6 `is_reasoning:true` lanes claim it; advertising reasoning on the 9 non-reasoning lanes would be a lie the other way).
+2. `executors/qoder.js` — new `classifyQoderError` maps 418 (provider_error), 504 (timeout), 403+10605 (queue), 403+112 (billing) to short honest messages; **never leaks raw upstream JSON into the stream**.
+3. Tests updated to the real catalog; classifier exported in `__test__`.
+
+**Lesson:** the live catalog is the only trustworthy source. Marketing pages lie; per-key `max_input_tokens` + `is_reasoning` from the authenticated catalog do not.
+
 ---
 
 ## ✅ Prevention

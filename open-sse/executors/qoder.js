@@ -227,6 +227,56 @@ function isBillingBlock(inner) {
   return /\"code\"\s*:\s*\"112\"/.test(inner) || lowerMsg.includes("pricingurl");
 }
 
+// ── Upstream error classifier ────────────────────────────────────────────
+// Qoder answers non-200 terminal frames with nested JSON bodies like
+//   {"code":"418","message":"{\"code\":\"provider_error\",\"message\":\"Error in upstream response\",...}"}
+//   {"code":"504","message":"upstream model timeout"}
+//   {"code":"403","message":"{\"code\":\"10605\",\"message\":{\"isQueued\":true,...}}"}
+//   {"code":"403","message":"{\"code\":\"112\",\"message\":{\"pricingUrl\":...}}"}
+// We never leak that raw JSON into the client stream — we map it to a short,
+// honest, human-readable message and (for streamed chunks) a clean finish.
+
+const QODER_UPSTREAM_TIMEOUT_CODES = new Set([504, 529]);
+const QODER_UPSTREAM_TEAPOT_CODES = new Set([418]);
+
+/**
+ * Classify an upstream error envelope into { message, retryable, kind }.
+ * `kind` ∈ { queue, billing, timeout, teapot, upstream, unknown }.
+ */
+function classifyQoderError(statusVal, inner) {
+  const raw = typeof inner === "string" ? inner : "";
+  const lower = raw.toLowerCase();
+
+  // Queue admission (code 10605 nested inside a 403/200 frame) — handled by
+  // the queue gate; expose the admission ticket for retry.
+  if (raw.includes("10605") || /\"code\"\s*:\s*\"10605\"/.test(raw)) {
+    return { kind: "queue", retryable: true, message: "upstream lane is queued (10605)" };
+  }
+  // Billing / quota (code 112 or pricingUrl).
+  if (/\"code\"\s*:\s*\"112\"/.test(raw) || lower.includes("pricingurl")) {
+    return { kind: "billing", retryable: false, message: "upstream quota exhausted (112)" };
+  }
+  // Timeouts.
+  if (QODER_UPSTREAM_TIMEOUT_CODES.has(statusVal) || lower.includes("timeout")) {
+    return { kind: "timeout", retryable: true, message: "upstream model timed out (504)" };
+  }
+  // Teapot / provider-internal errors.
+  if (QODER_UPSTREAM_TEAPOT_CODES.has(statusVal) || lower.includes("provider_error") || lower.includes("error in upstream")) {
+    return { kind: "teapot", retryable: true, message: "upstream provider error (418)" };
+  }
+  // Generic upstream status.
+  if (statusVal && statusVal !== 200) {
+    return { kind: "upstream", retryable: statusVal >= 500, message: `upstream error (${statusVal})` };
+  }
+  return { kind: "unknown", retryable: false, message: "unknown upstream error" };
+}
+
+/** Human-readable fallback when the classified message is empty. */
+function qoderErrorMessage(statusVal, inner) {
+  const c = classifyQoderError(statusVal, inner);
+  return c.message;
+}
+
 // ── Queue gate (code 10605) ────────────────────────────────────────────────
 // A saturated qoder lane answers 200 + a first SSE frame whose statusCodeValue
 // is 403 and whose body carries the admission ticket, double-encoded through
@@ -431,13 +481,15 @@ async function wrapQoderSSE(response, model) {
     const statusVal = typeof envelope.statusCodeValue === "number" ? envelope.statusCodeValue : 200;
     const inner = typeof envelope.body === "string" ? envelope.body : "";
     if (statusVal !== 200) {
-      const msg = inner || `upstream status ${statusVal}`;
+      // Map the raw upstream envelope to a short, honest message — never leak
+      // the nested JSON (418 provider_error / 504 timeout / 112 billing / etc.).
+      const msg = qoderErrorMessage(statusVal, inner);
       const errChunk = JSON.stringify({
         id: `qoder-error-${Date.now()}`,
         object: "chat.completion.chunk",
         created: Math.floor(Date.now() / 1000),
         model,
-        choices: [{ index: 0, delta: { content: `\n[qoder error ${statusVal}: ${truncate(msg, 200)}]` }, finish_reason: "stop" }],
+        choices: [{ index: 0, delta: { content: `\n[qoder error ${statusVal}: ${msg}]` }, finish_reason: "stop" }],
       });
       controller.enqueue(encoder.encode(`data: ${errChunk}\n\n`));
       controller.enqueue(encoder.encode(SSE_DONE));
@@ -758,6 +810,8 @@ export const __test__ = {
   isBillingBlock,
   parseQueueAdmission,
   queueWaitMs,
+  classifyQoderError,
+  qoderErrorMessage,
   QODER_QUEUE_MAX_ATTEMPTS,
   QODER_QUEUE_MAX_WAIT_S,
 };

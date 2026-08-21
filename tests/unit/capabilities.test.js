@@ -56,32 +56,45 @@ describe("getCapabilitiesForModel", () => {
     expect(getCapabilitiesForModel("kiro", "gpt-5.6-sol-thinking-agentic")).toMatchObject(kiroGpt56Expected);
   });
 
-  // Qoder (alias qd) — every frontier lane reasons natively. Proven by the
-  // model-reasoning-audit battery (2026-08-21): each qd/* emits real hidden
-  // reasoning tokens. This block fixes the registry lie where qd/* fell back
-  // to DEFAULT caps (reasoning:false), making thinking-capable clients
-  // disable thinking — the root of "qd/qmodel_38max can't think".
-  const qoderQwen = { reasoning: true, thinkingFormat: "qwen", contextWindow: 200000, maxOutput: 64000 };
-  const qoderZai = { reasoning: true, thinkingFormat: "zai", contextWindow: 200000, maxOutput: 64000 };
-  const qoderKimi = { reasoning: true, thinkingFormat: "kimi", contextWindow: 200000, maxOutput: 64000 };
-  const qoderDeepseek = { reasoning: true, thinkingFormat: "deepseek", contextWindow: 200000, maxOutput: 64000 };
+  // Qoder (alias qd) — context windows + reasoning flags from the LIVE Qoder
+  // catalog (2026-08-21): 1M for dfmodel/dmodel/gm51model/ultimate/mmodel/
+  // performance/qmodel/qmodel_latest; 256k kmodel; 180k rest. Only six lanes
+  // reason natively (is_reasoning:true) — the rest must NOT be advertised as
+  // reasoning (that would be a lie the other way). maxOutput 64000 (catalog
+  // does not publish max_output_tokens).
+  const qoderQwen1M = { reasoning: false, thinkingFormat: "qwen", contextWindow: 1000000, maxOutput: 64000 };
+  const qoderQwen180 = { reasoning: false, thinkingFormat: "qwen", contextWindow: 180000, maxOutput: 64000 };
+  const qoderQwenReason1M = { reasoning: true, thinkingFormat: "qwen", contextWindow: 1000000, maxOutput: 64000 };
+  const qoderQwenReason180 = { reasoning: true, thinkingFormat: "qwen", contextWindow: 180000, maxOutput: 64000 };
+  const qoderZai1M = { reasoning: true, thinkingFormat: "zai", contextWindow: 1000000, maxOutput: 64000 };
+  const qoderZai180 = { reasoning: true, thinkingFormat: "zai", contextWindow: 180000, maxOutput: 64000 };
+  const qoderKimi256 = { reasoning: false, thinkingFormat: "kimi", contextWindow: 256000, maxOutput: 64000 };
+  const qoderKimi180 = { reasoning: false, thinkingFormat: "kimi", contextWindow: 180000, maxOutput: 64000 };
+  const qoderDeepseek1M = { reasoning: true, thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 64000 };
+  const qoderMinimax1M = { reasoning: false, thinkingFormat: "minimax", contextWindow: 1000000, maxOutput: 64000 };
 
-  it("reports Qoder qwen-family models as reasoning (qwen wire format)", () => {
-    for (const model of ["qmodel_38max", "qmodel_latest", "qmodel", "auto", "ultimate", "performance", "efficient", "lite"]) {
-      expect(getCapabilitiesForModel("qoder", model)).toMatchObject(qoderQwen);
-    }
+  it("reports Qoder qwen-family windows + reasoning per the live catalog", () => {
+    expect(getCapabilitiesForModel("qoder", "qmodel_38max")).toMatchObject(qoderQwenReason180);
+    expect(getCapabilitiesForModel("qoder", "qmodel_latest")).toMatchObject(qoderQwen1M);
+    expect(getCapabilitiesForModel("qoder", "qmodel")).toMatchObject(qoderQwen1M);
+    expect(getCapabilitiesForModel("qoder", "auto")).toMatchObject(qoderQwen180);
+    expect(getCapabilitiesForModel("qoder", "ultimate")).toMatchObject(qoderQwenReason1M);
+    expect(getCapabilitiesForModel("qoder", "performance")).toMatchObject(qoderQwen1M);
+    expect(getCapabilitiesForModel("qoder", "efficient")).toMatchObject(qoderQwen180);
+    expect(getCapabilitiesForModel("qoder", "lite")).toMatchObject(qoderQwen180);
   });
 
-  it("reports Qoder GLM lanes as reasoning (zai wire format)", () => {
-    expect(getCapabilitiesForModel("qoder", "gmodel")).toMatchObject(qoderZai);
-    expect(getCapabilitiesForModel("qoder", "gm51model")).toMatchObject(qoderZai);
+  it("reports Qoder GLM lanes with real windows (zai wire format)", () => {
+    expect(getCapabilitiesForModel("qoder", "gmodel")).toMatchObject(qoderZai180);
+    expect(getCapabilitiesForModel("qoder", "gm51model")).toMatchObject(qoderZai1M);
   });
 
-  it("reports Qoder Kimi and DeepSeek lanes as reasoning", () => {
-    expect(getCapabilitiesForModel("qoder", "kmodel_latest")).toMatchObject(qoderKimi);
-    expect(getCapabilitiesForModel("qoder", "kmodel")).toMatchObject(qoderKimi);
-    expect(getCapabilitiesForModel("qoder", "dmodel")).toMatchObject(qoderDeepseek);
-    expect(getCapabilitiesForModel("qoder", "dfmodel")).toMatchObject(qoderDeepseek);
+  it("reports Qoder Kimi, DeepSeek and MiniMax lanes with real windows", () => {
+    expect(getCapabilitiesForModel("qoder", "kmodel_latest")).toMatchObject(qoderKimi180);
+    expect(getCapabilitiesForModel("qoder", "kmodel")).toMatchObject(qoderKimi256);
+    expect(getCapabilitiesForModel("qoder", "dmodel")).toMatchObject(qoderDeepseek1M);
+    expect(getCapabilitiesForModel("qoder", "dfmodel")).toMatchObject(qoderDeepseek1M);
+    expect(getCapabilitiesForModel("qoder", "mmodel")).toMatchObject(qoderMinimax1M);
   });
 
   it("does NOT report retired or unknown qoder keys as reasoning", () => {
