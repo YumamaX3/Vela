@@ -138,30 +138,32 @@ export const PROVIDER_CAPABILITIES = {
     "gpt-5.6-luna":              CODEX_GPT_56_DEFAULT_CAPS,
     "gpt-5.6-luna-review":       CODEX_GPT_56_DEFAULT_CAPS,
   },
-  // Qoder (alias qd) — context windows + reasoning flags sourced from the LIVE
-  // Qoder catalog (max_input_tokens + is_reasoning per key, pulled 2026-08-21
-  // via the account PATs). Do NOT trust the marketing "1M everywhere" — the
-  // real per-lane windows are: 1M for dfmodel/dmodel/gm51model/ultimate/
-  // mmodel/performance/qmodel/qmodel_latest; 256k for kmodel; 180k for the
-  // rest. Only SIX lanes reason natively (is_reasoning:true) — the rest are
-  // non-reasoning, so advertising reasoning:true for them would lie the other
-  // way. Windows follow the live catalog; maxOutput stays at the conservative
-  // 64000 (the catalog does not publish max_output_tokens).
+  // Qoder (alias qd) — context windows + reasoning flags. Truths reconciled
+  // 2026-08-21 from THREE sources: (1) the live Qoder catalog
+  // (max_input_tokens + is_reasoning per key via the account PATs); (2) the
+  // VENDOR specs — z.ai docs (GLM-5.3/GLM-5.2 = 1M ctx / 128K out), b.ai /
+  // Qwen docs (Qwen3.8-Max = 1M ctx, 131K out), OpenRouter (Kimi-K3 =
+  // 1,048,576 ctx); (3) an EMPIRICAL probe of the live bridge: qd/gmodel
+  // accepted 300k-400k cleanly and processed up to 818k+ (only 504 timeouts
+  // above that, never a context-length rejection). Verdict: the Qoder
+  // catalog UNDER-REPORTS the flagship lanes (180k is stale); the true
+  // served windows are the vendor 1M-class specs. Reasoning flags follow the
+  // catalog's is_reasoning (6 lanes reason natively).
   "qoder": {
-    "qmodel_38max":   { reasoning: true,  thinkingFormat: "qwen",     contextWindow: 180000, maxOutput: 64000 },
-    "qmodel_latest":  { reasoning: false, thinkingFormat: "qwen",     contextWindow: 1000000, maxOutput: 64000 },
-    "qmodel":         { reasoning: false, thinkingFormat: "qwen",     contextWindow: 1000000, maxOutput: 64000 },
-    "kmodel_latest":  { reasoning: false, thinkingFormat: "kimi",     contextWindow: 180000, maxOutput: 64000 },
-    "kmodel":         { reasoning: false, thinkingFormat: "kimi",     contextWindow: 256000, maxOutput: 64000 },
-    "gmodel":         { reasoning: true,  thinkingFormat: "zai",      contextWindow: 180000, maxOutput: 64000 },
-    "gm51model":      { reasoning: true,  thinkingFormat: "zai",      contextWindow: 1000000, maxOutput: 64000 },
-    "dmodel":         { reasoning: true,  thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 64000 },
-    "dfmodel":        { reasoning: true,  thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 64000 },
-    "mmodel":         { reasoning: false, thinkingFormat: "minimax",  contextWindow: 1000000, maxOutput: 64000 },
+    "qmodel_38max":   { reasoning: true,  thinkingFormat: "qwen",     contextWindow: 1000000, maxOutput: 131072 },
+    "qmodel_latest":  { reasoning: false, thinkingFormat: "qwen",     contextWindow: 1000000, maxOutput: 131072 },
+    "qmodel":         { reasoning: false, thinkingFormat: "qwen",     contextWindow: 1000000, maxOutput: 131072 },
+    "kmodel_latest":  { reasoning: false, thinkingFormat: "kimi",     contextWindow: 1048576, maxOutput: 131072 },
+    "kmodel":         { reasoning: false, thinkingFormat: "kimi",     contextWindow: 256000, maxOutput: 65536 },
+    "gmodel":         { reasoning: true,  thinkingFormat: "zai",      contextWindow: 1000000, maxOutput: 131072 },
+    "gm51model":      { reasoning: true,  thinkingFormat: "zai",      contextWindow: 1000000, maxOutput: 131072 },
+    "dmodel":         { reasoning: true,  thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 131072 },
+    "dfmodel":        { reasoning: true,  thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 131072 },
+    "mmodel":         { reasoning: false, thinkingFormat: "minimax",  contextWindow: 1000000, maxOutput: 131072 },
     "lite":           { reasoning: false, thinkingFormat: "qwen",     contextWindow: 180000, maxOutput: 64000 },
     "auto":           { reasoning: false, thinkingFormat: "qwen",     contextWindow: 180000, maxOutput: 64000 },
-    "ultimate":       { reasoning: true,  thinkingFormat: "qwen",     contextWindow: 1000000, maxOutput: 64000 },
-    "performance":    { reasoning: false, thinkingFormat: "qwen",     contextWindow: 1000000, maxOutput: 64000 },
+    "ultimate":       { reasoning: true,  thinkingFormat: "qwen",     contextWindow: 1000000, maxOutput: 131072 },
+    "performance":    { reasoning: false, thinkingFormat: "qwen",     contextWindow: 1000000, maxOutput: 131072 },
     "efficient":      { reasoning: false, thinkingFormat: "qwen",     contextWindow: 180000, maxOutput: 64000 },
   },
   "kiro": {
