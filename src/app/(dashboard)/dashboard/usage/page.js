@@ -84,6 +84,15 @@ function UsageContent({ initialPeriod, onPeriodChange }) {
 function KpiBand({ period }) {
   const { data: kpis, loading } = useMetrics("kpis", `period=${period}`);
 
+  // $/Mtok across the whole window (tokens carry the cost, not the other way).
+  const perMtok = (() => {
+    const tokens = (kpis?.promptTokens?.value || 0) + (kpis?.completionTokens?.value || 0);
+    const cost = kpis?.cost?.value || 0;
+    if (!tokens || !cost) return null;
+    const v = (cost / tokens) * 1_000_000;
+    return v < 0.01 ? "<$0.01" : `$${v.toFixed(2)}`;
+  })();
+
   if (loading) {
     return (
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 bg-gradient-to-r from-orange-500/5 to-amber-500/5 rounded-xl p-4 border border-border-subtle">
@@ -103,37 +112,44 @@ function KpiBand({ period }) {
       <KpiCard
         icon="bolt"
         title="Requests"
-        value={kpis?.requests ?? "--"}
-        subtitle={`${formatNumber(kpis?.requestsPrev ?? 0)} previous`}
-        delta={{ value: kpis?.requests, previous: kpis?.requestsPrev, type: kpis?.requestsDeltaType ?? "neutral" }}
+        value={formatNumber(kpis?.requests?.value)}
+        subtitle={`${formatNumber(kpis?.requests?.previous)} previous`}
+        delta={kpis?.requests}
         colorClass="text-white"
       />
       <KpiCard
         icon="input"
         title="Input Tokens"
-        value={kpis?.inputTokens ?? "--"}
-        subtitle={`${formatNumber(kpis?.inputTokensPrev ?? 0)} previous`}
-        delta={{ value: kpis?.inputTokens, previous: kpis?.inputTokensPrev, type: kpis?.inputTokensDeltaType ?? "neutral" }}
+        value={formatNumber(kpis?.promptTokens?.value)}
+        subtitle={`${formatNumber(kpis?.promptTokens?.previous)} previous`}
+        delta={kpis?.promptTokens}
         colorClass="text-indigo-200"
       />
       <KpiCard
         icon="output"
         title="Output Tokens"
-        value={kpis?.outputTokens ?? "--"}
-        subtitle={`${formatNumber(kpis?.outputTokensPrev ?? 0)} previous`}
-        delta={{ value: kpis?.outputTokens, previous: kpis?.outputTokensPrev, type: kpis?.outputTokensDeltaType ?? "neutral" }}
+        value={formatNumber(kpis?.completionTokens?.value)}
+        subtitle={`${formatNumber(kpis?.completionTokens?.previous)} previous`}
+        delta={kpis?.completionTokens}
         colorClass="text-green-200"
       />
       <KpiCard
         icon="payments"
         title="Est. Cost"
-        value={kpis?.estCost ?? "--"}
-        subtitle={`~ $${(kpis?.costPerMtok ?? 0).toFixed(2)}/Mtok`}
-        delta={{ value: kpis?.estCost, previous: kpis?.estCostPrev, type: kpis?.estCostDeltaType ?? "neutral" }}
+        value={formatCost(kpis?.cost?.value)}
+        subtitle={perMtok ? `~ ${perMtok}/Mtok` : " "}
+        delta={kpis?.cost}
         colorClass="text-amber-200"
       />
     </div>
   );
+}
+
+function formatCost(v) {
+  if (v == null) return "--";
+  if (v <= 0) return "$0.00";
+  if (v < 0.01) return "<$0.01";
+  return `$${v.toFixed(2)}`;
 }
 
 function KpiCard({ icon, title, value, subtitle, delta, colorClass }) {
@@ -141,7 +157,7 @@ function KpiCard({ icon, title, value, subtitle, delta, colorClass }) {
     <Card className="relative overflow-hidden">
       <div className="flex items-start justify-between mb-2">
         <span className={`material-symbols-outlined text-[28px] ${colorClass}`}>{icon}</span>
-        {delta && delta.value !== undefined && delta.value !== null && delta.previous !== undefined && delta.previous !== null && <DeltaBadge delta={delta} />}
+        {delta && delta.value !== undefined && delta.value !== null && <DeltaBadge delta={delta} />}
       </div>
       <div className="mt-2">
         <h3 className="text-3xl font-bold text-white tabular-nums tracking-tight">{value}</h3>
@@ -153,22 +169,23 @@ function KpiCard({ icon, title, value, subtitle, delta, colorClass }) {
 }
 
 function DeltaBadge({ delta }) {
-  const isPositive = delta.type === "up";
-  const isNegative = delta.type === "down";
-  const percent = delta.percent ?? 0;
+  const diff = (delta.value ?? 0) - (delta.previous ?? 0);
+  const isPositive = diff > 0;
+  const isNegative = diff < 0;
+  const pct = delta.previous > 0 ? Math.round((Math.abs(diff) / delta.previous) * 100) : 0;
 
   return (
     <div className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isPositive ? "bg-green-500/30 text-green-100" : isNegative ? "bg-red-500/30 text-red-100" : "bg-gray-500/30 text-gray-200"}`}>
       <span className="material-symbols-outlined text-[14px]">{isPositive ? "trending_up" : isNegative ? "trending_down" : "remove"}</span>
-      <span>{Math.abs(percent)}%</span>
+      <span>{pct}%</span>
     </div>
   );
 }
 
 function formatNumber(n) {
-  if (n == null) return "—";
+  if (n == null) return "--";
   if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
   if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
   if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
-  return n.toString();
+  return Math.round(n).toString();
 }
