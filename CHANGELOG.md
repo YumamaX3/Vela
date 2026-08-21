@@ -29,7 +29,7 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 > *"The marketing says 1M everywhere. The live catalog said otherwise. We set the registry to the truth — window by window, lane by lane."*
 
-*Sealed 2026-08-21 · real per-key Qoder context windows + reasoning flags + error hardening + empirical 1M verification · `0.9.7 → 0.9.8`*
+*Sealed 2026-08-21 · real per-key Qoder context windows + reasoning flags + error hardening · `0.9.7 → 0.9.8`*
 
 ## 🔧 Real Per-Key Windows & Reasoning (from the live Qoder catalog, 2026-08-21)
 
@@ -44,6 +44,7 @@ The web's "Qoder is 1M everywhere" is wrong. Pulling the live catalog via the ac
 | `performance` | Performance | **1,000,000** | – |
 | `qmodel` / `qmodel_latest` | Qwen3.7-Plus/Max | **1,000,000** | – |
 | `kmodel` | Kimi-K2.7-Code | 256,000 | – |
+| `kmodel_latest` | Kimi-K3 | **1,048,576** | – |
 | `gmodel` | GLM-5.3 | **1,000,000** | ✅ |
 | `qmodel_38max` | Qwen3.8-Max | **1,000,000** | ✅ |
 | `auto` / `efficient` / `lite` | tier selectors | 180,000 | – |
