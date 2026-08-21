@@ -26,7 +26,7 @@ export const FACETS = Object.freeze({
   gran: Object.freeze({ param: "gran", order: 6, shared: false }),
 });
 
-export const DECKS = ["overview", "analytics", "requests", "quota", "providers", "logs"];
+export const DECKS = ["overview", "analytics", "requests", "limits"];
 
 /** Auto-granularity derived from period (sealed plan W2-b):
  *  today/24h → 1h · 7d/30d/60d/all → 1d. An explicit `gran` param overrides. */
