@@ -1,4 +1,6 @@
-// Top Models Component — horizontal orange bars showing top models by usage
+// Top Models Component — horizontal orange bars showing top models by usage.
+// Reads /api/usage/metrics/breakdown?dimension=model&metric=requests which
+// returns { items: [{ model, value }], meta } — never a plain array.
 "use client";
 
 import { useMetrics } from "../hooks/useMetrics";
@@ -8,10 +10,12 @@ export default function TopModels({ period }) {
   if (!period) return null; // Will be populated by parent
 
   const { data, loading } = useMetrics(
-    'breakdown',
-    `period=${period}&groupBy=model`,
-    ''
+    "breakdown",
+    `period=${period}&dimension=model&metric=requests`,
+    ""
   );
+
+  const items = Array.isArray(data?.items) ? data.items : [];
 
   if (loading) {
     return (
@@ -21,7 +25,7 @@ export default function TopModels({ period }) {
     );
   }
 
-  if (!data || data.length === 0) {
+  if (items.length === 0) {
     return (
       <Card className="h-80 flex items-center justify-center bg-white rounded-xl p-4 border border-border-subtle">
         <p className="text-text-muted text-sm">No model data available</p>
@@ -29,18 +33,18 @@ export default function TopModels({ period }) {
     );
   }
 
-  const maxCount = Math.max(...data.map((d) => d.count || 0));
+  const maxCount = Math.max(...items.map((d) => d.value || 0));
 
   return (
     <Card header="Top Models" className="flex flex-col">
       <div className="flex flex-col gap-3">
-        {data.slice(0, 5).map((model, i) => {
-          const percent = maxCount > 0 ? ((model.count / maxCount) * 100) : 0;
+        {items.slice(0, 5).map((model, i) => {
+          const percent = maxCount > 0 ? ((model.value / maxCount) * 100) : 0;
           return (
             <div key={i} className="flex flex-col gap-1">
               <div className="flex items-center justify-between text-sm">
-                <span className="font-medium text-text-main">{model.model}</span>
-                <span className="text-text-muted tabular-nums">{formatNumber(model.count)}</span>
+                <span className="font-medium text-text-main truncate">{model.model}</span>
+                <span className="text-text-muted tabular-nums">{formatNumber(model.value)}</span>
               </div>
               <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div
@@ -57,7 +61,8 @@ export default function TopModels({ period }) {
 }
 
 function formatNumber(n) {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return n.toString();
+  const v = Number(n) || 0;
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
+  return Math.round(v).toString();
 }
