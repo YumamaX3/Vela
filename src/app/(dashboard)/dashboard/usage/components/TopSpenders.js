@@ -2,6 +2,7 @@
 "use client";
 
 import { useMetrics } from "../hooks/useMetrics";
+import Card from "@/shared/components/Card";
 
 export default function TopSpenders({ period }) {
   if (!period) return null; // Will be populated by parent
