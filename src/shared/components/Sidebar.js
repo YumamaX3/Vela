@@ -53,6 +53,7 @@ const navGroups = [
 ];
 
 const debugItems = [
+  { href: "/dashboard/logs", label: "Request Logs", icon: "receipt_long", badge: "NEW" },
   { href: "/dashboard/console-log", label: "Console Log", icon: "terminal" },
   { href: "/dashboard/translator", label: "Translator", icon: "translate", requiresEnableTranslator: true },
 ];
@@ -60,6 +61,7 @@ const debugItems = [
 export default function Sidebar({ onClose }) {
   const pathname = usePathname();
   const [mediaOpen, setMediaOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState({});
   const [showRemoteModal, setShowRemoteModal] = useState(false);
   const [isDisconnected, setIsDisconnected] = useState(false);
   const [updateInfo, setUpdateInfo] = useState(null);
@@ -181,25 +183,39 @@ export default function Sidebar({ onClose }) {
 
           {navGroups.map((group) => (
             <div key={group.title} className="pt-3">
-              <p className="px-3 pb-1.5 text-[10px] font-semibold text-text-muted/60 uppercase tracking-[0.14em]">
-                {translate(group.title)}
-              </p>
-              <div className="flex flex-col gap-0.5">
-                {group.items.map((item) =>
-                  item.accordion ? (
-                    <MediaAccordion
-                      key={item.href}
-                      pathname={pathname}
-                      open={mediaOpen}
-                      onToggle={() => setMediaOpen((v) => !v)}
-                      active={pathname.startsWith(item.href)}
-                      onClose={onClose}
-                    />
-                  ) : (
-                    <NavItem key={item.href} {...item} active={isRouteActive(item.href)} onClick={onClose} />
-                  )
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={() => setCollapsed((c) => ({ ...c, [group.title]: !c[group.title] }))}
+                className="flex w-full items-center gap-1 px-3 pb-1.5 text-left group-head-btn"
+              >
+                <p className="flex-1 text-[10px] font-semibold text-text-muted/60 uppercase tracking-[0.14em]">
+                  {translate(group.title)}
+                </p>
+                <span className="text-[9px] font-mono font-semibold text-text-subtle/70 bg-surface-2 rounded-full px-1.5 py-px">
+                  {group.items.length}
+                </span>
+                <span className={`material-symbols-outlined text-[13px] text-text-subtle transition-transform duration-200 ${collapsed[group.title] ? "-rotate-90" : ""}`}>
+                  expand_more
+                </span>
+              </button>
+              {!collapsed[group.title] && (
+                <div className="flex flex-col gap-0.5">
+                  {group.items.map((item) =>
+                    item.accordion ? (
+                      <MediaAccordion
+                        key={item.href}
+                        pathname={pathname}
+                        open={mediaOpen}
+                        onToggle={() => setMediaOpen((v) => !v)}
+                        active={pathname.startsWith(item.href)}
+                        onClose={onClose}
+                      />
+                    ) : (
+                      <NavItem key={item.href} {...item} active={isRouteActive(item.href)} onClick={onClose} />
+                    )
+                  )}
+                </div>
+              )}
             </div>
           ))}
 
@@ -310,7 +326,7 @@ Sidebar.propTypes = {
   onClose: PropTypes.func,
 };
 
-function NavItem({ href, label, icon, active, onClick }) {
+function NavItem({ href, label, icon, active, onClick, badge }) {
   return (
     <Link
       href={href}
@@ -334,7 +350,12 @@ function NavItem({ href, label, icon, active, onClick }) {
       >
         {icon}
       </span>
-      <span className="text-[13px] font-medium truncate">{translate(label)}</span>
+      <span className="text-[13px] font-medium truncate flex-1">{translate(label)}</span>
+      {badge && (
+        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-brand-500/15 text-primary font-mono leading-none">
+          {badge}
+        </span>
+      )}
     </Link>
   );
 }
@@ -345,6 +366,7 @@ NavItem.propTypes = {
   icon: PropTypes.string.isRequired,
   active: PropTypes.bool,
   onClick: PropTypes.func,
+  badge: PropTypes.string,
 };
 
 function MediaAccordion({ pathname, open, onToggle, active, onClose }) {
