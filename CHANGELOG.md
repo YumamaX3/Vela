@@ -25,6 +25,24 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.11 — The Warm-Dark Command Deck 🏛️💜
+
+> *"The harbor keeps watch even at night."*
+
+*Sealed 2026-08-21 · dashboard home redesigned (Mirror + Prism): warm-dark 9router blend · `0.9.10 → 0.9.11`*
+
+## ✨ `/dashboard` — New Home (warm-dark 9router blend)
+- Old greeting + gradient band + tiles layout **replaced**
+- **Hero: Live Traffic** — warm-dark gradient band with orange radial glow + 4 glowing stat cards
+  - Requests today (bolt) · Tokens today (token) · Spend today (payments) · Cache rate (savings)
+  - Big tabular numbers, sub-lines (active, in/out, est., cached)
+- **Row of three**: Request Flow sparkline (orange area) · Providers rail (live dots + latency) · Recent Activity feed
+- **Quick Actions**: 6 rich cards incl. **Quota** → `/dashboard/quota`
+- Warm-dark palette (bg `#161310`, card `#231E1A`, warm ink, brand orange ember), Material Symbols, E2/R2/M3
+
+## 🐛 Fix
+- **Card import** in `TopModels.js` / `TopSpenders.js` (the `Card is not defined` runtime error on /usage is gone)
+
 # v0.9.10 — Single-Page Usage + Separate Quota 🏛️💜
 
 > *"The usage page was a machine. It is now a window."*
