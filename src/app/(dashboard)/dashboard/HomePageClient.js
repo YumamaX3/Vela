@@ -1,12 +1,11 @@
 "use client";
-// The Vela Harbor — dashboard homepage. Editorial, warm, layered:
-// a greeting with a live pulse, a gradient hero stat band, an asymmetric
-// activity grid, harbor status, and quick-nav tiles. Every number comes
-// from a real API; every tile leads somewhere real.
+// The Vela Command Deck — dashboard homepage (warm-dark 9router blend).
+// Deep warm canvas, the brand orange as the ember accent, glowing live
+// stats, provider rail, recent activity, quick actions. Every number
+// comes from a real API; every tile leads somewhere real.
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardSkeleton } from "@/shared/components";
-import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { translate } from "@/i18n/runtime";
 
 function greetingKey() {
@@ -23,22 +22,22 @@ function compact(n) {
   return `${Math.round(n)}`;
 }
 
+function fmtNum(n) {
+  return new Intl.NumberFormat().format(Math.round(n || 0));
+}
+
 function money(cents) {
-  return `$${(cents / 100).toFixed(2)}`;
+  if (!cents || cents <= 0) return "$0.00";
+  if (cents < 0.01) return "<$0.01";
+  return `$${cents.toFixed(2)}`;
 }
 
 export default function HomePageClient() {
   const router = useRouter();
-  const { copied, copy } = useCopyToClipboard();
   const [stats, setStats] = useState(null);
   const [settings, setSettings] = useState(null);
   const [version, setVersion] = useState(null);
-  const [baseUrl, setBaseUrl] = useState("/v1");
   const [loading, setLoading] = useState(true);
-
-  // Hydration fix: window.location is only available client-side.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { if (typeof window !== "undefined") setBaseUrl(`${window.location.origin}/v1`); }, []);
 
   useEffect(() => {
     let alive = true;
@@ -51,245 +50,239 @@ export default function HomePageClient() {
       if (!alive) return;
       setStats(statsRes);
       setSettings(settingsRes);
-      setVersion(versionRes?.version || versionRes?.current || null);
+      setVersion(versionRes?.version || versionRes?.current || versionRes?.currentVersion || null);
       setLoading(false);
     })();
     return () => { alive = false; };
   }, []);
 
-  const topModels = useMemo(() => {
-    const entries = Object.entries(stats?.byModel || {});
-    if (!entries.length) return [];
-    const max = Math.max(...entries.map(([, v]) => v?.requests || 0));
-    return entries
-      .sort((a, b) => (b[1]?.requests || 0) - (a[1]?.requests || 0))
-      .slice(0, 5)
-      .map(([model, v]) => ({ model, requests: v?.requests || 0, pct: max ? Math.max(4, Math.round(((v?.requests || 0) / max) * 100)) : 0 }));
-  }, [stats]);
-
-  if (loading) return <CardSkeleton />;
-
   const totalTokens = (stats?.totalPromptTokens || 0) + (stats?.totalCompletionTokens || 0);
   const cached = stats?.totalCachedTokens || 0;
   const cacheRate = totalTokens > 0 ? Math.round((cached / (totalTokens + cached)) * 100) : 0;
+  const cost = stats?.totalCost != null ? stats.totalCost : (stats?.totalCostCents != null ? stats.totalCostCents / 100 : 0);
   const active = stats?.activeRequests || 0;
 
   const timeline = stats?.last10Minutes || [];
+  const spark = Array.isArray(timeline) ? timeline.map((p) => p?.requests || p?.count || 0) : [];
+
+  const recent = useMemo(() => {
+    const src = Array.isArray(stats?.recentRequests) ? stats.recentRequests : [];
+    return src.slice(0, 5);
+  }, [stats]);
+
+  const providers = useMemo(() => {
+    const list = Array.isArray(settings?.providerStatuses) ? settings.providerStatuses : [];
+    return list.slice(0, 5);
+  }, [settings]);
+
+  if (loading) return <CardSkeleton />;
+
+  const sparkMax = spark.length ? Math.max(...spark, 1) : 1;
+  const sparkPath = spark.length
+    ? spark
+        .map((v, i) => `${i === 0 ? "M" : "L"}${(i / Math.max(spark.length - 1, 1)) * 400},${140 - (v / sparkMax) * 110}`)
+        .join(" ")
+    : "M0,100 L400,100";
+  const sparkArea = `${sparkPath} L400,140 L0,140 Z`;
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* ── Greeting row ─────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
+      {/* ── Top bar: greeting + live chips ───────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-[28px] font-semibold text-text-main tracking-tight">
+          <h1 className="text-2xl sm:text-[26px] font-bold text-text-main tracking-tight">
             {translate(greetingKey())}
           </h1>
           <p className="text-sm text-text-muted mt-1">
             {translate("Your gateway, at a glance")}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border border-border-subtle bg-surface dark:bg-surface">
+            <span className="h-2 w-2 rounded-full bg-success shadow-[0_0_8px] shadow-success/70 animate-pulse" />
+            <span className="text-text-muted dark:text-text-muted">{translate("Gateway live")}</span>
+          </span>
           {version && (
-            <span className="text-xs font-mono px-2.5 py-1 rounded-full bg-surface-2 text-text-muted border border-border-subtle">
+            <span className="inline-flex items-center gap-1 text-xs font-mono px-2.5 py-1.5 rounded-full bg-surface text-text-muted border border-border-subtle dark:bg-surface">
+              <span className="material-symbols-outlined text-[13px] text-primary">bolt</span>
               v{version}
             </span>
           )}
-          <span
-            className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border border-border-subtle bg-surface"
-            title={translate("Active requests")}
-          >
-            <span className="relative flex h-2 w-2">
-              {active > 0 && (
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-60" />
-              )}
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${active > 0 ? "bg-success" : "bg-text-subtle"}`} />
-            </span>
-            {active > 0 ? `${active} ${translate("active")}` : translate("Idle")}
+        </div>
+      </div>
+
+      {/* ── Hero: Live Traffic band (warm-dark, orange glow) ─────────── */}
+      <div className="relative overflow-hidden rounded-[14px] border border-border-subtle bg-gradient-to-br from-[#1E1814] via-[#2A1F18] to-[#33221A] dark:from-[#1a1410] dark:via-[#2a1d15] dark:to-[#3a2418] p-5">
+        <div
+          className="pointer-events-none absolute -top-1/3 -right-10 h-80 w-80 rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(229,106,74,0.18) 0%, transparent 70%)" }}
+        />
+        <div className="relative mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[#F5EFE8]">
+            <span className="material-symbols-outlined text-[18px] text-[#EE8D6A]">monitoring</span>
+            {translate("Live Traffic")}
+          </div>
+          <span className="inline-flex items-center gap-1 text-[11px] text-[#A89F96]">
+            <span className="material-symbols-outlined text-[13px]">refresh</span>
+            {translate("Auto-refresh")}
           </span>
         </div>
-      </div>
-
-      {/* ── Hero band — the pulse of the harbor ──────────────────────── */}
-      <div className="relative overflow-hidden rounded-[14px] border border-brand-500/20 bg-gradient-to-br from-brand-500 via-brand-400 to-brand-300 shadow-[var(--shadow-warm)]">
-        <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-20 right-32 w-48 h-48 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-        <div className="relative p-5 sm:p-6 flex flex-col gap-5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-white/85 text-xs font-medium uppercase tracking-wider">{translate("Gateway endpoint")}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <code className="text-white font-mono text-sm sm:text-base bg-black/15 px-3 py-1.5 rounded-[10px] max-w-full truncate">
-                  {baseUrl}
-                </code>
-                <button
-                  onClick={() => copy(baseUrl, "endpoint")}
-                  className="shrink-0 p-1.5 rounded-lg text-white/85 hover:text-white hover:bg-white/15 transition-colors"
-                  title={translate("Copy")}
-                >
-                  <span className="material-symbols-outlined text-[18px]">{copied === "endpoint" ? "check" : "content_copy"}</span>
-                </button>
-              </div>
-            </div>
-            <p className="text-white/75 text-xs max-w-[260px] leading-relaxed hidden lg:block">
-              {translate("Point your AI tools at this OpenAI-compatible endpoint — Vela routes, translates, and governs every request.")}
-            </p>
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <HeroStat label={translate("Requests today")} value={compact(stats?.totalRequests || 0)} />
-            <HeroStat label={translate("Tokens today")} value={compact(totalTokens)} />
-            <HeroStat label={translate("Spend today")} value={money(stats?.totalCost || 0)} />
-            <HeroStat label={translate("Cache rate")} value={`${cacheRate}%`} />
-          </div>
+        <div className="relative grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <HeroStat icon="bolt" tone="orange" label={translate("Requests today")} value={fmtNum(stats?.totalRequests || 0)} sub={active ? `${active} active` : " "} />
+          <HeroStat icon="token" tone="blue" label={translate("Tokens today")} value={compact(totalTokens)} sub={`${compact(stats?.totalPromptTokens || 0)} in · ${compact(stats?.totalCompletionTokens || 0)} out`} />
+          <HeroStat icon="payments" tone="amber" label={translate("Spend today")} value={money(cost)} sub="~ est." />
+          <HeroStat icon="savings" tone="green" label={translate("Cache rate")} value={`${cacheRate}%`} sub={`${compact(cached)} cached`} />
         </div>
       </div>
 
-      {/* ── Asymmetric grid: activity + harbor status ────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2" padding="md">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-sm font-semibold text-text-main">{translate("Activity")}</h2>
-              <p className="text-xs text-text-muted">{translate("Requests in the last 10 minutes")}</p>
+      {/* ── Row: Request flow + Providers + Recent activity ─────────── */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-1" padding="md">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[13.5px] font-semibold text-text-main">
+              <span className="material-symbols-outlined text-[16px] text-primary">show_chart</span>
+              {translate("Request Flow")}
+            </div>
+            <span className="text-[11px] text-text-subtle">{translate("Last 10 minutes")}</span>
+          </div>
+          {spark.length ? (
+            <svg viewBox="0 0 400 140" preserveAspectRatio="none" className="h-36 w-full">
+              <defs>
+                <linearGradient id="sparkArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#E56A4A" stopOpacity="0.35" />
+                  <stop offset="100%" stopColor="#E56A4A" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <path d={sparkArea} fill="url(#sparkArea)" />
+              <path d={sparkPath} fill="none" stroke="#E56A4A" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          ) : (
+            <p className="py-10 text-center text-xs text-text-subtle">{translate("No traffic in the last 10 minutes")}</p>
+          )}
+        </Card>
+
+        <Card className="lg:col-span-1" padding="md">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[13.5px] font-semibold text-text-main">
+              <span className="material-symbols-outlined text-[16px] text-primary">dns</span>
+              {translate("Providers")}
             </div>
             <button
+              type="button"
+              onClick={() => router.push("/dashboard/providers")}
+              className="text-[11.5px] font-semibold text-primary hover:text-primary-hover"
+            >
+              {translate("Manage")}
+            </button>
+          </div>
+          {providers.length ? (
+            <div className="flex flex-col">
+              {providers.map((p) => (
+                <div key={p.name || p.id} className="flex items-center gap-2.5 border-b border-border-subtle py-2 last:border-0">
+                  <span className={`h-2 w-2 rounded-full ${p.status === "ok" ? "bg-success shadow-[0_0_6px] shadow-success/70" : p.status === "degraded" ? "bg-warning shadow-[0_0_6px] shadow-warning/70" : "bg-danger shadow-[0_0_6px] shadow-danger/70"}`} />
+                  <span className="flex-1 truncate text-[12.5px] font-medium text-text-main">{p.name}</span>
+                  {p.latencyMs != null && <span className="font-mono text-[11px] text-text-subtle">{p.latencyMs}ms</span>}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="py-8 text-center text-xs text-text-subtle">{translate("No providers configured")}</p>
+          )}
+        </Card>
+
+        <Card className="lg:col-span-1" padding="md">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[13.5px] font-semibold text-text-main">
+              <span className="material-symbols-outlined text-[16px] text-primary">history</span>
+              {translate("Recent Activity")}
+            </div>
+            <button
+              type="button"
               onClick={() => router.push("/dashboard/usage")}
-              className="text-xs font-medium text-primary hover:text-primary-hover transition-colors inline-flex items-center gap-0.5"
+              className="text-[11.5px] font-semibold text-primary hover:text-primary-hover"
             >
-              {translate("Usage")}
-              <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+              {translate("View all")}
             </button>
           </div>
-          <Sparkline data={timeline.map((t) => t?.requests || 0)} />
-          <div className="mt-5">
-            <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">{translate("Top models today")}</p>
-            {topModels.length ? (
-              <div className="flex flex-col gap-2">
-                {topModels.map((m) => (
-                  <div key={m.model} className="flex items-center gap-3">
-                    <span className="text-xs font-mono text-text-main truncate w-44 sm:w-56 shrink-0" title={m.model}>{m.model}</span>
-                    <div className="flex-1 h-1.5 rounded-full bg-surface-2 overflow-hidden">
-                      <div className="h-full rounded-full bg-brand-400" style={{ width: `${m.pct}%` }} />
+          {recent.length ? (
+            <div className="flex flex-col">
+              {recent.map((r, i) => (
+                <div key={r.id || i} className="flex items-center gap-2.5 border-b border-border-subtle py-2 last:border-0">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface-2 text-text-muted dark:bg-surface-2">
+                    <span className="material-symbols-outlined text-[14px]">bolt</span>
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[12px] font-medium text-text-main">{r.model || r.provider || "request"}</div>
+                    <div className="text-[10.5px] text-text-subtle">
+                      {r.promptTokens != null ? `${compact(r.promptTokens + (r.completionTokens || 0))} tokens` : ""}
+                      {r.costUsd != null ? ` · ${money(r.costUsd)}` : r.cost != null ? ` · ${money(r.cost)}` : ""}
                     </div>
-                    <span className="text-xs text-text-muted w-10 text-right shrink-0">{compact(m.requests)}</span>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-text-subtle py-2">{translate("No traffic yet — send a request to see it here.")}</p>
-            )}
-          </div>
-        </Card>
-
-        <Card padding="md">
-          <h2 className="text-sm font-semibold text-text-main mb-1">{translate("Harbor status")}</h2>
-          <p className="text-xs text-text-muted mb-4">{translate("Governance and exposure")}</p>
-          <div className="flex flex-col gap-1">
-            <StatusRow label={translate("API key required")} on={!!settings?.requireApiKey} href="/dashboard/endpoint" />
-            <StatusRow label={translate("Dashboard login")} on={settings?.requireLogin !== false} href="/dashboard/settings" />
-            <StatusRow label={translate("Cloud sync")} on={!!settings?.cloudEnabled} href="/dashboard/settings" />
-            <StatusRow label={translate("Tunnel")} on={!!settings?.tunnelEnabled} href="/dashboard/endpoint" />
-          </div>
-          <div className="mt-4 pt-4 border-t border-border-subtle">
-            <button
-              onClick={() => router.push("/dashboard/endpoint")}
-              className="w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] bg-surface-2 hover:bg-surface-3 border border-transparent hover:border-border-subtle transition-all text-sm text-text-main"
-            >
-              <span className="inline-flex items-center gap-2">
-                <span className="material-symbols-outlined text-[18px] text-primary">key</span>
-                {translate("Manage API keys")}
-              </span>
-              <span className="material-symbols-outlined text-[16px] text-text-muted">arrow_forward</span>
-            </button>
-          </div>
+                  {r.timeAgo && <span className="font-mono text-[10.5px] text-text-subtle">{r.timeAgo}</span>}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="py-8 text-center text-xs text-text-subtle">{translate("No recent requests")}</p>
+          )}
         </Card>
       </div>
 
-      {/* ── Quick nav ────────────────────────────────────────────────── */}
+      {/* ── Quick actions ────────────────────────────────────────────── */}
       <div>
-        <p className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">{translate("Quick nav")}</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
-          <QuickTile icon="api" label={translate("Endpoint & Key")} href="/dashboard/endpoint" />
-          <QuickTile icon="dns" label={translate("Providers")} href="/dashboard/providers" />
-          <QuickTile icon="layers" label={translate("Combos")} href="/dashboard/combos" />
-          <QuickTile icon="bar_chart" label={translate("Usage")} href="/dashboard/usage" />
-          {/* Usage Observatory W2-F — quota absorbed into the Accounts & Limits bearing */}
-          <QuickTile icon="data_usage" label={translate("Accounts & Limits")} href="/dashboard/usage?tab=limits" />
-          <QuickTile icon="terminal" label={translate("CLI Tools")} href="/dashboard/cli-tools" />
+        <div className="mb-3 flex items-center gap-1.5 text-[15px] font-semibold text-text-main">
+          <span className="material-symbols-outlined text-[18px] text-primary">quick_phrases</span>
+          {translate("Quick Actions")}
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <QuickTile icon="api" label={translate("Endpoint & Key")} sub={translate("Copy the gateway URL")} href="/dashboard/endpoint" />
+          <QuickTile icon="dns" label={translate("Providers")} sub={translate("Manage connections")} href="/dashboard/providers" />
+          <QuickTile icon="layers" label={translate("Combos")} sub={translate("Route + fallback chains")} href="/dashboard/combos" />
+          <QuickTile icon="bar_chart" label={translate("Usage")} sub={translate("Single-page observatory")} href="/dashboard/usage" />
+          <QuickTile icon="data_usage" label={translate("Quota")} sub={translate("Per-account limits")} href="/dashboard/quota" />
+          <QuickTile icon="terminal" label={translate("CLI Tools")} sub={translate("Shell utilities")} href="/dashboard/cli-tools" />
         </div>
       </div>
     </div>
   );
 }
 
-function HeroStat({ label, value }) {
+function HeroStat({ icon, tone, label, value, sub }) {
+  const tones = {
+    orange: "bg-brand-500/15 text-[#EE8D6A]",
+    blue: "bg-info/15 text-info",
+    amber: "bg-warning/15 text-warning",
+    green: "bg-success/15 text-success",
+  };
   return (
-    <div className="rounded-[10px] bg-black/10 backdrop-blur-sm px-3.5 py-3">
-      <p className="text-white/75 text-[11px] font-medium truncate">{label}</p>
-      <p className="text-white text-xl font-semibold tracking-tight mt-0.5 tabular-nums">{value}</p>
+    <div className="rounded-xl border border-[#3A312B] bg-[#1E1814]/75 p-3.5 backdrop-blur-sm transition-transform hover:-translate-y-0.5">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-[10.5px] font-semibold uppercase tracking-wider text-[#A89F96]">{label}</span>
+        <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${tones[tone]}`}>
+          <span className="material-symbols-outlined text-[16px]">{icon}</span>
+        </span>
+      </div>
+      <div className="text-[26px] font-extrabold leading-none tracking-tight text-[#F5EFE8] tabular-nums">{value}</div>
+      <div className="mt-1.5 text-[11px] text-[#A89F96]">{sub}</div>
     </div>
   );
 }
 
-function Sparkline({ data }) {
-  const W = 100, H = 32;
-  const hasSignal = data.some((v) => v > 0);
-  const max = Math.max(1, ...data);
-  const pts = data.map((v, i) => ({
-    x: data.length > 1 ? (i / (data.length - 1)) * W : W / 2,
-    y: hasSignal ? H - 3 - (v / max) * (H - 6) : H - 3,
-  }));
-  const line = pts.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
-  const area = `M0,${H} L${line.replace(/ /g, " L")} L${W},${H} Z`;
-  const last = pts[pts.length - 1];
-  return (
-    <div className="relative">
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full h-20" role="img" aria-label="Request activity">
-        <defs>
-          <linearGradient id="harbor-spark" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-primary)" stopOpacity="0.30" />
-            <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path d={area} fill="url(#harbor-spark)" />
-        <polyline points={line} fill="none" stroke="var(--color-primary)" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-        {hasSignal && last && <circle cx={last.x} cy={last.y} r="1.6" fill="var(--color-primary)" />}
-      </svg>
-      {!hasSignal && (
-        <p className="absolute inset-0 flex items-center justify-center text-xs text-text-subtle">
-          {translate("No requests in the last 10 minutes")}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function StatusRow({ label, on, href }) {
+function QuickTile({ icon, label, sub, href }) {
   const router = useRouter();
   return (
     <button
+      type="button"
       onClick={() => router.push(href)}
-      className="w-full flex items-center justify-between px-2 py-2 rounded-lg hover:bg-surface-2 transition-colors text-left"
+      className="flex items-center gap-3 rounded-xl border border-border-subtle bg-surface p-3.5 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_4px_16px_rgba(0,0,0,0.25)]"
     >
-      <span className="text-sm text-text-main">{label}</span>
-      <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${on ? "text-success" : "text-text-subtle"}`}>
-        <span className={`w-1.5 h-1.5 rounded-full ${on ? "bg-success" : "bg-text-subtle"}`} />
-        {on ? translate("On") : translate("Off")}
+      <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-surface-2 text-primary dark:bg-surface-2">
+        <span className="material-symbols-outlined text-[19px]">{icon}</span>
       </span>
-    </button>
-  );
-}
-
-function QuickTile({ icon, label, href }) {
-  const router = useRouter();
-  return (
-    <button
-      onClick={() => router.push(href)}
-      className="group flex flex-col items-start gap-2.5 p-4 rounded-[14px] bg-surface border border-border-subtle shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-warm)] hover:border-brand-500/30 hover:-translate-y-0.5 transition-all text-left"
-    >
-      <span className="material-symbols-outlined text-[22px] text-primary group-hover:scale-110 transition-transform origin-left">
-        {icon}
+      <span className="min-w-0">
+        <span className="block truncate text-[13px] font-semibold text-text-main">{label}</span>
+        <span className="block truncate text-[11px] text-text-subtle">{sub}</span>
       </span>
-      <span className="text-xs font-medium text-text-main leading-snug">{label}</span>
     </button>
   );
 }
