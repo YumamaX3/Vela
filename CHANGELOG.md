@@ -25,6 +25,27 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.12 — The Redesigned Sidebar + Request Logs 🏛️💜
+
+> *"The way you steer the ship should be as beautiful as the ship itself."*
+
+*Sealed 2026-08-21 · sidebar redesigned (Mirror + Prism): categorized, collapsible, warm-dark · `0.9.11 → 0.9.12`*
+
+## ✨ Sidebar — New Design
+- **Categorized + collapsible groups** (Gateway · Analytics · Tools · System) with count badges + rotating carets
+- **Warm-dark 9router blend** (matches the new command-deck home)
+- Active items glow with the left ember bar + tinted icon
+- "NEW" badge on the new Request Logs item
+- Media Providers sub-accordion, gateway status pill, footer actions preserved
+
+## ✨ New Page — `/dashboard/logs` (Request Logs)
+- Full request ledger: time · model · provider · account · in/out tokens · status
+- **Searchable** (model/provider/account/status) + **filterable** (All/OK/Error) + model chips + row-count selector
+- Real data from `/api/usage/logs`, loading/empty states, warm-dark styling
+
+## 🎨 System category
+- **Request Logs** (NEW) · Console Log · Translator · Proxy Pools
+
 # v0.9.11 — The Warm-Dark Command Deck 🏛️💜
 
 > *"The harbor keeps watch even at night."*
