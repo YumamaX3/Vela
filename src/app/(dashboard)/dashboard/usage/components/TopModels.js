@@ -1,0 +1,62 @@
+// Top Models Component — horizontal orange bars showing top models by usage
+"use client";
+
+import { useMetrics } from "../hooks/useMetrics";
+
+export default function TopModels({ period }) {
+  if (!period) return null; // Will be populated by parent
+
+  const { data, loading } = useMetrics(
+    'breakdown',
+    `period=${period}&groupBy=model`,
+    ''
+  );
+
+  if (loading) {
+    return (
+      <Card className="h-80 flex items-center justify-center bg-surface-2 rounded-xl p-4 border border-border-subtle">
+        <div className="animate-pulse text-text-muted">Loading...</div>
+      </Card>
+    );
+  }
+
+  if (!data || data.length === 0) {
+    return (
+      <Card className="h-80 flex items-center justify-center bg-white rounded-xl p-4 border border-border-subtle">
+        <p className="text-text-muted text-sm">No model data available</p>
+      </Card>
+    );
+  }
+
+  const maxCount = Math.max(...data.map((d) => d.count || 0));
+
+  return (
+    <Card header="Top Models" className="flex flex-col">
+      <div className="flex flex-col gap-3">
+        {data.slice(0, 5).map((model, i) => {
+          const percent = maxCount > 0 ? ((model.count / maxCount) * 100) : 0;
+          return (
+            <div key={i} className="flex flex-col gap-1">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium text-text-main">{model.model}</span>
+                <span className="text-text-muted tabular-nums">{formatNumber(model.count)}</span>
+              </div>
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-brand-500 to-orange-400 rounded-full transition-all duration-500"
+                  style={{ width: `${percent}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+function formatNumber(n) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toString();
+}
