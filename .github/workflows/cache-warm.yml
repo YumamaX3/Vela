@@ -1,0 +1,50 @@
+# Cache Warm — keeps the multi-arch buildcache alive between releases.
+# The tag-push build (docker-publish.yml) reads ghcr.io/...:buildcache; if
+# GHCR's registry cache evicts it between releases, every tag build starts
+# cold and takes 45-60+ min. This job re-pulls the last image and exports a
+# fresh max-mode cache so the next tag build starts warm (~20 min).
+name: Warm Build Cache
+
+on:
+  schedule:
+    # Daily at 03:17 UTC — keeps the cache warm even between releases.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  warm-cache:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image name
+        id: image
+        run: echo "name=ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build the base layer set for both platforms with the cache imported
+      # from the previous buildcache (if any) and exported back in max mode.
+      # This touches the same layers the release build needs, so the next
+      # tag push starts warm.
+      - name: Warm the build cache
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: ${{ steps.image.outputs.name }}:cachewarm
+          cache-from: type=registry,ref=${{ steps.image.outputs.name }}:buildcache
+          cache-to: type=registry,ref=${{ steps.image.outputs.name }}:buildcache,mode=max
+          platforms: linux/amd64,linux/arm64
+          provenance: false
+          sbom: false
