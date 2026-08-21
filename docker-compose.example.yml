@@ -45,7 +45,7 @@ services:
     # Dashboard home is now a warm-dark command deck (Live Traffic
     # hero band, providers rail, recent activity, quick actions incl.
     # Quota). Usage stays a single page; /quota its own page.
-    image: ghcr.io/yumamax3/vela:0.9.12   # bump to the release you want
+    image: ghcr.io/yumamax3/vela:0.9.13   # bump to the release you want
     container_name: vela-gateway
     hostname: vela-gateway
     restart: unless-stopped
