@@ -67,7 +67,7 @@ const { ensureSqliteRuntime, buildEnvWithRuntime } = require("./hooks/sqliteRunt
 const { ensureTrayRuntime } = require("./hooks/trayRuntime");
 const args = process.argv.slice(2);
 
-// Subcommands (`9router xai video …`) run against an already-running gateway
+// Subcommands (`vela xai video …`) run against an already-running gateway
 // and bypass the launcher flow (no runtime self-heal, no server spawn).
 if (args[0] === "xai" && args[1] === "video") {
   const { run } = require("./src/cli/commands/xaiVideo");
@@ -110,9 +110,12 @@ function getDisplayHost() {
   return host === DEFAULT_HOST ? "localhost" : host;
 }
 const MAX_PORT_ATTEMPTS = 10;
-// Identifiers for killAllAppProcesses - only kill 9router specifically
+// Identifiers for killAllAppProcesses - only kill the Vela CLI/server.
+// Match BOTH the new `vela` bin and the legacy `9router` name so an upgrade
+// from the old package can still reap its own prior processes.
 const PROCESS_IDENTIFIERS = [
-  '9router'  // Only package name - avoid killing other apps
+  "vela",     // Current package/bin name
+  "9router",  // Legacy name — upgrades must still find the old process
 ];
 
 // Parse arguments
@@ -122,6 +125,7 @@ let noBrowser = false;
 let skipUpdate = false;
 let showLog = false;
 let trayMode = false;
+let noTray = false;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--port" || args[i] === "-p") {
@@ -139,6 +143,8 @@ for (let i = 0; i < args.length; i++) {
   } else if (args[i] === "--tray" || args[i] === "-t") {
     trayMode = true;
     process.env.TRAY_MODE = "1";
+  } else if (args[i] === "--no-tray") {
+    noTray = true;
   } else if (args[i] === "--help" || args[i] === "-h") {
     console.log(`
 Usage: ${APP_NAME} [options]
@@ -149,11 +155,13 @@ Options:
   -n, --no-browser    Don't open browser automatically
   -l, --log           Show server logs (default: hidden)
   -t, --tray          Run in system tray mode (background)
+  --no-tray           Disable the tray icon (headless/CI)
   --skip-update       Skip auto-update check
   -h, --help          Show this help message
   -v, --version       Show version
 
 Commands:
+  doctor              Diagnose the local install (node, build, data dir, port)
   xai video --prompt "..." --output video.mp4
                       Generate a Grok Imagine video via the running gateway
                       (see: ${APP_NAME} xai video --help)
@@ -164,6 +172,9 @@ Commands:
     process.exit(0);
   }
 }
+
+// `vela doctor` is invoked below, after the module-level consts are
+// initialized (the function itself lives next to standaloneDir).
 
 // Auto-relaunch after update: detached process has no TTY → fallback to tray
 if (skipUpdate && !trayMode && !process.stdin.isTTY) {
@@ -246,7 +257,7 @@ function killCloudflaredByAppPort(appPort) {
   return pids;
 }
 
-// Kill all 9router processes
+// Kill all Vela processes (own name + legacy 9router)
 function killAllAppProcesses(appPort) {
   return new Promise((resolve) => {
     try {
@@ -273,11 +284,12 @@ function killAllAppProcesses(appPort) {
           });
           const lines = output.split("\n").slice(1).filter(l => l.trim());
           lines.forEach(line => {
-            // Whitelist: real node process running 9router/cli.js, or next-server.
-            // Avoids killing editors/grep/strace/cursor that just have "9router" in cmdline.
+            // Whitelist: real node process running vela/cli.js (or the legacy
+            // 9router/cli.js), or next-server. Avoids killing editors/grep/
+            // strace/cursor that just have the name in cmdline.
             const cmd = line.toLowerCase();
             const isAppProcess =
-              (cmd.includes("node") && cmd.includes("9router") && (cmd.includes("cli.js") || cmd.includes("\\9router") || cmd.includes("/9router")))
+              (cmd.includes("node") && (cmd.includes("vela") || cmd.includes("9router")) && (cmd.includes("cli.js") || cmd.includes("\\vela") || cmd.includes("/vela") || cmd.includes("\\9router") || cmd.includes("/9router")))
               || cmd.includes("next-server");
             if (isAppProcess) {
               const match = line.match(/^"(\d+)"/);
@@ -299,11 +311,12 @@ function killAllAppProcesses(appPort) {
           const lines = output.split('\n');
 
           lines.forEach(line => {
-            // Whitelist: real node process running 9router/cli.js, or next-server.
-            // Avoids killing grep/strace/editors/cursor that incidentally match "9router".
+            // Whitelist: real node process running vela/cli.js (or the legacy
+            // 9router/cli.js), or next-server. Avoids killing grep/strace/
+            // editors/cursor that incidentally match the name.
             const cmd = line.toLowerCase();
             const isAppProcess =
-              (cmd.includes("node") && cmd.includes("9router") && (cmd.includes("cli.js") || cmd.includes("/9router")))
+              (cmd.includes("node") && (cmd.includes("vela") || cmd.includes("9router")) && (cmd.includes("cli.js") || cmd.includes("/vela") || cmd.includes("/9router")))
               || cmd.includes("next-server");
             if (isAppProcess) {
               const parts = line.trim().split(/\s+/);
@@ -526,23 +539,93 @@ function openBrowser(url) {
 
 // Find standalone server (bundled in bin/app for published package).
 // Prefer custom-server.js (injects real socket IP) when present.
+// `vela doctor` — diagnose the local install without starting the server.
+// Runs before the standalone-dir existence check so it can report a missing
+// build as one of several findings instead of dying on it.
+function runDoctor() {
+  const checks = [];
+  const ok = (name, detail) => checks.push({ name, pass: true, detail });
+  const warn = (name, detail) => checks.push({ name, pass: false, detail });
+
+  // 1. Node version
+  const nodeMajor = Number(process.versions.node.split(".")[0] || 0);
+  if (nodeMajor >= 22) ok("Node.js", `v${process.versions.node}`);
+  else warn("Node.js", `v${process.versions.node} — >= 22.5 recommended (node:sqlite)`);
+
+  // 2. Standalone build present (paths computed here — runDoctor runs before
+  //    the module-level consts below are initialized)
+  const customServer = path.join(standaloneDir, "custom-server.js");
+  const server = path.join(standaloneDir, "server.js");
+  const hasBuild = fs.existsSync(customServer) || fs.existsSync(server);
+  if (hasBuild) ok("Standalone build", fs.existsSync(customServer) ? customServer : server);
+  else warn("Standalone build", "missing — run `npm run build:cli` first");
+
+  // 3. Data dir writable
+  const dataDir = getAppDataDir();
+  try {
+    fs.mkdirSync(dataDir, { recursive: true });
+    fs.accessSync(dataDir, fs.constants.W_OK);
+    ok("Data dir", dataDir);
+  } catch {
+    warn("Data dir", `${dataDir} — not writable`);
+  }
+
+  // 4. Port free — async probe; runDoctor resolves only when it settles so
+  //    the caller's exit never races the printout.
+  const probe = net.connect({ host: "127.0.0.1", port });
+  const portFree = new Promise((resolve) => {
+    probe.once("connect", () => { probe.destroy(); resolve(false); });
+    probe.once("error", () => resolve(true));
+    // Safety net: if the socket never settles, assume free.
+    setTimeout(() => { probe.destroy(); resolve(true); }, 400);
+  });
+  return portFree.then((free) => {
+    if (free) ok("Port", `${port} — free`);
+    else warn("Port", `${port} — already in use by another process`);
+    finish();
+  });
+
+  function finish() {
+    const width = Math.max(...checks.map((c) => c.name.length), 8);
+    console.log(`\n⛵ Vela doctor — v${pkg.version}\n`);
+    let passCount = 0;
+    for (const c of checks) {
+      if (c.pass) passCount += 1;
+      console.log(`  ${c.pass ? "✅" : "❌"} ${c.name.padEnd(width)}  ${c.detail}`);
+    }
+    console.log(`\n  ${passCount}/${checks.length} checks passed`);
+    if (passCount < checks.length) console.log("  Fix the ❌ items above, then run `vela` again.");
+    else console.log("  The harbor is ready. Run `vela` to set sail. ⛵\n");
+  }
+}
+
 const standaloneDir = path.join(__dirname, "app");
 const customServerPath = path.join(standaloneDir, "custom-server.js");
 const serverPath = fs.existsSync(customServerPath)
   ? customServerPath
   : path.join(standaloneDir, "server.js");
 
-if (!fs.existsSync(serverPath)) {
+// `vela doctor` — diagnose the local install without starting the server.
+// Runs here, after the const initializers, so it can inspect them safely.
+// The async port probe resolves before we exit, so the report always prints.
+const isDoctor = args[0] === "doctor";
+if (isDoctor) {
+  Promise.resolve(runDoctor()).finally(() => process.exit(0));
+}
+
+if (!isDoctor && !fs.existsSync(serverPath)) {
   console.error("Error: Standalone build not found.");
   console.error("Please run 'npm run build:cli' first.");
   process.exit(1);
 }
 
 // Start server immediately; run update check in parallel (not on the critical path).
-const updatePromise = checkForUpdate();
-killAllAppProcesses(port)
-  .then(() => killProcessOnPort(port))
-  .then(() => startServer(updatePromise));
+if (!isDoctor) {
+  const updatePromise = checkForUpdate();
+  killAllAppProcesses(port)
+    .then(() => killProcessOnPort(port))
+    .then(() => startServer(updatePromise));
+}
 
 // Show interface selection menu
 async function showInterfaceMenu(latestVersion) {
@@ -689,6 +772,7 @@ function startServer(updatePromise) {
 
   // Initialize tray icon (runs alongside TUI)
   const initTrayIcon = () => {
+    if (noTray) return;
     try {
       const { initTray } = require("./src/cli/tray/tray");
       initTray({
@@ -715,9 +799,16 @@ function startServer(updatePromise) {
     console.log(`\n🚀 ${pkg.name} v${pkg.version}`);
     console.log(`Server: http://${displayHost}:${port}`);
 
-    waitServerReady(port).then(() => {
+    waitServerReady(port).then((ready) => {
+      if (!ready) {
+        console.error(`\n❌ Vela server did not become ready on port ${port} within the timeout.`);
+        console.error("   Check the server logs (vela --log) or that the port is not already in use.\n");
+        cleanup();
+        process.exit(1);
+        return;
+      }
       initTrayIcon();
-      console.log("\n💡 Router is now running in system tray. Close this terminal if you want.");
+      console.log("\n💡 Vela is now running in system tray. Close this terminal if you want.");
       console.log("   Right-click tray icon to open dashboard or quit.\n");
     });
 
@@ -725,7 +816,14 @@ function startServer(updatePromise) {
   }
 
   // Wait for server to be ready, then show interface menu loop + tray
-  waitServerReady(port).then(async () => {
+  waitServerReady(port).then(async (ready) => {
+    if (!ready) {
+      console.error(`\n❌ Vela server did not become ready on port ${port} within the timeout.`);
+      console.error("   Check the server logs (vela --log) or that the port is not already in use.\n");
+      cleanup();
+      process.exit(1);
+      return;
+    }
     // Resolve parallel update check (already running); don't block server start on it.
     const latestVersion = await latestVersionPromise;
     // Start tray icon alongside TUI
