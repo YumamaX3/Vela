@@ -25,6 +25,25 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.18 — The Pool Geo Panel 🗺️⚡
+
+> *"The fleet sailed blind. Now every pool shows its true shore — egress IP, country, and whether the tide keeps moving."*
+
+**The third minor of the ascension.** MIBP's pool-geo pattern ported seam-native: a shared egress registry, a background multi-source probe through each pool, and a dashboard egress column with flapping detection.
+
+**✨ Features**
+- **Shared egress registry** (`src/lib/network/poolGeo.js`) — globalThis-backed Map (dev hot-reload safe) with 60-min TTL, ipHistory (max 8), and stability classification: >=2 distinct egress IPs = flapping (typical for serverless relays).
+- **Background probe** (`src/lib/network/poolEgressProbe.js`) — 4-source geo chain (ipwho.is → ip-api → ipapi.co → ipinfo) fetched THROUGH the pool itself; 30-min interval, 3-way concurrency, per-family failure backoff (rate-limit/server 2h, network/timeout 30m), settings-gated (`poolGeoProbeEnabled`), fail-open everywhere.
+- **probeEgress feeds the registry** — manual probes and the dashboard share ONE geo cache.
+- **Fleet boot hook** — probe starts with the Fleet Captain; a 10-min sweeper prunes stale geo entries.
+- **Fitness API** (`GET /api/proxy-pools/fitness`) now returns `{ fitness, geo }`.
+- **Dashboard egress column** — proxy-pools page shows egress IP + country + flapping badge + sample time per pool (fail-open, decorative).
+
+**🧪 Tests**
+-  — 17 tests (set/get TTL, ipHistory + flapping, prune, failure classification, probe chain walk with the hoisted proxyFetch mock).
+
+---
+
 # v0.9.17 — The Per-Key ACL 🗝️⚡
 
 > *"Every key was a master key. Now each one carries its own gate — kinds, providers, combos, models — tri-state, fail-open, seam-native."*
