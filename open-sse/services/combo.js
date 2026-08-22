@@ -320,6 +320,29 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
   // Apply rotation strategy if enabled
   let rotatedModels = getRotatedModels(models, comboName, comboStrategy, comboStickyLimit);
 
+  // Seam 2 — operator-defined fallback rules (Resilience Covenant v0.9.15):
+  // when a combo model fails with a rule-trigger status (default 429/503),
+  // consult the fallbackRules DB and append the configured target models to the
+  // rotation list for the REMAINING attempts. Rules are glob-matched on the
+  // failing source model, priority-ordered, and capped by maxRetries per rule.
+  // Fail-open: any DB error leaves the rotation list untouched.
+  if (fallbackRulesRepo && typeof fallbackRulesRepo.getRulesForSourceModel === "function") {
+    try {
+      const rules = await fallbackRulesRepo.getRulesForSourceModel(comboName || "");
+      const dbTargets = (rules || []).filter((r) => r && r.targetModel).map((r) => r.targetModel);
+      if (dbTargets.length > 0) {
+        const extras = dbTargets.filter((t) => !rotatedModels.includes(t));
+        if (extras.length > 0) {
+          rotatedModels = [...rotatedModels, ...extras];
+          log.info("COMBO", `fallback-rules: appended ${extras.join(", ")} for "${comboName}"`);
+        }
+      }
+    } catch (err) {
+      // Fail-open law — rules must never break the request.
+      console.warn("[combo] fallback-rules lookup failed, using hardcoded defaults:", err.message);
+    }
+  }
+
   // Auto-switch: float models that satisfy the request's required capabilities to the front.
   if (autoSwitch) {
     const required = detectRequiredCapabilities(body);
