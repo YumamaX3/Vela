@@ -42,6 +42,9 @@ services:
   # ⛵ vela-gateway — the gateway + dashboard
   # ═══════════════════════════════════════════════════════════════
   vela-gateway:
+    # v0.9.22 — The Adapter Exorcism: fallbackRulesRepo rewritten to the
+    # portable adapter surface (db.all/get/run) — the live mirror
+    # deployment crashed at boot with a.prepare is not a function.
     # v0.9.21 — The Complete Purge + The Stillwater Hull: the 9router
     # string is gone repo-wide (wire contracts renamed hasVela/x-vela-*);
     # the custom server gained graceful drain + hop-by-hop hygiene + h2c
@@ -53,7 +56,7 @@ services:
     # breaker, fallback-rules DB, per-key ACL, pool egress geo, prompt
     # injectors. v0.9.12+ carries the redesigned sidebar, single-page
     # usage, /quota.
-    image: ghcr.io/yumamax3/vela:0.9.21   # bump to the release you want
+    image: ghcr.io/yumamax3/vela:0.9.22   # bump to the release you want
     container_name: vela-gateway
     hostname: vela-gateway
     restart: unless-stopped
