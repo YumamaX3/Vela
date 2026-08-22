@@ -597,7 +597,7 @@ export async function getUsageStats(period = "all") {
   const useDailySummary = period !== "24h" && period !== "today";
 
   if (useDailySummary) {
-    const periodDays = { "7d": 7, "30d": 30, "60d": 60 };
+    const periodDays = { "7d": 7, "14d": 14, "30d": 30, "60d": 60 };
     const maxDays = periodDays[period] || null;
     const dayRows = await loadDaysInRange(db, maxDays);
 
