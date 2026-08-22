@@ -1,8 +1,27 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { getSettings } from "@/lib/localDb";
 import { getFallbackRules, getFallbackRuleById, createFallbackRule, updateFallbackRule, deleteFallbackRule } from "@/lib/db/repos/fallbackRulesRepo.js";
 import { getAdapter } from "@/lib/db/driver.js";
-// Dashboard authentication check per pricing covenant precedent
-// TODO: Implement dashboardGuard or replace with appropriate auth mechanism
+import { verifyDashboardAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth/dashboardSession";
+
+/**
+ * Dashboard gate — the canonical pattern (see /api/auth/oidc/test).
+ * requireLogin=false opens the route; otherwise the dashboard session token
+ * must verify. Fail-closed: any cookie/verification error denies.
+ */
+async function canAccessFallbackRules() {
+  try {
+    const settings = await getSettings();
+    if (settings?.requireLogin === false) return true;
+
+    const cookieStore = await cookies();
+    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+    return await verifyDashboardAuthToken(token);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * GET /api/fallback-rules
@@ -10,18 +29,13 @@ import { getAdapter } from "@/lib/db/driver.js";
  */
 export async function GET(request) {
   try {
-    // Dashboard authentication check per pricing covenant precedent
-    // TODO: Implement dashboardGuard or replace with appropriate auth mechanism
-    /*
-    const guardResult = await dashboardGuard(request);
-    if (!guardResult.authenticated) {
+    if (!(await canAccessFallbackRules())) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    */
 
     const db = await getAdapter();
     const rules = await getFallbackRules(db, { isActive: true });
-    
+
     return NextResponse.json(rules);
   } catch (error) {
     console.error("Error fetching fallback rules:", error);
@@ -38,17 +52,12 @@ export async function GET(request) {
  */
 export async function POST(request) {
   try {
-    // Dashboard authentication check per pricing covenant precedent
-    // TODO: Implement dashboardGuard or replace with appropriate auth mechanism
-    /*
-    const guardResult = await dashboardGuard(request);
-    if (!guardResult.authenticated) {
+    if (!(await canAccessFallbackRules())) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    */
 
     const body = await request.json();
-    
+
     // Validate required fields
     if (!body.sourceModel || !body.targetModel) {
       return NextResponse.json(
@@ -61,7 +70,7 @@ export async function POST(request) {
     const priority = typeof body.priority === 'number' ? body.priority : 100;
     const triggerOnStatus = body.triggerOnStatus || '429,503';
     const maxRetries = typeof body.maxRetries === 'number' ? body.maxRetries : 1;
-    
+
     // Validate priority is non-negative
     if (priority < 0) {
       return NextResponse.json(
@@ -86,7 +95,7 @@ export async function POST(request) {
       triggerOnStatus: String(triggerOnStatus),
       maxRetries,
     });
-    
+
     return NextResponse.json(rule, { status: 201 });
   } catch (error) {
     console.error("Error creating fallback rule:", error);
