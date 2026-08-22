@@ -96,3 +96,4 @@ graphify-out/*
 
 # sealed plans — internal, not for the public repo
 plans/
+scripts/
