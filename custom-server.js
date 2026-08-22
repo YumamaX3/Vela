@@ -6,6 +6,25 @@ const { pathToFileURL } = require("url");
 
 const origCreate = http.createServer.bind(http);
 
+// ─── Ship constants ─────────────────────────────────────────────────────────
+// Hard ceiling for an h2c-upgraded request body (replay path buffers it in
+// memory). The dashboard /v1 proxy is already capped at 128mb; this guard
+// exists so a malicious h2c upgrade cannot force unbounded buffering.
+const MAX_H2C_BODY_BYTES = 512 * 1024 * 1024;
+// Drain window for in-flight requests before the process exits on SIGTERM.
+const DRAIN_TIMEOUT_MS = 10_000;
+// Hop-by-hop headers (RFC 7230 §6.1) must never be forwarded by a proxy.
+const HOP_BY_HOP = new Set([
+  "connection",
+  "keep-alive",
+  "proxy-authenticate",
+  "proxy-authorization",
+  "te",
+  "trailer",
+  "transfer-encoding",
+  "upgrade",
+]);
+
 // Per-process secret proving x-9r-real-ip was stamped below rather than sent by the client.
 // A bare `next start` / `next dev` never loads this file, so it cannot produce a matching
 // header even though the env var is inherited by child processes. Named like x-9r-cli-token
@@ -63,6 +82,10 @@ http.createServer = (...args) => {
     // Direct/public sockets remain keyed by the unspoofable peer address.
     const proxyIp = xRealIp || (xff ? String(xff).split(",")[0].trim() : "");
     const ip = isLoopbackProxy && proxyIp ? proxyIp : socketIp;
+    // Hop-by-hop hygiene: a client must not dictate connection semantics to
+    // upstreams through this server. Strip the RFC 7230 §6.1 set (the h2c
+    // path deletes `upgrade` explicitly; the main path strips all of them).
+    for (const h of HOP_BY_HOP) delete req.headers[h];
     delete req.headers["x-9r-real-ip"];
     delete req.headers["x-forwarded-for"];
     delete req.headers["x-9r-via-proxy"];
@@ -76,6 +99,19 @@ http.createServer = (...args) => {
   server.once("listening", () => {
     startBackgroundTokenRefreshFromCustomServer();
   });
+
+  // Graceful drain: stop accepting new connections, let in-flight requests
+  // finish (bounded), then exit. Docker sends SIGTERM on `docker stop`; a
+  // clean drain avoids the half-boot states that cost the 0.9.19 tide.
+  let draining = false;
+  const drain = () => {
+    if (draining) return;
+    draining = true;
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), DRAIN_TIMEOUT_MS).unref();
+  };
+  process.once("SIGTERM", drain);
+  process.once("SIGINT", drain);
   const origEmit = server.emit;
   // JBR 25 sends h2c upgrades that the HTTP/1.1 server would otherwise close.
   server.emit = function (event, ...eventArgs) {
@@ -85,7 +121,11 @@ http.createServer = (...args) => {
     }
 
     const contentLength = Number(req.headers["content-length"] || 0);
-    if (!Number.isSafeInteger(contentLength) || contentLength < 0) {
+    if (
+      !Number.isSafeInteger(contentLength) ||
+      contentLength < 0 ||
+      contentLength > MAX_H2C_BODY_BYTES
+    ) {
       socket.destroy();
       return true;
     }

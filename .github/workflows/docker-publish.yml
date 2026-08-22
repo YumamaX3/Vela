@@ -6,6 +6,13 @@ on:
       - "v*"
   workflow_dispatch:
 
+# A tag push must not race another tag push (two v* tags in quick succession
+# would collide on :latest / buildcache). One release at a time; the newest
+# tag supersedes a stale run.
+concurrency:
+  group: docker-publish
+  cancel-in-progress: true
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
