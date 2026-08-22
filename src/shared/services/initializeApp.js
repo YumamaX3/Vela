@@ -165,7 +165,7 @@ async function autoStartMitm(settings) {
 
     // MITM uses a deterministic internal key — derived from API_KEY_SECRET and
     // stored nowhere (plan §3.6). The old path read a plaintext key from the
-    // list (impossible under hash-at-rest) or fell back to the public sk_9router.
+    // list (impossible under hash-at-rest) or fell back to the public sk_Vela.
     const { ensureInternalKey } = await import("@/lib/db/repos/apiKeysRepo.js");
     const internal = await ensureInternalKey("mitm");
 

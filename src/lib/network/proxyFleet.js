@@ -580,12 +580,12 @@ export async function probeEgress(poolId, pool = null) {
     let ip = null;
     let country = null;
     try {
-      const res = await proxyAwareFetch(IPIFY_URL, { signal: ctrl.signal, headers: { "User-Agent": "9Router" } }, { enabled: true, url: urlOnly });
+      const res = await proxyAwareFetch(IPIFY_URL, { signal: ctrl.signal, headers: { "User-Agent": "Vela" } }, { enabled: true, url: urlOnly });
       if (res.ok) {
         const data = await res.json().catch(() => null);
         ip = data?.ip || null;
       }
-      const geoRes = ip && await proxyAwareFetch(GEO_URL.replace("{ip}", ip), { signal: ctrl.signal, headers: { "User-Agent": "9Router" } }, { enabled: true, url: urlOnly });
+      const geoRes = ip && await proxyAwareFetch(GEO_URL.replace("{ip}", ip), { signal: ctrl.signal, headers: { "User-Agent": "Vela" } }, { enabled: true, url: urlOnly });
       if (geoRes?.ok) {
         const geo = await geoRes.json().catch(() => null);
         country = geo?.countryCode || geo?.country || null;

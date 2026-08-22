@@ -54,7 +54,7 @@ function generateRootCA() {
 
   const attrs = [
     { name: "commonName", value: "Vela MITM Root CA" },
-    { name: "organizationName", value: "9Router" },
+    { name: "organizationName", value: "Vela" },
     { name: "countryName", value: "US" }
   ];
 

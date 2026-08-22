@@ -16,7 +16,7 @@ export async function OPTIONS() {
  */
 export async function GET(request) {
   try {
-    // Detect cross-instance recursive /models fetch (another 9router fetching our /models)
+    // Detect cross-instance recursive /models fetch (another Vela fetching our /models)
     const skipDynamicFetch = request?.headers?.get(INTERNAL_MODELS_FETCH_HEADER) === "1";
     let data = await buildModelsList([LLM_KIND], { skipDynamicFetch });
     // Display-side scope narrowing (fail-open; dispatch gates stay fail-closed)

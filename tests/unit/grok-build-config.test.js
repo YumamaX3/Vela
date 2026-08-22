@@ -45,15 +45,15 @@ describe("grokBuildConfig", () => {
     const result = applyGrokBuildConfig(BASE_CONFIG, APPLY_INPUT);
     const parsed = parseGrokBuildConfig(result);
 
-    expect(parsed.default).toBe("9router");
+    expect(parsed.default).toBe("Vela");
     expect(parsed.model).toMatchObject({
       model: "cx/gpt-5.6-sol",
       base_url: "http://127.0.0.1:32060/v1",
       context_window: 400000,
     });
     expect(parsed.subagentMappings).toMatchObject({
-      "general-purpose": "9router-general-purpose",
-      explore: "9router-explore",
+      "general-purpose": "Vela-general-purpose",
+      explore: "Vela-explore",
       plan: "grok-4.5",
     });
     expect(parsed.subagentModels["general-purpose"]).toMatchObject({
@@ -88,10 +88,10 @@ describe("grokBuildConfig", () => {
       },
     });
 
-    expect(result.match(/^\[model\.9router\]$/gm)).toHaveLength(1);
-    expect(result.match(/^\[model\.9router-general-purpose\]$/gm)).toHaveLength(1);
-    expect(result.match(/^\[model\.9router-explore\]$/gm)).toHaveLength(1);
-    expect(result.match(/^# 9router-prev-subagent-explore/gm)).toHaveLength(1);
+    expect(result.match(/^\[model\.Vela\]$/gm)).toHaveLength(1);
+    expect(result.match(/^\[model\.Vela-general-purpose\]$/gm)).toHaveLength(1);
+    expect(result.match(/^\[model\.Vela-explore\]$/gm)).toHaveLength(1);
+    expect(result.match(/^# Vela-prev-subagent-explore/gm)).toHaveLength(1);
     expect(parseGrokBuildConfig(result).model).toMatchObject({
       model: "cc/claude-opus-4.8",
       context_window: 1000000,
@@ -115,8 +115,8 @@ describe("grokBuildConfig", () => {
     const parsed = parseGrokBuildConfig(result);
     expect(parsed.subagentMappings.explore).toBe("grok-build");
     expect(parsed.subagentModels.explore).toBeNull();
-    expect(result).not.toContain("[model.9router-explore]");
-    expect(parsed.subagentMappings["general-purpose"]).toBe("9router-general-purpose");
+    expect(result).not.toContain("[model.Vela-explore]");
+    expect(parsed.subagentMappings["general-purpose"]).toBe("Vela-general-purpose");
   });
 
   it("reset restores previous default and all previous subagent mappings", () => {
@@ -131,8 +131,8 @@ describe("grokBuildConfig", () => {
       explore: "grok-build",
       plan: "grok-4.5",
     });
-    expect(reset).not.toContain("[model.9router-");
-    expect(reset).not.toContain("9router-prev-");
+    expect(reset).not.toContain("[model.Vela-");
+    expect(reset).not.toContain("Vela-prev-");
     expect(reset).toContain("[mcp_servers.example]");
   });
 
@@ -146,7 +146,7 @@ describe("grokBuildConfig", () => {
     });
     const reset = resetGrokBuildConfig(applied);
 
-    expect(parseGrokBuildConfig(applied).subagentMappings.plan).toBe("9router-plan");
+    expect(parseGrokBuildConfig(applied).subagentMappings.plan).toBe("Vela-plan");
     expect(parseGrokBuildConfig(reset).subagentMappings.plan).toBeNull();
     expect(reset).not.toContain("[subagents.models]");
     expect(reset).toContain("[mcp_servers.x]");
@@ -163,14 +163,14 @@ describe("grokBuildConfig", () => {
 
     const parsed = parseGrokBuildConfig(updatedMainOnly);
     expect(parsed.model.model).toBe("gemini/gemini-3.1-pro");
-    expect(parsed.subagentMappings.explore).toBe("9router-explore");
+    expect(parsed.subagentMappings.explore).toBe("Vela-explore");
     expect(parsed.subagentModels.explore.model).toBe("gemini/gemini-3-flash");
   });
 
   it("returns stable slot names only for supported subagent types", () => {
-    expect(getGrokSubagentSlot("general-purpose")).toBe("9router-general-purpose");
-    expect(getGrokSubagentSlot("explore")).toBe("9router-explore");
-    expect(getGrokSubagentSlot("plan")).toBe("9router-plan");
+    expect(getGrokSubagentSlot("general-purpose")).toBe("Vela-general-purpose");
+    expect(getGrokSubagentSlot("explore")).toBe("Vela-explore");
+    expect(getGrokSubagentSlot("plan")).toBe("Vela-plan");
     expect(getGrokSubagentSlot("unknown")).toBeNull();
   });
 });
