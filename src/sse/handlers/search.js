@@ -49,7 +49,7 @@ export async function handleSearch(request) {
   // Provider IS the model for webSearch.
   const settings = await getSettings();
   {
-    const gate = await authorizeApiRequest(request, { requestModel: providerInput, settings });
+    const gate = await authorizeApiRequest(request, { requestModel: providerInput, settings, kind: "webSearch" });
     if (!gate.ok) return gate.response;
   }
 

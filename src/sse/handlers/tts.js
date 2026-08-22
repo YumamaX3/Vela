@@ -37,7 +37,7 @@ export async function handleTts(request) {
 
   const settings = await getSettings();
   {
-    const gate = await authorizeApiRequest(request, { requestModel: modelStr, settings });
+    const gate = await authorizeApiRequest(request, { requestModel: modelStr, settings, kind: "tts" });
     if (!gate.ok) return gate.response;
   }
 

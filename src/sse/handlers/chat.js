@@ -87,7 +87,7 @@ export async function handleChat(request, clientRawRequest = null) {
     const gateComboModels = await getComboModels(modelStr);
     // allowInternal — chat is the MITM-facing path; the deterministic internal
     // key (isInternal=1, loopback-pinned, hidden from every list) resolves here.
-    const gate = await authorizeApiRequest(request, { requestModel: modelStr, comboModels: gateComboModels, settings, allowInternal: true });
+    const gate = await authorizeApiRequest(request, { requestModel: modelStr, comboModels: gateComboModels, settings, allowInternal: true, kind: "llm" });
     if (!gate.ok) return gate.response;
   }
 
