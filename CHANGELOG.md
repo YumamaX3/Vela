@@ -25,6 +25,26 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.21 — The Vela CLI Ascension ⛵🔧
+
+> *"The CLI sheds its old name and grows new sails."*
+
+The full Vela rename + feature tide for `cli/` (the Stillwater Mirror's second reflection).
+
+**🔧 The Rename — 9router → vela**
+- `cli/package.json` — name `9router` → **`vela`**, bin `9router` → **`vela`**, keywords, comments
+- `cli/cli.js` — usage/help `vela`, process identifiers match **both** `vela` and legacy `9router` (so an upgrade still reaps the old process), install command follows `pkg.name` automatically
+- Hooks, build scripts, tray (title/tooltip), autostart (`.desktop` Name/Comment), xaiVideo usage, README rewritten for Vela
+- **Deliberately kept**: `has9Router` API field, `x-9router-connection-id` header, `custom:9Router-0` / `providers["9router"]` data keys — all **wire contracts** with the running server/dashboard; renaming them would orphan saved configs
+
+**🚀 New features**
+- **`vela doctor`** — diagnose the install: Node version, standalone build, data dir writability, port free. Honest pass/fail report
+- **`--no-tray`** — disable the tray icon (headless/CI)
+- **Health fail-fast** — if the server doesn't become ready in the timeout, clear error + exit instead of hanging
+- **Merged help block** — one `Commands:` section
+
+---
+
 # v0.9.21 — The Stillwater Hull ⛵⚡
 
 > *"The hull is watertight, the rigging taut, the ensign raised — the ship sails whole."*
