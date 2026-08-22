@@ -14,6 +14,7 @@ import * as log from "../utils/logger.js";
 import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh.js";
 import { handleComboChat, getComboModelsFromData } from "open-sse/services/combo.js";
 import { assertPublicUrl } from "@/shared/utils/ssrfGuard.js";
+import { getFallbackRulesRepo } from "@/lib/db/repos/bindFallbackRules.js"; // Seam 2 — operator fallback rules
 
 /**
  * Handle web fetch (URL extraction) request for the SSE/Next.js server.
@@ -96,7 +97,8 @@ export async function handleFetch(request) {
       log,
       comboName: providerInput,
       comboStrategy,
-      comboStickyLimit
+      comboStickyLimit,
+      fallbackRulesRepo: getFallbackRulesRepo()
     });
   }
 

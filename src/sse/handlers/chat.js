@@ -25,6 +25,7 @@ import { getProjectIdForConnection } from "open-sse/services/projectId.js";
 import { resolveProviderId } from "@/shared/constants/providers.js";
 import { resolvePreferredConnection } from "../services/connectionPreference.js";
 import "../services/freebuffPreference.js"; // registers the freebuff session-affinity resolver
+import { getFallbackRulesRepo } from "@/lib/db/repos/bindFallbackRules.js"; // Seam 2 — operator fallback rules
 
 /**
  * Resolve an advisory connection preference for (provider, model) — e.g. the
@@ -81,6 +82,7 @@ export async function handleChat(request, clientRawRequest = null) {
   // The gate — identity + model scope in one stage pipeline (plan §3.4).
   // requireApiKey=false passes through; combos gate on ALL members.
   const settings = await getSettings();
+  const fallbackRulesRepo = getFallbackRulesRepo(); // Seam 2 — bound once per request, null ⇒ no rules
   {
     const gateComboModels = await getComboModels(modelStr);
     // allowInternal — chat is the MITM-facing path; the deterministic internal
@@ -143,7 +145,8 @@ export async function handleChat(request, clientRawRequest = null) {
       log,
       comboName: modelStr,
       comboStrategy,
-      comboStickyLimit
+      comboStickyLimit,
+      fallbackRulesRepo
     });
   }
 
@@ -162,7 +165,8 @@ export async function handleChat(request, clientRawRequest = null) {
       ),
       log,
       comboName: modelStr,
-      comboStrategy: getActiveAdapterStrategy(requiredCapabilities, settings)
+      comboStrategy: getActiveAdapterStrategy(requiredCapabilities, settings),
+      fallbackRulesRepo
     });
   }
 
@@ -220,7 +224,8 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
         log,
         comboName: modelStr,
         comboStrategy,
-        comboStickyLimit
+        comboStickyLimit,
+        fallbackRulesRepo
       });
     }
     log.warn("CHAT", "Invalid model format", { model: modelStr });

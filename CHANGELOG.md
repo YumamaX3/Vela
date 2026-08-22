@@ -25,6 +25,42 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.16 — The Fallback-Rules Engine 🔧⚡
+
+> *"The rules were written but the gate was silent — no caller ever asked them.
+> Now the harbor consults its own law before every fallback."*
+
+**The ascension begins** — the Stillwater Mirror's fourth reflection on Vela's
+proxy system. Deep research of five family harbors (9router, MIBP, VansRouter,
+AMRouter, SRouter) produced a feature ledger; the Star chose all four
+dimensions, sailed as sequential minors. **v0.9.16 wires the dead cargo** —
+Seam 2 of the Resilience Covenant finally has a caller.
+
+**✨ Features**
+- **Fallback-rules engine (Seam 2 wired)** — `combo.js` `handleComboChat` now
+  accepts `fallbackRulesRepo` and appends operator-defined target models to the
+  rotation list when a combo runs. Rules are glob-matched on the combo name,
+  deduped against the hardcoded list, and fail-open (any DB error leaves the
+  rotation byte-identical to legacy).
+- **Binding helper** (`src/lib/db/repos/bindFallbackRules.js`) — binds the
+  current DB adapter into a repo-shaped closure, cached across the hot path,
+  null on adapter failure.
+- **All combo entry points wired** — `chat.js` (4 call sites), `fetch.js`,
+  `search.js`, `imageGeneration.js`, `tts.js` pass the bound repo.
+- **Dashboard CRUD page** (`/dashboard/fallback-rules`) — create, edit,
+  toggle-active, delete rules with trigger-status chips (429/403/500/502/503/504)
+  and priority/retries controls. Sidebar entry added.
+- **API auth restored** — `/api/fallback-rules` GET/POST and
+  `/api/fallback-rules/[id]` GET/PATCH/DELETE now use the canonical
+  dashboard-session gate (was commented-out placeholder); `[id]` gained GET.
+
+**🧪 Tests**
+- `tests/unit/fallback-rules-seam.test.js` — 5 suites: append-on-failure,
+  no-duplicate targets, fail-open on repo throw, no-repo legacy path,
+  malformed-repo shape contract.
+
+---
+
 # v0.9.15 — The Resilience Covenant ⚡💜
 
 > *"The fleet was armed but not self-healing. Now a pool that stumbles is set
