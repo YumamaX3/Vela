@@ -39,8 +39,15 @@ jobs:
         with:
           images: ${{ steps.image.outputs.name }}
           tags: |
+            # Version tag from the v* git tag (e.g. v0.9.14 -> 0.9.14).
+            # Emitted on tag pushes AND manual dispatches pointed at a tag.
             type=semver,pattern={{version}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            # Always emit :latest so every build carries BOTH the version
+            # (when a tag is present) and a stable rolling pointer. The old
+            # rule gated latest behind is_default_branch, which silently
+            # dropped :latest on tag builds and dropped the semver tag on
+            # main-branch dispatches (a manual run showed ONLY :latest).
+            type=raw,value=latest
 
       - name: Build and push
         uses: docker/build-push-action@v6
