@@ -293,6 +293,9 @@ node custom-server.js   # production server (IP stamp + h2c + drain)
 ### Release a minor
 ```bash
 # edit CHANGELOG.md + bump package.json
+# ⚠️ ALSO bump the image pin in BOTH docker-compose.example.yml (tracked)
+#    AND docker-compose.yml (gitignored, on disk) — the Star's decree:
+#    every update sails both charts.
 git add -A && git commit -m "feat(...): ... (v0.9.x)"
 git push origin main
 git tag -a v0.9.x -m "Release v0.9.x: ..."
