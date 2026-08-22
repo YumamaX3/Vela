@@ -13,6 +13,15 @@ RUN --mount=type=cache,target=/root/.npm \
 
 COPY . ./
 ENV NEXT_TELEMETRY_DISABLED=1
+# `next build` prerenders DB-backed pages, which initializes the storage layer
+# (the build log shows migrations #1-#11 running at build time). The default
+# fallback chain picks better-sqlite3 first — a native addon compiled during
+# `npm install`. On the linux/arm64 cross-build leg, loading that addon under
+# QEMU crashes with "qemu: uncaught target signal 4 (Illegal instruction)".
+# Force Node's built-in node:sqlite here instead: it ships inside the node
+# binary, needs no native compile, and never executes a .node file under QEMU.
+# Builder-scoped only — the runner stage keeps its own env and is unaffected.
+ENV VELA_DB_DRIVER=node:sqlite
 RUN npm run build
 
 FROM ${NODE_IMAGE} AS runner
