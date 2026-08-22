@@ -25,6 +25,20 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.22 — The Adapter Exorcism 🔧⚡
+
+> *"The ghost of v0.9.19 walked the live mirror deployment — and the Mirror cast it out at the root."*
+
+**The live v0.9.21 container crashed at boot with `a.prepare is not a function`** — the same adapter-contract violation that stormed v0.9.19. The migration had been fixed, but a **runtime repo** still called the raw `.prepare()` surface, which the mirror-decorated adapter (`VELA_DB_MODE=mirror`) does not expose.
+
+- **`fallbackRulesRepo.js`** — rewritten to the portable adapter surface: `db.all(sql, params)` / `db.get(sql, params)` / `db.run(sql, params)`. No raw `db.prepare`. Works on every posture: native sqlite, sql.js (Docker fallback), and the mirror decorator.
+- **Verified**: `fallback-rules-seam.test.js` 5/5 green; the only remaining `db.prepare` references in the codebase are the adapters' own internal use (native drivers) and the oauth cursor auto-import route (a raw better-sqlite3 instance — correct there), plus the contract-documentation comments.
+- **Root-cause note**: the bound repo surface (`src/lib/db/repos/bind.js`) must only ever receive portable-surface repos. The Covenant of the Adapter (v0.9.20) now covers repos, not just migrations.
+
+> Pre-existing (not from this fix, confirmed on baseline): mirror-pump/sweep stale schema-version assertions (expect 10, current 13), combo-autoswitch capability tests, security-audit ENOENT path tests.
+
+---
+
 # v0.9.21 — The Complete Purge 🧹⛵
 
 > *"Every trace of the old name, gone. The Shores speak only Vela now."*
