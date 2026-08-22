@@ -25,6 +25,25 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.19 — The Prompt Injectors ✒️⚡
+
+> *"The gateway was a dumb pipe. Now the operator speaks through every request — their words layered into the system message, before dispatch, after the savers."*
+
+**The fourth minor of the ascension.** Operator-configured named prompts injected into the system message of every matching chat request — riding the same injectSystemPrompt seam as caveman/ponytail, now with user control.
+
+**✨ Features**
+- **User-defined injectors** (settings.userInjectors) — named prompts with enabled flag, position (append/prepend), and applyTo scope (llm / *).
+- **Injector engine** (open-sse/rtk/userInjectors.js) — normalizes raw settings entries (fail-open), applies through the shared seam, logs an INJECT:<n> flag per request.
+- **systemInject position support** — injectSystemPrompt now takes a position param; prepend lands before existing system content (and inside the Claude cache_control prefix).
+- **chatCore integration** — injectors run last (over the built-in savers); chat.js threads settings.userInjectors.
+- **Dashboard page** (/dashboard/prompt-injectors) — CRUD for injectors, sidebar entry added.
+- **No DB migration** — injectors live in the settings JSON blob.
+
+**🧪 Tests**
+- tests/unit/user-injectors.test.js — 13 tests (append/prepend, disabled skip, applyTo filter, Claude/Gemini shapes, cache_control prefix, normalization, layering).
+
+---
+
 # v0.9.18 — The Pool Geo Panel 🗺️⚡
 
 > *"The fleet sailed blind. Now every pool shows its true shore — egress IP, country, and whether the tide keeps moving."*
