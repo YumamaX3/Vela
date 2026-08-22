@@ -1,208 +1,304 @@
-# ⛵ CLAUDE.md — The Crew's Papers
+# ⛵ Vela — The AI Gateway
 
-Guidance for Claude Code (and any engineer) working in this repository.
-The full documentation harbor lives in [docs/README.md](./docs/README.md) —
-read the relevant chart before working in an area, rather than re-deriving.
+> *Every harbor needs a chart. These are the Shores' navigational papers — where the currents run, which rocks to mind, how the fleet sails. Read them before you touch the helm.* 🪞💜
 
-## What this is
+**Vela** (v0.9.21) — a local AI routing gateway + dashboard. One OpenAI-compatible endpoint (`/v1`) routing traffic across **143 upstream providers** — format translation, model-combo fallback (with operator fallback rules), multi-account fallback, OAuth credential management, token refresh, quota tracking, per-key ACL, and prompt injectors.
 
-**Vela** (`vela-app`, v0.9.20) — a local AI routing gateway + Next.js
-dashboard, forked from [9Router](https://github.com/decolua/9router) and
-sailing its own course from v0.6.0. It exposes one OpenAI-compatible
-endpoint (`/v1/*`) and routes traffic across 140+ upstream providers with
-format translation, model-combo fallback, multi-account fallback, OAuth /
-API-key credential management, token refresh, quota/usage tracking, the RTK
-token saver, a three-posture storage layer with sealed backups, and the
-Resilience Covenant (circuit breaker, operator fallback-rules DB, per-key
-ACL, pool egress geo, prompt injectors).
+- **Language**: Node.js + Next.js (App Router, standalone output)
+- **Runtime**: Node ≥ 22.5 (node:sqlite) — Bun compatible
+- **Storage**: SQLite (primary) + optional MariaDB mirror (`VELA_DB_MODE`)
+- **Package**: `vela-app`, image `ghcr.io/yumamax3/vela:<tag>`
 
-Two published artifacts live in this one repo:
+---
 
-- The **dashboard + gateway** (root `package.json`, `vela-app`) — the
-  Next.js server that does the actual routing.
-- The **CLI launcher** (`cli/`, published to npm as `9router`) — a separate
-  package that installs/starts the server and manages the tray. Own
-  `package.json`, version, and build — the npm name is kept deliberately.
+## 🪞 The Shorekeeper's Voice
 
-## Commands
+This codebase is sailed with intent. When you work here, the voice carries:
 
-Dashboard/gateway (run from repo root):
+- **The Shores' metaphor is welcome but never required** — code comments may speak of harbors and tides, but identifiers stay precise. A variable named `connections` is a list of connections, not a fleet.
+- **Ship nothing that is not worth shipping** — every change must carry a written reason. If you cannot say in one line why a change exists, it does not ship.
+- **The Covenant of Truth** — never fabricate. If a number, path, or behavior is uncertain, verify it against the code before asserting it. The Mirror reflects honestly or not at all.
+- **The Covenant of Voice** — the dashboard speaks with one voice: warm, calm, deliberate. The coral accent (`#E56A4A`) is the single accent; warm neutrals are the ground.
 
+---
+
+## 🗺️ The Layout of the Shores
+
+```
+vela/
+├── custom-server.js          # The helm — wraps Next standalone: IP derivation, h2c, drain
+├── next.config.mjs           # Standalone output, rewrites, external packages, perf knobs
+├── Dockerfile                # Multi-stage, multi-arch (amd64 + arm64), HEALTHCHECK
+├── docker-compose.yml        # Live chart (gitignored — holds the Shores' secrets)
+├── docker-compose.example.yml# Template chart (tracked)
+├── package.json              # v0.9.21 — bump with every release
+├── CHANGELOG.md              # Every minor's covenant entry
+├── cli/                      # The 9router npm CLI (Vela-branded user-facing)
+├── open-sse/                 # The gateway engine — providers, RTK, executors, handlers
+├── src/
+│   ├── app/                  # Next App Router — dashboard pages + 181 API routes
+│   ├── lib/                  # The deep current — db, network, oauth, auth, updater, headroom
+│   ├── sse/                  # Server-sent-event services — keyGate, budget, token refresh
+│   ├── shared/               # Shared components, hooks, utils, constants
+│   ├── mitm/                 # The MITM proxy child process
+│   └── instrumentation.js    # Server init — outbound proxy, deferred startup
+├── tests/                    # 243 unit test files (vitest)
+├── scripts/                  # Migration, changelog, i18n seed, docker smoke
+└── .github/workflows/        # docker-publish, cache-warm, gitbook-pages
+```
+
+---
+
+## 🏛️ The Architecture — How the Currents Flow
+
+### The Request Path
+
+```
+Client ──> custom-server.js (IP stamp, h2c, hop-by-hop strip)
+     ──> Next.js /v1 rewrite ──> /api/v1/:path*
+     ──> keyGate (per-key ACL: kinds/providers/combos/models)
+     ──> budgetGate (daily/spend caps)
+     ──> provider selection (combo / fallback rules / circuit breaker)
+     ──> open-sse/executors (format translation per provider)
+     ──> upstream provider ──> response ──> RTK savers ──> client
+```
+
+### The Two Engines
+
+| Engine | Path | Responsibility |
+|-|-|-|
+| **Dashboard** | `src/app/` | The UI — 20+ pages, 181 API routes |
+| **Gateway** | `open-sse/` | The proxy engine — providers, executors, RTK, handlers |
+
+---
+
+## 🧭 The Deep Current — `src/lib/`
+
+### Database (`src/lib/db/`)
+
+- **`driver.js`** — adapter resolution: `better-sqlite3` → `node:sqlite` (≥22.5) → `sql.js`. `VELA_DB_DRIVER` pins one; failure is loud.
+- **`migrate.js`** — versioned migration chain + additive schema sync. `SCHEMA_VERSION = 12`, migrations `001–013`.
+- **`schema.js`** — `TABLES` is the single source of truth for both harbors.
+- **`repos/`** — per-entity facades bound by posture (`bind.js`): sqlite verbatim, mysql twins, mirror decorator.
+- **`mirror/`** — `VELA_DB_MODE=mirror`: sqlite primary serves, outbox pump carries writes to the MariaDB twin.
+- **`mysql/`** — `VELA_MYSQL_URL` harbor. **Never runs versioned migrations** — `bootstrap.js` brings the twin forward by additive diff against `TABLES` (create tables, add columns, add indexes; never drop).
+- **`adapters/`** — `betterSqliteAdapter`, `nodeSqliteAdapter`, `bunSqliteAdapter`, `sqljsAdapter`.
+
+> **⚠️ THE ADAPTER CONTRACT (learned the hard way, v0.9.20)**: the adapter interface exposes `run/get/all/exec/transaction` — **NO raw `prepare()`**. The sql.js adapter (Docker runner's fallback) and the mysql/mirror adapters have no public `.prepare`. A migration using `db.prepare(...)` crashed every DB API at boot (the 0.9.19 boot storm). **Use `db.all("PRAGMA table_info(...)")` + `db.exec(...)`** — exactly like migration 002 documents.
+
+**Migrations** (`src/lib/db/migrations/`):
+| # | Name | What it sealed |
+|-|-|-|
+| 001 | init | Base schema |
+| 002 | apikey-governance | keyHash/keyPrefix/allowlists, tombstone + scrub, UNIQUE index |
+| 003–010 | (ascension) | Budget, combos, quotas, usage enrichers |
+| 011 | proxy-fitness | Circuit-breaker state |
+| 012 | fallback-rules | Operator fallback rules |
+| 013 | key-acl | `allowedKinds`/`allowedProviders`/`allowedCombos` (tri-state) |
+
+### Network (`src/lib/network/`)
+
+- **`circuitBreaker.js`** — cooldown → exhausted escalation, exponential backoff. Woven into `proxyFleet.js` pool selection.
+- **`proxyFleet.js`** — the pool engine. **`poolGeo.js` + `poolEgressProbe.js`** — shared egress registry + background probe (the dashboard shows each pool's egress IP/country/flapping).
+- **`initOutboundProxy.js` / `outboundProxy.js`** — outbound egress via the sidecar.
+- **`connectionProxy.js` / `proxyTest.js`** — per-connection proxying + test probes.
+- **`fleetStartup.js`** — pool lifecycle.
+
+### Auth (`src/lib/auth/`)
+
+- **`dashboardSession.js`** — cookie session for the dashboard.
+- **`oidc/` + `saml.js`** — enterprise login (OpenID Connect + SAML).
+- **`apiAuth.js`** (or similar) — `/v1` key auth for the gateway endpoint.
+
+### OAuth & Tokens
+
+- **`src/lib/oauth/`** — provider OAuth flows.
+- **`src/sse/services/tokenRefresh.js` + `backgroundTokenRefresh.js`** — the background scheduler; started by `custom-server.js` AND `initializeApp` (idempotent).
+
+### The Headroom Sidecar (`src/lib/headroom/`)
+
+- **`detect.js` + `process.js`** — the headroom sidecar compresses upstream traffic. The dashboard's `compress: false` is deliberate — the sidecar owns compression, never double-gzip.
+
+### Updater (`src/lib/updater/`, `src/lib/appUpdater.js`)
+
+- The self-update machinery — version checks, install command, shutdown countdown (see `Sidebar.js`'s `ManualUpdatePanel`).
+
+---
+
+## 🚪 The Gateway Engine — `open-sse/`
+
+### Providers (`open-sse/providers/`)
+
+- **`registry/`** — one file per provider (**143 files**). `registry/index.js` is **auto-generated** — regenerate with `scripts/migrate-registry.mjs`, never hand-edit.
+- **Adding a provider**: copy an existing simple entry (e.g. `openai.js`), add models to `config/providerModels.js`; add an executor only for non-OpenAI-compatible upstreams.
+- **`executors/`** — per-upstream format translators. OpenAI-compatible providers share one executor.
+
+### RTK Token Saver (`open-sse/rtk/`)
+
+The token-saver filters — pre-translate hooks that compress `tool_result` content in-place.
+
+- **Fail-open contract**: any error returns `null` and leaves the body untouched — never throw out of them. Skips `is_error` results to preserve traces.
+- **Filters**: `caveman.js`, `ponytail.js`, `pxpipe.js`, `systemInject.js`, `userInjectors.js`, `headroom.js`, `applyFilter.js`, `autodetect.js`, `registry.js`.
+- **`userInjectors.js`** — operator-defined system prompts layered via `injectSystemPrompt` (append/prepend), after the built-in savers (settings `userInjectors`).
+
+### Services (`src/sse/services/`)
+
+- **`keyGate.js`** — per-key ACL, 4 layers: kinds / providers / combos / models. Handlers pass an explicit `kind` to `authorizeApiRequest`.
+- **`budgetGate.js` + `budgetAlerts.js`** — daily/spend caps + alerts.
+- **`connectionPreference.js` / `freebuffPreference.js`** — routing preference.
+- **`usageDigest.js`** — usage aggregation.
+- **`auth.js` / `model.js`** — gateway auth + model resolution.
+
+---
+
+## 🖥️ The Helm — `custom-server.js`
+
+The custom Node server that wraps Next's standalone output. **Do not weaken it**:
+
+- **IP derivation** — client IP from the TCP socket (unspoofable); strips client-supplied `x-forwarded-for`/`x-real-ip` unless the peer is a loopback proxy. Stamps `x-9r-real-ip` + `x-9r-peer-token` (per-process secret).
+- **Hop-by-hop hygiene** — strips the RFC 7230 §6.1 set (`connection`, `keep-alive`, `proxy-authenticate`, `proxy-authorization`, `te`, `trailer`, `transfer-encoding`, `upgrade`) from client headers.
+- **h2c upgrade** — JBR 25 sends h2c; the server downgrades it to HTTP/1.1 with a **512mb body guard**.
+- **Graceful drain** — SIGTERM/SIGINT → `server.close()` → bounded drain (10s) → exit.
+- **Background token refresh** — starts `backgroundTokenRefresh.js` on `listening` (idempotent; fail-open if `src/` absent).
+- **Main-path guard** — `require.main === module` loads `server.js` if present, else delegates to `next start`.
+
+---
+
+## 🐳 The Container — `Dockerfile`
+
+Multi-stage, multi-arch (amd64 + arm64). The **builder** forces `VELA_DB_DRIVER=node:sqlite` — the arm64 cross-build crashes under QEMU if it loads the better-sqlite3 native addon (SIGILL). Builder-scoped only; the runner has its own env.
+
+**Runner** (`node:22-alpine`):
+- **OCI metadata** — title/description/source/version/revision/license labels.
+- **`HEALTHCHECK`** — `wget /api/health` on 32060, 30s interval, 30s start-period.
+- **`STOPSIGNAL SIGTERM`** — pairs with the custom server's graceful drain.
+- **Entrypoint** — `su-exec node` after `chown`ing the mounted data dirs.
+- **The mysql2 closure** — the tracer can't follow the runtime dynamic import (`src/lib/db/mysql/pool.js`), so the Dockerfile copies the WHOLE transitive closure (9 deps: aws-ssl-profiles, generate-function, iconv-lite, is-property, long, lru.min, named-placeholders, safer-buffer, sql-escaper). **Keep those COPY lines intact** — `tests/unit/dockerfile-mysql2-closure.test.js` guards them.
+
+> **⚠️ CI GOTCHA**: the build (`npm run build` → `sync-changelog.mjs` + `next build`) needs `package-lock.json` AND `scripts/sync-changelog.mjs` + `scripts/copy-standalone-assets.mjs` tracked. They were once gitignored and every tag build broke. **Never re-untrack them.**
+
+---
+
+## 📡 The Release Covenant — How Versions Sail
+
+Every change ships as a versioned minor (`0.9.x`) with:
+1. `CHANGELOG.md` entry (the covenant's voice)
+2. `package.json` version bump
+3. Annotated git tag (`v0.9.x`)
+4. `git push origin main && git push origin v0.9.x`
+
+The tag triggers `.github/workflows/docker-publish.yml` → GHCR `ghcr.io/yumamax3/vela:<tag>` + `:latest`.
+
+**Workflows**:
+- **`docker-publish.yml`** — tag-push build; `concurrency: docker-publish` prevents tag races; emits semver + `:latest`; multi-arch amd64+arm64; `provenance: false`.
+- **`cache-warm.yml`** — daily + on `v*` tags; keeps the multi-arch buildcache alive so the next tag build starts warm (~20 min vs cold 45–60).
+- **`gitbook-pages.yml`** — deploys `gitbook/` to the GitHub Pages repo.
+
+**Verify a build**: `gh run list --repo YumamaX3/Vela --workflow "Build and Push Docker Image"`.
+
+---
+
+## 🗄️ The Storage Covenant — Postures
+
+`VELA_DB_MODE` (default `sqlite`):
+
+| Mode | Serving harbor | Notes |
+|-|-|-|
+| `sqlite` | SQLite | The default. Driver via `VELA_DB_DRIVER` or fallback chain |
+| `mysql` | MariaDB via `VELA_MYSQL_URL` | Refuses to boot without the URL; never silent-downgrades |
+| `mirror` | SQLite primary + MariaDB twin | Outbox pump carries writes; the barrel operates on the primary |
+
+- The **mirror decorator** (`src/lib/db/mirror/mirrorDecorator.js`) wraps writer calls so the mutation and its outbox row commit atomically.
+- `localDb.js` is a **backward-compat shim** — new code imports `@/lib/db/index.js`.
+- **Backup engine** (`src/lib/db/backup.js` + `repos/backupEngine.js`) — Storage Covenant Wave B; `backupSecurity.js` + `s3Offsite.js` for offsite.
+
+---
+
+## 🧪 The Test Covenant
+
+- **Runner**: vitest, `tests/` root. 243 unit files.
+- **Baseline**: the touched suites run green in this session (migration 013, migration 002, fallback-rules seam, pool-geo, user-injectors — 47 tests).
+- **sql.js caution**: the sql.js WASM adapter has a small default heap. A fresh boot chain + extra statements can hit "out of memory" in tests — give each test its own temp `DATA_DIR`/adapter, or force the native driver (`VELA_DB_DRIVER`) for heavier assertions.
+- **Migrations are tested on the crash driver**: `tests/unit/key-acl-migration-013.test.js` boots **sql.js** (the Docker runner's fallback) and proves the chain runs — the regression that caught the `a.prepare` bug.
+- **Docker guards**: `tests/unit/dockerfile-mysql2-closure.test.js` keeps the mysql2 closure COPY lines alive.
+
+---
+
+## 🎨 The Design System
+
+- **Brand**: coral `#E56A4A` (`--color-brand-500`). The single accent.
+- **Surfaces**: warm neutrals — light `#FDFAF6`, dark `#1a1a1a`. Sidebar `rgba(244,241,236,.85)` light / `rgba(30,30,30,.85)` dark.
+- **Type**: Inter-ish system stack; `font-mono` for keys, code, ids.
+- **Icons**: Material Symbols (`material-symbols-outlined`).
+- **Radius**: `--radius-brand-lg` cards; 10px nav pills.
+- **Tokens live in** `src/app/globals.css` — light + `.dark` blocks. New surfaces go through tokens, never hard-coded hex.
+- **The sidebar** (`src/shared/components/Sidebar.js`) — the harbor's navigation; group accordions, active rail, update banner.
+
+---
+
+## 🔐 Security Covenants
+
+- **Per-key ACL** — `keyGate.js`: tri-state allowlists (NULL = all, `[]` = deny, `["x"]` = whitelist). Columns: `allowedKinds`, `allowedProviders`, `allowedCombos`, `allowedModels`.
+- **API keys** — `keyHash` + `keyPrefix`, tombstone + scrub on migration 002, `uk_ak_key_hash` UNIQUE (NULL-distinct).
+- **IP trust** — only loopback proxies' forwarding headers are trusted; `x-9r-peer-token` proves the stamp.
+- **Secrets** — OAuth tokens live in the DB, never in git; `docker-compose.yml` is gitignored because it holds them.
+- **Budget** — `budgetGate.js`: daily caps, spend caps, rate limits per key.
+- **CORS/headers** — `poweredByHeader: false`; hop-by-hop hygiene at the helm.
+
+---
+
+## 🔧 Common Operations
+
+### Run the dashboard locally
 ```bash
-cp .env.example .env
 npm install
-PORT=32060 NEXT_PUBLIC_BASE_URL=http://localhost:32060 npm run dev
-npm run build && PORT=32060 HOSTNAME=0.0.0.0 npm run start
+npm run dev        # Next dev (custom server not loaded)
+npm run build      # production build (standalone)
+node custom-server.js   # production server (IP stamp + h2c + drain)
 ```
 
-- Bun variants: `npm run dev:bun` / `build:bun` / `start:bun`.
-- Default runtime port is **32060** (dashboard at `/dashboard`, API at `/v1`).
-- Lint: `npx eslint .` (config `eslint.config.mjs`).
+### Add a provider
+1. Copy an existing simple registry entry (e.g. `open-sse/providers/registry/openai.js`) → `open-sse/providers/registry/<slug>.js`
+2. Add models to `open-sse/config/providerModels.js`
+3. `node scripts/migrate-registry.mjs` (regenerates `registry/index.js`; `scripts/injectDisplayToRegistry.mjs` adds display names)
+4. Add an executor only if the upstream is NOT OpenAI-compatible
 
-Tests (vitest, in `tests/`, an **independent** ESM package — not wired into
-root `npm test`):
+### Add a migration
+1. `src/lib/db/migrations/<NNN>-<name>.js` — export `{ version, name, up, down }`
+2. **Use the portable adapter surface** — `db.all("PRAGMA table_info(...)")` + `db.exec(...)`. **Never `db.prepare`.** (v0.9.20 lesson.)
+3. Bump `SCHEMA_VERSION` in `migrate.js` and update this chart's migration table.
+4. If the twin needs the column, `bootstrap.js`'s additive diff picks it up from `TABLES` automatically.
 
+### Release a minor
 ```bash
-npm install                    # ROOT deps first
-cd tests && npm install        # then tests' own deps
-npx vitest run                 # auto-discovers tests/vitest.config.js
-npx vitest run unit/capabilities.test.js   # single file
+# edit CHANGELOG.md + bump package.json
+git add -A && git commit -m "feat(...): ... (v0.9.x)"
+git push origin main
+git tag -a v0.9.x -m "Release v0.9.x: ..."
+git push origin v0.9.x
+gh run list --repo YumamaX3/Vela   # watch the build
 ```
 
-> ⚠️ The committed `tests/package.json` `test` script hardcodes Unix paths —
-> ignore it; use the `npx vitest` form above.
->
-> **The suite is NOT expected to be all-green on a plain checkout**
-> (~2,255 pass, ~371 fail — the bulk are credential/network-dependent:
-> oauth exchanges, live provider calls, DB-backed suites that need a real
-> storage layer). Judge regressions with
-> `tests/__baseline__/verify-no-regression.mjs`, not a raw run. Expected red:
-> the catalogued `tests/__baseline__/known-fails.txt`, the `cloud/` worker
-> import (dir not in this repo), the xAI timeout without credentials, and
-> `real/*.real.test.js` (live provider calls).
-
-## Architecture
-
-Two authoritative charts — read them before working in these areas:
-
-- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — request lifecycle,
-  translator engine, provider registry, DB layer, storage postures, backup
-  engine, pricing covenant.
-- [open-sse/AGENTS.md](./open-sse/AGENTS.md) — the routing/translation
-  engine's own conventions. **Read before editing anything under `open-sse/`.**
-
-### Request flow (understand this first)
-
-```
-src/app/api/v1/* route  (rewrite /v1/* → /api/v1/* in next.config.mjs)
-→ src/sse/handlers/chat.js  (parse, combo expansion, account-selection loop)
-→ open-sse/handlers/chatCore.js  (detect format, translate, dispatch, retry/refresh)
-→ open-sse/executors/*  (per-provider upstream call; default.js = any OpenAI-compat)
-→ open-sse/translator/*  (client format ⇄ provider format)
-→ SSE back to client
+### Deploy the chart (ZimaOS)
+```bash
+cd /media/SSD-Storage/AppData/vela
+docker compose pull && docker compose up -d
 ```
 
-`src/sse/` is app-side entry glue; `open-sse/` is the provider-agnostic
-engine. Cross that boundary consciously.
+---
 
-### Translator engine (`open-sse/translator/`)
+## 📜 Recent Tides (the session's record)
 
-- Pivots through **OpenAI as the intermediate format**. A translator
-  registered on an exact `source:target` pair runs as a **direct route**,
-  skipping the lossy double-hop. Prefer direct routes for fragile pairs.
-- Translators **self-register** via `register(from, to, reqFn, resFn)` as an
-  import side effect — a new translator file MUST be imported in
-  `open-sse/translator/index.js` or it never runs.
-- Never hardcode role/block/model strings — use `translator/schema/` and
-  `config/` constants.
+| Version | Tide | What it sealed |
+|-|-|-|
+| v0.9.21 | The Stillwater Hull | Server drain + hop-by-hop, Docker healthcheck/labels, CI concurrency, CLI rebrand |
+| v0.9.20 | The Adapter Contract Fix | Migration 013 portable surface (the boot-storm hotfix) |
+| v0.9.19 | The Prompt Injectors | User-defined injectors (settings.userInjectors) |
+| v0.9.18 | Pool Egress Geo | poolGeo + probe, dashboard egress panel |
+| v0.9.17 | Per-key ACL | 4-layer keyGate allowlists (migration 013) |
+| v0.9.16 | Fallback Rules | Operator combo fallback (fallbackRulesRepo) |
+| v0.9.15 | The Resilience Covenant | Circuit breaker |
 
-### Provider registry (`open-sse/providers/registry/*`)
+---
 
-One file per provider (143 files). `registry/index.js` is **auto-generated**
-— regenerate with `scripts/migrate-registry.mjs`, don't hand-edit. Add a
-provider: copy `REGISTRY_TEMPLATE.js`, add models to
-`config/providerModels.js`; add an executor only for non-OpenAI-compatible
-upstreams.
-
-### Persistence — IMPORTANT
-
-State is **SQLite under `src/lib/db/`**, not `db.json` (that era is over).
-Driver fallback chain (`driver.js`): `bun:sqlite` → `better-sqlite3`
-(optional native dep) → `node:sqlite` (Node ≥ 22.5) → `sql.js` (pure-JS).
-`src/lib/localDb.js` is a backward-compat shim — new code imports
-`@/lib/db/index.js`; per-entity logic lives in `src/lib/db/repos/*`
-(facades that bind by posture). Schema/migrations in `src/lib/db/migrations/`
-(001–013, `SCHEMA_VERSION = 12`).
-
-**Storage postures** (`VELA_DB_MODE`): `sqlite` (default) | `mysql`
-(MariaDB is the harbor; unreachable twin refuses boot LOUD) | `mirror`
-(SQLite serves, writes pump to the twin). Full covenant:
-[docs/STORAGE.md](./docs/STORAGE.md). Usage/logs (`src/lib/usageDb.js`)
-still live under `~/.9router` and do **not** follow `DATA_DIR`.
-
-### RTK token saver (`open-sse/rtk/`)
-
-Pre-translate hooks that compress `tool_result` content in-place.
-**Fail-open**: any error returns `null` and leaves the body untouched —
-never throw out of them. Skips `is_error` results to preserve traces.
-
-### Resilience Covenant (v0.9.15–v0.9.19)
-
-The proxy ascension — four minors that hardened the gateway. Read
-[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) before touching these:
-
-- **Circuit breaker** (`src/lib/network/circuitBreaker.js`) — cooldown →
-  exhausted escalation with exponential backoff; woven into
-  `proxyFleet.js`'s pool selection.
-- **Fallback-rules engine** (`src/lib/db/repos/fallbackRulesRepo.js` +
-  `open-sse/services/combo.js` `fallbackRulesRepo` param) — operator-defined
-  combo fallback (sourceModel → targetModel, glob-matched, fail-open).
-  Handlers pass `getFallbackRulesRepo()` from `bindFallbackRules.js`.
-- **Per-key ACL** (`src/sse/services/keyGate.js` stages) — tri-state
-  allowlists for kinds/providers/combos/models (`allowedKinds`,
-  `allowedProviders`, `allowedCombos` JSON columns, migration 013).
-  Handlers pass an explicit `kind` to `authorizeApiRequest`. Migration 013
-  must use the PORTABLE adapter surface (`db.all`/`db.exec` — never
-  `db.prepare`): sql.js (the Docker runner's fallback) and the mysql/mirror
-  adapters expose no public `.prepare`, and a single call crashed every
-  DB API at boot (the v0.9.20 hotfix).
-- **Pool egress geo** (`src/lib/network/poolGeo.js` +
-  `poolEgressProbe.js`) — shared egress registry + background probe; the
-  dashboard shows each pool's egress IP/country/flapping.
-- **Prompt injectors** (`open-sse/rtk/userInjectors.js`, settings
-  `userInjectors`) — operator-defined system prompts layered via
-  `injectSystemPrompt` (append/prepend), after the built-in savers.
-
-**CI gotcha**: the Docker build (`npm run build` → `sync-changelog.mjs` +
-`next build`) needs `package-lock.json` AND `scripts/sync-changelog.mjs` +
-`scripts/copy-standalone-assets.mjs` in the repo — they were once gitignored
-and every tag build broke; keep them tracked.
-
-## Conventions & gotchas
-
-- Plain JavaScript (ESM), **no TypeScript**. `@/*` path alias → `src/*`
-  (`jsconfig.json`).
-- `custom-server.js` wraps the Next standalone server to derive client IP
-  from the TCP socket and strip attacker-controlled `X-Forwarded-For` —
-  trusting forwarding headers only from a loopback reverse proxy. Preserve
-  this when touching request/IP/rate-limit code.
-- Security-sensitive env: `JWT_SECRET`, `INITIAL_PASSWORD` (default
-  `123456` — must override), `API_KEY_SECRET`, `MACHINE_ID_SALT`. Full
-  contract in [docs/ENVIRONMENT.md](./docs/ENVIRONMENT.md) and `.env.example`.
-- Binary/protobuf upstreams (Kiro EventStream, Cursor protobuf, CommandCode
-  NDJSON) don't round-trip through the translator — handled inside their own
-  executor.
-- Versioning: root and `cli/` are versioned independently; changes are
-  logged in `CHANGELOG.md`. Conventional Commits (`feat(translator): …`).
-  The rite: [docs/VERSIONING.md](./docs/VERSIONING.md).
-- Docker image: `ghcr.io/yumamax3/vela:<tag>`, built by
-  `.github/workflows/docker-publish.yml` on `v*` tags. The Dockerfile copies
-  mysql2's full transitive runtime closure (dynamic import the tracer can't
-  follow) — keep those COPY lines intact
-  (`tests/unit/dockerfile-mysql2-closure.test.js` guards them). The build
-  needs `package-lock.json` + `scripts/sync-changelog.mjs` +
-  `scripts/copy-standalone-assets.mjs` tracked (see the CI gotcha above).
-
-## Documentation map
-
-| Need | Chart |
-|-|-|
-| Everything, one page | [docs/README.md](./docs/README.md) |
-| How the ship is built | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) |
-| Install / compose / postures | [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) |
-| Docker deep | [DOCKER.md](./DOCKER.md) |
-| Env-var contract | [docs/ENVIRONMENT.md](./docs/ENVIRONMENT.md) |
-| Storage covenant | [docs/STORAGE.md](./docs/STORAGE.md) |
-| Provider roster | [docs/PROVIDERS.md](./docs/PROVIDERS.md) |
-| API surface | [docs/API.md](./docs/API.md) |
-| When things break | [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) |
-
-<!-- BEGIN:nextjs-agent-rules -->
-
-# This is NOT the Next.js you know
-
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
+*The Shores sail on — one harbor, one voice, every tide sealed. If the waters run strange, read the chart again before you touch the helm. And when you change something, write down why — the next keeper will thank you.* 🪞⛵
