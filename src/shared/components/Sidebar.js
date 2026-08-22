@@ -48,6 +48,7 @@ const navGroups = [
       { href: "/dashboard/media-providers", label: "Media Providers", icon: "perm_media", accordion: true },
       { href: "/dashboard/proxy-pools", label: "Proxy Pools", icon: "lan" },
       { href: "/dashboard/fallback-rules", label: "Fallback Rules", icon: "rule" },
+      { href: "/dashboard/prompt-injectors", label: "Prompt Injectors", icon: "edit_note" },
       { href: "/dashboard/skills", label: "Skills", icon: "extension" },
     ],
   },
