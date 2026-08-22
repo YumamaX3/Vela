@@ -27,7 +27,15 @@ RUN npm run build
 FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
 
-LABEL org.opencontainers.image.title="vela"
+# ─── Vela — The AI Gateway ───────────────────────────────────────────────
+# Full OCI metadata so the image self-describes in registries and UIs.
+ARG VELA_VERSION=0.9.21
+LABEL org.opencontainers.image.title="Vela"
+LABEL org.opencontainers.image.description="The AI Gateway — one OpenAI-compatible endpoint across 140+ providers"
+LABEL org.opencontainers.image.source="https://github.com/YumamaX3/Vela"
+LABEL org.opencontainers.image.version="${VELA_VERSION}"
+LABEL org.opencontainers.image.revision="${GITHUB_SHA:-unknown}"
+LABEL org.opencontainers.image.licenses="MIT"
 
 ENV NODE_ENV=production
 ENV PORT=32060
@@ -71,12 +79,20 @@ RUN mkdir -p /app/data && chown -R node:node /app && \
   mkdir -p /app/data-home && chown node:node /app/data-home && \
   ln -sf /app/data-home /root/.vela 2>/dev/null || true
 
-# Fix permissions at runtime (handles mounted volumes)
+# Fix permissions at runtime (handles mounted volumes), then drop root → node.
 RUN apk --no-cache upgrade && apk --no-cache add su-exec && \
   printf '#!/bin/sh\nchown -R node:node /app/data /app/data-home 2>/dev/null\nexec su-exec node "$@"\n' > /entrypoint.sh && \
   chmod +x /entrypoint.sh
 
+# Graceful drain is handled in custom-server.js (SIGTERM → close → drain → exit).
+STOPSIGNAL SIGTERM
+
 EXPOSE 32060
+
+# Liveness for orchestrators and the compose chart alike — public allow-list,
+# no auth. The health endpoint doubles as the drain probe.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:32060/api/health >/dev/null 2>&1 || exit 1
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["node", "custom-server.js"]

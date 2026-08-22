@@ -9,6 +9,10 @@ on:
   schedule:
     # Daily at 03:17 UTC — keeps the cache warm even between releases.
     - cron: "17 3 * * *"
+  # Warm immediately after a release so the NEXT tag push starts warm too.
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
 
 jobs:
