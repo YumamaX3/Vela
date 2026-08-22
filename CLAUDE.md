@@ -6,7 +6,7 @@ read the relevant chart before working in an area, rather than re-deriving.
 
 ## What this is
 
-**Vela** (`vela-app`, v0.9.19) — a local AI routing gateway + Next.js
+**Vela** (`vela-app`, v0.9.20) — a local AI routing gateway + Next.js
 dashboard, forked from [9Router](https://github.com/decolua/9router) and
 sailing its own course from v0.6.0. It exposes one OpenAI-compatible
 endpoint (`/v1/*`) and routes traffic across 140+ upstream providers with
@@ -141,7 +141,11 @@ The proxy ascension — four minors that hardened the gateway. Read
 - **Per-key ACL** (`src/sse/services/keyGate.js` stages) — tri-state
   allowlists for kinds/providers/combos/models (`allowedKinds`,
   `allowedProviders`, `allowedCombos` JSON columns, migration 013).
-  Handlers pass an explicit `kind` to `authorizeApiRequest`.
+  Handlers pass an explicit `kind` to `authorizeApiRequest`. Migration 013
+  must use the PORTABLE adapter surface (`db.all`/`db.exec` — never
+  `db.prepare`): sql.js (the Docker runner's fallback) and the mysql/mirror
+  adapters expose no public `.prepare`, and a single call crashed every
+  DB API at boot (the v0.9.20 hotfix).
 - **Pool egress geo** (`src/lib/network/poolGeo.js` +
   `poolEgressProbe.js`) — shared egress registry + background probe; the
   dashboard shows each pool's egress IP/country/flapping.
