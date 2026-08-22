@@ -135,6 +135,10 @@ export default function ProviderLimits() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [hasHydratedAutoRefresh, setHasHydratedAutoRefresh] = useState(false);
   const [refreshingAll, setRefreshingAll] = useState(false);
+  // Guard against overlapping refreshAll runs WITHOUT being a render dep —
+  // a state-backed guard recreated refreshAll on every flip, which re-created
+  // the auto-refresh interval each cycle and fired overlapping quota floods.
+  const refreshingRef = useRef(false);
   const [countdown, setCountdown] = useState(60);
   const [connectionsLoading, setConnectionsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
@@ -464,8 +468,8 @@ export default function ProviderLimits() {
   }, []);
 
   const refreshAll = useCallback(async (force = false) => {
-    if (refreshingAll) return;
-
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
     setRefreshingAll(true);
     setCountdown(60);
 
@@ -496,9 +500,10 @@ export default function ProviderLimits() {
     } catch (error) {
       console.error("Error refreshing all providers:", error);
     } finally {
+      refreshingRef.current = false;
       setRefreshingAll(false);
     }
-  }, [refreshingAll, fetchConnections, fetchQuota, page]);
+  }, [fetchConnections, fetchQuota, page]);
 
   useEffect(() => {
     const initializeData = async () => {
