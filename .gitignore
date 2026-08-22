@@ -95,4 +95,7 @@ graphify-out/*
 
 # sealed plans — internal, not for the public repo
 plans/
-scripts/
+# build-critical scripts must stay tracked (Docker `npm run build` needs them)
+scripts/*
+!scripts/sync-changelog.mjs
+!scripts/copy-standalone-assets.mjs
