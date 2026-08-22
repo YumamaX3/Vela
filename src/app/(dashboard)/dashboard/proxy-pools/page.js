@@ -66,6 +66,18 @@ export default function ProxyPoolsPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showRelayMenu]);
 
+  const [poolGeo, setPoolGeo] = useState({});
+
+  const fetchPoolGeo = useCallback(async () => {
+    try {
+      const res = await fetch("/api/proxy-pools/fitness", { cache: "no-store" });
+      const data = await res.json();
+      if (res.ok && data.geo) setPoolGeo(data.geo);
+    } catch {
+      // Fail-open — geo is decorative, never blocks the page.
+    }
+  }, []);
+
   const fetchProxyPools = useCallback(async () => {
     try {
       const res = await fetch("/api/proxy-pools?includeUsage=true", { cache: "no-store" });
@@ -82,7 +94,8 @@ export default function ProxyPoolsPage() {
 
   useEffect(() => {
     fetchProxyPools();
-  }, [fetchProxyPools]);
+    fetchPoolGeo();
+  }, [fetchProxyPools, fetchPoolGeo]);
 
   const resetForm = () => {
     setEditingProxyPool(null);
@@ -727,6 +740,22 @@ export default function ProxyPoolsPage() {
                     </Badge>
                   </div>
                   <p className="text-xs text-text-muted truncate mt-1">{pool.proxyUrl}</p>
+                  {poolGeo[pool.id] && (() => {
+                    const geo = poolGeo[pool.id];
+                    return (
+                      <p className="text-xs text-text-muted truncate mt-1 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[13px]">travel_explore</span>
+                        <span className="font-mono">{geo.ip}</span>
+                        {geo.country ? <span>· {geo.country}</span> : null}
+                        {geo.isUnstable ? (
+                          <Badge variant="warning" size="sm" title={`${geo.ipCount} distinct egress IPs observed`}>
+                            flapping
+                          </Badge>
+                        ) : null}
+                        <span className="opacity-70">· {formatDateTime(geo.ts)}</span>
+                      </p>
+                    );
+                  })()}
                   {pool.noProxy ? (
                     <p className="text-xs text-text-muted truncate">No proxy: {pool.noProxy}</p>
                   ) : null}

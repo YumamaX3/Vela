@@ -32,6 +32,7 @@ import { getProxyPools, getProxyPoolById, updateProxyPool } from "../db/repos/pr
 import { getAdapter } from "../db/driver.js";
 import { resolveConnectionProxyConfig } from "./connectionProxy.js";
 import { isAvailable, recordFailure, recordSuccess, onRetryAfter, flushNow as flushBreakerNow } from "./circuitBreaker.js";
+import { setPoolGeo } from "./poolGeo.js"; // v0.9.18 — shared egress geo registry
 
 const RE_PICK_CODES = new Set(["country_blocked", "ip_capped"]); // C16 LOCKED
 const MAX_REPICKS = 3;
@@ -599,6 +600,10 @@ export async function probeEgress(poolId, pool = null) {
       fitness.egressIp = ip;
       fitness.egressCountry = country;
       markDirty(poolId, "freebuff");
+      // v0.9.18 — also feed the shared poolGeo registry (dashboard egress column).
+      try {
+        setPoolGeo(poolId, { ip, country });
+      } catch { /* fail-open */ }
     }
 
     probeCache.set(poolId, { ip, country, observedAt: Date.now() });

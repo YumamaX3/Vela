@@ -1,14 +1,16 @@
 /**
  * GET /api/proxy-pools/fitness
- * Full fitness projection for fleet status page
+ * Full fitness projection for fleet status page (includes egress geo, v0.9.18)
  */
 import { NextResponse } from "next/server";
 import fleet from "@/lib/network/proxyFleet.js"; // Fleet Captain
+import { poolGeoSnapshot } from "@/lib/network/poolGeo.js";
 
 export async function GET() {
   try {
     const summary = fleet.getFitnessSummary();
-    return NextResponse.json({ fitness: summary });
+    const geo = poolGeoSnapshot();
+    return NextResponse.json({ fitness: summary, geo });
   } catch (err) {
     console.error("[fitness]", err.message);
     return NextResponse.json({ error: "fitness query failed" }, { status: 500 });
