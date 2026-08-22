@@ -1,22 +1,16 @@
-# Vela — The AI Gateway ⛵
+# ⛵ Vela — The AI Gateway CLI
 
-**Never stop coding. Save 20-40% tokens with RTK + auto-fallback to FREE & cheap AI models.**
+**One OpenAI-compatible endpoint across 143+ providers. Never stop coding.**
 
-**Connect All AI Code Tools (Claude Code, Cursor, Antigravity, Copilot, Codex, Gemini, OpenCode, Cline, OpenClaw...) to 40+ AI Providers & 100+ Models.**
+**Connect All AI Code Tools (Claude Code, Cursor, Antigravity, Copilot, Codex, Gemini, OpenCode, Cline, OpenClaw...) to 143 AI Providers & 1000+ Models — with RTK token savings, quota tracking, and auto-fallback.**
 
-[![npm](https://img.shields.io/npm/v/9router.svg)](https://www.npmjs.com/package/9router)
-[![Downloads](https://img.shields.io/npm/dm/9router.svg)](https://www.npmjs.com/package/9router)
-[![Docker Pulls](https://img.shields.io/docker/pulls/decolua/9router.svg?logo=docker&label=Docker%20pulls)](https://hub.docker.com/r/decolua/9router)
-[![GHCR](https://img.shields.io/badge/GHCR-decolua%2F9router-blue?logo=github)](https://github.com/decolua/9router/pkgs/container/9router)
-[![License](https://img.shields.io/npm/l/9router.svg)](https://github.com/decolua/9router/blob/main/LICENSE)
-
-<a href="https://trendshift.io/repositories/22628" target="_blank"><img src="https://trendshift.io/api/badge/repositories/22628" alt="decolua%2F9router | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-
-[🌐 Website](https://9router.com) • [📖 Full Docs](https://github.com/decolua/9router)
+[![npm](https://img.shields.io/npm/v/vela.svg)](https://www.npmjs.com/package/vela)
+[![License](https://img.shields.io/npm/l/vela.svg)](https://github.com/YumamaX3/Vela/blob/main/LICENSE)
+[![GHCR](https://img.shields.io/badge/GHCR-YumamaX3%2FVela-blue?logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
 
 ---
 
-## 🤔 Why 9Router?
+## 🤔 Why Vela?
 
 **Stop wasting money, tokens and hitting limits:**
 
@@ -25,13 +19,13 @@
 - ❌ Tool outputs (git diff, grep, ls...) burn tokens fast
 - ❌ Expensive APIs ($20-50/month per provider)
 
-**9Router solves this:**
+**Vela solves this:**
 
-- ✅ **RTK Token Saver** - Auto-compress tool_result, save 20-40% tokens
-- ✅ **Maximize subscriptions** - Track quota, use every bit before reset
-- ✅ **Auto fallback** - Subscription → Cheap → Free, zero downtime
-- ✅ **Multi-account** - Round-robin between accounts per provider
-- ✅ **Universal** - Works with any OpenAI/Claude-compatible CLI
+- ✅ **RTK Token Saver** — Auto-compress `tool_result`, save 20–40% tokens
+- ✅ **Maximize subscriptions** — Track quota, use every bit before reset
+- ✅ **Auto fallback** — Subscription → Cheap → Free, zero downtime
+- ✅ **Multi-account** — Round-robin between accounts per provider
+- ✅ **Universal** — Works with any OpenAI/Claude-compatible CLI
 
 ---
 
@@ -40,22 +34,22 @@
 **Option 1 — npm (recommended for desktop):**
 
 ```bash
-npm install -g 9router
-9router
+npm install -g vela
+vela
 
 # Or run directly with npx
-npx 9router
+npx vela
 ```
+
+> Upgrading from the legacy `9router` package? `npm i -g vela` takes over the same data dir (`~/.vela`). The CLI still reaps old `9router` processes so the swap is seamless.
 
 **Option 2 — Docker (server/VPS):**
 
 ```bash
-docker run -d --name 9router -p 32060:32060 \
-  -v "$HOME/.9router:/app/data" -e DATA_DIR=/app/data \
-  decolua/9router:latest
+docker run -d --name vela -p 32060:32060 \
+  -v "$HOME/.vela:/app/data" -e DATA_DIR=/app/data \
+  ghcr.io/yumamax3/vela:latest
 ```
-
-Published images: [Docker Hub](https://hub.docker.com/r/decolua/9router) • [GHCR](https://github.com/decolua/9router/pkgs/container/9router) (multi-platform amd64/arm64).
 
 🎉 Dashboard opens at `http://localhost:32060`
 
@@ -79,11 +73,15 @@ That's it! Start coding with FREE AI models.
 ## 🚀 CLI Options
 
 ```bash
-9router                    # Start with default settings
-9router --port 8080        # Custom port
-9router --no-browser       # Don't open browser
-9router --skip-update      # Skip auto-update check
-9router --help             # Show all options
+vela                    # Start with default settings
+vela --port 8080        # Custom port
+vela --host 127.0.0.1   # Local-only (default is 0.0.0.0 — network-exposed!)
+vela --no-browser       # Don't open browser
+vela --log              # Show server logs
+vela --tray             # Run in system tray (background)
+vela --skip-update      # Skip auto-update check
+vela --help             # Show all options
+vela xai video --prompt "..." --output clip.mp4   # Grok Imagine via the gateway
 ```
 
 **Dashboard**: `http://localhost:32060/dashboard`
@@ -92,7 +90,7 @@ That's it! Start coding with FREE AI models.
 
 ## 🛠️ Supported CLI Tools
 
-Claude-Code • OpenClaw • Codex • OpenCode • Cursor • Antigravity • Cline • Continue • Droid • Roo • Copilot • Kilo Code • Gemini CLI • Qwen Code • iFlow • Crush • Crusher • Aider
+Claude Code • OpenClaw • Codex • OpenCode • Cursor • Antigravity • Cline • Continue • Droid • Roo • Copilot • Kilo Code • Gemini CLI • Qwen Code • iFlow • Crush • Crusher • Aider
 
 Any tool supporting OpenAI/Claude-compatible API works.
 
@@ -100,26 +98,32 @@ Any tool supporting OpenAI/Claude-compatible API works.
 
 ## 💾 Data Location
 
-- **macOS/Linux**: `~/.9router/db/data.sqlite`
-- **Windows**: `%APPDATA%/9router/db/data.sqlite`
-- **Docker**: `/app/data/db/data.sqlite` (mount `$HOME/.9router` to persist)
+- **macOS/Linux**: `~/.vela/db/data.sqlite`
+- **Windows**: `%APPDATA%/vela/db/data.sqlite`
+- **Docker**: `/app/data/db/data.sqlite` (mount `$HOME/.vela` to persist)
+
+---
+
+## 🛡️ Stability Notes
+
+- **Graceful drain** — the server drains in-flight requests on shutdown (no half-boot states)
+- **Crash recovery** — the CLI restarts a crashed server up to 2× (30s window); after repeated crashes it disables the MITM proxy and tries again
+- **Runtime deps** — native SQLite + tray binaries live in `~/.vela/runtime` (not the locked install dir), so `npm i -g vela@latest` never hits Windows EBUSY locks
 
 ---
 
 ## 📚 Documentation
 
-Full docs, advanced setup, video tutorials & development guide:
-
-- **GitHub**: https://github.com/decolua/9router
-- **Full README**: https://github.com/decolua/9router/blob/main/app/README.md
-- **Website**: https://9router.com
+- **Source**: https://github.com/YumamaX3/Vela
+- **Changelog**: https://github.com/YumamaX3/Vela/blob/main/CHANGELOG.md
 
 ---
 
 ## 🙏 Acknowledgments
 
-- **[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)** - Original Go implementation
+- **[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)** — Original Go implementation
+- The Shores' design system — the gateway's dashboard, the covenant, the voice
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License — see [LICENSE](LICENSE) for details.

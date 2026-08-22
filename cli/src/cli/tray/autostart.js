@@ -280,8 +280,8 @@ function enableLinux(cliPath) {
 
   const desktopContent = `[Desktop Entry]
 Type=Application
-Name=9Router
-Comment=9Router API Proxy
+Name=Vela
+Comment=Vela AI Gateway
 Exec=${nodePath} ${routerScript} --tray --skip-update
 Hidden=false
 NoDisplay=false

@@ -1,6 +1,6 @@
 /**
- * `9router xai video` — generate a Grok Imagine video through the local
- * 9router gateway and save the result as an MP4 file.
+ * `vela xai video` — generate a Grok Imagine video through the local
+ * Vela gateway and save the result as an MP4 file.
  *
  * Flow: POST /v1/videos/generations → poll GET /v1/videos/{request_id}
  * until done/failed/timeout → download video.url → atomic rename.
@@ -23,9 +23,9 @@ const TERMINAL_STATUSES = new Set(["done", "failed", "completed", "error", "expi
 const FAILED_STATUSES = new Set(["failed", "error", "expired", "cancelled"]);
 
 const HELP = `
-Usage: 9router xai video --prompt "..." [options]
+Usage: vela xai video --prompt "..." [options]
 
-Generate a Grok Imagine video via your local 9router gateway
+Generate a Grok Imagine video via your local Vela gateway
 (requires a connected xAI account — Grok Build OAuth or API key).
 
 Options:
@@ -39,7 +39,7 @@ Options:
   --timeout <seconds>     Max wait for the job (default: ${DEFAULT_TIMEOUT_SEC})
   --port <port>           Gateway port (default: ${DEFAULT_PORT})
   --host <host>           Gateway host (default: ${DEFAULT_HOST})
-  --api-key <key>         9router API key (or env NINE_ROUTER_API_KEY)
+  --api-key <key>         Vela API key (or env NINE_ROUTER_API_KEY)
   -h, --help              Show this help
 `;
 
