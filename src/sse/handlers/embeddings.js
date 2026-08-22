@@ -55,7 +55,7 @@ export async function handleEmbeddings(request) {
   // allowInternal: the server-side model-test ping authenticates as the internal key.
   const settings = await getSettings();
   {
-    const gate = await authorizeApiRequest(request, { requestModel: modelStr, settings, allowInternal: true });
+    const gate = await authorizeApiRequest(request, { requestModel: modelStr, settings, allowInternal: true, kind: "embedding" });
     if (!gate.ok) return gate.response;
   }
 

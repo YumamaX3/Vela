@@ -52,7 +52,7 @@ export async function handleFetch(request) {
   // Provider IS the model for webFetch.
   const settings = await getSettings();
   {
-    const gate = await authorizeApiRequest(request, { requestModel: providerInput, settings });
+    const gate = await authorizeApiRequest(request, { requestModel: providerInput, settings, kind: "webFetch" });
     if (!gate.ok) return gate.response;
   }
 
