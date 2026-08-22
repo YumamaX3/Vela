@@ -198,11 +198,11 @@ new code imports `@/lib/db/index.js`.
 
 **Schema** — `src/lib/db/migrations/` runs seven migrations
 (`001-initial` → `007-mirror-seq`); `SCHEMA_VERSION = 7`. Usage/logs
-(`src/lib/usageDb.js`) still live under `~/.9router` and do **not** follow
+(`src/lib/usageDb.js`) still live under `~/.vela` and do **not** follow
 `DATA_DIR`.
 
 **DB file location** — `src/lib/db/paths.js`: `DATA_DIR` if set, else
-`~/.9router/`.
+`~/.vela/`.
 
 ---
 
@@ -293,7 +293,7 @@ src/
 └── lib/
     ├── db/              driver chain, adapters, migrations, mirror
     │   └── repos/       facades + sqlite/mysql implementations
-    └── usageDb.js       usage + request logs (~/.9router)
+    └── usageDb.js       usage + request logs (~/.vela)
 
 open-sse/
 ├── handlers/            chatCore, embeddingsCore, ttsCore, imageCore, …
@@ -304,7 +304,7 @@ open-sse/
 ├── config/              providerModels + shared constants
 └── AGENTS.md            ← engine contributor guide
 
-cli/                     launcher package (npm: 9router)
+cli/                     launcher package (npm: vela)
 docs/                    these charts
 plans/                   sealed design plans (ADR-style)
 tests/                   vitest suite — independent ESM package

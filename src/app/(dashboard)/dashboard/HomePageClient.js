@@ -1,5 +1,5 @@
 "use client";
-// The Vela Command Deck — dashboard homepage (warm-dark 9router blend).
+// The Vela Command Deck — dashboard homepage (warm-dark Vela blend).
 // Deep warm canvas, the brand orange as the ember accent, glowing live
 // stats, provider rail, recent activity, quick actions. Every number
 // comes from a real API; every tile leads somewhere real.

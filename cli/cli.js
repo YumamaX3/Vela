@@ -110,13 +110,6 @@ function getDisplayHost() {
   return host === DEFAULT_HOST ? "localhost" : host;
 }
 const MAX_PORT_ATTEMPTS = 10;
-// Identifiers for killAllAppProcesses - only kill the Vela CLI/server.
-// Match BOTH the new `vela` bin and the legacy `9router` name so an upgrade
-// from the old package can still reap its own prior processes.
-const PROCESS_IDENTIFIERS = [
-  "vela",     // Current package/bin name
-  "9router",  // Legacy name — upgrades must still find the old process
-];
 
 // Parse arguments
 let port = DEFAULT_PORT;
@@ -257,7 +250,7 @@ function killCloudflaredByAppPort(appPort) {
   return pids;
 }
 
-// Kill all Vela processes (own name + legacy 9router)
+// Kill all Vela processes
 function killAllAppProcesses(appPort) {
   return new Promise((resolve) => {
     try {
@@ -284,12 +277,12 @@ function killAllAppProcesses(appPort) {
           });
           const lines = output.split("\n").slice(1).filter(l => l.trim());
           lines.forEach(line => {
-            // Whitelist: real node process running vela/cli.js (or the legacy
-            // 9router/cli.js), or next-server. Avoids killing editors/grep/
-            // strace/cursor that just have the name in cmdline.
+            // Whitelist: real node process running vela/cli.js, or next-server.
+            // Avoids killing editors/grep/strace/cursor that just have the
+            // name in cmdline.
             const cmd = line.toLowerCase();
             const isAppProcess =
-              (cmd.includes("node") && (cmd.includes("vela") || cmd.includes("9router")) && (cmd.includes("cli.js") || cmd.includes("\\vela") || cmd.includes("/vela") || cmd.includes("\\9router") || cmd.includes("/9router")))
+              (cmd.includes("node") && cmd.includes("vela") && (cmd.includes("cli.js") || cmd.includes("\\vela") || cmd.includes("/vela")))
               || cmd.includes("next-server");
             if (isAppProcess) {
               const match = line.match(/^"(\d+)"/);
@@ -311,12 +304,12 @@ function killAllAppProcesses(appPort) {
           const lines = output.split('\n');
 
           lines.forEach(line => {
-            // Whitelist: real node process running vela/cli.js (or the legacy
-            // 9router/cli.js), or next-server. Avoids killing grep/strace/
-            // editors/cursor that incidentally match the name.
+            // Whitelist: real node process running vela/cli.js, or next-server.
+            // Avoids killing grep/strace/editors/cursor that incidentally
+            // match the name.
             const cmd = line.toLowerCase();
             const isAppProcess =
-              (cmd.includes("node") && (cmd.includes("vela") || cmd.includes("9router")) && (cmd.includes("cli.js") || cmd.includes("/vela") || cmd.includes("/9router")))
+              (cmd.includes("node") && cmd.includes("vela") && (cmd.includes("cli.js") || cmd.includes("/vela")))
               || cmd.includes("next-server");
             if (isAppProcess) {
               const parts = line.trim().split(/\s+/);
@@ -517,8 +510,9 @@ function checkForUpdate() {
   });
 }
 
-// Open browser
+// Open browser — a no-op under `--no-browser`
 function openBrowser(url) {
+  if (noBrowser) return;
   const platform = process.platform;
   let cmd;
 

@@ -2,7 +2,7 @@ import { UPDATER_CONFIG } from "@/shared/constants/config";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { isSessionScarceTestTarget } from "./sessionScarce.js";
 
-const CLI_TOKEN_SALT = "9r-cli-auth";
+const CLI_TOKEN_SALT = "vela-cli-auth";
 
 function createSilentWavFile() {
   const sampleRate = 16000;
@@ -49,7 +49,7 @@ async function getInternalHeaders() {
 
   const headers = { "Content-Type": "application/json" };
   if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
-  headers["x-9r-cli-token"] = await getConsistentMachineId(CLI_TOKEN_SALT);
+  headers["x-vela-cli-token"] = await getConsistentMachineId(CLI_TOKEN_SALT);
   return headers;
 }
 

@@ -33,7 +33,7 @@ vela/
 ├── docker-compose.example.yml# Template chart (tracked)
 ├── package.json              # v0.9.21 — bump with every release
 ├── CHANGELOG.md              # Every minor's covenant entry
-├── cli/                      # The 9router npm CLI (Vela-branded user-facing)
+├── cli/                      # The `vela` npm CLI — bin `vela`, full purge
 ├── open-sse/                 # The gateway engine — providers, RTK, executors, handlers
 ├── src/
 │   ├── app/                  # Next App Router — dashboard pages + 181 API routes
@@ -247,6 +247,27 @@ The tag triggers `.github/workflows/docker-publish.yml` → GHCR `ghcr.io/yumama
 
 ---
 
+## 🧹 The Great Purge — What Was Renamed, What Deliberately Stays
+
+The 9router brand string was purged repo-wide (v0.9.21). The coordinated rename:
+
+| Old | New | What it was |
+|-|-|-|
+| `has9Router` | `hasVela` | API field (cli-tools status) |
+| `x-9r-cli-token` / `9r-cli-auth` | `x-vela-cli-token` / `vela-cli-auth` | CLI auth header + salt |
+| `x-9router-connection-id` | `x-vela-connection-id` | Video-generation response header |
+| `custom:9Router-0` | `custom:Vela-0` | Persisted custom-model config key |
+| `providers["9router"]` | `providers["vela"]` | Persisted provider config key |
+| `NINE_ROUTER_*` env | `VELA_*` env | Proxy-managed env vars |
+| `x-9router-token-saver` | `x-vela-token-saver` | Headroom header |
+| `X-Msh-Platform: "9router"` | `"vela"` | Kimi platform identifier |
+
+**Deliberately kept — the `x-9r-*` security family** (13 refs): `x-9r-real-ip`, `x-9r-peer-token`, `x-9r-via-proxy`, `x-9r-password`, `x-9r-internal-models-fetch`. These are the custom server's **stamping protocol** — `trustedPeer.js` verifies the per-process token, `keyGate` reads the socket-derived IP. The `9` is the number, not the brand; renaming them would require changing the stamping + every reader in lockstep with zero security benefit.
+
+> ⚠️ Saved CLI-tool configs that stored the old keys (`custom:9Router-0`, `providers["9router"]`) are no longer recognized — users re-configure once after upgrading.
+
+---
+
 ## 🔧 Common Operations
 
 ### Run the dashboard locally
@@ -292,6 +313,8 @@ docker compose pull && docker compose up -d
 | Version | Tide | What it sealed |
 |-|-|-|
 | v0.9.21 | The Stillwater Hull | Server drain + hop-by-hop, Docker healthcheck/labels, CI concurrency, CLI rebrand |
+| v0.9.21 | The Vela CLI Ascension | cli/ renamed 9router→vela (name+bin), `vela doctor`, `--no-tray`, health fail-fast |
+| v0.9.21 | The Complete Purge | 9router string purged repo-wide — wire contracts renamed (`hasVela`, `x-vela-*`), only the `x-9r-*` security family remains |
 | v0.9.20 | The Adapter Contract Fix | Migration 013 portable surface (the boot-storm hotfix) |
 | v0.9.19 | The Prompt Injectors | User-defined injectors (settings.userInjectors) |
 | v0.9.18 | Pool Egress Geo | poolGeo + probe, dashboard egress panel |
