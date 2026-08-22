@@ -9,7 +9,7 @@ import { getSettings } from "@/lib/localDb";
 const DEFAULT_PASSWORD = "123456";
 
 // Vela's own session cookie. Browsers key cookies by domain, NOT by port, so a
-// cookie named `auth_token` (9Router's) is shared between both gateways when they
+// cookie named `auth_token` (Vela's) is shared between both gateways when they
 // run side by side on localhost — logging into one evicts the other. Vela's jar
 // is its own (v0.6.12).
 export const AUTH_COOKIE_NAME = "vela_auth_token";

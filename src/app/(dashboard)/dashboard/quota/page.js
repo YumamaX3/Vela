@@ -1,8 +1,8 @@
-// Quota Tracker Page — standalone quota monitoring (restored from 9router heritage)
+// Quota Tracker Page — standalone quota monitoring (restored from Vela heritage)
 "use client";
 
 // The real per-provider quota engine — quota tables, progress bars,
-// per-account gauges, auto-refresh, pagination (the 9router heritage).
+// per-account gauges, auto-refresh, pagination (the Vela heritage).
 import ProviderLimits from "../usage/components/ProviderLimits";
 
 export default function QuotaPage() {

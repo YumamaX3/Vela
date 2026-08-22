@@ -3,7 +3,7 @@ import { exportDb, getSettings, importDb } from "@/lib/localDb";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 import { verifyDashboardPassword } from "@/lib/auth/dashboardSession";
 
-const CLI_TOKEN_HEADER = "x-9r-cli-token";
+const CLI_TOKEN_HEADER = "x-vela-cli-token";
 const PASSWORD_HEADER = "x-9r-password";
 
 // CLI token requests are already trusted (local machine); skip password re-auth.

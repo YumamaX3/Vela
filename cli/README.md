@@ -41,8 +41,6 @@ vela
 npx vela
 ```
 
-> Upgrading from the legacy `9router` package? `npm i -g vela` takes over the same data dir (`~/.vela`). The CLI still reaps old `9router` processes so the swap is seamless.
-
 **Option 2 — Docker (server/VPS):**
 
 ```bash

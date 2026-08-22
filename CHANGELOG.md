@@ -25,6 +25,23 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.21 — The Complete Purge 🧹⛵
+
+> *"Every trace of the old name, gone. The Shores speak only Vela now."*
+
+**The coordinated purge** — the 9router string removed from the entire codebase (src/, cli/, open-sse/, tests/, docs):
+
+- **Wire contracts renamed**: `has9Router`→`hasVela`, `x-9r-cli-token`→`x-vela-cli-token`, `x-9router-connection-id`→`x-vela-connection-id`, `custom:9Router-0`→`custom:Vela-0`, `providers["9router"]`→`providers["vela"]`, `NINE_ROUTER_*`→`VELA_*`, `x-9router-token-saver`→`x-vela-token-saver`, `X-Msh-Platform:"9router"`→`"vela"`
+- **User-facing text** purged across the dashboard (cli-tools cards, landing, login), open-sse comments, tests, LICENSE
+- **Deliberately kept**: the `x-9r-*` security family (13 refs) — the custom server's stamping protocol (`x-9r-real-ip`, `x-9r-peer-token`), where `9` is the number, not the brand
+- **CLI**: `vela doctor` runs; `--no-browser` now actually suppresses the browser (was a no-op bug); dead `PROCESS_IDENTIFIERS` removed; health fail-fast in both tray + TUI paths
+- **DOCKER.md** ascended: versions 0.6.70→0.9.21, `~/.9router`→`~/.vela`, mysql2 closure count 10→9, healthcheck/labels documented
+- **CLAUDE.md** ascended: cli/ line, The Great Purge section, Recent Tides
+
+> ⚠️ Saved CLI-tool configs using the old keys (`custom:9Router-0`, `providers["9router"]`) are no longer recognized — re-configure once after upgrading.
+
+---
+
 # v0.9.21 — The Vela CLI Ascension ⛵🔧
 
 > *"The CLI sheds its old name and grows new sails."*

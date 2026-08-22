@@ -2,7 +2,7 @@
 // Request Logs — the full request ledger (System category).
 // Fetches /api/usage/logs (pipe-delimited log lines) and renders them as a
 // filterable, searchable table: time · model · provider · account · in · out · status.
-// Warm-dark 9router blend, real data only.
+// Warm-dark Vela blend, real data only.
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Card from "@/shared/components/Card";
 import { CardSkeleton } from "@/shared/components";

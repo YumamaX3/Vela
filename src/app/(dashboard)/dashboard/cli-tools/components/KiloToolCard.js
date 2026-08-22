@@ -50,7 +50,7 @@ export default function KiloToolCard({ tool, isExpanded, onToggle, baseUrl, apiK
 
   const getConfigStatus = () => {
     if (!status?.installed) return null;
-    return status.has9Router ? "configured" : "not_configured";
+    return status.hasVela ? "configured" : "not_configured";
   };
 
   const configStatus = getConfigStatus();
@@ -171,7 +171,7 @@ export default function KiloToolCard({ tool, isExpanded, onToggle, baseUrl, apiK
                   <span className="material-symbols-outlined text-yellow-500">warning</span>
                   <div className="flex-1">
                     <p className="font-medium text-yellow-600 dark:text-yellow-400">Kilo Code not detected locally</p>
-                    <p className="text-sm text-text-muted">Manual configuration is still available if 9router is deployed on a remote server.</p>
+                    <p className="text-sm text-text-muted">Manual configuration is still available if Vela is deployed on a remote server.</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 pl-9">

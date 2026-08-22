@@ -36,7 +36,7 @@ docker run -d --name vela \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:0.6.70
+  ghcr.io/yumamax3/vela:0.9.21
 ```
 
 Then open **http://localhost:32060/dashboard**.
@@ -60,13 +60,18 @@ docker rm -f vela          # remove
 - **Registry:** `ghcr.io/yumamax3/vela:<tag>` — built by
   `.github/workflows/docker-publish.yml` on every `v*` git tag
   (multi-arch `linux/amd64` + `linux/arm64`).
-- **Pin a tag, not `latest`.** Tags map 1:1 to releases (`:0.6.70`);
+- **Pin a tag, not `latest`.** Tags map 1:1 to releases (`:0.9.21`);
   `latest` follows the newest build and can surprise you.
 - **What ships inside:** the Next.js standalone server, `open-sse/`, the
   `cli/` launcher bits, and — deliberately — the full runtime closure of
   `mysql2` (pure-JS, loaded via dynamic import the file tracer can't follow,
-  so the Dockerfile copies its 10 transitive packages explicitly). MariaDB
+  so the Dockerfile copies its 9 transitive packages explicitly). MariaDB
   support works out of the box; no native build step, ever.
+- **Runtime hygiene:** the image carries a `HEALTHCHECK` (`wget /api/health`
+  on 32060, 30s interval, 30s start-period), `STOPSIGNAL SIGTERM` (pairs
+  with the custom server's graceful drain), full OCI metadata labels
+  (source/revision/version), and drops to the `node` user via `su-exec` after
+  fixing the mounted data dirs' ownership.
 
 ---
 
@@ -77,7 +82,7 @@ docker rm -f vela          # remove
 -e DATA_DIR=/app/data
 ```
 
-Without `DATA_DIR`, the app falls back to `~/.9router/` inside the
+Without `DATA_DIR`, the app falls back to `~/.vela/` inside the
 container — which is lost when the container is removed. Always mount.
 
 Data layout under `$DATA_DIR/`:
@@ -90,7 +95,7 @@ $DATA_DIR/
 └── …                     # certs, logs, runtime configs
 ```
 
-> 📌 **Note:** usage logs (`usage.json`, `log.txt`) live under `~/.9router`
+> 📌 **Note:** usage logs (`usage.json`, `log.txt`) live under `~/.vela`
 > inside the app and do **not** follow `DATA_DIR` — treat them as ephemeral.
 
 ---
@@ -172,7 +177,7 @@ URL → enable. If Headroom runs on the Docker *host* instead, use
 
 ```bash
 # 1. Bump the pinned tag in docker-compose.yml
-#    image: ghcr.io/yumamax3/vela:0.6.70  →  ghcr.io/yumamax3/vela:0.6.80
+#    image: ghcr.io/yumamax3/vela:0.9.20  →  ghcr.io/yumamax3/vela:0.9.21
 # 2. Pull and recreate
 docker compose pull
 docker compose up -d

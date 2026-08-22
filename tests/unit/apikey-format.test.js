@@ -42,7 +42,7 @@ describe("Vela key format (vela-v1-{keyId}-{crc})", () => {
 
   it("rejects every sk- legacy shape (hard clean break)", async () => {
     const { parseVelaKey } = await import("@/shared/utils/apiKey.js");
-    const legacy = ["sk_9router", "sk-proj-abc123", "sk-1234abcd", "SK-V1-ABC-DEF", "sk-live-xyz"];
+    const legacy = ["sk_Vela", "sk-proj-abc123", "sk-1234abcd", "SK-V1-ABC-DEF", "sk-live-xyz"];
     for (const k of legacy) {
       expect(parseVelaKey(k)).toBeNull();
     }
