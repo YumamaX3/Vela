@@ -25,6 +25,50 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.15 — The Resilience Covenant ⚡💜
+
+> *"The fleet was armed but not self-healing. Now a pool that stumbles is set
+> aside, counted, and welcomed back only when the backoff says it may."*
+
+**The Mirror ceremony** — five family forks deep-read (VansRouter, AMRouter,
+SRouter, MIBP, upstream), Vela's proxy heart fully charted, and the honest
+scope sealed: the fleet already carried the family's best (EWMA fitness,
+re-pick, egress probes, MITM, pricing) — what remained was **resilience**.
+
+**✨ Features**
+- **Circuit breaker** (`src/lib/network/circuitBreaker.js`) — consecutive-failure
+  escalation (cooldown → exhausted), exponential backoff `2^(n-3)`s capped at
+  5 min, `Retry-After` header honoring, hard-skip of cooldown pools in
+  `pickSmart`, per-(pool, provider) keys, fail-open everywhere. Woven into
+  `proxyFleet.js` (pre-filter before EWMA draw; `recordOutcome` feeds;
+  `recordClaimGate` maps country_blocked/ip_capped → cooldown).
+- **Fallback-rules DB** (migration 012) — operator-configurable combo fallback:
+  sourceModel → targetModel with priority, triggerOnStatus, maxRetries. `combo.js`
+  `getComboModelsFromData` consults DB rules before hardcoded defaults
+  (fail-open; empty DB = byte-identical legacy). CRUD API `/api/fallback-rules`
+  (dashboard-guard protected) + sqlite/facade/mysql twin repos.
+- **14 new providers** via migrate-registry (registry 130 → 144): qwen, qwen-v2,
+  alibaba, alibaba-intl, ai21, snowflake, databricks, zcode, zcode-lite,
+  muse-spark-web, muse-spark-lite, agentrouter, agentrouter-pro, devin-cli,
+  devin-cli-pro, mimo-free, gemini-cli.
+
+**🐛 Fixes**
+- `search.js` / `fetch.js` — `await` on the now-async `getComboModelsFromData`
+  (hot-path combo crash was shipped by the forge; caught by the Mirror's proof gate).
+- Breaker backoff corrected to seconds-scale (raw-ms bug would have given 1ms
+  cooldowns); exhausted state now re-escalates backoff so the 5-min cap is reachable.
+
+**⚙️ Internal**
+- `tests/unit/resilience-covenant.test.js` — 15 assertions: breaker state
+  machine, hard-skip, backoff cap, Retry-After, fail-open, combo rules merge.
+- `instrumentation.js` — Fleet Captain boot made dynamic (Edge-runtime-safe).
+
+**📖 Docs**
+- `plans/resilience-covenant-v0.9.15.md` — sealed ADR + adversarial review.
+- Scout research reports → `plans/research/`.
+
+---
+
 # v0.9.14 — The Shape Truth Fix 🩹💜
 
 > *"The ledger always had the numbers. The page just didn't know their shape."*
