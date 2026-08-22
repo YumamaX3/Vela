@@ -6,13 +6,15 @@ read the relevant chart before working in an area, rather than re-deriving.
 
 ## What this is
 
-**Vela** (`vela-app`, v0.6.80) — a local AI routing gateway + Next.js
+**Vela** (`vela-app`, v0.9.19) — a local AI routing gateway + Next.js
 dashboard, forked from [9Router](https://github.com/decolua/9router) and
 sailing its own course from v0.6.0. It exposes one OpenAI-compatible
-endpoint (`/v1/*`) and routes traffic across 40+ upstream providers with
+endpoint (`/v1/*`) and routes traffic across 140+ upstream providers with
 format translation, model-combo fallback, multi-account fallback, OAuth /
 API-key credential management, token refresh, quota/usage tracking, the RTK
-token saver, and a three-posture storage layer with sealed backups.
+token saver, a three-posture storage layer with sealed backups, and the
+Resilience Covenant (circuit breaker, operator fallback-rules DB, per-key
+ACL, pool egress geo, prompt injectors).
 
 Two published artifacts live in this one repo:
 
@@ -51,7 +53,9 @@ npx vitest run unit/capabilities.test.js   # single file
 > ignore it; use the `npx vitest` form above.
 >
 > **The suite is NOT expected to be all-green on a plain checkout**
-> (~938 pass, ~64 fail). Judge regressions with
+> (~2,255 pass, ~371 fail — the bulk are credential/network-dependent:
+> oauth exchanges, live provider calls, DB-backed suites that need a real
+> storage layer). Judge regressions with
 > `tests/__baseline__/verify-no-regression.mjs`, not a raw run. Expected red:
 > the catalogued `tests/__baseline__/known-fails.txt`, the `cloud/` worker
 > import (dir not in this repo), the xAI timeout without credentials, and
@@ -94,7 +98,7 @@ engine. Cross that boundary consciously.
 
 ### Provider registry (`open-sse/providers/registry/*`)
 
-One file per provider (129 files). `registry/index.js` is **auto-generated**
+One file per provider (143 files). `registry/index.js` is **auto-generated**
 — regenerate with `scripts/migrate-registry.mjs`, don't hand-edit. Add a
 provider: copy `REGISTRY_TEMPLATE.js`, add models to
 `config/providerModels.js`; add an executor only for non-OpenAI-compatible
@@ -108,7 +112,7 @@ Driver fallback chain (`driver.js`): `bun:sqlite` → `better-sqlite3`
 `src/lib/localDb.js` is a backward-compat shim — new code imports
 `@/lib/db/index.js`; per-entity logic lives in `src/lib/db/repos/*`
 (facades that bind by posture). Schema/migrations in `src/lib/db/migrations/`
-(001–007, `SCHEMA_VERSION = 7`).
+(001–013, `SCHEMA_VERSION = 12`).
 
 **Storage postures** (`VELA_DB_MODE`): `sqlite` (default) | `mysql`
 (MariaDB is the harbor; unreachable twin refuses boot LOUD) | `mirror`
@@ -121,6 +125,34 @@ still live under `~/.9router` and do **not** follow `DATA_DIR`.
 Pre-translate hooks that compress `tool_result` content in-place.
 **Fail-open**: any error returns `null` and leaves the body untouched —
 never throw out of them. Skips `is_error` results to preserve traces.
+
+### Resilience Covenant (v0.9.15–v0.9.19)
+
+The proxy ascension — four minors that hardened the gateway. Read
+[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) before touching these:
+
+- **Circuit breaker** (`src/lib/network/circuitBreaker.js`) — cooldown →
+  exhausted escalation with exponential backoff; woven into
+  `proxyFleet.js`'s pool selection.
+- **Fallback-rules engine** (`src/lib/db/repos/fallbackRulesRepo.js` +
+  `open-sse/services/combo.js` `fallbackRulesRepo` param) — operator-defined
+  combo fallback (sourceModel → targetModel, glob-matched, fail-open).
+  Handlers pass `getFallbackRulesRepo()` from `bindFallbackRules.js`.
+- **Per-key ACL** (`src/sse/services/keyGate.js` stages) — tri-state
+  allowlists for kinds/providers/combos/models (`allowedKinds`,
+  `allowedProviders`, `allowedCombos` JSON columns, migration 013).
+  Handlers pass an explicit `kind` to `authorizeApiRequest`.
+- **Pool egress geo** (`src/lib/network/poolGeo.js` +
+  `poolEgressProbe.js`) — shared egress registry + background probe; the
+  dashboard shows each pool's egress IP/country/flapping.
+- **Prompt injectors** (`open-sse/rtk/userInjectors.js`, settings
+  `userInjectors`) — operator-defined system prompts layered via
+  `injectSystemPrompt` (append/prepend), after the built-in savers.
+
+**CI gotcha**: the Docker build (`npm run build` → `sync-changelog.mjs` +
+`next build`) needs `package-lock.json` AND `scripts/sync-changelog.mjs` +
+`scripts/copy-standalone-assets.mjs` in the repo — they were once gitignored
+and every tag build broke; keep them tracked.
 
 ## Conventions & gotchas
 
@@ -143,7 +175,9 @@ never throw out of them. Skips `is_error` results to preserve traces.
   `.github/workflows/docker-publish.yml` on `v*` tags. The Dockerfile copies
   mysql2's full transitive runtime closure (dynamic import the tracer can't
   follow) — keep those COPY lines intact
-  (`tests/unit/dockerfile-mysql2-closure.test.js` guards them).
+  (`tests/unit/dockerfile-mysql2-closure.test.js` guards them). The build
+  needs `package-lock.json` + `scripts/sync-changelog.mjs` +
+  `scripts/copy-standalone-assets.mjs` tracked (see the CI gotcha above).
 
 ## Documentation map
 

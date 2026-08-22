@@ -15,6 +15,13 @@
  *
  * Uses ALTER TABLE ADD COLUMN with PRAGMA table_info guard so both fresh
  * installs (001's TABLES mirror) and v2 upgrades survive.
+ *
+ * ADAPTER CONTRACT (learned the hard way, 0.9.19 boot storm): the adapter
+ * interface exposes run/get/all/exec/transaction — NO raw prepare(). On the
+ * mysql/mirror harbors the adapter is the MariaDB twin (or the mirror's
+ * decorated adapter); `db.prepare(...)` throws "a.prepare is not a function"
+ * and kills every DB-backed API at boot. Use db.all(...) + db.exec(...)
+ * exactly like migration 002.
  */
 
 const COLUMNS = [
@@ -24,7 +31,7 @@ const COLUMNS = [
 ];
 
 const up = (db) => {
-  const cols = new Set(db.prepare("PRAGMA table_info(apiKeys)").all().map((c) => c.name));
+  const cols = new Set(db.all(`PRAGMA table_info(apiKeys)`).map((c) => c.name));
   for (const [name, type] of COLUMNS) {
     if (!cols.has(name)) {
       db.exec(`ALTER TABLE apiKeys ADD COLUMN ${name} ${type}`);
