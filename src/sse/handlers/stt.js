@@ -31,7 +31,7 @@ export async function handleStt(request) {
 
   const settings = await getSettings();
   {
-    const gate = await authorizeApiRequest(request, { requestModel: modelStr, settings });
+    const gate = await authorizeApiRequest(request, { requestModel: modelStr, settings, kind: "stt" });
     if (!gate.ok) return gate.response;
   }
 

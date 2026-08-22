@@ -20,6 +20,10 @@ function rowToPublic(row) {
     description: row.description || null,
     keyPrefix: row.keyPrefix || null,
     allowedModels: safeParse(row.allowedModels),
+    // Per-key ACL (v0.9.17) — tri-state JSON arrays; NULL = unrestricted.
+    allowedKinds: safeParse(row.allowedKinds),
+    allowedProviders: safeParse(row.allowedProviders),
+    allowedCombos: safeParse(row.allowedCombos),
     isActive: row.isActive === 1 || row.isActive === true,
     isInternal: row.isInternal === 1 || row.isInternal === true,
     createdAt: row.createdAt,
@@ -89,8 +93,8 @@ export async function createApiKey(name, opts = {}) {
   const createdAt = new Date().toISOString();
   const v = limits.values;
   db.run(
-    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, description, allowedModels, isInternal, rateLimitRpm, tokenBudgetDaily, spendCapDailyCents, budgetScope, expiresAt, ipAllowlist, category)
-     VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, description, allowedModels, allowedKinds, allowedProviders, allowedCombos, isInternal, rateLimitRpm, tokenBudgetDaily, spendCapDailyCents, budgetScope, expiresAt, ipAllowlist, category)
+     VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       `vela-minted-${id}`,
@@ -102,6 +106,9 @@ export async function createApiKey(name, opts = {}) {
       keyPrefix,
       opts.description || null,
       opts.allowedModels != null ? JSON.stringify(opts.allowedModels) : null,
+      opts.allowedKinds != null ? JSON.stringify(opts.allowedKinds) : null,
+      opts.allowedProviders != null ? JSON.stringify(opts.allowedProviders) : null,
+      opts.allowedCombos != null ? JSON.stringify(opts.allowedCombos) : null,
       v.rateLimitRpm ?? null,
       v.tokenBudgetDaily ?? null,
       v.spendCapDailyCents ?? null,
@@ -134,7 +141,7 @@ export function getKeyHashForMirror(keyId) {
  * KeyLimitsValidationError instead of reaching the database.
  */
 const MUTABLE_FIELDS = new Set([
-  "name", "description", "allowedModels", "isActive",
+  "name", "description", "allowedModels", "allowedKinds", "allowedProviders", "allowedCombos", "isActive",
   "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
   "budgetScope", "expiresAt", "ipAllowlist", "category",
 ]);
@@ -156,9 +163,10 @@ export async function updateApiKey(id, data) {
     if (!row) return;
     const sets = [];
     const vals = [];
+    const JSON_FIELDS = new Set(["allowedModels", "allowedKinds", "allowedProviders", "allowedCombos"]);
     for (const k of present) {
-      if (k === "allowedModels") {
-        sets.push("allowedModels = ?");
+      if (JSON_FIELDS.has(k)) {
+        sets.push(`${k} = ?`);
         vals.push(data[k] != null ? JSON.stringify(data[k]) : null);
       } else if (k === "isActive") {
         sets.push("isActive = ?");

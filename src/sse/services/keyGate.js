@@ -14,6 +14,7 @@ import { resolveKey, getApiKeyById } from "@/lib/db/repos/apiKeysRepo.js";
 import { touchKeyLastUsed, getUsageDailySince } from "@/lib/db/repos/usageRepo.js";
 import { parseModel } from "./model.js";
 import { budgetStage } from "./budgetGate.js";
+import { resolveProviderId, AI_PROVIDERS } from "@/shared/constants/providers.js";
 
 export const GATE_CODES = {
   INVALID_KEY: "invalid_api_key",
@@ -44,6 +45,10 @@ function toResolvedKey(row) {
     keyPrefix: row.keyPrefix,
     name: row.name,
     allowedModels: safeParse(row.allowedModels),
+    // Per-key ACL (v0.9.17) — tri-state: null = all, [] = none, ["x"] = whitelist.
+    allowedKinds: safeParse(row.allowedKinds),
+    allowedProviders: safeParse(row.allowedProviders),
+    allowedCombos: safeParse(row.allowedCombos),
     isInternal: row.isInternal === 1 || row.isInternal === true,
     expiresAt: row.expiresAt || null,
     rateLimitRpm: row.rateLimitRpm ?? null,
@@ -294,7 +299,84 @@ export async function spendStage(key) {
   return { ok: true };
 }
 
-const STAGES = [lifetimeStage, ipStage, rateStage, spendStage];
+// ── Per-key ACL (v0.9.17) — kinds / providers / combos / models ────────────
+// Tri-state semantics per dimension (VansRouter §1, seam-native):
+//   null              → all allowed (unrestricted)
+//   []                → none allowed (deny everything)
+//   ["x", "y"]        → only listed items allowed (whitelist)
+// Fail-open: a dimension that is null/undefined never blocks. The resolver
+// chain for providers accepts direct ID, alias, resolved provider/model, and
+// provider-prefix forms so ACL entries survive provider renames.
+
+export const SERVICE_KINDS = ["llm", "embedding", "image", "imageToText", "tts", "stt", "webSearch", "webFetch", "video", "music", "web"];
+
+/**
+ * Resolve the service kind for a request.
+ * The handler KNOWS its kind (chat → "llm", tts → "tts", fetch → "webFetch",
+ * …) and passes it explicitly — matching VansRouter's per-handler
+ * isKindAllowed(apiKeyInfo, "<kind>") pattern. Combo requests are "llm" by
+ * convention (their members are checked individually at dispatch). Unknown
+ * → "llm" (the default kind, matching Vela's model-kind resolution).
+ */
+function resolveRequestKind({ kind = null } = {}) {
+  if (kind && SERVICE_KINDS.includes(kind)) return kind;
+  return "llm";
+}
+
+/** Tri-state check: returns true when `value` is permitted for `allowlist`. */
+export function triStateAllowed(allowlist, value) {
+  if (allowlist == null) return true; // unrestricted
+  if (!Array.isArray(allowlist)) return true; // malformed → fail-open
+  if (allowlist.length === 0) return false; // [] = deny all
+  return allowlist.includes(value);
+}
+
+/**
+ * Kind stage — blocks requests whose service kind is outside the key's
+ * allowedKinds. The kind is resolved from the model prefix; combos default to
+ * "llm" (their members are checked individually at dispatch).
+ */
+export function kindStage(key, { kind = null } = {}) {
+  if (key.allowedKinds == null) return { ok: true };
+  const resolvedKind = resolveRequestKind({ kind });
+  if (triStateAllowed(key.allowedKinds, resolvedKind)) return { ok: true };
+  return deny(HTTP_STATUS.FORBIDDEN, GATE_CODES.MODEL_FORBIDDEN, `Service kind "${resolvedKind}" not allowed for this API key`);
+}
+
+/**
+ * Provider stage — blocks requests whose provider (from the model's
+ * provider/model prefix) is outside allowedProviders. Alias-resolved: the
+ * request may name an alias; the ACL checks both the raw prefix and the
+ * resolved provider id.
+ */
+export function providerStage(key, { requestModel = null } = {}) {
+  if (key.allowedProviders == null) return { ok: true };
+  if (!requestModel || requestModel.startsWith("combo/")) return { ok: true }; // combos are the comboStage's scope
+  const slash = requestModel.indexOf("/");
+  const provider = slash > 0 ? requestModel.slice(0, slash) : "";
+  if (!provider) return { ok: true };
+  if (triStateAllowed(key.allowedProviders, provider)) return { ok: true };
+  // Alias-resolved form: the resolved provider id (e.g. request says "oc/…",
+  // ACL lists "openai-codex") — resolve via the shared provider registry.
+  // Static import at top of file avoids a require() in ESM.
+  const resolved = resolveProviderId(provider);
+  if (resolved && resolved !== provider && triStateAllowed(key.allowedProviders, resolved)) return { ok: true };
+  return deny(HTTP_STATUS.FORBIDDEN, GATE_CODES.MODEL_FORBIDDEN, `Provider "${provider}" not allowed for this API key`);
+}
+
+/**
+ * Combo stage — blocks combo-name requests whose combo is outside
+ * allowedCombos. The combo name is matched without the "combo/" prefix.
+ */
+export function comboStage(key, { requestModel = null } = {}) {
+  if (key.allowedCombos == null) return { ok: true };
+  if (!requestModel || !requestModel.startsWith("combo/")) return { ok: true };
+  const comboName = requestModel.slice("combo/".length);
+  if (triStateAllowed(key.allowedCombos, comboName)) return { ok: true };
+  return deny(HTTP_STATUS.FORBIDDEN, GATE_CODES.MODEL_FORBIDDEN, `Combo "${comboName}" not allowed for this API key`);
+}
+
+const STAGES = [lifetimeStage, ipStage, rateStage, spendStage, kindStage, providerStage, comboStage];
 
 // Observatory budget hierarchy (W3-B). Kept OUT of STAGES because it needs
 // requestModel (model-scope budgets) which the per-key stages do not, and it
@@ -342,7 +424,7 @@ export function modelScopeStage(key, { requestModel, comboModels } = {}) {
  */
 export async function authorizeApiRequest(
   request,
-  { requestModel = null, comboModels = null, settings, clientIp = null, allowInternal = false } = {}
+  { requestModel = null, comboModels = null, settings, clientIp = null, allowInternal = false, kind = null } = {}
 ) {
   const requireKey = settings ? !!settings.requireApiKey : true;
   if (!requireKey) {
@@ -371,7 +453,8 @@ export async function authorizeApiRequest(
 
   for (const stage of STAGES) {
     // Stages may be async (spendStage reads the usage ledger) — await each verdict.
-    const verdict = await stage(key, { clientIp: resolvedIp });
+    // The ACL stages (kind/provider/combo) read their scope from the request.
+    const verdict = await stage(key, { clientIp: resolvedIp, requestModel, kind });
     if (!verdict.ok) return verdict;
   }
 
@@ -390,13 +473,43 @@ export async function authorizeApiRequest(
 
 /** Scope-filter a model list for /v1/models responses (no 403 — just less visible). */
 export function filterModelsByScope(models, key) {
-  if (!key || !key.allowedModels) return models;
-  const scope = new Set(key.allowedModels);
+  if (!key) return models;
+
+  // Full per-key ACL (v0.9.17): filter by kinds, providers, combos, then models.
+  // A dimension that is null (unrestricted) does not filter. A dimension that
+  // is [] (deny-all) yields zero models from that dimension.
+  const kinds = key.allowedKinds;
+  const providers = key.allowedProviders;
+  const combos = key.allowedCombos;
+  const scope = key.allowedModels ? new Set(key.allowedModels) : null;
+
   return models.filter((m) => {
     const candidates = [m.id, m.model, m.fullModel, m.routedModel, m.alias, typeof m === "string" ? m : null].filter(Boolean);
     // Gemini-native list shape: name = "models/{provider}/{id}" or "models/{id}"
     if (typeof m?.name === "string" && m.name.startsWith("models/")) candidates.push(m.name.slice(7));
-    return candidates.some((c) => scope.has(c));
+
+    const modelStr = candidates[0] || "";
+    const isCombo = modelStr.startsWith("combo/");
+    const slash = modelStr.indexOf("/");
+    const provider = slash > 0 && !isCombo ? modelStr.slice(0, slash) : "";
+
+    // Kind filter — model entries carry a kind/capability tag; combos are "llm".
+    if (kinds != null) {
+      const kind = m.kind || m.serviceKind || (isCombo ? "llm" : "llm");
+      if (!triStateAllowed(kinds, kind)) return false;
+    }
+    // Provider filter — combos are exempt (they belong to the combo dimension).
+    if (providers != null && provider && !isCombo && !triStateAllowed(providers, provider)) return false;
+    // Combo filter.
+    if (combos != null && isCombo) {
+      const comboName = modelStr.slice("combo/".length);
+      if (!triStateAllowed(combos, comboName)) return false;
+    }
+    // Model-scope filter (legacy allowedModels).
+    if (scope) {
+      if (!candidates.some((c) => scope.has(c))) return false;
+    }
+    return true;
   });
 }
 

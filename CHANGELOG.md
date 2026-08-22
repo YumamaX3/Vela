@@ -25,6 +25,24 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.17 — The Per-Key ACL 🗝️⚡
+
+> *"Every key was a master key. Now each one carries its own gate — kinds, providers, combos, models — tri-state, fail-open, seam-native."*
+
+**The second minor of the ascension.** VansRouter §1 semantics ported seam-native into Vela's existing key-governance pipeline: the four access-control layers ride the proven stage gate (extract → identity → lifetime → ip → rate → spend → ACL).
+
+**✨ Features**
+- **4-layer per-key ACL** (migration 013: `allowedKinds`, `allowedProviders`, `allowedCombos` JSON columns) — tri-state per dimension: null = all, [] = none, ["x"] = whitelist. Extends the existing `allowedModels` scope.
+- **Gate stages** in `keyGate.js` — `kindStage`, `providerStage` (alias-resolved via the provider registry), `comboStage` woven into the STAGES pipeline after spend; `modelScopeStage` combo gating (ALL members in scope) preserved.
+- **Explicit kinds threaded** through all 8 gate call sites — chat→llm, embeddings→embedding, fetch→webFetch, image→image, search→webSearch, stt→stt, tts→tts, video→video.
+- **`/v1/models` full ACL filtering** — `filterModelsByScope` narrows by kinds, providers, combos, then legacy allowedModels; combos stay visible under provider restriction (separate dimension) and are hidden by `allowedCombos`.
+- **apiKeys repo** — create/update/read flow the new columns (JSON-serialized, whitelisted mutable fields).
+
+**🧪 Tests**
+- `tests/unit/key-acl.test.js` — 32 tests across 7 suites (tri-state, kind/provider/combo stages, combo model-scope, /v1/models narrowing, gate-pipeline enforcement with the proven vi.hoisted mock pattern). All gate suites green: 116 tests in key-acl + apikey-gate-acl + apikey-gate-stages.
+
+---
+
 # v0.9.16 — The Fallback-Rules Engine 🔧⚡
 
 > *"The rules were written but the gate was silent — no caller ever asked them.

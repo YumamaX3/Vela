@@ -39,7 +39,7 @@ export async function handleImageGeneration(request) {
   const apiKey = extractApiKey(request);
   const settings = await getSettings();
   {
-    const gate = await authorizeApiRequest(request, { requestModel: modelStr, settings });
+    const gate = await authorizeApiRequest(request, { requestModel: modelStr, settings, kind: "image" });
     if (!gate.ok) return gate.response;
   }
 

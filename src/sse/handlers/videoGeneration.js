@@ -30,7 +30,7 @@ async function requireValidApiKey(request) {
   const settings = await getSettings();
   // Identity-only gate: the video body is read AFTER auth (stream-forwarding),
   // so the model is not available here (documented carve-out, plan §3.5).
-  const gate = await authorizeApiRequest(request, { settings });
+  const gate = await authorizeApiRequest(request, { settings, kind: "video" });
   return gate.ok ? null : gate.response;
 }
 
