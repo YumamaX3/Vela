@@ -246,12 +246,15 @@ export function resetComboRotation(comboName) {
 }
 
 /**
- * Get combo models from combos data
+ * Get combo models from combos data, expanded with DB-based fallback rules
+ * Falls back to hardcoded combos when DB is empty or unavailable (fail-open)
  * @param {string} modelStr - Model string to check
  * @param {Array|Object} combosData - Array of combos or object with combos
- * @returns {string[]|null} Array of models or null if not a combo
+ * @param {Object} [fallbackRulesRepo] - Optional fallbackRules repo for DB-based expansion (Seam 2)
+ * @param {string} [failureStatus] - Status code that triggered this lookup (e.g., '429')
+ * @returns {string[]|null} Array of models (hardcoded combo + DB fallback rules) or null if not a combo
  */
-export function getComboModelsFromData(modelStr, combosData) {
+export async function getComboModelsFromData(modelStr, combosData, fallbackRulesRepo, failureStatus = null) {
   // Don't check if it's in provider/model format
   if (modelStr.includes("/")) return null;
   
@@ -259,10 +262,45 @@ export function getComboModelsFromData(modelStr, combosData) {
   const combos = Array.isArray(combosData) ? combosData : (combosData?.combos || []);
   
   const combo = combos.find(c => c.name === modelStr);
-  if (combo && combo.models && combo.models.length > 0) {
-    return combo.models;
+  if (!combo || !combo.models || combo.models.length === 0) {
+    return null;
   }
-  return null;
+  
+  const baseModels = [...combo.models];
+  
+  // If fallbackRulesRepo provided and we have a trigger status, check for DB rules
+  if (fallbackRulesRepo && failureStatus) {
+    try {
+      // Query DB rules for this source model (exact match or glob)
+      const dbRules = await fallbackRulesRepo.getRulesForSourceModel(modelStr, false);
+      
+      if (dbRules && dbRules.length > 0) {
+        // Filter rules by trigger status and priority order
+        const matchingRules = dbRules.filter(rule => 
+          rule.triggerOnStatus.split(',').map(s => s.trim()).includes(failureStatus)
+        ).sort((a, b) => a.priority - b.priority);
+        
+        if (matchingRules.length > 0) {
+          // Merge DB rules into base models (DB wins, then hardcoded defaults)
+          for (const rule of matchingRules) {
+            if (rule.maxRetries > 0 && rule.targetModel) {
+              // Check if target already in baseModels to avoid duplicates
+              if (!baseModels.includes(rule.targetModel)) {
+                baseModels.push(rule.targetModel);
+              }
+            }
+          }
+          
+          console.debug("[combo] DB fallback rules applied to", modelStr, ":", baseModels.join(' → '));
+        }
+      }
+    } catch (err) {
+      // Fail-open: fall back to hardcoded defaults when DB unavailable
+      console.warn("[combo] fallback rules lookup failed, using hardcoded defaults:", err.message);
+    }
+  }
+  
+  return baseModels;
 }
 
 /**
@@ -275,9 +313,10 @@ export function getComboModelsFromData(modelStr, combosData) {
  * @param {string} [options.comboName] - Name of the combo (for round-robin tracking)
  * @param {string} [options.comboStrategy] - Strategy: "fallback" or "round-robin"
  * @param {number|string} [options.comboStickyLimit=1] - Requests per combo model before switching
+ * @param {Object} [options.fallbackRulesRepo] - Optional fallbackRules repo for DB-based fallback rules (Seam 2)
  * @returns {Promise<Response>}
  */
-export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true }) {
+export async function handleComboChat({ body, models, handleSingleModel, log, comboName, comboStrategy, comboStickyLimit = 1, autoSwitch = true, fallbackRulesRepo }) {
   // Apply rotation strategy if enabled
   let rotatedModels = getRotatedModels(models, comboName, comboStrategy, comboStickyLimit);
 

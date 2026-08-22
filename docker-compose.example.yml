@@ -41,11 +41,10 @@ services:
   # ⛵ vela-gateway — the gateway + dashboard
   # ═══════════════════════════════════════════════════════════════
   vela-gateway:
-    # v0.9.12 — Redesigned Sidebar + Request Logs (cut 2026-08-21).
-    # Dashboard home is now a warm-dark command deck (Live Traffic
-    # hero band, providers rail, recent activity, quick actions incl.
-    # Quota). Usage stays a single page; /quota its own page.
-    image: ghcr.io/yumamax3/vela:0.9.14   # bump to the release you want
+    # v0.9.15 — The Resilience Covenant (cut 2026-08-22): circuit breaker,
+    # fallback-rules DB, +14 providers. v0.9.12+ carries the redesigned
+    # sidebar, single-page usage, and /quota page.
+    image: ghcr.io/yumamax3/vela:0.9.15   # bump to the release you want
     container_name: vela-gateway
     hostname: vela-gateway
     restart: unless-stopped
