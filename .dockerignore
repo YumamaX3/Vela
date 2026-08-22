@@ -30,3 +30,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+
+# Build-irrelevant sources — the runner never executes these, and Next's output
+# file-tracing only follows imported code, so they only bloat the build context
+# upload + cache keys. (tests/ ships its own node_modules; the vitest suite runs
+# on the host, not in the image.)
+plans
+tests
+docs
+gitbook

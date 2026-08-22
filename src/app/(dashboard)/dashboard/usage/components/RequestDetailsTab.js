@@ -99,7 +99,7 @@ function getInputTokens(tokens) {
   return prompt < cache ? cache : prompt;
 }
 
-export default function RequestDetailsTab() {
+export default function RequestDetailsTab({ provider: controlledProvider = "" }) {
   const [details, setDetails] = useState([]);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -113,10 +113,20 @@ export default function RequestDetailsTab() {
   const [providers, setProviders] = useState([]);
   const [providerNameCache, setProviderNameCache] = useState(null);
   const [filters, setFilters] = useState({
-    provider: "",
+    provider: controlledProvider,
     startDate: "",
     endDate: ""
   });
+
+  // Sync an external provider selection (e.g. the topology mesh) into the
+  // local filter. Standalone use without the prop is unchanged.
+  useEffect(() => {
+    setFilters((prev) =>
+      prev.provider === controlledProvider
+        ? prev
+        : { ...prev, provider: controlledProvider }
+    );
+  }, [controlledProvider]);
 
   const fetchProviders = useCallback(async () => {
     try {
@@ -202,6 +212,9 @@ export default function RequestDetailsTab() {
                   {provider.name}
                 </option>
               ))}
+              {providers.length === 0 && filters.provider ? (
+                <option value={filters.provider}>{filters.provider}</option>
+              ) : null}
             </select>
           </div>
           

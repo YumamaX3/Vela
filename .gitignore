@@ -93,3 +93,6 @@ graphify-out/*
 .codegraph/
 .PR/
 .next-analyze/*
+
+# sealed plans — internal, not for the public repo
+plans/
