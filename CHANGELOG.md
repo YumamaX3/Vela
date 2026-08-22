@@ -25,6 +25,20 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.20 — The Adapter Contract Fix 🔧⚡
+
+> *"The harbor spoke one language — run, get, all, exec, transaction. A single `prepare` broke every API at boot. The migration now speaks it too."*
+
+**Hotfix — the 0.9.19 boot storm.** Migration 013's first draft used `db.prepare("PRAGMA table_info(apiKeys)").all()` — the sqlite-only API. On the sql.js adapter (the Docker runner's fallback driver) and the mysql/mirror adapters there is no public `.prepare`, so every DB-backed API crashed at boot with `a.prepare is not a function` after the 0.9.19 pull.
+
+**🐛 Fixed**
+- **Migration 013 rewritten to the portable adapter surface** — `db.all("PRAGMA table_info(apiKeys)")` + `db.exec(...)`, exactly the pattern migration 002 documents ("Adapter interface exposes run/get/all/exec/transaction — no raw prepare()"). Works on every driver: better-sqlite3, node:sqlite, bun:sqlite, sql.js, and the mysql/mirror adapters.
+
+**🧪 Tests**
+- `tests/unit/key-acl-migration-013.test.js` — 3 tests. The critical one boots the **sql.js adapter** (the exact production-crash driver) and proves the migration chain runs to v13 with all ACL columns landing; plus idempotence and JSON-storage round-trip on the natural driver.
+
+---
+
 # v0.9.19 — The Prompt Injectors ✒️⚡
 
 > *"The gateway was a dumb pipe. Now the operator speaks through every request — their words layered into the system message, before dispatch, after the savers."*
