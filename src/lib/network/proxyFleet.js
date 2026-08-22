@@ -31,6 +31,7 @@ import { getFitnessRows, upsertFitnessBatch, resetFitness } from "../db/repos/pr
 import { getProxyPools, getProxyPoolById, updateProxyPool } from "../db/repos/proxyPoolsRepo.js";
 import { getAdapter } from "../db/driver.js";
 import { resolveConnectionProxyConfig } from "./connectionProxy.js";
+import { isAvailable, recordFailure, recordSuccess, onRetryAfter, flushNow as flushBreakerNow } from "./circuitBreaker.js";
 
 const RE_PICK_CODES = new Set(["country_blocked", "ip_capped"]); // C16 LOCKED
 const MAX_REPICKS = 3;
@@ -161,12 +162,12 @@ function scheduleFlush() {
 
   // Immediate check in case we're mid-flush
   if (dirtyKeys.size >= 32) {
-    doFlush();
+    flushNow();
     return;
   }
 
   flushTimer = setTimeout(() => {
-    doFlush();
+    flushNow();
   }, FLUSH_INTERVAL_MS);
 
   flushTimer.unref();
@@ -242,7 +243,6 @@ export function pick(poolIds, policy) {
     switch (strategy) {
       case "smart":
         return pickSmart(poolIds, providerId, pinnedPoolId);
-
       case "round-robin":
         return pickRoundRobin(poolIds, providerId);
 
@@ -265,54 +265,62 @@ export function pick(poolIds, policy) {
 
 /**
  * Smart: fitness-weighted order (with fallback to legacy if no signals)
+ * Circuit Breaker integration: pre-filter !isAvailable BEFORE unfit check (Seam 1)
  */
 function pickSmart(poolIds, providerId, pinnedPoolId) {
   // Build fitness map for this provider
   const fitnessMap = new Map();
   let anySignal = false;
-
+  
+  // Circuit breaker pre-filter: exclude unavailable keys before fitness scoring
+  const availableIds = [];
   for (const id of poolIds) {
     const fitness = getOrCreateFitness(id, providerId);
     fitnessMap.set(id, fitness);
-
+    
     if (fitness.successCount > 0 || fitness.failureCount > 0) {
       anySignal = true;
     }
+    
+    // Circuit breaker check: isAvailable returns true for healthy OR cooldown passed
+    if (isAvailable(id, providerId, "")) {
+      availableIds.push(id);
+    }
   }
-
+  
   if (!anySignal) {
     // No signals yet: round-robin by pool ID order (byte-identical legacy)
     return poolIds[0];
   }
-
-  // Score and filter out unfit pools
+  
+  // Score and filter out unfit pools from AVAILABLE pools only
   const scored = [];
   const now = Date.now();
-
-  for (const id of poolIds) {
+  
+  for (const id of availableIds) {
     const fitness = fitnessMap.get(id);
-
+    
     // Check unfitness TTL — expiry IS the auto-reenable (Gate 11 verified)
     if (fitness.unfit && fitness.unfitUntil) {
       const unfitUntil = Date.parse(fitness.unfitUntil);
       if (now < unfitUntil) continue; // still unfit
     }
-
+    
     const weight = computeScore(fitness);
     scored.push({ id, weight });
   }
-
+  
   if (scored.length === 0) return poolIds[0]; // all unfit → first one
-
+  
   // Weighted random draw among fit pools
   const totalWeight = scored.reduce((sum, s) => sum + s.weight, 0);
   let r = Math.random() * totalWeight;
-
+  
   for (const { id, weight } of scored) {
     if (r < weight) return id;
     r -= weight;
   }
-
+  
   return scored[scored.length - 1].id;
 }
 
@@ -374,28 +382,35 @@ export async function resolveVirtualConnection(providerId) {
 
 /**
  * Record outcome signal (transport success/error)
+ * Feeds circuit breaker: recordSuccess on ok, recordFailure on error
  */
 export function recordOutcome(poolId, providerId, signal) {
   try {
     if (!poolId || !providerId || !signal) return;
-
+    
     const fitness = getOrCreateFitness(poolId, providerId);
-
+    
     if (signal.ok) {
       fitness.successCount++;
       fitness.successEwma = ALPHA_EWMA * 1 + (1 - ALPHA_EWMA) * fitness.successEwma;
+      
+      // Feed success to circuit breaker — resets consecutive failures
+      recordSuccess(poolId, providerId, "");
     } else {
       fitness.failureCount++;
       fitness.successEwma = ALPHA_EWMA * 0 + (1 - ALPHA_EWMA) * fitness.successEwma;
+      
+      // Feed failure to circuit breaker — escalates state machine
+      recordFailure(poolId, providerId, "", {});
     }
-
+    
     if (signal.latencyMs !== undefined) {
       fitness.latencyEwmaMs = ALPHA_EWMA * signal.latencyMs + (1 - ALPHA_EWMA) * fitness.latencyEwmaMs;
     }
-
+    
     fitness.lastOutcomeAt = new Date().toISOString();
     fitness.unreadiedAt = Date.now();
-
+    
     markDirty(poolId, providerId);
   } catch (err) {
     // Fire-and-forget: never throw here
@@ -405,22 +420,26 @@ export function recordOutcome(poolId, providerId, signal) {
 
 /**
  * Record claim gate (freeblock codes trigger unfit)
+ * Maps country_blocked/ip_capped → onRetryAfter with TTL as ms (Seam 1 integration)
  */
 export function recordClaimGate(poolId, providerId, code) {
   try {
     if (!RE_PICK_CODES.has(code)) return; // only egress-IP-scoped codes
-
+    
     const fitness = getOrCreateFitness(poolId, providerId);
-
+    
     if (code === "country_blocked" || code === "ip_capped") {
       fitness.blockCount = (fitness.blockCount || 0) + 1;
       fitness.lastBlockCode = code;
-
+      
       const ttlMs = code === "country_blocked" ? 24 * 60 * 60 * 1000 : 1 * 60 * 60 * 1000; // 24h vs 1h
       fitness.unfit = 1;
       fitness.unfitReason = code;
       fitness.unfitUntil = new Date(Date.now() + ttlMs).toISOString();
-
+      
+      // Feed to circuit breaker: onRetryAfter honors the code's TTL as explicit Retry-After
+      onRetryAfter(poolId, providerId, "", ttlMs);
+      
       markDirty(poolId, providerId);
     }
   } catch (err) {
