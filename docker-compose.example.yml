@@ -9,9 +9,10 @@ name: vela
 #   cp docker-compose.example.yml docker-compose.yml
 #
 # Vela is a local AI routing gateway + dashboard: one OpenAI-compatible
-# endpoint (/v1) routing traffic across 40+ upstream providers — format
-# translation, model-combo fallback, multi-account fallback, OAuth
-# credential management, token refresh, quota tracking.
+# endpoint (/v1) routing traffic across 140+ upstream providers — format
+# translation, model-combo fallback (with operator fallback rules),
+# multi-account fallback, OAuth credential management, token refresh,
+# quota tracking, per-key ACL, and prompt injectors.
 #
 # The chart pulls the published image from GHCR. New versions are cut as
 # git tags — GitHub Actions builds & pushes ghcr.io/yumamax3/vela:<tag>.
@@ -25,7 +26,7 @@ name: vela
 #    First deploy on a machine requires:
 #      docker login ghcr.io       # PAT with read:packages + repo access
 #
-# 🗝️ Storage postures (Storage Covenant, v0.6.70+):
+# 🗝️ Storage postures (Storage Covenant, v0.9.x):
 #    VELA_DB_MODE selects the harbor — sqlite (default), mysql (MariaDB IS
 #    the harbor), or mirror (sqlite PRIMARY serves; writes pump to a MariaDB
 #    twin). Everything rides INLINE in the chart — no .env indirection.
@@ -41,10 +42,11 @@ services:
   # ⛵ vela-gateway — the gateway + dashboard
   # ═══════════════════════════════════════════════════════════════
   vela-gateway:
-    # v0.9.15 — The Resilience Covenant (cut 2026-08-22): circuit breaker,
-    # fallback-rules DB, +14 providers. v0.9.12+ carries the redesigned
-    # sidebar, single-page usage, and /quota page.
-    image: ghcr.io/yumamax3/vela:0.9.15   # bump to the release you want
+    # v0.9.19 — The Prompt Injectors (cut 2026-08-22), the last minor of
+    # the Resilience Covenant ascension: circuit breaker, fallback-rules
+    # DB, per-key ACL, pool egress geo, user prompt injectors.
+    # v0.9.12+ carries the redesigned sidebar, single-page usage, /quota.
+    image: ghcr.io/yumamax3/vela:0.9.19   # bump to the release you want
     container_name: vela-gateway
     hostname: vela-gateway
     restart: unless-stopped
