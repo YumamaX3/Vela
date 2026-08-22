@@ -1,5 +1,10 @@
 // SQLite harbor for proxyFitness table
-// All operations are sync — no await needed at the call site
+// All operations are sync — no await needed at the call site.
+//
+// The adapter contract is { run, get, all, exec, transaction, close, raw } —
+// there is NO db.prepare. db.transaction(fn) invokes fn() immediately inside a
+// SAVEPOINT and returns fn's result. (The old db.prepare()/tx(rows) shape here
+// threw "db.prepare is not a function" at boot and broke proxy-fleet fitness.)
 
 /**
  * Get fitness rows, optionally filtered by providerId
@@ -9,10 +14,9 @@
  */
 export function getFitnessRows(db, providerId = null) {
   if (providerId === null || providerId === '') {
-    return db.prepare('SELECT * FROM proxyFitness ORDER BY poolId').all();
+    return db.all('SELECT * FROM proxyFitness ORDER BY poolId');
   }
-  return db.prepare('SELECT * FROM proxyFitness WHERE provider = ? OR provider = ? ORDER BY poolId')
-    .all(providerId, '');
+  return db.all('SELECT * FROM proxyFitness WHERE provider = ? OR provider = ? ORDER BY poolId', [providerId, '']);
 }
 
 /**
@@ -22,37 +26,36 @@ export function getFitnessRows(db, providerId = null) {
  * @param {Array} rows - array of {poolId, provider, successCount, failureCount, successEwma, latencyEwmaMs, lastOutcomeAt, unfit, unfitReason, unfitUntil, egressIp, egressCountry, updatedAt}
  */
 export function upsertFitnessBatch(db, rows) {
-  const tx = db.transaction((data) => {
-    const stmt = db.prepare(`
-      INSERT INTO proxyFitness (
-        poolId, provider, successCount, failureCount, successEwma,
-        latencyEwmaMs, lastOutcomeAt, unfit, unfitReason, unfitUntil,
-        egressIp, egressCountry, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(poolId, provider) DO UPDATE SET
-        successCount = excluded.successCount,
-        failureCount = excluded.failureCount,
-        successEwma = excluded.successEwma,
-        latencyEwmaMs = excluded.latencyEwmaMs,
-        lastOutcomeAt = excluded.lastOutcomeAt,
-        unfit = excluded.unfit,
-        unfitReason = excluded.unfitReason,
-        unfitUntil = excluded.unfitUntil,
-        egressIp = excluded.egressIp,
-        egressCountry = excluded.egressCountry,
-        updatedAt = excluded.updatedAt
-    `);
+  if (!rows || rows.length === 0) return;
 
-    for (const row of data) {
-      stmt.run(
-        row.poolId, row.provider, row.successCount, row.failureCount, row.successEwma,
-        row.latencyEwmaMs, row.lastOutcomeAt, row.unfit, row.unfitReason, row.unfitUntil,
-        row.egressIp, row.egressCountry, row.updatedAt
+  db.transaction(() => {
+    for (const row of rows) {
+      db.run(
+        `INSERT INTO proxyFitness (
+          poolId, provider, successCount, failureCount, successEwma,
+          latencyEwmaMs, lastOutcomeAt, unfit, unfitReason, unfitUntil,
+          egressIp, egressCountry, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(poolId, provider) DO UPDATE SET
+          successCount = excluded.successCount,
+          failureCount = excluded.failureCount,
+          successEwma = excluded.successEwma,
+          latencyEwmaMs = excluded.latencyEwmaMs,
+          lastOutcomeAt = excluded.lastOutcomeAt,
+          unfit = excluded.unfit,
+          unfitReason = excluded.unfitReason,
+          unfitUntil = excluded.unfitUntil,
+          egressIp = excluded.egressIp,
+          egressCountry = excluded.egressCountry,
+          updatedAt = excluded.updatedAt`,
+        [
+          row.poolId, row.provider, row.successCount, row.failureCount, row.successEwma,
+          row.latencyEwmaMs, row.lastOutcomeAt, row.unfit, row.unfitReason, row.unfitUntil,
+          row.egressIp, row.egressCountry, row.updatedAt,
+        ]
       );
     }
   });
-
-  tx(rows);
 }
 
 /**
@@ -63,8 +66,8 @@ export function upsertFitnessBatch(db, rows) {
  */
 export function resetFitness(db, poolId, providerId = null) {
   if (providerId === null || providerId === '') {
-    db.prepare('DELETE FROM proxyFitness WHERE poolId = ?').run(poolId);
+    db.run('DELETE FROM proxyFitness WHERE poolId = ?', [poolId]);
   } else {
-    db.prepare('DELETE FROM proxyFitness WHERE poolId = ? AND provider = ?').run(poolId, providerId);
+    db.run('DELETE FROM proxyFitness WHERE poolId = ? AND provider = ?', [poolId, providerId]);
   }
 }

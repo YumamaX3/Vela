@@ -90,7 +90,7 @@ const CONFIG_WAVE_NAMES = new Set([
 ]);
 
 /** The A8 security-wave surface — apiKeys (hash-at-rest, rotation,
- *  soft-delete), disabledModels, pricing, requestDetails. */
+ *  soft-delete), disabledModels, pricing, requestDetails, fallbackRules. */
 const SECURITY_WAVE_NAMES = new Set([
   // apiKeysRepo
   "sanitizeCategory", "getApiKeys", "getApiKeyById", "createApiKey", "updateApiKey",
@@ -102,6 +102,9 @@ const SECURITY_WAVE_NAMES = new Set([
   "replaceSyncedPricing", "clearSyncedPricing", "getSyncedPricing",
   // requestDetailsRepo
   "saveRequestDetail", "getRequestDetails", "getDistinctProviders", "getRequestDetailById",
+  // fallbackRulesRepo
+  "getFallbackRules", "getFallbackRuleById", "getRulesForSourceModel", "createFallbackRule",
+  "updateFallbackRule", "deleteFallbackRule",
 ]);
 
 /** The A9 usage-wave surface — the full usageRepo contract. W1-C adds the

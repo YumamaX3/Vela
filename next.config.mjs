@@ -97,16 +97,7 @@ const nextConfig = {
     ];
   },
   async redirects() {
-    return [
-      // Usage Observatory W2-F — quota is absorbed into the Usage
-      // Observatory's Accounts & Limits deck. Permanent redirect (Next's
-      // permanent mechanism, 308) to the limits bearing.
-      {
-        source: "/dashboard/quota",
-        destination: "/dashboard/usage?tab=limits",
-        permanent: true
-      }
-    ];
+    return [];
   }
 };
 
