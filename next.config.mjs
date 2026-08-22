@@ -13,6 +13,11 @@ const proxyClientMaxBodySize = process.env.NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE
 const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   output: "standalone",
+  // The headroom sidecar (vela-headroom) compresses upstream traffic; the
+  // built-in gzip would double-compress and waste CPU. Fail-open if the
+  // sidecar is absent.
+  compress: false,
+  poweredByHeader: false,
   // `open` must stay external. It derives its own directory from `import.meta.url`, and
   // webpack replaces that with the absolute path of the BUILD machine as a string literal.
   // A release built on macOS therefore ships `file:///Users/.../open/index.js`, which
@@ -33,7 +38,7 @@ const nextConfig = {
   },
   // The dashboard is browsed via the homelab LAN / Tailscale IP — allow those
   // origins to load dev HMR + static assets (blocked by default since Next 15.5).
-  allowedDevOrigins: ["192.168.18.248", "100.95.77.63"],
+  allowedDevOrigins: ["192.168.18.248", "192.168.18.190", "100.95.77.63", "100.100.40.48"],
   env: {},
   experimental: {
     // #1529/#1572: LLM clients can send long context or base64 image payloads through /v1 rewrites.

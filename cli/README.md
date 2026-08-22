@@ -1,4 +1,4 @@
-# 9Router - FREE AI Router & Token Saver
+# Vela — The AI Gateway ⛵
 
 **Never stop coding. Save 20-40% tokens with RTK + auto-fallback to FREE & cheap AI models.**
 

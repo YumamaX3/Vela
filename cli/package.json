@@ -1,7 +1,7 @@
 {
   "name": "9router",
-  "version": "0.5.55",
-  "description": "9Router CLI - Start and manage 9Router server",
+  "version": "0.9.21",
+  "description": "Vela CLI — start and manage the Vela AI gateway (9router package name kept for install compatibility)",
   "bin": {
     "9router": "./cli.js"
   },

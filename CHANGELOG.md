@@ -25,6 +25,25 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.21 — The Stillwater Hull ⛵⚡
+
+> *"The hull is watertight, the rigging taut, the ensign raised — the ship sails whole."*
+
+**The Stillwater Mirror's upgrade.** Three waves across the operational skeleton — server, container, config, CI, CLI.
+
+**🐛 Stability (The Hull)**
+- **`custom-server.js`** — graceful drain on SIGTERM/SIGINT (close → bounded drain → exit; no more half-boot states); hop-by-hop header hygiene on the main path (RFC 7230 §6.1); h2c replay body guard (512mb ceiling against unbounded buffering).
+- **`Dockerfile`** — `HEALTHCHECK` baked in (liveness for orchestrators + the compose chart); `STOPSIGNAL SIGTERM`; full OCI metadata labels (source, revision, version, description).
+
+**⚡ Optimization (The Rigging)**
+- **`next.config.mjs`** — `compress: false` (the headroom sidecar already compresses; no double-gzip); `poweredByHeader: false`; `allowedDevOrigins` extended with the homelab LAN + Tailscale addresses.
+- **Workflows** — `concurrency` on docker-publish (no tag races on `:latest`/buildcache); cache-warm triggers on `v*` tags so the next release starts warm.
+
+**🎨 Theming (The Ensign)**
+- **`cli/`** — user-facing brand 9Router→Vela (tray/background messages, terminal UI title, README title); version synced to 0.9.21. The npm package **name** `9router` is deliberately kept (breaking change otherwise); the process-kill whitelist matches the binary name and is untouched.
+
+---
+
 # v0.9.20 — The Adapter Contract Fix 🔧⚡
 
 > *"The harbor spoke one language — run, get, all, exec, transaction. A single `prepare` broke every API at boot. The migration now speaks it too."*
