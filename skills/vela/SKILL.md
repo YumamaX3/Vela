@@ -1,0 +1,73 @@
+---
+name: vela
+description: Entry point for Vela — local/remote AI gateway with OpenAI-compatible REST for chat, image, video, TTS, STT, embeddings, web search, and web fetch. Use when the user mentions Vela, VELA_URL, or wants AI without writing provider boilerplate. This skill covers setup + indexes capability skills; fetch the relevant capability SKILL.md from the URLs below when needed.
+---
+
+# Vela
+
+Local/remote AI gateway exposing OpenAI-compatible REST. One key, many providers, auto-fallback. The Shores' own gateway — 140+ upstream providers behind one endpoint.
+
+## Setup
+
+```bash
+export VELA_URL="http://localhost:32060"      # or VPS / tunnel URL
+export VELA_KEY="sk-..."                      # from Dashboard → Keys (only if requireApiKey=true)
+```
+
+All requests: `${VELA_URL}/v1/...` with header `Authorization: Bearer ${VELA_KEY}` (omit if auth disabled).
+
+Verify: `curl $VELA_URL/api/health` → `{"ok":true}`
+
+## Discover models
+
+```bash
+curl $VELA_URL/v1/models                  # chat/LLM (default)
+curl $VELA_URL/v1/models/image            # image-gen
+curl $VELA_URL/v1/models/tts              # text-to-speech
+curl $VELA_URL/v1/models/stt              # speech-to-text
+curl $VELA_URL/v1/models/embedding        # embeddings
+curl $VELA_URL/v1/models/web              # web search + fetch (entries have `kind` field)
+curl $VELA_URL/v1/models/video            # video-gen (async job flow)
+curl $VELA_URL/v1/models/image-to-text    # vision
+```
+
+Use `data[].id` as `model` field in requests. Combos appear with `owned_by:"combo"`.
+
+Response shape:
+```json
+{ "object": "list", "data": [
+  { "id": "openai/gpt-5", "object": "model", "owned_by": "openai", "created": 1735000000 },
+  { "id": "tavily/search", "object": "model", "kind": "webSearch", "owned_by": "tavily", "created": 1735000000 }
+]}
+```
+
+## Combos & fallback rules
+
+Combo models (e.g. `vip`, `mycodex`) chain multiple providers with automatic fallback. Operators can define **fallback rules** in the Dashboard (Fallback Rules): when a combo model fails with a trigger status (429, 503, …), a typed trigger fires — HTTP status, content-policy refusal, **context-window overflow (pre-call)**, timeout, or any error — and appends a multi-hop fallback chain. Per-request opt-out:
+
+```bash
+curl -X POST $VELA_URL/v1/chat/completions \
+  -H "Authorization: Bearer $VELA_KEY" -H "Content-Type: application/json" \
+  -d '{"model":"vip","messages":[{"role":"user","content":"Hi"}],"vela_disable_fallback_rules":true}'
+```
+
+## Capability skills
+
+When the user needs a specific capability, fetch that skill's `SKILL.md` from its raw URL:
+
+| Capability | Raw URL |
+|---|---|
+| Chat / code-gen | https://raw.githubusercontent.com/YumamaX3/Vela/main/skills/vela-chat/SKILL.md |
+| Image generation | https://raw.githubusercontent.com/YumamaX3/Vela/main/skills/vela-image/SKILL.md |
+| Video generation (xAI Grok Imagine) | https://raw.githubusercontent.com/YumamaX3/Vela/main/skills/vela-video/SKILL.md |
+| Text-to-speech | https://raw.githubusercontent.com/YumamaX3/Vela/main/skills/vela-tts/SKILL.md |
+| Speech-to-text | https://raw.githubusercontent.com/YumamaX3/Vela/main/skills/vela-stt/SKILL.md |
+| Embeddings | https://raw.githubusercontent.com/YumamaX3/Vela/main/skills/vela-embeddings/SKILL.md |
+| Web search | https://raw.githubusercontent.com/YumamaX3/Vela/main/skills/vela-web-search/SKILL.md |
+| Web fetch (URL → markdown) | https://raw.githubusercontent.com/YumamaX3/Vela/main/skills/vela-web-fetch/SKILL.md |
+
+## Errors
+
+- 401 → set/refresh `VELA_KEY` (Dashboard → Keys)
+- 400 `Invalid model format` → check `model` exists in `/v1/models/<kind>`
+- 503 `All accounts unavailable` → wait `retry-after` or add another provider account
