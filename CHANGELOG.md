@@ -25,6 +25,29 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.23 — The Stillwater Design 🪞⚡
+
+> *"Fail before the failure. Speak the live request. The Mirror's two waves, sealed into the gateway."*
+
+**Fallback Rules v2 — the condition builder (Wave A):**
+- **Typed triggers**: `status` (CSV) · `contentPolicy` (400/403 + policy language) · `contextWindow` (pre-call token ratio) · `timeout` · `anyError` — the liteLLM philosophy, matched by the pure `fallbackRuleMatcher` engine
+- **Pre-call context-window check**: `combo.js` estimates input tokens and expands `contextWindow` rules BEFORE dispatch — no doomed upstream call
+- **Multi-hop chains**: `targetModels[]` ordered A→B→C, deduped, priority-ordered
+- **Per-request opt-out**: `"vela_disable_fallback_rules": true` in the request body
+- **Back-compat**: v1 rules (`targetModel`, `triggerOnStatus`) still fire — legacy rows need no edits
+- **Migration 014** (additive, portable adapter surface — the v0.9.22 lesson)
+- **UI**: trigger-type picker, condition value, chain editor with add-hop, dry-run **Test** panel per rule, trigger badges
+
+**Prompt Injectors v2 — variables + control (Wave B):**
+- **Built-in variables** at dispatch: `{{model}}` `{{kind}}` `{{date}}` `{{time}}` `{{keyPrefix}}` `{{requestId}}` `{{userAgent}}`
+- **Custom variables** per injector, overridable per-request via `x-vela-inject-var-<name>` headers
+- **Fail-safe expansion**: unresolved vars stay literal, never crash
+- **UI**: reorder (↑↓), variable editor, preset library (Indonesian-first, JSON-only, code guard, date-aware), live preview
+
+**Verification**: production build green (152 pages); 38 tests green across 5 suites (seam v1 + matcher v2 + injectors v2 + chat-core + peer-headers). Both charts pinned to 0.9.23 per the dual-chart decree.
+
+---
+
 # v0.9.22 — The Adapter Exorcism 🔧⚡
 
 > *"The ghost of v0.9.19 walked the live mirror deployment — and the Mirror cast it out at the root."*

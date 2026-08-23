@@ -71,14 +71,31 @@ export async function PATCH(request, { params }) {
 
     const body = await request.json();
 
-    // Validate allowed fields
-    const allowedFields = ['targetModel', 'priority', 'triggerOnStatus', 'maxRetries', 'isActive'];
+    // Validate allowed fields — v2 (condition builder) fields included.
+    const allowedFields = ['targetModel', 'targetModels', 'triggerType', 'conditionOp', 'conditionVal', 'cooldownSkip', 'priority', 'triggerOnStatus', 'maxRetries', 'isActive'];
+    const VALID_TRIGGERS = ['status', 'contentPolicy', 'contextWindow', 'timeout', 'anyError'];
     const updates = {};
 
     for (const field of allowedFields) {
       if (field in body) {
         if (field === 'targetModel' || field === 'triggerOnStatus') {
           updates[field] = String(body[field]);
+        } else if (field === 'targetModels') {
+          if (!Array.isArray(body[field])) {
+            return NextResponse.json({ error: "targetModels must be an array" }, { status: 400 });
+          }
+          updates[field] = body[field].map((t) => String(t).trim()).filter(Boolean);
+        } else if (field === 'triggerType') {
+          if (!VALID_TRIGGERS.includes(body[field])) {
+            return NextResponse.json({ error: `triggerType must be one of: ${VALID_TRIGGERS.join(', ')}` }, { status: 400 });
+          }
+          updates[field] = body[field];
+        } else if (field === 'conditionOp') {
+          updates[field] = String(body[field]);
+        } else if (field === 'conditionVal') {
+          updates[field] = body[field] != null ? String(body[field]) : null;
+        } else if (field === 'cooldownSkip') {
+          updates[field] = body[field] ? 1 : 0;
         } else if (field === 'priority' || field === 'maxRetries') {
           updates[field] = typeof body[field] === 'number' ? body[field] : null;
           if (updates[field] !== null && updates[field] < 0) {

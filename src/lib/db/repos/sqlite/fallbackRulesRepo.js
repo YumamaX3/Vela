@@ -14,6 +14,29 @@
 
 const TABLE = 'fallbackRules';
 
+const TRIGGER_TYPES = new Set(["status", "contentPolicy", "contextWindow", "timeout", "anyError"]);
+
+/** Normalize a raw rule row into the v2 shape (chain + condition model). */
+export function normalizeRule(row) {
+  if (!row) return row;
+  let targetModels = row.targetModels;
+  if (typeof targetModels === "string") {
+    try { targetModels = JSON.parse(targetModels); } catch { targetModels = null; }
+  }
+  if (!Array.isArray(targetModels) || targetModels.length === 0) {
+    // Back-compat: single targetModel column becomes a 1-hop chain.
+    targetModels = row.targetModel ? [row.targetModel] : [];
+  }
+  return {
+    ...row,
+    triggerType: TRIGGER_TYPES.has(row.triggerType) ? row.triggerType : "status",
+    conditionOp: row.conditionOp || "in",
+    conditionVal: row.conditionVal ?? null,
+    targetModels,
+    cooldownSkip: row.cooldownSkip ? 1 : 0,
+  };
+}
+
 /**
  * Get all rules (optionally filtered by isActive)
  */
@@ -22,13 +45,15 @@ export function getFallbackRules(db, options = {}) {
 
   const where = isActive ? 'WHERE isActive = 1' : '';
   const sql = `
-    SELECT id, sourceModel, targetModel, priority, triggerOnStatus, maxRetries, isActive, createdAt, updatedAt
+    SELECT id, sourceModel, targetModel, triggerType, conditionOp, conditionVal,
+           targetModels, cooldownSkip, priority, triggerOnStatus, maxRetries,
+           isActive, createdAt, updatedAt
     FROM ${TABLE}
     ${where}
     ORDER BY priority ASC, id ASC
   `;
 
-  return db.all(sql);
+  return db.all(sql).map(normalizeRule);
 }
 
 /**
@@ -36,12 +61,14 @@ export function getFallbackRules(db, options = {}) {
  */
 export function getFallbackRuleById(db, id) {
   const sql = `
-    SELECT id, sourceModel, targetModel, priority, triggerOnStatus, maxRetries, isActive, createdAt, updatedAt
+    SELECT id, sourceModel, targetModel, triggerType, conditionOp, conditionVal,
+           targetModels, cooldownSkip, priority, triggerOnStatus, maxRetries,
+           isActive, createdAt, updatedAt
     FROM ${TABLE}
     WHERE id = ?
   `;
 
-  return db.get(sql, [id]);
+  return normalizeRule(db.get(sql, [id]));
 }
 
 /**
@@ -53,45 +80,73 @@ export function getRulesForSourceModel(db, sourceModel) {
   const globPattern = sourceModel.replace(/\*/g, '%');
 
   const sql = `
-    SELECT id, sourceModel, targetModel, priority, triggerOnStatus, maxRetries, isActive, createdAt, updatedAt
+    SELECT id, sourceModel, targetModel, triggerType, conditionOp, conditionVal,
+           targetModels, cooldownSkip, priority, triggerOnStatus, maxRetries,
+           isActive, createdAt, updatedAt
     FROM ${TABLE}
     WHERE isActive = 1 AND sourceModel GLOB ?
     ORDER BY priority ASC, id ASC
   `;
 
-  return db.all(sql, [globPattern]);
+  return db.all(sql, [globPattern]).map(normalizeRule);
 }
 
 /**
- * Create a new rule
+ * Create a new rule. Accepts both the v1 shape (sourceModel, targetModel,
+ * triggerOnStatus, maxRetries) and the v2 shape (triggerType, conditionOp,
+ * conditionVal, targetModels[], cooldownSkip).
  */
 export function createFallbackRule(db, data) {
-  const { sourceModel, targetModel, priority = 100, triggerOnStatus = '429,503', maxRetries = 1 } = data;
+  const {
+    sourceModel, targetModel,
+    priority = 100, triggerOnStatus = '429,503', maxRetries = 1,
+    triggerType = 'status', conditionOp = 'in', conditionVal = null,
+    targetModels, cooldownSkip = 0,
+  } = data;
+
+  const chain = Array.isArray(targetModels) && targetModels.length > 0
+    ? targetModels
+    : (targetModel ? [targetModel] : []);
 
   const nowIso = new Date().toISOString();
 
   const sql = `
-    INSERT INTO ${TABLE} (sourceModel, targetModel, priority, triggerOnStatus, maxRetries, isActive, createdAt, updatedAt)
-    VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+    INSERT INTO ${TABLE} (sourceModel, targetModel, triggerType, conditionOp, conditionVal,
+                          targetModels, cooldownSkip, priority, triggerOnStatus, maxRetries,
+                          isActive, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
   `;
 
-  const info = db.run(sql, [sourceModel, targetModel, priority, triggerOnStatus, maxRetries, nowIso, nowIso]);
+  const info = db.run(sql, [
+    sourceModel, chain[0] || '', triggerType, conditionOp, conditionVal,
+    JSON.stringify(chain), cooldownSkip ? 1 : 0, priority, triggerOnStatus, maxRetries,
+    nowIso, nowIso,
+  ]);
 
-  return { id: info.lastInsertRowid, ...data, priority, triggerOnStatus, maxRetries, isActive: 1, createdAt: nowIso, updatedAt: nowIso };
+  return { id: info.lastInsertRowid, ...data, targetModels: chain, priority, triggerOnStatus, maxRetries, isActive: 1, createdAt: nowIso, updatedAt: nowIso };
 }
 
 /**
- * Update an existing rule
+ * Update an existing rule. Accepts v1 or v2 fields; targetModels array is
+ * stored as JSON, and the single targetModel column mirrors the chain head.
  */
 export function updateFallbackRule(db, id, updates) {
-  const allowedFields = ['targetModel', 'priority', 'triggerOnStatus', 'maxRetries', 'isActive'];
+  const allowedFields = ['targetModel', 'triggerType', 'conditionOp', 'conditionVal', 'targetModels', 'cooldownSkip', 'priority', 'triggerOnStatus', 'maxRetries', 'isActive'];
   const setParts = [];
   const values = [];
 
   for (const field of allowedFields) {
     if (updates[field] !== undefined) {
-      setParts.push(`${field} = ?`);
-      values.push(updates[field]);
+      if (field === 'targetModels') {
+        const chain = Array.isArray(updates[field]) && updates[field].length > 0 ? updates[field] : [];
+        setParts.push('targetModels = ?');
+        values.push(JSON.stringify(chain));
+        setParts.push('targetModel = ?');
+        values.push(chain[0] || '');
+      } else {
+        setParts.push(`${field} = ?`);
+        values.push(updates[field]);
+      }
     }
   }
 
