@@ -1,14 +1,14 @@
 <div align="center">
   <img src="./public/vela-wordmark.svg" alt="Vela —— 船之帆" width="520"/>
 
-  **一个 OpenAI 兼容端点。40+ 上游供应商。你的订阅、你的密钥、你的免费额度 —— 同一个港湾,同一张帆。**
+  **一个 OpenAI 兼容端点。126 家上游供应商。你的订阅、你的密钥、你的免费额度 —— 同一个港湾,同一张帆。**
 
-  Vela(薇拉)将你的 AI 编程工具(Claude Code、Codex、Cursor、Cline、OpenCode……)统一接入一个本地网关,提供格式转换、模型组合回退、多账号轮换、配额追踪,还有一个 RTK token 节省器 —— 在请求出港之前,先削减 20–40% 的工具输出 token。
+  Vela(薇拉)将你的 AI 编程工具(Claude Code、Codex、Cursor、Cline、OpenCode……)统一接入一个本地网关,提供格式转换、模型组合回退、运维回退规则、多账号轮换、配额追踪,还有一个 RTK token 节省器 —— 在请求出港之前,先削减 20–40% 的工具输出 token。
 
-  [![Version](https://img.shields.io/badge/version-0.6.70-blue?style=flat-square)](./CHANGELOG.md)
-  [![Providers](https://img.shields.io/badge/providers-129-0ea5e9?style=flat-square)](./docs/PROVIDERS.md)
+  [![Version](https://img.shields.io/badge/version-0.9.23-blue?style=flat-square)](./CHANGELOG.md)
+  [![Providers](https://img.shields.io/badge/providers-126-0ea5e9?style=flat-square)](./docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
-  [![CLI](https://img.shields.io/npm/v/9router?style=flat-square&label=cli%20%229router%22)](https://www.npmjs.com/package/9router)
+  [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
   [![License](https://img.shields.io/badge/license-see%20LICENSE-gray?style=flat-square)](./LICENSE)
 
   [🚀 快速开始](#-快速开始) · [✨ 核心特性](#-核心特性) · [📚 文档](#-文档) · [🌐 语言](#-语言)
@@ -31,7 +31,7 @@ Vela 是一个**本地 AI 路由网关 + 仪表盘**。你把所有 AI 工具指
 ┌─────────────────────────────────────────────────────┐
 │                  Vela — the gateway                  │
 │  RTK token saver · format translation · quota track  │
-│  combo fallback · multi-account · OAuth refresh      │
+│  combo fallback · fallback rules · OAuth refresh     │
 └──────┬──────────────────────────────────────────────┘
        ├─→ Tier 1  SUBSCRIPTION   Claude, Codex, Copilot, Cursor…
        ├─→ Tier 2  PAY-PER-USE    GLM, MiniMax, DeepSeek, Qwen…
@@ -41,8 +41,6 @@ Vela 是一个**本地 AI 路由网关 + 仪表盘**。你把所有 AI 工具指
 ```
 
 内里乾坤:一个运行在 **32060** 端口上的 Next.js 服务(仪表盘 + API),一个与供应商解耦的路由引擎(`open-sse/`),以及一个 SQLite 数据库 —— 需要时它可以长出一个 MariaDB 孪生库(sqlite → mysql → mirror)。
-
-> 📌 **注意:** Vela 复刻(fork)自 [9Router](https://github.com/decolua/9router),重塑品牌并重铸内核 —— 存储、备份、定价与分类体系均为 Vela 自铸。CLI 启动器为了安装兼容性保留了 `9router` 这个 npm 包名。
 
 ---
 
@@ -55,6 +53,7 @@ Vela 是一个**本地 AI 路由网关 + 仪表盘**。你把所有 AI 工具指
 | ❌ 工具输出疯狂烧 token(diff、grep、ls……) | ✅ **RTK token 节省器**原地压缩 `tool_result` 内容 —— 节省 20–40% |
 | ❌ 每家供应商每月要花 $20–50 | ✅ 一个网关横跨订阅 + 低价 + 免费三条航道 |
 | ❌ 每个工具都要单独配置 | ✅ 一个 OpenAI 兼容端点,所有工具都认它 |
+| ❌ 上下文溢出浪费注定失败的请求 | ✅ **回退规则 v2** 在派发*之前*就侦测上下文窗口溢出 |
 
 ---
 
@@ -63,11 +62,12 @@ Vela 是一个**本地 AI 路由网关 + 仪表盘**。你把所有 AI 工具指
 **🧭 路由与转换**
 - 一个 OpenAI 兼容端点:`/v1/chat/completions`、`/v1/messages`(Claude 原生)、`/v1/embeddings`、`/v1/images/generations`、`/v1/audio/*`、`/v1/responses`、`/v1/videos/*`、web search 与 fetch
 - 格式转换以 OpenAI 作为中间格式枢轴 —— 为脆弱的格式对(thinking block、工具 id)注册了直达路由
-- 注册了 **129 家供应商**:OpenAI、Anthropic、Google Gemini、xAI、DeepSeek、Qwen、GLM、MiniMax、Kimi、Mistral、Groq、Cerebras、Vertex、Azure、Ollama,还有数十家 —— [完整名录](./docs/PROVIDERS.md)
+- 注册了 **126 家供应商**:OpenAI、Anthropic、Google Gemini、xAI、DeepSeek、Qwen、GLM、MiniMax、Kimi、Mistral、Groq、Cerebras、Vertex、Azure、Ollama,还有数十家 —— [完整名录](./docs/PROVIDERS.md)
 
 **🪂 韧性**
 - 模型组合回退:定义一个组合,Vela 沿列表逐一尝试,直到有供应商应答
-- 每家供应商支持多账号回退,轮换(round-robin)
+- **运维回退规则 v2**(仪表盘 → 回退规则):类型化触发 —— HTTP 状态、内容策略拒绝、**上下文窗口溢出(派发前)**、超时、任意错误 —— 支持多跳链条与请求级退出(`vela_disable_fallback_rules`)
+- 每家供应商支持多账号回退,轮换(round-robin);熔断器(冷却 → 耗尽,指数退避)
 - OAuth + API 密钥凭据管理,自动刷新 token
 
 **💰 成本智能 —— 定价契约**
@@ -77,6 +77,7 @@ Vela 是一个**本地 AI 路由网关 + 仪表盘**。你把所有 AI 工具指
 
 **🐚 RTK Token 节省器**
 - 预转换钩子在请求出港前压缩 `tool_result` 内容 —— 设计上失败即放行(fail-open),从不触碰 `is_error` 痕迹
+- **提示注入器 v2**:运维定义的系统提示,带实时变量(`{{model}}`、`{{date}}`、`{{requestId}}`……),自定义变量可用 `x-vela-inject-var-<name>` 请求头覆盖,支持预设与排序
 - 可选 [Headroom](https://github.com/chopratejas/headroom) 边车(sidecar),做更深层压缩
 
 **🗝️ 存储契约**
@@ -85,7 +86,7 @@ Vela 是一个**本地 AI 路由网关 + 仪表盘**。你把所有 AI 工具指
 - 密封备份引擎:AES-256-GCM 备份产物、保留分级、演练 + 恢复、可选 S3 异地腿
 
 **🖥️ 仪表盘** —— `http://localhost:32060/dashboard`
-- 供应商与 OAuth 流程、组合、端点 + API 密钥、按密钥用量、配额、token 节省器、翻译器控制台、CLI 工具配置页、定价设置 —— 支持 34+ 种界面语言
+- 供应商与 OAuth 流程、组合、端点 + API 密钥、按密钥用量、配额、token 节省器、翻译器控制台、CLI 工具配置页、定价设置、**回退规则**、**提示注入器** —— 支持 34+ 种界面语言
 
 ---
 
@@ -95,7 +96,7 @@ Vela 是一个**本地 AI 路由网关 + 仪表盘**。你把所有 AI 工具指
 
 ```bash
 docker login ghcr.io          # PAT with read:packages — the image is private
-docker pull ghcr.io/yumamax3/vela:0.6.70
+docker pull ghcr.io/yumamax3/vela:0.9.23
 
 docker run -d --name vela \
   -p 32060:32060 \
@@ -103,7 +104,7 @@ docker run -d --name vela \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:0.6.70
+  ghcr.io/yumamax3/vela:0.9.23
 ```
 
 完整海图 —— MariaDB 孪生库、mirror 姿态、备份引擎、Headroom 边车 —— 见 [DOCKER.md](./DOCKER.md) 与 [`docker-compose.example.yml`](./docker-compose.example.yml) 模板。
@@ -111,11 +112,11 @@ docker run -d --name vela \
 ### 方案 B —— npm CLI
 
 ```bash
-npm install -g 9router
-9router
+npm install -g vela
+vela
 ```
 
-CLI 负责安装、启动并管理服务器(启动器包在 npm 上保留 `9router` 之名)。
+CLI 负责安装、启动并管理服务器。
 
 ### 方案 C —— 从源码运行
 
@@ -154,7 +155,7 @@ Model:    kr/claude-sonnet-4.5      # provider prefix / model name
 | [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) | 🚀 安装路径、compose 海图、存储姿态、升级 |
 | [docs/ENVIRONMENT.md](./docs/ENVIRONMENT.md) | 🔧 完整的环境变量契约 |
 | [docs/STORAGE.md](./docs/STORAGE.md) | 🗝️ 存储契约 —— sqlite/mysql/mirror、备份、S3 |
-| [docs/PROVIDERS.md](./docs/PROVIDERS.md) | 🌐 129 家供应商完整名录 |
+| [docs/PROVIDERS.md](./docs/PROVIDERS.md) | 🌐 126 家供应商完整名录 |
 | [docs/API.md](./docs/API.md) | 🔌 OpenAI 兼容面 + 仪表盘 API |
 | [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) | 🧯 当风停的时候 |
 | [docs/VERSIONING.md](./docs/VERSIONING.md) | ⛵ 版本契约 |
@@ -162,6 +163,8 @@ Model:    kr/claude-sonnet-4.5      # provider prefix / model name
 | [CHANGELOG.md](./CHANGELOG.md) | 📖 航海日志 |
 
 **在本仓库工作的工程师:** [CLAUDE.md](./CLAUDE.md) —— 船员文书。
+**在本仓库工作的 AI 代理:** [AGENTS.md](./AGENTS.md) —— 船员手册。
+**产品契约:** [PRD.md](./PRD.md) —— 产品需求文档。
 **引擎贡献者:** [open-sse/AGENTS.md](./open-sse/AGENTS.md) —— 如何添加供应商 / 执行器 / 翻译器。
 
 ---
@@ -178,10 +181,10 @@ open-sse/            the provider-agnostic routing/translation engine
 ├── handlers/        chatCore, embeddings, tts, images, video, search
 ├── executors/       per-provider upstream call (29 specialized + default)
 ├── translator/      format translation via OpenAI pivot
-├── providers/       registry (129 files) + pricing covenant
+├── providers/       registry (126 files) + pricing covenant
 └── rtk/             token saver hooks (fail-open)
 
-cli/                 the launcher package (npm: 9router)
+cli/                 the launcher package (npm: vela)
 docs/                the charts — start at docs/README.md
 plans/               sealed design plans (Storage Covenant, Pricing Covenant…)
 tests/               vitest suite (independent ESM package)
@@ -198,7 +201,7 @@ i18n/                localized READMEs (10 languages)
 
 ## 🏛️ 起源与许可
 
-Vela 复刻自 [decolua/9Router](https://github.com/decolua/9router)(MIT),自 v0.6.0 起扬帆独行。上游的功劳归于上游;存储、备份、定价与分类体系是 Vela 自己的锻炉。见 [LICENSE](./LICENSE)。
+Vela 复刻自 [decolua/9Router](https://github.com/decolua/9router)(MIT),自 v0.6.0 起扬帆独行 —— 全面重塑品牌,产品中已无 9router 残留。上游的功劳归于上游;存储、备份、定价与分类体系是 Vela 自己的锻炉。见 [LICENSE](./LICENSE)。
 
 ---
 

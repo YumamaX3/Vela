@@ -115,7 +115,7 @@ Three laws govern the engine:
 
 ## 🌐 The Provider Registry
 
-`open-sse/providers/registry/` — **one file per provider, 129 files**.
+`open-sse/providers/registry/` — **one file per provider, 126 files** (v0.9.23).
 
 - `registry/index.js` is an **auto-generated** static import list.
   Regenerate with `scripts/migrate-registry.mjs` /
@@ -147,12 +147,13 @@ Three laws govern the engine:
 
 ## 🪂 Combos & Fallback
 
-Two fallback mechanisms, applied in order by the account-selection loop in
-`src/sse/handlers/chat.js`:
+The fallback stack (v0.9.23), applied in order by the account-selection loop:
 
 | Mechanism | What it does |
 |-|-|
 | **Model combos** | A combo is an ordered list of models. Vela tries them in sequence until one succeeds — subscription → cheap → free is the classic shape |
+| **Fallback rules v2** | Operator rules (Dashboard → Fallback Rules) with **typed triggers**: HTTP status, content-policy refusal, context-window overflow (**pre-call** — detected before dispatch), timeout, any-error. Multi-hop `targetModels[]` chains, priority-ordered, deduped; per-request opt-out via `vela_disable_fallback_rules`. Engine: `open-sse/services/fallbackRuleMatcher.js` |
+| **Circuit breaker** | Cooldown → exhausted escalation with exponential backoff; woven into pool selection |
 | **Multi-account fallback** | Several credential sets per provider; round-robin rotation spreads load and routes around per-account rate limits |
 
 When an executor reports an auth failure, `chatCore.js` attempts a token
@@ -178,6 +179,26 @@ The optional **Headroom** sidecar (separate Python service,
 `HEADROOM_URL`) provides deeper request compression; it never ships inside
 the Vela image — see [DOCKER.md](../DOCKER.md).
 
+### Prompt Injectors v2 (v0.9.23)
+
+`rtk/userInjectors.js` — operator-defined system prompts layered via
+`injectSystemPrompt` (append/prepend) after the built-in savers. v2 adds a
+live-context variable map expanded at dispatch:
+
+| Variable | Source |
+|-|-|
+| `{{model}}` | The upstream model id |
+| `{{kind}}` | Service kind (`llm`) |
+| `{{date}}` / `{{time}}` | Today's date / current time |
+| `{{keyPrefix}}` | First 7 chars of the API key |
+| `{{requestId}}` | The connection id |
+| `{{userAgent}}` | Client user-agent |
+
+Plus per-injector **custom variables** (`injector.variables = { name: default }`),
+overridable per-request via `x-vela-inject-var-<name>` headers
+(case-insensitive). Unresolved variables stay literal — expansion is
+fail-safe, never crashes.
+
 ---
 
 ## 🗄️ The Database Layer
@@ -196,10 +217,12 @@ facade binds by posture: sqlite re-exports its harbor verbatim; mysql binds
 the `repos/mysql/` twin. `src/lib/localDb.js` is a backward-compat shim —
 new code imports `@/lib/db/index.js`.
 
-**Schema** — `src/lib/db/migrations/` runs seven migrations
-(`001-initial` → `007-mirror-seq`); `SCHEMA_VERSION = 7`. Usage/logs
-(`src/lib/usageDb.js`) still live under `~/.vela` and do **not** follow
-`DATA_DIR`.
+**Schema** — `src/lib/db/migrations/` runs **14 versioned migrations**
+(`001-initial` → `014-fallback-rules-v2-triggers`); `SCHEMA_VERSION = 13`
+in `src/lib/db/schema.js` (the pre-change backup gate). Migrations use the
+**portable adapter surface** (`db.all`/`db.exec` — never `db.prepare`, the
+v0.9.20 boot-storm lesson). Usage/logs (`src/lib/usageDb.js`) still live
+under `~/.vela` and do **not** follow `DATA_DIR`.
 
 **DB file location** — `src/lib/db/paths.js`: `DATA_DIR` if set, else
 `~/.vela/`.

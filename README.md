@@ -1,12 +1,12 @@
 <div align="center">
   <img src="./public/vela-wordmark.svg" alt="Vela — the sail of the ship" width="520"/>
 
-  **One OpenAI-compatible endpoint. 40+ upstream providers. Your subscriptions, your keys, your free tiers — one harbor, one sail.**
+  **One OpenAI-compatible endpoint. 126 upstream providers. Your subscriptions, your keys, your free tiers — one harbor, one sail.**
 
-  Vela routes your AI coding tools (Claude Code, Codex, Cursor, Cline, OpenCode…) through a single local gateway with format translation, model-combo fallback, multi-account rotation, quota tracking, and an RTK token saver that cuts 20–40% of tool-output tokens before they leave the harbor.
+  Vela routes your AI coding tools (Claude Code, Codex, Cursor, Cline, OpenCode…) through a single local gateway with format translation, model-combo fallback, operator fallback rules, multi-account rotation, quota tracking, and an RTK token saver that cuts 20–40% of tool-output tokens before they leave the harbor.
 
-  [![Version](https://img.shields.io/badge/version-0.6.80-blue?style=flat-square)](./CHANGELOG.md)
-  [![Providers](https://img.shields.io/badge/providers-129-0ea5e9?style=flat-square)](./docs/PROVIDERS.md)
+  [![Version](https://img.shields.io/badge/version-0.9.23-blue?style=flat-square)](./CHANGELOG.md)
+  [![Providers](https://img.shields.io/badge/providers-126-0ea5e9?style=flat-square)](./docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
   [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
   [![License](https://img.shields.io/badge/license-see%20LICENSE-gray?style=flat-square)](./LICENSE)
@@ -31,7 +31,7 @@ Vela is a **local AI routing gateway + dashboard**. You point every AI tool at o
 ┌─────────────────────────────────────────────────────┐
 │                  Vela — the gateway                  │
 │  RTK token saver · format translation · quota track  │
-│  combo fallback · multi-account · OAuth refresh      │
+│  combo fallback · fallback rules · OAuth refresh     │
 └──────┬──────────────────────────────────────────────┘
        ├─→ Tier 1  SUBSCRIPTION   Claude, Codex, Copilot, Cursor…
        ├─→ Tier 2  PAY-PER-USE    GLM, MiniMax, DeepSeek, Qwen…
@@ -41,8 +41,6 @@ Vela is a **local AI routing gateway + dashboard**. You point every AI tool at o
 ```
 
 Under the hood: a Next.js server (dashboard + API) on port **32060**, a provider-agnostic routing engine (`open-sse/`), and a SQLite database that can grow a MariaDB twin when you want one (sqlite → mysql → mirror).
-
-> 📌 **Note:** Vela is a fork of [9Router](https://github.com/decolua/9router), rebranded and reforged — the storage, backup, pricing, and category systems are Vela's own. The CLI launcher keeps the `9router` npm name for install compatibility.
 
 ---
 
@@ -55,6 +53,7 @@ Under the hood: a Next.js server (dashboard + API) on port **32060**, a provider
 | ❌ Tool output burns tokens (diffs, grep, ls…) | ✅ **RTK token saver** compresses `tool_result` content in-place — 20–40% saved |
 | ❌ Paying $20–50/mo per provider | ✅ One gateway across subscription + cheap + free lanes |
 | ❌ Every tool needs its own config | ✅ One OpenAI-compatible endpoint, every tool speaks it |
+| ❌ Context overflows waste doomed calls | ✅ **Fallback rules v2** detect context-window overflow *before* dispatch |
 
 ---
 
@@ -63,11 +62,12 @@ Under the hood: a Next.js server (dashboard + API) on port **32060**, a provider
 **🧭 Routing & Translation**
 - One OpenAI-compatible endpoint: `/v1/chat/completions`, `/v1/messages` (Claude-native), `/v1/embeddings`, `/v1/images/generations`, `/v1/audio/*`, `/v1/responses`, `/v1/videos/*`, web search & fetch
 - Format translation pivots through OpenAI as the intermediate — direct routes registered for fragile pairs (thinking blocks, tool ids)
-- **129 providers** registered: OpenAI, Anthropic, Google Gemini, xAI, DeepSeek, Qwen, GLM, MiniMax, Kimi, Mistral, Groq, Cerebras, Vertex, Azure, Ollama, and dozens more — [full roster](./docs/PROVIDERS.md)
+- **126 providers** registered: OpenAI, Anthropic, Google Gemini, xAI, DeepSeek, Qwen, GLM, MiniMax, Kimi, Mistral, Groq, Cerebras, Vertex, Azure, Ollama, and dozens more — [full roster](./docs/PROVIDERS.md)
 
 **🪂 Resilience**
 - Model-combo fallback: define a combo, Vela walks the list until one answers
-- Multi-account fallback per provider, round-robin rotation
+- **Operator fallback rules v2** (Dashboard → Fallback Rules): typed triggers — HTTP status, content-policy refusal, **context-window overflow (pre-call)**, timeout, any-error — with multi-hop chains and a per-request opt-out (`vela_disable_fallback_rules`)
+- Multi-account fallback per provider, round-robin rotation; circuit breaker (cooldown → exhausted, exponential backoff)
 - OAuth + API-key credential management with automatic token refresh
 
 **💰 Cost Intelligence — the Pricing Covenant**
@@ -77,6 +77,7 @@ Under the hood: a Next.js server (dashboard + API) on port **32060**, a provider
 
 **🐚 RTK Token Saver**
 - Pre-translate hooks compress `tool_result` content before the request leaves — fail-open by design, never touches `is_error` traces
+- **Prompt injectors v2**: operator-defined system prompts with live variables (`{{model}}`, `{{date}}`, `{{requestId}}`…), custom vars with `x-vela-inject-var-<name>` header overrides, presets, reorder
 - Optional [Headroom](https://github.com/chopratejas/headroom) sidecar for deeper compression
 
 **🗝️ Storage Covenant**
@@ -85,7 +86,7 @@ Under the hood: a Next.js server (dashboard + API) on port **32060**, a provider
 - Sealed backup engine: AES-256-GCM artifacts, retention tiers, drill + restore, optional S3 off-site leg
 
 **🖥️ Dashboard** — `http://localhost:32060/dashboard`
-- Providers & OAuth flows, combos, endpoints + API keys, per-key usage, quota, token saver, translator console, CLI-tool setup pages, pricing settings — in 34+ interface locales
+- Providers & OAuth flows, combos, endpoints + API keys, per-key usage, quota, token saver, translator console, CLI-tool setup pages, pricing settings, **fallback rules**, **prompt injectors** — in 34+ interface locales
 
 ---
 
@@ -95,7 +96,7 @@ Under the hood: a Next.js server (dashboard + API) on port **32060**, a provider
 
 ```bash
 docker login ghcr.io          # PAT with read:packages — the image is private
-docker pull ghcr.io/yumamax3/vela:0.6.70
+docker pull ghcr.io/yumamax3/vela:0.9.23
 
 docker run -d --name vela \
   -p 32060:32060 \
@@ -103,7 +104,7 @@ docker run -d --name vela \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:0.6.70
+  ghcr.io/yumamax3/vela:0.9.23
 ```
 
 For the full chart — MariaDB twin, mirror posture, backup engine, Headroom sidecar — see [DOCKER.md](./DOCKER.md) and the [`docker-compose.example.yml`](./docker-compose.example.yml) template.
@@ -111,11 +112,11 @@ For the full chart — MariaDB twin, mirror posture, backup engine, Headroom sid
 ### Option B — npm CLI
 
 ```bash
-npm install -g 9router
-9router
+npm install -g vela
+vela
 ```
 
-The CLI installs, starts, and manages the server (the launcher package keeps the `9router` name on npm).
+The CLI installs, starts, and manages the server.
 
 ### Option C — From source
 
@@ -154,14 +155,16 @@ The charts live in [`docs/`](./docs/README.md) — a full harbor map.
 | [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) | 🚀 Install paths, compose chart, storage postures, upgrading |
 | [docs/ENVIRONMENT.md](./docs/ENVIRONMENT.md) | 🔧 The complete env-var contract |
 | [docs/STORAGE.md](./docs/STORAGE.md) | 🗝️ Storage Covenant — sqlite/mysql/mirror, backups, S3 |
-| [docs/PROVIDERS.md](./docs/PROVIDERS.md) | 🌐 The full 129-provider roster |
+| [docs/PROVIDERS.md](./docs/PROVIDERS.md) | 🌐 The full 126-provider roster |
 | [docs/API.md](./docs/API.md) | 🔌 The OpenAI-compatible surface + dashboard APIs |
 | [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) | 🧯 When the wind dies |
 | [docs/VERSIONING.md](./docs/VERSIONING.md) | ⛵ The versioning covenant |
 | [DOCKER.md](./DOCKER.md) | 🐳 Docker, deep |
 | [CHANGELOG.md](./CHANGELOG.md) | 📖 The ship's log |
 
-**For engineers working in this repo:** [CLAUDE.md](./CLAUDE.md) — the crew's papers.
+**For engineers working in this repo:** [CLAUDE.md](./CLAUDE.md) — the crew's chart.
+**For AI agents working in this repo:** [AGENTS.md](./AGENTS.md) — the crew's papers.
+**For the product's contract:** [PRD.md](./PRD.md) — the product requirements document.
 **For engine contributors:** [open-sse/AGENTS.md](./open-sse/AGENTS.md) — how to add a provider / executor / translator.
 
 ---
@@ -178,10 +181,10 @@ open-sse/            the provider-agnostic routing/translation engine
 ├── handlers/        chatCore, embeddings, tts, images, video, search
 ├── executors/       per-provider upstream call (29 specialized + default)
 ├── translator/      format translation via OpenAI pivot
-├── providers/       registry (129 files) + pricing covenant
+├── providers/       registry (126 files) + pricing covenant
 └── rtk/             token saver hooks (fail-open)
 
-cli/                 the launcher package (npm: 9router)
+cli/                 the launcher package (npm: vela)
 docs/                the charts — start at docs/README.md
 plans/               sealed design plans (Storage Covenant, Pricing Covenant…)
 tests/               vitest suite (independent ESM package)
@@ -198,7 +201,7 @@ This README is translated into 10 more languages — links in the banner above. 
 
 ## 🏛️ Provenance & License
 
-Vela forked from [decolua/9Router](https://github.com/decolua/9router) (MIT) and sails its own course from v0.6.0 onward. Upstream credit is kept where it is due; the storage, backup, pricing, and category systems are Vela's own forges. See [LICENSE](./LICENSE).
+Vela forked from [decolua/9Router](https://github.com/decolua/9router) (MIT) and sails its own course from v0.6.0 onward — fully rebranded, no 9router remains in the product. Upstream credit is kept where it is due; the storage, backup, pricing, and category systems are Vela's own forges. See [LICENSE](./LICENSE).
 
 ---
 
