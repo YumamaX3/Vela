@@ -58,10 +58,14 @@ export async function POST(request) {
 
     const body = await request.json();
 
-    // Validate required fields
-    if (!body.sourceModel || !body.targetModel) {
+    // Validate required fields — v2 accepts either a single targetModel or a
+    // multi-hop targetModels chain (condition builder, v0.9.23).
+    const chain = Array.isArray(body.targetModels) && body.targetModels.length > 0
+      ? body.targetModels.map((t) => String(t).trim()).filter(Boolean)
+      : (body.targetModel ? [String(body.targetModel)] : []);
+    if (!body.sourceModel || chain.length === 0) {
       return NextResponse.json(
-        { error: "Missing required fields: sourceModel and targetModel" },
+        { error: "Missing required fields: sourceModel and at least one target (targetModel or targetModels)" },
         { status: 400 }
       );
     }
@@ -70,6 +74,19 @@ export async function POST(request) {
     const priority = typeof body.priority === 'number' ? body.priority : 100;
     const triggerOnStatus = body.triggerOnStatus || '429,503';
     const maxRetries = typeof body.maxRetries === 'number' ? body.maxRetries : 1;
+    const triggerType = body.triggerType || 'status';
+    const conditionOp = body.conditionOp || 'in';
+    const conditionVal = body.conditionVal != null ? String(body.conditionVal) : null;
+    const cooldownSkip = body.cooldownSkip ? 1 : 0;
+
+    // Validate triggerType
+    const VALID_TRIGGERS = ['status', 'contentPolicy', 'contextWindow', 'timeout', 'anyError'];
+    if (!VALID_TRIGGERS.includes(triggerType)) {
+      return NextResponse.json(
+        { error: `triggerType must be one of: ${VALID_TRIGGERS.join(', ')}` },
+        { status: 400 }
+      );
+    }
 
     // Validate priority is non-negative
     if (priority < 0) {
@@ -90,10 +107,15 @@ export async function POST(request) {
     const db = await getAdapter();
     const rule = await createFallbackRule(db, {
       sourceModel: String(body.sourceModel),
-      targetModel: String(body.targetModel),
+      targetModel: chain[0],
+      targetModels: chain,
       priority,
       triggerOnStatus: String(triggerOnStatus),
       maxRetries,
+      triggerType,
+      conditionOp,
+      conditionVal,
+      cooldownSkip,
     });
 
     return NextResponse.json(rule, { status: 201 });

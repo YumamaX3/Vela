@@ -7,6 +7,14 @@ import { useNotificationStore } from "@/store/notificationStore";
 const DEFAULT_STATUSES = "429,503";
 const STATUS_PRESETS = ["429", "403", "500", "502", "503", "504"];
 
+const TRIGGER_TYPES = [
+  { value: "status", label: "HTTP status", hint: "Fires when the upstream returns a listed status (e.g. 429, 503)" },
+  { value: "contentPolicy", label: "Content policy", hint: "Fires when the provider refuses content (400/403 + policy language)" },
+  { value: "contextWindow", label: "Context window", hint: "Fires BEFORE dispatch when the input is near the model's window (saves a doomed call)" },
+  { value: "timeout", label: "Timeout", hint: "Fires when the upstream call times out" },
+  { value: "anyError", label: "Any error", hint: "Fires on every failure" },
+];
+
 function formatDateTime(value) {
   if (!value) return "—";
   const date = new Date(value);
@@ -14,11 +22,21 @@ function formatDateTime(value) {
   return date.toLocaleString();
 }
 
+function chainFromRule(rule) {
+  if (Array.isArray(rule?.targetModels) && rule.targetModels.length > 0) return rule.targetModels;
+  if (rule?.targetModel) return [rule.targetModel];
+  return [];
+}
+
 function normalizeFormData(data = {}) {
+  const chain = chainFromRule(data);
   return {
     sourceModel: data.sourceModel || "",
-    targetModel: data.targetModel || "",
-    triggerOnStatus: data.triggerOnStatus || DEFAULT_STATUSES,
+    targetModels: chain.length > 0 ? chain : [""],
+    triggerType: data.triggerType || "status",
+    conditionVal: data.conditionVal ?? data.triggerOnStatus ?? DEFAULT_STATUSES,
+    conditionOp: data.conditionOp || "in",
+    cooldownSkip: data.cooldownSkip ? 1 : 0,
     priority: data.priority ?? 100,
     maxRetries: data.maxRetries ?? 1,
     isActive: data.isActive !== false,
@@ -33,6 +51,7 @@ export default function FallbackRulesPage() {
   const [formData, setFormData] = useState(normalizeFormData());
   const [saving, setSaving] = useState(false);
   const [confirmState, setConfirmState] = useState(null);
+  const [testState, setTestState] = useState(null); // { rule, status, inputTokens, contextLimit, result, targets }
   const notify = useNotificationStore((s) => s.notify);
 
   const fetchData = useCallback(async () => {
@@ -67,9 +86,25 @@ export default function FallbackRulesPage() {
     setShowFormModal(true);
   };
 
+  const updateChainModel = (index, value) => {
+    const next = [...formData.targetModels];
+    next[index] = value;
+    setFormData({ ...formData, targetModels: next });
+  };
+
+  const addChainStep = () => {
+    setFormData({ ...formData, targetModels: [...formData.targetModels, ""] });
+  };
+
+  const removeChainStep = (index) => {
+    const next = formData.targetModels.filter((_, i) => i !== index);
+    setFormData({ ...formData, targetModels: next.length ? next : [""] });
+  };
+
   const saveRule = async () => {
-    if (!formData.sourceModel.trim() || !formData.targetModel.trim()) {
-      notify({ type: "error", message: "Source and target model are required" });
+    const chain = formData.targetModels.map((t) => t.trim()).filter(Boolean);
+    if (!formData.sourceModel.trim() || chain.length === 0) {
+      notify({ type: "error", message: "Source model and at least one target are required" });
       return;
     }
 
@@ -79,16 +114,22 @@ export default function FallbackRulesPage() {
       const method = editingRule ? "PATCH" : "POST";
       const payload = editingRule
         ? {
-            targetModel: formData.targetModel,
-            triggerOnStatus: formData.triggerOnStatus,
+            targetModels: chain,
+            triggerType: formData.triggerType,
+            conditionVal: formData.triggerType === "status" || formData.triggerType === "contextWindow" ? formData.conditionVal : null,
+            conditionOp: formData.conditionOp,
+            cooldownSkip: formData.cooldownSkip,
             priority: Number(formData.priority) || 0,
             maxRetries: Number(formData.maxRetries) || 0,
             isActive: formData.isActive,
           }
         : {
             sourceModel: formData.sourceModel,
-            targetModel: formData.targetModel,
-            triggerOnStatus: formData.triggerOnStatus,
+            targetModels: chain,
+            triggerType: formData.triggerType,
+            conditionVal: formData.triggerType === "status" || formData.triggerType === "contextWindow" ? formData.conditionVal : null,
+            conditionOp: formData.conditionOp,
+            cooldownSkip: formData.cooldownSkip,
             priority: Number(formData.priority) || 0,
             maxRetries: Number(formData.maxRetries) || 0,
           };
@@ -128,16 +169,66 @@ export default function FallbackRulesPage() {
   };
 
   const deleteRule = async (rule) => {
-    setConfirmState({ title: "Delete fallback rule", message: `Delete rule "${rule.sourceModel} → ${rule.targetModel}"?`, action: async () => {
-      try {
-        const res = await fetch(`/api/fallback-rules/${rule.id}`, { method: "DELETE" });
-        if (!res.ok) throw new Error("Failed to delete rule");
-        notify({ type: "success", message: "Rule deleted" });
-        await fetchData();
-      } catch (err) {
-        notify({ type: "error", message: err.message });
+    setConfirmState({
+      title: "Delete fallback rule",
+      message: `Delete rule "${rule.sourceModel} → ${chainFromRule(rule).join(" → ")}"?`,
+      action: async () => {
+        try {
+          const res = await fetch(`/api/fallback-rules/${rule.id}`, { method: "DELETE" });
+          if (!res.ok) throw new Error("Failed to delete rule");
+          notify({ type: "success", message: "Rule deleted" });
+          await fetchData();
+        } catch (err) {
+          notify({ type: "error", message: err.message });
+        }
+      },
+    });
+  };
+
+  const openTest = (rule) => {
+    setTestState({
+      rule,
+      status: "429",
+      inputTokens: "80000",
+      contextLimit: "200000",
+      result: null,
+      targets: chainFromRule(rule),
+    });
+  };
+
+  // Pure client-side dry-run mirroring the server matcher (fallbackRuleMatcher).
+  const runTest = () => {
+    const t = testState;
+    if (!t) return;
+    const rule = t.rule;
+    const status = Number(t.status) || 0;
+    const inputTokens = Number(t.inputTokens) || 0;
+    const contextLimit = Number(t.contextLimit) || 0;
+    const type = rule.triggerType || "status";
+    let fires = false;
+
+    if (type === "status") {
+      const csv = rule.conditionVal ?? rule.triggerOnStatus ?? "429,503";
+      fires = String(csv).split(",").map((s) => s.trim()).includes(String(status));
+    } else if (type === "anyError") {
+      fires = status > 0;
+    } else if (type === "contextWindow") {
+      if (contextLimit > 0) {
+        const ratio = inputTokens / contextLimit;
+        const threshold = parseFloat(rule.conditionVal) || 1;
+        fires = (rule.conditionOp === "lte" ? ratio <= threshold : ratio >= threshold);
       }
-    }});
+    } else if (type === "timeout") {
+      fires = status === 504;
+    } else if (type === "contentPolicy") {
+      fires = (status === 400 || status === 403);
+    }
+
+    setTestState({
+      ...t,
+      result: fires ? "fires" : "no-fire",
+      targets: fires ? chainFromRule(rule) : [],
+    });
   };
 
   if (loading) return <CardSkeleton rows={6} />;
@@ -148,7 +239,7 @@ export default function FallbackRulesPage() {
         <div>
           <h1 className="text-lg font-semibold">Fallback Rules</h1>
           <p className="text-sm text-muted-foreground">
-            When a combo model fails with a trigger status, the configured target model is appended to the fallback chain — no code edits needed.
+            When a combo model fails — or a request is about to exceed its context window — the configured chain is appended to the fallback rotation. No code edits needed.
           </p>
         </div>
         <Button onClick={openCreate}>Add Rule</Button>
@@ -157,17 +248,16 @@ export default function FallbackRulesPage() {
       <Card>
         {rules.length === 0 ? (
           <div className="p-6 text-center text-sm text-muted-foreground">
-            No fallback rules yet. Add one to define what happens when a model returns 429 or 503.
+            No fallback rules yet. Add one to define what happens when a model fails or a request overflows its context window.
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left text-muted-foreground">
                 <th className="p-3">Source</th>
-                <th className="p-3">Target</th>
-                <th className="p-3">Triggers</th>
+                <th className="p-3">Chain</th>
+                <th className="p-3">Trigger</th>
                 <th className="p-3 text-right">Priority</th>
-                <th className="p-3 text-right">Retries</th>
                 <th className="p-3">Active</th>
                 <th className="p-3 text-right">Actions</th>
               </tr>
@@ -176,14 +266,27 @@ export default function FallbackRulesPage() {
               {rules.map((rule) => (
                 <tr key={rule.id} className="border-b last:border-0 hover:bg-muted/40 transition-colors">
                   <td className="p-3 font-mono text-xs">{rule.sourceModel}</td>
-                  <td className="p-3 font-mono text-xs">{rule.targetModel}</td>
-                  <td className="p-3 font-mono text-xs">{rule.triggerOnStatus}</td>
+                  <td className="p-3 font-mono text-xs">{chainFromRule(rule).join(" → ") || "—"}</td>
+                  <td className="p-3 font-mono text-xs">
+                    <span className="inline-flex items-center gap-1">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                        rule.triggerType === "contextWindow" ? "bg-blue-500/10 text-blue-400"
+                        : rule.triggerType === "contentPolicy" ? "bg-amber-500/10 text-amber-400"
+                        : rule.triggerType === "timeout" ? "bg-purple-500/10 text-purple-400"
+                        : rule.triggerType === "anyError" ? "bg-red-500/10 text-red-400"
+                        : "bg-emerald-500/10 text-emerald-400"
+                      }`}>
+                        {rule.triggerType || "status"}
+                      </span>
+                      {rule.conditionVal ? <span className="text-muted-foreground">{rule.conditionVal}</span> : null}
+                    </span>
+                  </td>
                   <td className="p-3 text-right">{rule.priority}</td>
-                  <td className="p-3 text-right">{rule.maxRetries}</td>
                   <td className="p-3">
                     <Toggle checked={rule.isActive === 1 || rule.isActive === true} onChange={() => toggleActive(rule)} />
                   </td>
                   <td className="p-3 text-right space-x-2">
+                    <Button variant="ghost" size="sm" onClick={() => openTest(rule)}>Test</Button>
                     <Button variant="ghost" size="sm" onClick={() => openEdit(rule)}>Edit</Button>
                     <Button variant="ghost" size="sm" className="text-red-500" onClick={() => deleteRule(rule)}>Delete</Button>
                   </td>
@@ -210,36 +313,97 @@ export default function FallbackRulesPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Target model</label>
-            <Input
-              value={formData.targetModel}
-              onChange={(e) => setFormData({ ...formData, targetModel: e.target.value })}
-              placeholder="e.g. provider/fallback-model"
-            />
+            <label className="text-xs text-muted-foreground">Trigger type</label>
+            <div className="space-y-1">
+              {TRIGGER_TYPES.map((t) => (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, triggerType: t.value })}
+                  className={`w-full text-left px-3 py-2 rounded-md border text-xs transition-colors ${
+                    formData.triggerType === t.value
+                      ? "bg-primary/10 border-primary text-primary"
+                      : "border-muted text-muted-foreground hover:border-muted-foreground"
+                  }`}
+                >
+                  <span className="font-medium">{t.label}</span>
+                  <span className="block text-[11px] text-muted-foreground">{t.hint}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Trigger statuses</label>
-            <div className="flex flex-wrap gap-2">
-              {STATUS_PRESETS.map((status) => {
-                const active = formData.triggerOnStatus.split(",").map((s) => s.trim()).includes(status);
-                return (
-                  <button
-                    key={status}
-                    type="button"
-                    onClick={() => {
-                      const list = formData.triggerOnStatus.split(",").map((s) => s.trim()).filter(Boolean);
-                      const next = active ? list.filter((s) => s !== status) : [...list, status];
-                      setFormData({ ...formData, triggerOnStatus: next.join(",") || DEFAULT_STATUSES });
-                    }}
-                    className={`px-2 py-1 rounded-md border text-xs font-mono transition-colors ${
-                      active ? "bg-primary/10 border-primary text-primary" : "border-muted text-muted-foreground hover:border-muted-foreground"
-                    }`}
+          {(formData.triggerType === "status" || formData.triggerType === "contextWindow") && (
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">
+                {formData.triggerType === "status" ? "Trigger statuses (comma-separated)" : "Context ratio threshold"}
+              </label>
+              {formData.triggerType === "status" ? (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    {STATUS_PRESETS.map((status) => {
+                      const active = String(formData.conditionVal || "").split(",").map((s) => s.trim()).includes(status);
+                      return (
+                        <button
+                          key={status}
+                          type="button"
+                          onClick={() => {
+                            const list = String(formData.conditionVal || "").split(",").map((s) => s.trim()).filter(Boolean);
+                            const next = active ? list.filter((s) => s !== status) : [...list, status];
+                            setFormData({ ...formData, conditionVal: next.join(",") || DEFAULT_STATUSES });
+                          }}
+                          className={`px-2 py-1 rounded-md border text-xs font-mono transition-colors ${
+                            active ? "bg-primary/10 border-primary text-primary" : "border-muted text-muted-foreground hover:border-muted-foreground"
+                          }`}
+                        >
+                          {status}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <Input
+                    value={formData.conditionVal}
+                    onChange={(e) => setFormData({ ...formData, conditionVal: e.target.value })}
+                    placeholder="429,503"
+                  />
+                </>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    step="0.05"
+                    value={formData.conditionVal}
+                    onChange={(e) => setFormData({ ...formData, conditionVal: e.target.value })}
+                  />
+                  <select
+                    value={formData.conditionOp}
+                    onChange={(e) => setFormData({ ...formData, conditionOp: e.target.value })}
+                    className="rounded-md border bg-transparent px-2 py-1 text-xs"
                   >
-                    {status}
-                  </button>
-                );
-              })}
+                    <option value="gte">ratio ≥</option>
+                    <option value="lte">ratio ≤</option>
+                  </select>
+                  <span className="text-xs text-muted-foreground">of the model's context window</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Fallback chain (ordered — first tried first)</label>
+            <div className="space-y-2">
+              {formData.targetModels.map((m, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground font-mono">{i + 1}.</span>
+                  <Input
+                    value={m}
+                    onChange={(e) => updateChainModel(i, e.target.value)}
+                    placeholder={`e.g. provider/fallback-${i + 1}`}
+                  />
+                  <Button variant="ghost" size="sm" onClick={() => removeChainStep(i)} disabled={formData.targetModels.length <= 1}>✕</Button>
+                </div>
+              ))}
+              <Button variant="ghost" size="sm" onClick={addChainStep}>+ Add hop</Button>
             </div>
           </div>
 
@@ -275,6 +439,38 @@ export default function FallbackRulesPage() {
               {saving ? "Saving..." : editingRule ? "Save" : "Create"}
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      <Modal open={!!testState} onClose={() => setTestState(null)} title={`Test rule — ${testState?.rule?.sourceModel || ""}`}>
+        <div className="space-y-4">
+          <div className="rounded-md bg-muted/40 p-3 text-xs font-mono">
+            {testState?.rule?.sourceModel} → {(testState?.targets || []).join(" → ") || "—"}
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">HTTP status</label>
+              <Input value={testState?.status || ""} onChange={(e) => setTestState({ ...testState, status: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Input tokens</label>
+              <Input value={testState?.inputTokens || ""} onChange={(e) => setTestState({ ...testState, inputTokens: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Context limit</label>
+              <Input value={testState?.contextLimit || ""} onChange={(e) => setTestState({ ...testState, contextLimit: e.target.value })} />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={runTest}>Run dry-run</Button>
+          </div>
+          {testState?.result && (
+            <div className={`rounded-md p-3 text-xs ${testState.result === "fires" ? "bg-emerald-500/10 text-emerald-400" : "bg-muted/40 text-muted-foreground"}`}>
+              {testState.result === "fires"
+                ? `✓ This rule FIRES — the chain ${(testState.targets || []).join(" → ")} would be appended.`
+                : "✕ This rule does NOT fire under those conditions."}
+            </div>
+          )}
         </div>
       </Modal>
 

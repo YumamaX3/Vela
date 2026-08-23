@@ -271,13 +271,22 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     xf.push(`PONYTAIL:${ponytailLevel}`);
   }
 
-  // User-defined prompt injectors (v0.9.19): operator-configured named
-  // prompts, applied last so they layer over the built-in savers.
+  // User-defined prompt injectors (v0.9.19 → v0.9.23): operator-configured
+  // named prompts, applied last so they layer over the built-in savers.
+  // v2: live-context variables ({{model}}, {{requestId}}, {{date}}...) and
+  // per-request custom-var overrides (x-vela-inject-var-<name> headers).
   if (Array.isArray(userInjectors) && userInjectors.length > 0) {
     const injCount = applyUserInjectors(translatedBody, finalFormat, {
       injectors: userInjectors,
       kind: "llm",
       log,
+      ctx: {
+        model: upstreamModel != null ? upstreamModel : (modelInfo?.id || modelInfo?.name || ""),
+        keyPrefix: apiKey ? String(apiKey).slice(0, 7) : "",
+        requestId: connectionId || "",
+        userAgent: userAgent || "",
+        headers: clientRawRequest?.headers || null,
+      },
     });
     if (injCount > 0) xf.push(`INJECT:${injCount}`);
   }

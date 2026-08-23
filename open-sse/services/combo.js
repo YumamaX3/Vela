@@ -6,6 +6,28 @@ import { checkFallbackError, formatRetryAfter } from "./accountFallback.js";
 import { unavailableResponse } from "../utils/error.js";
 import { getCapabilitiesForModel } from "../providers/capabilities.js";
 import { extractTextContent } from "../translator/formats/gemini.js";
+import { buildFallbackChain } from "./fallbackRuleMatcher.js";
+
+// Conservative pre-call token estimate — chars / 4 (en-ish worst case).
+// Only catches gross context overflows; never blocks borderline requests.
+function estimateInputTokens(body) {
+  let text = "";
+  try {
+    const messages = body?.messages || [];
+    for (const m of messages) {
+      const c = m?.content;
+      if (typeof c === "string") text += c + " ";
+      else if (Array.isArray(c)) for (const part of c) if (part?.text) text += part.text + " ";
+    }
+  } catch { /* fail-open: estimate 0 */ }
+  return Math.ceil(text.length / 4);
+}
+
+// Per-request opt-out: body.vela_disable_fallback_rules === true skips ALL
+// operator fallback-rule expansion (both pre-call and post-failure).
+function fallbackRulesDisabled(body) {
+  return Boolean(body && body.vela_disable_fallback_rules === true);
+}
 
 // Hard capabilities = input modalities; missing one drops request data (e.g. image
 // stripped). Must be prioritized. Soft (e.g. search) only degrades a feature.
@@ -320,26 +342,49 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
   // Apply rotation strategy if enabled
   let rotatedModels = getRotatedModels(models, comboName, comboStrategy, comboStickyLimit);
 
-  // Seam 2 — operator-defined fallback rules (Resilience Covenant v0.9.15):
-  // when a combo model fails with a rule-trigger status (default 429/503),
-  // consult the fallbackRules DB and append the configured target models to the
-  // rotation list for the REMAINING attempts. Rules are glob-matched on the
-  // failing source model, priority-ordered, and capped by maxRetries per rule.
+  // Seam 2 — operator-defined fallback rules v2 (Resilience Covenant +
+  // v0.9.23 condition builder):
+  //   - PRE-CALL: contextWindow rules (input estimated to exceed the first
+  //     model's window) expand the rotation immediately, before any dispatch —
+  //     saves a guaranteed-failing upstream call.
+  //   - POST-FAILURE: status / contentPolicy / timeout / anyError rules expand
+  //     the rotation inside the loop, on the failing status.
+  // Rules are glob-matched on the source combo, priority-ordered, multi-hop
+  // (targetModels[]), and skip circuit-breaker-cooldown targets when
+  // cooldownSkip is set. Per-request opt-out: body.vela_disable_fallback_rules.
   // Fail-open: any DB error leaves the rotation list untouched.
-  if (fallbackRulesRepo && typeof fallbackRulesRepo.getRulesForSourceModel === "function") {
+  const rulesDisabled = fallbackRulesDisabled(body);
+  const loadRules = async () => {
+    if (rulesDisabled || !fallbackRulesRepo || typeof fallbackRulesRepo.getRulesForSourceModel !== "function") return [];
     try {
-      const rules = await fallbackRulesRepo.getRulesForSourceModel(comboName || "");
-      const dbTargets = (rules || []).filter((r) => r && r.targetModel).map((r) => r.targetModel);
-      if (dbTargets.length > 0) {
-        const extras = dbTargets.filter((t) => !rotatedModels.includes(t));
-        if (extras.length > 0) {
-          rotatedModels = [...rotatedModels, ...extras];
-          log.info("COMBO", `fallback-rules: appended ${extras.join(", ")} for "${comboName}"`);
-        }
-      }
+      return await fallbackRulesRepo.getRulesForSourceModel(comboName || "");
     } catch (err) {
-      // Fail-open law — rules must never break the request.
       console.warn("[combo] fallback-rules lookup failed, using hardcoded defaults:", err.message);
+      return [];
+    }
+  };
+
+  const appendChain = (chain) => {
+    if (!Array.isArray(chain) || chain.length === 0) return;
+    const extras = chain.filter((t) => !rotatedModels.includes(t));
+    if (extras.length > 0) {
+      rotatedModels = [...rotatedModels, ...extras];
+      log.info("COMBO", `fallback-rules: appended ${extras.join(" → ")} for "${comboName}"`);
+    }
+  };
+
+  if (!rulesDisabled) {
+    const rules = await loadRules();
+    if (rules.length > 0) {
+      // Pre-call context-window detection (cheap estimator).
+      const inputTokens = estimateInputTokens(body);
+      const headCaps = getCapabilitiesForModel(String(models?.[0] || rotatedModels[0] || ""));
+      const contextLimit = headCaps?.contextWindow || 0;
+      const preChain = buildFallbackChain(rules, { inputTokens, contextLimit });
+      if (preChain.length > 0) {
+        log.info("COMBO", `fallback-rules: pre-call context-window → ${preChain.join(" → ")}`);
+      }
+      appendChain(preChain);
     }
   }
 
@@ -413,6 +458,22 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       // Fallback to next model
       lastError = errorText || String(result.status);
       if (!lastStatus) lastStatus = result.status;
+      // Post-failure v2 rules: status / contentPolicy / timeout / anyError.
+      if (!rulesDisabled) {
+        try {
+          const rules = await loadRules();
+          if (rules.length > 0) {
+            const chain = buildFallbackChain(rules, {
+              status: result.status,
+              errorText,
+              timedOut: Boolean(retryAfter === null && result.status === 504),
+            });
+            appendChain(chain);
+          }
+        } catch (err) {
+          console.warn("[combo] fallback-rules post-failure lookup failed:", err.message);
+        }
+      }
       log.warn("COMBO", `Model ${modelStr} failed, trying next`, { status: result.status });
     } catch (error) {
       // Catch unexpected exceptions to ensure fallback continues
