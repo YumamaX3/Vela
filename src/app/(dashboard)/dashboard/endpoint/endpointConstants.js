@@ -1,5 +1,9 @@
 export const WENYAN_LOCALES = ["zh-CN", "zh-TW"];
 
+// The per-key ACL kind catalog (mirrors src/sse/services/keyGate.js
+// SERVICE_KINDS — client-safe copy for the ACL chips in the edit modal).
+export const SERVICE_KINDS = ["llm", "embedding", "image", "imageToText", "tts", "stt", "webSearch", "webFetch", "video", "music", "web"];
+
 export const TUNNEL_BENEFITS = [
   { icon: "public", title: "Access Anywhere", desc: "Use your API from any network" },
   { icon: "group", title: "Share Endpoint", desc: "Share URL with team members" },

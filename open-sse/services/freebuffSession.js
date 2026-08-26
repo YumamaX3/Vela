@@ -261,7 +261,8 @@ export async function claimSession(credentials, model, proxyOptions = null, sign
 
   let releaseChain;
   const gate = new Promise((resolve) => { releaseChain = resolve; });
-  claimChains.set(key, prev.then(() => gate));
+  const myChain = prev.then(() => gate);
+  claimChains.set(key, myChain);
 
   try {
     await prev;
@@ -314,7 +315,11 @@ export async function claimSession(credentials, model, proxyOptions = null, sign
     throw err;
   } finally {
     releaseChain();
-    if (claimChains.get(key) && prev === Promise.resolve()) claimChains.delete(key);
+    // Delete only when we are still the tail of the chain — a follower has
+    // already captured this link as its `prev` and must not be stranded.
+    // (The old `prev === Promise.resolve()` check never fired: Promise.resolve()
+    // is a fresh object on every evaluation, so the map entry leaked forever.)
+    if (claimChains.get(key) === myChain) claimChains.delete(key);
   }
 }
 

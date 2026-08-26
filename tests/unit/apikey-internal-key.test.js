@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 let tempDir;
 const originalDataDir = process.env.DATA_DIR;
 const originalSecret = process.env.API_KEY_SECRET;
-const originalPeerToken = process.env.NINEROUTER_PEER_TOKEN;
+const originalPeerToken = process.env.VELA_PEER_TOKEN;
 
 // The gate only trusts x-9r-real-ip when custom-server.js proves the stamp with
 // the per-process secret (GHSA-pjm4-8fpg-f9p6). Mint a fixture secret so the
@@ -22,7 +22,7 @@ beforeEach(() => {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "vela-internal-"));
   process.env.DATA_DIR = tempDir;
   process.env.API_KEY_SECRET = "internal-test-secret";
-  process.env.NINEROUTER_PEER_TOKEN = PEER_TOKEN;
+  process.env.VELA_PEER_TOKEN = PEER_TOKEN;
   delete global._dbAdapter;
   vi.resetModules();
 });
@@ -35,8 +35,8 @@ afterEach(() => {
   else process.env.DATA_DIR = originalDataDir;
   if (originalSecret === undefined) delete process.env.API_KEY_SECRET;
   else process.env.API_KEY_SECRET = originalSecret;
-  if (originalPeerToken === undefined) delete process.env.NINEROUTER_PEER_TOKEN;
-  else process.env.NINEROUTER_PEER_TOKEN = originalPeerToken;
+  if (originalPeerToken === undefined) delete process.env.VELA_PEER_TOKEN;
+  else process.env.VELA_PEER_TOKEN = originalPeerToken;
 });
 
 describe("internal key — derive, hide, pin, re-key", () => {

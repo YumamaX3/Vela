@@ -14,11 +14,19 @@ const SETTINGS_RESPONSE_HEADERS = {
 // Secrets must never be mass-assigned from request body (CWE-915)
 const PROTECTED_SETTING_KEYS = ["password", "mitmSudoEncrypted"];
 
+// Settings Observatory: usageWebhookUrl is secret-bearing (a Discord/Slack
+// webhook URL carries a token) — same law as budgetAlerts above: presence
+// flag only, never an echo.
 export async function GET() {
   try {
     const settings = await getSettings();
     const { password, oidcClientSecret, ...safeSettings } = settings;
     safeSettings.oidcConfigured = !!(safeSettings.oidcIssuerUrl && safeSettings.oidcClientId && oidcClientSecret);
+    if ("usageWebhookUrl" in safeSettings) {
+      safeSettings.hasUsageWebhook =
+        typeof safeSettings.usageWebhookUrl === "string" && !!safeSettings.usageWebhookUrl.trim();
+      delete safeSettings.usageWebhookUrl;
+    }
     // W3-C: budget webhook URLs are secret-bearing (a Discord webhook URL
     // carries a token) — never echo them back. Expose presence flags only,
     // mirroring the oidcConfigured / hasPassword precedent.
@@ -43,8 +51,8 @@ export async function GET() {
       hasPassword: !!password
     }, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {
-    console.log("Error getting settings:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Error getting settings:", error?.message || error);
+    return NextResponse.json({ error: "Failed to get settings" }, { status: 500 });
   }
 }
 
@@ -89,6 +97,48 @@ export async function PATCH(request) {
       }
     }
 
+    // Settings Observatory — numeric fields: coerce + clamp before persisting
+    // so a stray string from an <input> never poisons the settings blob.
+    const NUMERIC_BOUNDS = [
+      ["sessionTimeoutMins", 0, 10080],
+      ["auditRetentionDays", 1, 3650],
+      ["maxRetries", 0, 10],
+      ["requestTimeoutSecs", 5, 3600],
+      ["connectTimeoutSecs", 1, 120],
+      ["usageRetentionDays", 1, 36500],
+    ];
+    for (const [key, min, max] of NUMERIC_BOUNDS) {
+      if (Object.prototype.hasOwnProperty.call(body, key)) {
+        const n = Math.round(Number(body[key]));
+        if (!Number.isFinite(n)) delete body[key];
+        else body[key] = Math.min(max, Math.max(min, n));
+      }
+    }
+
+    // Enum-typed fields: reject unknown values rather than storing them.
+    const ENUM_FIELDS = {
+      fallbackStrategy: ["fill-first", "round-robin", "least-used", "random"],
+      accentColor: ["coral", "ocean", "emerald", "violet", "amber"],
+      density: ["comfortable", "compact"],
+      fontSize: ["s", "m", "l", "xl"],
+      defaultPage: ["/dashboard", "/dashboard/endpoint", "/dashboard/usage", "/dashboard/logs"],
+    };
+    for (const [key, allowed] of Object.entries(ENUM_FIELDS)) {
+      if (Object.prototype.hasOwnProperty.call(body, key) && !allowed.includes(body[key])) {
+        return NextResponse.json({ error: `Invalid value for "${key}"` }, { status: 400 });
+      }
+    }
+
+    // usageWebhookUrl: empty string means "keep the stored one" (write-only
+    // secret, mirroring oidcClientSecret); a non-empty value overwrites.
+    if (
+      Object.prototype.hasOwnProperty.call(body, "usageWebhookUrl") &&
+      typeof body.usageWebhookUrl === "string" &&
+      !body.usageWebhookUrl.trim()
+    ) {
+      delete body.usageWebhookUrl;
+    }
+
     // W3-C: budgetAlerts is a nested object — updateSettings shallow-merges
     // top-level keys, so a partial client payload would clobber stored
     // webhook URLs. Deep-merge against the current values; an empty-string
@@ -110,6 +160,59 @@ export async function PATCH(request) {
             ? patch.n8nWebhookUrl.trim()
             : (typeof current.n8nWebhookUrl === "string" ? current.n8nWebhookUrl : ""),
       };
+    }
+
+    // Settings Observatory v2 — section reset. The frontend sends
+    // { _resetSection: "security" } and the server fills in defaults
+    // for only that section's keys, leaving the rest of the blob intact.
+    // The section-key map lives here (not in settingsDefaults) because
+    // the reset logic is a PATCH concern.
+    if (
+      Object.prototype.hasOwnProperty.call(body, "_resetSection") &&
+      typeof body._resetSection === "string"
+    ) {
+      const { mergeWithDefaults } = await import("@/lib/db/repos/settingsDefaults");
+      const defaults = mergeWithDefaults({});
+      const SECTION_KEYS = {
+        appearance: [
+          "accentColor", "density", "fontSize", "reduceMotion",
+          "highContrast", "showVersionBadge", "autoDetectLocale",
+        ],
+        security: [
+          "requireLogin", "sessionTimeoutMins", "ipAllowlist",
+          "bruteForceLockout", "securityHeadersEnabled",
+          "securityAlerts", "auditEnabled", "auditRetentionDays",
+        ],
+        authentication: ["authMode", "ssoType", "requireApiKey"],
+        routing: [
+          "fallbackStrategy", "stickyRoundRobinLimit",
+          "comboStrategy", "comboStickyRoundRobinLimit", "maxRetries",
+        ],
+        network: [
+          "outboundProxyEnabled", "outboundProxyUrl", "outboundNoProxy",
+          "requestTimeoutSecs", "connectTimeoutSecs",
+          "keepAlivePool", "dnsPrefetch", "poolGeoProbe", "poolGeoProbeUrl",
+        ],
+        "token-savers": [
+          "rtkEnabled", "cavemanEnabled", "cavemanLevel",
+          "ponytailEnabled", "ponytailLevel",
+          "pxpipeEnabled", "pxpipeMinChars", "pxpipeTimeoutMs",
+          "headroomEnabled", "headroomUrl", "headroomCompressUserMessages",
+        ],
+        storage: ["usageRetentionDays", "keepRequestPayloads"],
+        alerts: ["budgetAlerts", "usageWebhookEnabled", "usageWebhookUrl"],
+        observability: [
+          "enableObservability", "observabilityMaxRecords",
+          "observabilityBatchSize", "observabilityFlushIntervalMs",
+          "observabilityMaxJsonSize",
+        ],
+        capacity: ["capacityAdapter"],
+      };
+      const keys = SECTION_KEYS[body._resetSection];
+      if (keys) {
+        for (const k of keys) body[k] = defaults[k];
+      }
+      delete body._resetSection;
     }
 
     const settings = await updateSettings(body);
@@ -154,9 +257,14 @@ export async function PATCH(request) {
 
     const { password, oidcClientSecret, ...safeSettings } = settings;
     safeSettings.oidcConfigured = !!(safeSettings.oidcIssuerUrl && safeSettings.oidcClientId && oidcClientSecret);
+    if ("usageWebhookUrl" in safeSettings) {
+      safeSettings.hasUsageWebhook =
+        typeof safeSettings.usageWebhookUrl === "string" && !!safeSettings.usageWebhookUrl.trim();
+      delete safeSettings.usageWebhookUrl;
+    }
     return NextResponse.json(safeSettings, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {
-    console.log("Error updating settings:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Error updating settings:", error?.message || error);
+    return NextResponse.json({ error: "Failed to update settings" }, { status: 500 });
   }
 }

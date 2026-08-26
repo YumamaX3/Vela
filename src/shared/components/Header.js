@@ -147,7 +147,7 @@ const getPageInfo = (pathname) => {
       icon: "api",
       breadcrumbs: [],
     };
-  if (pathname.includes("/profile"))
+  if (pathname.includes("/settings"))
     return {
       title: "Settings",
       description: "Manage your preferences",

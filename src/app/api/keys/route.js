@@ -15,7 +15,7 @@ export async function GET(request) {
     const page = keys.slice(offset, offset + limit);
     return NextResponse.json({ keys: page, total: keys.length, limit, offset });
   } catch (error) {
-    console.log("Error fetching keys:", error);
+    console.error("Error fetching keys:", error?.message || error);
     return NextResponse.json({ error: "Failed to fetch keys" }, { status: 500 });
   }
 }
@@ -25,19 +25,37 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, description, allowedModels } = body;
+    const { name, description } = body;
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
-    // Validate allowedModels shape: array of non-empty strings, or null (unrestricted)
-    let scope = null;
-    if (allowedModels != null) {
-      if (!Array.isArray(allowedModels) || allowedModels.some((m) => typeof m !== "string" || !m.trim())) {
-        return NextResponse.json({ error: "allowedModels must be an array of model ids (or omitted for unrestricted)" }, { status: 400 });
+    if (name.trim().length > 200) {
+      return NextResponse.json({ error: "Name must be 200 characters or fewer" }, { status: 400 });
+    }
+
+    // Per-key ACL dimensions (v0.9.17) — each is tri-state: omitted/null = all
+    // allowed, [] = deny, ["x"] = whitelist. Arrays are deduped + trimmed; any
+    // non-string member is rejected.
+    const parseScope = (value, field) => {
+      if (value == null) return null;
+      if (!Array.isArray(value) || value.some((m) => typeof m !== "string" || !m.trim())) {
+        throw new Error(`${field} must be an array of strings (or omitted for unrestricted)`);
       }
-      scope = [...new Set(allowedModels.map((m) => m.trim()))];
+      return [...new Set(value.map((m) => m.trim()))];
+    };
+    let scope = null;
+    let allowedKinds = null;
+    let allowedProviders = null;
+    let allowedCombos = null;
+    try {
+      scope = parseScope(body.allowedModels, "allowedModels");
+      allowedKinds = parseScope(body.allowedKinds, "allowedKinds");
+      allowedProviders = parseScope(body.allowedProviders, "allowedProviders");
+      allowedCombos = parseScope(body.allowedCombos, "allowedCombos");
+    } catch (e) {
+      return NextResponse.json({ error: e.message }, { status: 400 });
     }
 
     // Category — free-form label, validated at the gate (trim/collapse/length cap).
@@ -51,6 +69,9 @@ export async function POST(request) {
     const created = await createApiKey(name.trim(), {
       description: typeof description === "string" ? description.trim() || null : null,
       allowedModels: scope,
+      allowedKinds,
+      allowedProviders,
+      allowedCombos,
       category,
       // W3 governance opts — validated by the repo (KeyLimitsValidationError
       // → 400 below). Absent fields stay null = unlimited / unrestricted.
@@ -72,7 +93,7 @@ export async function POST(request) {
     if (error instanceof KeyLimitsValidationError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    console.log("Error creating key:", error);
+    console.error("Error creating key:", error?.message || error);
     return NextResponse.json({ error: "Failed to create key" }, { status: 500 });
   }
 }

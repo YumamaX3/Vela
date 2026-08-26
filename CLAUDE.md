@@ -153,7 +153,7 @@ Other surfaces share the same bones: `embeddings`, `audio/*` (tts/stt), `images/
 
 **Adapters** (`src/lib/db/adapters/`) — `betterSqliteAdapter`, `nodeSqliteAdapter`, `bunSqliteAdapter`, `sqljsAdapter`. All expose `run/get/all/exec/transaction`.
 
-**Migrations** (`src/lib/db/migrations/`) — versioned chain + additive schema sync. `SCHEMA_VERSION = 13`, migrations `001–014`.
+**Migrations** (`src/lib/db/migrations/`) — versioned chain + additive schema sync. `SCHEMA_VERSION = 14`, migrations `001–015`.
 
 > **⚠️ THE ADAPTER CONTRACT (learned the hard way, v0.9.20)**: the adapter interface exposes `run/get/all/exec/transaction` — **NO raw `prepare()`**. The sql.js adapter (Docker runner's fallback) and the mysql/mirror adapters have no public `.prepare`. A migration using `db.prepare(...)` crashed every DB API at boot (the 0.9.19 boot storm). **Use `db.all("PRAGMA table_info(...)")` + `db.exec(...)`** — exactly like migration 002 documents.
 

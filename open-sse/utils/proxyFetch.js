@@ -251,7 +251,15 @@ async function getDispatcher(proxyUrl) {
 }
 
 /**
- * Create HTTPS request with manual socket connection (bypass DNS)
+ * Create HTTPS request with manual socket connection (bypass DNS).
+ *
+ * Returns a REAL Response (E-H3): the previous plain-object shape broke
+ * callers that assume Response semantics — `response.clone().text()`
+ * (executors/github.js:155) threw a TypeError on the Copilot-over-bypass
+ * error path. The body is buffered (bypass hosts are auth/tool endpoints,
+ * not SSE streams), so clone/text/json all work exactly as on a normal
+ * fetch. Also honors options.signal: an abort destroys the socket instead
+ * of leaking the upstream connection.
  */
 async function createBypassRequest(parsedUrl, realIP, options) {
   const httpsModule = await import("https");
@@ -260,8 +268,32 @@ async function createBypassRequest(parsedUrl, realIP, options) {
   const https = httpsModule.default ?? httpsModule;
   const net = netModule.default ?? netModule;
 
+  const signal = options?.signal || null;
+  const socket = new net.Socket();
+  const abort = () => {
+    try {
+      socket.destroy(new DOMException("The operation was aborted.", "AbortError"));
+    } catch {
+      socket.destroy();
+    }
+  };
+
+  if (signal) {
+    if (signal.aborted) {
+      abort();
+      return Promise.reject(new DOMException("The operation was aborted.", "AbortError"));
+    }
+    signal.addEventListener("abort", abort, { once: true });
+  }
+
   return new Promise((resolve, reject) => {
-    const socket = new net.Socket();
+    let settled = false;
+    const settle = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      if (signal) signal.removeEventListener("abort", abort);
+      fn(value);
+    };
 
     socket.connect(HTTPS_PORT, realIP, () => {
       const reqOptions = {
@@ -281,31 +313,36 @@ async function createBypassRequest(parsedUrl, realIP, options) {
         },
       };
 
-      const req = https.request(reqOptions, (res) => {
-        const response = {
-          ok: res.statusCode >= HTTP_SUCCESS_MIN && res.statusCode < HTTP_SUCCESS_MAX,
-          status: res.statusCode,
-          statusText: res.statusMessage,
-          headers: new Map(Object.entries(res.headers)),
-          body: Readable.toWeb(res),
-          text: async () => {
-            const chunks = [];
-            for await (const chunk of res) chunks.push(chunk);
-            return Buffer.concat(chunks).toString();
-          },
-          json: async () => JSON.parse(await response.text()),
-        };
-        resolve(response);
+      const req = https.request(reqOptions, async (res) => {
+        try {
+          // Buffer the full body, then hand back a genuine Response so every
+          // caller contract (clone/text/json/headers) behaves like fetch.
+          const chunks = [];
+          for await (const chunk of res) chunks.push(chunk);
+          const body = Buffer.concat(chunks);
+          const headers = new Headers();
+          for (const [k, v] of Object.entries(res.headers)) {
+            if (v !== undefined) headers.set(k, Array.isArray(v) ? v.join(", ") : String(v));
+          }
+          const response = new Response(body, {
+            status: res.statusCode,
+            statusText: res.statusMessage,
+            headers,
+          });
+          settle(resolve, response);
+        } catch (err) {
+          settle(reject, err);
+        }
       });
 
-      req.on("error", reject);
+      req.on("error", (err) => settle(reject, err));
       if (options.body) {
         req.write(typeof options.body === "string" ? options.body : JSON.stringify(options.body));
       }
       req.end();
     });
 
-    socket.on("error", reject);
+    socket.on("error", (err) => settle(reject, err));
   });
 }
 

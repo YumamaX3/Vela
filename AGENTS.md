@@ -46,7 +46,7 @@ This file is the operating manual for **AI agents working in this repository**. 
 | Package / image | `vela-app` / `ghcr.io/yumamax3/vela:<tag>` |
 | CLI | npm package `vela`, bin `vela` |
 | Tests | vitest, `tests/` — 245 unit files |
-| Migrations | 14 versioned (`001` → `014`), `SCHEMA_VERSION = 13` |
+| Migrations | 15 versioned (`001` → `015`), `SCHEMA_VERSION = 14` |
 
 The product lives in two engines that must never be confused:
 
@@ -155,7 +155,7 @@ Client ──> custom-server.js (TCP-socket IP stamp, h2c downgrade, hop-by-hop 
 
 **Facades** (`src/lib/db/repos/*.js`) — path-stable entry points. Each facade binds by posture: sqlite re-exports its harbor verbatim; mysql binds the `repos/mysql/` twin; `bind.js` picks by `VELA_DB_MODE`. `src/lib/localDb.js` is a backward-compat shim — new code imports `@/lib/db/index.js`.
 
-**Migrations** (`src/lib/db/migrations/`) — 14 versioned, `SCHEMA_VERSION = 13` in `src/lib/db/schema.js` (the pre-change backup gate: bump the version, the engine takes a safety backup before applying). `TABLES` in `schema.js` is the single source of truth for both harbors — the mysql twin's `bootstrap.js` brings itself forward by additive diff against `TABLES` (create tables, add columns, add indexes; **never drop**).
+**Migrations** (`src/lib/db/migrations/`) — 15 versioned, `SCHEMA_VERSION = 14` in `src/lib/db/schema.js` (the pre-change backup gate: bump the version, the engine takes a safety backup before applying). `TABLES` in `schema.js` is the single source of truth for both harbors — the mysql twin's `bootstrap.js` brings itself forward by additive diff against `TABLES` (create tables, add columns, add indexes; **never drop**).
 
 | # | Migration | What it sealed |
 |-|-|-|
@@ -524,3 +524,13 @@ The tag triggers `.github/workflows/docker-publish.yml` → GHCR `ghcr.io/yumama
 ---
 
 *The Shores sail on. Read the chart, make your change, write down why, verify it, seal it. The next keeper will thank you.* 🪞⛵
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

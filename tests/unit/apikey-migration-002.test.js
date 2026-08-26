@@ -80,7 +80,7 @@ describe("Migration 002 — governance schema", () => {
     expect(nulls).toHaveLength(2);
   });
 
-  it("v1 DB with plaintext legacy row → re-running 002 tombstones it", async () => {
+  it("v1 DB with plaintext legacy row → 002 tombstones it, full chain ends in deletion (015)", async () => {
     const { getAdapter } = await import("@/lib/db/driver.js");
     const db = await getAdapter();
 
@@ -99,12 +99,12 @@ describe("Migration 002 — governance schema", () => {
     const { getAdapter: boot2 } = await import("@/lib/db/driver.js");
     const db2 = await boot2();
 
+    // Migration 002 tombstones the plaintext row; migration 015 (legacy-key
+    // cleanup, the Star's choice) then DELETES tombstones outright. The chain's
+    // end-state for a legacy plaintext row is: gone from apiKeys, plaintext
+    // scrubbed from usage.
     const row = db2.get(`SELECT * FROM apiKeys WHERE id = 'legacy1'`);
-    expect(row.key).toBe("revoked-legacy1"); // plaintext wiped
-    expect(row.key).not.toContain("sk-plaintext-secret");
-    expect(row.isActive).toBe(0);
-    expect(row.name).toBe("Legacy Key [legacy]");
-    expect(row.keyVersion).toBe("legacy");
+    expect(row).toBeUndefined(); // deleted by 015 after 002's tombstone
 
     const usage = db2.get(`SELECT apiKey FROM usageHistory`);
     expect(usage.apiKey).toBeNull(); // scrubbed

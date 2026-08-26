@@ -12,19 +12,20 @@ export class GeminiCLIExecutor extends BaseExecutor {
     return `${this.config.baseUrl}:${action}`;
   }
 
-  buildHeaders(credentials, stream = true) {
+  // model arrives as the 4th arg from base.execute — using the singleton
+  // this._currentModel here raced under concurrency (E-M1: wrong model stamped
+  // in the User-Agent when two requests interleave transformRequest/buildHeaders).
+  buildHeaders(credentials, stream = true, url, model) {
     return {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${credentials.accessToken}`,
-      "User-Agent": geminiCLIUserAgent(this._currentModel),
+      "User-Agent": geminiCLIUserAgent(model),
       "X-Goog-Api-Client": GEMINI_CLI_API_CLIENT,
       "Accept": stream ? "text/event-stream" : "application/json"
     };
   }
 
   transformRequest(model, body, stream, credentials) {
-    // Store model for use in buildHeaders (called by base.execute after transformRequest)
-    this._currentModel = model;
     // Cloud Code Assist wraps the Gemini payload: { project, model, request: <body> }
     if (body && body.request && body.model) return body;
     return {

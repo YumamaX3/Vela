@@ -7,13 +7,14 @@ import { useMetrics } from "../hooks/useMetrics";
 import Card from "@/shared/components/Card";
 
 export default function TopModels({ period }) {
-  if (!period) return null; // Will be populated by parent
-
+  // Hook first — early returns must never sit between hook calls.
   const { data, loading } = useMetrics(
     "breakdown",
-    `period=${period}&dimension=model&metric=requests`,
+    period ? `period=${period}&dimension=model&metric=requests` : "",
     ""
   );
+
+  if (!period) return null; // Will be populated by parent
 
   const items = Array.isArray(data?.items) ? data.items : [];
 

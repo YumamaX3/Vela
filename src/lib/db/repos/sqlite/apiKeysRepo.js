@@ -26,6 +26,10 @@ function rowToPublic(row) {
     allowedCombos: safeParse(row.allowedCombos),
     isActive: row.isActive === 1 || row.isActive === true,
     isInternal: row.isInternal === 1 || row.isInternal === true,
+    // Tombstoned legacy rows (migration 002) have a purged hash + 'legacy'
+    // version stamp — they can NEVER authenticate again. The UI renders a
+    // "Revoked (legacy)" honesty marker instead of a dead toggle.
+    revoked: row.keyVersion === "legacy" || (row.keyHash == null && row.isInternal === 0),
     createdAt: row.createdAt,
     // W2/W3 columns surface when their waves land
     expiresAt: row.expiresAt || null,

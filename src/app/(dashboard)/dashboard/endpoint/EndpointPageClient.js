@@ -1,162 +1,53 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Card, Button, Input, Modal, CardSkeleton, Toggle, ConfirmModal, ModelSelectModal, KeyLimitsEditor } from "@/shared/components";
-import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
-import { storeKey, getKey, hasKey, removeKey, resolveKeyRef } from "@/shared/utils/keyVault";
-import { translate } from "@/i18n/runtime";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
-  TUNNEL_BENEFITS,
-  TUNNEL_PING_INTERVAL_MS,
-  TUNNEL_PING_MAX_MS,
-  STATUS_POLL_FAST_MS,
-  REACHABLE_MISS_THRESHOLD,
-  CLIENT_PING_FAST_MS,
-} from "./endpointConstants";
-import { clientPingUrl, clientPingAny } from "./endpointPing";
-import EndpointRow from "./components/EndpointRow";
-import StatusAlert from "./components/StatusAlert";
-import Tooltip from "./components/Tooltip";
-import SecurityWarning from "./components/SecurityWarning";
+  CardSkeleton,
+  ConfirmModal,
+  ModelSelectModal,
+} from "@/shared/components";
+import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import { getKey, hasKey, removeKey } from "@/shared/utils/keyVault";
+import { fetchPendingReveals } from "./lib/keyApi";
+import { translate } from "@/i18n/runtime";
+import { useKeys } from "./hooks/useKeys";
+import { useSettings } from "./hooks/useSettings";
+import { useTunnel } from "./hooks/useTunnel";
+import { useTailscale } from "./hooks/useTailscale";
+import {
+  KpiBand,
+  EndpointHero,
+  KeysTable,
+  KeyDrawer,
+  KeyEditModal,
+  KeyCreateModal,
+  RemoteAccessPanel,
+  InsightsCard,
+  ShowOnceModal,
+} from "./components";
 
-// ── W3 key-limit UI helpers ────────────────────────────────────────────────
-// Editor shape: { rateLimitRpm, tokenBudget, budgetScope, spendCapCents,
-// expiresAt, ipAllowlist } — maps to repo fields at submit time
-// (tokenBudget→tokenBudgetDaily, spendCapCents→spendCapDailyCents).
-const DEFAULT_LIMITS = Object.freeze({
-  rateLimitRpm: null,
-  tokenBudget: null,
-  budgetScope: "daily",
-  spendCapCents: null,
-  expiresAt: null,
-  ipAllowlist: null,
-});
-
-function formatTokens(n) {
-  if (n >= 1e9) return `${+(n / 1e9).toFixed(1)}B`;
-  if (n >= 1e6) return `${+(n / 1e6).toFixed(1)}M`;
-  if (n >= 1e3) return `${+(n / 1e3).toFixed(1)}K`;
-  return `${n}`;
-}
-
-/** Spend formatter for key usage strips — honest about sub-cent dust. */
-function formatCost(c) {
-  if (!c || c <= 0) return "$0.00";
-  if (c < 0.01) return "<$0.01";
-  return `$${c.toFixed(2)}`;
-}
-
-/** Limit badges for a key row — only limits actually set render. */
-function limitBadges(key) {
-  const badges = [];
-  if (key.rateLimitRpm != null) badges.push({ k: "rpm", text: `${key.rateLimitRpm} RPM` });
-  if (key.tokenBudgetDaily != null) badges.push({ k: "tok", text: `${formatTokens(key.tokenBudgetDaily)} tok` });
-  if (key.spendCapDailyCents != null) badges.push({ k: "spend", text: `$${(key.spendCapDailyCents / 100).toFixed(0)}` });
-  if (key.ipAllowlist?.length) badges.push({ k: "ip", text: `${key.ipAllowlist.length} IP` });
-  return badges;
-}
-
-function limitsFromRecord(k) {
-  return {
-    rateLimitRpm: k.rateLimitRpm ?? null,
-    tokenBudget: k.tokenBudgetDaily ?? null,
-    budgetScope: k.budgetScope || "daily",
-    spendCapCents: k.spendCapDailyCents ?? null,
-    expiresAt: k.expiresAt ?? null,
-    ipAllowlist: Array.isArray(k.ipAllowlist) ? k.ipAllowlist : null,
-  };
-}
-
-// ── Key categories ──────────────────────────────────────────────────────────
-// Free-form labels the user assigns to keys (friend, hermes, others…). The
-// server stores the exact trimmed string; the dashboard derives the filter
-// chips from whatever categories exist. `__uncategorized__` is a sentinel for
-// the "no category" bucket (real categories never contain that token).
-const UNCATEGORIZED = "__uncategorized__";
-const categoryOf = (k) => k.category || UNCATEGORIZED;
-
-// Dedup guard for auto-provisioning the first "Default Key". Module scope so it
-// survives re-mounts within a session. fetchData() can run concurrently (StrictMode
-// double-invoke, fast re-mount); without this, two runs both see zero keys and both
-// POST → duplicate keys. Single-threaded JS makes the check-then-set below atomic:
-// the flag is set synchronously before the first await, so the second caller sees it.
-let provisioningDefaultKey = false;
-
+/**
+ * The thin orchestrator — composes the modular Observatory tree. All keys /
+ * tunnel / tailscale / settings state lives in the hooks; this file only
+ * wires their contracts, owns the page-level chrome (copy, stats, share
+ * link, show-once reveals), and composes the sections.
+ */
 export default function APIPageClient() {
-  const [keys, setKeys] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newKeyName, setNewKeyName] = useState("");
-  const [newKeyDescription, setNewKeyDescription] = useState("");
-  const [newKeyScopeOn, setNewKeyScopeOn] = useState(false);
-  const [newKeyScope, setNewKeyScope] = useState([]);
-  const [createdKey, setCreatedKey] = useState(null); // { key, keyId, keyPrefix, record } — the one-time show
-  const [createdKeyAck, setCreatedKeyAck] = useState(false);
-  const [editingKey, setEditingKey] = useState(null); // draft state for the edit modal
-  const [scopePickerFor, setScopePickerFor] = useState(null); // "create" | "edit" — which form's scope the grouped picker is editing
-  const [createLimits, setCreateLimits] = useState(DEFAULT_LIMITS); // W3 limits for the create form
-  const [createError, setCreateError] = useState("");
-  const [activeProviders, setActiveProviders] = useState([]);
-  const [modelAliases, setModelAliases] = useState({});
-  const [confirmState, setConfirmState] = useState(null);
+  const keysApi = useKeys();
+  const settings = useSettings();
+  const tailscale = useTailscale();
 
-  // Key categories — filter chip + free-form combobox state
-  const [newKeyCategory, setNewKeyCategory] = useState("");
-  const [activeCategoryFilter, setActiveCategoryFilter] = useState("all");
+  // Shared status surface — the tunnel gate and tailscale gate write errors
+  // here so the row shows them without duplicating state machines.
+  const [remoteStatus, setRemoteStatus] = useState(null);
+  const tunnel = useTunnel({
+    isLoginUnsafe: settings.isLoginUnsafe,
+    unsafeReason: settings.unsafeReason,
+    requireApiKey: settings.requireApiKey,
+    setStatus: setRemoteStatus,
+  });
 
-  // Per-key usage stats — requests/tokens/spend under each key row
-  const [usagePeriod, setUsagePeriod] = useState("all");
-  const [keyUsage, setKeyUsage] = useState({});
-
-  const [requireApiKey, setRequireApiKey] = useState(false);
-  const [requireLogin, setRequireLogin] = useState(true);
-  const [hasPassword, setHasPassword] = useState(true);
- const [tunnelDashboardAccess, setTunnelDashboardAccess] = useState(false);
-
- // Cloudflare Tunnel state
-  const [tunnelChecking, setTunnelChecking] = useState(true);
-  const [tunnelEnabled, setTunnelEnabled] = useState(false);
-  const [tunnelReachable, setTunnelReachable] = useState(false);
-  const [tunnelUrl, setTunnelUrl] = useState("");
-  const [tunnelPublicUrl, setTunnelPublicUrl] = useState("");
-  const [tunnelLoading, setTunnelLoading] = useState(false);
-  const [tunnelProgress, setTunnelProgress] = useState("");
-  const [tunnelStatus, setTunnelStatus] = useState(null);
-  const [showEnableTunnelModal, setShowEnableTunnelModal] = useState(false);
-  const [showDisableTunnelModal, setShowDisableTunnelModal] = useState(false);
-
-  // Tailscale state
-  const [tsEnabled, setTsEnabled] = useState(false);
-  const [tsReachable, setTsReachable] = useState(false);
-  const [tsUrl, setTsUrl] = useState("");
-  const [tsLoading, setTsLoading] = useState(false);
-  const [tsProgress, setTsProgress] = useState("");
-  const [tsStatus, setTsStatus] = useState(null);
-  const [tsAuthUrl, setTsAuthUrl] = useState("");
-  const [tsAuthLabel, setTsAuthLabel] = useState("");
-  const [tsInstalled, setTsInstalled] = useState(null); // null=checking, true/false
-  const [tsInstalling, setTsInstalling] = useState(false);
-  const [tsInstallLog, setTsInstallLog] = useState([]);
-  const [tsSudoPassword, setTsSudoPassword] = useState("");
-  const [tsConnecting, setTsConnecting] = useState(false);
-  const [showTsModal, setShowTsModal] = useState(false);
-  const [showDisableTsModal, setShowDisableTsModal] = useState(false);
-  const tsLogRef = useRef(null);
-
-  // Debounce reachable=false: server may briefly return false during background refresh.
-  // Only flip UI to "reconnecting" after N consecutive misses to avoid spinner flicker.
-  const tunnelMissRef = useRef(0);
-  const tsMissRef = useRef(0);
-  // Browser-side reachable cache (independent of backend DNS quirks)
-  const tunnelClientReachableRef = useRef(false);
-  const tsClientReachableRef = useRef(false);
-  // Track whether reachable=true was ever observed in this session.
-  // Distinguishes "Checking..." (initial cold cache) from "Reconnecting..." (lost connection).
-  const tunnelEverReachableRef = useRef(false);
-  const tsEverReachableRef = useRef(false);
-  const [tunnelEverReachable, setTunnelEverReachable] = useState(false);
-  const [tsEverReachable, setTsEverReachable] = useState(false);
-
+  const { copied, copy } = useCopyToClipboard();
 
   // Client-side local/remote detection (UI hint only, not a security gate)
   const [isRemoteHost, setIsRemoteHost] = useState(false);
@@ -165,781 +56,159 @@ export default function APIPageClient() {
       setIsRemoteHost(!["localhost", "127.0.0.1", "::1"].includes(window.location.hostname));
   }, []);
 
-  const { copied, copy } = useCopyToClipboard();
-
-  // Security gate: block remote exposure while dashboard uses default password or login is off.
-  const isLoginUnsafe = !requireLogin || !hasPassword;
-  const unsafeReason = !requireLogin
-    ? "Enable \"Require login\" and set a custom password before activating the tunnel."
-    : "Change the default dashboard password before activating the tunnel.";
-
-  // Auto-scroll install log
-  useEffect(() => {
-    if (tsLogRef.current) tsLogRef.current.scrollTop = tsLogRef.current.scrollHeight;
-  }, [tsInstallLog]);
-
-  useEffect(() => {
-    fetchData();
-    loadSettings();
-  }, []);
-
-  // Status poll: only while degraded (not yet reachable). Stop once healthy to avoid spam.
-  // Visibility re-check: refresh once when tab becomes visible.
-  useEffect(() => {
-    const anyEnabled = tunnelEnabled || tsEnabled;
-    if (!anyEnabled) return;
-    const tunnelHealthy = !tunnelEnabled || tunnelReachable;
-    const tsHealthy = !tsEnabled || tsReachable;
-    const allHealthy = tunnelHealthy && tsHealthy;
-    const onVisible = () => { if (!document.hidden) syncTunnelStatus(); };
-    document.addEventListener("visibilitychange", onVisible);
-    if (allHealthy) return () => document.removeEventListener("visibilitychange", onVisible);
-    const timer = setInterval(() => { if (!document.hidden) syncTunnelStatus(); }, STATUS_POLL_FAST_MS);
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [tunnelEnabled, tsEnabled, tunnelReachable, tsReachable]);
-
-  // Browser-side periodic ping: probes tunnel/tailscale URLs directly so UI stays
-  // "reachable" even when backend DNS (1.1.1.1) hiccups on *.ts.net or *.trycloudflare.com.
-  // Adaptive: slow when healthy, fast when degraded; pause when tab hidden.
-  useEffect(() => {
-    const probeBoth = async () => {
-      if (document.hidden) return;
-      if (tunnelEnabled && (tunnelUrl || tunnelPublicUrl)) {
-        const ok = await clientPingAny(tunnelPublicUrl, tunnelUrl);
-        tunnelClientReachableRef.current = ok;
-        if (ok) { tunnelMissRef.current = 0; setTunnelReachable(true); if (!tunnelEverReachableRef.current) { tunnelEverReachableRef.current = true; setTunnelEverReachable(true); } }
-        else { tunnelMissRef.current += 1; if (tunnelMissRef.current >= REACHABLE_MISS_THRESHOLD) setTunnelReachable(false); }
-      } else {
-        tunnelClientReachableRef.current = false;
-      }
-      if (tsEnabled && tsUrl) {
-        const ok = await clientPingUrl(tsUrl);
-        tsClientReachableRef.current = ok;
-        if (ok) { tsMissRef.current = 0; setTsReachable(true); if (!tsEverReachableRef.current) { tsEverReachableRef.current = true; setTsEverReachable(true); } }
-        else { tsMissRef.current += 1; if (tsMissRef.current >= REACHABLE_MISS_THRESHOLD) setTsReachable(false); }
-      } else {
-        tsClientReachableRef.current = false;
-      }
-    };
-    const anyEnabled = (tunnelEnabled && (tunnelUrl || tunnelPublicUrl)) || (tsEnabled && tsUrl);
-    if (!anyEnabled) return;
-    probeBoth();
-    const tunnelHealthy = !tunnelEnabled || tunnelReachable;
-    const tsHealthy = !tsEnabled || tsReachable;
-    if (tunnelHealthy && tsHealthy) return;
-    const id = setInterval(probeBoth, CLIENT_PING_FAST_MS);
-    return () => clearInterval(id);
-  }, [tunnelEnabled, tunnelUrl, tunnelPublicUrl, tsEnabled, tsUrl, tunnelReachable, tsReachable]);
-
-  // Client-side reachable only (server no longer probes; watchdog handles backend health).
-  // Miss-debounce: only flip to false after N consecutive misses.
-  const updateReachable = useCallback((_unused, clientRef, missRef, setter, everRef, everSetter) => {
-    const reachable = clientRef.current;
-    if (reachable) {
-      missRef.current = 0;
-      setter(true);
-      if (!everRef.current) {
-        everRef.current = true;
-        everSetter(true);
-      }
-    } else {
-      missRef.current += 1;
-      if (missRef.current >= REACHABLE_MISS_THRESHOLD) setter(false);
-    }
-  }, []);
-
-  // Trust user intent (settingsEnabled): UI stays "enabled" while watchdog restarts process
-  const syncTunnelStatus = async () => {
-    try {
-      const statusRes = await fetch("/api/tunnel/status", { cache: "no-store" });
-      if (!statusRes.ok) return;
-      const data = await statusRes.json();
-      const tEnabled = data.tunnel?.settingsEnabled ?? data.tunnel?.enabled ?? false;
-      const tUrl = data.tunnel?.tunnelUrl || "";
-      setTunnelUrl(tUrl);
-      setTunnelPublicUrl(data.tunnel?.publicUrl || "");
-      setTunnelEnabled(tEnabled);
-      updateReachable(null, tunnelClientReachableRef, tunnelMissRef, setTunnelReachable, tunnelEverReachableRef, setTunnelEverReachable);
-
-      const tsEn = data.tailscale?.settingsEnabled ?? data.tailscale?.enabled ?? false;
-      const tsUrlVal = data.tailscale?.tunnelUrl || "";
-      setTsUrl(tsUrlVal);
-      setTsEnabled(tsEn);
-      updateReachable(null, tsClientReachableRef, tsMissRef, setTsReachable, tsEverReachableRef, setTsEverReachable);
-    } catch { /* ignore poll errors */ }
-  };
-
-  const loadSettings = async () => {
-    setTunnelChecking(true);
-    try {
-      const [settingsRes, statusRes] = await Promise.all([
-        fetch("/api/settings"),
-        fetch("/api/tunnel/status", { cache: "no-store" })
-      ]);
-      if (settingsRes.ok) {
-        const data = await settingsRes.json();
-        setRequireApiKey(data.requireApiKey || false);
-        setRequireLogin(data.requireLogin !== false);
-        setHasPassword(data.hasPassword || false);
-        setTunnelDashboardAccess(data.tunnelDashboardAccess || false);
-      }
-      if (statusRes.ok) {
-        const data = await statusRes.json();
-        const tEnabled = data.tunnel?.settingsEnabled ?? data.tunnel?.enabled ?? false;
-        const tUrl = data.tunnel?.tunnelUrl || "";
-        setTunnelUrl(tUrl);
-        setTunnelPublicUrl(data.tunnel?.publicUrl || "");
-        setTunnelEnabled(tEnabled);
-        updateReachable(null, tunnelClientReachableRef, tunnelMissRef, setTunnelReachable, tunnelEverReachableRef, setTunnelEverReachable);
-
-        const tsEn = data.tailscale?.settingsEnabled ?? data.tailscale?.enabled ?? false;
-        const tsUrlVal = data.tailscale?.tunnelUrl || "";
-        setTsUrl(tsUrlVal);
-        setTsEnabled(tsEn);
-        updateReachable(null, tsClientReachableRef, tsMissRef, setTsReachable, tsEverReachableRef, setTsEverReachable);
-      }
-    } catch (error) {
-      console.log("Error loading settings:", error);
-    } finally {
-      setTunnelChecking(false);
-    }
-  };
-
-  const handleTunnelDashboardAccess = async (value) => {
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tunnelDashboardAccess: value }),
-      });
-      if (res.ok) setTunnelDashboardAccess(value);
-    } catch (error) {
-      console.log("Error updating tunnelDashboardAccess:", error);
-    }
-  };
-
-  const handleRequireApiKey = async (value) => {
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requireApiKey: value }),
-      });
-      if (res.ok) setRequireApiKey(value);
-    } catch (error) {
-      console.log("Error updating requireApiKey:", error);
-    }
-  };
-
-  const fetchData = async () => {
-    try {
-      const fetchKeys = async () => {
-        const res = await fetch("/api/keys");
-        if (!res.ok) return [];
-        const data = await res.json();
-        return data.keys || [];
-      };
-
-      let existing = await fetchKeys();
-      // Auto-provision a default key for first-time users so the endpoint works out of the box.
-      // The 201 carries the one-time full key — capture it in the browser vault immediately,
-      // and open the show-once ceremony so the user can save it too.
-      // Race guard: the flag is set synchronously before the first await, so of two
-      // concurrent callers (StrictMode double-invoke / fast remount) only the first
-      // reaches the POST — the other sees the flag and waits for the server state.
-      if (existing.length === 0 && !provisioningDefaultKey) {
-        provisioningDefaultKey = true;
-        try {
-          const createRes = await fetch("/api/keys", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: "Default Key" }),
-          });
-          if (createRes.status === 201) {
-            const data = await createRes.json();
-            if (data.key && data.keyId) {
-              storeKey(data.keyId, data.key);
-              setCreatedKey(data);
-              setCreatedKeyAck(false);
-            }
-            existing = await fetchKeys();
-          }
-        } catch { /* fall through to empty render */ } finally {
-          // Reset so a future load with zero keys can provision again (e.g. the
-          // user deleted every key). Safe: once the POST lands, fetchKeys sees
-          // ≥1 key and this branch is never entered again.
-          provisioningDefaultKey = false;
-        }
-      }
-      setKeys(existing);
-    } catch (error) {
-      console.log("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Connected providers + aliases for the grouped model-scope picker — the same
-  // catalog the combo page feeds ModelSelectModal. Stored values are model.value
-  // ("alias/model"), the canonical form the gate matches at request time.
-  useEffect(() => {
-    fetch("/api/providers")
-      .then((res) => (res.ok ? res.json() : {}))
-      .then((data) => setActiveProviders(data.connections || []))
-      .catch(() => setActiveProviders([]));
-    fetch("/api/models/alias")
-      .then((res) => (res.ok ? res.json() : {}))
-      .then((data) => setModelAliases(data.aliases || {}))
-      .catch(() => setModelAliases({}));
-  }, []);
-
-  // Per-key usage rollup — refetched when the window changes or the key set
-  // does (create/delete). Keys absent from byKey had no traffic in the window.
-  useEffect(() => {
-    fetch(`/api/keys/usage?period=${usagePeriod}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setKeyUsage(data?.byKey || {}))
-      .catch(() => setKeyUsage({}));
-  }, [usagePeriod, keys]);
-
-  const resetCreateForm = () => {
-    setNewKeyName("");
-    setNewKeyDescription("");
-    setNewKeyCategory("");
-    setNewKeyScopeOn(false);
-    setNewKeyScope([]);
-    setCreateLimits(DEFAULT_LIMITS);
-    setCreateError("");
-  };
-
-  // Distinct categories across all keys (case-sensitive, stable order by first
-  // appearance) — feeds both the filter chips and the create-form datalist.
-  const categories = useMemo(() => {
-    const seen = new Set();
-    for (const k of keys) if (k.category) seen.add(k.category);
-    return [...seen];
-  }, [keys]);
-
-  // Keys under the active filter. Deleting the last key of a filtered category
-  // would leave a chip with no rows — fall back to "all" so the list never
-  // renders a confusing empty state for an existing chip.
-  const filteredKeys = useMemo(() => {
-    if (activeCategoryFilter === "all") return keys;
-    const matched = keys.filter((k) => categoryOf(k) === activeCategoryFilter);
-    return matched.length ? matched : keys;
-  }, [keys, activeCategoryFilter]);
-
-  const openCreateModal = () => {
-    resetCreateForm();
-    setShowAddModal(true);
-  };
-
-  const closeCreatedKeyModal = () => {
-    setCreatedKey(null);
-    setCreatedKeyAck(false);
-  };
-
-  // Grouped scope picker: add/remove a model value on whichever form opened it.
-  // model.value is "alias/model" — the exact form the gate matches at request time.
-  const scopeValue = (model) => model?.value || model?.name || model;
-  const handleScopeSelect = (model) => {
-    const value = scopeValue(model);
-    if (!value) return;
-    if (scopePickerFor === "create") {
-      setNewKeyScope((prev) => (prev.includes(value) ? prev : [...prev, value]));
-    } else {
-      setEditingKey((prev) => (prev && !prev.allowedModels.includes(value)
-        ? { ...prev, allowedModels: [...prev.allowedModels, value] }
-        : prev));
-    }
-  };
-  const handleScopeDeselect = (model) => {
-    const value = scopeValue(model);
-    if (scopePickerFor === "create") {
-      setNewKeyScope((prev) => prev.filter((x) => x !== value));
-    } else {
-      setEditingKey((prev) => (prev ? { ...prev, allowedModels: prev.allowedModels.filter((x) => x !== value) } : prev));
-    }
-  };
-
-  const openEditKey = (key) => {
-    setEditingKey({
-      id: key.id,
-      name: key.name || "",
-      description: key.description || "",
-      category: key.category || "",
-      allowedModels: Array.isArray(key.allowedModels) ? key.allowedModels : [],
-      scopeOn: Array.isArray(key.allowedModels) && key.allowedModels.length > 0,
-      limits: limitsFromRecord(key), // W3 draft — server record is source of truth
-      saving: false,
-      error: "",
-    });
-  };
-
-  const handleSaveKey = async () => {
-    if (!editingKey) return;
-    if (!editingKey.name.trim()) return;
-    setEditingKey((prev) => ({ ...prev, saving: true, error: "" }));
-    try {
-      const L = editingKey.limits;
-      const res = await fetch(`/api/keys/${editingKey.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: editingKey.name.trim(),
-          description: editingKey.description,
-          category: editingKey.category?.trim() || null,
-          allowedModels: editingKey.scopeOn ? editingKey.allowedModels : null,
-          // W3 limits — always sent in full so the record matches the form.
-          rateLimitRpm: L.rateLimitRpm,
-          tokenBudgetDaily: L.tokenBudget,
-          spendCapDailyCents: L.spendCapCents,
-          budgetScope: (L.tokenBudget != null || L.spendCapCents != null) ? (L.budgetScope || "daily") : null,
-          expiresAt: L.expiresAt,
-          ipAllowlist: L.ipAllowlist?.length ? L.ipAllowlist : null,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setEditingKey(null);
-        await fetchData();
-      } else {
-        setEditingKey((prev) => ({ ...prev, saving: false, error: data.error || "Failed to save key" }));
-      }
-    } catch (error) {
-      setEditingKey((prev) => ({ ...prev, saving: false, error: error.message }));
-    }
-  };
-
-  // u2500u2500u2500 Cloudflare Tunnel handlers
-  // Ping tunnel health until reachable. Race multiple URLs (shortlink + direct) — 1 OK is enough.
-  const pingTunnelHealth = async (...urls) => {
-    setTunnelLoading(true);
-    setTunnelProgress("Waiting for tunnel ready...");
-    const targets = urls.filter(Boolean).map((u) => `${u}/api/health`);
-    const start = Date.now();
-    while (Date.now() - start < TUNNEL_PING_MAX_MS) {
-      await new Promise((r) => setTimeout(r, TUNNEL_PING_INTERVAL_MS));
-      const ok = await Promise.any(targets.map(async (h) => {
-        const p = await fetch(h, { mode: "cors", cache: "no-store" });
-        if (p.ok) return true;
-        throw new Error("not ready");
-      })).catch(() => false);
-      if (ok) {
-        setTunnelEnabled(true);
-        setTunnelLoading(false);
-        setTunnelProgress("");
-        return true;
-      }
-      // Every 5 pings (~10s), check if backend process still alive
-      if ((Date.now() - start) % 10000 < TUNNEL_PING_INTERVAL_MS) {
-        try {
-          const statusRes = await fetch("/api/tunnel/status");
-          if (statusRes.ok) {
-            const status = await statusRes.json();
-            if (!status.tunnel?.enabled) {
-              setTunnelStatus({ type: "error", message: "Tunnel process stopped unexpectedly." });
-              setTunnelLoading(false);
-              setTunnelProgress("");
-              return false;
-            }
-          }
-        } catch { /* ignore */ }
-      }
-    }
-    setTunnelStatus({ type: "error", message: "Tunnel created but not reachable. Please try again." });
-    setTunnelLoading(false);
-    setTunnelProgress("");
-    return false;
-  };
-
-  const handleEnableTunnel = async () => {
-    setShowEnableTunnelModal(false);
-    setTunnelLoading(true);
-    setTunnelStatus(null);
-    setTunnelProgress("Creating tunnel...");
-
-    // Poll download progress while enable request is pending
-    let polling = true;
-    const pollProgress = async () => {
-      while (polling) {
-        try {
-          const r = await fetch("/api/tunnel/status");
-          if (r.ok) {
-            const s = await r.json();
-            if (s.download?.downloading) {
-              setTunnelProgress(`Downloading cloudflared... ${s.download.progress}%`);
-            } else if (polling) {
-              setTunnelProgress("Creating tunnel...");
-            }
-          }
-        } catch { /* ignore */ }
-        await new Promise((r) => setTimeout(r, 1000));
-      }
-    };
-    pollProgress();
-
-    try {
-      const res = await fetch("/api/tunnel/enable", { method: "POST" });
-      polling = false;
-      const data = await res.json();
-      if (!res.ok) {
-        setTunnelStatus({ type: "error", message: data.error || "Failed to enable tunnel" });
-        return;
-      }
-
-      const url = data.tunnelUrl;
-      if (!url) {
-        setTunnelStatus({ type: "error", message: "No tunnel URL returned" });
-        return;
-      }
-
-      setTunnelUrl(url);
-      setTunnelPublicUrl(data.publicUrl || "");
-      await pingTunnelHealth(data.publicUrl, url);
-    } catch (error) {
-      setTunnelStatus({ type: "error", message: error.message });
-    } finally {
-      polling = false;
-      setTunnelLoading(false);
-      setTunnelProgress("");
-    }
-  };
-
-  const handleDisableTunnel = async () => {
-    setTunnelLoading(true);
-    setTunnelStatus(null);
-    try {
-      const res = await fetch("/api/tunnel/disable", { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        setTunnelEnabled(false);
-        setTunnelUrl("");
-        setShowDisableTunnelModal(false);
-        setTunnelStatus({ type: "success", message: "Tunnel disabled" });
-      } else {
-        setTunnelStatus({ type: "error", message: data.error || "Failed to disable tunnel" });
-      }
-    } catch (error) {
-      setTunnelStatus({ type: "error", message: error.message });
-    } finally {
-      setTunnelLoading(false);
-    }
-  };
-
-  // u2500u2500u2500 Tailscale handlers
-  const checkTailscaleInstalled = async () => {
-    setTsInstalled(null);
-    try {
-      const res = await fetch("/api/tunnel/tailscale-check");
-      if (res.ok) {
-        const data = await res.json();
-        setTsInstalled(data.installed);
-        return data;
-      }
-    } catch { /* ignore */ }
-    setTsInstalled(false);
-    return { installed: false };
-  };
-
-  const handleInstallTailscale = async () => {
-    setTsInstalling(true);
-    setTsStatus(null);
-    setTsInstallLog([]);
-    try {
-      const res = await fetch("/api/tunnel/tailscale-install", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sudoPassword: tsSudoPassword }),
-      });
-      setTsSudoPassword("");
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split("\n\n");
-        buffer = parts.pop() || "";
-        for (const part of parts) {
-          const lines = part.split("\n");
-          let event = "progress";
-          let data = null;
-          for (const line of lines) {
-            if (line.startsWith("event: ")) event = line.slice(7).trim();
-            if (line.startsWith("data: ")) {
-              try { data = JSON.parse(line.slice(6)); } catch { /* skip */ }
-            }
-          }
-          if (!data) continue;
-          if (event === "progress") {
-            setTsInstallLog((prev) => [...prev.slice(-50), data.message]);
-          } else if (event === "done") {
-            setTsInstalled(true);
-            setTsInstalling(false);
-            setShowTsModal(false);
-            handleConnectTailscale();
-            return;
-          } else if (event === "error") {
-            setTsStatus({ type: "error", message: data.error || "Install failed" });
-          }
-        }
-      }
-    } catch (e) {
-      setTsStatus({ type: "error", message: e.message });
-    } finally {
-      setTsInstalling(false);
-    }
-  };
-
-  // Ping Tailscale health until reachable
-  const pingTsHealth = async (url) => {
-    setTsProgress("Waiting for Tailscale ready...");
-    const healthUrl = `${url}/api/health`;
-    const start = Date.now();
-    while (Date.now() - start < TUNNEL_PING_MAX_MS) {
-      await new Promise((r) => setTimeout(r, TUNNEL_PING_INTERVAL_MS));
-      try {
-        const ping = await fetch(healthUrl, { mode: "no-cors", cache: "no-store" });
-        if (ping.ok || ping.type === "opaque") return true;
-      } catch { /* not ready yet */ }
-    }
-    return false;
-  };
-
-  // Show inline login button instead of auto-opening popup (browsers block popups
-  // opened after async work because the user gesture is lost).
-  const requestUserAuth = (url, label) => {
-    setTsAuthUrl(url);
-    setTsAuthLabel(label);
-  };
-
-  const clearUserAuth = () => {
-    setTsAuthUrl("");
-    setTsAuthLabel("");
-  };
-
-  const handleConnectTailscale = async () => {
-    setShowTsModal(false);
-    setTsConnecting(true);
-    setTsLoading(true);
-    setTsStatus(null);
-    setTsProgress("Connecting...");
-    clearUserAuth();
-    try {
-      const res = await fetch("/api/tunnel/tailscale-enable", { method: "POST" });
-      const data = await res.json();
-
-      if (res.ok && data.success) {
-        setTsUrl(data.tunnelUrl || "");
-        const reachable = await pingTsHealth(data.tunnelUrl);
-        setTsEnabled(true);
-        setTsStatus(reachable ? null : { type: "warning", message: "Connected but not reachable yet." });
-        return;
-      }
-
-      if (data.needsLogin && data.authUrl) {
-        requestUserAuth(data.authUrl, "Open Login Page");
-        setTsProgress("Login required — click \"Open Login Page\" to continue");
-        for (let i = 0; i < 40; i++) {
-          await new Promise((r) => setTimeout(r, 3000));
-          try {
-            const r2 = await fetch("/api/tunnel/tailscale-check");
-            if (r2.ok) {
-              const check = await r2.json();
-              if (check.loggedIn) {
-                clearUserAuth();
-                setTsProgress("Starting funnel...");
-                const res2 = await fetch("/api/tunnel/tailscale-enable", { method: "POST" });
-                const data2 = await res2.json();
-                if (res2.ok && data2.success) {
-                  setTsUrl(data2.tunnelUrl || "");
-                  const ok2 = await pingTsHealth(data2.tunnelUrl);
-                  setTsEnabled(true);
-                  setTsStatus(ok2 ? null : { type: "warning", message: "Connected but not reachable yet." });
-                } else if (data2.funnelNotEnabled && data2.enableUrl) {
-                  await pollFunnelEnable(data2.enableUrl);
-                } else {
-                  setTsStatus({ type: "error", message: data2.error || "Failed to start funnel" });
-                }
-                return;
-              }
-            }
-          } catch { /* retry */ }
-        }
-        clearUserAuth();
-        setTsStatus({ type: "error", message: "Login timed out. Please try again." });
-        return;
-      }
-
-      if (data.funnelNotEnabled && data.enableUrl) {
-        await pollFunnelEnable(data.enableUrl);
-        return;
-      }
-
-      setTsStatus({ type: "error", message: data.error || "Failed to connect" });
-    } catch (error) {
-      setTsStatus({ type: "error", message: error.message });
-    } finally {
-      setTsLoading(false);
-      setTsConnecting(false);
-      setTsProgress("");
-      clearUserAuth();
-    }
-  };
-
-  const pollFunnelEnable = async (enableUrl) => {
-    requestUserAuth(enableUrl, "Open Funnel Settings");
-    setTsProgress("Click \"Open Funnel Settings\" to enable Funnel...");
-    for (let i = 0; i < 40; i++) {
-      await new Promise((r) => setTimeout(r, 3000));
-      try {
-        const res = await fetch("/api/tunnel/tailscale-enable", { method: "POST" });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          clearUserAuth();
-          setTsUrl(data.tunnelUrl || "");
-          const ok3 = await pingTsHealth(data.tunnelUrl);
-          setTsEnabled(true);
-          setTsStatus(ok3 ? null : { type: "warning", message: "Connected but not reachable yet." });
-          return;
-        }
-        if (data.funnelNotEnabled) continue;
-        if (data.error) {
-          clearUserAuth();
-          setTsStatus({ type: "error", message: data.error });
-          return;
-        }
-      } catch { /* retry */ }
-    }
-    clearUserAuth();
-    setTsStatus({ type: "error", message: "Timed out waiting for Funnel to be enabled." });
-  };
-
-  const handleDisableTailscale = async () => {
-    setTsLoading(true);
-    setTsStatus(null);
-    try {
-      const res = await fetch("/api/tunnel/tailscale-disable", { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        setTsEnabled(false);
-        setTsUrl("");
-        setShowDisableTsModal(false);
-        setTsStatus({ type: "success", message: "Tailscale disabled" });
-      } else {
-        setTsStatus({ type: "error", message: data.error || "Failed to disable Tailscale" });
-      }
-    } catch (e) {
-      setTsStatus({ type: "error", message: e.message });
-    } finally {
-      setTsLoading(false);
-    }
-  };
-
-  const handleOpenTsModal = async () => {
-    setTsStatus(null);
-    setTsInstallLog([]);
-    const data = await checkTailscaleInstalled();
-    if (data?.installed && data?.hasCachedPassword) {
-      handleConnectTailscale();
-    } else {
-      setShowTsModal(true);
-    }
-  };
-
-  const handleCreateKey = async () => {
-    if (!newKeyName.trim()) return;
-    setCreateError("");
-
-    try {
-      const res = await fetch("/api/keys", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newKeyName,
-          description: newKeyDescription || undefined,
-          category: newKeyCategory.trim() || undefined,
-          allowedModels: newKeyScopeOn ? newKeyScope : undefined,
-          // W3 limits — null fields stay null (unlimited / unrestricted).
-          rateLimitRpm: createLimits.rateLimitRpm,
-          tokenBudgetDaily: createLimits.tokenBudget,
-          spendCapDailyCents: createLimits.spendCapCents,
-          budgetScope: (createLimits.tokenBudget != null || createLimits.spendCapCents != null)
-            ? (createLimits.budgetScope || "daily")
-            : undefined,
-          expiresAt: createLimits.expiresAt,
-          ipAllowlist: createLimits.ipAllowlist?.length ? createLimits.ipAllowlist : undefined,
-        }),
-      });
-      const data = await res.json();
-
-      if (res.status === 201) {
-        // Capture-at-create: this 201 is the only plaintext copy the server ever yields.
-        if (data.key && data.keyId) storeKey(data.keyId, data.key);
-        setCreatedKey(data);
-        setCreatedKeyAck(false);
-        setShowAddModal(false);
-        resetCreateForm();
-        await fetchData();
-      } else {
-        setCreateError(data.error || "Failed to create key");
-      }
-    } catch (error) {
-      setCreateError(error.message);
-    }
-  };
-
-  const handleDeleteKey = async (id) => {
-    setConfirmState({
-      title: "Delete API Key",
-      message: "Delete this API key?\n\nRequests using it will be rejected immediately. The audit row remains, but the key itself can never be recovered.",
-      onConfirm: async () => {
-        setConfirmState(null);
-        try {
-          const res = await fetch(`/api/keys/${id}`, { method: "DELETE" });
-          if (res.ok) {
-            removeKey(id); // purge the captured copy alongside the server-side revoke
-            setKeys(keys.filter((k) => k.id !== id));
-          }
-        } catch (error) {
-          console.log("Error deleting key:", error);
-        }
-      }
-    });
-  };
-
-  const handleToggleKey = async (id, isActive) => {
-    try {
-      const res = await fetch(`/api/keys/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive }),
-      });
-      if (res.ok) {
-        setKeys(prev => prev.map(k => k.id === id ? { ...k, isActive } : k));
-      }
-    } catch (error) {
-      console.log("Error toggling key:", error);
-    }
-  };
-
+  // Hydration fix: only access window on the client side.
   const [baseUrl, setBaseUrl] = useState("/v1");
-
-  // Hydration fix: Only access window on client side
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setBaseUrl(`${window.location.origin}/v1`);
+    if (typeof window !== "undefined") setBaseUrl(`${window.location.origin}/v1`);
+  }, []);
+
+  // Migration-015 revival surfacing — the boot that applied the migration
+  // wrote the fresh secrets to a one-time pending-reveal file. Fetch it once
+  // on mount; the server deletes the file after serving, so a reload yields
+  // nothing (show-once covenant). The reveals play sequentially in the
+  // show-once modal.
+  const [pendingReveals, setPendingReveals] = useState(null);
+  const [pendingRevealIndex, setPendingRevealIndex] = useState(0);
+  const [pendingRevealAcked, setPendingRevealAcked] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetchPendingReveals()
+      .then((reveals) => {
+        if (!cancelled && reveals.length) setPendingReveals(reveals);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // Endpoint self-test — proves the gateway /v1 surface answers via the
+  // health probe (a real provider call is never fired). The result lands in
+  // the shared remote-status surface so the failure is actually visible.
+  const [testing, setTesting] = useState(false);
+  const testingRef = useRef(false);
+  const handleEndpointTest = useCallback(async () => {
+    if (testingRef.current) return;
+    testingRef.current = true;
+    setTesting(true);
+    try {
+      const res = await fetch("/api/health", { cache: "no-store" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Health check failed (${res.status})`);
+      }
+      setRemoteStatus({ type: "success", message: translate("Gateway endpoint is healthy") });
+    } catch (error) {
+      setRemoteStatus({ type: "error", message: translate(error.message) });
+    } finally {
+      testingRef.current = false;
+      setTesting(false);
     }
   }, []);
 
-  if (loading) {
+  // 24h usage stats for the KPI band.
+  const [stats, setStats] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/usage/stats?period=24h")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled) setStats(data);
+      })
+      .catch(() => {
+        if (!cancelled) setStats(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Derived nudges for the Insights card — quota near reset, stale keys.
+  const insights = useMemo(() => {
+    const items = [];
+    for (const k of keysApi.keys) {
+      const health = keysApi.health?.keys?.[k.id];
+      const ratio = health?.budgetRatio ?? null;
+      if (ratio != null && ratio >= 0.8 && k.isActive !== false) {
+        items.push({
+          tone: "warn",
+          icon: "monitoring",
+          text: translate(`Key "${k.name}" is near its daily budget limit`),
+        });
+      }
+    }
+    const stale = keysApi.health?.sweep || [];
+    if (stale.length > 0) {
+      items.push({
+        tone: "danger",
+        icon: "cleaning_services",
+        text: translate(`${stale.length} stale key(s) found — run a sweep to clean up`),
+      });
+    }
+    return items;
+  }, [keysApi.keys, keysApi.health]);
+
+  // Share-access link for a key (tunnel URL + full key query), kept local.
+  const [shareUrl, setShareUrl] = useState("");
+  const handleShare = useCallback(
+    (key) => {
+      const token = getKey(key.id);
+      if (!token) {
+        setRemoteStatus({ type: "error", message: translate("Full key not captured in this browser — copy it from the vault first") });
+        return;
+      }
+      const base = (tunnel.tunnelEnabled && (tunnel.tunnelPublicUrl || tunnel.tunnelUrl))
+        || (tailscale.tsEnabled && tailscale.tsUrl)
+        || baseUrl;
+      setShareUrl(`${base}/v1?key=${encodeURIComponent(token)}`);
+    },
+    [baseUrl, tunnel.tunnelEnabled, tunnel.tunnelPublicUrl, tunnel.tunnelUrl, tailscale.tsEnabled, tailscale.tsUrl],
+  );
+
+  // Sweep review state (stale-key candidates).
+  const [sweepOpen, setSweepOpen] = useState(false);
+  const handleSweep = useCallback(() => {
+    setSweepOpen(true);
+  }, []);
+
+  // Load the selected key's recent-request feed when its drawer opens.
+  // (keysApi is a fresh object per render — listing it would re-run the
+  // effect every render. The stable loadKeyActivity + string activeKeyId
+  // are the true deps.)
+  useEffect(() => {
+    if (keysApi.activeKeyId) keysApi.loadKeyActivity(keysApi.activeKeyId);
+    // keysApi is a fresh object per render — listing it would re-fire every
+    // render. activeKeyId + loadKeyActivity (stable refs) are the true deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keysApi.activeKeyId, keysApi.loadKeyActivity]);
+
+  // Actionable sweep: confirm, then revoke one or all stale keys.
+  const [sweepNotice, setSweepNotice] = useState("");
+  const requestSweepRevoke = useCallback((s) => {
+    keysApi.setConfirmState({
+      title: "Revoke stale key",
+      message: `Revoke key "${s.name || s.id}"?\n\nRequests using it will be rejected. The audit row remains, but the key can never be recovered.`,
+      onConfirm: async () => {
+        keysApi.setConfirmState(null);
+        const ok = await keysApi.handleSweepRevoke(s.id);
+        setSweepNotice(ok ? `Revoked "${s.name || s.id}"` : "Revoke failed");
+      },
+    });
+  }, [keysApi]);
+
+  const requestSweepRevokeAll = useCallback(() => {
+    const list = keysApi.health?.sweep || [];
+    if (!list.length) return;
+    keysApi.setConfirmState({
+      title: "Revoke all stale keys",
+      message: `Revoke ${list.length} stale key(s)?\n\nRequests using them will be rejected. The audit rows remain, but the keys can never be recovered.`,
+      onConfirm: async () => {
+        keysApi.setConfirmState(null);
+        const n = await keysApi.handleSweepRevokeAll(list);
+        setSweepNotice(`Revoked ${n} stale key(s)`);
+      },
+    });
+  }, [keysApi]);
+
+  if (keysApi.loading) {
     return (
       <div className="flex flex-col gap-8">
         <CardSkeleton />
@@ -948,935 +217,279 @@ export default function APIPageClient() {
     );
   }
 
-  const currentEndpoint = baseUrl;
-
   return (
     <div className="flex flex-col gap-8">
-      {/* Endpoint Card */}
-      <Card>
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary">api</span>
-          API Endpoint
-        </h2>
+      {/* Gateway hero + KPI band */}
+      <KpiBand stats={stats} keys={keysApi.keys} loading={keysApi.loading} />
 
-        {/* Endpoint rows */}
-        <div className="flex flex-col gap-2">
-          {/* Local */}
-          <EndpointRow
-            label="Local"
-            url={currentEndpoint}
-            copyId="local_url"
-            copied={copied}
-            onCopy={copy}
-          />
-          {/* Cloudflare Tunnel */}
-          <div className="flex items-center gap-2">
-            <span className={`text-xs font-mono px-1.5 py-0.5 rounded shrink-0 min-w-[88px] text-center ${
-              tunnelEnabled ? "bg-primary/10 text-primary" : "bg-surface-2 text-text-muted"
-            }`}>Tunnel</span>
-            {tunnelEnabled && !tunnelLoading && tunnelReachable ? (
-              <>
-                <Input value={`${tunnelPublicUrl || tunnelUrl}/v1`} readOnly className="flex-1 font-mono text-sm" />
-                <button
-                  onClick={() => copy(`${tunnelPublicUrl || tunnelUrl}/v1`, "tunnel_url")}
-                  className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-colors shrink-0"
-                >
-                  <span className="material-symbols-outlined text-[18px]">{copied === "tunnel_url" ? "check" : "content_copy"}</span>
-                </button>
-                <button
-                  onClick={() => setShowDisableTunnelModal(true)}
-                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
-                  title="Disable Tunnel"
-                >
-                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                </button>
-              </>
-            ) : tunnelEnabled && !tunnelLoading && !tunnelReachable ? (
-              <>
-                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
-                  <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                  {tunnelEverReachable ? "Tunnel reconnecting..." : "Tunnel checking..."}
-                </div>
-                <button
-                  onClick={() => setShowDisableTunnelModal(true)}
-                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
-                  title="Disable Tunnel"
-                >
-                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                </button>
-              </>
-            ) : tunnelLoading ? (
-              <>
-                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-border bg-input text-sm text-text-muted">
-                  <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                  {tunnelProgress || "Creating tunnel..."}
-                </div>
-                <button
-                  onClick={() => { setTunnelLoading(false); setTunnelProgress(""); }}
-                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
-                  title="Stop"
-                >
-                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                </button>
-              </>
-            ) : tunnelStatus?.type === "error" ? (
-              <>
-                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-red-300 dark:border-red-800 bg-red-500/5 text-sm text-red-600 dark:text-red-400">
-                  <span className="material-symbols-outlined text-sm">error</span>
-                  {tunnelStatus.message}
-                </div>
-                <Button size="sm" icon="cloud_upload" onClick={() => setShowEnableTunnelModal(true)}>Enable</Button>
-              </>
-            ) : tunnelChecking ? (
-              <>
-                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-border bg-input text-sm text-text-muted">
-                  <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                  Checking...
-                </div>
-                <button
-                  onClick={() => setTunnelChecking(false)}
-                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
-                  title="Stop"
-                >
-                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                </button>
-              </>
-            ) : (
-              <Button
-                size="sm"
-                icon="cloud_upload"
-                onClick={() => {
-                  if (isLoginUnsafe) {
-                    setTunnelStatus({ type: "error", message: `Security required: ${unsafeReason}` });
-                    return;
-                  }
-                  if (!requireApiKey) {
-                    setTunnelStatus({ type: "error", message: "Security required: Enable \"Require API key\" before activating the tunnel." });
-                    return;
-                  }
-                  setShowEnableTunnelModal(true);
-                }}
-              >
-                Enable
-              </Button>
-            )}
-          </div>
-          {/* Tailscale */}
-          <div className="flex items-center gap-2">
-            <span className={`text-xs font-mono px-1.5 py-0.5 rounded shrink-0 min-w-[88px] text-center ${
-              tsEnabled ? "bg-primary/10 text-primary" : "bg-surface-2 text-text-muted"
-            }`}>Tailscale</span>
-            {tsEnabled && !tsLoading && tsReachable ? (
-              <>
-                <Input value={`${tsUrl}/v1`} readOnly className="flex-1 font-mono text-sm" />
-                <button
-                  onClick={() => copy(`${tsUrl}/v1`, "ts_url")}
-                  className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-colors shrink-0"
-                >
-                  <span className="material-symbols-outlined text-[18px]">{copied === "ts_url" ? "check" : "content_copy"}</span>
-                </button>
-                <button
-                  onClick={() => setShowDisableTsModal(true)}
-                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
-                  title="Disable Tailscale"
-                >
-                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                </button>
-              </>
-            ) : tsEnabled && !tsLoading && !tsReachable ? (
-              <>
-                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
-                  <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                  {tsEverReachable ? "Tailscale reconnecting..." : "Tailscale checking..."}
-                </div>
-                <button
-                  onClick={() => setShowDisableTsModal(true)}
-                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
-                  title="Disable Tailscale"
-                >
-                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                </button>
-              </>
-            ) : (tsLoading || tsConnecting) ? (
-              <>
-                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-border bg-input text-sm text-text-muted">
-                  <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                  {tsProgress || "Connecting..."}
-                </div>
-                {tsAuthUrl && (
-                  <Button
-                    size="sm"
-                    icon="open_in_new"
-                    onClick={() => window.open(tsAuthUrl, "tailscale_auth", "width=600,height=700,noopener,noreferrer")}
-                  >
-                    {tsAuthLabel || "Open"}
-                  </Button>
-                )}
-                <button
-                  onClick={() => { setTsLoading(false); setTsConnecting(false); setTsProgress(""); clearUserAuth(); }}
-                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
-                  title="Stop"
-                >
-                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                </button>
-              </>
-            ) : tsStatus?.type === "error" ? (
-              <>
-                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-red-300 dark:border-red-800 bg-red-500/5 text-sm text-red-600 dark:text-red-400">
-                  <span className="material-symbols-outlined text-sm">error</span>
-                  {tsStatus.message}
-                </div>
-                <Button size="sm" icon="vpn_lock" onClick={handleOpenTsModal}>Enable</Button>
-              </>
-            ) : (
-              <Button
-                size="sm"
-                icon="vpn_lock"
-                onClick={() => {
-                  if (isLoginUnsafe) {
-                    setTsStatus({ type: "error", message: `Security required: ${unsafeReason}` });
-                    return;
-                  }
-                  handleOpenTsModal();
-                }}
-                className="bg-linear-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white!"
-              >
-                Enable
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Pre-enable security gate banner */}
-        {isLoginUnsafe && !tunnelEnabled && !tsEnabled && (
-          <div className="mt-4">
-            <SecurityWarning
-              message={unsafeReason}
-              action={{ label: "Open settings", href: "/dashboard/profile" }}
-            />
-          </div>
-        )}
-
-        {/* Security warnings when tunnel or tailscale is active */}
-        {(tunnelEnabled || tsEnabled) && (
-          <div className="mt-4 flex flex-col gap-2">
-            {!requireApiKey && (
-              <SecurityWarning
-                message="Require API key is disabled — your endpoint is publicly accessible without authentication."
-                action={{ label: "Enable", href: "#require-api-key" }}
-              />
-            )}
-            {(!requireLogin || !hasPassword) && (
-              <SecurityWarning
-                message={
-                  !requireLogin
-                    ? "Require login is disabled — anyone can access your dashboard via tunnel."
-                    : "Dashboard uses the default password — change it in Profile settings."
-                }
-                action={{
-                  label: !requireLogin ? "Enable" : "Change password",
-                  href: "/dashboard/profile",
-                }}
-              />
-            )}
-          </div>
-        )}
-
-        {/* Tunnel dashboard access option */}
-        {(tunnelEnabled || tsEnabled) && (
-          <div className="mt-4 pt-4 border-t border-border flex items-center gap-3">
-            <Toggle
-              checked={tunnelDashboardAccess}
-              onChange={() => handleTunnelDashboardAccess(!tunnelDashboardAccess)}
-            />
-            <div className="flex items-center gap-1.5">
-              <p className="font-medium text-sm">Allow dashboard access via tunnel</p>
-              <Tooltip text="When enabled, the dashboard can be accessed through your tunnel or Tailscale URL (login still required). When disabled, dashboard access via tunnel/Tailscale is completely blocked." />
-            </div>
-          </div>
-        )}
-      </Card>
+      <EndpointHero
+        baseUrl={baseUrl}
+        copied={copied}
+        onCopy={copy}
+        tunnelUrl={tunnel.tunnelUrl}
+        tunnelEnabled={tunnel.tunnelEnabled}
+        tsUrl={tailscale.tsUrl}
+        tsEnabled={tailscale.tsEnabled}
+        onTest={handleEndpointTest}
+        testing={testing}
+      />
 
       {/* API Keys */}
-      <Card id="require-api-key">
-        <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">vpn_key</span>
-            {translate("API Keys")}
-          </h2>
-          <div className="flex items-center gap-2">
-            {/* Usage window — filters the per-key stats strips below */}
-            <div className="flex items-center rounded-[10px] bg-surface-2 border border-border-subtle p-0.5">
-              {[["24h", "24h"], ["7d", "7d"], ["30d", "30d"], ["all", translate("All time")]].map(([value, label]) => (
-                <button
-                  key={value}
-                  onClick={() => setUsagePeriod(value)}
-                  title={translate("Usage window")}
-                  className={`text-[11px] px-2 py-1 rounded-lg transition-colors ${
-                    usagePeriod === value
-                      ? "bg-primary/15 text-primary font-semibold"
-                      : "text-text-muted hover:text-text-main"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <Button icon="add" onClick={openCreateModal}>
-              {translate("Create Key")}
-            </Button>
-          </div>
+      <KeysTable
+        keys={keysApi.keys}
+        filteredKeys={keysApi.filteredKeys}
+        categories={keysApi.categories}
+        usagePeriod={keysApi.usagePeriod}
+        onUsagePeriod={keysApi.setUsagePeriod}
+        activeCategoryFilter={keysApi.activeCategoryFilter}
+        onCategoryFilter={keysApi.setActiveCategoryFilter}
+        requireApiKey={settings.requireApiKey}
+        onRequireApiKey={settings.handleRequireApiKey}
+        isRemoteHost={isRemoteHost}
+        loading={keysApi.loading}
+        // row actions
+        onOpenDrawer={keysApi.setActiveKeyId}
+        onPause={keysApi.requestPauseKey}
+        onResume={(k) => keysApi.handleToggleKey(k.id, true)}
+        onRotate={keysApi.requestRotateKey}
+        onDuplicate={keysApi.handleDuplicateKey}
+        onRevive={keysApi.handleReviveKey}
+        onTest={keysApi.handleTestKey}
+        onDelete={keysApi.requestDeleteKey}
+        onEdit={keysApi.openEditKey}
+        // vault + copy
+        hasKeyOnDevice={hasKey}
+        onCopy={copy}
+        copied={copied}
+        onForget={removeKey}
+        busyId={keysApi.busyId}
+        // usage + health
+        keyUsage={keysApi.keyUsage}
+        health={keysApi.health}
+        // bulk
+        selected={keysApi.selected}
+        allSelected={keysApi.allSelected}
+        onToggleAll={keysApi.setAllSelected}
+        onToggleSelect={keysApi.toggleSelected}
+        onBulkPause={keysApi.bulkPause}
+        onBulkResume={keysApi.bulkResume}
+        onBulkExport={keysApi.bulkExport}
+        onBulkDelete={keysApi.bulkDelete}
+        onBulkClear={() => keysApi.setSelected([])}
+        bulkCategory={keysApi.bulkCategory}
+        onBulkCategory={keysApi.setBulkCategory}
+        showBulkCategoryModal={keysApi.showBulkCategoryModal}
+        onShowBulkCategoryModal={keysApi.setShowBulkCategoryModal}
+        onBulkApplyCategory={keysApi.bulkSetCategory}
+        bulkNotice={keysApi.bulkNotice}
+        onClearBulkNotice={keysApi.clearBulkNotice}
+        // sweep
+        onSweep={handleSweep}
+        sweepOpen={sweepOpen}
+        onSweepOpen={setSweepOpen}
+        sweepList={keysApi.health?.sweep || []}
+        onSweepClose={() => setSweepOpen(false)}
+        sweepNotice={sweepNotice}
+        onSweepRevoke={requestSweepRevoke}
+        onSweepRevokeAll={requestSweepRevokeAll}
+        // empty states
+        onOpenCreate={keysApi.openCreateModal}
+      />
+
+      {/* Remote access — tunnel + tailscale + security gates */}
+      {remoteStatus && (
+        <div
+          className={`flex items-center gap-2 px-3 py-2 rounded-[10px] border text-sm ${
+            remoteStatus.type === "error"
+              ? "border-red-300 dark:border-red-800 bg-red-500/5 text-red-600 dark:text-red-400"
+              : remoteStatus.type === "success"
+                ? "border-green-300 dark:border-green-800 bg-green-500/5 text-green-600 dark:text-green-400"
+                : "border-amber-300 dark:border-amber-800 bg-amber-500/5 text-amber-600 dark:text-amber-400"
+          }`}
+        >
+          <span className="material-symbols-outlined text-[16px]">
+            {remoteStatus.type === "error" ? "error" : remoteStatus.type === "success" ? "check_circle" : "warning"}
+          </span>
+          <span className="min-w-0">{remoteStatus.message}</span>
+          <button
+            onClick={() => setRemoteStatus(null)}
+            className="ml-auto p-1 rounded text-text-muted hover:text-text-main transition-colors"
+            aria-label={translate("Dismiss")}
+          >
+            <span className="material-symbols-outlined text-[14px]">close</span>
+          </button>
         </div>
+      )}
+      <RemoteAccessPanel
+        tunnel={tunnel}
+        tailscale={tailscale}
+        settings={settings}
+        copied={copied}
+        onCopy={copy}
+        baseUrl={baseUrl}
+      />
 
-        <div className="flex items-center justify-between pb-4 mb-4 border-b border-border">
-          <div>
-            <p className="font-medium">{translate("Require API key")}</p>
-            <p className="text-sm text-text-muted">
-              {translate("Requests without a valid key will be rejected")}
-            </p>
-          </div>
-          <Toggle
-            checked={requireApiKey}
-            onChange={() => handleRequireApiKey(!requireApiKey)}
-          />
-        </div>
+      {/* Insights — computed nudges from the health snapshot */}
+      <InsightsCard items={insights} />
 
-        {isRemoteHost && !requireApiKey && (
-          <div className="mb-4 -mt-2">
-            <SecurityWarning message="Endpoint is exposed without an API key." />
-          </div>
-        )}
+      {/* Detail drawer */}
+      <KeyDrawer
+        rowKey={keysApi.keys.find((k) => k.id === keysApi.activeKeyId)}
+        usage={keysApi.activeKeyId ? keysApi.keyUsage[keysApi.activeKeyId] : null}
+        health={keysApi.activeKeyId ? keysApi.health?.keys?.[keysApi.activeKeyId] : null}
+        copied={copied}
+        onCopy={copy}
+        hasKeyOnDevice={keysApi.activeKeyId ? hasKey(keysApi.activeKeyId) : false}
+        onPause={keysApi.requestPauseKey}
+        onResume={(k) => keysApi.handleToggleKey(k.id, true)}
+        onRotate={keysApi.requestRotateKey}
+        onDuplicate={keysApi.handleDuplicateKey}
+        onRevive={keysApi.handleReviveKey}
+        onTest={keysApi.handleTestKey}
+        testResult={keysApi.testResult}
+        onEdit={keysApi.openEditKey}
+        onExpire={keysApi.handleExpireKey}
+        onRenew={keysApi.handleRenewKey}
+        onDelete={keysApi.requestDeleteKey}
+        onShare={handleShare}
+        shareUrl={shareUrl}
+        onClose={() => { keysApi.setActiveKeyId(null); setShareUrl(""); }}
+        busy={!!keysApi.busyId}
+        activity={keysApi.activeKeyId ? keysApi.keyActivity[keysApi.activeKeyId] : null}
+        activityLoading={keysApi.activityLoading}
+      />
 
-        {/* Category filter chips — derived from the categories keys carry */}
-        {keys.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap mb-4">
-            <button
-              onClick={() => setActiveCategoryFilter("all")}
-              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                activeCategoryFilter === "all"
-                  ? "bg-primary/15 text-primary border-primary/40 font-semibold"
-                  : "bg-surface-2 text-text-muted border-border-subtle hover:text-text-main"
-              }`}
-            >
-              {translate("All")} · {keys.length}
-            </button>
-            {categories.map((cat) => {
-              const count = keys.filter((k) => k.category === cat).length;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setActiveCategoryFilter(cat)}
-                  title={cat}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                    activeCategoryFilter === cat
-                      ? "bg-primary/15 text-primary border-primary/40 font-semibold"
-                      : "bg-surface-2 text-text-muted border-border-subtle hover:text-text-main"
-                  }`}
-                >
-                  {cat} · {count}
-                </button>
-              );
-            })}
-            {keys.some((k) => !k.category) && (
-              <button
-                onClick={() => setActiveCategoryFilter(UNCATEGORIZED)}
-                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                  activeCategoryFilter === UNCATEGORIZED
-                    ? "bg-primary/15 text-primary border-primary/40 font-semibold"
-                    : "bg-surface-2 text-text-muted border-border-subtle hover:text-text-main"
-                }`}
-              >
-                {translate("Uncategorized")} · {keys.filter((k) => !k.category).length}
-              </button>
-            )}
-          </div>
-        )}
-
-        {keys.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
-              <span className="material-symbols-outlined text-[32px]">vpn_key</span>
-            </div>
-            <p className="text-text-main font-medium mb-1">{translate("No API keys yet")}</p>
-            <p className="text-sm text-text-muted mb-4">{translate("Create your first API key to get started")}</p>
-            <Button icon="add" onClick={openCreateModal}>
-              {translate("Create Key")}
-            </Button>
-          </div>
-        ) : (
-          <div className="flex flex-col">
-            {filteredKeys.map((key) => {
-              const paused = key.isActive === false;
-              const storedOnDevice = hasKey(key.id);
-              const scopeCount = Array.isArray(key.allowedModels) ? key.allowedModels.length : 0;
-              const usage = keyUsage[key.id]; // absent → no traffic in the window
-              return (
-                <div
-                  key={key.id}
-                  className={`group py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 ${paused ? "opacity-60" : ""}`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium truncate">{key.name}</p>
-                        {paused ? (
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">{translate("Paused")}</span>
-                        ) : (
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30">{translate("Active")}</span>
-                        )}
-                        {key.category && (
-                          <span
-                            className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30"
-                            title={key.category}
-                          >
-                            {key.category}
-                          </span>
-                        )}
-                        {scopeCount > 0 ? (
-                          <span
-                            className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30"
-                            title={key.allowedModels.join(", ")}
-                          >
-                            {scopeCount} model{scopeCount === 1 ? "" : "s"}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-2 text-text-muted border border-border-subtle" title="No model restriction">
-                            {translate("All models")}
-                          </span>
-                        )}
-                        {limitBadges(key).map((b) => (
-                          <span
-                            key={b.k}
-                            className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-2 text-text-muted border border-border-subtle"
-                            title={translate("Key limit")}
-                          >
-                            {b.text}
-                          </span>
-                        ))}
-                        {storedOnDevice && (
-                          <span
-                            className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-2 text-text-muted border border-border-subtle"
-                            title="Full key captured in this browser's local vault"
-                          >
-                            {translate("stored here")}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <code className="text-xs text-text-muted font-mono">{key.keyPrefix}</code>
-                        {storedOnDevice && (
-                          <>
-                            <button
-                              onClick={() => copy(getKey(key.id), key.id)}
-                              className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
-                              title={translate("Copy full key (from this browser's vault)")}
-                            >
-                              <span className="material-symbols-outlined text-[14px]">
-                                {copied === key.id ? "check" : "content_copy"}
-                              </span>
-                            </button>
-                            <button
-                              onClick={() => removeKey(key.id)}
-                              className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-red-500 transition-all"
-                              title={translate("Forget the full key from this browser's vault")}
-                            >
-                              <span className="material-symbols-outlined text-[14px]">lock_reset</span>
-                            </button>
-                          </>
-                        )}
-                        <button
-                          onClick={() => openEditKey(key)}
-                          className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
-                          title={translate("Edit name, description, allowed models")}
-                        >
-                          <span className="material-symbols-outlined text-[14px]">edit</span>
-                        </button>
-                      </div>
-                      {key.description && (
-                        <p className="text-xs text-text-muted mt-1 truncate">{key.description}</p>
-                      )}
-                      <p className="text-xs text-text-muted mt-1">
-                        Created {new Date(key.createdAt).toLocaleDateString()}
-                        {key.lastUsedAt ? ` · Last used ${new Date(key.lastUsedAt).toLocaleDateString()}` : " · Never used"}
-                        {key.expiresAt ? ` · Expires ${new Date(key.expiresAt).toLocaleDateString()}` : ""}
-                      </p>
-                      {/* Usage strip — requests, in/out/total tokens, spend */}
-                      {usage && (
-                        <div className="flex items-center gap-3 flex-wrap mt-1.5 text-[11px] text-text-muted">
-                          <span className="inline-flex items-center gap-1" title="Requests">
-                            <span className="material-symbols-outlined text-[13px] text-primary/70">swap_calls</span>
-                            {usage.requests.toLocaleString()}
-                          </span>
-                          <span className="inline-flex items-center gap-1" title="Input tokens">
-                            <span className="material-symbols-outlined text-[13px] text-sky-500/70">south</span>
-                            {formatTokens(usage.promptTokens)} in
-                          </span>
-                          <span className="inline-flex items-center gap-1" title="Output tokens">
-                            <span className="material-symbols-outlined text-[13px] text-emerald-500/70">north</span>
-                            {formatTokens(usage.completionTokens)} out
-                          </span>
-                          <span className="inline-flex items-center gap-1" title="Total tokens">
-                            <span className="material-symbols-outlined text-[13px] text-violet-500/70">token</span>
-                            {formatTokens(usage.totalTokens)} total
-                          </span>
-                          <span className="inline-flex items-center gap-1 font-medium text-text-main" title="Estimated spend">
-                            <span className="material-symbols-outlined text-[13px] text-amber-500/70">paid</span>
-                            {formatCost(usage.cost)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Toggle
-                        size="sm"
-                        checked={key.isActive ?? true}
-                        onChange={(checked) => {
-                          if (key.isActive && !checked) {
-                            setConfirmState({
-                              title: "Pause API Key",
-                              message: `Pause API key "${key.name}"?\n\nThis key will stop working immediately but can be resumed later.`,
-                              onConfirm: async () => {
-                                setConfirmState(null);
-                                handleToggleKey(key.id, checked);
-                              }
-                            });
-                          } else {
-                            handleToggleKey(key.id, checked);
-                          }
-                        }}
-                        title={key.isActive ? translate("Pause key") : translate("Resume key")}
-                      />
-                      <button
-                        onClick={() => handleDeleteKey(key.id)}
-                        className="p-2 hover:bg-red-500/10 rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
-                        title={translate("Delete (revoke)")}
-                      >
-                        <span className="material-symbols-outlined text-[18px]">delete</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </Card>
-
-      {/* Add Key Modal */}
-      <Modal
-        isOpen={showAddModal}
-        title={translate("Create API Key")}
+      {/* Create + edit modals */}
+      <KeyCreateModal
+        showAddModal={keysApi.showAddModal}
         onClose={() => {
-          setShowAddModal(false);
-          resetCreateForm();
+          keysApi.setShowAddModal(false);
+          keysApi.resetCreateForm();
         }}
-      >
-        <div className="flex flex-col gap-4">
-          <Input
-            label={translate("Key Name")}
-            value={newKeyName}
-            onChange={(e) => setNewKeyName(e.target.value)}
-            placeholder={translate("Production Key")}
-          />
-          <Input
-            label={translate("Description (optional)")}
-            value={newKeyDescription}
-            onChange={(e) => setNewKeyDescription(e.target.value)}
-            placeholder={translate("What this key is used for")}
-          />
-          <Input
-            label={translate("Category (optional)")}
-            value={newKeyCategory}
-            onChange={(e) => setNewKeyCategory(e.target.value)}
-            placeholder={translate("e.g. friend, hermes, others")}
-            list="key-category-options"
-            hint={translate("Group keys by purpose — pick an existing one or type your own")}
-          />
-
-          {/* Allowed models — grouped per provider, same picker the combos use */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <p className="text-sm font-medium">{translate("Restrict models")}</p>
-                <p className="text-xs text-text-muted">{translate("Limit which models this key can call")}</p>
-              </div>
-              <Toggle size="sm" checked={newKeyScopeOn} onChange={(c) => { setNewKeyScopeOn(c); if (!c) setNewKeyScope([]); }} />
-            </div>
-            {newKeyScopeOn && (
-              <>
-                <Button icon="add" variant="outline" size="sm" onClick={() => setScopePickerFor("create")}>
-                  {translate("Add Model")}
-                </Button>
-                {newKeyScope.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {newKeyScope.map((m) => (
-                      <span key={m} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 border border-primary/30 text-xs font-mono">
-                        {m}
-                        <button
-                          onClick={() => setNewKeyScope((prev) => prev.filter((x) => x !== m))}
-                          className="text-text-muted hover:text-red-500"
-                          aria-label={translate("Remove")}
-                        >
-                          <span className="material-symbols-outlined" style={{ fontSize: "12px" }}>close</span>
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-text-muted mt-2">{translate("No models selected")}</p>
-                )}
-                {newKeyScope.length > 0 && (
-                  <p className="text-xs text-text-muted mt-1.5">{newKeyScope.length} {translate("selected")}</p>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* W3 limits — rate, budgets, window, expiry, IP allowlist */}
-          <KeyLimitsEditor
-            key={`create-${showAddModal}`}
-            value={createLimits}
-            onChange={setCreateLimits}
-          />
-
-          {createError && (
-            <p className="text-sm text-red-500">{createError}</p>
-          )}
-
-          <div className="flex gap-2">
-            <Button onClick={handleCreateKey} fullWidth disabled={!newKeyName.trim()}>
-              {translate("Create")}
-            </Button>
-            <Button
-              onClick={() => {
-                setShowAddModal(false);
-                resetCreateForm();
-              }}
-              variant="ghost"
-              fullWidth
-            >
-              {translate("Cancel")}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Created Key Modal — the one-time show-once ceremony */}
-      <Modal
-        isOpen={!!createdKey}
-        title={translate("API Key Created")}
-        onClose={() => { if (createdKeyAck) closeCreatedKeyModal(); }}
-      >
-        <div className="flex flex-col gap-4">
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-            <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2 font-medium">
-              {translate("Save this key now!")}
-            </p>
-            <p className="text-sm text-yellow-700 dark:text-yellow-300">
-              {translate("This is the only time this key will ever be shown. Vela stores only its hash — if you lose it, create a new key and delete this one.")}
-            </p>
-          </div>
-          <div className="flex gap-2 items-center">
-            <Input
-              value={createdKey?.key || ""}
-              readOnly
-              className="flex-1 font-mono text-sm"
-            />
-            <Button
-              variant="secondary"
-              icon={copied === "created_key" ? "check" : "content_copy"}
-              onClick={() => copy(createdKey?.key, "created_key")}
-            >
-              {copied === "created_key" ? translate("Copied!") : translate("Copy")}
-            </Button>
-          </div>
-          <label className="flex items-center gap-2 text-sm text-text-muted cursor-pointer">
-            <input
-              type="checkbox"
-              checked={createdKeyAck}
-              onChange={(e) => setCreatedKeyAck(e.target.checked)}
-              className="accent-primary"
-            />
-            {translate("I have saved this key in a secure location")}
-          </label>
-          <Button onClick={closeCreatedKeyModal} fullWidth disabled={!createdKeyAck}>
-            {translate("Done")}
-          </Button>
-        </div>
-      </Modal>
-
-      {/* Edit Key Modal — whitelist mutation (name, description, allowed models) */}
-      <Modal
-        isOpen={!!editingKey}
-        title={translate("Edit API Key")}
-        onClose={() => setEditingKey(null)}
-      >
-        <div className="flex flex-col gap-4">
-          <Input
-            label={translate("Key Name")}
-            value={editingKey?.name || ""}
-            onChange={(e) => setEditingKey((prev) => ({ ...prev, name: e.target.value }))}
-            placeholder={translate("Production Key")}
-          />
-          <Input
-            label={translate("Description (optional)")}
-            value={editingKey?.description || ""}
-            onChange={(e) => setEditingKey((prev) => ({ ...prev, description: e.target.value }))}
-            placeholder={translate("What this key is used for")}
-          />
-          <Input
-            label={translate("Category (optional)")}
-            value={editingKey?.category || ""}
-            onChange={(e) => setEditingKey((prev) => ({ ...prev, category: e.target.value }))}
-            placeholder={translate("e.g. friend, hermes, others")}
-            list="key-category-options"
-            hint={translate("Leave empty to keep this key uncategorized")}
-          />
-
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <p className="text-sm font-medium">{translate("Restrict models")}</p>
-                <p className="text-xs text-text-muted">{translate("Limit which models this key can call")}</p>
-              </div>
-              <Toggle
-                size="sm"
-                checked={editingKey?.scopeOn || false}
-                onChange={(c) => setEditingKey((prev) => ({ ...prev, scopeOn: c, allowedModels: c ? prev.allowedModels : [] }))}
-              />
-            </div>
-            {editingKey?.scopeOn && (
-              <>
-                <Button icon="add" variant="outline" size="sm" onClick={() => setScopePickerFor("edit")}>
-                  {translate("Add Model")}
-                </Button>
-                {(editingKey?.allowedModels || []).length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {(editingKey?.allowedModels || []).map((m) => (
-                      <span key={m} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 border border-primary/30 text-xs font-mono">
-                        {m}
-                        <button
-                          onClick={() => setEditingKey((prev) => ({ ...prev, allowedModels: prev.allowedModels.filter((x) => x !== m) }))}
-                          className="text-text-muted hover:text-red-500"
-                          aria-label={translate("Remove")}
-                        >
-                          <span className="material-symbols-outlined" style={{ fontSize: "12px" }}>close</span>
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-text-muted mt-2">{translate("No models selected")}</p>
-                )}
-                {editingKey?.scopeOn && (editingKey?.allowedModels || []).length > 0 && (
-                  <p className="text-xs text-text-muted mt-1.5">{(editingKey?.allowedModels || []).length} {translate("selected")}</p>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* W3 limits — seeded from the server record, saved in full */}
-          {editingKey && (
-            <KeyLimitsEditor
-              key={editingKey.id}
-              value={editingKey.limits}
-              onChange={(limits) => setEditingKey((prev) => (prev ? { ...prev, limits } : prev))}
-            />
-          )}
-
-          {editingKey?.error && (
-            <p className="text-sm text-red-500">{editingKey.error}</p>
-          )}
-
-          <div className="flex gap-2">
-            <Button onClick={handleSaveKey} fullWidth disabled={!editingKey?.name?.trim() || editingKey?.saving}>
-              {editingKey?.saving ? translate("Saving...") : translate("Save")}
-            </Button>
-            <Button onClick={() => setEditingKey(null)} variant="ghost" fullWidth>
-              {translate("Cancel")}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Enable Tunnel Modal */}
-      <Modal
-        isOpen={showEnableTunnelModal}
-        title="Enable Tunnel"
-        onClose={() => setShowEnableTunnelModal(false)}
-      >
-        <div className="flex flex-col gap-4">
-          <div className="bg-surface-2 border border-border-subtle rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <span className="material-symbols-outlined text-primary">cloud_upload</span>
-              <div>
-                <p className="text-sm text-text-main font-medium mb-1">
-                  Cloudflare Tunnel
-                </p>
-                <p className="text-sm text-text-muted">
-                  Expose your local Vela to the internet. No port forwarding, no static IP needed. Share endpoint URL with your team or use it in Cursor, Cline, and other AI tools from anywhere.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {TUNNEL_BENEFITS.map((benefit) => (
-              <div key={benefit.title} className="flex flex-col items-center text-center p-3 rounded-lg bg-sidebar/50">
-                <span className="material-symbols-outlined text-xl text-primary mb-1">{benefit.icon}</span>
-                <p className="text-xs font-semibold">{benefit.title}</p>
-                <p className="text-xs text-text-muted">{benefit.desc}</p>
-              </div>
-            ))}
-          </div>
-
-          <p className="text-xs text-text-muted">
-            Requires outbound port 7844 (TCP/UDP). Connection may take 10-30s.
-          </p>
-
-          <div className="flex gap-2">
-            <Button onClick={handleEnableTunnel} fullWidth>
-              Start Tunnel
-            </Button>
-            <Button onClick={() => setShowEnableTunnelModal(false)} variant="ghost" fullWidth>Cancel</Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Disable Cloudflare Tunnel Modal */}
-      <Modal
-        isOpen={showDisableTunnelModal}
-        title="Disable Tunnel"
-        onClose={() => !tunnelLoading && setShowDisableTunnelModal(false)}
-      >
-        <div className="flex flex-col gap-4">
-          <p className="text-sm text-text-muted">The Cloudflare tunnel will be disconnected. Remote access via tunnel URL will stop working.</p>
-          <div className="flex gap-2">
-            <Button onClick={handleDisableTunnel} fullWidth disabled={tunnelLoading} variant="danger">
-              {tunnelLoading ? "Disabling..." : "Disable"}
-            </Button>
-            <Button onClick={() => setShowDisableTunnelModal(false)} variant="ghost" fullWidth disabled={tunnelLoading}>Cancel</Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Tailscale Modal */}
-      <Modal
-        isOpen={showTsModal}
-        title="Tailscale Funnel"
-        onClose={() => { if (!tsInstalling) { setShowTsModal(false); setTsSudoPassword(""); setTsStatus(null); } }}
-      >
-        <div className="flex flex-col gap-4">
-          {/* Checking state */}
-          {tsInstalled === null && (
-            <p className="text-sm text-text-muted flex items-center gap-2">
-              <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-              Checking...
-            </p>
-          )}
-
-          {/* Not installed */}
-          {tsInstalled === false && !tsInstalling && (
-            <div className="flex flex-col gap-3">
-              <p className="text-sm text-text-muted">Tailscale is not installed. Install it to enable Funnel.</p>
-              <div className="flex gap-2">
-                <Button onClick={handleInstallTailscale} fullWidth>
-                  Install Tailscale
-                </Button>
-                <Button onClick={() => setShowTsModal(false)} variant="ghost" fullWidth>Cancel</Button>
-              </div>
-            </div>
-          )}
-
-          {/* Installing with progress log */}
-          {tsInstalling && (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-sm text-text-muted">
-                <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                Installing Tailscale...
-              </div>
-              {tsInstallLog.length > 0 && (
-                <div ref={tsLogRef} className="bg-black/5 dark:bg-white/5 rounded p-2 max-h-40 overflow-y-auto font-mono text-xs text-text-muted">
-                  {tsInstallLog.map((line, i) => (
-                    <div key={i}>{line}</div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Installed: show Connect button */}
-          {tsInstalled === true && !tsInstalling && (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                Tailscale installed
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => handleConnectTailscale()}
-                  fullWidth
-                >
-                  Connect
-                </Button>
-                <Button onClick={() => setShowTsModal(false)} variant="ghost" fullWidth>Cancel</Button>
-              </div>
-            </div>
-          )}
-
-          {tsStatus && <StatusAlert status={tsStatus} />}
-        </div>
-      </Modal>
-
-      {/* Disable Tailscale Modal */}
-      <Modal
-        isOpen={showDisableTsModal}
-        title="Disable Tailscale"
-        onClose={() => !tsLoading && setShowDisableTsModal(false)}
-      >
-        <div className="flex flex-col gap-4">
-          <p className="text-sm text-text-muted">Tailscale Funnel will be stopped. Remote access via Tailscale URL will stop working.</p>
-          <div className="flex gap-2">
-            <Button onClick={handleDisableTailscale} fullWidth disabled={tsLoading} variant="danger">
-              {tsLoading ? "Disabling..." : "Disable"}
-            </Button>
-            <Button onClick={() => setShowDisableTsModal(false)} variant="ghost" fullWidth disabled={tsLoading}>Cancel</Button>
-          </div>
-        </div>
-      </Modal>
+        form={{
+          name: keysApi.newKeyName,
+          description: keysApi.newKeyDescription,
+          category: keysApi.newKeyCategory,
+          scopeOn: keysApi.newKeyScopeOn,
+          scope: keysApi.newKeyScope,
+          allowedKinds: keysApi.newKeyKinds,
+          allowedProviders: keysApi.newKeyProviders,
+          allowedCombos: keysApi.newKeyCombos,
+          limits: keysApi.createLimits,
+          modelAliases: keysApi.modelAliases,
+        }}
+        setForm={(patch) => {
+          if (patch.name !== undefined) keysApi.setNewKeyName(patch.name);
+          if (patch.description !== undefined) keysApi.setNewKeyDescription(patch.description);
+          if (patch.category !== undefined) keysApi.setNewKeyCategory(patch.category);
+          if (patch.scopeOn !== undefined) keysApi.setNewKeyScopeOn(patch.scopeOn);
+          if (patch.scope !== undefined) keysApi.setNewKeyScope(patch.scope);
+          if (patch.allowedKinds !== undefined) keysApi.setNewKeyKinds(patch.allowedKinds);
+          if (patch.allowedProviders !== undefined) keysApi.setNewKeyProviders(patch.allowedProviders);
+          if (patch.allowedCombos !== undefined) keysApi.setNewKeyCombos(patch.allowedCombos);
+          if (patch.limits !== undefined) keysApi.setCreateLimits(patch.limits);
+        }}
+        onScopeToggle={(checked) => {
+          keysApi.setNewKeyScopeOn(checked);
+          if (!checked) keysApi.setNewKeyScope([]);
+        }}
+        onAddModel={() => keysApi.setScopePickerFor("create")}
+        onRemoveModel={(m) => keysApi.setNewKeyScope((prev) => prev.filter((x) => x !== m))}
+        onCreate={keysApi.handleCreateKey}
+        error={keysApi.createError}
+        categories={keysApi.categories}
+        combos={keysApi.combos}
+      />
+      <KeyEditModal
+        editingKey={keysApi.editingKey}
+        onChange={keysApi.setEditingKey}
+        onSave={keysApi.handleSaveKey}
+        onClose={() => keysApi.setEditingKey(null)}
+        onAddModel={() => keysApi.setScopePickerFor("edit")}
+        onRemoveModel={(m) =>
+          keysApi.setEditingKey((prev) =>
+            prev ? { ...prev, allowedModels: (prev.allowedModels || []).filter((x) => x !== m) } : prev
+          )
+        }
+        modelAliases={keysApi.modelAliases}
+        combos={keysApi.combos}
+      />
 
       {/* Grouped model-scope picker — same ModelSelectModal the combos use.
           Combo names are hidden (showCombos=false): for combos the gate checks
           each MEMBER model against the scope, so scoping happens per model. */}
-      {scopePickerFor && (
+      {keysApi.scopePickerFor && (
         <ModelSelectModal
           isOpen
-          onClose={() => setScopePickerFor(null)}
-          onSelect={handleScopeSelect}
-          onDeselect={handleScopeDeselect}
-          activeProviders={activeProviders}
-          modelAliases={modelAliases}
+          onClose={() => keysApi.setScopePickerFor(null)}
+          onSelect={keysApi.handleScopeSelect}
+          onDeselect={keysApi.handleScopeDeselect}
+          activeProviders={keysApi.activeProviders}
+          modelAliases={keysApi.modelAliases}
           title={translate("Select models")}
-          addedModelValues={scopePickerFor === "create" ? newKeyScope : (editingKey?.allowedModels || [])}
+          addedModelValues={keysApi.scopePickerFor === "create" ? keysApi.newKeyScope : (keysApi.editingKey?.allowedModels || [])}
           closeOnSelect={false}
           showCombos={false}
         />
       )}
 
-      {/* Confirm Modal */}
+      {/* Show-once reveal — freshly created or rotated key. The ack flag
+          matches whichever flow is active (they are mutually exclusive). */}
+      <ShowOnceModal
+        title="API Key Created"
+        secret={keysApi.createdKey?.key || keysApi.rotatedResult?.key || ""}
+        copied={copied === "created_key"}
+        onCopy={(secret) => copy(secret, "created_key")}
+        acked={keysApi.createdKey ? keysApi.createdKeyAck : keysApi.rotatedAck}
+        onAck={(checked) => {
+          if (keysApi.createdKey) keysApi.setCreatedKeyAck(checked);
+          else keysApi.setRotatedAck(checked);
+        }}
+        onClose={() => {
+          if (keysApi.createdKey ? keysApi.createdKeyAck : keysApi.rotatedAck) {
+            keysApi.closeCreatedKeyModal();
+            keysApi.setRotatedAck(false);
+            keysApi.setRotatedResult(null);
+          }
+        }}
+      />
+
+      {/* Show-once reveal — migration-015 revived keys (sequential paging) */}
+      <ShowOnceModal
+        title="Legacy Keys Revived"
+        secret={pendingReveals ? (pendingReveals[pendingRevealIndex]?.key || "") : ""}
+        copied={copied === "pending_reveal"}
+        onCopy={(secret) => copy(secret, "pending_reveal")}
+        acked={pendingRevealAcked}
+        onAck={setPendingRevealAcked}
+        onClose={() => {
+          if (!pendingRevealAcked) return;
+          if (pendingRevealIndex < (pendingReveals?.length || 1) - 1) {
+            setPendingRevealIndex((i) => i + 1);
+            setPendingRevealAcked(false);
+          } else {
+            setPendingReveals(null);
+            setPendingRevealIndex(0);
+            setPendingRevealAcked(false);
+          }
+        }}
+      />
+
+      {/* Confirm Modal — pause/resume/rotate/delete + bulk flows */}
       <ConfirmModal
-        isOpen={!!confirmState}
-        onClose={() => setConfirmState(null)}
-        onConfirm={confirmState?.onConfirm}
-        title={confirmState?.title || "Confirm"}
-        message={confirmState?.message}
-        variant="danger"
+        isOpen={!!keysApi.confirmState}
+        onClose={() => keysApi.setConfirmState(null)}
+        onConfirm={keysApi.confirmState?.onConfirm}
+        title={keysApi.confirmState?.title || translate("Confirm")}
+        message={keysApi.confirmState?.message}
+        confirmText={keysApi.confirmState?.confirmText || translate("Confirm")}
+        variant={keysApi.confirmState?.variant || "danger"}
       />
 
       {/* Shared datalist for the category comboboxes — pick an existing
           category or type a brand-new one (friend, hermes, whatever). */}
       <datalist id="key-category-options">
-        {categories.map((cat) => (
+        {keysApi.categories.map((cat) => (
           <option key={cat} value={cat} />
         ))}
       </datalist>

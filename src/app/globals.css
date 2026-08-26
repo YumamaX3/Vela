@@ -39,6 +39,7 @@
   /* Borders */
   --color-border: #e5e7eb;
   --color-border-subtle: #f1f1f3;
+  --color-input: #f4f4f5;
 
   /* Text */
   --color-text: #0a0a0a;
@@ -95,6 +96,7 @@
 
   --color-border: #333333;
   --color-border-subtle: #2a2a2a;
+  --color-input: #303030;
 
   --color-text: #ededed;
   --color-text-main: #ededed;

@@ -80,18 +80,22 @@ describe("GrokCliExecutor", () => {
   });
 
   it("buildHeaders sets CLI fingerprint + session headers", () => {
-    executor._currentSessionId = "sess-abc";
-    executor._currentReqId = "req-xyz";
-    executor._agentId = "agent-1";
-    executor._currentModel = "grok-4.5";
-    executor._currentTurnIdx = 3;
-
+    // State now rides from transformRequest as the 5th arg (E-M1) — simulate it
+    // by running a transform first and reading the resulting headers.
+    const body = { model: "grok-4.5", input: [{ type: "message", role: "user", content: "hi" }] };
+    const transformed = executor.transformRequest("grok-4.5", body, true, {
+      accessToken: "tok_test",
+      providerSpecificData: { email: "u@example.com", userId: "uid-1" },
+    });
     const headers = executor.buildHeaders(
       {
         accessToken: "tok_test",
         providerSpecificData: { email: "u@example.com", userId: "uid-1" },
       },
-      true
+      true,
+      executor.buildUrl(),
+      "grok-4.5",
+      transformed
     );
 
     expect(headers.Authorization).toBe("Bearer tok_test");
@@ -99,22 +103,21 @@ describe("GrokCliExecutor", () => {
     expect(headers["x-xai-token-auth"]).toBeUndefined();
     expect(headers["x-grok-client-identifier"]).toBe("grok-shell");
     expect(headers["x-grok-client-version"]).toBe("0.2.99");
-    expect(headers["x-grok-session-id"]).toBe("sess-abc");
-    expect(headers["x-grok-conv-id"]).toBe("sess-abc");
-    expect(headers["x-grok-req-id"]).toBe("req-xyz");
-    expect(headers["x-grok-turn-idx"]).toBe("3");
-    expect(headers["x-grok-agent-id"]).toBe("agent-1");
+    // Session/req/turn derived from the transform — deterministic for a fresh request
+    expect(headers["x-grok-session-id"]).toBeTruthy();
+    expect(headers["x-grok-conv-id"]).toBe(headers["x-grok-session-id"]);
+    expect(headers["x-grok-req-id"]).toBeTruthy();
+    expect(headers["x-grok-turn-idx"]).toBe("1");
     expect(headers["x-grok-model-override"]).toBe("grok-4.5");
     expect(headers["x-compaction-at"]).toBeUndefined();
     expect(headers["x-email"]).toBe("u@example.com");
     expect(headers["x-userid"]).toBe("uid-1");
     expect(headers["x-authenticateresponse"]).toBeUndefined();
+    // The marker key must never reach the wire
+    expect(transformed._velaGrokState).toBeUndefined();
   });
 
   it("buildHeaders falls back to top-level email/userId (OAuth mapTokens shape)", () => {
-    executor._currentSessionId = "sess-top";
-    executor._currentReqId = "req-top";
-
     const headers = executor.buildHeaders(
       {
         accessToken: "tok_test",
@@ -166,7 +169,7 @@ describe("GrokCliExecutor", () => {
     expect(out.user).toBeUndefined();
     expect(Array.isArray(out.input)).toBe(true);
     expect(out.input.length).toBeGreaterThan(0);
-    expect(executor._currentTurnIdx).toBe(1);
+    expect(out._velaGrokState.turnIdx).toBe(1);
 
     // tools flattened + hosted tools kept
     expect(out.tools).toHaveLength(3);
@@ -365,7 +368,7 @@ describe("GrokCliExecutor", () => {
     };
 
     // Turn 1: one user message
-    executor.transformRequest(
+    const t1 = executor.transformRequest(
       "grok-4.5",
       {
         model: "grok-4.5",
@@ -377,17 +380,18 @@ describe("GrokCliExecutor", () => {
       true,
       creds
     );
-    expect(executor._currentSessionId).toBeTruthy();
-    expect(executor._currentTurnIdx).toBe(1);
-    let headers = executor.buildHeaders({ accessToken: "t" }, true);
+    const s1 = t1._velaGrokState;
+    expect(s1.sessionId).toBeTruthy();
+    expect(s1.turnIdx).toBe(1);
+    let headers = executor.buildHeaders({ accessToken: "t" }, true, undefined, "grok-4.5", t1);
     expect(headers["x-grok-turn-idx"]).toBe("1");
-    expect(headers["x-grok-session-id"]).toBe(executor._currentSessionId);
-    expect(headers["x-grok-conv-id"]).toBe(executor._currentSessionId);
+    expect(headers["x-grok-session-id"]).toBe(s1.sessionId);
+    expect(headers["x-grok-conv-id"]).toBe(s1.sessionId);
 
-    const sessionId = executor._currentSessionId;
+    const sessionId = s1.sessionId;
 
     // Turn 2: full history with two user messages
-    executor.transformRequest(
+    const t2 = executor.transformRequest(
       "grok-4.5",
       {
         model: "grok-4.5",
@@ -401,13 +405,14 @@ describe("GrokCliExecutor", () => {
       true,
       creds
     );
-    expect(executor._currentSessionId).toBe(sessionId);
-    expect(executor._currentTurnIdx).toBe(2);
-    headers = executor.buildHeaders({ accessToken: "t" }, true);
+    const s2 = t2._velaGrokState;
+    expect(s2.sessionId).toBe(sessionId);
+    expect(s2.turnIdx).toBe(2);
+    headers = executor.buildHeaders({ accessToken: "t" }, true, undefined, "grok-4.5", t2);
     expect(headers["x-grok-turn-idx"]).toBe("2");
 
     // Same session, a new delta-style request advances without relying on full history.
-    executor.transformRequest(
+    const t3 = executor.transformRequest(
       "grok-4.5",
       {
         model: "grok-4.5",
@@ -416,7 +421,7 @@ describe("GrokCliExecutor", () => {
       true,
       creds
     );
-    expect(executor._currentTurnIdx).toBe(3);
+    expect(t3._velaGrokState.turnIdx).toBe(3);
   });
 
   it("countGrokCliUserTurns / resolveGrokCliTurnIdx helpers", () => {
@@ -443,13 +448,13 @@ describe("GrokCliExecutor", () => {
 
   it("keeps fallback session stable when assistant history appears", () => {
     const creds = { connectionId: "fallback-conn", rawHeaders: {} };
-    executor.transformRequest("grok-build", {
+    const t1 = executor.transformRequest("grok-build", {
       model: "grok-build",
       input: [{ type: "message", role: "user", content: "first" }],
     }, true, creds);
-    const firstSession = executor._currentSessionId;
+    const firstSession = t1._velaGrokState.sessionId;
 
-    executor.transformRequest("grok-build", {
+    const t2 = executor.transformRequest("grok-build", {
       model: "grok-build",
       input: [
         { type: "message", role: "user", content: "first" },
@@ -457,8 +462,8 @@ describe("GrokCliExecutor", () => {
         { type: "message", role: "user", content: "second" },
       ],
     }, true, creds);
-    expect(executor._currentSessionId).toBe(firstSession);
-    expect(executor._currentTurnIdx).toBe(2);
+    expect(t2._velaGrokState.sessionId).toBe(firstSession);
+    expect(t2._velaGrokState.turnIdx).toBe(2);
   });
 
   it("does not advance turn index when retrying the same request body", () => {
@@ -467,10 +472,10 @@ describe("GrokCliExecutor", () => {
       input: [{ type: "message", role: "user", content: "retry me" }],
     };
     const creds = { connectionId: "retry-conn" };
-    executor.transformRequest("grok-build", body, true, creds);
-    const firstTurn = executor._currentTurnIdx;
-    executor.transformRequest("grok-build", body, true, creds);
-    expect(executor._currentTurnIdx).toBe(firstTurn);
+    const t1 = executor.transformRequest("grok-build", body, true, creds);
+    const firstTurn = t1._velaGrokState.turnIdx;
+    const t2 = executor.transformRequest("grok-build", body, true, creds);
+    expect(t2._velaGrokState.turnIdx).toBe(firstTurn);
   });
 
   it("bounds per-session turn state", () => {

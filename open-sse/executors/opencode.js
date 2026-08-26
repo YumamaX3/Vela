@@ -33,11 +33,9 @@ function resolveOpencodeSession(body, credentials) {
 export class OpenCodeExecutor extends BaseExecutor {
   constructor() {
     super("opencode", PROVIDERS.opencode);
-    this._currentSessionId = null;
   }
 
   transformRequest(model, body, stream, credentials) {
-    this._currentSessionId = resolveOpencodeSession(body, credentials);
     return injectReasoningContent({ provider: this.provider, model, body });
   }
 
@@ -63,12 +61,31 @@ export class OpenCodeExecutor extends BaseExecutor {
     const key = credentials?.apiKey || credentials?.accessToken;
     const hasKey = typeof key === "string" && key && key !== "public";
 
+    // Session derived deterministically from the request headers — the same
+    // source resolveOpencodeSession uses in transformRequest, so no singleton
+    // instance state can leak between concurrent requests (E-M1). Only trust
+    // the derivation when the request actually carries a conversation anchor
+    // (session header or connectionId); otherwise emit a fresh clean id.
+    const hasAnchor =
+      raw["x-opencode-session"] ||
+      raw["x-session-id"] ||
+      raw["x-conversation-id"] ||
+      credentials?.connectionId;
+    const session = hasAnchor
+      ? (toOpencodeSession(resolveSessionId({
+          headers: raw,
+          body: {},
+          connectionId: credentials?.connectionId,
+          scope: "opencode",
+        })) || generateSessionId())
+      : generateSessionId();
+
     return {
       "Content-Type": "application/json",
       "Authorization": hasKey ? `Bearer ${key}` : "Bearer public",
       "User-Agent": isOpencodeDownstream ? downstreamUa : OPENCODE_UA,
       "x-opencode-client": lower["x-opencode-client"] || "desktop",
-      "x-opencode-session": lower["x-opencode-session"] || this._currentSessionId || generateSessionId(),
+      "x-opencode-session": lower["x-opencode-session"] || session,
       "x-opencode-request": lower["x-opencode-request"] || generateRequestId(),
       "x-opencode-project": lower["x-opencode-project"] || "global",
       "Accept": stream ? "text/event-stream" : "*/*",

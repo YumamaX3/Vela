@@ -431,7 +431,7 @@ the `repos/mysql/` twin. `src/lib/localDb.js` is a backward-compat shim —
 new code imports `@/lib/db/index.js`.
 
 **Schema** — `src/lib/db/migrations/` runs **14 versioned migrations**
-(`001-initial` → `014-fallback-rules-v2-triggers`); `SCHEMA_VERSION = 13`
+(`001-initial` → `015-legacy-key-cleanup`); `SCHEMA_VERSION = 14`
 in `src/lib/db/schema.js` (the pre-change backup gate: bump the version, the
 engine takes a safety backup before applying). `TABLES` in `schema.js` is
 the single source of truth for both harbors — the mysql twin's
@@ -589,7 +589,7 @@ src/
 ├── lib/
 │   ├── db/              driver chain, adapters, migrations, mirror
 │   │   ├── repos/       facades + sqlite/mysql implementations
-│   │   ├── migrations/  001–014 versioned chain
+│   │   ├── migrations/  001–015 versioned chain
 │   │   ├── mirror/      outbox pump, decorator, divergence sweep
 │   │   └── mysql/       bootstrap (additive diff), pool, adapter
 │   ├── network/         circuitBreaker, proxyFleet, poolGeo, poolEgressProbe,

@@ -1,4 +1,4 @@
-import { ProxyAgent, fetch as undiciFetch } from "undici";
+import { fetch as undiciFetch } from "undici";
 
 const DEFAULT_TEST_URL = "https://google.com/";
 const DEFAULT_TIMEOUT_MS = 8000;
@@ -50,13 +50,12 @@ export async function testProxyUrl({ proxyUrl, testUrl, timeoutMs } = {}) {
     })();
 
     try {
+      const { Socks5ProxyAgent, ProxyAgent } = await import("undici");
       // SOCKS5 branch — undici Socks5ProxyAgent
       if (/^socks5:\/\//i.test(normalized)) {
-        ({ Socks5ProxyAgent } = await import("undici"));
         dispatcher = new Socks5ProxyAgent({ uri: normalized });
       } else {
         // HTTP(s) proxy
-        ({ ProxyAgent } = await import("undici"));
         dispatcher = new ProxyAgent({ uri: normalized });
       }
     } catch (err) {

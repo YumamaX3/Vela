@@ -6,13 +6,14 @@
 import { useMetrics } from "../hooks/useMetrics";
 
 export default function TrafficChart({ period }) {
-  if (!period) return null;
-
+  // Hook first — early returns must never sit between hook calls.
   const { data, loading } = useMetrics(
     "timeseries",
-    `period=${period}`,
+    period ? `period=${period}` : "",
     ""
   );
+
+  if (!period) return null;
 
   const points = Array.isArray(data?.points) ? data.points : [];
 

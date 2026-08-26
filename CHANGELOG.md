@@ -25,6 +25,42 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.24 — The Deep Audit Ascension 🏛️⚡
+
+> *"The Mirror turned inward — every line measured, every current traced. What it found was mended; what it could not see, it refused to leave in shadow."*
+
+**The Settings Observatory v2** — the settings harbor rebuilt, categorized, and netted into the sidebar (✨🔥):
+- `/dashboard/settings` → nested routes (`/settings/security`, `/settings/network`, …) — aligns with the Media Providers accordion pattern in the Sidebar
+- 11 categorized sections: Appearance, Authentication, Security, Network, Routing, Capacity, Observability, Alerts, Storage/Backup, Tokens/Savers, Language
+- Dedicated `SettingsProvider` context (`patch/toggle/setNumber/setString/patchNested`) — no more 1,700-line monolith; dead-wired `dirtyKeys`/`resetSection` machinery removed
+- Appearance: **accent color is now real** — it overrides `--color-brand-500` app-wide via a root CSS variable effect; the placebo `density`/`fontSize`/`highContrast`/`versionBadge`/`autoDetectLocale` toggles (which nothing consumed) were removed
+- New `--color-input` token (light + dark) so `bg-input` surfaces no longer render transparent
+
+**The Engine Exorcism — singleton state races slain (🐛🔧):**
+- **E-M1**: five executors refactored off shared instance fields — `gemini-cli`, `antigravity`, `opencode`, `codex`, `grok-cli` — each now derives per-request state (session/request ids, model, turn index) from the live request, never a field a concurrent request could clobber. `BaseExecutor.execute` threads `body` through `buildUrl`/`buildHeaders`. Fixed a hidden codex bug: `_isCompact` was being read *before* `transformRequest` set it — the `/compact` route could never fire single-threaded either
+- **E-H2**: freebuff pool re-picks accumulate an `excludedPoolIds` exclusion set (no more re-trying the same dead pool)
+- **E-H4**: credential refresh serialized under `withCredentialRefreshLock` — concurrent 401s can no longer rotate the same refresh token in parallel
+- **E-H3**: `proxyFetch.createBypassRequest` returns a real `Response` (buffered body, constructed Headers) with socket-destroying AbortSignal support
+- **E-H5**: freebuff session claim-chain mutex releases via the tail-of-chain pattern — no more leaked locks
+- **E-H1/E-M4**: duplicate `gcli` alias removed from gemini-cli; a client-4xx → no-fallback rule with `cooldownMs: 0` in `accountFallback`
+
+**The Frontend stabilization (🐛):**
+- **Rules-of-hooks**: 5 files with conditional-hook crashes rewired — hooks moved above early-return guards (NetworkSection, LanguageSection, usage TopModels/TopSpenders/TrafficChart)
+- **C2**: `onRevive` was dropped from the KeysTable → KeyRow destructure — the revive action now reaches its row
+- **C3**: tunnel/tailscale status restored on reload (mount-time sync effect)
+- **H1/H2**: stale closure in `useKeys` dep-array + shareUrl leaking across drawer close
+- **KeysTable select-all now operates on the *filtered* rows** — search + select-all no longer bulk pauses/deletes keys hidden behind the filter
+
+**The Deep Clean (🧹):**
+- **11 orphan files deleted** (6 dead settings modules, 4 dead shared components + their index re-exports, the endpoint KeyLimitsEditor shim) + **2 broken legacy tests** (imported nonexistent `cloud/` and the removed `lowdb`) + the `dev/null` junk file
+- **`NINEROUTER_*` → `VELA_*` env rename** (peer token + CLI app dir) across source and tests — the brand purge, completed
+- **2 dead deps dropped**: `selfsigned`, `react-is` (the other audit-flagged deps all have live consumers)
+- **`SCOPES` route-export collision fixed** in the settings import route — it blocked the production type-check
+
+**Verification**: production build green (compile + type-check + standalone assets); full test suite holds the pre-session baseline (122 pre-existing legacy fails, 0 new regressions — net +1 passing test, −2 files). Both charts pinned to 0.9.24 per the dual-chart decree.
+
+---
+
 # v0.9.23 — The Stillwater Design 🪞⚡
 
 > *"Fail before the failure. Speak the live request. The Mirror's two waves, sealed into the gateway."*

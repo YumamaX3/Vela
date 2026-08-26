@@ -239,6 +239,13 @@ export class FreebuffExecutor extends BaseExecutor {
     // ── the ceremony ────────────────────────────────────────────────────────
     let session, runId, currentProxyOptions = proxyOptions || {};
     let claimedOnce = false;
+    // Pools already tried and blocked — accumulated across iterations so
+    // repick can never return a pool we already failed on (E-H2: the old code
+    // rebuilt this list from the same original pool id every pass, so a
+    // multi-pool config with regional blocks could loop forever).
+    const excludedPoolIds = new Set();
+    const originalPoolId = credentials?.providerSpecificData?.connectionProxyPoolId;
+    if (originalPoolId) excludedPoolIds.add(originalPoolId);
 
     while (!claimedOnce || true) {
       try {
@@ -256,14 +263,16 @@ export class FreebuffExecutor extends BaseExecutor {
         const poolId = credentials?.providerSpecificData?.connectionProxyPoolId;
         if (gate?.kind === "blocked" && RE_PICK_CODES.has(gate.code || "") && poolId) {
           const providerId = "freebuff";
-          const excludePoolIds = [poolId];
+          // Exclude the pool we just failed on, plus every previously tried pool.
+          excludedPoolIds.add(poolId);
           const { repick } = await import("@/lib/network/proxyFleet.js");
-          const result = await repick(model, excludePoolIds, FREEBUFF_REPICK_MAX_ATTEMPTS, FREEBUFF_REPICK_BUDGET_MS);
+          const result = await repick(model, [...excludedPoolIds], FREEBUFF_REPICK_MAX_ATTEMPTS, FREEBUFF_REPICK_BUDGET_MS);
           if (result) {
             // Rebuild proxyOptions from the new pool's config
             const { resolveConnectionProxyConfig } = await import("@/lib/network/connectionProxy.js");
             const resolved = await resolveConnectionProxyConfig({ proxyPoolId: result.poolId });
             currentProxyOptions = resolved;
+            excludedPoolIds.add(result.poolId);
             log?.debug?.("FREEBUFF", `re-pick: ${poolId} → ${result.poolId}, rebuilding proxy options`);
             // Restart loop with new proxy options
             continue;
@@ -371,7 +380,8 @@ export class FreebuffExecutor extends BaseExecutor {
             this.finishRun(runId, "cancelled", credentials, proxyOptions);
             await clearSession(credentials, gate.code || "stale");
             session = await claimSession(credentials, model, proxyOptions, signal);
-            runId = await this.startRun(agentId, credentials, proxyOptions, log);
+            // agentId0: re-derive from the fresh session (it may differ after reclaim).
+            runId = await this.startRun(FREEBUFF_MODEL_AGENT_IDS[model] || session?.agentId || FREEBUFF_FALLBACK_AGENT_ID, credentials, proxyOptions, log);
             continue; // retry the chat with the fresh session — exactly once
           }
 

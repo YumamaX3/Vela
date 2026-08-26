@@ -30,7 +30,7 @@ const HOP_BY_HOP = new Set([
 // header even though the env var is inherited by child processes. Named like x-9r-cli-token
 // so the request-detail header sanitizer redacts it too.
 const PEER_TOKEN = crypto.randomBytes(24).toString("hex");
-process.env.NINEROUTER_PEER_TOKEN = PEER_TOKEN;
+process.env.VELA_PEER_TOKEN = PEER_TOKEN;
 
 let backgroundRefreshStarted = false;
 

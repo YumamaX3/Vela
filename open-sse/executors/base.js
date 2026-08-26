@@ -125,9 +125,13 @@ export class BaseExecutor {
     };
 
     for (let urlIndex = 0; urlIndex < fallbackCount; urlIndex++) {
-      const url = this.buildUrl(model, stream, urlIndex, credentials);
+      // body is passed through so per-request state (e.g. codex _compact) can
+      // be read in buildUrl without racing on instance fields (E-M1).
+      const url = this.buildUrl(model, stream, urlIndex, credentials, body);
       const transformedBody = this.transformRequest(model, body, stream, credentials);
-      const headers = this.buildHeaders(credentials, stream, url, model);
+      // The transformed body rides to buildHeaders so providers can derive
+      // per-request header state (ids, model) without instance fields (E-M1).
+      const headers = this.buildHeaders(credentials, stream, url, model, transformedBody);
 
       if (!retryAttemptsByUrl[urlIndex]) retryAttemptsByUrl[urlIndex] = 0;
 

@@ -340,10 +340,6 @@ function resolveEffortFromModel(modelId) {
 export class GrokCliExecutor extends BaseExecutor {
   constructor() {
     super("grok-cli", PROVIDERS["grok-cli"]);
-    this._currentSessionId = null;
-    this._currentReqId = null;
-    this._currentTurnIdx = 1;
-    this._agentId = null;
   }
 
   buildUrl() {
@@ -359,8 +355,20 @@ export class GrokCliExecutor extends BaseExecutor {
     return shouldRefreshCredentials("grok-cli", credentials);
   }
 
-  buildHeaders(credentials, stream = true) {
+  // State is derived per-request — never stored on the instance. transformRequest
+  // returns { sessionId, reqId, turnIdx, agentId, model } and buildHeaders reads
+  // them from the 5th param, so concurrent requests cannot race on shared fields
+  // (E-M1). When buildHeaders runs without a prior transform (health checks,
+  // direct calls), it derives fresh ids from credentials alone.
+  buildHeaders(credentials, stream = true, url, model, transformedBody = null) {
     const headers = super.buildHeaders(credentials, stream);
+
+    // Per-request state left by transformRequest — consumed once and stripped so
+    // it never reaches the wire. Absent on direct calls (health checks).
+    const state = transformedBody?._velaGrokState || null;
+    if (transformedBody && transformedBody._velaGrokState) {
+      delete transformedBody._velaGrokState;
+    }
 
     // Static fingerprint from registry
     const staticHeaders = this.config.headers || {};
@@ -373,18 +381,20 @@ export class GrokCliExecutor extends BaseExecutor {
     headers["x-grok-client-version"] =
       this.config.clientVersion || headers["x-grok-client-version"] || GROK_CLI_VERSION;
 
-    const sessionId = this._currentSessionId || credentials?.connectionId || crypto.randomUUID();
-    const reqId = this._currentReqId || crypto.randomUUID();
+    const sessionId = state?.sessionId || resolveGrokCliSessionId(credentials, {}) || credentials?.connectionId || crypto.randomUUID();
+    const reqId = state?.reqId || crypto.randomUUID();
     headers["x-grok-session-id"] = sessionId;
     // CLI uses the same id for conv + session on chat turns
     headers["x-grok-conv-id"] = sessionId;
     headers["x-grok-req-id"] = reqId;
-    headers["x-grok-turn-idx"] = String(this._currentTurnIdx || 1);
+    // Turn index comes only from a prior transformRequest; direct calls (health
+    // checks) get 1 — never advancing the turn store from a non-request.
+    headers["x-grok-turn-idx"] = String(state?.turnIdx || 1);
 
-    if (this._agentId) headers["x-grok-agent-id"] = this._agentId;
+    if (state?.agentId) headers["x-grok-agent-id"] = state.agentId;
 
     // Surface model override (CLI always sets this)
-    if (this._currentModel) headers["x-grok-model-override"] = this._currentModel;
+    if (state?.model) headers["x-grok-model-override"] = state.model;
 
     // Identity: mapTokens stores email top-level AND in providerSpecificData;
     // fall back either way so OAuth connections always fingerprint like the CLI.
@@ -417,13 +427,19 @@ export class GrokCliExecutor extends BaseExecutor {
   }
 
   transformRequest(model, body, stream, credentials) {
-    // Session / request ids for headers — stable per client conversation when possible
+    // Session / request ids for headers — stable per client conversation when
+    // possible. Derived into a returned state object, never written to instance
+    // fields, so concurrent requests cannot race on shared state (E-M1).
     const requestKey = body;
-    this._currentSessionId = resolveGrokCliSessionId(credentials, body);
-    this._currentReqId = crypto.randomUUID();
-    this._agentId =
+    const sessionId = resolveGrokCliSessionId(credentials, body);
+    const reqId = crypto.randomUUID();
+    // this._agentId is a lazily-computed STABLE machine identity (same value for
+    // every request in this process) — set in execute() before transformRequest
+    // runs — so reading it here cannot race like per-request state did (E-M1).
+    const agentId =
       credentials?.providerSpecificData?.deviceId ||
       credentials?.providerSpecificData?.agentId ||
+      this._agentId ||
       null;
 
     // Normalize Responses input
@@ -453,7 +469,7 @@ export class GrokCliExecutor extends BaseExecutor {
     normalizeGrokCliTools(body);
 
     // Turn index after input is finalized (user-message count, monotonic per session)
-    this._currentTurnIdx = resolveGrokCliTurnIdx(this._currentSessionId, body.input, requestKey);
+    const turnIdx = resolveGrokCliTurnIdx(sessionId, body.input, requestKey);
 
     body.stream = true;
     body.store = false;
@@ -470,7 +486,6 @@ export class GrokCliExecutor extends BaseExecutor {
       resolvedModel = getModelUpstreamId("grok-cli", resolvedModel) || resolvedModel;
     }
     body.model = resolvedModel;
-    this._currentModel = resolvedModel;
 
     // Reasoning effort priority: explicit > reasoning_effort > model suffix > default high.
     // grok-build and Composer reject reasoningEffort but still accept summary/encrypted continuity.
@@ -522,6 +537,10 @@ export class GrokCliExecutor extends BaseExecutor {
       if (!RESPONSES_API_ALLOWLIST.has(k)) delete body[k];
     }
 
+    // Hand the derived ids to buildHeaders via a marker key on the body. Set
+    // after the allowlist strip so the key survives; buildHeaders deletes it
+    // before the body is serialized upstream, so it can never leak.
+    body._velaGrokState = { sessionId, reqId, turnIdx, agentId, model: resolvedModel };
     return body;
   }
 
