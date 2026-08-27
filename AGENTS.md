@@ -36,7 +36,7 @@ This file is the operating manual for **AI agents working in this repository**. 
 
 ## 🌊 What This Repo Is
 
-**Vela** (v0.9.23) — a local AI routing gateway + dashboard. One OpenAI-compatible endpoint (`/v1`) routes traffic across **126 registered providers**: format translation, model-combo fallback with operator fallback rules, multi-account fallback, OAuth credential management, token refresh, quota tracking, per-key ACL, and prompt injectors.
+**Vela** (v0.9.27) — a local AI routing gateway + dashboard. One OpenAI-compatible endpoint (`/v1`) routes traffic across **162 registered providers**: format translation, model-combo fallback with operator fallback rules, multi-account fallback, OAuth credential management, token refresh, quota tracking, per-key ACL, prompt injectors, and the AI Lab (modes + content policy).
 
 | Fact | Value |
 |-|-|
@@ -45,8 +45,8 @@ This file is the operating manual for **AI agents working in this repository**. 
 | Storage | SQLite (primary) + optional MariaDB mirror (`VELA_DB_MODE`) |
 | Package / image | `vela-app` / `ghcr.io/yumamax3/vela:<tag>` |
 | CLI | npm package `vela`, bin `vela` |
-| Tests | vitest, `tests/` — 245 unit files |
-| Migrations | 15 versioned (`001` → `015`), `SCHEMA_VERSION = 14` |
+| Tests | vitest, `tests/` — 271 unit files |
+| Migrations | 20 versioned (`001` → `020`), `SCHEMA_VERSION = 20` |
 
 The product lives in two engines that must never be confused:
 
@@ -72,7 +72,7 @@ open-sse/                 The gateway engine
 ├── handlers/             chatCore, embeddingsCore, ttsCore, imageCore, video, search
 ├── executors/            per-provider upstream calls (default + ~28 specialized)
 ├── translator/           format translation (OpenAI pivot + direct routes)
-├── providers/            registry (126 files, auto-generated index) + pricing.js
+├── providers/            registry (162 files, auto-generated index) + pricing.js
 ├── rtk/                  token saver hooks (fail-open)
 ├── services/             model.js, combo.js, accountFallback.js, fallbackRuleMatcher.js, …
 ├── config/               providerModels, runtimeConfig, constants (nothing hardcoded elsewhere)
@@ -155,7 +155,7 @@ Client ──> custom-server.js (TCP-socket IP stamp, h2c downgrade, hop-by-hop 
 
 **Facades** (`src/lib/db/repos/*.js`) — path-stable entry points. Each facade binds by posture: sqlite re-exports its harbor verbatim; mysql binds the `repos/mysql/` twin; `bind.js` picks by `VELA_DB_MODE`. `src/lib/localDb.js` is a backward-compat shim — new code imports `@/lib/db/index.js`.
 
-**Migrations** (`src/lib/db/migrations/`) — 15 versioned, `SCHEMA_VERSION = 14` in `src/lib/db/schema.js` (the pre-change backup gate: bump the version, the engine takes a safety backup before applying). `TABLES` in `schema.js` is the single source of truth for both harbors — the mysql twin's `bootstrap.js` brings itself forward by additive diff against `TABLES` (create tables, add columns, add indexes; **never drop**).
+**Migrations** (`src/lib/db/migrations/`) — 20 versioned, `SCHEMA_VERSION = 20` in `src/lib/db/schema.js` (the pre-change backup gate: bump the version, the engine takes a safety backup before applying). `TABLES` in `schema.js` is the single source of truth for both harbors — the mysql twin's `bootstrap.js` brings itself forward by additive diff against `TABLES` (create tables, add columns, add indexes; **never drop**).
 
 | # | Migration | What it sealed |
 |-|-|-|
@@ -297,7 +297,7 @@ provider response → OpenAI intermediate → Claude response
 
 ### 5.6 The Provider Registry & Executors
 
-**Registry** (`open-sse/providers/registry/`) — one file per provider, **126 files**. Each declares: id, aliases, auth style, endpoints, models, display metadata. Aliases key the pricing overrides and `provider/model` addressing.
+**Registry** (`open-sse/providers/registry/`) — one file per provider, **162 files**. Each declares: id, aliases, auth style, endpoints, models, display metadata. Aliases key the pricing overrides and `provider/model` addressing.
 
 - `registry/index.js` is **auto-generated** — regenerate with `scripts/migrate-registry.mjs` / `injectDisplayToRegistry.mjs`. Never hand-edit.
 - Adding a provider: copy `open-sse/providers/REGISTRY_TEMPLATE.js` → `<slug>.js`, add models to `open-sse/config/providerModels.js`, regenerate, add an executor only if the upstream is NOT OpenAI-compatible.
@@ -374,7 +374,7 @@ Async layers sit above: user overrides (scope `pricing`) and models.dev sync (sc
 
 ## 🧪 The Test Map
 
-**Runner:** vitest, `tests/` root, independent ESM package. 245 unit files.
+**Runner:** vitest, `tests/` root, independent ESM package. 271 unit files.
 
 | Area | Suite(s) | What they lock |
 |-|-|-|
@@ -511,6 +511,10 @@ The tag triggers `.github/workflows/docker-publish.yml` → GHCR `ghcr.io/yumama
 
 | Version | Tide | What it sealed |
 |-|-|-|
+| v0.9.27 | The Living Usage Observatory | Cached Tokens KPI (5-card band), realtime 15s KPIs, live activity 14 rows, default period = today, dead tabs swept (migration 020) |
+| v0.9.26 | The AI Lab | Banded pipeline (open-sse/rtk/pipeline.js), modes, content policies, ACL at the hook (migration 017) + The Fork Ascension (19 providers, registry 126→162, migration 018, search SSRF+SSE) |
+| v0.9.25 | The Governance Center | Endpoint page rebuilt around key governance — migration 016, mintKey/rotateKey chokepoint, revealSink, lifecycle 6-state, tabbed deck, MintWizard, CommandPalette |
+| v0.9.24 | The Deep Audit Ascension | Settings Observatory v2 (11 sections, SettingsProvider) + Engine Exorcism (5 executors, refresh lock) + Deep Clean (NINEROUTER_*→VELA_*) |
 | v0.9.23 | The Stillwater Design | Fallback Rules v2 (typed triggers, pre-call checks, chains) + Prompt Injectors v2 (variables, presets) |
 | v0.9.22 | The Adapter Exorcism | fallbackRulesRepo on the portable adapter surface (boot-storm fix) |
 | v0.9.21 | The Complete Purge + The Stillwater Hull | 9router string purged repo-wide; server drain + hop-by-hop; CLI rebrand `vela` |

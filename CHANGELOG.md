@@ -41,6 +41,24 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.26 — The AI Lab 🧪🪞
+
+> *"Instruction-layering becomes a governed harbor: composed into bundles, enforced per key, observed per request, and routed to the lanes that honor it."*
+
+**The AI Lab** — the 16-phase Stillwater Mirror's seal, wave by wave (the 6th gate's "Stillwater Pipeline, Bridge Wiring" hybrid). The flat prompt-injectors page is re-homed to `/dashboard/ai-lab` as a governed capability:
+
+- ✨ **Banded pipeline engine** (`open-sse/rtk/pipeline.js`) — named stages in declared bands (SAVERS → INJECTORS → pxpipe → dispatch → POLICY); per-stage fail-open, one AppliedTrace, `captureSystemText` hardened 2N→1.
+- ✨ **Modes** — named bundles of ordered injector refs (+ modelGlob target-scoping), sparse saver toggles, a bound content-policy profile; resolved read-only at dispatch: `x-vela-mode` header → key `defaultMode` → none.
+- ✨ **Content policies** — response-path flag/redact/block on assistant text leaves; tool args/alt-text structurally unreachable; ReDoS guarded at compile + scan time-boxed; the 451 external envelope with a 403-shaped internal event that satisfies the fallback matcher untouched.
+- ✨ **The fallback seam** — the single-model/combo blind spot closed: `checkFallbackErrorVerdict` carries the `GATEWAY_POLICY_BLOCK` verdict class so a refused workload reaches `buildFallbackChain` and rides the unfiltered lane WITHOUT cooling a healthy account.
+- ✨ **ACL at the hook** — per-key `allowedInjectors`/`allowedModes`/`defaultMode`/`injectVarAllowlist` (migration 017, hash-derived UUID backfill); the decisive tri-state filter runs inside the pipeline; `x-vela-inject-var-*` overrides governed (the pre-existing privilege hole closed).
+- ✨ **The deck** — Injectors · Modes · Policies · Library · Simulator · Observe; one shared pure expansion module makes preview byte-match the engine; the library labels `expectedHonor` honestly; import/export is schema-versioned and arrives disabled.
+- 🔧 `SCHEMA_VERSION` reconciled to 17 (the pre-existing 016 off-by-one closed); settings cache discipline; observability bounded (5 names × 24 chars, names only).
+
+**Verification**: 91 AI Lab tests green across 12 suites (migration-017 crash-driver, rtk-pipeline, expansion-bytematch, mode-resolution, acl-at-hook, observability-bounds, content-policy-stream, policy-block-envelope, fallback-chain-seam, lab-import-export, ai-lab-proof) + the locking baseline held.
+
+---
+
 # v0.9.25 — The Governance Center 🏛️🔑
 
 > *"Every key is a door. The Center built the locks, the ledgers, and the watch — so every door knows who opened it, when, and why."*
@@ -69,24 +87,6 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 - 2 census debts paid: 16 W2 barrel exports classified (EXEMPT_PENDING, twin parity leg lands next wave) + the `schemaVersion` provenance pin now asserts the live version
 
 **Verification**: production build green (exit 0); 75 session-relevant tests green across 12 suites (8 baseline + 13 proof + census repairs). The full-suite baseline holds — 46 pre-existing legacy failures (raw-adapter census, MCP executor drift, parity/MariaDB harnesses) verified unchanged at HEAD; 0 new regressions. Both charts pinned to 0.9.25 per the dual-chart decree.
-
----
-
-# v0.9.26 — The AI Lab 🧪🪞
-
-> *"Instruction-layering becomes a governed harbor: composed into bundles, enforced per key, observed per request, and routed to the lanes that honor it."*
-
-**The AI Lab** — the 16-phase Stillwater Mirror's seal, wave by wave (the 6th gate's "Stillwater Pipeline, Bridge Wiring" hybrid). The flat prompt-injectors page is re-homed to `/dashboard/ai-lab` as a governed capability:
-
-- ✨ **Banded pipeline engine** (`open-sse/rtk/pipeline.js`) — named stages in declared bands (SAVERS → INJECTORS → pxpipe → dispatch → POLICY); per-stage fail-open, one AppliedTrace, `captureSystemText` hardened 2N→1.
-- ✨ **Modes** — named bundles of ordered injector refs (+ modelGlob target-scoping), sparse saver toggles, a bound content-policy profile; resolved read-only at dispatch: `x-vela-mode` header → key `defaultMode` → none.
-- ✨ **Content policies** — response-path flag/redact/block on assistant text leaves; tool args/alt-text structurally unreachable; ReDoS guarded at compile + scan time-boxed; the 451 external envelope with a 403-shaped internal event that satisfies the fallback matcher untouched.
-- ✨ **The fallback seam** — the single-model/combo blind spot closed: `checkFallbackErrorVerdict` carries the `GATEWAY_POLICY_BLOCK` verdict class so a refused workload reaches `buildFallbackChain` and rides the unfiltered lane WITHOUT cooling a healthy account.
-- ✨ **ACL at the hook** — per-key `allowedInjectors`/`allowedModes`/`defaultMode`/`injectVarAllowlist` (migration 017, hash-derived UUID backfill); the decisive tri-state filter runs inside the pipeline; `x-vela-inject-var-*` overrides governed (the pre-existing privilege hole closed).
-- ✨ **The deck** — Injectors · Modes · Policies · Library · Simulator · Observe; one shared pure expansion module makes preview byte-match the engine; the library labels `expectedHonor` honestly; import/export is schema-versioned and arrives disabled.
-- 🔧 `SCHEMA_VERSION` reconciled to 17 (the pre-existing 016 off-by-one closed); settings cache discipline; observability bounded (5 names × 24 chars, names only).
-
-**Verification**: 91 AI Lab tests green across 12 suites (migration-017 crash-driver, rtk-pipeline, expansion-bytematch, mode-resolution, acl-at-hook, observability-bounds, content-policy-stream, policy-block-envelope, fallback-chain-seam, lab-import-export, ai-lab-proof) + the locking baseline held.
 
 ---
 

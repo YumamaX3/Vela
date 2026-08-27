@@ -2,7 +2,7 @@
 
 > *Every harbor needs a chart. These are the Shores' navigational papers — where the currents run, which rocks to mind, how the fleet sails. Read them before you touch the helm.* 🪞💜
 
-**Vela** (v0.9.23) — a local AI routing gateway + dashboard. One OpenAI-compatible endpoint (`/v1`) routing traffic across **126 upstream providers** — format translation, model-combo fallback (with operator fallback rules), multi-account fallback, OAuth credential management, token refresh, quota tracking, per-key ACL, and prompt injectors.
+**Vela** (v0.9.27) — a local AI routing gateway + dashboard. One OpenAI-compatible endpoint (`/v1`) routing traffic across **162 upstream providers** — format translation, model-combo fallback (with operator fallback rules), multi-account fallback, OAuth credential management, token refresh, quota tracking, per-key ACL, prompt injectors, and the AI Lab (modes + content policy).
 
 - **Language**: Node.js + Next.js (App Router, standalone output)
 - **Runtime**: Node ≥ 22.5 (node:sqlite) — Bun compatible
@@ -60,7 +60,7 @@ vela/
 ├── Dockerfile                # Multi-stage, multi-arch (amd64 + arm64), HEALTHCHECK
 ├── docker-compose.yml        # Live chart (gitignored — holds the Shores' secrets)
 ├── docker-compose.example.yml# Template chart (tracked)
-├── package.json              # v0.9.23 — bump with every release
+├── package.json              # v0.9.27 — bump with every release
 ├── CHANGELOG.md              # Every minor's covenant entry
 ├── cli/                      # The `vela` npm CLI — bin `vela`, full purge
 ├── open-sse/                 # The gateway engine — providers, RTK, executors, handlers
@@ -153,7 +153,7 @@ Other surfaces share the same bones: `embeddings`, `audio/*` (tts/stt), `images/
 
 **Adapters** (`src/lib/db/adapters/`) — `betterSqliteAdapter`, `nodeSqliteAdapter`, `bunSqliteAdapter`, `sqljsAdapter`. All expose `run/get/all/exec/transaction`.
 
-**Migrations** (`src/lib/db/migrations/`) — versioned chain + additive schema sync. `SCHEMA_VERSION = 15`, migrations `001–016`.
+**Migrations** (`src/lib/db/migrations/`) — versioned chain + additive schema sync. `SCHEMA_VERSION = 20`, migrations `001–020`.
 
 > **⚠️ THE ADAPTER CONTRACT (learned the hard way, v0.9.20)**: the adapter interface exposes `run/get/all/exec/transaction` — **NO raw `prepare()`**. The sql.js adapter (Docker runner's fallback) and the mysql/mirror adapters have no public `.prepare`. A migration using `db.prepare(...)` crashed every DB API at boot (the 0.9.19 boot storm). **Use `db.all("PRAGMA table_info(...)")` + `db.exec(...)`** — exactly like migration 002 documents.
 
@@ -177,6 +177,8 @@ Other surfaces share the same bones: `embeddings`, `audio/*` (tts/stt), `images/
 | 014 | fallback-rules-v2-triggers | `triggerType`/`conditionOp`/`conditionVal`/`targetModels`(JSON)/`cooldownSkip` |
 | 015 | legacy-key-cleanup | Revive tombstoned legacy rows (fresh mint + one-time pending-reveal file) |
 | 016 | key-governance-v2 | keyTemplates + keyTags + key_mutation_ledger (Governance Center W1) |
+| 017 | injector-governance | api_keys ACL columns — allowedInjectors/allowedModes/defaultMode/injectVarAllowlist (AI Lab, hash-derived UUID backfill) |
+| 018 | combo-context-length | combos.context_length (fork ascension lineage) |
 | 019 | key-domain-ascension | keyTiers + redemptions + requestCapDaily (later reverted by 020) |
 | 020 | tier-redemption-removal | Drops keyTiers/redemptions + apiKeys.tierId/balanceCents (Tiers/Redemptions/Events removal) |
 
@@ -298,12 +300,12 @@ provider response → OpenAI intermediate → Claude response
 
 ### 5.6 The Provider Registry & Executors
 
-**Registry** (`open-sse/providers/registry/`) — one file per provider, **126 files**. Each declares: id, aliases, auth style, endpoints, models, display metadata. Aliases key the pricing overrides and `provider/model` addressing.
+**Registry** (`open-sse/providers/registry/`) — one file per provider, **162 files**. Each declares: id, aliases, auth style, endpoints, models, display metadata. Aliases key the pricing overrides and `provider/model` addressing.
 
 - `registry/index.js` is **auto-generated** — regenerate with `scripts/migrate-registry.mjs` / `injectDisplayToRegistry.mjs`, never hand-edit.
 - Adding a provider: copy `open-sse/providers/REGISTRY_TEMPLATE.js` → `<slug>.js`, add models to `open-sse/config/providerModels.js`, regenerate, add an executor only if the upstream is NOT OpenAI-compatible.
 
-**Executors** (`open-sse/executors/`) — `base.js` (`BaseExecutor`), `default.js` for OpenAI-compatible upstreams, and ~28 specialized: `azure`, `vertex`, `codex`, `cursor`, `kiro`, `gemini-cli`, `grok-cli`, `grok-web`, `perplexity-web`, `ollama-local`, `qoder`, `iflow`, `trae`, `windsurf`, `zed`, `opencode`, `devin-cli`, `antigravity`, `commandcode`, `github`, `kimchi`, `mimo-free`, `freebuff`, `codebuddy-cn`, `codebuddy-intl`, `xiaomi-tokenplan`, and more.
+**Executors** (`open-sse/executors/`) — `base.js` (`BaseExecutor`), `default.js` for OpenAI-compatible upstreams, and ~30 specialized: `azure`, `vertex`, `codex`, `cursor`, `kiro`, `gemini-cli`, `grok-cli`, `grok-web`, `perplexity-web`, `ollama-local`, `qoder`, `iflow`, `trae`, `windsurf`, `zed`, `opencode`, `opencode-go`, `qwen`, `devin-cli`, `antigravity`, `commandcode`, `github`, `kimchi`, `mimo-free`, `freebuff`, `codebuddy-cn`, `codebuddy-intl`, `xiaomi-tokenplan`, and more.
 
 > ⚠️ **Binary/protobuf upstreams do not round-trip through the translator** — Kiro EventStream, Cursor protobuf, CommandCode NDJSON are handled inside their own executor.
 
@@ -541,6 +543,10 @@ The tag triggers `.github/workflows/docker-publish.yml` → GHCR `ghcr.io/yumama
 
 | Version | Tide | What it sealed |
 |-|-|-|
+| v0.9.27 | The Living Usage Observatory | Cached Tokens KPI (5-card band), realtime 15s KPIs, live activity 14 rows, default period = today, dead tabs swept (migration 020) |
+| v0.9.26 | The AI Lab | Banded pipeline (open-sse/rtk/pipeline.js), modes, content policies, ACL at the hook (migration 017) + The Fork Ascension (19 providers, registry 126→162, migration 018, search SSRF+SSE) |
+| v0.9.25 | The Governance Center | Endpoint page rebuilt around key governance — migration 016, mintKey/rotateKey chokepoint, revealSink, lifecycle 6-state, tabbed deck, MintWizard, CommandPalette |
+| v0.9.24 | The Deep Audit Ascension | Settings Observatory v2 (11 sections, SettingsProvider) + Engine Exorcism (5 executors, refresh lock) + Deep Clean (NINEROUTER_*→VELA_*) |
 | v0.9.23 | The Stillwater Design | Fallback Rules v2 (typed triggers, pre-call checks, chains) + Prompt Injectors v2 (variables, presets) |
 | v0.9.22 | The Adapter Exorcism | fallbackRulesRepo on the portable adapter surface (boot-storm fix) |
 | v0.9.21 | The Stillwater Hull | Server drain + hop-by-hop, Docker healthcheck/labels, CI concurrency, CLI rebrand |
