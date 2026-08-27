@@ -1,7 +1,7 @@
 // Storage Covenant Wave C1 — the outbox + replay-class registry exit gate.
 // Plan: plans/storage-covenant.md Wave C (outbox op-log + replay-class
 // taxonomy, binding law). Pinned here:
-//   1. A fresh DB migrates to schemaVersion 10 with the outbox table (full
+//   1. A fresh DB migrates to schemaVersion 18 with the outbox table (full
 //      column census) — migration 006 (007 adds the pump's mirrorSeq cursor).
 //   2. SQLITE-ONLY LAW: outbox is NOT in TABLES — syncSchemaFromTables/
 //      mysql bootstrap must never replicate the pump's op-log onto the twin.
@@ -46,12 +46,12 @@ const OUTBOX_COLUMNS = [
 ];
 
 describe("Wave C1 — migration 006 + the sqlite-only law", () => {
-  it("a fresh DB migrates to schemaVersion 10 with the outbox table", async () => {
+  it("a fresh DB migrates to schemaVersion 18 with the outbox table", async () => {
     const db = await import("@/lib/db/index.js");
     await db.initDb();
     const { getAdapter } = await import("@/lib/db/driver.js");
     const adapter = await getAdapter();
-    expect(adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`).value).toBe("10");
+    expect(adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`).value).toBe("18");
     const cols = adapter.all(`PRAGMA table_info(outbox)`).map((r) => r.name).sort();
     expect(cols).toEqual([...OUTBOX_COLUMNS].sort());
     // AUTOINCREMENT on seq — sqlite_sequence proves it.
@@ -119,11 +119,13 @@ describe("Wave C1 — the replay registry is binding law", () => {
   it("every classified name is a real facade-surface export; every class is legal", async () => {
     const { REPLAY_CLASSES, REPLAY_CLASS, classifyWriter } = await import("@/lib/db/mirror/replayRegistry.js");
     // The decorator wraps the FACADE surface (bind.js wave names), not only the
-    // main barrel — touchKeyLastUsed/ensureInternalKey live on repo facades.
+    // main barrel — touchKeyLastUsed/ensureInternalKey live on repo facades;
+    // the Proxy Covenant's fitness writers live on proxyFitnessRepo.
     const barrel = await import("@/lib/db/index.js");
     const usageFacade = await import("@/lib/db/repos/usageRepo.js");
     const apiKeysFacade = await import("@/lib/db/repos/apiKeysRepo.js");
-    const surface = { ...barrel, ...usageFacade, ...apiKeysFacade };
+    const fitnessFacade = await import("@/lib/db/repos/proxyFitnessRepo.js");
+    const surface = { ...barrel, ...usageFacade, ...apiKeysFacade, ...fitnessFacade };
     const classes = new Set(Object.values(REPLAY_CLASS));
     for (const [name, cls] of Object.entries(REPLAY_CLASSES)) {
       expect(classes.has(cls), `class "${cls}" for ${name} is not one of the four`).toBe(true);
@@ -155,6 +157,14 @@ describe("Wave C1 — the replay registry is binding law", () => {
       .filter(([, c]) => c === REPLAY_CLASS.EXEMPT)
       .map(([n]) => n)
       .sort();
-    expect(exempt).toEqual(["appendRequestLog", "saveRequestDetail", "saveRequestUsage"]);
+    // Proxy Covenant: fitness writes flow through batched upsert + divergence
+    // sweep (not arg-replay) — upsertFitnessBatch/resetFitness joined the set.
+    expect(exempt).toEqual([
+      "appendRequestLog",
+      "resetFitness",
+      "saveRequestDetail",
+      "saveRequestUsage",
+      "upsertFitnessBatch",
+    ]);
   });
 });

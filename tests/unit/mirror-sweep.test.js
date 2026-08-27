@@ -126,7 +126,7 @@ function rebuildShadow(shadow, payload) {
   }));
   shadow.combos = (payload.combos || []).map((c) => ({
     id: c.id, name: c.name, kind: c.kind || null, models: JSON.stringify(c.models || []),
-    createdAt: c.createdAt, updatedAt: c.updatedAt,
+    context_length: c.context_length ?? null, createdAt: c.createdAt, updatedAt: c.updatedAt,
   }));
   shadow.kv = [];
   for (const [scope, entries] of Object.entries(payload.kvScopes || {})) {

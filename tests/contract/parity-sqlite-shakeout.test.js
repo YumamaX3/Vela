@@ -99,8 +99,8 @@ describe("Storage Covenant A4 — parity harness shakeout (sqlite vs sqlite)", (
     expect(payload.providerConnections[0].isActive).toBe(true);
     expect(payload.proxyPools[0].isActive).toBe(true);
     expect(payload.apiKeys[0].isInternal).toBe(false);
-    // Provenance header rides every export (schemaVersion 10 since migration 010)
-    expect(payload._meta.schemaVersion).toBe(10);
+    // Provenance header rides every export (schemaVersion 18 since migration 018)
+    expect(payload._meta.schemaVersion).toBe(18);
     expect(payload._meta.sourceMode).toBe("sqlite");
   });
 

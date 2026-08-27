@@ -10,9 +10,21 @@
 import { buildSearchRequest } from "./callers.js";
 import { normalizeSearchResponse } from "./normalizers.js";
 import { handleChatSearch } from "./chatSearch.js";
+import { assertPublicUrl } from "../../../src/shared/utils/ssrfGuard.js";
+
+/**
+ * SSRF-safe fetch for user-configured provider base URLs. Vela's ssrfGuard
+ * is synchronous (assertPublicUrl); validating the URL before the fetch
+ * closes the internal-address hole without the DNS-pinning agent VansRouter
+ * carries. Open redirects are the accepted residual (the caller's own config).
+ */
+async function guardedFetch(rawUrl, options = {}) {
+  assertPublicUrl(rawUrl);
+  return fetch(rawUrl, options);
+}
 
 const GLOBAL_TIMEOUT_MS = 15000;
-const NON_RETRIABLE = new Set([400, 401, 403, 404]);
+const NON_RETRIABLE = new Set([400, 401, 403, 404, 422]);
 
 const CONTROL_CHAR_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/;
 
@@ -58,6 +70,16 @@ function successResult(data) {
 }
 
 /**
+ * Effective max-results for a provider — honors provider-specific option
+ * shapes (Exa's exa_options.numResults) before the generic body.max_results.
+ */
+function effectiveMaxResults(body, providerId, providerConfig) {
+  const exaOptions = body.exa_options || body.exa || body;
+  const requested = providerId === "exa" ? exaOptions.numResults : body.max_results;
+  return Math.min(requested || providerConfig.defaultMaxResults || 5, providerConfig.maxMaxResults || 100);
+}
+
+/**
  * Run a single dedicated search provider attempt.
  * @returns {Promise<{success:boolean, status?:number, error?:string, data?:object}>}
  */
@@ -72,7 +94,7 @@ async function tryDedicatedProvider({ provider, providerConfig, body, credential
   const params = {
     query: body.query,
     searchType: body.search_type || (providerConfig.searchTypes?.[0] || "web"),
-    maxResults: Math.min(body.max_results || providerConfig.defaultMaxResults || 5, providerConfig.maxMaxResults || 100),
+    maxResults: effectiveMaxResults(body, provider.id, providerConfig),
     token,
     country: body.country,
     language: body.language,
@@ -81,12 +103,13 @@ async function tryDedicatedProvider({ provider, providerConfig, body, credential
     domainFilter: body.domain_filter,
     contentOptions: body.content_options,
     providerOptions: body.provider_options,
+    exaOptions: body.exa_options || body.exa || body,
     providerSpecificData: credentials?.providerSpecificData
   };
 
   let url, init;
   try {
-    ({ url, init } = buildSearchRequest({ id: provider.id, ...providerConfig }, params));
+    ({ url, init } = await buildSearchRequest({ id: provider.id, ...providerConfig }, params));
   } catch (err) {
     return { success: false, status: 400, error: err?.message || `Invalid request for ${provider.id}` };
   }
@@ -95,18 +118,57 @@ async function tryDedicatedProvider({ provider, providerConfig, body, credential
   const remaining = GLOBAL_TIMEOUT_MS - (Date.now() - globalStartTime);
   const timeout = Math.min(providerConfig.timeoutMs || 10000, Math.max(remaining, 1000));
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
+  let timer = setTimeout(() => controller.abort(), timeout);
 
   log?.info?.("SEARCH", `${provider.id} | "${params.query.slice(0, 80)}" | type=${params.searchType}`);
 
   try {
-    const resp = await fetch(url, { ...init, headers: sanitizeHeaders(init.headers), signal: controller.signal });
-    clearTimeout(timer);
+    const fetchImpl = typeof params.providerOptions?.baseUrl === "string"
+      ? guardedFetch
+      : fetch;
+    const resp = await fetchImpl(url, { ...init, headers: sanitizeHeaders(init.headers), signal: controller.signal });
     if (!resp.ok) {
       const errText = await resp.text().catch(() => "");
       log?.error?.("SEARCH", `${provider.id} ${resp.status}: ${errText.slice(0, 200)}`);
       return { success: false, status: resp.status, error: `${provider.id} returned ${resp.status}: ${errText.slice(0, 200)}` };
     }
+    if (resp.headers.get("content-type")?.includes("text/event-stream")) {
+      const reader = resp.body?.getReader();
+      if (!reader) {
+        clearTimeout(timer);
+        return { success: false, status: 502, error: `${provider.id} returned an empty event stream` };
+      }
+      const stream = new ReadableStream({
+        async pull(controller) {
+          try {
+            const { done, value } = await reader.read();
+            if (done) {
+              clearTimeout(timer);
+              controller.close();
+              return;
+            }
+            clearTimeout(timer);
+            timer = setTimeout(() => reader.cancel(), timeout);
+            controller.enqueue(value);
+          } catch (error) {
+            clearTimeout(timer);
+            controller.error(error);
+          }
+        },
+        async cancel(reason) {
+          clearTimeout(timer);
+          await reader.cancel(reason);
+        },
+      });
+      return {
+        success: true,
+        response: new Response(stream, {
+          status: resp.status,
+          headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+        }),
+      };
+    }
+    clearTimeout(timer);
     const data = await resp.json();
     const normalized = normalizeSearchResponse(provider.id, data, params.query, params.searchType);
     const results = normalized.results.slice(0, params.maxResults);

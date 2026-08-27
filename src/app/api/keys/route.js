@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getApiKeys, createApiKey, KeyLimitsValidationError, sanitizeCategory } from "@/lib/localDb";
+import { getApiKeys, sanitizeCategory } from "@/lib/localDb";
+import { mintKey } from "@/lib/keys/mintService.js";
 
 export const dynamic = "force-dynamic";
 
@@ -49,11 +50,20 @@ export async function POST(request) {
     let allowedKinds = null;
     let allowedProviders = null;
     let allowedCombos = null;
+    let allowedModes = null;
+    let allowedInjectors = null;
+    let labDefaultMode = null;
     try {
       scope = parseScope(body.allowedModels, "allowedModels");
       allowedKinds = parseScope(body.allowedKinds, "allowedKinds");
       allowedProviders = parseScope(body.allowedProviders, "allowedProviders");
       allowedCombos = parseScope(body.allowedCombos, "allowedCombos");
+      allowedModes = parseScope(body.allowedModes, "allowedModes");
+      allowedInjectors = parseScope(body.allowedInjectors, "allowedInjectors");
+      if (body.defaultMode != null && typeof body.defaultMode !== "string") {
+        throw new Error("defaultMode must be a string (a mode name) or omitted");
+      }
+      labDefaultMode = body.defaultMode ? body.defaultMode.trim() || null : null;
     } catch (e) {
       return NextResponse.json({ error: e.message }, { status: 400 });
     }
@@ -66,33 +76,48 @@ export async function POST(request) {
       return NextResponse.json({ error: e.message }, { status: 400 });
     }
 
-    const created = await createApiKey(name.trim(), {
-      description: typeof description === "string" ? description.trim() || null : null,
-      allowedModels: scope,
-      allowedKinds,
-      allowedProviders,
-      allowedCombos,
-      category,
-      // W3 governance opts — validated by the repo (KeyLimitsValidationError
-      // → 400 below). Absent fields stay null = unlimited / unrestricted.
-      rateLimitRpm: body.rateLimitRpm,
-      tokenBudgetDaily: body.tokenBudgetDaily,
-      spendCapDailyCents: body.spendCapDailyCents,
-      budgetScope: body.budgetScope,
-      expiresAt: body.expiresAt,
-      ipAllowlist: body.ipAllowlist,
+    // Converge on mintKey() — the single-writer chokepoint over every mint
+    // surface (write-before-commit, reveal-sink, append-only ledger). The
+    // 201 wire shape stays identical for the dashboard; the envelope adds
+    // meta (surface, revealId, actorClass) without breaking existing clients.
+    const minted = await mintKey({
+      name: name.trim(),
+      surface: "create",
+      actorClass: "dashboard",
+      opts: {
+        description: typeof description === "string" ? description.trim() || null : null,
+        allowedModels: scope,
+        allowedKinds,
+        allowedProviders,
+        allowedCombos,
+        allowedModes,
+        allowedInjectors,
+        defaultMode: labDefaultMode,
+        category,
+        rateLimitRpm: body.rateLimitRpm,
+        tokenBudgetDaily: body.tokenBudgetDaily,
+        spendCapDailyCents: body.spendCapDailyCents,
+        budgetScope: body.budgetScope,
+        expiresAt: body.expiresAt,
+        ipAllowlist: body.ipAllowlist,
+        requestCapDaily: body.requestCapDaily,
+      },
     });
 
+    if (minted.status !== 201) {
+      const status = minted.status === 500 ? 500 : 400;
+      return NextResponse.json({ error: minted.detail || minted.error || "Failed to create key" }, { status });
+    }
+
+    const { key, keyId, keyPrefix, record, meta } = minted.envelope;
     return NextResponse.json({
-      key: created.key, // one-time full key — shown only here
-      keyId: created.keyId,
-      keyPrefix: created.keyPrefix,
-      record: created.record,
+      key, // one-time full key — shown only here
+      keyId,
+      keyPrefix,
+      record,
+      meta,
     }, { status: 201 });
   } catch (error) {
-    if (error instanceof KeyLimitsValidationError) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
     console.error("Error creating key:", error?.message || error);
     return NextResponse.json({ error: "Failed to create key" }, { status: 500 });
   }

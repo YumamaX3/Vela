@@ -16,8 +16,13 @@ import m012 from "./012-fallback-rules.js";
 import m013 from "./013-key-acl.js";
 import m014 from "./014-fallback-rules-v2-triggers.js";
 import m015 from "./015-legacy-key-cleanup.js";
+import m016 from "./016-key-governance-v2.js";
+import m017 from "./017-injector-governance.js";
+import m018 from "./018-combo-context-length.js";
+import m019 from "./019-key-domain-ascension.js";
+import m020 from "./020-tier-redemption-removal.js";
 
-export const MIGRATIONS = [m001, m002, m003, m004, m005, m006, m007, m008, m009, m010, m011.default || m011, m012.default || m012, m013.default || m013, m014.default || m014, m015.default || m015].sort((a, b) => a.version - b.version);
+export const MIGRATIONS = [m001, m002, m003, m004, m005, m006, m007, m008, m009, m010, m011.default || m011, m012.default || m012, m013.default || m013, m014.default || m014, m015.default || m015, m016.default || m016, m017.default || m017, m018.default || m018, m019.default || m019, m020.default || m020].sort((a, b) => a.version - b.version);
 
 export function latestVersion() {
   return MIGRATIONS.length ? MIGRATIONS[MIGRATIONS.length - 1].version : 0;

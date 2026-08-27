@@ -35,6 +35,8 @@ export {
 export {
   getApiKeys, getApiKeyById, createApiKey, updateApiKey, deleteApiKey, validateApiKey, resolveKey,
   KeyLimitsValidationError, sanitizeCategory,
+  // Endpoint Observatory W1 — lifecycle split
+  revokeApiKey, deleteWithScrub,
 } from "./repos/apiKeysRepo.js";
 
 // Combos
@@ -65,7 +67,7 @@ export {
 export {
   statsEmitter, trackPendingRequest, getActiveRequests,
   saveRequestUsage, getUsageHistory, getUsageStats, getChartData,
-  appendRequestLog, getRecentLogs, getKeyUsageStats,
+  appendRequestLog, getRecentLogs, getRecentUsageIds, getKeyUsageStats,
   // Usage Observatory W1-D — the SSE contract reads the per-provider health
   // frame through the facade (twin-parity, posture-consistent). The route
   // consumes getPerProviderFrame (the ≤30s memoized frame), which re-scans
@@ -97,6 +99,19 @@ export { getTagsForUsageIds, getUsageTags, setUsageTags } from "./repos/usageTag
 export {
   saveRequestDetail, getRequestDetails, getRequestDetailById, getDistinctProviders,
 } from "./repos/requestDetailsRepo.js";
+
+// Endpoint Observatory W1 — key governance v2 (migration 016). Every name the
+// route layer imports MUST ride this chain (the W1-D facade lesson).
+export {
+  listTemplates, getTemplate, createTemplate, updateTemplate, deleteTemplate, applyShape,
+} from "./repos/keyTemplatesRepo.js";
+export {
+  sanitizeTag, tagsForKeys, addTag, removeTag, renameTag, deleteForKey,
+} from "./repos/keyTagsRepo.js";
+export {
+  appendLedger, getKeyLedgerRows,
+} from "./repos/keyMutationLedgerRepo.js";
+
 
 // Export/import + the backup engine — Wave B1/B2 harbor-home (repos/backupRepo.js facade).
 export { exportDb, importDb, initDb } from "./repos/backupRepo.js";

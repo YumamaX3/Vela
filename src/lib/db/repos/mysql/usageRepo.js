@@ -331,6 +331,7 @@ export async function getActiveRequests() {
       return {
         timestamp: e.timestamp, model: e.model, provider: e.provider || "",
         promptTokens: t.prompt_tokens || t.input_tokens || 0,
+        cachedTokens: t.cached_tokens || t.cache_read_input_tokens || 0,
         completionTokens: t.completion_tokens || t.output_tokens || 0,
         status: e.status || "ok",
       };
@@ -966,6 +967,18 @@ function formatLogDate(date = new Date()) {
 
 // No-op: request log is now derived from usageHistory table on read.
 export async function appendRequestLog() {}
+
+/** AI Lab Observe tab — the most recent usage ids (mysql twin of sqlite). */
+export async function getRecentUsageIds(limit = 50) {
+  try {
+    const db = await getMysqlAdapter();
+    const rows = await db.all(`SELECT id FROM usageHistory ORDER BY id DESC LIMIT ?`, [limit]);
+    return (rows || []).map((r) => r.id).filter((n) => Number.isFinite(n));
+  } catch (e) {
+    console.error("[usageRepo] getRecentUsageIds failed:", e.message);
+    return [];
+  }
+}
 
 export async function getRecentLogs(limit = 200) {
   try {

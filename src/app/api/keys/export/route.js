@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getApiKeys, createApiKey } from "@/lib/localDb";
-import { sanitizeCategory } from "@/lib/localDb";
+import { getApiKeys, sanitizeCategory } from "@/lib/localDb";
+import { mintKey } from "@/lib/keys/mintService.js";
 
 export const dynamic = "force-dynamic";
 
@@ -74,20 +74,30 @@ export async function POST(request) {
         if (!name) throw new Error("name is required");
 
         const category = sanitizeCategory(row.category);
-        await createApiKey(name, {
-          description: typeof row.description === "string" ? row.description.trim() || null : null,
-          category,
-          rateLimitRpm: row.rateLimitRpm ?? null,
-          tokenBudgetDaily: row.tokenBudgetDaily ?? null,
-          spendCapDailyCents: row.spendCapDailyCents ?? null,
-          budgetScope: row.budgetScope ?? null,
-          expiresAt: row.expiresAt ?? null,
-          ipAllowlist: sanitizeArray(row.ipAllowlist),
-          allowedModels: sanitizeArray(row.allowedModels),
-          allowedKinds: sanitizeArray(row.allowedKinds),
-          allowedProviders: sanitizeArray(row.allowedProviders),
-          allowedCombos: sanitizeArray(row.allowedCombos),
+        // Import-mint — the fifth mint surface converges on mintKey so every
+        // minted credential rides the write-before-commit reveal-sink + ledger.
+        // The reveal is consumed on the next dashboard load (GET
+        // /api/keys/pending-reveals), preserving show-once even for batch import.
+        const minted = await mintKey({
+          name,
+          surface: "import-mint",
+          actorClass: "dashboard",
+          opts: {
+            description: typeof row.description === "string" ? row.description.trim() || null : null,
+            category,
+            rateLimitRpm: row.rateLimitRpm ?? null,
+            tokenBudgetDaily: row.tokenBudgetDaily ?? null,
+            spendCapDailyCents: row.spendCapDailyCents ?? null,
+            budgetScope: row.budgetScope ?? null,
+            expiresAt: row.expiresAt ?? null,
+            ipAllowlist: sanitizeArray(row.ipAllowlist),
+            allowedModels: sanitizeArray(row.allowedModels),
+            allowedKinds: sanitizeArray(row.allowedKinds),
+            allowedProviders: sanitizeArray(row.allowedProviders),
+            allowedCombos: sanitizeArray(row.allowedCombos),
+          },
         });
+        if (minted.status !== 201) throw new Error(minted.detail || minted.error || "mint failed");
         created += 1;
       } catch (e) {
         errors.push({ name: row?.name || "?", error: e.message });

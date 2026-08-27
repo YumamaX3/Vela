@@ -33,7 +33,13 @@ export const PROVIDER_OAUTH = {};
 export const PROVIDER_MEDIA = {};
 for (const entry of REGISTRY) {
   if (entry.transport) {
-    PROVIDERS[entry.id] = buildTransport(entry.transport, entry.oauth);
+    const built = buildTransport(entry.transport, entry.oauth);
+    // Carry the auth-relevant registry fields onto the runtime object so
+    // consumers can trust PROVIDERS[id] to mirror the registry entry (the
+    // dashboard catalog and executors read authType/noAuth from it).
+    if (entry.authType !== undefined) built.authType = entry.authType;
+    if (entry.noAuth !== undefined) built.noAuth = entry.noAuth;
+    PROVIDERS[entry.id] = built;
     if (entry.transports) PROVIDERS[entry.id].transports = entry.transports;
   }
   if (entry.models !== undefined) PROVIDER_MODELS[entry.alias || entry.id] = entry.models.map(normalizeModel);

@@ -11,6 +11,7 @@ export {
   getProxyPools, getProxyPoolById,
   createProxyPool, updateProxyPool, deleteProxyPool,
   getApiKeys, getApiKeyById, createApiKey, updateApiKey, deleteApiKey, validateApiKey, resolveKey, KeyLimitsValidationError, sanitizeCategory,
+  revokeApiKey, deleteWithScrub,
   getCombos, getComboById, getComboByName,
   createCombo, updateCombo, deleteCombo,
   getModelAliases, setModelAlias, deleteModelAlias,
@@ -31,4 +32,8 @@ export {
   saveRequestDetail, getRequestDetails, getRequestDetailById, getDistinctProviders,
   // Disabled models
   getDisabledModels, getDisabledByProvider, disableModels, enableModels,
+  // Endpoint Observatory W1 — key governance v2 (migration 016)
+  listTemplates, getTemplate, createTemplate, updateTemplate, deleteTemplate, applyShape,
+  sanitizeTag, tagsForKeys, addTag, removeTag, renameTag, deleteForKey,
+  appendLedger, getKeyLedgerRows,
 } from "@/lib/db/index.js";

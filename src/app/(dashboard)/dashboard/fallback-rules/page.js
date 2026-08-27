@@ -297,7 +297,7 @@ export default function FallbackRulesPage() {
         )}
       </Card>
 
-      <Modal open={showFormModal} onClose={() => setShowFormModal(false)} title={editingRule ? "Edit Fallback Rule" : "Add Fallback Rule"}>
+      <Modal isOpen={showFormModal} onClose={() => setShowFormModal(false)} title={editingRule ? "Edit Fallback Rule" : "Add Fallback Rule"}>
         <div className="space-y-4">
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Source model</label>
@@ -442,7 +442,7 @@ export default function FallbackRulesPage() {
         </div>
       </Modal>
 
-      <Modal open={!!testState} onClose={() => setTestState(null)} title={`Test rule — ${testState?.rule?.sourceModel || ""}`}>
+      <Modal isOpen={!!testState} onClose={() => setTestState(null)} title={`Test rule — ${testState?.rule?.sourceModel || ""}`}>
         <div className="space-y-4">
           <div className="rounded-md bg-muted/40 p-3 text-xs font-mono">
             {testState?.rule?.sourceModel} → {(testState?.targets || []).join(" → ") || "—"}
@@ -475,7 +475,7 @@ export default function FallbackRulesPage() {
       </Modal>
 
       <ConfirmModal
-        open={!!confirmState}
+        isOpen={!!confirmState}
         title={confirmState?.title}
         message={confirmState?.message}
         onConfirm={async () => {

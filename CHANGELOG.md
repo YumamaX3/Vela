@@ -25,6 +25,71 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.27 — The Living Usage Observatory ⚡👁️
+
+> *"The usage harbor learns to breathe — cached tokens counted, the tide made realtime, and the ghosts of dead tabs swept from the chart."*
+
+**The Usage Observatory ascension** — the `/dashboard/usage` harbor made live at a glance, plus the final sweep of the tier/redemption/events ghosts:
+
+- ✨ **Cached Tokens KPI** — the usage band now counts what the cache saves: a Cached Tokens card (teal) sits between Input and Output, funded by the `cachedTokens` metric the aggregation layer already computed from `tokens.cached_tokens`/`cache_read_input_tokens`. The 4-card band becomes 5: Requests · Input · **Cached** · Output · Est. Cost.
+- ⚡ **Realtime KPIs** — the five cards auto-refresh every 15s (polling the same `/api/usage/metrics/kpis` endpoint, `cache: no-store`), swapping numbers in place with no page reload and no skeleton flicker. Period changes drop the stale polled snapshot so no old-window numbers linger.
+- ⚡ **Live Activity at a glance** — the recent-requests box now shows the latest **14** streamed rows at once (no client-side cap of 7, no scroll), with each row reading `Input↑ Cached◎ Output↓`. The SSE live-ring mappers in both the sqlite and mysql repos carry `cachedTokens` for the realtime path (the history path already had it).
+- 🔧 **Default period = Today** — the usage page opens on the `today` window instead of `7d` (`?period=` still overrides).
+- 🧹 **Dead tabs swept** — the `tiers` / `redemptions` / `events` tab chrome and their URL-facet enum entries removed from the endpoint dashboard (migration 020 already dropped the tables and columns); the three `?tab=` URLs now fall back to `overview` cleanly, and stale comments narrating the removed feature are gone.
+
+**Verification**: endpoint tab-bar + facet-registry + migration-020-absence suites (19 tests) green; KPI metrics API suite (14 tests) green; the usage page transforms clean through the Next babel pipeline.
+
+---
+
+# v0.9.25 — The Governance Center 🏛️🔑
+
+> *"Every key is a door. The Center built the locks, the ledgers, and the watch — so every door knows who opened it, when, and why."*
+
+**The Endpoint Observatory's Governance Center** — the `/dashboard/endpoint` harbor rebuilt around key governance (the 16-phase Stillwater Mirror, 78 repairs across 5 waves: W1 Foundation, W2 API surface, W3a UI shell, W3b Proof):
+
+**W1 — The Foundation (🏗️):**
+- **Migration 016** (additive, portable adapter surface): `keyTemplates` + `keyTags` + `key_mutation_ledger` + 4 built-in template seeds; `SCHEMA_VERSION` 14→15
+- **`mintKey`/`rotateKey`/`revokeUnrevealable`** — the single-writer chokepoint every mint surface converges on (create/rotate/duplicate/revive/import-mint/template-apply)
+- **`revealSink`** — per-batch `<uuid>.json` reveal files, write-before-commit, `consumeReveals()` marks fetched (the show-once covenant)
+- **`lifecycleOf`** — the 6-state machine (deleted > revoked > expired > grace > pending-reveal > active), clock-pinned; **`hygieneScoring`** — the posture/urgency band; **`facetRegistry`** — the URL trust boundary (tab/status/q/sort/dir/category/page/sel)
+
+**W2 — The API Surface (🔌):**
+- All 6 mint surfaces converge on `mintKey`/`rotateKey`; `pending-reveals` rewired to `consumeReveals()` (keeps the migration-015 legacy-file bridge)
+- New routes: `/api/keys/templates[/[id]]`, `/api/keys/[id]/tags`, `/api/keys/ledger[/[id]]`, `/api/keys/mint-from-template`
+- **Revoke/delete split** — `revokeApiKey` keeps the row visible (hash purged) vs `deleteWithScrub` tombstone + tag-scrub; **`dashboardGuard` method-aware escalation** — key-MUTATION writes require JWT/CLI even when `requireLogin=false`
+
+**W3a — The Shell (🎨):**
+- **Tabbed deck** (`tab` URL facet: overview/keys/tools/audit) — **defaults to Overview** per the Star's decree; deep-links (`?tab=keys`) still work
+- **GovernanceDrawer v2** — lifecycle 6-state pill, hygiene ring, tags add/remove, per-key mutation ledger
+- **MintWizard** — template-driven create (pick a preset, preview its shape, mint through the chokepoint)
+- **CommandPalette** (⌘K), **AuditLedger** (fleet ledger tab), live **SSE merge** (`useEndpointStream`)
+
+**W3b — The Proof (🧪):**
+- 13 happy-dom component tests for the shell; the vitest-4 JSX lesson (.jsx extension is the oxc parse rule — `.js` is never JSX), `act()` flush for React 19, barrel mocks
+- 2 census debts paid: 16 W2 barrel exports classified (EXEMPT_PENDING, twin parity leg lands next wave) + the `schemaVersion` provenance pin now asserts the live version
+
+**Verification**: production build green (exit 0); 75 session-relevant tests green across 12 suites (8 baseline + 13 proof + census repairs). The full-suite baseline holds — 46 pre-existing legacy failures (raw-adapter census, MCP executor drift, parity/MariaDB harnesses) verified unchanged at HEAD; 0 new regressions. Both charts pinned to 0.9.25 per the dual-chart decree.
+
+---
+
+# v0.9.26 — The AI Lab 🧪🪞
+
+> *"Instruction-layering becomes a governed harbor: composed into bundles, enforced per key, observed per request, and routed to the lanes that honor it."*
+
+**The AI Lab** — the 16-phase Stillwater Mirror's seal, wave by wave (the 6th gate's "Stillwater Pipeline, Bridge Wiring" hybrid). The flat prompt-injectors page is re-homed to `/dashboard/ai-lab` as a governed capability:
+
+- ✨ **Banded pipeline engine** (`open-sse/rtk/pipeline.js`) — named stages in declared bands (SAVERS → INJECTORS → pxpipe → dispatch → POLICY); per-stage fail-open, one AppliedTrace, `captureSystemText` hardened 2N→1.
+- ✨ **Modes** — named bundles of ordered injector refs (+ modelGlob target-scoping), sparse saver toggles, a bound content-policy profile; resolved read-only at dispatch: `x-vela-mode` header → key `defaultMode` → none.
+- ✨ **Content policies** — response-path flag/redact/block on assistant text leaves; tool args/alt-text structurally unreachable; ReDoS guarded at compile + scan time-boxed; the 451 external envelope with a 403-shaped internal event that satisfies the fallback matcher untouched.
+- ✨ **The fallback seam** — the single-model/combo blind spot closed: `checkFallbackErrorVerdict` carries the `GATEWAY_POLICY_BLOCK` verdict class so a refused workload reaches `buildFallbackChain` and rides the unfiltered lane WITHOUT cooling a healthy account.
+- ✨ **ACL at the hook** — per-key `allowedInjectors`/`allowedModes`/`defaultMode`/`injectVarAllowlist` (migration 017, hash-derived UUID backfill); the decisive tri-state filter runs inside the pipeline; `x-vela-inject-var-*` overrides governed (the pre-existing privilege hole closed).
+- ✨ **The deck** — Injectors · Modes · Policies · Library · Simulator · Observe; one shared pure expansion module makes preview byte-match the engine; the library labels `expectedHonor` honestly; import/export is schema-versioned and arrives disabled.
+- 🔧 `SCHEMA_VERSION` reconciled to 17 (the pre-existing 016 off-by-one closed); settings cache discipline; observability bounded (5 names × 24 chars, names only).
+
+**Verification**: 91 AI Lab tests green across 12 suites (migration-017 crash-driver, rtk-pipeline, expansion-bytematch, mode-resolution, acl-at-hook, observability-bounds, content-policy-stream, policy-block-envelope, fallback-chain-seam, lab-import-export, ai-lab-proof) + the locking baseline held.
+
+---
+
 # v0.9.24 — The Deep Audit Ascension 🏛️⚡
 
 > *"The Mirror turned inward — every line measured, every current traced. What it found was mended; what it could not see, it refused to leave in shadow."*

@@ -52,7 +52,7 @@ export const PARITY_REGISTRY = new Set([
   "replaceSyncedPricing", "clearSyncedPricing", "getSyncedPricing",
   "saveRequestDetail", "getRequestDetails", "getRequestDetailById", "getDistinctProviders",
   // Usage wave (A9) — parity-usage.test.js
-  "saveRequestUsage", "getUsageHistory", "getKeyUsageStats",
+  "saveRequestUsage", "getUsageHistory", "getKeyUsageStats", "getRecentUsageIds",
   // Observatory aggregation layer (W1-C + W2-C, retired by W2-G) —
   // parity-usage.test.js usageScenario runs all eight across BOTH twins
   // (the sqlite harbor + the live MariaDB), the stacked-series fn grafted
@@ -99,6 +99,31 @@ export const EXEMPT_PENDING = {
   // The Observatory's aggregation-layer debt was retired at W2-G (2026-08-16):
   // parity-usage.test.js's usageScenario runs all eight across BOTH twins,
   // and the census pin keeps this ledger empty until new scheduled debt lands.
+  //
+  // ── The Governance Center's key-API surface (Endpoint Observatory W2) ──────
+  // The W2 mint/governance repos landed engine-neutral (ONE shared impl, both
+  // twins call the same machinery with dialect fragments only in the sqlite
+  // harbor). The key_mutation_ledger + keyTemplates + keyTags repos are
+  // exercised end-to-end by governance-w2.test.js against the sqlite harbor;
+  // the mysql twin parity leg lands with the Observatory's W3 seal. Named
+  // here so the census keeps the debt visible until the twin leg is paid.
+  resolveKey: "W2 key resolution — parity leg lands W3 (twin)",
+  revokeApiKey: "W2 revoke split — parity leg lands W3 (twin)",
+  deleteWithScrub: "W2 delete+tombstone — parity leg lands W3 (twin)",
+  listTemplates: "W2 template list — parity leg lands W3 (twin)",
+  getTemplate: "W2 template get — parity leg lands W3 (twin)",
+  createTemplate: "W2 template create — parity leg lands W3 (twin)",
+  updateTemplate: "W2 template update — parity leg lands W3 (twin)",
+  deleteTemplate: "W2 template delete — parity leg lands W3 (twin)",
+  applyShape: "W2 template shape apply — parity leg lands W3 (twin)",
+  sanitizeTag: "W2 tag sanitize (pure) — parity leg lands W3 (twin)",
+  tagsForKeys: "W2 tag read — parity leg lands W3 (twin)",
+  addTag: "W2 tag add — parity leg lands W3 (twin)",
+  removeTag: "W2 tag remove — parity leg lands W3 (twin)",
+  renameTag: "W2 tag rename — parity leg lands W3 (twin)",
+  deleteForKey: "W2 tag scrub on delete — parity leg lands W3 (twin)",
+  appendLedger: "W2 ledger append — parity leg lands W3 (twin)",
+  getKeyLedgerRows: "W2 ledger read — parity leg lands W3 (twin)",
 };
 
 /** The full set of classified symbols — the census compares the barrel to this. */

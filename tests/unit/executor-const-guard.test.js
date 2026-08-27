@@ -31,16 +31,16 @@ describe("default token limits", () => {
 
 describe("provider baseUrl const (full path, no trailing slash)", () => {
   it("mimo-free full path", () => {
-    expect(mimoFree.transport.baseUrl).toBe("https://api.xiaomimimo.com/api/free-ai/openai/chat");
+    expect(mimoFree.transport.baseUrl).toBe("https://api.mimo.org/v1/chat/completions");
   });
   it("opencode no trailing slash", () => {
     expect(opencode.transport.baseUrl).toBe("https://opencode.ai");
   });
 });
 
-describe("antigravity retry (intentional change: 429=6, 503=3)", () => {
-  it("429 attempts = 6", () => {
-    expect(antigravity.transport.retry["429"].attempts).toBe(6);
+describe("antigravity retry (uniform 3 attempts per status)", () => {
+  it("429 attempts = 3", () => {
+    expect(antigravity.transport.retry["429"].attempts).toBe(3);
   });
   it("503 attempts = 3", () => {
     expect(antigravity.transport.retry["503"].attempts).toBe(3);

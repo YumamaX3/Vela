@@ -1,11 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { KiroExecutor } from "../../open-sse/executors/kiro.js";
 
 const fetchMock = vi.fn();
 vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
   proxyAwareFetch: (...args) => fetchMock(...args)
 }));
-
-const { KiroExecutor } = await import("../../open-sse/executors/kiro.js");
 
 const encoder = new TextEncoder();
 const credentials = {

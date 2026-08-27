@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 14;
+export const SCHEMA_VERSION = 20;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -108,6 +108,16 @@ export const TABLES = {
       ipAllowlist: "TEXT",
       // Free-form key category (migration 003; mirrored here for fresh installs + auto-sync)
       category: "TEXT",
+      // AI Lab injector governance (migration 017; mirrored here for fresh installs + auto-sync)
+      allowedInjectors: "TEXT",
+      allowedModes: "TEXT",
+      defaultMode: "TEXT",
+      injectVarAllowlist: "TEXT",
+      // Daily request cap (migration 019; mirrored here for fresh installs +
+      // auto-sync). The 019 tier/balance columns were dropped by migration 020
+      // (the Tiers/Redemptions removal) — absent here so sync never resurrects
+      // them. Nullable: absent value means "unset", never a changed gate.
+      requestCapDaily: "INTEGER",
     },
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)",
@@ -125,6 +135,7 @@ export const TABLES = {
       name: "TEXT UNIQUE NOT NULL",
       kind: "TEXT",
       models: "TEXT NOT NULL",
+      context_length: "INTEGER",
       createdAt: "TEXT NOT NULL",
       updatedAt: "TEXT NOT NULL",
     },
@@ -292,6 +303,52 @@ export const TABLES = {
       "CREATE INDEX IF NOT EXISTS idx_pf_pool ON proxyFitness(poolId)",
     ],
   },
+  // Key governance v2 (migration 016; mirrored here for fresh installs + auto-sync)
+  keyTemplates: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      name: "TEXT NOT NULL UNIQUE",
+      description: "TEXT",
+      aclJson: "TEXT",
+      limitsJson: "TEXT",
+      categoryDefault: "TEXT",
+      builtIn: "INTEGER NOT NULL DEFAULT 0",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_key_templates_builtin ON keyTemplates(builtIn)",
+    ],
+  },
+  keyTags: {
+    columns: {
+      keyId: "TEXT NOT NULL",
+      tag: "TEXT NOT NULL",
+      createdAt: "TEXT NOT NULL",
+    },
+    primaryKey: "PRIMARY KEY (keyId, tag)",
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_key_tags_tag ON keyTags(tag)",
+    ],
+  },
+  key_mutation_ledger: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      surface: "TEXT NOT NULL",
+      keyId: "TEXT",
+      sourceRowId: "TEXT",
+      outcome: "TEXT NOT NULL",
+      actorClass: "TEXT NOT NULL",
+      createdAt: "TEXT NOT NULL",
+      detail: "TEXT",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_ledger_created ON key_mutation_ledger(createdAt)",
+      "CREATE INDEX IF NOT EXISTS idx_ledger_key ON key_mutation_ledger(keyId)",
+    ],
+  },
+  // keyTiers + redemptions (migration 019) were DROPPED by migration 020 —
+  // deliberately absent here so syncSchemaFromTables never resurrects them.
 };
 
 export function buildCreateTableSql(name, def) {

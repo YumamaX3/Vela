@@ -108,6 +108,18 @@ const LOCAL_ONLY_PATHS = [
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
+// Endpoint Observatory W2 (method-aware escalation): key-MUTATION writes
+// (mint/rotate/revoke/delete/import) must require a JWT or CLI token even when
+// requireLogin=false — a login-optional dashboard must never hand mint/revoke
+// power to an unauthenticated browser on the loopback. Key READS stay on the
+// deny-by-default posture (JWT-or-requireLogin) by construction. The write
+// methods ride the ALWAYS_PROTECTED branch below.
+const KEY_WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+function isKeyWrite(pathname, method) {
+  if (!KEY_WRITE_METHODS.has(method)) return false;
+  return pathname === "/api/keys" || pathname.startsWith("/api/keys/");
+}
+
 // Accepts a Host header, a URL hostname or a raw socket address. Splitting on the first
 // colon only works for IPv4 and would reduce every IPv6 form to "", so a dual-stack
 // listener handing back ::ffff:127.0.0.1 would not read as loopback.
@@ -231,6 +243,16 @@ export async function proxy(request) {
 
   // Always protected - require valid JWT or local CLI token (machineId-based)
   if (ALWAYS_PROTECTED.some((p) => pathname.startsWith(p))) {
+    if (await hasValidCliToken(request) || await hasValidToken(request))
+      return NextResponse.next();
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Endpoint Observatory W2 — key-mutation writes escalate above
+  // requireLogin=false (mint/rotate/revoke/delete/import are privileged even
+  // on a login-optional harbor). JWT or CLI token only; never the bare
+  // loopback pass-through.
+  if (isKeyWrite(pathname, request.method)) {
     if (await hasValidCliToken(request) || await hasValidToken(request))
       return NextResponse.next();
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

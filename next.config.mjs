@@ -102,7 +102,14 @@ const nextConfig = {
     ];
   },
   async redirects() {
-    return [];
+    // AI Lab (v0.9.26): /dashboard/prompt-injectors re-homed → /dashboard/ai-lab
+    return [
+      {
+        source: "/dashboard/prompt-injectors",
+        destination: "/dashboard/ai-lab",
+        permanent: true,
+      },
+    ];
   }
 };
 

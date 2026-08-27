@@ -1,6 +1,7 @@
 "use client";
 
 import { Modal, Button, Input, Toggle, KeyLimitsEditor } from "@/shared/components";
+import CategoryCombo from "./CategoryCombo";
 import { translate } from "@/i18n/runtime";
 import { SERVICE_KINDS } from "../endpointConstants";
 import AclChipGroup from "./AclChipGroup";
@@ -21,6 +22,15 @@ export default function KeyEditModal({
   onRemoveModel,
   modelAliases,
   combos,
+  // AI Lab (migration 017) — the mode/injector catalogs the operator binds to
+  // this key. modeOptions/injectorOptions are {id,name} pairs from the Lab.
+  modeOptions = [],
+  injectorOptions = [],
+  // Category dropdown — the existing categories from the keys list. Picking
+  // one sets it; "create new" unlocks the free-text input for a new label.
+  categories = [],
+  // Per-category key counts, keyed by category name (for the dropdown chips).
+  keyCount = {},
 }) {
   if (!editingKey) return null;
   const set = (patch) => onChange({ ...editingKey, ...patch });
@@ -30,6 +40,10 @@ export default function KeyEditModal({
   // the currently-selected VALUE. (These were once conflated, which hid the
   // catalog and made it impossible to add a combo to an existing key.)
   const comboOptions = combos || [];
+  const modeNames = modeOptions.map((m) => m.name).filter(Boolean);
+  const injectorNames = injectorOptions.map((i) => i.name).filter(Boolean);
+  // Category dropdown: the existing categories from the keys list.
+  const existingCategories = Array.isArray(categories) ? categories : [];
 
   const toggleAcl = (field, value) => {
     const current = editingKey[field] || [];
@@ -59,13 +73,26 @@ export default function KeyEditModal({
           onChange={(e) => set({ description: e.target.value })}
           placeholder={translate("What this key is used for")}
         />
+        <div>
+          <label className="text-xs font-medium text-text-muted">{translate("Category (optional)")}</label>
+          <CategoryCombo
+            value={editingKey.category || null}
+            onChange={(cat) => set({ category: cat })}
+            categories={existingCategories}
+            keyCount={keyCount}
+            placeholder={translate("Pick a category…")}
+          />
+          <p className="text-[11px] text-text-muted mt-1">{translate("Pick an existing category or create a new one.")}</p>
+        </div>
+
+        {/* Daily request cap (migration 019) */}
         <Input
-          label={translate("Category (optional)")}
-          value={editingKey.category || ""}
-          onChange={(e) => set({ category: e.target.value })}
-          placeholder={translate("e.g. friend, hermes, others")}
-          list="key-category-options"
-          hint={translate("Leave empty to keep this key uncategorized")}
+          label={translate("Daily request cap")}
+          type="number"
+          min="1"
+          value={editingKey.requestCapDaily == null ? "" : String(editingKey.requestCapDaily)}
+          onChange={(e) => set({ requestCapDaily: e.target.value === "" ? null : Math.max(1, Math.floor(Number(e.target.value) || 0)) })}
+          placeholder={translate("unlimited")}
         />
 
         {/* 4-way ACL */}
@@ -118,6 +145,47 @@ export default function KeyEditModal({
               <p className="text-xs text-text-muted mt-1">{translate("All models")}</p>
             )}
           </div>
+        </div>
+
+        {/* AI Lab injector governance (migration 017) — default mode + the
+            mode/injector tri-state ACLs. The gate reads these at keyGate '
+            modeStage + the ACL-at-hook seat; from here they are real per-key
+            state, not a client-side claim. */}
+        <div className="border border-border-subtle rounded-lg p-3 flex flex-col gap-3">
+          <p className="text-sm font-medium">{translate("AI Lab governance")}</p>
+
+          <div>
+            <label className="text-xs font-medium text-text-muted">{translate("Default mode")}</label>
+            <select
+              value={editingKey.defaultMode || ""}
+              onChange={(e) => set({ defaultMode: e.target.value || null })}
+              className="w-full mt-1 p-2 rounded-lg border border-border-subtle bg-surface-2 text-sm"
+            >
+              <option value="">{translate("— none — (resolve to no mode unless a client sends x-vela-mode)")}</option>
+              {modeNames.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+            <p className="text-[11px] text-text-muted mt-1">
+              {translate("The mode applied when a request carries no x-vela-mode header.")}
+            </p>
+          </div>
+
+          <AclChipGroup
+            label={translate("Allowed modes")}
+            options={modeNames}
+            value={editingKey.allowedModes || []}
+            onToggle={(v) => toggleAcl("allowedModes", v)}
+            noneLabel={translate("All modes")}
+          />
+
+          <AclChipGroup
+            label={translate("Allowed injectors")}
+            options={injectorNames}
+            value={editingKey.allowedInjectors || []}
+            onToggle={(v) => toggleAcl("allowedInjectors", v)}
+            noneLabel={translate("All injectors")}
+          />
         </div>
 
         {/* W3 limits — seeded from the server record, saved in full */}

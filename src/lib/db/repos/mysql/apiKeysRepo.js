@@ -44,6 +44,10 @@ function rowToPublic(row) {
     allowedKinds: safeParse(row.allowedKinds),
     allowedProviders: safeParse(row.allowedProviders),
     allowedCombos: safeParse(row.allowedCombos),
+    // AI Lab injector governance (migration 017) — tri-state, same semantics.
+    allowedInjectors: safeParse(row.allowedInjectors),
+    allowedModes: safeParse(row.allowedModes),
+    defaultMode: row.defaultMode || null,
     // mysql2 returns TINYINT(1) as 0/1 numbers — the ===1 check is the
     // harbor's canonical boolean normalization (booleanMode "boolean" is
     // deliberately OFF in pool.js).
@@ -63,6 +67,8 @@ function rowToPublic(row) {
     rateLimitRpm: row.rateLimitRpm ?? null,
     ipAllowlist: safeParse(row.ipAllowlist),
     category: row.category || null,
+    // Key Domain Ascension (migration 019) — same surface as the sqlite twin.
+    requestCapDaily: row.requestCapDaily ?? null,
   };
 }
 
@@ -113,14 +119,19 @@ export async function createApiKey(name, opts = {}) {
   if (!limits.ok) throw new KeyLimitsValidationError(limits.errors);
   const category = sanitizeCategory(opts.category);
   const db = await getMysqlAdapter();
+  // Endpoint Observatory W1c — mintService pre-generated credential commit
+  // (Covenant C10: sink and commit carry the SAME key).
   const { generateApiKey } = await import("@/shared/utils/apiKey");
-  const { key, keyId, keyHash, keyPrefix } = generateApiKey();
+  const keyFields = opts.keyFields
+    ? { key: opts.keyFields.key, keyId: opts.keyFields.keyId, keyHash: opts.keyFields.keyHash, keyPrefix: opts.keyFields.keyPrefix }
+    : generateApiKey();
+  const { key, keyId, keyHash, keyPrefix } = keyFields;
   const id = keyId; // keyId is the row id — one less random identity
   const createdAt = new Date().toISOString();
   const v = limits.values;
   await db.run(
-    `INSERT INTO apiKeys(id, \`key\`, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, description, allowedModels, allowedKinds, allowedProviders, allowedCombos, isInternal, rateLimitRpm, tokenBudgetDaily, spendCapDailyCents, budgetScope, expiresAt, ipAllowlist, category)
-     VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO apiKeys(id, \`key\`, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, description, allowedModels, allowedKinds, allowedProviders, allowedCombos, allowedInjectors, allowedModes, defaultMode, isInternal, rateLimitRpm, tokenBudgetDaily, spendCapDailyCents, budgetScope, expiresAt, ipAllowlist, category, requestCapDaily)
+     VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       `vela-minted-${id}`,
@@ -135,6 +146,9 @@ export async function createApiKey(name, opts = {}) {
       opts.allowedKinds != null ? JSON.stringify(opts.allowedKinds) : null,
       opts.allowedProviders != null ? JSON.stringify(opts.allowedProviders) : null,
       opts.allowedCombos != null ? JSON.stringify(opts.allowedCombos) : null,
+      opts.allowedInjectors != null ? JSON.stringify(opts.allowedInjectors) : null,
+      opts.allowedModes != null ? JSON.stringify(opts.allowedModes) : null,
+      opts.defaultMode || null,
       v.rateLimitRpm ?? null,
       v.tokenBudgetDaily ?? null,
       v.spendCapDailyCents ?? null,
@@ -142,6 +156,7 @@ export async function createApiKey(name, opts = {}) {
       v.expiresAt ?? null,
       v.ipAllowlist != null ? JSON.stringify(v.ipAllowlist) : null,
       category,
+      v.requestCapDaily ?? null,
     ]
   );
   return { record: await getApiKeyById(id), key, keyId, keyPrefix };
@@ -158,10 +173,14 @@ const MUTABLE_FIELDS = new Set([
   "name", "description", "allowedModels", "allowedKinds", "allowedProviders", "allowedCombos", "isActive",
   "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
   "budgetScope", "expiresAt", "ipAllowlist", "category",
+  // AI Lab injector governance (migration 017) — writable through this path.
+  "allowedInjectors", "allowedModes", "defaultMode",
+  // Key Domain Ascension (migration 019) — daily request cap.
+  "requestCapDaily",
 ]);
 const LIMIT_FIELDS = new Set([
   "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
-  "budgetScope", "expiresAt", "ipAllowlist",
+  "budgetScope", "expiresAt", "ipAllowlist", "requestCapDaily",
 ]);
 export async function updateApiKey(id, data) {
   const present = Object.keys(data || {}).filter((k) => MUTABLE_FIELDS.has(k));
@@ -177,7 +196,7 @@ export async function updateApiKey(id, data) {
     if (!row) return;
     const sets = [];
     const vals = [];
-    const JSON_FIELDS = new Set(["allowedModels", "allowedKinds", "allowedProviders", "allowedCombos"]);
+    const JSON_FIELDS = new Set(["allowedModels", "allowedKinds", "allowedProviders", "allowedCombos", "allowedInjectors", "allowedModes"]);
     for (const k of present) {
       if (JSON_FIELDS.has(k)) {
         sets.push(`${k} = ?`);
@@ -214,6 +233,31 @@ export async function deleteApiKey(id) {
     [new Date().toISOString(), id]
   );
   return (res?.changes ?? 0) > 0;
+}
+
+/** Revoke — lifecycle split: row stays VISIBLE (deletedAt NULL), hash purged. */
+export async function revokeApiKey(id) {
+  const db = await getMysqlAdapter();
+  const res = await db.run(
+    `UPDATE apiKeys SET isActive = 0, keyHash = NULL, deletedAt = NULL WHERE id = ? AND isInternal = 0`,
+    [new Date().toISOString(), id]
+  );
+  return (res?.changes ?? 0) > 0;
+}
+
+/** Delete with scrub — soft-tombstone + tag purge in ONE transaction (M5). */
+export async function deleteWithScrub(id) {
+  const db = await getMysqlAdapter();
+  let ok = false;
+  await db.transaction(async () => {
+    const res = await db.run(
+      `UPDATE apiKeys SET isActive = 0, keyHash = NULL, deletedAt = ? WHERE id = ? AND isInternal = 0 AND deletedAt IS NULL`,
+      [new Date().toISOString(), id]
+    );
+    ok = (res?.changes ?? 0) > 0;
+    if (ok) await db.run(`DELETE FROM keyTags WHERE keyId = ?`, [id]);
+  });
+  return ok;
 }
 
 /**

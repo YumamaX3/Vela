@@ -17,6 +17,16 @@ import {
   fetchCombosCatalog,
   exportKeySettings,
   importKeySettings,
+  fetchTemplates,
+  mintFromTemplate,
+  fetchKeyTags,
+  addKeyTag,
+  removeKeyTag,
+  fetchKeyLedger,
+  fetchFleetLedger,
+  // Key Domain Ascension fetchers — the import surface (migration 019).
+  importKeys,
+  createShareReveal,
 } from "../lib/keyApi";
 import { limitsFromRecord, DEFAULT_LIMITS, UNCATEGORIZED, categoryOf } from "../lib/keyFormat";
 import { toggleIdInList } from "../lib/bulk";
@@ -39,7 +49,7 @@ const AUTO_PROVISION_LIMITS = Object.freeze({
 // Build the full keyApi payload from the shared editor shape (limits) + the
 // scope toggle — the exact wire contract the repo's whitelist expects.
 // ACL arrays are tri-state: null = unrestricted, [] = deny, ["x"] = whitelist.
-function keyPayload({ name, description, category, scopeOn, allowedModels, allowedKinds, allowedProviders, allowedCombos, limits, isActive, action }) {
+function keyPayload({ name, description, category, scopeOn, allowedModels, allowedKinds, allowedProviders, allowedCombos, allowedModes, allowedInjectors, defaultMode, limits, isActive, action, requestCapDaily }) {
   const L = limits || DEFAULT_LIMITS;
   const body = {
     name: name?.trim(),
@@ -49,12 +59,18 @@ function keyPayload({ name, description, category, scopeOn, allowedModels, allow
     allowedKinds: allowedKinds ?? null,
     allowedProviders: allowedProviders ?? null,
     allowedCombos: allowedCombos ?? null,
+    // AI Lab injector governance (migration 017) — tri-state, same semantics.
+    allowedModes: allowedModes ?? null,
+    allowedInjectors: allowedInjectors ?? null,
+    defaultMode: defaultMode || null,
     rateLimitRpm: L.rateLimitRpm,
     tokenBudgetDaily: L.tokenBudget,
     spendCapDailyCents: L.spendCapCents,
     budgetScope: (L.tokenBudget != null || L.spendCapCents != null) ? (L.budgetScope || "daily") : null,
     expiresAt: L.expiresAt,
     ipAllowlist: L.ipAllowlist?.length ? L.ipAllowlist : null,
+    // Key Domain Ascension (migration 019) — daily request cap.
+    requestCapDaily: requestCapDaily ?? null,
   };
   if (isActive !== undefined) body.isActive = isActive;
   if (action) body.action = action;
@@ -72,6 +88,17 @@ export function useKeys() {
   const [keyActivity, setKeyActivity] = useState({}); // { [keyId]: activity[] }
   const [activityLoading, setActivityLoading] = useState(false);
 
+  // W3a governance state
+  const [templates, setTemplates] = useState([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [keyTags, setKeyTags] = useState({}); // { [keyId]: string[] }
+  const [keyLedger, setKeyLedger] = useState({}); // { [keyId]: ledger[] }
+  const [fleetLedger, setFleetLedger] = useState([]);
+  const [mintWizardOpen, setMintWizardOpen] = useState(false);
+
+  // Key Domain Ascension state — the import surface.
+  const [importOpen, setImportOpen] = useState(false);
+
   // Create-form state
   const [showAddModal, setShowAddModal] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
@@ -85,6 +112,8 @@ export function useKeys() {
   const [newKeyKinds, setNewKeyKinds] = useState(null);
   const [newKeyProviders, setNewKeyProviders] = useState(null);
   const [newKeyCombos, setNewKeyCombos] = useState(null);
+  // Key Domain Ascension — create-form daily request cap.
+  const [newKeyRequestCap, setNewKeyRequestCap] = useState(null);
   const [createLimits, setCreateLimits] = useState(DEFAULT_LIMITS);
   const [createError, setCreateError] = useState("");
   const [createdKey, setCreatedKey] = useState(null); // { key, keyId, keyPrefix, record } — one-time show
@@ -110,6 +139,11 @@ export function useKeys() {
 
   const [activeProviders, setActiveProviders] = useState([]);
   const [modelAliases, setModelAliases] = useState({});
+  // AI Lab catalogs (migration 017) — mode bundles, injector names, and the
+  // content-policy profile list. Loaded once with the catalog so the edit
+  // modal can bind a key's defaultMode/allowedModes/allowedInjectors.
+  const [labModes, setLabModes] = useState([]);       // [{id,name}] — mode bundles
+  const [labInjectors, setLabInjectors] = useState([]); // [{id,name}] — user injectors
 
   const fetchData = useCallback(async () => {
     try {
@@ -173,6 +207,71 @@ export function useKeys() {
     } catch {
       setCombos([]);
     }
+    // AI Lab catalogs — the mode bundles + injector names the edit modal binds.
+    try {
+      const s = await fetch("/api/settings");
+      const data = s.ok ? await s.json() : {};
+      const bundles = Array.isArray(data.modeBundles) ? data.modeBundles : [];
+      const inj = Array.isArray(data.userInjectors) ? data.userInjectors : [];
+      setLabModes(bundles.filter((m) => m && m.id && m.name).map((m) => ({ id: m.id, name: m.name })));
+      setLabInjectors(inj.filter((i) => i && i.id && i.name).map((i) => ({ id: i.id, name: i.name })));
+    } catch {
+      setLabModes([]);
+      setLabInjectors([]);
+    }
+  }, []);
+
+  // ── W3a governance loaders ─────────────────────────────────────────────
+  const loadTemplates = useCallback(async () => {
+    setTemplatesLoading(true);
+    try {
+      setTemplates(await fetchTemplates());
+    } catch {
+      setTemplates([]);
+    } finally {
+      setTemplatesLoading(false);
+    }
+  }, []);
+
+  // ── Key Domain Ascension loaders ───────────────────────────────────────
+  const handleImportKeys = useCallback(async (payload) => {
+    const res = await importKeys(payload);
+    if (res.ok) {
+      await fetchData();
+      return { ok: true, summary: res.summary, results: res.results };
+    }
+    return { ok: false, error: res.error };
+  }, [fetchData]);
+
+  /** Hardened share — one-time token in the URL fragment, never the raw key. */
+  const handleShareReveal = useCallback(async (key) => {
+    const token = getKey(key.id);
+    if (!token) {
+      return { ok: false, error: "Full key not captured in this browser — copy it from the vault first" };
+    }
+    const res = await createShareReveal(key.id, token, key.keyPrefix);
+    if (!res.ok) return { ok: false, error: res.error };
+    return { ok: true, token: res.token };
+  }, []);
+
+  const loadFleetLedger = useCallback(async () => {
+    try {
+      setFleetLedger(await fetchFleetLedger());
+    } catch {
+      setFleetLedger([]);
+    }
+  }, []);
+
+  // Load one key's tags + ledger when its drawer opens (lazy, cached).
+  const loadKeyGovernance = useCallback(async (id) => {
+    if (!id) return;
+    try {
+      const [tags, ledger] = await Promise.all([fetchKeyTags(id), fetchKeyLedger(id)]);
+      setKeyTags((prev) => (prev[id] ? prev : { ...prev, [id]: tags }));
+      setKeyLedger((prev) => (prev[id] ? prev : { ...prev, [id]: ledger }));
+    } catch {
+      /* fail-open: empty tags/ledger */
+    }
   }, []);
 
   // Load one key's recent-request micro-history for the drawer. Fired lazily
@@ -197,7 +296,9 @@ export function useKeys() {
   useEffect(() => {
     fetchData();
     loadCatalog();
-  }, [fetchData, loadCatalog]);
+    loadTemplates();
+    loadFleetLedger();
+  }, [fetchData, loadCatalog, loadTemplates, loadFleetLedger]);
   useEffect(() => {
     loadUsage(usagePeriod);
   }, [usagePeriod, keys, loadUsage]);
@@ -229,6 +330,7 @@ export function useKeys() {
     setNewKeyKinds(null);
     setNewKeyProviders(null);
     setNewKeyCombos(null);
+    setNewKeyRequestCap(null);
     setCreateLimits(DEFAULT_LIMITS);
     setCreateError("");
   }, []);
@@ -256,6 +358,7 @@ export function useKeys() {
       allowedProviders: newKeyProviders,
       allowedCombos: newKeyCombos,
       limits: createLimits,
+      requestCapDaily: newKeyRequestCap,
     }));
     if (res.ok) {
       // Capture-at-create: this 201 is the only plaintext copy the server ever yields.
@@ -268,7 +371,7 @@ export function useKeys() {
     } else {
       setCreateError(res.error);
     }
-  }, [newKeyName, newKeyDescription, newKeyCategory, newKeyScopeOn, newKeyScope, newKeyKinds, newKeyProviders, newKeyCombos, createLimits, fetchData, resetCreateForm]);
+  }, [newKeyName, newKeyDescription, newKeyCategory, newKeyScopeOn, newKeyScope, newKeyKinds, newKeyProviders, newKeyCombos, newKeyRequestCap, createLimits, fetchData, resetCreateForm]);
 
   // ── Edit flow ───────────────────────────────────────────────────────────
   const openEditKey = useCallback((key) => {
@@ -286,6 +389,12 @@ export function useKeys() {
       allowedKinds: Array.isArray(key.allowedKinds) ? key.allowedKinds : null,
       allowedProviders: Array.isArray(key.allowedProviders) ? key.allowedProviders : null,
       allowedCombos: Array.isArray(key.allowedCombos) ? key.allowedCombos : null,
+      // AI Lab injector governance (migration 017) — tri-state draft.
+      allowedInjectors: Array.isArray(key.allowedInjectors) ? key.allowedInjectors : null,
+      allowedModes: Array.isArray(key.allowedModes) ? key.allowedModes : null,
+      defaultMode: key.defaultMode || null,
+      // Key Domain Ascension — daily request cap.
+      requestCapDaily: key.requestCapDaily ?? null,
       limits: limitsFromRecord(key),
       saving: false,
       error: "",
@@ -305,6 +414,9 @@ export function useKeys() {
       allowedKinds: editingKey.allowedKinds,
       allowedProviders: editingKey.allowedProviders,
       allowedCombos: editingKey.allowedCombos,
+      allowedModes: editingKey.allowedModes,
+      allowedInjectors: editingKey.allowedInjectors,
+      defaultMode: editingKey.defaultMode,
       limits: editingKey.limits,
     }));
     if (res.ok) {
@@ -423,6 +535,45 @@ export function useKeys() {
     setTestResult({ keyId: key.id, ...res });
     setBusyId(null);
   }, []);
+
+  // ── W3a: tags ───────────────────────────────────────────────────────────
+  const handleAddTag = useCallback(async (id, tag) => {
+    const res = await addKeyTag(id, tag);
+    if (res.ok) {
+      setKeyTags((prev) => {
+        const cur = prev[id] || [];
+        return { ...prev, [id]: cur.includes(tag) ? cur : [...cur, tag] };
+      });
+    }
+    return res;
+  }, []);
+
+  const handleRemoveTag = useCallback(async (id, tag) => {
+    const res = await removeKeyTag(id, tag);
+    if (res.ok) {
+      setKeyTags((prev) => ({ ...prev, [id]: (prev[id] || []).filter((t) => t !== tag) }));
+    }
+    return res;
+  }, []);
+
+  // ── W3a: template-driven mint ───────────────────────────────────────────
+  const handleMintFromTemplate = useCallback(async ({ template, name, category }) => {
+    const res = await mintFromTemplate({
+      templateId: template?.id,
+      name,
+      category,
+    });
+    if (res.ok) {
+      if (res.created?.key && res.created?.keyId) storeKey(res.created.keyId, res.created.key);
+      setCreatedKey(res.created);
+      setCreatedKeyAck(false);
+      setMintWizardOpen(false);
+      await fetchData();
+      await loadFleetLedger();
+      return { ok: true };
+    }
+    return { error: res.error || "Failed to mint key" };
+  }, [fetchData, loadFleetLedger]);
 
   // ── Delete ──────────────────────────────────────────────────────────────
   const handleDeleteKey = useCallback(async (id) => {
@@ -583,12 +734,15 @@ export function useKeys() {
     keys, loading, keyUsage, health, usagePeriod, setUsagePeriod,
     activeCategoryFilter, setActiveCategoryFilter, categories, filteredKeys,
     activeProviders, modelAliases, combos, keyActivity, activityLoading, loadKeyActivity,
+    // AI Lab catalogs — mode bundles + injector names for the edit modal.
+    labModes, labInjectors,
     // create
     showAddModal, setShowAddModal, openCreateModal, resetCreateForm,
     newKeyName, setNewKeyName, newKeyDescription, setNewKeyDescription,
     newKeyCategory, setNewKeyCategory, newKeyScopeOn, setNewKeyScopeOn,
     newKeyScope, setNewKeyScope, newKeyKinds, setNewKeyKinds,
     newKeyProviders, setNewKeyProviders, newKeyCombos, setNewKeyCombos,
+    newKeyRequestCap, setNewKeyRequestCap,
     createLimits, setCreateLimits, createError,
     createdKey, createdKeyAck, setCreatedKeyAck, closeCreatedKeyModal,
     handleCreateKey,
@@ -600,6 +754,14 @@ export function useKeys() {
     handleToggleKey, handleRotateKey, handleDuplicateKey, handleReviveKey, handleTestKey, handleExpireKey, handleRenewKey,
     rotatedResult, rotatedAck, setRotatedAck, setRotatedResult, testResult, setTestResult,
     busyId, confirmState, setConfirmState,
+    // W3a governance
+    templates, templatesLoading, loadTemplates,
+    keyTags, keyLedger, fleetLedger, loadKeyGovernance, loadFleetLedger,
+    handleAddTag, handleRemoveTag,
+    mintWizardOpen, setMintWizardOpen, handleMintFromTemplate,
+    // Key Domain Ascension — the import surface.
+    importOpen, setImportOpen,
+    handleImportKeys, handleShareReveal,
     // vault helpers for rows/drawer
     hasKey, getKey, forgetKey: removeKey,
     // bulk

@@ -14,16 +14,23 @@ import { useKeys } from "./hooks/useKeys";
 import { useSettings } from "./hooks/useSettings";
 import { useTunnel } from "./hooks/useTunnel";
 import { useTailscale } from "./hooks/useTailscale";
+import { useEndpointFacets } from "@/shared/hooks/useEndpointFacets";
+import { serverNowMs } from "@/lib/endpoint/serverNow.js";
 import {
   KpiBand,
   EndpointHero,
   KeysTable,
-  KeyDrawer,
+  GovernanceDrawer,
   KeyEditModal,
   KeyCreateModal,
   RemoteAccessPanel,
   InsightsCard,
   ShowOnceModal,
+  TabBar,
+  CommandPalette,
+  MintWizard,
+  AuditLedger,
+  ImportModal,
 } from "./components";
 
 /**
@@ -36,6 +43,10 @@ export default function APIPageClient() {
   const keysApi = useKeys();
   const settings = useSettings();
   const tailscale = useTailscale();
+  // URL facets (tab/status/q/sort) — the one shared hook (Covenant P5).
+  const facets = useEndpointFacets();
+  const activeTab = facets.state.tab;
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   // Shared status surface — the tunnel gate and tailscale gate write errors
   // here so the row shows them without duplicating state machines.
@@ -121,6 +132,15 @@ export default function APIPageClient() {
     };
   }, []);
 
+  // Per-category key counts for the category dropdown chips.
+  const keyCategoryCounts = useMemo(() => {
+    const counts = {};
+    for (const k of keysApi.keys) {
+      if (k.category) counts[k.category] = (counts[k.category] || 0) + 1;
+    }
+    return counts;
+  }, [keysApi.keys]);
+
   // Derived nudges for the Insights card — quota near reset, stale keys.
   const insights = useMemo(() => {
     const items = [];
@@ -146,39 +166,43 @@ export default function APIPageClient() {
     return items;
   }, [keysApi.keys, keysApi.health]);
 
-  // Share-access link for a key (tunnel URL + full key query), kept local.
-  const [shareUrl, setShareUrl] = useState("");
-  const handleShare = useCallback(
-    (key) => {
-      const token = getKey(key.id);
-      if (!token) {
-        setRemoteStatus({ type: "error", message: translate("Full key not captured in this browser — copy it from the vault first") });
-        return;
-      }
-      const base = (tunnel.tunnelEnabled && (tunnel.tunnelPublicUrl || tunnel.tunnelUrl))
-        || (tailscale.tsEnabled && tailscale.tsUrl)
-        || baseUrl;
-      setShareUrl(`${base}/v1?key=${encodeURIComponent(token)}`);
-    },
-    [baseUrl, tunnel.tunnelEnabled, tunnel.tunnelPublicUrl, tunnel.tunnelUrl, tailscale.tsEnabled, tailscale.tsUrl],
-  );
-
   // Sweep review state (stale-key candidates).
   const [sweepOpen, setSweepOpen] = useState(false);
   const handleSweep = useCallback(() => {
     setSweepOpen(true);
   }, []);
 
+  // ── Key Domain Ascension — share link (one-time fragment token) ─────────
+  const [shareUrl, setShareUrl] = useState("");
+  const handleShare = useCallback(
+    async (key) => {
+      const res = await keysApi.handleShareReveal(key);
+      if (!res.ok) {
+        setRemoteStatus({ type: "error", message: translate(res.error || "Failed to create share link") });
+        return;
+      }
+      const base = (tunnel.tunnelEnabled && (tunnel.tunnelPublicUrl || tunnel.tunnelUrl))
+        || (tailscale.tsEnabled && tailscale.tsUrl)
+        || baseUrl;
+      setShareUrl(`${base}/share#k=${encodeURIComponent(res.token)}`);
+    },
+    [keysApi, tunnel.tunnelEnabled, tunnel.tunnelPublicUrl, tunnel.tunnelUrl, tailscale.tsEnabled, tailscale.tsUrl, baseUrl],
+  );
+
   // Load the selected key's recent-request feed when its drawer opens.
   // (keysApi is a fresh object per render — listing it would re-run the
   // effect every render. The stable loadKeyActivity + string activeKeyId
   // are the true deps.)
   useEffect(() => {
-    if (keysApi.activeKeyId) keysApi.loadKeyActivity(keysApi.activeKeyId);
+    if (keysApi.activeKeyId) {
+      keysApi.loadKeyActivity(keysApi.activeKeyId);
+      keysApi.loadKeyGovernance(keysApi.activeKeyId);
+    }
     // keysApi is a fresh object per render — listing it would re-fire every
-    // render. activeKeyId + loadKeyActivity (stable refs) are the true deps.
+    // render. activeKeyId + loadKeyActivity/loadKeyGovernance (stable refs)
+    // are the true deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keysApi.activeKeyId, keysApi.loadKeyActivity]);
+  }, [keysApi.activeKeyId, keysApi.loadKeyActivity, keysApi.loadKeyGovernance]);
 
   // Actionable sweep: confirm, then revoke one or all stale keys.
   const [sweepNotice, setSweepNotice] = useState("");
@@ -208,6 +232,35 @@ export default function APIPageClient() {
     });
   }, [keysApi]);
 
+  // ── W3a: command palette ────────────────────────────────────────────────
+  const commandList = useMemo(() => [
+    { id: "tab-overview", icon: "space_dashboard", label: translate("Go to Overview"), kbd: "tab", run: () => facets.setFacets({ tab: "overview" }) },
+    { id: "tab-keys", icon: "vpn_key", label: translate("Go to Keys"), run: () => facets.setFacets({ tab: "keys" }) },
+    { id: "tab-tools", icon: "construction", label: translate("Go to Tools"), run: () => facets.setFacets({ tab: "tools" }) },
+    { id: "tab-audit", icon: "receipt_long", label: translate("Go to Audit"), run: () => facets.setFacets({ tab: "audit" }) },
+    { id: "import-keys", icon: "upload_file", label: translate("Import keys"), hint: translate("Bulk-mint from JSON or CSV"), run: () => { facets.setFacets({ tab: "keys" }); keysApi.setImportOpen(true); } },
+    { id: "status-active", icon: "check_circle", label: translate("Filter: active keys"), run: () => facets.setFacets({ tab: "keys", status: "active" }) },
+    { id: "status-revoked", icon: "block", label: translate("Filter: revoked keys"), run: () => facets.setFacets({ tab: "keys", status: "revoked" }) },
+    { id: "create-key", icon: "add", label: translate("Create a key"), hint: translate("Opens the create form"), run: () => { facets.setFacets({ tab: "keys" }); keysApi.openCreateModal(); } },
+    { id: "mint-template", icon: "auto_awesome", label: translate("Mint from a template"), hint: translate("Template-driven create"), run: () => keysApi.setMintWizardOpen(true) },
+    { id: "sweep", icon: "cleaning_services", label: translate("Run a stale-key sweep"), run: () => { facets.setFacets({ tab: "keys" }); handleSweep(); } },
+    { id: "export", icon: "download", label: translate("Export key settings"), run: () => keysApi.bulkExport() },
+    { id: "audit-ledger", icon: "receipt_long", label: translate("View the mutation ledger"), run: () => facets.setFacets({ tab: "audit" }) },
+    { id: "reset-facets", icon: "restart_alt", label: translate("Reset filters"), run: () => facets.resetFacets() },
+  ], [facets, keysApi, handleSweep]);
+
+  // ⌘K / ctrl+K toggles the palette.
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   if (keysApi.loading) {
     return (
       <div className="flex flex-col gap-8">
@@ -218,24 +271,69 @@ export default function APIPageClient() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      {/* Gateway hero + KPI band */}
-      <KpiBand stats={stats} keys={keysApi.keys} loading={keysApi.loading} />
+    <div className="flex flex-col gap-6">
+      {/* W3a — the tab bar drives the deck (URL facets) */}
+      <TabBar active={activeTab} onSelect={(tab) => facets.setFacets({ tab })} />
 
-      <EndpointHero
-        baseUrl={baseUrl}
-        copied={copied}
-        onCopy={copy}
-        tunnelUrl={tunnel.tunnelUrl}
-        tunnelEnabled={tunnel.tunnelEnabled}
-        tsUrl={tailscale.tsUrl}
-        tsEnabled={tailscale.tsEnabled}
-        onTest={handleEndpointTest}
-        testing={testing}
-      />
+      {/* Overview tab — hero, KPIs, remote access, insights */}
+      {activeTab === "overview" && (
+        <>
+          {/* Gateway hero + KPI band */}
+          <KpiBand stats={stats} keys={keysApi.keys} loading={keysApi.loading} />
 
-      {/* API Keys */}
-      <KeysTable
+          <EndpointHero
+            baseUrl={baseUrl}
+            copied={copied}
+            onCopy={copy}
+            tunnelUrl={tunnel.tunnelUrl}
+            tunnelEnabled={tunnel.tunnelEnabled}
+            tsUrl={tailscale.tsUrl}
+            tsEnabled={tailscale.tsEnabled}
+            onTest={handleEndpointTest}
+            testing={testing}
+          />
+
+          {/* Remote access — tunnel + tailscale + security gates */}
+          {remoteStatus && (
+            <div
+              className={`flex items-center gap-2 px-3 py-2 rounded-[10px] border text-sm ${
+                remoteStatus.type === "error"
+                  ? "border-red-300 dark:border-red-800 bg-red-500/5 text-red-600 dark:text-red-400"
+                  : remoteStatus.type === "success"
+                    ? "border-green-300 dark:border-green-800 bg-green-500/5 text-green-600 dark:text-green-400"
+                    : "border-amber-300 dark:border-amber-800 bg-amber-500/5 text-amber-600 dark:text-amber-400"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">
+                {remoteStatus.type === "error" ? "error" : remoteStatus.type === "success" ? "check_circle" : "warning"}
+              </span>
+              <span className="min-w-0">{remoteStatus.message}</span>
+              <button
+                onClick={() => setRemoteStatus(null)}
+                className="ml-auto p-1 rounded text-text-muted hover:text-text-main transition-colors"
+                aria-label={translate("Dismiss")}
+              >
+                <span className="material-symbols-outlined text-[14px]">close</span>
+              </button>
+            </div>
+          )}
+          <RemoteAccessPanel
+            tunnel={tunnel}
+            tailscale={tailscale}
+            settings={settings}
+            copied={copied}
+            onCopy={copy}
+            baseUrl={baseUrl}
+          />
+
+          {/* Insights — computed nudges from the health snapshot */}
+          <InsightsCard items={insights} />
+        </>
+      )}
+
+      {/* Keys tab — the management table */}
+      {activeTab === "keys" && (
+        <KeysTable
         keys={keysApi.keys}
         filteredKeys={keysApi.filteredKeys}
         categories={keysApi.categories}
@@ -257,6 +355,7 @@ export default function APIPageClient() {
         onTest={keysApi.handleTestKey}
         onDelete={keysApi.requestDeleteKey}
         onEdit={keysApi.openEditKey}
+        onExpire={keysApi.handleExpireKey}
         // vault + copy
         hasKeyOnDevice={hasKey}
         onCopy={copy}
@@ -295,45 +394,72 @@ export default function APIPageClient() {
         // empty states
         onOpenCreate={keysApi.openCreateModal}
       />
-
-      {/* Remote access — tunnel + tailscale + security gates */}
-      {remoteStatus && (
-        <div
-          className={`flex items-center gap-2 px-3 py-2 rounded-[10px] border text-sm ${
-            remoteStatus.type === "error"
-              ? "border-red-300 dark:border-red-800 bg-red-500/5 text-red-600 dark:text-red-400"
-              : remoteStatus.type === "success"
-                ? "border-green-300 dark:border-green-800 bg-green-500/5 text-green-600 dark:text-green-400"
-                : "border-amber-300 dark:border-amber-800 bg-amber-500/5 text-amber-600 dark:text-amber-400"
-          }`}
-        >
-          <span className="material-symbols-outlined text-[16px]">
-            {remoteStatus.type === "error" ? "error" : remoteStatus.type === "success" ? "check_circle" : "warning"}
-          </span>
-          <span className="min-w-0">{remoteStatus.message}</span>
-          <button
-            onClick={() => setRemoteStatus(null)}
-            className="ml-auto p-1 rounded text-text-muted hover:text-text-main transition-colors"
-            aria-label={translate("Dismiss")}
-          >
-            <span className="material-symbols-outlined text-[14px]">close</span>
-          </button>
-        </div>
       )}
-      <RemoteAccessPanel
-        tunnel={tunnel}
-        tailscale={tailscale}
-        settings={settings}
-        copied={copied}
-        onCopy={copy}
-        baseUrl={baseUrl}
-      />
 
-      {/* Insights — computed nudges from the health snapshot */}
-      <InsightsCard items={insights} />
+      {/* Tools tab — remote access + security */}
+      {activeTab === "tools" && (
+        <>
+          <EndpointHero
+            baseUrl={baseUrl}
+            copied={copied}
+            onCopy={copy}
+            tunnelUrl={tunnel.tunnelUrl}
+            tunnelEnabled={tunnel.tunnelEnabled}
+            tsUrl={tailscale.tsUrl}
+            tsEnabled={tailscale.tsEnabled}
+            onTest={handleEndpointTest}
+            testing={testing}
+          />
+          {remoteStatus && (
+            <div
+              className={`flex items-center gap-2 px-3 py-2 rounded-[10px] border text-sm ${
+                remoteStatus.type === "error"
+                  ? "border-red-300 dark:border-red-800 bg-red-500/5 text-red-600 dark:text-red-400"
+                  : remoteStatus.type === "success"
+                    ? "border-green-300 dark:border-green-800 bg-green-500/5 text-green-600 dark:text-green-400"
+                    : "border-amber-300 dark:border-amber-800 bg-amber-500/5 text-amber-600 dark:text-amber-400"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">
+                {remoteStatus.type === "error" ? "error" : remoteStatus.type === "success" ? "check_circle" : "warning"}
+              </span>
+              <span className="min-w-0">{remoteStatus.message}</span>
+              <button
+                onClick={() => setRemoteStatus(null)}
+                className="ml-auto p-1 rounded text-text-muted hover:text-text-main transition-colors"
+                aria-label={translate("Dismiss")}
+              >
+                <span className="material-symbols-outlined text-[14px]">close</span>
+              </button>
+            </div>
+          )}
+          <RemoteAccessPanel
+            tunnel={tunnel}
+            tailscale={tailscale}
+            settings={settings}
+            copied={copied}
+            onCopy={copy}
+            baseUrl={baseUrl}
+          />
+        </>
+      )}
 
-      {/* Detail drawer */}
-      <KeyDrawer
+      {/* Audit tab — the mutation ledger */}
+      {activeTab === "audit" && (
+        <AuditLedger
+          ledger={keysApi.fleetLedger}
+          loading={false}
+          onSelectKey={(id) => {
+            facets.setFacets({ tab: "keys" });
+            keysApi.setActiveKeyId(id);
+          }}
+        />
+      )}
+
+      {/* Import deck — the Key Domain Ascension surface. */}
+
+      {/* Detail drawer — GovernanceDrawer v2 (tags + ledger + lifecycle) */}
+      <GovernanceDrawer
         rowKey={keysApi.keys.find((k) => k.id === keysApi.activeKeyId)}
         usage={keysApi.activeKeyId ? keysApi.keyUsage[keysApi.activeKeyId] : null}
         health={keysApi.activeKeyId ? keysApi.health?.keys?.[keysApi.activeKeyId] : null}
@@ -357,6 +483,13 @@ export default function APIPageClient() {
         busy={!!keysApi.busyId}
         activity={keysApi.activeKeyId ? keysApi.keyActivity[keysApi.activeKeyId] : null}
         activityLoading={keysApi.activityLoading}
+        // W3a governance surfaces
+        tags={keysApi.activeKeyId ? (keysApi.keyTags[keysApi.activeKeyId] || []) : []}
+        onAddTag={(tag) => keysApi.activeKeyId && keysApi.handleAddTag(keysApi.activeKeyId, tag)}
+        onRemoveTag={(tag) => keysApi.activeKeyId && keysApi.handleRemoveTag(keysApi.activeKeyId, tag)}
+        ledger={keysApi.activeKeyId ? (keysApi.keyLedger[keysApi.activeKeyId] || []) : []}
+        ledgerLoading={false}
+        serverNow={serverNowMs()}
       />
 
       {/* Create + edit modals */}
@@ -377,6 +510,7 @@ export default function APIPageClient() {
           allowedCombos: keysApi.newKeyCombos,
           limits: keysApi.createLimits,
           modelAliases: keysApi.modelAliases,
+          requestCapDaily: keysApi.newKeyRequestCap,
         }}
         setForm={(patch) => {
           if (patch.name !== undefined) keysApi.setNewKeyName(patch.name);
@@ -388,6 +522,7 @@ export default function APIPageClient() {
           if (patch.allowedProviders !== undefined) keysApi.setNewKeyProviders(patch.allowedProviders);
           if (patch.allowedCombos !== undefined) keysApi.setNewKeyCombos(patch.allowedCombos);
           if (patch.limits !== undefined) keysApi.setCreateLimits(patch.limits);
+          if (patch.requestCapDaily !== undefined) keysApi.setNewKeyRequestCap(patch.requestCapDaily);
         }}
         onScopeToggle={(checked) => {
           keysApi.setNewKeyScopeOn(checked);
@@ -398,6 +533,7 @@ export default function APIPageClient() {
         onCreate={keysApi.handleCreateKey}
         error={keysApi.createError}
         categories={keysApi.categories}
+        keyCount={keyCategoryCounts}
         combos={keysApi.combos}
       />
       <KeyEditModal
@@ -413,6 +549,10 @@ export default function APIPageClient() {
         }
         modelAliases={keysApi.modelAliases}
         combos={keysApi.combos}
+        modeOptions={keysApi.labModes}
+        injectorOptions={keysApi.labInjectors}
+        categories={keysApi.categories}
+        keyCount={keyCategoryCounts}
       />
 
       {/* Grouped model-scope picker — same ModelSelectModal the combos use.
@@ -473,6 +613,31 @@ export default function APIPageClient() {
             setPendingRevealAcked(false);
           }
         }}
+      />
+
+      {/* MintWizard — template-driven create (W3a) */}
+      <MintWizard
+        open={keysApi.mintWizardOpen}
+        onClose={() => keysApi.setMintWizardOpen(false)}
+        templates={keysApi.templates}
+        templatesLoading={keysApi.templatesLoading}
+        onMint={keysApi.handleMintFromTemplate}
+        categories={keysApi.categories}
+      />
+
+      {/* CommandPalette — ⌘K quick navigation (W3a) */}
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        commands={commandList}
+        onRunCommand={(cmd) => cmd?.run?.()}
+      />
+
+      {/* Key Domain Ascension modals — import */}
+      <ImportModal
+        open={keysApi.importOpen}
+        onClose={() => keysApi.setImportOpen(false)}
+        onImport={keysApi.handleImportKeys}
       />
 
       {/* Confirm Modal — pause/resume/rotate/delete + bulk flows */}

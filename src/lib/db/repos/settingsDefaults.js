@@ -66,6 +66,11 @@ export const DEFAULT_SETTINGS = {
   pxpipeAutoInstall: true,
   pxpipeMinChars: 25000,
   pxpipeTimeoutMs: 15000,
+  // AI Lab (v0.9.26) — named mode bundles (per-request selection) + response
+  // content-policy profiles. Empty by default; the Lab surface is inert until
+  // the operator composes one.
+  modeBundles: [],
+  contentPolicies: [],
   // Usage Observatory W3-C — budget alert channels. Webhook URLs are
   // operator-supplied and secret-bearing (a Discord webhook URL carries a
   // token) — the delivery layer never logs them.

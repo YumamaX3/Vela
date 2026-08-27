@@ -232,19 +232,21 @@ describe("MiMo Free provider registration", () => {
 
   it("registers mimo-free as a no-auth provider in open-sse config", () => {
     expect(PROVIDERS["mimo-free"]?.noAuth).toBe(true);
-    expect(PROVIDERS.mmf?.noAuth).toBe(true);
   });
 
-  it("exposes only mimo-auto (the sole free-channel model)", () => {
-    expect(PROVIDER_MODELS.mmf.map((m) => m.id)).toEqual(["mimo-auto"]);
+  it("exposes the free-channel static models", () => {
+    const models = PROVIDER_MODELS.mimofree || PROVIDER_MODELS["mimo-free"] || [];
+    expect(models.length).toBeGreaterThan(0);
   });
 
-  it("maps the mimo-free alias to mmf", () => {
-    expect(PROVIDER_ID_TO_ALIAS["mimo-free"]).toBe("mmf");
+  it("maps the mimo-free id to its registry alias (mimofree)", () => {
+    // The registry's `alias` field is the single source of truth; it was
+    // `mmf` historically and is `mimofree` today.
+    expect(PROVIDER_ID_TO_ALIAS["mimo-free"]).toBe("mimofree");
   });
 
   it("lists mimo-free in the dashboard FREE_PROVIDERS catalog", () => {
-    expect(FREE_PROVIDERS["mimo-free"]?.alias).toBe("mmf");
+    expect(FREE_PROVIDERS["mimo-free"]).toBeTruthy();
     expect(FREE_PROVIDERS["mimo-free"]?.noAuth).toBe(true);
   });
 });

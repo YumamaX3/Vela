@@ -677,6 +677,16 @@ export class KiroExecutor extends BaseExecutor {
       });
       options.onTerminalState?.(detail);
       controller.enqueue(encodeSSEError(code, message, detail));
+      // Close the stream after the error frame — a terminal failure must end
+      // the turn, not leave the reader hanging on the stall timeout (the
+      // integrity gate's second read would block up to STALL_TIMEOUT_MS).
+      // Idempotent: callers (finish/read-loop catch) may close again after
+      // fail() returns; a second close on an already-closed controller throws.
+      try {
+        controller.close();
+      } catch {
+        // already closed — the error frame already reached the reader
+      }
     };
     const assertToolBufferBound = () => {
       if (state.bufferedToolBytes <= (options.maxToolBytes || KIRO_REPAIR_BUFFER_MAX_BYTES / 2)) return;
@@ -1144,7 +1154,7 @@ export class KiroExecutor extends BaseExecutor {
             }
           }
           finish(controller);
-          controller.close();
+          try { controller.close(); } catch { /* fail() may have closed already */ }
         } catch (error) {
           if (!state.finished) {
             fail(
@@ -1155,7 +1165,7 @@ export class KiroExecutor extends BaseExecutor {
               { transport_state: "upstream_error" }
             );
           }
-          controller.close();
+          try { controller.close(); } catch { /* fail() may have closed already */ }
         }
       },
       cancel(reason) {

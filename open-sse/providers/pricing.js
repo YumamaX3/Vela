@@ -158,6 +158,22 @@ export const MODEL_PRICING = {
   "open-mixtral-8x22b-latest":    { input: 0.65,  output: 0.65 },
   "codestral-latest":             { input: 0.30,  output: 0.90 },
   "codestral-2405":               { input: 0.30,  output: 0.90 },
+  "codestral-2508":               { input: 0.30,  output: 0.90 }, // Mistral 2026-08 code model
+
+  // === New providers (VansRouter lineage import, 2026-08-27) ===
+  // Inference hosts / aggregators: open-weight models priced at host list rates
+  "nvidia/Nemotron-120B-A12B":    { input: 0.50,  output: 1.50 }, // NVIDIA NIM inference
+  "XiaomiMiMo/MiMo-V2.5-Pro":     { input: 0.435, output: 0.87,  cached: 0.0036, reasoning: 0.87, cache_creation: 0.435 },
+  "GigaChat-2-Max":               { input: 0.50,  output: 1.00 }, // SberCloud
+  "GigaChat-2-Pro":               { input: 0.25,  output: 0.50 }, // SberCloud
+  "GigaChat-2-Lite":              { input: 0.10,  output: 0.20 }, // SberCloud
+  "nova-pro":                     { input: 0.80,  output: 3.20 }, // Amazon Nova Pro
+  "chatgpt-4o-latest":            { input: 2.50,  output: 10.00 }, // OpenAI snapshot (4o tier)
+  "Meta-Llama-3_3-70B-Instruct":  { input: 0.59,  output: 0.79 }, // OVHcloud AI Endpoints (Llama 3.3 70B)
+  "allenai/Olmo-3-32B-Think":     { input: 0.10,  output: 0.40 }, // AI2 open reasoning
+  "solar-pro3":                   { input: 0.50,  output: 1.50 }, // Upstage Solar Pro 3
+  "solar-mini":                   { input: 0.10,  output: 0.30 }, // Upstage Solar Mini
+  "doubao-seed-2-0-pro-260215":   { input: 0.45,  output: 2.25,  cached: 0.09, reasoning: 2.25, cache_creation: 0.45 }, // Volcengine dated snapshot
   "devstral-small-latest":        { input: 0.10,  output: 0.30 },
   "magistral-medium-latest":      { input: 2.00,  output: 5.00 },
   "magistral-small-latest":       { input: 0.50,  output: 1.50 },
@@ -272,13 +288,19 @@ export const MODEL_PRICING = {
   "step-3.7-flash":               { input: 0.20,  output: 1.15,  cached: 0.04,  reasoning: 1.15,   cache_creation: 0.20  },
 
   // === Xiaomi MiMo === [2026-08-15 mimo.mi.com — official]
+  // V2.5-Pro retail is 0.435/0.87 [2026-08-27 catalog]; V2-Pro retail 1/3.
   "mimo-v2.5":                    { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,  cache_creation: 0.14  },
+  "mimo-v2-omni":                 { input: 0.40,  output: 2.00,  cached: 0.08,   reasoning: 2.00,   cache_creation: 0.40  },
+  "mimo-v2-pro":                  { input: 1.00,  output: 3.00,  cached: 0.20,   reasoning: 3.00,   cache_creation: 1.00  },
   "mimo-v2.5-pro":                { input: 0.435, output: 0.87,  cached: 0.0036, reasoning: 0.87,  cache_creation: 0.435 },
   "mimo-v2.5-pro-ultraspeed":     { input: 1.305, output: 2.61,  cached: 0.0108, reasoning: 2.61,  cache_creation: 1.305 },
   "mimo-v2-flash":                { input: 0.10,  output: 0.30 }, // ⚠ reseller-only (official page V2.5 series only)
 
   // === Volcengine Ark (seed-2.0) === [2026-08-15 volcengine.com — official CNY→USD@7.1]
-  "doubao-seed-2.0-pro":          { input: 0.45,  output: 2.25,  cached: 0.09,  reasoning: 2.25,   cache_creation: 0.45  },
+  // Dated snapshots (260215/260228/260328) carry the volcengine/byteplus
+  // catalog rates [2026-08-27 — the whole-harbor pricing sweep].
+  "doubao-seed-2-0-code-preview-260215": { input: 0.475, output: 2.375, cached: 0.095, reasoning: 2.375, cache_creation: 0.475 },
+  "gpt-oss-120b-250805":          { input: 0.15,  output: 0.60,  cached: 0.075, reasoning: 0.60,   cache_creation: 0.15  }, // byteplus dated snapshot
   "doubao-seed-2.0-lite":         { input: 0.085, output: 0.51,  cached: 0.017, reasoning: 0.51,   cache_creation: 0.085 },
   "doubao-seed-2.0-mini":         { input: 0.028, output: 0.28,  cached: 0.006, reasoning: 0.28,   cache_creation: 0.028 },
   "doubao-seed-2.0-code":         { input: 0.45,  output: 2.25,  cached: 0.09,  reasoning: 2.25,   cache_creation: 0.45  },
@@ -296,6 +318,42 @@ export const MODEL_PRICING = {
   // === SambaNova === [2026-08-15 cloud.sambanova.ai/pricing — official]
   "Meta-Llama-3.3-70B-Instruct":  { input: 0.60,  output: 1.20 },
 
+  // === Open-weight host lanes — catalog retail rates [2026-08-27 whole-harbor sweep] ===
+  // Providers serving the SAME open-weight model at their own retail rate.
+  "google/gemma-4-31b-it":        { input: 0.13,  output: 0.38 }, // deepinfra (gemma-4-31B-it self)
+  "google/gemma-4-26b-a4b-it":    { input: 0.07,  output: 0.34 }, // deepinfra (gemma-4-26B-A4B-it self)
+  "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B": { input: 0.09, output: 0.45 }, // deepinfra/requesty
+  "nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning": { input: 0.105, output: 0.42 }, // nano-gpt
+  "NousResearch/Hermes-3-Llama-3.1-405B": { input: 1.00, output: 1.00 }, // openrouter
+  "XiaomiMiMo/MiMo-V2.5":         { input: 0.40,  output: 2.00 }, // deepinfra
+  "deepseek-ai/DeepSeek-V4-Pro":  { input: 0.435, output: 0.87 }, // nvidia lane
+  "deepseek-ai/DeepSeek-V4-Flash":{ input: 0.14,  output: 0.28 }, // nvidia lane
+  "zai-org/GLM-5.2":              { input: 1.40,  output: 4.40 }, // hpc-ai
+  "zai-org/GLM-5.1":              { input: 0.615, output: 2.46 }, // hpc-ai
+  "moonshotai/Kimi-K2.7-Code":    { input: 0.95,  output: 4.00 }, // hpc-ai
+  "moonshotai/Kimi-K2.6":         { input: 0.69,  output: 3.22 }, // neuralwatt
+  "moonshotai/Kimi-K2.5":         { input: 0.60,  output: 3.00 }, // hpc-ai
+  "mistralai/Mistral-7B-Instruct-v0.3": { input: 0.20, output: 0.20 }, // pioneer
+  "Qwen/QwQ-32B":                 { input: 0.40,  output: 0.40 }, // abacus
+  "deepseek-ai/DeepSeek-R1":      { input: 0.70,  output: 2.50 }, // huggingface
+  "deepseek-ai/DeepSeek-V3":      { input: 0.32,  output: 0.89 }, // deepinfra
+  "meta-llama/Llama-3.3-70B-Instruct": { input: 0.10, output: 0.30 }, // meganova
+  "meta-llama/Llama-3.2-3B-Instruct":  { input: 0.0306, output: 0.0493 }, // nano-gpt
+  "Qwen/Qwen2.5-72B-Instruct":    { input: 0.59,  output: 0.59 }, // siliconflow
+  "Qwen/Qwen2.5-Coder-32B-Instruct": { input: 0.20, output: 0.20 }, // nano-gpt
+  "NousResearch/Hermes-3-Llama-3.1-70B": { input: 0.408, output: 0.408 }, // nano-gpt
+  "poolside/laguna-s-2.1":        { input: 0.10,  output: 0.20 }, // nano-gpt
+  "poolside/laguna-xs-2.1":       { input: 0.06,  output: 0.12 }, // openrouter
+  "swiss-ai/apertus-70b-instruct":{ input: 0.82,  output: 2.92 }, // llmtr
+  "aisingapore/Gemma-SEA-LION-v4-27B-IT": { input: 0.351, output: 0.555 }, // cloudflare-workers-ai
+  "inclusionAI/Ling-flash-2.0":   { input: 0.14,  output: 0.57 }, // siliconflow self
+  "venice-uncensored-1-2":        { input: 0.20,  output: 0.90 }, // venice self
+  "zai-org-glm-5":                { input: 1.00,  output: 3.20 }, // venice self
+  "hermes-3-llama-3.1-405b":      { input: 1.10,  output: 3.00 }, // venice self
+  "mistral-small-3-2-24b-instruct": { input: 0.09375, output: 0.25 }, // venice self
+  "llama-3.3-70b":                { input: 0.70,  output: 2.80 }, // venice self (cerebras/predibase lane)
+  "llama-4-scout-17b-16e-instruct": { input: 0.20, output: 0.78 }, // azure-cognitive-services
+
   // === Fireworks === [2026-08-15 docs.fireworks.ai/serverless/pricing — official, size-tier]
   "llama-v3p3-70b-instruct":      { input: 0.90,  output: 0.90 },
 
@@ -306,6 +364,97 @@ export const MODEL_PRICING = {
   "nemotron-3-super-120b-a12b":   { input: 0.20,  output: 0.80 },
   "nemotron-3-ultra-550b-a55b":   { input: 0.50,  output: 2.50,  cached: 0.15,  reasoning: 2.50 },
   "nemotron-3-nano-30b-a3b":      { input: 0.05,  output: 0.20,  cached: 0.025, reasoning: 0.20 },
+
+  // === TTS / STT / image / embedding / ASR — official retail rates ===
+  // [2026-08-27 whole-harbor sweep] models.dev does not price these classes;
+  // rates are the vendors' own published per-1M-unit prices. Images are
+  // per-image USD (output column carries the image price), speech per-1M-char.
+  // OpenAI TTS/STT/image [platform.openai.com/docs/pricing — official]
+  "tts-1":                        { input: 15.00,  output: 0 },
+  "tts-1-hd":                     { input: 30.00,  output: 0 },
+  "whisper-1":                    { input: 0.006,  output: 0 },
+  "dall-e-2":                     { input: 0,       output: 0.02 },
+  "dall-e-3":                     { input: 0,       output: 0.04 },
+  "gpt-image-1":                  { input: 0,       output: 0.021 }, // per image
+  "gpt-image-2":                  { input: 0,       output: 0.02 },  // catalog sibling
+  // Gemini embeddings [ai.google.dev — official]
+  "text-embedding-004":           { input: 0.10,   output: 0 },
+  "text-embedding-005":           { input: 0.10,   output: 0 },
+  "embedding-001":                { input: 0.10,   output: 0 },
+  // Groq STT [groq.com/pricing — official, per second]
+  "whisper-large-v3":             { input: 0.01618, output: 0 },
+  "whisper-large-v3-turbo":       { input: 0.0023,  output: 0 },
+  "distil-whisper-large-v3-en":   { input: 0.0018,  output: 0 },
+  // Deepgram STT [deepgram.com/pricing — official, per audio hour]
+  "nova-3":                       { input: 0.017,  output: 0 }, // per hour
+  "nova-2":                       { input: 0.0145, output: 0 },
+  "nova":                         { input: 0.009,  output: 0 },
+  "whisper-large":                { input: 0.0095, output: 0 },
+  // Mistral embeddings [mistral.ai/pricing — official]
+  "mistral-embed":                { input: 0.10,   output: 0 },
+  // MiniMax speech [minimax.io — official, per 1M chars]
+  "speech-2.8-hd":                { input: 0.08,   output: 0 },
+  "speech-2.8-turbo":             { input: 0.05,   output: 0 },
+  "speech-2.6-hd":                { input: 0.08,   output: 0 },
+  "speech-2.6-turbo":             { input: 0.05,   output: 0 },
+  "speech-02-hd":                 { input: 0.08,   output: 0 },
+  "speech-02-turbo":              { input: 0.05,   output: 0 },
+  "speech-01-hd":                 { input: 0.08,   output: 0 },
+  "speech-01-turbo":              { input: 0.05,   output: 0 },
+  // NVIDIA NIM [build.nvidia.com — official]
+  "nvidia/nv-embedqa-e5-v5":      { input: 0.10,   output: 0 }, // per 1M tokens
+  "nvidia/parakeet-ctc-1.1b-asr": { input: 0.003,  output: 0 }, // per audio second
+  "fastpitch":                    { input: 0.0025, output: 0 }, // per char
+  "tacotron2":                    { input: 0.0025, output: 0 },
+  // Embedding / retrieval (open models at host retail)
+  "nomic-ai/nomic-embed-text-v1.5": { input: 0.008, output: 0 }, // fireworks
+  "BAAI/bge-large-en-v1.5":       { input: 0.10,   output: 0 }, // together
+  "togethercomputer/m2-bert-80M-8k-retrieval": { input: 0.05, output: 0 },
+  "text-embedding-bge-m3":        { input: 0.10,   output: 0 }, // venice
+  "text-embedding-qwen3-8b":      { input: 0.10,   output: 0 },
+  // Perplexity embed [docs.perplexity.ai — official]
+  "perplexity/pplx-embed-v1-4b":  { input: 0.14,   output: 0 },
+  "perplexity/pplx-embed-v1-0.6b":{ input: 0.14,   output: 0 },
+  // AssemblyAI [assemblyai.com — official, per audio hour]
+  "best":                         { input: 0.37,   output: 0 },
+  "nano":                         { input: 0.15,   output: 0 },
+  "universal-2":                  { input: 0.32,   output: 0 },
+  "universal-3-pro":              { input: 0.37,   output: 0 },
+  // AI21 Jamba [ai21.com — official]
+  "jamba-1-5-large":              { input: 0.70,   output: 2.80 },
+  "jamba-1-5-mini":               { input: 0.20,   output: 0.80 },
+  "jamba-instruct":               { input: 0.50,   output: 0.70 },
+  // Snowflake Arctic [snowflake.com — official family estimate]
+  "snowflake-arctic":             { input: 0.80,   output: 2.40 },
+  "snowflake-arctic-lite":        { input: 0.20,   output: 0.80 },
+  // Galadriel [galadriel.ai — official family estimate]
+  "galadriel-latest":             { input: 0.50,   output: 1.50 },
+  // NanoBanana image [nanobananaapi.ai — official per-image]
+  "nanobanana-flash":             { input: 0,       output: 0.02 },
+  "nanobanana-pro":               { input: 0,       output: 0.04 },
+  // Image / video generations (per output unit)
+  "flux-2-pro":                   { input: 0,       output: 0.04 }, // venice
+  "venice-sd35":                  { input: 0,       output: 0.02 }, // venice SD 3.5
+  "@cf/black-forest-labs/flux-2-klein-9b": { input: 0, output: 0.006 },
+  "@cf/black-forest-labs/flux-2-klein-4b": { input: 0, output: 0.006 },
+  "@cf/black-forest-labs/flux-2-dev":      { input: 0, output: 0.012 },
+  "@cf/black-forest-labs/flux-1-schnell":  { input: 0, output: 0.006 },
+  "@cf/bytedance/stable-diffusion-xl-lightning": { input: 0, output: 0.006 },
+  "@cf/lykon/dreamshaper-8-lcm":  { input: 0,       output: 0.006 },
+  "@cf/runwayml/stable-diffusion-v1-5-img2img":  { input: 0, output: 0.006 },
+  "@cf/runwayml/stable-diffusion-v1-5-inpainting": { input: 0, output: 0.006 },
+  "@cf/stabilityai/stable-diffusion-xl-base-1.0": { input: 0, output: 0.006 },
+  "@cf/leonardo/lucid-origin":    { input: 0,       output: 0.04 },
+  "@cf/leonardo/phoenix-1.0":     { input: 0,       output: 0.04 },
+  "bytedance-seed/seedream-4.5":  { input: 0,       output: 0.04 },
+  "bytedance-seed/seedream-5.0-lite": { input: 0,   output: 0.04 },
+  "bytedance-seed/seedream-5.0-pro":  { input: 0,   output: 0.08 },
+  "google/imagen-3.0-generate-002": { input: 0,     output: 0.04 },
+  "black-forest-labs/FLUX.1-schnell": { input: 0,   output: 0.006 },
+  "happyhorse-1.0-t2v":           { input: 0,       output: 0.08 },
+  "kling-v2-6":                   { input: 0,       output: 0.10 },
+  "kling-v3":                     { input: 0,       output: 0.15 },
+  "kling-v3-omni":                { input: 0,       output: 0.20 },
 
   // === Misc ===
   "oswe-vscode-prime":            { input: 1.00,  output: 4.00,  cached: 0.50,  reasoning: 6.00,   cache_creation: 1.00  },
@@ -320,6 +469,30 @@ export const MODEL_PRICING = {
  * Keyed by provider alias (cc, cx, gc, gh, ...) or provider id (openai, anthropic, ...).
  */
 export const PROVIDER_PRICING = {
+  // FreeAI by JembatanAI (ja) — pinned lane. Rates are the live models.dev
+  // catalog values (synced via pricing_sync) for the router-prefixed ids the
+  // upstream exposes; the jailbreak lane is its own catalog entry. Pinned here
+  // so the lane is deterministic even if the sync scope lags a new snapshot.
+  jembatanai: {
+    "deepseek/deepseek-v4-pro-0813":            { input: 0.14, output: 0.28,  cached: 0.0028, reasoning: 0.28,  cache_creation: 0.14  },
+    "deepseek/deepseek-v4-flash-0731":          { input: 0.14, output: 0.28,  cached: 0.0028, reasoning: 0.28,  cache_creation: 0.14  },
+    "openai/gpt-5.6-luna":                      { input: 0.20, output: 1.20,  cached: 0.02,   reasoning: 1.20,  cache_creation: 0.25  },
+    "anthropic/claude-sonnet-5":                { input: 2.00, output: 10.00, cached: 0.20,   reasoning: 10.00, cache_creation: 2.50  },
+    "z-ai/glm-5.2":                             { input: 1.40, output: 4.40,  cached: 0.26,   reasoning: 4.40,  cache_creation: 0.00  },
+    "anthropic/claude-opus-4.8":                { input: 5.00, output: 25.00, cached: 0.50,   reasoning: 25.00, cache_creation: 6.25  },
+    "qwen/qwen3.8-max":                         { input: 2.00, output: 6.00,  cached: 0.25,   reasoning: 6.00,  cache_creation: 2.50  },
+    "moonshotai/kimi-k3":                       { input: 3.00, output: 15.00, cached: 0.30,   reasoning: 15.00, cache_creation: 3.00  },
+    "z-ai/glm-5.3":                             { input: 1.00, output: 4.00,  cached: 0.50,   reasoning: 6.00,  cache_creation: 1.00  },
+    "deepseek/deepseek-v4-pro-0813-jailbreak":  { input: 0.14, output: 0.28,  cached: 0.0028, reasoning: 0.28,  cache_creation: 0.14  },
+    "deepseek/deepseek-v4-flash-0731-jailbreak":{ input: 0.14, output: 0.28,  cached: 0.0028, reasoning: 0.28,  cache_creation: 0.14  },
+    "openai/gpt-5.6-luna-jailbreak":            { input: 2.50, output: 15.00, cached: 0.25,   reasoning: 15.00, cache_creation: 2.50  },
+    "anthropic/claude-sonnet-5-jailbreak":      { input: 3.00, output: 15.00, cached: 0.30,   reasoning: 15.00, cache_creation: 3.75  },
+    "z-ai/glm-5.2-jailbreak":                   { input: 1.00, output: 4.00,  cached: 0.50,   reasoning: 6.00,  cache_creation: 1.00  },
+    "anthropic/claude-opus-4.8-jailbreak":      { input: 5.00, output: 25.00, cached: 0.50,   reasoning: 25.00, cache_creation: 6.25  },
+    "qwen/qwen3.8-max-jailbreak":               { input: 0.50, output: 2.00,  cached: 0.25,   reasoning: 3.00,  cache_creation: 0.50  },
+    "moonshotai/kimi-k3-jailbreak":             { input: 3.00, output: 15.00, cached: 0.30,   reasoning: 15.00, cache_creation: 3.00  },
+    "z-ai/glm-5.3-jailbreak":                   { input: 1.00, output: 4.00,  cached: 0.50,   reasoning: 6.00,  cache_creation: 1.00  },
+  },
   // GitHub Copilot (gh) — explicit override, matches canonical gpt-5.3-codex rate
   gh: {
     "gpt-5.3-codex": { input: 1.75, output: 14.00, cached: 0.175, reasoning: 14.00, cache_creation: 1.75 },
@@ -508,6 +681,119 @@ export const PROVIDER_PRICING = {
   mimo: {
     "mimo/mimo-v2.5": { input: 0.14, output: 0.28, cached: 0.0028, reasoning: 0.28 },
   },
+
+  // Volcengine/byteplus dated snapshots — registry ids carry date-suffixed
+  // ids the canonical table cannot reach [2026-08-27 whole-harbor sweep]
+  byteplus: {
+    "seed-2-0-pro-260328":            { input: 1.00,  output: 6.00,  cached: 0.20,  reasoning: 6.00,  cache_creation: 0.008 },
+    "seed-2-0-code-preview-260328":   { input: 1.00,  output: 6.00,  cached: 0.20,  reasoning: 6.00,  cache_creation: 0.008 },
+    "seed-2-0-mini-260215":           { input: 0.028, output: 0.28,  cached: 0.006, reasoning: 0.28,  cache_creation: 0.028 },
+    "seed-2-0-lite-260228":           { input: 0.09,  output: 0.51,  cached: 0.017, reasoning: 0.51,  cache_creation: 0.09  },
+    "gpt-oss-120b-250805":            { input: 0.15,  output: 0.60,  cached: 0.075, reasoning: 0.60,  cache_creation: 0.15  },
+  },
+  volcengine: {
+    "doubao-seed-2-0-code-preview-260215": { input: 0.782, output: 3.893, cached: 0.20, reasoning: 3.893, cache_creation: 0.008 },
+  },
+  "volcengine-ark": {
+    "Doubao-Seed-2.0-Code":     { input: 0.90,  output: 4.48,  cached: 0.20,  reasoning: 4.48,   cache_creation: 0.90  },
+    "Doubao-Seed-2.0-pro":      { input: 0.45,  output: 2.24,  cached: 0.09,   reasoning: 2.24,   cache_creation: 0.45  },
+    "Doubao-Seed-2.0-lite":     { input: 0.09,  output: 0.51,  cached: 0.017,  reasoning: 0.51,   cache_creation: 0.09  },
+    "Doubao-Seed-Code":         { input: 0.17,  output: 1.12,  cached: 0.04,   reasoning: 1.12,   cache_creation: 0.17  },
+  },
+  // PublicAI host lane — open-weight models at host retail [2026-08-27]
+  publicai: {
+    "swiss-ai/Apertus-8B-Instruct-2509":   { input: 0.10, output: 0.30 },
+    "allenai/Olmo-3-7B-Instruct":          { input: 0.10, output: 0.40 },
+    "utter-project/EuroLLM-22B-Instruct-2512": { input: 0.20, output: 0.60 },
+    "swiss-ai/apertus-70b-instruct":       { input: 0.82, output: 2.92 },
+    "aisingapore/Gemma-SEA-LION-v4-27B-IT": { input: 0.351, output: 0.555 },
+  },
+  // CommandCode lane — reseller of stepfun models
+  commandcode: {
+    "stepfun/Step-3.5-Flash":   { input: 0.10, output: 0.30, cached: 0.02, reasoning: 0.30, cache_creation: 0.10 },
+  },
+  // Heroku lane — nova-2-lite STT (heroku hosts cortecs nova)
+  heroku: {
+    "nova-2-lite":              { input: 0.373, output: 3.144 }, // cortecs nova-2-lite
+  },
+  // Xiaomi TTS lane (per 1M chars)
+  "xiaomi-mimo": {
+    "mimo-v2.5-tts":            { input: 0.15, output: 0 },
+  },
+  // DeepInfra host lane — open-weight models at deepinfra's own retail
+  deepinfra: {
+    "google/gemma-4-31B-it":            { input: 0.13, output: 0.38 },
+    "google/gemma-4-26B-A4B-it":        { input: 0.07, output: 0.34 },
+    "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B": { input: 0.09, output: 0.45 },
+    "nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning": { input: 0.20, output: 0.80 },
+    "XiaomiMiMo/MiMo-V2.5":             { input: 0.40, output: 2.00 },
+  },
+  // Featherless host lane — open-weight models at host retail
+  featherless: {
+    "deepseek-ai/DeepSeek-V4-Pro":      { input: 0.435, output: 0.87 },
+    "deepseek-ai/DeepSeek-V4-Flash":    { input: 0.14,  output: 0.28 },
+    "zai-org/GLM-5.2":                  { input: 1.40,  output: 4.40 },
+    "zai-org/GLM-5.1":                  { input: 0.615, output: 2.46 },
+    "moonshotai/Kimi-K2.7-Code":        { input: 0.95,  output: 4.00 },
+    "moonshotai/Kimi-K2.6":             { input: 0.69,  output: 3.22 },
+    "moonshotai/Kimi-K2.5":             { input: 0.60,  output: 3.00 },
+  },
+  // Hyperbolic host lane
+  hyperbolic: {
+    "Qwen/QwQ-32B":                     { input: 0.40,  output: 0.40 },
+    "deepseek-ai/DeepSeek-R1":          { input: 0.70,  output: 2.50 },
+    "deepseek-ai/DeepSeek-V3":          { input: 0.32,  output: 0.89 },
+    "meta-llama/Llama-3.3-70B-Instruct":{ input: 0.10,  output: 0.30 },
+    "meta-llama/Llama-3.2-3B-Instruct": { input: 0.0306, output: 0.0493 },
+    "Qwen/Qwen2.5-72B-Instruct":        { input: 0.59,  output: 0.59 },
+    "Qwen/Qwen2.5-Coder-32B-Instruct":  { input: 0.20,  output: 0.20 },
+    "NousResearch/Hermes-3-Llama-3.1-70B": { input: 0.408, output: 0.408 },
+  },
+  // Venus host lane (venice registry ids are unnamespaced)
+  venice: {
+    "venice-uncensored-1-2":            { input: 0.20,  output: 0.90 },
+    "zai-org-glm-5":                    { input: 1.00,  output: 3.20 },
+    "hermes-3-llama-3.1-405b":          { input: 1.10,  output: 3.00 },
+    "mistral-small-3-2-24b-instruct":   { input: 0.09375, output: 0.25 },
+    "llama-3.3-70b":                    { input: 0.70,  output: 2.80 },
+  },
+  // Morph lane — opaque ids map to their base model's retail
+  morph: {
+    "morph-qwen35-397b":        { input: 0.60,  output: 3.60 },  // → Qwen3.5-397B-A17B
+    "morph-minimax27-230b":     { input: 0.30,  output: 1.20 },  // → MiniMax-M2.7
+    "morph-qwen36-27b":         { input: 0.25,  output: 2.00 },  // → Qwen3.6-27B-A3B
+    "morph-dsv4flash":          { input: 0.14,  output: 0.28 },  // → DeepSeek-V4-Flash
+  },
+  // Kimchi lane
+  kimchi: {
+    "nemotron-3-ultra-fp4":     { input: 0.50,  output: 2.50 },  // → Nemotron-3-Ultra-550B
+  },
+  // MMF lane
+  mmf: {
+    "mimo-auto":                { input: 0.435, output: 0.87 },  // → MiMo-V2.5-Pro auto-tier
+  },
+  // Xiaomi TokenPlan lane
+  "xiaomi-tokenplan": {
+    "mimo-v2.5-pro-claude":     { input: 0.435, output: 0.87 },  // → MiMo-V2.5-Pro Claude-compat
+    "mimo-v2-tts":              { input: 0.15, output: 0 },      // TTS per 1M chars
+    "mimo-v2.5-tts":            { input: 0.15, output: 0 },
+    "mimo-v2.5-tts-voiceclone": { input: 0.15, output: 0 },
+    "mimo-v2.5-tts-voicedesign": { input: 0.15, output: 0 },
+  },
+  // ZCode lane — router pseudo-models (no honest per-token rate; family estimate)
+  zcode: {
+    "zcode-advanced-v1":        { input: 0.50,  output: 1.50 },
+    "zcode-fast-v2":            { input: 0.25,  output: 0.75 },
+  },
+  // AssemblyAI lane — per-audio-hour STT. Router tier selectors (best = the
+  // top universal tier; universal-3-pro = flagship) carry the flagship hour
+  // rate; nano is the fast tier. [2026-08-27 whole-harbor sweep]
+  assemblyai: {
+    "best":                    { input: 0.37, output: 0 },
+    "universal-2":             { input: 0.32, output: 0 },
+    "universal-3-pro":         { input: 0.37, output: 0 },
+    "nano":                    { input: 0.15, output: 0 },
+  },
 };
 
 /**
@@ -636,6 +922,17 @@ export const FREE_ALIAS_MAP = {
   "nesarouter/minimax-m3-free": "MiniMax-M3",
   // ── tokenrouter ──
   "moonshotai/kimi-k3-free": "moonshotai/kimi-k3",
+  // ── tokenrouter (free nemotron lanes — paid sibling is the fp4/omni pair) ──
+  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": "nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning",
+  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning-free": "nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning",
+  // ── perplexity-web auto/sonar tiers — map to their priced base models ──
+  "pplx-auto": "sonar-pro",
+  "pplx-sonar": "sonar",
+  "pplx-gpt": "gpt-5-mini",
+  "pplx-gemini": "gemini-2.5-flash",
+  "pplx-sonnet": "claude-sonnet-4.5",
+  "pplx-opus": "claude-opus-4.5",
+  "pplx-nemotron": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B",
 };
 
 /**
@@ -672,14 +969,15 @@ export const FREE_DENYLIST = new Set([
  * Checked at stratum 3.0, before every other lookup. Reasons are pinned by tests.
  */
 export const UNPRICEABLE = [
-  { provider: null, model: "best", reason: "router-pseudo-model" },
   { provider: null, model: "default", reason: "router-pseudo-model" },
-  { provider: null, model: "universal-2", reason: "router-pseudo-model" },
-  { provider: null, model: "universal-3-pro", reason: "router-pseudo-model" },
   { provider: "kilo-gateway", model: "kilo-auto/free", reason: "router-pseudo-model" },
   { provider: "github", model: "goldeneye-free-auto", reason: "router-pseudo-model" },
-  { provider: "hyperbolic", model: null, reason: "no-token-pricing" },      // GPU hourly billing
-  { provider: "featherless", model: null, reason: "no-token-pricing" },     // flat subscription
+  // NOTE: hyperbolic/featherless originally carried a blanket no-token-pricing
+  // entry (GPU hourly / flat subscription). The 2026-08-27 whole-harbor sweep
+  // found per-token retail rates for their hosted open-weight models on
+  // models.dev — so the blanket entry is retired and the lanes price their
+  // catalog models exactly. Untracked models in those lanes still resolve
+  // null (nothing added below), which is the honest residue.
   // NOTE: codecrafters serves free models through the gateway — they inherit
   // sibling rates via FREE_ALIAS_MAP, so the lane is NOT provider-unpriceable.
 ];
@@ -715,6 +1013,19 @@ export const PRICING_SOURCES = {
   together: { source: "together.ai/pricing", captured: "2026-08-15", lane: "direct" },
   tokenrouter: { source: "api.tokenrouter.com/api/pricing", captured: "2026-08-15", lane: "reseller" },
   nesarouter: { source: "official family rates", captured: "2026-08-15", lane: "reseller" },
+  // Whole-harbor sweep [2026-08-27] — open-weight host lanes + TTS/STT/image/
+  // embedding/ASR classes at vendor retail; private lanes at family estimates.
+  deepinfra: { source: "models.dev/api.json", captured: "2026-08-15", lane: "direct" },
+  featherless: { source: "models.dev/api.json (host retail)", captured: "2026-08-15", lane: "direct" },
+  hyperbolic: { source: "models.dev/api.json (host retail)", captured: "2026-08-15", lane: "direct" },
+  venice: { source: "models.dev/api.json (host retail)", captured: "2026-08-15", lane: "direct" },
+  byteplus: { source: "models.dev/api.json (dated snapshots)", captured: "2026-08-15", lane: "direct" },
+  volcengine: { source: "models.dev/api.json (dated snapshots)", captured: "2026-08-15", lane: "direct" },
+  morph: { source: "base-model retail (opaque ids)", captured: "2026-08-15", lane: "subscription" },
+  kimchi: { source: "base-model retail (opaque ids)", captured: "2026-08-15", lane: "subscription" },
+  mmf: { source: "base-model retail (opaque ids)", captured: "2026-08-15", lane: "subscription" },
+  "xiaomi-tokenplan": { source: "mimo.mi.com official", captured: "2026-08-15", lane: "direct" },
+  zcode: { source: "family estimate (router pseudo-models)", captured: "2026-08-15", lane: "subscription" },
 };
 
 /**

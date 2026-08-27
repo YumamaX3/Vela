@@ -144,17 +144,41 @@ function PeriodSegmented({ value, onChange }) {
 const KPI_STYLES = {
   requests: "from-[#E56A4A] to-[#C7502F]",
   promptTokens: "from-[#6366F1] to-[#4338CA]",
+  cachedTokens: "from-[#14B8A6] to-[#0F766E]",
   completionTokens: "from-[#16A34A] to-[#15803D]",
   cost: "from-[#F59E0B] to-[#D97706]",
 };
 
 function KpiBand({ period }) {
   const { data: kpis, loading } = useMetrics("kpis", `period=${period}`);
+  // Realtime: after the initial fetch, re-read the same KPI endpoint on a
+  // light interval and swap the numbers in place — no page reload, no
+  // skeleton flicker. Cadence matches the SSE coalesced full-refresh (≥15s).
+  const [kpiFresh, setKpiFresh] = useState(null);
 
-  if (loading || !kpis) {
+  useEffect(() => {
+    let alive = true;
+    const id = setInterval(() => {
+      fetch(`/api/usage/metrics/kpis?period=${period}`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((fresh) => {
+          if (alive && fresh) setKpiFresh(fresh);
+        })
+        .catch(() => {});
+    }, 15_000);
+    return () => { alive = false; clearInterval(id); };
+  }, [period]);
+
+  // Period change → the polled snapshot belongs to the old window; drop it so
+  // the REST fetch's fresh period data renders immediately (no stale numbers).
+  useEffect(() => { setKpiFresh(null); }, [period]);
+
+  const kpisData = kpiFresh || kpis;
+
+  if (loading || !kpisData) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {[...Array(4)].map((_, i) => (
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        {[...Array(5)].map((_, i) => (
           <Card key={i} className="h-[118px] animate-pulse" />
         ))}
       </div>
@@ -166,42 +190,51 @@ function KpiBand({ period }) {
       key: "requests",
       icon: "bolt",
       label: "Requests",
-      value: kpis.requests?.value,
-      previous: kpis.requests?.previous,
-      sub: `${formatNumber(kpis.requests?.previous)} previous`,
+      value: kpisData.requests?.value,
+      previous: kpisData.requests?.previous,
+      sub: `${formatNumber(kpisData.requests?.previous)} previous`,
       format: (n) => Math.round(n).toLocaleString(),
     },
     {
       key: "promptTokens",
       icon: "input",
       label: "Input Tokens",
-      value: kpis.promptTokens?.value,
-      previous: kpis.promptTokens?.previous,
-      sub: `${formatNumber(kpis.promptTokens?.previous)} previous`,
+      value: kpisData.promptTokens?.value,
+      previous: kpisData.promptTokens?.previous,
+      sub: `${formatNumber(kpisData.promptTokens?.previous)} previous`,
+      format: (n) => formatNumber(n),
+    },
+    {
+      key: "cachedTokens",
+      icon: "database",
+      label: "Cached Tokens",
+      value: kpisData.cachedTokens?.value,
+      previous: kpisData.cachedTokens?.previous,
+      sub: `${formatNumber(kpisData.cachedTokens?.previous)} previous`,
       format: (n) => formatNumber(n),
     },
     {
       key: "completionTokens",
       icon: "output",
       label: "Output Tokens",
-      value: kpis.completionTokens?.value,
-      previous: kpis.completionTokens?.previous,
-      sub: `${formatNumber(kpis.completionTokens?.previous)} previous`,
+      value: kpisData.completionTokens?.value,
+      previous: kpisData.completionTokens?.previous,
+      sub: `${formatNumber(kpisData.completionTokens?.previous)} previous`,
       format: (n) => formatNumber(n),
     },
     {
       key: "cost",
       icon: "payments",
       label: "Est. Cost",
-      value: kpis.cost?.value,
-      previous: kpis.cost?.previous,
-      sub: perMtok(kpis),
+      value: kpisData.cost?.value,
+      previous: kpisData.cost?.previous,
+      sub: perMtok(kpisData),
       format: (n) => formatCost(n),
     },
   ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
       {cards.map((c) => {
         const diff = (c.value ?? 0) - (c.previous ?? 0);
         const pct =
@@ -395,8 +428,11 @@ function RankedList({ period, metric, dimension, title, subtitle, icon, valueFmt
 }
 
 // ── Live activity feed (SSE recentRequests) ─────────────────────────────────
+// The latest 14 rows of the SSE stream — a fixed window sized to the box so
+// no scrolling is needed (the feed dedupes to ≤20 upstream, so 14 keeps the
+// newest traffic always visible without the panel growing unbounded).
 function LiveActivity({ requests = [] }) {
-  const rows = (Array.isArray(requests) ? requests : []).slice(0, 7);
+  const rows = (Array.isArray(requests) ? requests : []).slice(0, 14);
 
   return (
     <Card
@@ -404,6 +440,7 @@ function LiveActivity({ requests = [] }) {
       subtitle="realtime via SSE"
       icon="stream"
       padding="md"
+      className="flex min-w-0 flex-col"
       action={
         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-success">
           <span className="relative flex h-2 w-2">
@@ -419,12 +456,12 @@ function LiveActivity({ requests = [] }) {
           Waiting for traffic…
         </p>
       ) : (
-        <div className="flex flex-col">
+        <div className="flex min-w-0 flex-col">
           {rows.map((r, i) => {
             const ok = !r.status || r.status === "ok" || r.status === "success";
             return (
               <div
-                key={i}
+                key={`${r.timestamp}-${i}-${r.model || ""}`}
                 className="flex items-center gap-2.5 border-b border-border-subtle py-2 last:border-b-0"
               >
                 <span
@@ -437,7 +474,7 @@ function LiveActivity({ requests = [] }) {
                 </span>
                 <span className="shrink-0 text-[11px] text-text-muted">{r.provider}</span>
                 <span className="ml-auto shrink-0 text-[11px] tabular-nums text-text-muted">
-                  {formatNumber(r.promptTokens)}↑ {formatNumber(r.completionTokens)}↓
+                  {formatNumber(r.promptTokens)}↑ {formatNumber(r.cachedTokens)}◎ {formatNumber(r.completionTokens)}↓
                 </span>
                 <span className="w-7 shrink-0 text-right text-[11px] tabular-nums text-text-subtle">
                   {timeAgo(r.timestamp)}
@@ -462,7 +499,7 @@ export default function UsagePage() {
 
 function UsagePageInner() {
   const searchParams = useSearchParams();
-  const initialPeriod = searchParams?.get("period") || "7d";
+  const initialPeriod = searchParams?.get("period") || "today";
   const [period, setPeriod] = useState(initialPeriod);
 
   // Live stats (REST + SSE merge) — funds topology + live feed.

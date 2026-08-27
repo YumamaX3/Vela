@@ -19,6 +19,8 @@ export const getUsageDailySince = bound.getUsageDailySince;
 export const getChartData = bound.getChartData;
 export const appendRequestLog = bound.appendRequestLog;
 export const getRecentLogs = bound.getRecentLogs;
+// AI Lab Observe tab (v0.9.26) — recent usage ids for the wire viewer.
+export const getRecentUsageIds = bound.getRecentUsageIds;
 // Usage Observatory W1-C — the 7-function aggregation layer (sealed plan
 // item 4). getExportCursor returns the async iterator; under the mysql
 // posture the bind wrapper makes it a Promise OF the iterator, so callers

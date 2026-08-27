@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import { deleteApiKey, getApiKeyById, updateApiKey, KeyLimitsValidationError, sanitizeCategory } from "@/lib/localDb";
-import { generateApiKey } from "@/shared/utils/apiKey";
-import { getAdapter } from "@/lib/db/driver.js";
+import { deleteWithScrub, revokeApiKey, getApiKeyById, updateApiKey, KeyLimitsValidationError, sanitizeCategory } from "@/lib/localDb";
+import { rotateKey } from "@/lib/keys/mintService.js";
+// W0 ledger seam (Key Domain Ascension): previously-silent mutation surfaces
+// (pause/resume/expire-set/edit/revoke/delete) now write audit rows through
+// ONE chokepoint. Fail-open — an audit failure never fails the mutation.
+import { recordMutation, classifyPutSurface, summarizeUpdate } from "@/lib/keys/mutationLedger.js";
 
 // GET /api/keys/[id] — masked row (never the full key)
 export async function GET(request, { params }) {
@@ -33,16 +36,36 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: "Key not found" }, { status: 404 });
     }
 
-    // Rotate: revoke+mint with lineage. The OLD row is paused, its hash
-    // purged, and its rotation columns stamped; the NEW row inherits every
-    // governance field (limits/ACL/category) and carries rotatedFrom = old id.
-    // The new key rides the 201 show-once contract — never returned again.
+    // Rotate: revoke+mint with lineage through the SINGLE chokepoint
+    // (rotateKey) — write-before-commit reveal-sink, S4 rotation-grace
+    // (predecessorHash captured from the RAW row), append-only ledger. The
+    // new key rides the 201 show-once contract — never returned again.
     if (body.action === "rotate") {
-      const created = await rotateApiKey(existing, body);
-      if (created.error) {
-        return NextResponse.json({ error: created.error }, { status: 400 });
+      const rotated = await rotateKey(existing);
+      if (rotated.status !== 201) {
+        return NextResponse.json({ error: rotated.detail || rotated.error || "Failed to rotate key" }, { status: rotated.status === 500 ? 500 : 400 });
       }
-      return NextResponse.json(created.payload, { status: 201 });
+      const { key, keyId, keyPrefix, record, meta } = rotated.envelope;
+      return NextResponse.json({
+        key,
+        keyId,
+        keyPrefix,
+        record,
+        rotatedFrom: existing.id,
+        meta,
+      }, { status: 201 });
+    }
+
+    // Revoke (lifecycle split, §1.3) — the row stays VISIBLE with its history
+    // (deletedAt NULL), the hash is purged. Distinct from DELETE (tombstone
+    // + tag scrub). No new key material is minted.
+    if (body.action === "revoke") {
+      const revoked = await revokeApiKey(id);
+      if (!revoked) {
+        return NextResponse.json({ error: "Key not found" }, { status: 404 });
+      }
+      await recordMutation({ request, surface: "revoke", keyId: id, outcome: "revoked_hash_purged" });
+      return NextResponse.json({ message: "Key revoked" });
     }
 
     const updateData = {};
@@ -55,7 +78,7 @@ export async function PUT(request, { params }) {
     if (body.description !== undefined) {
       updateData.description = typeof body.description === "string" ? body.description.trim() || null : null;
     }
-    for (const aclField of ["allowedModels", "allowedKinds", "allowedProviders", "allowedCombos"]) {
+    for (const aclField of ["allowedModels", "allowedKinds", "allowedProviders", "allowedCombos", "allowedModes", "allowedInjectors"]) {
       if (body[aclField] !== undefined) {
         if (body[aclField] != null) {
           if (!Array.isArray(body[aclField]) || body[aclField].some((m) => typeof m !== "string" || !m.trim())) {
@@ -66,6 +89,13 @@ export async function PUT(request, { params }) {
           updateData[aclField] = null; // unrestricted
         }
       }
+    }
+    // AI Lab (migration 017): defaultMode — a single mode name, or null to clear.
+    if (body.defaultMode !== undefined) {
+      if (body.defaultMode != null && typeof body.defaultMode !== "string") {
+        return NextResponse.json({ error: "defaultMode must be a string (a mode name) or null" }, { status: 400 });
+      }
+      updateData.defaultMode = body.defaultMode ? body.defaultMode.trim() || null : null;
     }
     if (body.isActive !== undefined) updateData.isActive = !!body.isActive;
     if (body.category !== undefined) {
@@ -90,6 +120,16 @@ export async function PUT(request, { params }) {
     if (!updated) {
       return NextResponse.json({ error: "Key not found" }, { status: 404 });
     }
+    // W0 ledger seam: the PUT path is the most-used mutation surface — name
+    // the op honestly (pause/resume/expire-set/edit) and record WHICH fields
+    // changed (never their values; ACL/IP fields are opaque by design).
+    await recordMutation({
+      request,
+      surface: classifyPutSurface(updateData),
+      keyId: id,
+      outcome: "updated",
+      detail: summarizeUpdate(updateData),
+    });
     return NextResponse.json({ key: updated });
   } catch (error) {
     if (error instanceof KeyLimitsValidationError) {
@@ -100,124 +140,24 @@ export async function PUT(request, { params }) {
   }
 }
 
-// DELETE /api/keys/[id] — soft-revoke (audit row kept; hash NULLed)
+// DELETE /api/keys/[id] — delete-with-scrub (lifecycle split, §1.3): soft
+// tombstone + tag purge in ONE transaction (Covenant M5). The audit row
+// survives (deletedAt set) but is hidden from default views.
 export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
 
-    const deleted = await deleteApiKey(id);
+    const deleted = await deleteWithScrub(id);
     if (!deleted) {
       return NextResponse.json({ error: "Key not found" }, { status: 404 });
     }
+    // W0 ledger seam: key destruction is the highest-risk mutation — the row
+    // survives (tombstoned), the hash is scrubbed, tags purged in-transaction.
+    await recordMutation({ request, surface: "delete", keyId: id, outcome: "deleted_scrubbed" });
 
     return NextResponse.json({ message: "Key deleted successfully" });
   } catch (error) {
     console.error("Error deleting key:", error?.message || error);
     return NextResponse.json({ error: "Failed to delete key" }, { status: 500 });
-  }
-}
-
-const ROTATION_GRACE_MS = 72 * 3600_000;
-
-/**
- * Revoke the existing key and mint its successor in one transaction.
- * rotationPrevHash + rotationGraceUntil on the new row keep the OLD token
- * resolvable for a 72h grace window (resolveKey honors the slot) while the
- * old row itself is paused and hash-purged. isActive is NOT inherited — a
- * rotated key starts active by design.
- */
-async function rotateApiKey(existing, body) {
-  try {
-    const { key, keyId, keyHash, keyPrefix } = generateApiKey();
-    const now = new Date().toISOString();
-    const grace = new Date(Date.now() + ROTATION_GRACE_MS).toISOString();
-
-    const db = await getAdapter();
-    const row = db.get(`SELECT * FROM apiKeys WHERE id = ? AND isInternal = 0 AND deletedAt IS NULL`, [existing.id]);
-    if (!row) return { error: "Key not found" };
-
-    const createdAt = now;
-    db.transaction(() => {
-      // Old row: pause, purge hash, stamp lineage.
-      db.run(
-        `UPDATE apiKeys SET isActive = 0, keyHash = NULL, rotatedFrom = NULL, rotationPrevKeyId = ?, rotationGraceUntil = NULL WHERE id = ?`,
-        [keyId, existing.id]
-      );
-      // New row: inherit every governance field, carry the lineage.
-      db.run(
-        `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, description, allowedModels, allowedKinds, allowedProviders, allowedCombos, isInternal, rateLimitRpm, tokenBudgetDaily, spendCapDailyCents, budgetScope, expiresAt, ipAllowlist, category, rotatedFrom, rotationPrevHash, rotationPrevKeyId, rotationGraceUntil)
-         VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          keyId,
-          `vela-minted-${keyId}`,
-          existing.name || "Rotated API Key",
-          null,
-          createdAt,
-          "v1",
-          keyHash,
-          keyPrefix,
-          existing.description || null,
-          existing.allowedModels != null ? JSON.stringify(existing.allowedModels) : null,
-          existing.allowedKinds != null ? JSON.stringify(existing.allowedKinds) : null,
-          existing.allowedProviders != null ? JSON.stringify(existing.allowedProviders) : null,
-          existing.allowedCombos != null ? JSON.stringify(existing.allowedCombos) : null,
-          existing.rateLimitRpm ?? null,
-          existing.tokenBudgetDaily ?? null,
-          existing.spendCapDailyCents ?? null,
-          existing.budgetScope || null,
-          existing.expiresAt || null,
-          existing.ipAllowlist != null ? JSON.stringify(existing.ipAllowlist) : null,
-          existing.category || null,
-          existing.id,             // rotatedFrom — lineage to the old row
-          null,                    // rotationPrevHash — a fresh key has no predecessor of its own
-          existing.id,             // rotationPrevKeyId — the token being replaced
-          grace,                   // rotationGraceUntil — old token stays resolvable until then
-        ]
-      );
-    });
-
-    const record = db.get(`SELECT * FROM apiKeys WHERE id = ?`, [keyId]);
-    return {
-      payload: {
-        key, // one-time plaintext — show-once contract
-        keyId,
-        keyPrefix,
-        record: {
-          id: record.id,
-          name: record.name,
-          description: record.description || null,
-          keyPrefix: record.keyPrefix || null,
-          allowedModels: safeParse(record.allowedModels),
-          allowedKinds: safeParse(record.allowedKinds),
-          allowedProviders: safeParse(record.allowedProviders),
-          allowedCombos: safeParse(record.allowedCombos),
-          isActive: true,
-          isInternal: false,
-          createdAt: record.createdAt,
-          expiresAt: record.expiresAt || null,
-          lastUsedAt: null,
-          rotatedFrom: record.rotatedFrom || null,
-          tokenBudgetDaily: record.tokenBudgetDaily ?? null,
-          spendCapDailyCents: record.spendCapDailyCents ?? null,
-          budgetScope: record.budgetScope || null,
-          rateLimitRpm: record.rateLimitRpm ?? null,
-          ipAllowlist: safeParse(record.ipAllowlist),
-          category: record.category || null,
-        },
-        rotatedFrom: existing.id,
-      },
-    };
-  } catch (error) {
-    console.error("[API] Rotate failed:", error);
-    return { error: error.message || "Failed to rotate key" };
-  }
-}
-
-function safeParse(v) {
-  if (v == null) return null;
-  try {
-    return JSON.parse(v);
-  } catch {
-    return null;
   }
 }

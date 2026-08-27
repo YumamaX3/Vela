@@ -24,6 +24,10 @@ function rowToPublic(row) {
     allowedKinds: safeParse(row.allowedKinds),
     allowedProviders: safeParse(row.allowedProviders),
     allowedCombos: safeParse(row.allowedCombos),
+    // AI Lab injector governance (migration 017) — tri-state, same semantics.
+    allowedInjectors: safeParse(row.allowedInjectors),
+    allowedModes: safeParse(row.allowedModes),
+    defaultMode: row.defaultMode || null,
     isActive: row.isActive === 1 || row.isActive === true,
     isInternal: row.isInternal === 1 || row.isInternal === true,
     // Tombstoned legacy rows (migration 002) have a purged hash + 'legacy'
@@ -41,6 +45,8 @@ function rowToPublic(row) {
     rateLimitRpm: row.rateLimitRpm ?? null,
     ipAllowlist: safeParse(row.ipAllowlist),
     category: row.category || null,
+    // Key Domain Ascension (migration 019) — daily request cap.
+    requestCapDaily: row.requestCapDaily ?? null,
   };
 }
 
@@ -91,14 +97,21 @@ export async function createApiKey(name, opts = {}) {
   if (!limits.ok) throw new KeyLimitsValidationError(limits.errors);
   const category = sanitizeCategory(opts.category);
   const db = await getAdapter();
+  // Endpoint Observatory W1c: the mintService pre-generates the credential so
+  // the reveal-sink write and the DB commit carry the SAME key (Covenant C10
+  // write-before-commit ordering). When keyFields is present, commit EXACTLY
+  // what was revealed — never a second, unrevealed credential.
   const { generateApiKey } = await import("@/shared/utils/apiKey");
-  const { key, keyId, keyHash, keyPrefix } = generateApiKey();
+  const keyFields = opts.keyFields
+    ? { key: opts.keyFields.key, keyId: opts.keyFields.keyId, keyHash: opts.keyFields.keyHash, keyPrefix: opts.keyFields.keyPrefix }
+    : generateApiKey();
+  const { key, keyId, keyHash, keyPrefix } = keyFields;
   const id = keyId; // keyId is the row id — one less random identity
   const createdAt = new Date().toISOString();
   const v = limits.values;
   db.run(
-    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, description, allowedModels, allowedKinds, allowedProviders, allowedCombos, isInternal, rateLimitRpm, tokenBudgetDaily, spendCapDailyCents, budgetScope, expiresAt, ipAllowlist, category)
-     VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, description, allowedModels, allowedKinds, allowedProviders, allowedCombos, allowedInjectors, allowedModes, defaultMode, isInternal, rateLimitRpm, tokenBudgetDaily, spendCapDailyCents, budgetScope, expiresAt, ipAllowlist, category, requestCapDaily)
+     VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       `vela-minted-${id}`,
@@ -113,6 +126,9 @@ export async function createApiKey(name, opts = {}) {
       opts.allowedKinds != null ? JSON.stringify(opts.allowedKinds) : null,
       opts.allowedProviders != null ? JSON.stringify(opts.allowedProviders) : null,
       opts.allowedCombos != null ? JSON.stringify(opts.allowedCombos) : null,
+      opts.allowedInjectors != null ? JSON.stringify(opts.allowedInjectors) : null,
+      opts.allowedModes != null ? JSON.stringify(opts.allowedModes) : null,
+      opts.defaultMode || null,
       v.rateLimitRpm ?? null,
       v.tokenBudgetDaily ?? null,
       v.spendCapDailyCents ?? null,
@@ -120,6 +136,7 @@ export async function createApiKey(name, opts = {}) {
       v.expiresAt ?? null,
       v.ipAllowlist != null ? JSON.stringify(v.ipAllowlist) : null,
       category,
+      v.requestCapDaily ?? null,
     ]
   );
   return { record: await getApiKeyById(id), key, keyId, keyPrefix };
@@ -148,10 +165,14 @@ const MUTABLE_FIELDS = new Set([
   "name", "description", "allowedModels", "allowedKinds", "allowedProviders", "allowedCombos", "isActive",
   "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
   "budgetScope", "expiresAt", "ipAllowlist", "category",
+  // AI Lab injector governance (migration 017) — writable through this path.
+  "allowedInjectors", "allowedModes", "defaultMode",
+  // Key Domain Ascension (migration 019) — daily request cap.
+  "requestCapDaily",
 ]);
 const LIMIT_FIELDS = new Set([
   "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
-  "budgetScope", "expiresAt", "ipAllowlist",
+  "budgetScope", "expiresAt", "ipAllowlist", "requestCapDaily",
 ]);
 export async function updateApiKey(id, data) {
   const present = Object.keys(data || {}).filter((k) => MUTABLE_FIELDS.has(k));
@@ -167,7 +188,7 @@ export async function updateApiKey(id, data) {
     if (!row) return;
     const sets = [];
     const vals = [];
-    const JSON_FIELDS = new Set(["allowedModels", "allowedKinds", "allowedProviders", "allowedCombos"]);
+    const JSON_FIELDS = new Set(["allowedModels", "allowedKinds", "allowedProviders", "allowedCombos", "allowedInjectors", "allowedModes"]);
     for (const k of present) {
       if (JSON_FIELDS.has(k)) {
         sets.push(`${k} = ?`);
@@ -204,6 +225,40 @@ export async function deleteApiKey(id) {
     [new Date().toISOString(), id]
   );
   return (res?.changes ?? 0) > 0;
+}
+
+/**
+ * Revoke — the lifecycle split (Shorekeeper-Sealed Plan §1.3): revoke keeps
+ * the row VISIBLE with its history (deletedAt stays NULL) so the 'Revoked'
+ * lifecycle pill is reachable and the audit trail survives. The hash is
+ * purged — the credential is cryptographically dead (hash-at-rest).
+ */
+export async function revokeApiKey(id) {
+  const db = await getAdapter();
+  const res = db.run(
+    `UPDATE apiKeys SET isActive = 0, keyHash = NULL, deletedAt = NULL WHERE id = ? AND isInternal = 0`,
+    [id]
+  );
+  return (res?.changes ?? 0) > 0;
+}
+
+/**
+ * Delete with scrub — soft-tombstone + tag purge in ONE transaction
+ * (Covenant M5: app-level scrub, no FK cascade). The tag rows die with the
+ * key so orphan tags can never accumulate on any harbor.
+ */
+export async function deleteWithScrub(id) {
+  const db = await getAdapter();
+  let ok = false;
+  db.transaction(() => {
+    const res = db.run(
+      `UPDATE apiKeys SET isActive = 0, keyHash = NULL, deletedAt = ? WHERE id = ? AND isInternal = 0 AND deletedAt IS NULL`,
+      [new Date().toISOString(), id]
+    );
+    ok = (res?.changes ?? 0) > 0;
+    if (ok) db.run(`DELETE FROM keyTags WHERE keyId = ?`, [id]);
+  });
+  return ok;
 }
 
 /**

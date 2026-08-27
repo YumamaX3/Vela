@@ -95,6 +95,9 @@ const SECURITY_WAVE_NAMES = new Set([
   // apiKeysRepo
   "sanitizeCategory", "getApiKeys", "getApiKeyById", "createApiKey", "updateApiKey",
   "deleteApiKey", "resolveKey", "validateApiKey", "ensureInternalKey",
+  // Endpoint Observatory W1 — lifecycle split (revoke keeps row visible;
+  // deleteWithScrub tombstones + scrubs tags in-transaction).
+  "revokeApiKey", "deleteWithScrub",
   // disabledModelsRepo
   "getDisabledModels", "getDisabledByProvider", "disableModels", "enableModels",
   // pricingRepo
@@ -137,6 +140,25 @@ const OBSERVATORY_W4_NAMES = new Set([
   "getTagsForUsageIds", "getUsageTags", "setUsageTags",
 ]);
 
+// Endpoint Observatory W1 — governance v2 (migration 016, posture-bound).
+// keyTemplatesRepo + keyTagsRepo + keyMutationLedgerRepo (Covenant M4/H3:
+// registered through the standard bind path so mirror outbox + twin
+// divergence-sweep cover them).
+const ENDPOINT_W1_NAMES = new Set([
+  // keyTemplatesRepo
+  "listTemplates", "getTemplate", "createTemplate", "updateTemplate", "deleteTemplate", "applyShape",
+  // keyTagsRepo
+  "sanitizeTag", "tagsForKeys", "addTag", "removeTag", "renameTag", "deleteForKey",
+  // keyMutationLedgerRepo
+  "appendLedger", "getKeyLedgerRows",
+]);
+
+// Key Domain Ascension (migration 019) — the tier/redemption repo wave was
+// removed with migration 020 (the Tiers/Redemptions removal); keyTiersRepo +
+// redemptionsRepo are gone, so no repo fn needs this bind wave anymore.
+// Request-cap enforcement lives entirely in keyGate (requestCapStage), not
+// through a bound repo.
+
 /** Bind a facade barrel to its posture's harbor.
  *  @param sqliteRepo the sqlite harbor module (verbatim binding under sqlite)
  *  @param mysqlLoader `() => import("../mysql/<repo>.js")` — static call site */
@@ -155,7 +177,7 @@ export function bindFacade(sqliteRepo, mysqlLoader) {
   const bound = {};
   for (const [name, fn] of Object.entries(sqliteRepo)) {
     if (typeof fn !== "function") { bound[name] = fn; continue; }
-    if (!CONFIG_WAVE_NAMES.has(name) && !SECURITY_WAVE_NAMES.has(name) && !USAGE_WAVE_NAMES.has(name) && !OBSERVATORY_W3_NAMES.has(name) && !OBSERVATORY_W4_NAMES.has(name)) {
+    if (!CONFIG_WAVE_NAMES.has(name) && !SECURITY_WAVE_NAMES.has(name) && !USAGE_WAVE_NAMES.has(name) && !OBSERVATORY_W3_NAMES.has(name) && !OBSERVATORY_W4_NAMES.has(name) && !ENDPOINT_W1_NAMES.has(name)) {
       bound[name] = () => {
         throw new Error(`[DB] VELA_DB_MODE=mysql — repo fn "${name}" lands in a later Storage Covenant wave (Wave C mirror). Boot refusal (fail loud, never silent downgrade).`);
       };

@@ -197,7 +197,10 @@ export default function PromptInjectorsPage() {
         <div>
           <h1 className="text-lg font-semibold">Prompt Injectors</h1>
           <p className="text-sm text-muted-foreground">
-            Operator-defined prompts injected into the system message of every matching chat request — with live variables ({{model}}, {{date}}…) and per-request overrides.
+            {/* The literal {{var}} text must live in a JS string — a bare
+                {{model}} in a JSX text node is parsed as an object-literal
+                expression and throws "model is not defined". */}
+            {"Operator-defined prompts injected into the system message of every matching chat request — with live variables ({{model}}, {{date}}…) and per-request overrides."}
           </p>
         </div>
         <div className="flex gap-2">
@@ -241,7 +244,7 @@ export default function PromptInjectorsPage() {
         )}
       </Card>
 
-      <Modal open={showFormModal} onClose={() => setShowFormModal(false)} title={editingIndex === null ? "Add Injector" : "Edit Injector"}>
+      <Modal isOpen={showFormModal} onClose={() => setShowFormModal(false)} title={editingIndex === null ? "Add Injector" : "Edit Injector"}>
         <div className="space-y-4">
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Name</label>
@@ -329,7 +332,7 @@ export default function PromptInjectorsPage() {
         </div>
       </Modal>
 
-      <Modal open={showPresets} onClose={() => setShowPresets(false)} title="Injector presets">
+      <Modal isOpen={showPresets} onClose={() => setShowPresets(false)} title="Injector presets">
         <div className="space-y-2">
           {PRESETS.map((p) => (
             <button
@@ -346,7 +349,7 @@ export default function PromptInjectorsPage() {
       </Modal>
 
       <ConfirmModal
-        open={!!confirmState}
+        isOpen={!!confirmState}
         title={confirmState?.title}
         message={confirmState?.message}
         onConfirm={async () => {

@@ -112,14 +112,19 @@ describe("Pricing Covenant — free-model inheritance (R3)", () => {
 
 describe("Pricing Covenant — UNPRICEABLE manifest", () => {
   it("router pseudo-models resolve null with a manifest entry", () => {
-    expect(getPricingForModel("openrouter", "best")).toBeNull();
     expect(getPricingForModel("openrouter", "default")).toBeNull();
-    expect(getPricingForModel("bazaarlink", "universal-2")).toBeNull();
-    expect(getPricingForModel("bazaarlink", "universal-3-pro")).toBeNull();
+    expect(getPricingForModel("kilo-gateway", "kilo-auto/free")).toBeNull();
   });
 
-  it("no-token-pricing lanes resolve null for any model", () => {
-    expect(getPricingForModel("hyperbolic", "llama-4-scout-17b-16e-instruct")).toBeNull();
+  // The 2026-08-27 whole-harbor sweep priced the catalog models of the
+  // formerly-blanket no-token-pricing lanes (hyperbolic/featherless) with
+  // their models.dev host retail rates — the blanket entries were retired
+  // and the lanes now resolve their catalog models. Untracked models in
+  // those lanes still resolve null (the honest residue).
+  it("formerly-blanket no-token-pricing lanes resolve catalog models via lane rates", () => {
+    expect(getPricingForModel("hyperbolic", "Qwen/QwQ-32B")).toEqual({ input: 0.40, output: 0.40 });
+    expect(getPricingForModel("featherless", "deepseek-ai/DeepSeek-V4-Pro")).toEqual({ input: 0.435, output: 0.87 });
+    // Untracked models stay null — the lane is not all-you-can-eat
     expect(getPricingForModel("featherless", "any-model")).toBeNull();
   });
 

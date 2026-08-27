@@ -97,7 +97,7 @@ export const BUDGET_SCOPES = ["daily", "weekly", "monthly", "yearly"];
 
 // ── Write-side validation for W3 governance fields ─────────────────────────
 
-const INT_FIELDS = ["rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents"];
+const INT_FIELDS = ["rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents", "requestCapDaily"];
 const MAX_ALLOWLIST_ENTRIES = 100;
 
 /** Thrown by the repo when governance fields fail validation. Carries every

@@ -41,8 +41,11 @@ export default function KpiBand({ stats, keys, loading }) {
       {tiles.map((t) => (
         <Card key={t.label} className="p-4">
           <div className="flex items-center gap-3">
-            <span className={`material-symbols-outlined rounded-lg w-9 h-9 flex items-center justify-center text-[20px] shrink-0 ${t.accent}`}>
-              {t.icon}
+            {/* The icon box is the flex container; the material-symbols span
+                stays a plain inline-block ligature. Putting flex on the icon
+                span itself collapses the ligature line box → blank glyph. */}
+            <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${t.accent}`}>
+              <span className="material-symbols-outlined text-[20px] leading-none">{t.icon}</span>
             </span>
             <div className="min-w-0">
               <p className="text-[11px] uppercase tracking-wide text-text-muted truncate">{t.label}</p>

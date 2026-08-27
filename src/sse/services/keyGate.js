@@ -25,6 +25,11 @@ export const GATE_CODES = {
   RATE_LIMITED: "rate_limited",
   BUDGET_EXCEEDED: "budget_exceeded",
   QUERY_PARAM_KEY_REJECTED: "query_param_key_rejected",
+  // AI Lab (migration 017; W2)
+  MODE_NOT_ALLOWED: "mode_not_allowed",
+  UNKNOWN_MODE: "unknown_mode",
+  // Key Domain Ascension (migration 019) — daily request cap.
+  REQUEST_CAP_EXCEEDED: "request_cap_exceeded",
 };
 
 function deny(status, code, message) {
@@ -56,6 +61,15 @@ function toResolvedKey(row) {
     spendCapDailyCents: row.spendCapDailyCents ?? null,
     budgetScope: row.budgetScope || null,
     ipAllowlist: safeParse(row.ipAllowlist),
+    // AI Lab injector governance (migration 017; W2) — tri-state, same semantics.
+    allowedInjectors: safeParse(row.allowedInjectors),
+    allowedModes: safeParse(row.allowedModes),
+    defaultMode: row.defaultMode || null,
+    // Var-override allowlist (W3): null = all overrides (back-compat),
+    // [] = deny all, [names] = named allowlist.
+    injectVarAllowlist: safeParse(row.injectVarAllowlist),
+    // Key Domain Ascension (migration 019) — daily request cap.
+    requestCapDaily: row.requestCapDaily ?? null,
   };
 }
 
@@ -299,6 +313,59 @@ export async function spendStage(key) {
   return { ok: true };
 }
 
+// ── Daily request cap (Key Domain Ascension, migration 019) ────────────────
+// Per-key daily request ceiling, summed from usageDaily rows in the current
+// local-day window — the same ledger the spend stage reads, same 5s cache
+// discipline. NULL/absent = unlimited. Distinct code request_cap_exceeded.
+
+const REQUEST_CACHE_TTL_MS = 5_000;
+const REQUEST_CACHE_MAX = 2_000;
+
+function requestCache() {
+  if (!global._velaRequestCapCache) global._velaRequestCapCache = new Map();
+  return global._velaRequestCapCache;
+}
+
+export async function requestCapStage(key) {
+  if (!key.requestCapDaily || key.requestCapDaily <= 0) return { ok: true };
+  const startDateKey = windowStartDateKey("daily");
+  const cacheKey = `${key.keyId}:${startDateKey}`;
+  const cache = requestCache();
+  const nowMs = Date.now();
+  let entry = cache.get(cacheKey);
+  if (!entry || nowMs - entry.ts > REQUEST_CACHE_TTL_MS) {
+    const days = await getUsageDailySince(startDateKey);
+    let requests = 0;
+    for (const day of days) {
+      if (!day?.byApiKey) continue;
+      for (const inner of Object.values(day.byApiKey)) {
+        if (inner?.meta?.keyId !== key.keyId) continue;
+        requests += inner.requests || 0;
+      }
+    }
+    entry = { requests, ts: nowMs };
+    if (cache.size >= REQUEST_CACHE_MAX) {
+      for (const [k, v] of cache) {
+        if (nowMs - v.ts > REQUEST_CACHE_TTL_MS) cache.delete(k);
+        if (cache.size < REQUEST_CACHE_MAX) break;
+      }
+      if (cache.size >= REQUEST_CACHE_MAX) {
+        const oldest = cache.keys().next().value;
+        if (oldest && oldest !== cacheKey) cache.delete(oldest);
+      }
+    }
+    cache.set(cacheKey, entry);
+  }
+  if (entry.requests >= key.requestCapDaily) {
+    return deny(
+      HTTP_STATUS.RATE_LIMITED,
+      GATE_CODES.REQUEST_CAP_EXCEEDED,
+      `Daily request cap exceeded: ${entry.requests} of ${key.requestCapDaily} requests used today`
+    );
+  }
+  return { ok: true };
+}
+
 // ── Per-key ACL (v0.9.17) — kinds / providers / combos / models ────────────
 // Tri-state semantics per dimension (VansRouter §1, seam-native):
 //   null              → all allowed (unrestricted)
@@ -376,7 +443,24 @@ export function comboStage(key, { requestModel = null } = {}) {
   return deny(HTTP_STATUS.FORBIDDEN, GATE_CODES.MODEL_FORBIDDEN, `Combo "${comboName}" not allowed for this API key`);
 }
 
-const STAGES = [lifetimeStage, ipStage, rateStage, spendStage, kindStage, providerStage, comboStage];
+/**
+ * Mode stage (AI Lab W2) — the cheap pre-dispatch gate for x-vela-mode.
+ * A client-declared mode outside the key's allowedModes → 403; an unknown
+ * mode name → 400 (explicit client intent must not silently no-op). Keys
+ * without an allowedModes allowlist (NULL) pass — the decisive filter still
+ * runs INSIDE the pipeline injector stage (W3).
+ */
+export function modeStage(key, { modeName = null } = {}) {
+  if (modeName == null || modeName === "") return { ok: true }; // no mode requested
+  if (key.allowedModes == null) return { ok: true }; // unrestricted (NULL = all)
+  if (!Array.isArray(key.allowedModes) || key.allowedModes.length === 0) {
+    return deny(HTTP_STATUS.FORBIDDEN, GATE_CODES.MODE_NOT_ALLOWED, `Mode "${modeName}" not allowed for this API key`);
+  }
+  if (triStateAllowed(key.allowedModes, modeName)) return { ok: true };
+  return deny(HTTP_STATUS.FORBIDDEN, GATE_CODES.MODE_NOT_ALLOWED, `Mode "${modeName}" not allowed for this API key`);
+}
+
+const STAGES = [lifetimeStage, ipStage, rateStage, spendStage, requestCapStage, kindStage, providerStage, comboStage, modeStage];
 
 // Observatory budget hierarchy (W3-B). Kept OUT of STAGES because it needs
 // requestModel (model-scope budgets) which the per-key stages do not, and it
@@ -424,10 +508,12 @@ export function modelScopeStage(key, { requestModel, comboModels } = {}) {
  */
 export async function authorizeApiRequest(
   request,
-  { requestModel = null, comboModels = null, settings, clientIp = null, allowInternal = false, kind = null } = {}
+  { requestModel = null, comboModels = null, settings, clientIp = null, allowInternal = false, kind = null, modeName = null } = {}
 ) {
   const requireKey = settings ? !!settings.requireApiKey : true;
   if (!requireKey) {
+    // AI Lab (W2): keyless mode selection is IGNORED (no ACL row exists to
+    // check against) — honoring it un-gated would be the dangerous path.
     const budgetVerdict = await budgetStage(null, { requestModel });
     if (!budgetVerdict.ok) return budgetVerdict;
     return { ok: true, key: null, skipped: true };
@@ -454,7 +540,7 @@ export async function authorizeApiRequest(
   for (const stage of STAGES) {
     // Stages may be async (spendStage reads the usage ledger) — await each verdict.
     // The ACL stages (kind/provider/combo) read their scope from the request.
-    const verdict = await stage(key, { clientIp: resolvedIp, requestModel, kind });
+    const verdict = await stage(key, { clientIp: resolvedIp, requestModel, kind, modeName });
     if (!verdict.ok) return verdict;
   }
 

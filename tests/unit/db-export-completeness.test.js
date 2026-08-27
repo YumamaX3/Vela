@@ -16,6 +16,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { SCHEMA_VERSION } from "@/lib/db/schema.js";
 
 let tempDir;
 const originalDataDir = process.env.DATA_DIR;
@@ -132,8 +133,10 @@ describe("Storage Covenant A3 — export completeness law", () => {
     expect(payload.disabledModels.openai).toEqual(["gpt-4.1"]);
     expect(payload.customModels.length).toBe(1);
 
-    // Provenance header
-    expect(payload._meta.schemaVersion).toBe(10);
+    // Provenance header — assert against the live schema version, not a
+    // hardcoded pin (the W1 migration chain bumps SCHEMA_VERSION; a stale
+    // literal here fails the instant the next migration lands).
+    expect(payload._meta.schemaVersion).toBe(SCHEMA_VERSION);
     expect(payload._meta.sourceMode).toBe("sqlite");
     expect(payload._meta.sourceDriver).toBeTruthy();
     expect(payload._meta.exportedAt).toBeTruthy();

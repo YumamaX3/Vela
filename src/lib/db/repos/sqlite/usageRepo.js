@@ -319,6 +319,7 @@ export async function getActiveRequests() {
       return {
         timestamp: e.timestamp, model: e.model, provider: e.provider || "",
         promptTokens: t.prompt_tokens || t.input_tokens || 0,
+        cachedTokens: t.cached_tokens || t.cache_read_input_tokens || 0,
         completionTokens: t.completion_tokens || t.output_tokens || 0,
         status: e.status || "ok",
       };
@@ -423,6 +424,9 @@ export async function saveRequestUsage(entry) {
         }
         return;
       }
+
+      // The 019 balance-deduction block was removed with migration 020 (the
+      // spendable-balance economy was fully removed — gate + column).
 
       const dateKey = getLocalDateKey(entry.timestamp);
       const row = db.get(`SELECT data FROM usageDaily WHERE dateKey = ?`, [dateKey]);
@@ -954,6 +958,18 @@ function formatLogDate(date = new Date()) {
 
 // No-op: request log is now derived from usageHistory table on read.
 export async function appendRequestLog() {}
+
+/** AI Lab Observe tab — the most recent usage ids (usageRequestTags join key). */
+export async function getRecentUsageIds(limit = 50) {
+  try {
+    const db = await getAdapter();
+    const rows = db.all(`SELECT id FROM usageHistory ORDER BY id DESC LIMIT ?`, [limit]);
+    return (rows || []).map((r) => r.id).filter((n) => Number.isFinite(n));
+  } catch (e) {
+    console.error("[usageRepo] getRecentUsageIds failed:", e.message);
+    return [];
+  }
+}
 
 export async function getRecentLogs(limit = 200) {
   try {

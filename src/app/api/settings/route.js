@@ -14,6 +14,47 @@ const SETTINGS_RESPONSE_HEADERS = {
 // Secrets must never be mass-assigned from request body (CWE-915)
 const PROTECTED_SETTING_KEYS = ["password", "mitmSudoEncrypted"];
 
+// ── AI Lab (v0.9.26) shape validation ──────────────────────────────────────
+// Shared-validator discipline (S6): the Lab UI and the settings PATCH route
+// agree on these shapes so neither can create what the engine would reject.
+const NAME_MAX = 64;
+const PROMPT_MAX = 16384;
+
+function isNonEmptyString(v) {
+  return typeof v === "string" && v.trim().length > 0;
+}
+
+function validateLabArray(arr, label, itemValidator) {
+  if (!Array.isArray(arr)) return `${label} must be an array`;
+  for (let i = 0; i < arr.length; i++) {
+    const err = itemValidator(arr[i]);
+    if (err) return `${label}[${i}]: ${err}`;
+  }
+  return null;
+}
+
+function validateModeBundle(m) {
+  if (!m || typeof m !== "object") return "must be an object";
+  if (!isNonEmptyString(m.name)) return "name is required (≤64, non-empty)";
+  if (m.name.length > NAME_MAX) return "name exceeds 64 chars";
+  if (m.id != null && typeof m.id !== "string") return "id must be a string";
+  if (m.injectorRefs != null && !Array.isArray(m.injectorRefs)) return "injectorRefs must be an array";
+  if (m.saverToggles != null && typeof m.saverToggles !== "object") return "saverToggles must be an object";
+  if (m.contentPolicyProfileId != null && typeof m.contentPolicyProfileId !== "string") return "contentPolicyProfileId must be a string";
+  return null;
+}
+
+function validateContentPolicy(p) {
+  if (!p || typeof p !== "object") return "must be an object";
+  if (!isNonEmptyString(p.name)) return "name is required (≤64, non-empty)";
+  if (p.name.length > NAME_MAX) return "name exceeds 64 chars";
+  if (p.id != null && typeof p.id !== "string") return "id must be a string";
+  if (!["flag", "redact", "block"].includes(p.action)) return "action must be flag|redact|block";
+  if (p.patterns != null && !Array.isArray(p.patterns)) return "patterns must be an array";
+  if (p.enabled != null && typeof p.enabled !== "boolean") return "enabled must be a boolean";
+  return null;
+}
+
 // Settings Observatory: usageWebhookUrl is secret-bearing (a Discord/Slack
 // webhook URL carries a token) — same law as budgetAlerts above: presence
 // flag only, never an echo.
@@ -40,7 +81,6 @@ export async function GET() {
         hasN8nWebhook: !!(typeof ba.n8nWebhookUrl === "string" && ba.n8nWebhookUrl.trim()),
       };
     }
-    
     const enableRequestLogs = process.env.ENABLE_REQUEST_LOGS === "true";
     const enableTranslator = process.env.ENABLE_TRANSLATOR === "true";
     
@@ -127,6 +167,18 @@ export async function PATCH(request) {
       if (Object.prototype.hasOwnProperty.call(body, key) && !allowed.includes(body[key])) {
         return NextResponse.json({ error: `Invalid value for "${key}"` }, { status: 400 });
       }
+    }
+
+    // AI Lab (v0.9.26): modeBundles + contentPolicies are validated arrays.
+    // Invalid entries → 400 (never silently stored; the Lab UI cannot create
+    // what the engine would reject — shared validator discipline, S6).
+    if (Object.prototype.hasOwnProperty.call(body, "modeBundles")) {
+      const err = validateLabArray(body.modeBundles, "modeBundles", validateModeBundle);
+      if (err) return NextResponse.json({ error: err }, { status: 400 });
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "contentPolicies")) {
+      const err = validateLabArray(body.contentPolicies, "contentPolicies", validateContentPolicy);
+      if (err) return NextResponse.json({ error: err }, { status: 400 });
     }
 
     // usageWebhookUrl: empty string means "keep the stored one" (write-only

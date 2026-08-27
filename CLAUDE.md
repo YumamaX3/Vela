@@ -153,7 +153,7 @@ Other surfaces share the same bones: `embeddings`, `audio/*` (tts/stt), `images/
 
 **Adapters** (`src/lib/db/adapters/`) — `betterSqliteAdapter`, `nodeSqliteAdapter`, `bunSqliteAdapter`, `sqljsAdapter`. All expose `run/get/all/exec/transaction`.
 
-**Migrations** (`src/lib/db/migrations/`) — versioned chain + additive schema sync. `SCHEMA_VERSION = 14`, migrations `001–015`.
+**Migrations** (`src/lib/db/migrations/`) — versioned chain + additive schema sync. `SCHEMA_VERSION = 15`, migrations `001–016`.
 
 > **⚠️ THE ADAPTER CONTRACT (learned the hard way, v0.9.20)**: the adapter interface exposes `run/get/all/exec/transaction` — **NO raw `prepare()`**. The sql.js adapter (Docker runner's fallback) and the mysql/mirror adapters have no public `.prepare`. A migration using `db.prepare(...)` crashed every DB API at boot (the 0.9.19 boot storm). **Use `db.all("PRAGMA table_info(...)")` + `db.exec(...)`** — exactly like migration 002 documents.
 
@@ -175,6 +175,10 @@ Other surfaces share the same bones: `embeddings`, `audio/*` (tts/stt), `images/
 | 012 | fallback-rules | Operator fallback rules (v1) |
 | 013 | key-acl | `allowedKinds`/`allowedProviders`/`allowedCombos` (tri-state) |
 | 014 | fallback-rules-v2-triggers | `triggerType`/`conditionOp`/`conditionVal`/`targetModels`(JSON)/`cooldownSkip` |
+| 015 | legacy-key-cleanup | Revive tombstoned legacy rows (fresh mint + one-time pending-reveal file) |
+| 016 | key-governance-v2 | keyTemplates + keyTags + key_mutation_ledger (Governance Center W1) |
+| 019 | key-domain-ascension | keyTiers + redemptions + requestCapDaily (later reverted by 020) |
+| 020 | tier-redemption-removal | Drops keyTiers/redemptions + apiKeys.tierId/balanceCents (Tiers/Redemptions/Events removal) |
 
 **Repos** (`src/lib/db/repos/`) — per-entity facades bound by posture (`bind.js`): sqlite verbatim, mysql twins, mirror decorator. Key facades: `apiKeysRepo`, `combosRepo`, `connectionsRepo`, `fallbackRulesRepo`, `budgetRepo`, `pricingRepo`, `proxyFitnessRepo`, `proxyPoolsRepo`, `settingsRepo`, `usageRepo`, `backupEngine`, `backupSecurity`, `s3Offsite`.
 

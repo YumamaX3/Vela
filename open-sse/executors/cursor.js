@@ -7,7 +7,8 @@ import {
   wrapConnectRPCFrame,
   decodeMessage,
   parseConnectRPCFrame,
-  extractTextFromResponse
+  extractTextFromResponse,
+  encodeMcpTools,
 } from "../utils/cursorProtobuf.js";
 import { buildCursorHeaders } from "../utils/cursorChecksum.js";
 import { estimateUsage } from "../utils/usageTracking.js";
@@ -83,6 +84,22 @@ function isAgentTextRequest(body) {
   });
 }
 
+/**
+ * Whether a request is eligible for the AgentService lane. Text turns, tool-call
+ * history (assistant tool_calls + tool results) and declared tools are all
+ * AgentService-capable — the v2 protocol carries them in conversation_history
+ * and mcp_tools. Only non-text content (images, audio, …) rejects the lane.
+ */
+export function isAgentCapableRequest(body) {
+  if (!body || !Array.isArray(body?.messages) || body.messages.length === 0) return false;
+  return body.messages.every((message) => {
+    if (message?.role === "tool" || message?.tool_calls?.length) return true;
+    if (typeof message?.content === "string") return true;
+    if (!Array.isArray(message?.content)) return false;
+    return message.content.every((part) => part?.type === "text");
+  });
+}
+
 function encodeHistoryMessage(message) {
   const content = textFromContent(message?.content);
   if (!content) return null;
@@ -95,7 +112,7 @@ function encodeHistoryMessage(message) {
   return agentMessage(1, agentMessage(1, agentMessage(1, text)));
 }
 
-function buildAgentRunFrame(messages, model) {
+export function buildAgentRunFrame(messages, model, tools) {
   const system = messages
     .filter((message) => message?.role === "system")
     .map((message) => textFromContent(message.content))
@@ -124,11 +141,15 @@ function buildAgentRunFrame(messages, model) {
   );
   const conversationAction = agentMessage(1, userAction);
   const requestedModel = concatBuffers(agentString(1, model), agentBool(7, true));
+  const mcpTools = Array.isArray(tools) && tools.length > 0
+    ? encodeMcpTools(tools)
+    : null;
   const runRequest = concatBuffers(
     // An empty ConversationStateStructure starts a fresh local agent session.
     agentMessage(1, new Uint8Array()),
     agentMessage(2, conversationAction),
     ...(system ? [agentString(8, system)] : []),
+    ...(mcpTools ? [agentMessage(4, mcpTools)] : []),
     agentMessage(9, requestedModel),
   );
 
@@ -493,6 +514,10 @@ export class CursorExecutor extends BaseExecutor {
     let session;
     try {
       session = this.openAgentHttp2Stream(url, headers, requestController.signal);
+      // Tools are NOT advertised until the AgentService exec-tool protocol is
+      // serviced — emitting mcp_tools invites exec requests the consume loop
+      // would fail ("unsupported IDE tool"). buildAgentRunFrame's tools param
+      // stays for the pure codec + forward spec.
       session.write(buildAgentRunFrame(body.messages || [], model));
     } catch (error) {
       throw new Error(`Cursor AgentService request failed: ${error.message}`);

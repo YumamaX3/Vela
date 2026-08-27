@@ -1,4 +1,5 @@
 import { ERROR_RULES, BACKOFF_CONFIG, TRANSIENT_COOLDOWN_MS } from "../config/errorConfig.js";
+import { classify429 } from "../utils/classify429.js";
 
 /**
  * Calculate exponential backoff cooldown for rate limits (429)
@@ -56,6 +57,31 @@ export function checkFallbackError(status, errorText, backoffLevel = 0) {
 
   // Default: transient cooldown for any unmatched error
   return { shouldFallback: true, cooldownMs: TRANSIENT_COOLDOWN_MS };
+}
+
+/**
+ * AI Lab W4b — verdict-aware fallback decision (the fallback seam).
+ *
+ * The single-model/combo blind spot: a GATEWAY policy block (the 403-shaped
+ * internal event, contentPolicyBlocked:true) must reach buildFallbackChain so
+ * the unfiltered lane can serve the refused workload — but the legacy
+ * checkFallbackError maps a 403 to shouldFallback:false (client-caused 4xx),
+ * so the chain never runs. This extension carries the verdict class across the
+ * chatCore → combo/account boundary:
+ *   - GATEWAY_POLICY_BLOCK → { shouldFallback:true, verdict, reason:'policy' }
+ *     (NO account cooldown — a gateway decision is not a health signal)
+ *   - otherwise → delegates to the legacy logic verbatim.
+ *
+ * Callers: combo.js:442 and the single-model seam in handleSingleModelChat
+ * (W4b) consult this FIRST; the returned verdict decides whether to append the
+ * unfiltered-lane targets from buildFallbackChain.
+ */
+export function checkFallbackErrorVerdict(status, errorText, opts = {}) {
+  if (opts.contentPolicyBlocked === true) {
+    return { shouldFallback: true, cooldownMs: 0, verdict: "GATEWAY_POLICY_BLOCK", reason: "policy" };
+  }
+  // Preserve the legacy path byte-for-byte for every other failure.
+  return checkFallbackError(status, errorText, opts.backoffLevel || 0);
 }
 
 /**
@@ -208,6 +234,136 @@ export function resetAccountState(account) {
  * @param {string} errorText - Error message
  * @returns {object} Updated account with error state
  */
+
+/**
+ * Kimchi quota-exhaustion patterns — monthly credit caps (distinct from the
+ * generic daily quota, which is handled by detectDailyQuotaExhaustion).
+ */
+const KIMCHI_QUOTA_EXHAUSTED_PATTERNS = [
+  /credits?.{0,20}exhausted/i,
+  /quota.{0,20}exhausted/i,
+  /no remaining credits/i,
+  /insufficient[ _-]?credits/i,
+  /payment.{0,10}required/i,
+  /has exhausted its credits/i,
+];
+
+/**
+ * Detect whether an error body / message indicates Kimchi quota exhaustion.
+ * Pure check — provider name passed in so this can be reused for other providers.
+ * @param {string} provider - provider id (e.g. "kimchi")
+ * @param {string|object} errorText - raw error body or message
+ * @returns {boolean}
+ */
+export function isKimchiQuotaExhausted(provider, errorText) {
+  if (!errorText || provider !== "kimchi") return false;
+  const text = typeof errorText === "string"
+    ? errorText
+    : (() => { try { return JSON.stringify(errorText); } catch { return String(errorText); } })();
+  return KIMCHI_QUOTA_EXHAUSTED_PATTERNS.some(p => p.test(text));
+}
+
+/**
+ * Compute the next-day reset timestamp (00:00 UTC tomorrow).
+ * @param {Date} [now=new Date()]
+ * @returns {Date}
+ */
+export function getNextDayReset(now = new Date()) {
+  const d = new Date(now.getTime());
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 0, 0, 0));
+}
+
+/**
+ * Build update payload that deactivates a Kimchi account due to quota exhaustion.
+ * Sets testStatus="quota_exhausted" (distinguishable from manual deactivation)
+ * and rateLimitedUntil to next-day reset, so the existing cooldown filters
+ * skip it until then. Auto-reactivation runs on startup / periodically.
+ * @param {Date} [now]
+ * @returns {{ isActive: boolean, rateLimitedUntil: string, testStatus: string, lastErrorType: string, errorCode: number, quotaExhaustedAt: string }}
+ */
+export function buildKimchiQuotaExhaustedUpdate(now = new Date()) {
+  const reset = getNextDayReset(now);
+  return {
+    isActive: false,
+    rateLimitedUntil: reset.toISOString(),
+    testStatus: "quota_exhausted",
+    lastErrorType: "quota_exhausted",
+    errorCode: 402,
+    quotaExhaustedAt: now.toISOString(),
+    quotaResetsAt: reset.toISOString(),
+  };
+}
+
+/**
+ * Build update payload to reactivate a quota-exhausted Kimchi account whose
+ * rateLimitedUntil has passed (start of new month).
+ * @returns {{ isActive: boolean, rateLimitedUntil: null, testStatus: string }}
+ */
+export function buildKimchiQuotaReactivatedUpdate() {
+  return {
+    isActive: true,
+    rateLimitedUntil: null,
+    testStatus: "active",
+    quotaExhaustedAt: null,
+    quotaResetsAt: null,
+  };
+}
+
+/**
+ * Detect whether a NON-Kimchi 429 error indicates a DAILY quota exhaustion
+ * ("today's quota", "daily quota exhausted", "reset tomorrow", etc.).
+ *
+ * This generalizes beyond Kimchi's monthly quota (which keeps its own
+ * isKimchiQuotaExhausted / next-month deactivation logic untouched). When a
+ * daily quota is detected, the SPECIFIC model on that connection is locked
+ * until tomorrow 00:00 UTC via buildDailyQuotaLockUpdate().
+ *
+ * Returns the classified cooldown info, or null when the error is not a
+ * daily-quota 429 (e.g. it's a plain rate_limit or a Kimchi quota).
+ *
+ * @param {string} provider - provider id
+ * @param {string|object} errorText - raw error body or message
+ * @returns {{ kind: "daily_quota", cooldownMs: number } | null}
+ */
+export function detectDailyQuotaExhaustion(provider, errorText) {
+  if (!errorText || provider === "kimchi") return null;
+  const text = typeof errorText === "string"
+    ? errorText
+    : (() => { try { return JSON.stringify(errorText); } catch { return String(errorText); } })();
+  // classify429 returns { kind, cooldownMs }. We only act on daily_quota here;
+  // quota_exhausted (monthly/billing) is handled separately and rate_limit
+  // is handled by the normal account cooldown/backoff path.
+  const classification = classify429({ status: 429, body: text, provider });
+  if (classification.kind !== "daily_quota") return null;
+  return classification;
+}
+
+/**
+ * Build update payload that locks a SPECIFIC model on a connection until
+ * tomorrow 00:00 UTC. The account itself stays active for OTHER models —
+ * only the affected model is temporarily unusable.
+ *
+ * Uses the existing modelLock_${model} flat-field mechanism (same as transient
+ * model locks), so no schema changes are needed and isModelLockActive() picks
+ * it up automatically.
+ *
+ * @param {string} model - the model id (without provider prefix)
+ * @param {Date} [now=new Date()]
+ * @returns {Record<string, string>} partial update object with the model lock key set
+ */
+export function buildDailyQuotaLockUpdate(model, now = new Date()) {
+  if (!model) return {};
+  const resetMs = getMsUntilTomorrowMidnightUTC(now);
+  const key = getModelLockKey(model);
+  return { [key]: new Date(now.getTime() + resetMs).toISOString() };
+}
+
+/** Compute ms until next UTC midnight (tomorrow 00:00 UTC). */
+function getMsUntilTomorrowMidnightUTC(now = new Date()) {
+  const tomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0));
+  return Math.max(tomorrow.getTime() - now.getTime(), 1000);
+}
+
 export function applyErrorState(account, status, errorText) {
   if (!account) return account;
 

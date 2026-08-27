@@ -170,7 +170,7 @@ describe("Wave B2 — the backup engine round-trip", () => {
     const result = await db.runBackup({ trigger: "test" });
     expect(result.ok).toBe(true);
     expect(fs.existsSync(result.file)).toBe(true);
-    expect(result.manifest.schemaVersion).toBe(10);
+    expect(result.manifest.schemaVersion).toBe(18);
     expect(result.manifest.secretBundle.length).toBeGreaterThan(0);
 
     // Mutate the live DB, then restore — the payload comes back.
@@ -291,7 +291,7 @@ describe("Wave B2 — S2 redaction + S3 exclusions", () => {
     expect(payload.settings.requireLogin).toBe(true);
     expect(payload.kvScopes.b2scope).toEqual({ k1: "v1" });
     expect(payload.combos.some((c) => c.name === "b2-combo")).toBe(true);
-    expect(payload._meta.schemaVersion).toBe(10);
+    expect(payload._meta.schemaVersion).toBe(18);
   });
 
   it("exportSettings redacts at the source", async () => {
@@ -389,11 +389,11 @@ describe("Wave B2 — retention + purge", () => {
 });
 
 describe("Wave B2 — migration 005 + posture refusals", () => {
-  it("a fresh DB migrates to schemaVersion 10 with backupLedger", async () => {
+  it("a fresh DB migrates to schemaVersion 18 with backupLedger", async () => {
     await freshDb();
     const { getAdapter } = await import("@/lib/db/driver.js");
     const adapter = await getAdapter();
-    expect(adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`).value).toBe("10");
+    expect(adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`).value).toBe("18");
     const tables = adapter.all(`SELECT name FROM sqlite_master WHERE type='table'`).map((r) => r.name);
     expect(tables).toContain("backupLedger");
   });
@@ -410,9 +410,15 @@ describe("Wave B2 — migration 005 + posture refusals", () => {
     await expect(db.restoreBackup()).rejects.toThrow(/artifact not found/i);
   }, 30000);
 
-  it("mirror posture refuses LOUD", async () => {
+  it("mirror posture backs up the sqlite PRIMARY (engine is posture-independent)", async () => {
     process.env.VELA_DB_MODE = "mirror";
     const db = await import("@/lib/db/index.js");
-    await expect(db.runBackup()).rejects.toThrow(/Wave C|refusal/i);
+    // Wave B4 made the engine posture-independent: the barrel operates on the
+    // primary harbor, so mirror mode exports the sqlite primary and stamps the
+    // source mode honestly. (The old refusal law predates the Wave B4 engine.)
+    const result = await db.runBackup({ trigger: "test" });
+    expect(result.ok).toBe(true);
+    expect(result.manifest.sourceMode).toBe("mirror");
+    expect(result.manifest.schemaVersion).toBe(18);
   });
 });

@@ -4,6 +4,7 @@ import { Modal, Button, Input, Toggle, KeyLimitsEditor } from "@/shared/componen
 import { translate } from "@/i18n/runtime";
 import { SERVICE_KINDS } from "../endpointConstants";
 import AclChipGroup from "./AclChipGroup";
+import CategoryCombo from "./CategoryCombo";
 
 /**
  * The create flow — name, category, description, scope toggle + grouped model
@@ -21,6 +22,8 @@ export default function KeyCreateModal({
   onCreate,
   error,
   categories,
+  // Per-category key counts, keyed by category name (for the dropdown chips).
+  keyCount = {},
   combos,
 }) {
   if (!showAddModal) return null;
@@ -57,14 +60,17 @@ export default function KeyCreateModal({
           onChange={(e) => set({ description: e.target.value })}
           placeholder={translate("What this key is used for")}
         />
-        <Input
-          label={translate("Category (optional)")}
-          value={form.category || ""}
-          onChange={(e) => set({ category: e.target.value })}
-          placeholder={translate("e.g. friend, hermes, others")}
-          list="key-category-options"
-          hint={translate("Group keys by purpose — pick an existing one or type your own")}
-        />
+        <div>
+          <label className="text-xs font-medium text-text-muted">{translate("Category (optional)")}</label>
+          <CategoryCombo
+            value={form.category || null}
+            onChange={(cat) => set({ category: cat })}
+            categories={categories}
+            keyCount={keyCount}
+            placeholder={translate("Pick a category…")}
+          />
+          <p className="text-[11px] text-text-muted mt-1">{translate("Group keys by purpose — pick an existing one or create a new one.")}</p>
+        </div>
 
         {/* Allowed models — grouped per provider, same picker the combos use */}
         <div>
@@ -135,6 +141,16 @@ export default function KeyCreateModal({
           key={`create-${showAddModal}`}
           value={form.limits}
           onChange={(limits) => set({ limits })}
+        />
+
+        {/* Key Domain Ascension — daily request cap */}
+        <Input
+          label={translate("Daily request cap (optional)")}
+          type="number"
+          min="1"
+          value={form.requestCapDaily == null ? "" : String(form.requestCapDaily)}
+          onChange={(e) => set({ requestCapDaily: e.target.value === "" ? null : Math.max(1, Math.floor(Number(e.target.value) || 0)) })}
+          placeholder={translate("unlimited")}
         />
 
         {error && <p className="text-sm text-red-500">{error}</p>}

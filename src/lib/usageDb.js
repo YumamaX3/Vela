@@ -2,7 +2,7 @@
 export {
   statsEmitter, trackPendingRequest, getActiveRequests,
   saveRequestUsage, getUsageHistory, getUsageStats, getChartData,
-  appendRequestLog, getRecentLogs, getKeyUsageStats,
+  appendRequestLog, getRecentLogs, getRecentUsageIds, getTagsForUsageIds, getKeyUsageStats,
   saveRequestDetail, getRequestDetails, getRequestDetailById,
   getProviderHealthFrame, // Usage Observatory W1-D — raw health scanner
   getPerProviderFrame,    // W1-D — the ≤30s memoized frame the SSE route imports

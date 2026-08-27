@@ -24,6 +24,9 @@ export function limitBadges(key) {
   if (key.tokenBudgetDaily != null) badges.push({ k: "tok", text: `${formatTokens(key.tokenBudgetDaily)} tok` });
   if (key.spendCapDailyCents != null) badges.push({ k: "spend", text: `$${(key.spendCapDailyCents / 100).toFixed(0)}` });
   if (key.ipAllowlist?.length) badges.push({ k: "ip", text: `${key.ipAllowlist.length} IP` });
+  // Key Domain Ascension (migration 019) — daily request cap (balance was
+  // removed with migration 020).
+  if (key.requestCapDaily != null) badges.push({ k: "req", text: `${key.requestCapDaily} req/d` });
   return badges;
 }
 
@@ -97,4 +100,48 @@ export function healthLabel(key, usage) {
   if (totalTokens === 0 && (key?.health?.hasBudget || usage?.hasBudget)) return "low-use";
   if (budgetRatio != null && budgetRatio >= 0.8) return "near-limit";
   return "healthy";
+}
+
+// ── Posture helpers (Keys tab redesign) ──────────────────────────────────
+// Pure derivations — the grouped sections, progress bars, and countdowns all
+// render the same numbers because they share these.
+
+/** Group a key into the segmented list: revoked → expiring → paused → active. */
+export function statusOf(k) {
+  if (k?.revoked === true) return "revoked";
+  const expires = k?.expiresAt ? new Date(k.expiresAt).getTime() : null;
+  if (expires && Number.isFinite(expires) && expires - Date.now() < 7 * 24 * 3600_000) return "expiring";
+  if (k?.isActive === false) return "paused";
+  return "active";
+}
+
+/** 0..1 usage against a key's limit — null when the limit is unset. */
+function ratio(used, limit) {
+  if (limit == null || limit <= 0) return null;
+  return Math.min(1, (used || 0) / limit);
+}
+
+/**
+ * Usage progress bars for a row — token budget, spend cap, request cap.
+ * Each is { kind, label, pct, used, limit } or null when unbounded.
+ */
+export function usageRatio(k, usage) {
+  const bars = [];
+  const totalTokens = (usage?.totalTokens ?? 0) + (usage?.promptTokens ?? 0) + (usage?.completionTokens ?? 0);
+  const tok = ratio(totalTokens, k?.tokenBudgetDaily);
+  if (tok != null) bars.push({ kind: "tok", label: "Tokens", pct: tok, used: formatTokens(totalTokens), limit: formatTokens(k.tokenBudgetDaily) });
+  const spend = ratio(Math.round((usage?.cost ?? 0) * 100), k?.spendCapDailyCents);
+  if (spend != null) bars.push({ kind: "spend", label: "Spend", pct: spend, used: formatCost(usage?.cost ?? 0), limit: formatCost((k.spendCapDailyCents ?? 0) / 100) });
+  const req = ratio(usage?.requests, k?.requestCapDaily);
+  if (req != null) bars.push({ kind: "req", label: "Requests", pct: req, used: String(usage?.requests ?? 0), limit: String(k.requestCapDaily) });
+  return bars;
+}
+
+/** Expiry countdown — { days, tone, iso } or null when never expires. */
+export function expiryInfo(k) {
+  if (!k?.expiresAt) return null;
+  const t = new Date(k.expiresAt).getTime();
+  if (!Number.isFinite(t)) return null;
+  const days = Math.ceil((t - Date.now()) / (24 * 3600_000));
+  return { days, tone: days < 0 ? "danger" : days <= 7 ? "warn" : "ok", iso: k.expiresAt };
 }

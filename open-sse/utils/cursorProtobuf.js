@@ -445,6 +445,202 @@ export function encodeMcpTool(tool) {
   );
 }
 
+// ==================== AGENT SERVICE v2 — MCP TOOL PROTOCOL ====================
+//
+// Cursor's AgentService (agent.api5.cursor.sh) carries MCP tools + results in a
+// v2 wire shape distinct from the legacy ChatService ClientSideToolV2 messages:
+//
+//   McpToolDefinition { name(1), description(2), input_schema(3=Value),
+//                       provider(4), tool_name(5) }
+//   McpTools          { tool(1, repeated McpToolDefinition) }
+//   McpArgs           { name(1), args(2, map<string, Value>),
+//                       tool_call_id(3), tool_name(5) }
+//   McpResult         { success(1), error(2), tool_not_found(5) }
+//     success         { content(1, repeated ContentItem), is_error(2) }
+//       ContentItem   { text(1), image(2) }
+//         Text        { text(1) }
+//         Image       { data(1), mime_type(2) }
+//
+// google.protobuf.Value encodes: null → null_value(1), bool → bool_value(2),
+// number → number_value(3), string → string_value(4), object → struct_value(5),
+// array → list_value(6). Decoding mirrors encodeAgentValue exactly so the
+// round-trip is lossless for plain JSON data.
+
+const VALUE_NULL = 1;
+const VALUE_BOOL = 2;
+const VALUE_NUMBER = 3;
+const VALUE_STRING = 4;
+const VALUE_STRUCT = 5;
+const VALUE_LIST = 6;
+
+/** Encode a plain JSON value as google.protobuf.Value. */
+export function encodeAgentValue(value) {
+  if (value === null || value === undefined) {
+    return encodeField(VALUE_NULL, WIRE_TYPE.VARINT, 0);
+  }
+  if (typeof value === "boolean") {
+    return encodeField(VALUE_BOOL, WIRE_TYPE.VARINT, value ? 1 : 0);
+  }
+  if (typeof value === "number") {
+    if (Number.isInteger(value)) {
+      return encodeField(VALUE_NUMBER, WIRE_TYPE.VARINT, value);
+    }
+    // Non-integer floats ride FIXED64 as an IEEE-754 double (VARINT would
+    // truncate 3.14 → 3). encodeField has no FIXED64 branch, so build the
+    // tag + payload manually.
+    const buf = Buffer.alloc(8);
+    buf.writeDoubleLE(value, 0);
+    return concatArrays(encodeVarint((VALUE_NUMBER << 3) | WIRE_TYPE.FIXED64), new Uint8Array(buf));
+  }
+  if (typeof value === "string") {
+    return encodeField(VALUE_STRING, WIRE_TYPE.LEN, value);
+  }
+  if (Array.isArray(value)) {
+    // ListValue { value(1, repeated Value) } — each item is wrapped on field 1.
+    return encodeField(VALUE_LIST, WIRE_TYPE.LEN,
+      concatArrays(...value.map((item) => encodeField(1, WIRE_TYPE.LEN, encodeAgentValue(item)))));
+  }
+  if (value && typeof value === "object") {
+    const entries = [];
+    for (const [k, v] of Object.entries(value)) {
+      entries.push(
+        encodeField(1, WIRE_TYPE.LEN, k),
+        encodeField(2, WIRE_TYPE.LEN, encodeAgentValue(v)),
+      );
+    }
+    return encodeField(VALUE_STRUCT, WIRE_TYPE.LEN, concatArrays(...entries));
+  }
+  return encodeField(VALUE_STRING, WIRE_TYPE.LEN, String(value));
+}
+
+/**
+ * Walk raw protobuf bytes field-by-field, invoking onField in wire order.
+ * decodeMessage groups by field number — fine for scalars, but struct/list
+ * entries pair sequential fields (1=key/2=value), so order must survive.
+ */
+function walkFields(bytes, onField) {
+  let pos = 0;
+  while (pos < bytes.length) {
+    const [fieldNum, wireType, value, newPos] = decodeField(bytes, pos);
+    if (fieldNum === null) break;
+    onField(fieldNum, wireType, value);
+    pos = newPos;
+  }
+}
+
+/** Decode google.protobuf.Struct — alternating field-1 (key) / field-2 (value). */
+function decodeStruct(bytes) {
+  const out = {};
+  let pendingKey = null;
+  walkFields(bytes, (fieldNum, _wireType, value) => {
+    if (fieldNum === 1) {
+      pendingKey = Buffer.from(value).toString("utf8");
+    } else if (fieldNum === 2 && pendingKey !== null) {
+      out[pendingKey] = decodeAgentValue(value);
+      pendingKey = null;
+    }
+  });
+  return out;
+}
+
+/** Decode google.protobuf.ListValue — repeated field-1 Values. */
+function decodeList(bytes) {
+  const out = [];
+  walkFields(bytes, (fieldNum, _wireType, value) => {
+    if (fieldNum === 1) out.push(decodeAgentValue(value));
+  });
+  return out;
+}
+
+/** Decode a google.protobuf.Value back into plain JSON data. */
+export function decodeAgentValue(bytes) {
+  const msg = decodeMessage(bytes);
+  if (msg.has(VALUE_NULL)) return null;
+  if (msg.has(VALUE_BOOL)) return msg.get(VALUE_BOOL)[0].value !== 0;
+  if (msg.has(VALUE_NUMBER)) {
+    const field = msg.get(VALUE_NUMBER)[0];
+    return field.wireType === WIRE_TYPE.FIXED64 ? Buffer.from(field.value).readDoubleLE(0) : field.value;
+  }
+  if (msg.has(VALUE_STRING)) return Buffer.from(msg.get(VALUE_STRING)[0].value).toString("utf8");
+  if (msg.has(VALUE_LIST)) return decodeList(msg.get(VALUE_LIST)[0].value);
+  if (msg.has(VALUE_STRUCT)) return decodeStruct(msg.get(VALUE_STRUCT)[0].value);
+  return undefined;
+}
+
+/** Encode a McpToolDefinition message (name/desc/schema/provider/tool_name). */
+export function encodeMcpToolDefinition(tool) {
+  const name = tool.function?.name || tool.name || "";
+  const description = tool.function?.description || tool.description || "";
+  const inputSchema = tool.function?.parameters || tool.input_schema || {};
+  return concatArrays(
+    ...(name ? [encodeField(1, WIRE_TYPE.LEN, name)] : []),
+    ...(description ? [encodeField(2, WIRE_TYPE.LEN, description)] : []),
+    ...(Object.keys(inputSchema).length > 0 ? [encodeField(3, WIRE_TYPE.LEN, encodeAgentValue(inputSchema))] : []),
+    encodeField(4, WIRE_TYPE.LEN, "Vela"),
+    ...(name ? [encodeField(5, WIRE_TYPE.LEN, name)] : []),
+  );
+}
+
+/** Encode a McpTools message: repeated McpToolDefinition on field 1. */
+export function encodeMcpTools(tools) {
+  const list = Array.isArray(tools) ? tools : [];
+  if (list.length === 0) return new Uint8Array(0);
+  return concatArrays(...list.map((tool) => encodeField(1, WIRE_TYPE.LEN, encodeMcpToolDefinition(tool))));
+}
+
+/** Decode a McpArgs message into { name, toolName, toolCallId, args }. */
+export function decodeMcpArgs(bytes) {
+  const msg = decodeMessage(bytes);
+  const read = (n) => (msg.has(n) ? Buffer.from(msg.get(n)[0].value).toString("utf8") : undefined);
+  const args = {};
+  for (const field of msg.get(2) ?? []) {
+    const entry = decodeMessage(field.value);
+    const key = Buffer.from(entry.get(1)[0].value).toString("utf8");
+    const val = entry.get(2)?.[0]?.value;
+    args[key] = val ? decodeAgentValue(val) : undefined;
+  }
+  return {
+    name: read(1),
+    toolName: read(5),
+    toolCallId: read(3),
+    args,
+  };
+}
+
+/** Encode a McpResult.success — text + optional image content items. */
+export function encodeMcpResultSuccess({ textItems = [], imageItems = [], isError = false } = {}) {
+  // ContentItem: field 1 = text variant (nested Text { text(1) }), field 2 = image.
+  const contentItems = [
+    ...(Array.isArray(textItems) ? textItems.map((text) =>
+      encodeField(1, WIRE_TYPE.LEN, encodeField(1, WIRE_TYPE.LEN, String(text)))) : []),
+    ...(Array.isArray(imageItems) ? imageItems.map((img) =>
+      encodeField(2, WIRE_TYPE.LEN,
+        concatArrays(
+          encodeField(1, WIRE_TYPE.LEN, img.data instanceof Uint8Array ? img.data : new Uint8Array(img.data || [])),
+          encodeField(2, WIRE_TYPE.LEN, img.mimeType || "image/png"),
+        ))) : []),
+  ];
+  // success { content(1, repeated), is_error(2) } — each item is its own field-1.
+  const success = concatArrays(
+    ...contentItems.map((item) => encodeField(1, WIRE_TYPE.LEN, item)),
+    encodeField(2, WIRE_TYPE.VARINT, isError ? 1 : 0),
+  );
+  // McpResult { success(1) }.
+  return encodeField(1, WIRE_TYPE.LEN, success);
+}
+
+/** Encode a McpResult.error — the message rides field 1 of the error message. */
+export function encodeMcpResultError(message) {
+  const error = encodeField(1, WIRE_TYPE.LEN, String(message || "tool error"));
+  return encodeField(2, WIRE_TYPE.LEN, error);
+}
+
+/** Encode a McpResult.tool_not_found — the tool name rides field 1. */
+export function encodeMcpResultToolNotFound(toolName) {
+  const notFound = encodeField(1, WIRE_TYPE.LEN, String(toolName || ""));
+  return encodeField(5, WIRE_TYPE.LEN, notFound);
+}
+
 // ==================== REQUEST BUILDING ====================
 
 export function encodeRequest(messages, modelName, tools = [], reasoningEffort = null, forceAgentMode = false) {
