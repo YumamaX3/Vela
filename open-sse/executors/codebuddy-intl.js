@@ -1,4 +1,11 @@
 import { DefaultExecutor } from "./default.js";
+import {
+  wrapCodeBuddyStream,
+  breakerTryAdmit,
+  breakerRecordFailure,
+  breakerRecordSuccess,
+  refreshCodeBuddyToken,
+} from "../shared/codebuddy/gate.js";
 
 /**
  * CodeBuddyIntlExecutor — talks to https://www.codebuddy.ai/v2/chat/completions
@@ -7,10 +14,20 @@ import { DefaultExecutor } from "./default.js";
  * non-stream requests are rejected, and reasoning is surfaced only when the
  * request carries the IDE's OpenAI-style reasoning params. Force stream and
  * mirror reasoning_summary exactly like CodeBuddyExecutor.
+ *
+ * The ascension (v0.9.34): business-envelope errors (`{code, msg}` inside
+ * HTTP 200 — as a JSON body or an SSE frame) are caught by the shared honest
+ * gate so they surface as real non-200 responses and combo fallback engages.
+ * No sanitize layer here — transformRequest already drops client system
+ * messages and rebuilds with its own canonical opener.
  */
 export class CodeBuddyIntlExecutor extends DefaultExecutor {
   constructor() {
     super("codebuddy-intl");
+  }
+
+  breakerKey(credentials) {
+    return credentials?.connectionId || "codebuddy-intl:unknown";
   }
 
   transformRequest(model, body, stream, credentials) {
@@ -38,6 +55,47 @@ export class CodeBuddyIntlExecutor extends DefaultExecutor {
     }
 
     return transformed;
+  }
+
+  /** One-shot token recovery — mirrors CodeBuddyExecutor (shared gate module). */
+  async refreshCredentials(credentials, log, proxyOptions = null) {
+    const cfg = this.config?.oauth || {};
+    if (!cfg.refreshUrl) return null;
+    const result = await refreshCodeBuddyToken(credentials, {
+      refreshUrl: cfg.refreshUrl,
+      userAgent: cfg.userAgent || this.config?.headers?.["User-Agent"],
+    });
+    if (result) log?.info?.("TOKEN", "codebuddy-intl refreshed");
+    return result;
+  }
+
+  async execute(opts) {
+    const { credentials, log } = opts;
+    const key = this.breakerKey(credentials);
+
+    if (!breakerTryAdmit(key)) {
+      log?.debug?.("CODEBUDDY", `breaker open — rotating away from ${key}`);
+      const response = new Response(
+        JSON.stringify({ error: { message: "codebuddy: credential circuit breaker open — try another account", type: "rate_limit_error", code: "breaker_open" } }),
+        { status: 429, headers: { "Content-Type": "application/json" } },
+      );
+      return { response, url: this.buildUrl(opts.model, opts.stream, 0, credentials), headers: {}, transformedBody: opts.body };
+    }
+
+    const result = await super.execute(opts);
+
+    if (!result.response.ok) {
+      breakerRecordFailure(key);
+      return result;
+    }
+
+    const wrapped = await wrapCodeBuddyStream(result.response, opts.model);
+    if (!wrapped.ok) {
+      breakerRecordFailure(key);
+    } else {
+      breakerRecordSuccess(key);
+    }
+    return { ...result, response: wrapped };
   }
 }
 
