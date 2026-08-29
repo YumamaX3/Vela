@@ -26,7 +26,9 @@ export default {
     // not its vendor-native thinking shape. Force the openai thinking format.
     thinkingFormat: "openai",
     headers: {
-      "User-Agent": "CLI/2.108.1 CodeBuddy/2.108.1",
+      // Current CLI identity verified against upstream (reference codebuffy
+      // FINGERPRINT_UA). The OAuth flow keeps its own pinned userAgent below.
+      "User-Agent": "CLI/unknown CodeBuddy/2.139.0",
       "X-Product": "SaaS",
       "X-IDE-Type": "CLI",
       "X-IDE-Name": "CLI",
