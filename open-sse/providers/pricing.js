@@ -343,6 +343,17 @@ export const PROVIDER_PRICING = {
     "dfmodel":       { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,  cache_creation: 0.14 },   // → DeepSeek-V4-Flash
     "mmodel":        { input: 0.30,  output: 1.20,  cached: 0.06,   reasoning: 1.20,  cache_creation: 0.30 },   // → MiniMax-M3
   },
+  // Madefaka — rates reported by the gateway's own /v1/models pricing field
+  // [2026-08-29 live probe]. DeepSeek V4 Flash bills at 0.042/0.084; the
+  // MiniMax lanes report 0/0 and the Nemotron lane reports no pricing at all
+  // ("Unlimited core models" tier) — pinned here so the free lanes never
+  // inherit a paid sibling's worth against this gateway's truth.
+  madefaka: {
+    "deepseek-ai/DeepSeek-V4-Flash": { input: 0.042, output: 0.084, cached: 0.00084, reasoning: 0.084, cache_creation: 0.042 },
+    "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16": { input: 0, output: 0 },
+    "MiniMaxAI/MiniMax-M2.7": { input: 0, output: 0 },
+    "MiniMaxAI/MiniMax-M3": { input: 0, output: 0 },
+  },
   // TokenRouter — exact rates from https://api.tokenrouter.com/api/pricing ($1/1M tokens).
   // Ratio→USD: input = model_ratio×2, output = model_ratio×completion_ratio×2.
   // These override the canonical MODEL_PRICING/PATTERN_PRICING, whose rates often

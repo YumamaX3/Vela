@@ -25,6 +25,28 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.26 — The Living Deck ⚓
+
+> *"The numbers no longer wait for the hand that turns the page — they breathe with the tide."*
+
+**Realtime KPIs — the band refreshes itself:**
+- The five KPI cards now **auto-update** — no page reload. A light 15s poll re-reads the same KPI endpoint and swaps the numbers in place; the cadence matches the SSE coalesced full-refresh (≥15s), and there is no skeleton flicker on update
+- On period change, the polled snapshot is dropped so the new window's REST data renders immediately — no stale numbers across windows
+
+**Period control — Today takes the helm:**
+- **24h retired** — the segmented control is now Today · 7 · 14 · 30 · All time
+- **Default window is Today** — entering `dashboard/usage` opens on Today, no longer 7 days
+
+**Madefaka joins the fleet 🇮🇩:**
+- New provider **Madefaka** (`https://madefaka.my.id`) — OpenAI-compatible gateway, bearer-key auth, priority 82 in the Indonesian fleet's anchorage (80–90)
+- Four endpoints wired: `/v1/chat/completions` (chat) · `/v1/responses` (OpenAI responses API) · `/v1/messages` (Anthropic shape, translated at the gateway seam like every other provider) · `/v1/embeddings` (embedding lane)
+- Models: DeepSeek V4 Flash · NVIDIA Nemotron 3.5 Lightning 30B · MiniMax M2.7 · MiniMax M3
+- **Pricing pinned from the gateway's own `/v1/models` report** [live probe]: DeepSeek V4 Flash bills at $0.042/$0.084 per Mtok; the MiniMax lanes and the Nemotron lane report 0 (the "Unlimited core models" tier) — sealed in `PROVIDER_PRICING` so the free lanes never inherit a paid sibling's worth against this gateway's truth
+
+No schema change. No migration. One narrow provider file, one index entry, one pricing lane.
+
+---
+
 # v0.9.25 — The Cached Tokens KPI ◎
 
 > *"The tokens that were already warm — now counted, where the original harbor showed them."*
@@ -38,6 +60,14 @@ No schema change. No migration. The retreat's lesson honored: narrow commit, por
 
 **Live Activity — fourteen rows of the living stream:**
 - The realtime feed now shows **14 rows** (was 7) — the recent ring already carries 20, so the supply holds
+
+**Realtime KPIs — the band refreshes itself:**
+- The five KPI cards now **auto-update** — no page reload. A light 15s poll re-reads the same KPI endpoint and swaps the numbers in place; the cadence matches the SSE coalesced full-refresh (≥15s), and there is no skeleton flicker on update
+- On period change, the polled snapshot is dropped so the new window's REST data renders immediately — no stale numbers across windows
+
+**Period control — Today takes the helm:**
+- **24h retired** — the segmented control is now Today · 7 · 14 · 30 · All time
+- **Default window is Today** — entering `dashboard/usage` opens on Today, no longer 7 days
 
 ---
 
