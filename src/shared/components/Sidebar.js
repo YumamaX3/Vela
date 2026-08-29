@@ -12,6 +12,7 @@ import { translate } from "@/i18n/runtime";
 import Button from "./Button";
 import { ConfirmModal } from "./Modal";
 import NineRemotePromoModal from "./NineRemotePromoModal";
+import UpdateNoticeModal from "./UpdateNoticeModal";
 
 // const VISIBLE_MEDIA_KINDS = ["embedding", "image", "imageToText", "tts", "stt", "webSearch", "webFetch", "video", "music"];
 const VISIBLE_MEDIA_KINDS = ["embedding", "image", "video", "tts", "stt"];
@@ -68,6 +69,10 @@ export default function Sidebar({ onClose }) {
   const [isDisconnected, setIsDisconnected] = useState(false);
   const [updateInfo, setUpdateInfo] = useState(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showNoticeModal, setShowNoticeModal] = useState(false);
+  const [dismissedVersion, setDismissedVersion] = useState(() => {
+    try { return localStorage.getItem("vela_update_dismissed") || ""; } catch { return ""; }
+  });
   const [isUpdating, setIsUpdating] = useState(false);
   const [shutdownCountdown, setShutdownCountdown] = useState(0);
   const [enableTranslator, setEnableTranslator] = useState(false);
@@ -82,13 +87,31 @@ export default function Sidebar({ onClose }) {
       .catch(() => {});
   }, []);
 
-  // Lazy check for new npm version on mount
+  // The horizon bell — probe for a new tide on mount, then every 6 hours.
+  // A dismissed version stays dismissed until an even newer one arrives.
   useEffect(() => {
-    fetch("/api/version")
-      .then(res => res.json())
-      .then(data => { if (data.hasUpdate) setUpdateInfo(data); })
-      .catch(() => {});
-  }, []);
+    let alive = true;
+    const check = () =>
+      fetch("/api/version", { cache: "no-store" })
+        .then(res => res.json())
+        .then(data => {
+          if (!alive) return;
+          if (data.hasUpdate && data.latestVersion && data.latestVersion !== dismissedVersion) {
+            setUpdateInfo(data);
+          }
+        })
+        .catch(() => {});
+    check();
+    const id = setInterval(check, 6 * 60 * 60 * 1000);
+    return () => { alive = false; clearInterval(id); };
+  }, [dismissedVersion]);
+
+  const handleDismissUpdate = () => {
+    const v = updateInfo?.latestVersion || "";
+    try { localStorage.setItem("vela_update_dismissed", v); } catch { /* storage unavailable */ }
+    setDismissedVersion(v);
+    setUpdateInfo(null);
+  };
 
   const isRouteActive = (href) => {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -154,23 +177,42 @@ export default function Sidebar({ onClose }) {
             </div>
           </Link>
           {updateInfo && (
-            <div className="rounded-[10px] border border-success/25 bg-success/10 p-2.5">
-              <p className="text-[11px] font-semibold text-success">
-                {translate("New version available")}: v{updateInfo.latestVersion}
-              </p>
-              <div className="flex items-center gap-2 mt-1.5">
+            <div className="relative overflow-hidden rounded-[10px] border border-brand-500/25 bg-brand-500/10 p-2.5">
+              {/* The ember glow — the notice's identity motif */}
+              <div className="pointer-events-none absolute -right-8 -top-8 h-20 w-20 rounded-full bg-brand-500/20 blur-xl" />
+              <div className="relative flex items-start justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="relative flex h-2 w-2 shrink-0">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                  </span>
+                  <p className="truncate text-[11px] font-semibold text-brand-600 dark:text-brand-400">
+                    {translate("New tide")}: v{updateInfo.currentVersion} → v{updateInfo.latestVersion}
+                  </p>
+                </div>
                 <button
-                  onClick={() => setShowUpdateModal(true)}
-                  className="px-2 py-1 rounded-lg bg-success text-white text-[11px] font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+                  onClick={handleDismissUpdate}
+                  aria-label={translate("Dismiss update notice")}
+                  title={translate("Dismiss until a newer tide")}
+                  className="shrink-0 rounded p-0.5 text-text-subtle transition-colors hover:bg-black/5 hover:text-text-muted dark:hover:bg-white/10 cursor-pointer"
                 >
-                  {translate("Update now")}
+                  <span className="material-symbols-outlined text-[14px]">close</span>
+                </button>
+              </div>
+              <div className="relative mt-1.5 flex items-center gap-2">
+                <button
+                  onClick={() => setShowNoticeModal(true)}
+                  className="flex items-center gap-1 rounded-lg bg-brand-500 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-brand-600 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[13px]">sailing</span>
+                  {translate("View details")}
                 </button>
                 <button
                   onClick={() => copy(INSTALL_CMD)}
-                  title="Copy install command"
-                  className="flex-1 text-left hover:opacity-80 transition-opacity cursor-pointer min-w-0"
+                  title={INSTALL_CMD}
+                  className="min-w-0 flex-1 cursor-pointer text-left transition-opacity hover:opacity-80"
                 >
-                  <code className="block text-[10px] text-text-muted font-mono truncate">
+                  <code className="block truncate font-mono text-[10px] text-text-muted">
                     {copied ? "✓ copied!" : INSTALL_CMD}
                   </code>
                 </button>
@@ -281,7 +323,7 @@ export default function Sidebar({ onClose }) {
       {/* Remote Promo Modal */}
       <NineRemotePromoModal isOpen={showRemoteModal} onClose={() => setShowRemoteModal(false)} />
 
-      {/* Update Confirmation Modal */}
+      {/* Update Confirmation Modal (the npm/CLI berth's in-place flow) */}
       <ConfirmModal
         isOpen={showUpdateModal}
         onClose={() => setShowUpdateModal(false)}
@@ -291,6 +333,14 @@ export default function Sidebar({ onClose }) {
         confirmText="Show Command"
         cancelText="Cancel"
         variant="primary"
+      />
+
+      {/* The horizon bell — the Vela-styled update notice with release notes */}
+      <UpdateNoticeModal
+        isOpen={showNoticeModal}
+        onClose={() => setShowNoticeModal(false)}
+        info={updateInfo}
+        onTriggerLegacyUpdate={() => setShowUpdateModal(true)}
       />
 
       {/* Disconnected / Updating Overlay */}

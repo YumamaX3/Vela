@@ -61,7 +61,7 @@ services:
     # breaker, fallback-rules DB, per-key ACL, pool egress geo, prompt
     # injectors. v0.9.12+ carries the redesigned sidebar, single-page
     # usage, /quota.
-    image: ghcr.io/yumamax3/vela:0.9.31   # bump to the release you want
+    image: ghcr.io/yumamax3/vela:0.9.32   # bump to the release you want
     container_name: vela-gateway
     hostname: vela-gateway
     restart: unless-stopped
@@ -82,6 +82,12 @@ services:
       PORT: "32060"
       HOSTNAME: "0.0.0.0"
       NODE_ENV: production
+      # The berth this Vela sleeps in — the update notice hands the right
+      # command for it (docker → compose pull; npm → install cmd; k8s → image tag).
+      VELA_DEPLOYMENT: docker
+      # Optional: a GitHub token raises the update-probe rate limit and
+      # reaches private repos. Leave unset for the 60 req/h anonymous tier.
+      # GH_TOKEN: ""
       NEXT_TELEMETRY_DISABLED: "1"
       BASE_URL: "http://localhost:32060"
       # ── 💨 Compression sidecar — internal only, fail-open ─────
