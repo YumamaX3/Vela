@@ -320,7 +320,7 @@ export default function ClaudeToolCard({
             </div>
           )}
 
-          {!checkingClaude && claudeStatus?.installed && (
+          {!checkingClaude && claudeStatus && (
             <>
               <div className="flex flex-col gap-2">
                 {/* Endpoint (selector) */}
