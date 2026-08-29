@@ -271,6 +271,52 @@ function classifyQoderError(statusVal, inner) {
   return { kind: "unknown", retryable: false, message: "unknown upstream error" };
 }
 
+// ── Error message honesty ────────────────────────────────────────────────
+// Nested error envelopes double-encode; extractInnerDetail peels them so the
+// client sees the upstream's actual reason instead of a bare status code.
+function extractInnerDetail(raw) {
+  if (!raw || typeof raw !== "string") return "";
+  let cur = raw.trim();
+  for (let i = 0; i < 3; i++) {
+    if (!cur.startsWith("{")) break;
+    try {
+      const parsed = JSON.parse(cur);
+      const next = parsed?.message;
+      if (typeof next !== "string" || !next.trim()) break;
+      cur = next.trim();
+    } catch {
+      break;
+    }
+  }
+  return cur.replace(/\r?\n/g, " ").slice(0, 200);
+}
+
+// ── Transient-retry policy (HTTP-level failures) ─────────────────────────
+// Qoder's CDN/WAF occasionally answers a perfectly valid signed request with
+// a bare transient status. Re-issue the identical signed body (stable
+// request_set_id + chat_record_id make the retry idempotent upstream).
+const QODER_HTTP_MAX_ATTEMPTS = 3; // 1 + 2 retries
+const QODER_RETRY_BACKOFF_MS = [2000, 5000];
+const QODER_RETRYABLE_HTTP = new Set([408, 429, 500, 502, 503, 504, 522, 524, 529]);
+
+function classifyHttpError(status) {
+  if (status === 401 || status === 403) {
+    return {
+      kind: "auth",
+      retryable: false,
+      message: "qoder auth rejected (reconnect the account)",
+    };
+  }
+  if (QODER_RETRYABLE_HTTP.has(status)) {
+    const msg = status === 504 || status === 529 ? "upstream model timed out (504)" : `upstream transient error (${status})`;
+    return { kind: "transient", retryable: true, message: msg };
+  }
+  if (status === 402) {
+    return { kind: "billing", retryable: false, message: "upstream quota exhausted" };
+  }
+  return { kind: "upstream", retryable: false, message: `upstream error (${status})` };
+}
+
 /** Human-readable fallback when the classified message is empty. */
 function qoderErrorMessage(statusVal, inner) {
   const c = classifyQoderError(statusVal, inner);
@@ -288,6 +334,10 @@ function qoderErrorMessage(statusVal, inner) {
 
 const QODER_QUEUE_MAX_ATTEMPTS = 10;
 const QODER_QUEUE_MAX_WAIT_S = 30;
+// Wall-clock budget for the whole queue wait — a deep queue (queueCount in
+// the thousands) must not hold a request open forever; the budget turns the
+// attempt cap into a time cap too.
+const QODER_QUEUE_BUDGET_MS = 90_000;
 
 /**
  * Parse a qoder "10605" queue-admission body (any nesting depth) into its
@@ -361,14 +411,14 @@ async function drainToTerminalFrame(reader, decoder) {
   return lastFrame;
 }
 
-function describeQueueAdmission(a, attempt) {
+function describeQueueAdmission(a, attempt, reason) {
   const parts = [];
   if (a?.modelKey) parts.push(`model=${a.modelKey}`);
   if (a?.queueType) parts.push(`lane=${a.queueType}`);
   if (typeof a?.queueCount === "number") parts.push(`queue=${a.queueCount}`);
   if (typeof a?.retryAfterSeconds === "number") parts.push(`retryAfter=${a.retryAfterSeconds}s`);
   parts.push(`waited through ${attempt} ${attempt === 1 ? "attempt" : "attempts"}`);
-  return `qoder queue gate open — admission denied after the queue ${parts.join(", ")}`;
+  return `qoder queue gate: ${reason} — ${parts.join(", ")}`;
 }
 
 /**
@@ -405,6 +455,10 @@ async function peekFirstQoderFrame(reader, decoder) {
       if (isBillingBlock(inner)) {
         return { isBilling: true, isQueue: false, statusVal, message: inner || `qoder billing block (${statusVal})` };
       }
+      // Any other first-frame error (504 timeout, 418 provider_error, 400,
+      // plain 403/500…). Surface it as a terminal error so execute() converts
+      // it into a real non-200 response — never launder it into a 200 stream.
+      return { isTerminalError: true, statusVal, inner, consumed };
     }
     return { isBilling: false, isQueue: false, consumed };
   }
@@ -425,11 +479,17 @@ async function peekFirstQoderFrame(reader, decoder) {
  * response.text() which hangs until the socket closes — so on terminal
  * events we cancel the upstream reader and close our stream immediately.
  *
- * NEW: Peek first frame to detect billing blocks (code 112/pricingUrl) and
- * queue admissions (code 10605). Billing → 403 so chatCore marks the
- * connection unavailable and triggers combo fallback. Queue → { queue: true }
- * marker for the queue gate in execute(): wait retryAfterSeconds, re-issue
- * the whole request in place, until the lane admits us or attempts exhaust.
+ * First-frame gate (the peek):
+ *   - queue admission (10605) → marker Response; execute() waits + re-issues
+ *   - billing block (112/pricingUrl) → honest 403 JSON so chatCore marks the
+ *     connection unavailable and triggers combo fallback
+ *   - ANY other error frame (504 timeout, 418 provider_error, 400, 500…) →
+ *     honest non-200 JSON. It must never be laundered into a 200 stream —
+ *     that was the leak: chatCore saw success, no fallback fired, and the
+ *     client ate the raw error text instead.
+ * Errors that arrive MID-stream (after content already flowed) keep the
+ * graceful-degradation path: a visible error chunk + clean [DONE], because
+ * the partial work is already on the client and no fallback can reclaim it.
  */
 async function wrapQoderSSE(response, model) {
   if (!response.ok || !response.body) return response;
@@ -437,7 +497,7 @@ async function wrapQoderSSE(response, model) {
   const decoder = new TextDecoder();
   const reader = response.body.getReader();
 
-  // Peek first frame to detect billing block or queue admission
+  // Peek first frame to detect queue admission, billing block, or any error
   const peek = await peekFirstQoderFrame(reader, decoder);
   if (peek?.isQueue) {
     // Queue admission — NOT an error. Signal the gate; execute() waits and
@@ -453,6 +513,18 @@ async function wrapQoderSSE(response, model) {
     return new Response(
       JSON.stringify({ error: { message: peek.message, code: peek.statusVal } }),
       { status: 403, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  if (peek?.isTerminalError) {
+    // First-frame failure — honest non-200 so chatCore's error path + combo
+    // fallback engage. Nothing was streamed yet, so nothing is lost.
+    await reader.cancel().catch(() => {});
+    const c = classifyQoderError(peek.statusVal, peek.inner);
+    const detail = extractInnerDetail(peek.inner);
+    const msg = detail ? `${c.message}: ${detail}` : c.message;
+    return new Response(
+      JSON.stringify({ error: { message: msg, code: peek.statusVal } }),
+      { status: peek.statusVal || 502, headers: { "Content-Type": "application/json" } }
     );
   }
 
@@ -481,9 +553,14 @@ async function wrapQoderSSE(response, model) {
     const statusVal = typeof envelope.statusCodeValue === "number" ? envelope.statusCodeValue : 200;
     const inner = typeof envelope.body === "string" ? envelope.body : "";
     if (statusVal !== 200) {
-      // Map the raw upstream envelope to a short, honest message — never leak
-      // the nested JSON (418 provider_error / 504 timeout / 112 billing / etc.).
-      const msg = qoderErrorMessage(statusVal, inner);
+      // Mid-stream terminal frame — content already flowed to the client, so
+      // no fallback can reclaim it. Graceful degradation: a short, honest
+      // error chunk (never leak the nested JSON: 418 provider_error / 504
+      // timeout / 112 billing) and a clean [DONE]. First-frame errors never
+      // reach here — the peek gate turns them into honest non-200 responses.
+      const c = classifyQoderError(statusVal, inner);
+      const detail = extractInnerDetail(inner);
+      const msg = detail ? `${c.message}: ${detail}` : c.message;
       const errChunk = JSON.stringify({
         id: `qoder-error-${Date.now()}`,
         object: "chat.completion.chunk",
@@ -700,13 +777,19 @@ export class QoderExecutor extends BaseExecutor {
 
     const timeoutMs = this.config?.timeoutMs || FETCH_CONNECT_TIMEOUT_MS;
 
-    // ── Queue gate ─────────────────────────────────────────────────────────
+    // ── Queue gate + transient retry ───────────────────────────────────────
     // A saturated lane answers the first SSE frame with code 10605 — an
     // admission ticket carrying retryAfterSeconds. Wait (capped), re-issue
-    // the identical signed request, up to QODER_QUEUE_MAX_ATTEMPTS. Exhausted
-    // → honest 429 for combo fallback. NOT 403: chatCore's 401/403 path
-    // would churn token refreshes over a queue, not an auth failure.
+    // the identical signed request, up to QODER_QUEUE_MAX_ATTEMPTS — and
+    // never longer than QODER_QUEUE_BUDGET_MS wall clock.
+    //
+    // HTTP-level transient failures (5xx/429/408 from the CDN/WAF) get up to
+    // two in-place retries with backoff — same signed body, same stable
+    // request ids, so the retry is idempotent upstream. Terminal exhaustion
+    // stays honest: billing → 403, auth → 401/403 passthrough, queue → 429.
     let lastAdmission = null;
+    let httpRetries = 0;
+    const queueStart = Date.now();
     for (let attempt = 1; attempt <= QODER_QUEUE_MAX_ATTEMPTS; attempt++) {
       if (signal?.aborted) {
         return {
@@ -735,6 +818,14 @@ export class QoderExecutor extends BaseExecutor {
       }
 
       if (!response.ok) {
+        const hc = classifyHttpError(response.status);
+        if (hc.retryable && httpRetries < QODER_RETRY_BACKOFF_MS.length) {
+          const waitMs = QODER_RETRY_BACKOFF_MS[httpRetries++];
+          log?.warn?.("QODER", `HTTP ${response.status} transient — retrying in ${waitMs / 1000}s (${httpRetries}/${QODER_RETRY_BACKOFF_MS.length})`);
+          await response.body?.cancel().catch(() => {});
+          await new Promise((r) => setTimeout(r, waitMs));
+          continue; // re-issue the identical signed request
+        }
         // Pass error response through unchanged so chatCore can capture it.
         return { response, url, headers, transformedBody: payload };
       }
@@ -749,12 +840,19 @@ export class QoderExecutor extends BaseExecutor {
       if (attempt >= QODER_QUEUE_MAX_ATTEMPTS) break;
 
       const waitMs = queueWaitMs(lastAdmission, attempt);
+      const waitedMs = Date.now() - queueStart;
+      if (waitedMs + waitMs > QODER_QUEUE_BUDGET_MS) {
+        // The wall-clock budget says stop — a deep queue must not hold the
+        // request (and its client) hostage past the budget.
+        break;
+      }
       log?.warn?.("QODER", `queue gate: lane full (code 10605), waiting ${Math.round(waitMs / 1000)}s before retry ${attempt + 1}/${QODER_QUEUE_MAX_ATTEMPTS}`);
       await new Promise((r) => setTimeout(r, waitMs));
     }
 
     // Queue never admitted us — drain one upstream frame for the real reason
-    // if it's cheaply there, then surface an honest 429.
+    // if it's cheaply there, then surface an honest terminal error. Billing
+    // inside the probe → 403 (combo fallback engages); anything else → 429.
     const probeCtrl = new AbortController();
     const probeTimer = setTimeout(() => probeCtrl.abort(new Error("queue probe timeout")), 3000);
     let detailFrame = null;
@@ -773,11 +871,28 @@ export class QoderExecutor extends BaseExecutor {
       clearTimeout(probeTimer);
     }
 
-    const detail = parseQueueAdmission(detailFrame?.body || "");
+    const probeBody = typeof detailFrame?.body === "string" ? detailFrame.body : "";
+    const detail = parseQueueAdmission(probeBody);
+    const waitedMs = Date.now() - queueStart;
+    const exhaustedReason = waitedMs >= QODER_QUEUE_BUDGET_MS
+      ? `queue wait budget exhausted after ${Math.round(waitedMs / 1000)}s`
+      : "lane never admitted the request";
     const reason = detail
-      ? describeQueueAdmission(detail, QODER_QUEUE_MAX_ATTEMPTS)
-      : describeQueueAdmission(lastAdmission, QODER_QUEUE_MAX_ATTEMPTS);
+      ? describeQueueAdmission(detail, QODER_QUEUE_MAX_ATTEMPTS, exhaustedReason)
+      : describeQueueAdmission(lastAdmission, QODER_QUEUE_MAX_ATTEMPTS, exhaustedReason);
     log?.warn?.("QODER", `queue gate exhausted: ${reason}`);
+
+    if (probeBody && isBillingBlock(probeBody)) {
+      // The real reason is quota, not queue pressure — honest 403 so chatCore
+      // marks the connection unavailable instead of retrying a dry well.
+      return {
+        response: new Response(
+          JSON.stringify({ error: { message: `${reason}. Upstream quota exhausted (112).`, code: 403 } }),
+          { status: 403, headers: { "Content-Type": "application/json" } },
+        ),
+        url, headers, transformedBody: payload,
+      };
+    }
     return {
       response: new Response(
         JSON.stringify({ error: { message: reason, code: 429 } }),
@@ -811,7 +926,12 @@ export const __test__ = {
   parseQueueAdmission,
   queueWaitMs,
   classifyQoderError,
+  classifyHttpError,
+  extractInnerDetail,
+  describeQueueAdmission,
   qoderErrorMessage,
   QODER_QUEUE_MAX_ATTEMPTS,
   QODER_QUEUE_MAX_WAIT_S,
+  QODER_QUEUE_BUDGET_MS,
+  QODER_RETRY_BACKOFF_MS,
 };

@@ -98,7 +98,11 @@ describe("wrapQoderSSE billing detection", () => {
     expect(wrapped.status).toBe(403);
   });
 
-  it("passes through normal errors (non-billing) as wrapped SSE", async () => {
+  // First-frame non-billing errors are honest non-200 responses (v0.9.30) —
+  // the old behavior laundered them into 200 streams and combo fallback
+  // never engaged. Mid-stream errors keep the graceful chunk path (see
+  // qoder.test.js).
+  it("surfaces first-frame non-billing errors as honest non-200 responses", async () => {
     const errorEnv = JSON.stringify({
       statusCodeValue: 500,
       body: "Internal server error",
@@ -107,22 +111,11 @@ describe("wrapQoderSSE billing detection", () => {
 
     const wrapped = await wrapQoderSSE(makeResponse([upstream]), "qoder/ultimate");
 
-    // Normal error: still 200 response, error text in SSE body
-    expect(wrapped.status).toBe(200);
-    expect(wrapped.ok).toBe(true);
-
-    const reader = wrapped.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-    }
-    buf += decoder.decode();
-
-    expect(buf).toContain("[qoder error 500");
-    expect(buf).toContain("data: [DONE]");
+    expect(wrapped.status).toBe(500);
+    expect(wrapped.ok).toBe(false);
+    const json = await wrapped.json();
+    expect(json.error).toBeDefined();
+    expect(json.error.message).toContain("Internal server error");
   });
 
   it("passes through successful responses unchanged", async () => {
