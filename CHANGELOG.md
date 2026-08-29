@@ -25,6 +25,20 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.29 — The Homecoming Deck 🏠
+
+> *"The original silhouette returns, but every number it speaks is now the living truth."*
+
+**Dashboard home — the 9router silhouette, reborn on live data:**
+- **New layout**: the two-column command deck returns — `2fr` main column (Provider Topology at home again, Request Flow beneath) + `1fr` sidebar (Recent Activity, Fleet Status). Quick actions ride a four-tile strip above
+- **Coral hero band restored**: the 9router signature gradient (`brand-600 → brand-400`) with four white stat tiles — Requests · Tokens · Spend · Cache rate
+- **New features, all fed by real streams**: gateway heartbeat chip (real `/api/health` ping every 15s — the old page said "Gateway live" without checking), Provider Topology on the home deck (ReactFlow, live active requests), Fleet Status card (real provider health + latency), structured loading skeleton, error-tinted activity rows
+- **The honesty upgrade**: the ancestor page simulated activity with random intervals and hardcoded fake stats (team members, storage, security score). This deck carries live truth only — `useUsageStream("today")` for totals + realtime, `useProviders()` for topology, `/api/settings` for the fleet. Nothing fabricated
+
+One page rewritten. Every data flow verified against a real endpoint before the build.
+
+---
+
 # v0.9.28 — The Unbound Panels 🔓
 
 > *"The settings no longer wait for the tool to arrive — prepare the harbor before the ship docks."*
