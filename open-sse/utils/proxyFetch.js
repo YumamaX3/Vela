@@ -234,13 +234,22 @@ async function getDispatcher(proxyUrl) {
       protocol = "http:";
     }
 
+    // Bind the dynamic imports to DECLARED locals — destructuring-assigning
+    // into bare names dies as "ProxyAgent is not defined" once bundled.
+    const undici = await import("undici");
     let Dispatcher;
     if (/^socks5:\/\//i.test(normalized)) {
       // SOCKS5 branch - undici 7.29.0 exports Socks5ProxyAgent
-      ({ Socks5ProxyAgent } = await import("undici"));
+      const Socks5ProxyAgent = undici.Socks5ProxyAgent;
+      if (!Socks5ProxyAgent) {
+        throw new Error(`unsupported proxy scheme for ${normalized}: Socks5ProxyAgent unavailable in this undici build`);
+      }
       Dispatcher = new Socks5ProxyAgent({ uri: normalized });
     } else {
-      ({ ProxyAgent } = await import("undici"));
+      const ProxyAgent = undici.ProxyAgent;
+      if (!ProxyAgent) {
+        throw new Error(`unsupported proxy scheme for ${normalized}: ProxyAgent unavailable in this undici build`);
+      }
       Dispatcher = new ProxyAgent({ uri: normalized });
     }
 
