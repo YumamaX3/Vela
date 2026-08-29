@@ -1,11 +1,11 @@
 /**
  * Freebuff session layer — claim lifecycle, gate classification, persisted state.
  *
- * One account holds ONE session locked to ONE model (~1h server TTL). The
- * quota unit IS the session claim (~6/day, per egress IP, Pacific-midnight
- * reset), so this module is written around one invariant: NEVER POST to the
- * session endpoint unless we intend to burn a claim unit. Quota reads are
- * GET-only (see usage/freebuff.js).
+ * One account holds ONE session locked to ONE model (GLM-5.2 1h upstream TTL,
+ * everything else 24h — freebuffSessionTtlMs). The quota unit IS the session
+ * claim, so this module is written around one invariant: NEVER POST to the
+ * session endpoint unless we intend to burn a claim unit. Quota reads and
+ * token-health probes are GET-only (see usage/freebuff.js, probeFreebuffToken).
  *
  * State of record: connection.providerSpecificData.freebuff.session, persisted
  * by the connections JSON column (survives restarts). An in-memory mirror
@@ -19,16 +19,27 @@ import { getProviderConnections, updateProviderConnection } from "@/lib/localDb"
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import {
   FREEBUFF_SESSION_URL,
-  FREEBUFF_SESSION_TTL_MS,
+  FREEBUFF_ME_URL,
+  FREEBUFF_STREAK_URL,
+  FREEBUFF_ADS_URL,
   FREEBUFF_SESSION_FETCH_TIMEOUT_MS,
+  FREEBUFF_WAITING_ROOM_FETCH_TIMEOUT_MS,
   FREEBUFF_SESSION_STALE_STATUSES,
   FREEBUFF_RECLAIMABLE_CODES,
   FREEBUFF_MODEL_LOCKED_CODE,
+  FREEBUFF_SUPERSEDED_CODE,
   FREEBUFF_CLAIM_BLOCKED_CODES,
   FREEBUFF_USER_AGENT,
+  FREEBUFF_BUN_USER_AGENT,
+  FREEBUFF_CLI_ADS_UA,
+  FREEBUFF_AD_BROWSER_UAS,
+  FREEBUFF_WAITING_ROOM_AD_PROVIDERS,
   FREEBUFF_MODEL_AGENT_IDS,
   FREEBUFF_FALLBACK_AGENT_ID,
+  FREEBUFF_COOLDOWNS,
+  FREEBUFF_MAX_COOLDOWN_MS,
   FREEBUFF_PACIFIC_TZ,
+  freebuffSessionTtlMs,
 } from "../config/freebuff.js";
 
 // ── in-memory mirror (hot path for the affinity resolver) ──────────────────
@@ -120,11 +131,19 @@ export async function clearSession(credentials, reason = null) {
 
 // ── gate classification — status + structured code ONLY ────────────────────
 // Never match upstream message text: it is untrusted data and must not drive
-// reclaim logic. Extracts whitelisted scalars only (code, message, resetAt) —
-// raw upstream JSON is never spread into stored objects.
+// reclaim logic. Extracts whitelisted scalars only — raw upstream JSON is
+// never spread into stored objects.
+
+function parseEpochMs(raw) {
+  if (raw == null) return null;
+  let parsed = typeof raw === "string" ? Date.parse(raw) : Number(raw);
+  // Unix seconds (< 1e12) → ms; upstream is free to emit either.
+  if (Number.isFinite(parsed) && parsed > 0 && parsed < 1e12) parsed *= 1000;
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
 function extractScalars(bodyText) {
-  const out = { code: null, message: null, resetAt: null };
+  const out = { code: null, message: null, resetAt: null, retryAfterMs: null, period: null, limit: null, recentCount: null, resumesAt: null };
   if (typeof bodyText !== "string" || !bodyText) return out;
   try {
     const json = JSON.parse(bodyText);
@@ -133,28 +152,151 @@ function extractScalars(bodyText) {
       if (typeof src.code === "string") out.code = src.code;
       else if (typeof src.status === "string") out.code = src.status;
       if (typeof src.message === "string") out.message = src.message;
-      const raw = src.resetAt ?? src.reset_at ?? src.resets_at ?? src.resetAtMs;
-      const parsed = typeof raw === "string" ? Date.parse(raw) : Number(raw);
-      if (Number.isFinite(parsed)) out.resetAt = parsed;
+      out.resetAt = parseEpochMs(src.resetAt ?? src.reset_at ?? src.resets_at ?? src.resetAtMs);
+      const rawRetry = src.retryAfterMs ?? src.retry_after_ms;
+      if (rawRetry != null) {
+        const n = Number(rawRetry);
+        // retryAfterMs is a DURATION (ms), never an epoch — clamp to the ceiling.
+        if (Number.isFinite(n) && n > 0) out.retryAfterMs = Math.min(n, FREEBUFF_MAX_COOLDOWN_MS);
+      }
+      if (typeof src.period === "string") out.period = src.period;
+      if (Number.isFinite(Number(src.limit))) out.limit = Number(src.limit);
+      if (Number.isFinite(Number(src.recentCount ?? src.recent_count))) out.recentCount = Number(src.recentCount ?? src.recent_count);
+      out.resumesAt = parseEpochMs(src.resumes_at ?? src.resumesAt);
     }
   } catch { /* body is not JSON — return empty scalars */ }
   return out;
 }
 
+/** Clamp an upstream-sourced cooldown to the 7-day ceiling. */
+export function clampFreebuffCooldownMs(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) return 0;
+  return Math.min(ms, FREEBUFF_MAX_COOLDOWN_MS);
+}
+
 /**
- * Classify a chat-error gate. Returns { kind, code, message, resetAt? } where
- * kind ∈ reclaimable | model_locked | stale_unknown | quota | auth | other.
+ * True when a no-timestamp quota refusal is a genuine daily cap: the period is
+ * pacific_day/pacific_week AND the recent counter sits at/over the limit (the
+ * session-quota bodies the CLI serves on daily-cap refusals). Only these lock
+ * until Pacific midnight; every other opaque 429 gets a bounded backoff.
+ */
+function isDailyCapScalars(s) {
+  if (s.period !== "pacific_day" && s.period !== "pacific_week") return false;
+  return s.limit > 0 && s.recentCount != null && s.recentCount >= s.limit;
+}
+
+/**
+ * Classify a chat-error gate — the full ~20-code matrix (reference
+ * freebuff-proxy ratelimit.go classifyError, re-verified 2026-08-30).
+ * Returns { kind, code, message, resetAt?, retryAfterMs? } where kind ∈
+ *   reclaimable | model_locked | superseded | session_limit | limited_ip
+ *   | stale_unknown | banned | country_blocked | cli_required | run_fanout
+ *   | invalid_agent_model | capacity_deferred | load_shedding | peak_hours
+ *   | ip_capped | waiting_room_queued | waiting_room_required | auth
+ *   | daily_quota | bounded_429 | other.
+ *
+ * Exact body-marker matching where upstream markers are exact (a 403 that
+ * merely MENTIONS "banned" in its message stays a generic refusal — the
+ * canonical ban bodies are {"status":"banned"} and {"error":"account_suspended"}).
  */
 export function classifyGate(status, bodyText) {
-  const { code, message, resetAt } = extractScalars(bodyText);
-  if (FREEBUFF_SESSION_STALE_STATUSES.has(status)) {
-    if (FREEBUFF_RECLAIMABLE_CODES.has(code)) return { kind: "reclaimable", code, message };
-    if (code === FREEBUFF_MODEL_LOCKED_CODE) return { kind: "model_locked", code, message };
-    return { kind: "stale_unknown", code, message };
+  const s = extractScalars(bodyText);
+  const lower = typeof bodyText === "string" ? bodyText.toLowerCase() : "";
+
+  // ── terminal account fates (exact markers — ratelimit.go audit B5) ─────
+  if (status === 403 && (lower.includes('"status":"banned"') || lower.includes('"error":"account_suspended"'))) {
+    return {
+      kind: "banned", code: s.code || "banned", message: s.message,
+      ...(s.resumesAt ? { resetAt: s.resumesAt } : {}),
+    };
   }
-  if (status === 429) return { kind: "quota", code: code || "rate_limited", message, resetAt };
-  if (status === 401) return { kind: "auth", code, message };
-  return { kind: "other", code, message };
+  if (status === 403 && lower.includes("country_blocked")) {
+    return { kind: "country_blocked", code: "country_blocked", message: s.message };
+  }
+  // ── body-marker driven, status-agnostic ────────────────────────────────
+  if (lower.includes("free_mode_run_fanout")) {
+    return { kind: "run_fanout", code: "free_mode_run_fanout", message: s.message, retryAfterMs: FREEBUFF_COOLDOWNS.RUN_FANOUT_MS };
+  }
+  if (lower.includes("free_mode_capacity_deferred")) {
+    // The free tier's transient capacity queue: "your request will be retried
+    // automatically" — retry IN PLACE against the same session (executor).
+    return { kind: "capacity_deferred", code: "free_mode_capacity_deferred", message: s.message, retryAfterMs: s.retryAfterMs };
+  }
+  if (lower.includes("free_mode_invalid_agent_model")) {
+    return { kind: "invalid_agent_model", code: "free_mode_invalid_agent_model", message: s.message, retryAfterMs: FREEBUFF_COOLDOWNS.INVALID_AGENT_MODEL_MS };
+  }
+  if (lower.includes("waiting_room_queued")) {
+    // Transient admission race — the session row is fine (endsTheSession:false).
+    return { kind: "waiting_room_queued", code: "waiting_room_queued", message: s.message, retryAfterMs: FREEBUFF_COOLDOWNS.WAITING_ROOM_RETRY_MS };
+  }
+  if (lower.includes("waiting_room_required")) {
+    // The account must walk the ad-chain + streak flow before the next session
+    // create. Session row fine — nothing invalidated.
+    return { kind: "waiting_room_required", code: "waiting_room_required", message: s.message, retryAfterMs: s.retryAfterMs };
+  }
+  if (lower.includes("ip_capped")) {
+    // Admission-only: too many distinct users on the egress IP. NOT tied to a
+    // quota reset — bounded retryAfterMs, never Pacific midnight.
+    return {
+      kind: "ip_capped", code: "ip_capped", message: s.message,
+      retryAfterMs: clampFreebuffCooldownMs(s.retryAfterMs) || FREEBUFF_COOLDOWNS.IP_CAPPED_DEFAULT_MS,
+    };
+  }
+  if (lower.includes("session_superseded")) {
+    // TERMINAL gate (endsTheSession:true): another instance took the account.
+    // Never auto-reacquire in-request — the next request re-joins fresh.
+    return { kind: "superseded", code: FREEBUFF_SUPERSEDED_CODE, message: s.message };
+  }
+  if (lower.includes("session_model_mismatch") && lower.includes("limited")) {
+    // The egress IP cannot serve the requested model — session stays bound to
+    // its admitted model; cool the (egress, model) pairing, not the session.
+    return { kind: "limited_ip", code: "session_model_mismatch", message: s.message };
+  }
+
+  // ── status-scoped session staleness (409/410/428) ──────────────────────
+  if (FREEBUFF_SESSION_STALE_STATUSES.has(status)) {
+    if (status === 409 && s.code === "session_limit_reached") {
+      // Account over its concurrent-tab budget; this session row is fine.
+      return { kind: "session_limit", code: "session_limit_reached", message: s.message, retryAfterMs: FREEBUFF_COOLDOWNS.WAITING_ROOM_RETRY_MS };
+    }
+    if (status === 403 || s.code === FREEBUFF_MODEL_LOCKED_CODE) {
+      if (s.code === FREEBUFF_MODEL_LOCKED_CODE) return { kind: "model_locked", code: s.code, message: s.message };
+    }
+    if (FREEBUFF_RECLAIMABLE_CODES.has(s.code)) return { kind: "reclaimable", code: s.code, message: s.message };
+    if (s.code === FREEBUFF_MODEL_LOCKED_CODE) return { kind: "model_locked", code: s.code, message: s.message };
+    // Remaining staleness markers (reference ErrSessionInvalid family)
+    if (["freebuff_update_required", "session_expired", "session_model_mismatch", "model_locked", "free_mode_legacy_luna_agent", "free_mode_legacy_luna"].includes(s.code)) {
+      return { kind: "reclaimable", code: s.code, message: s.message };
+    }
+    return { kind: "stale_unknown", code: s.code, message: s.message };
+  }
+
+  // ── auth death ─────────────────────────────────────────────────────────
+  if (status === 401) return { kind: "auth", code: s.code, message: s.message };
+
+  // ── 403 CLI gate ───────────────────────────────────────────────────────
+  if (status === 403 && lower.includes("free_mode_cli_required")) {
+    return { kind: "cli_required", code: "free_mode_cli_required", message: s.message };
+  }
+
+  // ── quota family ───────────────────────────────────────────────────────
+  if (status === 429 || s.code === "rate_limited" || s.code === "spend_limited") {
+    if (lower.includes("insufficient_quota") || lower.includes("limit_burst_rate")) {
+      // Upstream load saturation — minutes-scale, never a midnight lock.
+      return { kind: "load_shedding", code: "load_shedding", message: s.message, retryAfterMs: FREEBUFF_COOLDOWNS.LOAD_SHED_MS };
+    }
+    if (lower.includes("peak hours")) {
+      return { kind: "peak_hours", code: "peak_hours", message: s.message, retryAfterMs: FREEBUFF_COOLDOWNS.PEAK_HOURS_MS };
+    }
+    // Genuine daily cap: a validated resetAt, or a daily/weekly period at/over
+    // the limit. Everything else is an opaque 429 → bounded backoff.
+    if (s.resetAt || isDailyCapScalars(s)) {
+      return { kind: "daily_quota", code: s.code || "quota_exhausted", message: s.message, ...(s.resetAt ? { resetAt: s.resetAt } : {}) };
+    }
+    return { kind: "bounded_429", code: s.code || "rate_limited", message: s.message, retryAfterMs: FREEBUFF_COOLDOWNS.OPAQUE_429_MS };
+  }
+
+  return { kind: "other", code: s.code, message: s.message };
 }
 
 /**
@@ -240,12 +382,119 @@ function warnDirectEgressOnce(credentials) {
   }
 }
 
+// G5 UA scoping: session/claim/streak/agent-runs calls carry the plain Bun UA
+// — the ai-sdk UA rides the chat POST ONLY.
 function sessionHeaders(credentials) {
   return {
-    "Content-Type": "application/json",
     Authorization: `Bearer ${credentials.accessToken}`,
-    "User-Agent": FREEBUFF_USER_AGENT,
+    "User-Agent": FREEBUFF_BUN_USER_AGENT,
   };
+}
+
+// ── waiting-room chain (reference ads.go FireWaitingRoomChain) ─────────────
+// When upstream stamps waiting_room_required (428), the account must walk the
+// ad-chain + streak flow before the next session create. Strictly best-effort:
+// every failure is swallowed — the chain never blocks or fails a claim.
+
+function adsDeviceBlock() {
+  const platform = process.platform === "darwin" ? "macos" : process.platform === "win32" ? "windows" : "linux";
+  let timezone = "UTC";
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz) timezone = tz;
+  } catch { /* UTC fallback */ }
+  let locale = "en-US";
+  try {
+    const raw = process.env.LC_ALL || process.env.LC_MESSAGES || process.env.LANG;
+    if (raw) {
+      const lang = raw.split(".")[0].replace(/_/g, "-");
+      if (lang && lang !== "C" && lang !== "POSIX") locale = lang;
+    }
+  } catch { /* en-US fallback */ }
+  return { os: platform, timezone, locale };
+}
+
+export async function fireWaitingRoomChain(credentials, proxyOptions = null, log = null) {
+  const token = credentials?.accessToken;
+  if (!token) return;
+  const device = adsDeviceBlock();
+  const browserUA = FREEBUFF_AD_BROWSER_UAS[device.os] || FREEBUFF_AD_BROWSER_UAS.linux;
+  for (const provider of FREEBUFF_WAITING_ROOM_AD_PROVIDERS) {
+    try {
+      await proxyAwareFetch(FREEBUFF_ADS_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          "User-Agent": FREEBUFF_CLI_ADS_UA,
+        },
+        body: JSON.stringify({ provider, messages: [], device, userAgent: browserUA, surface: "waiting_room" }),
+        signal: AbortSignal.timeout(FREEBUFF_WAITING_ROOM_FETCH_TIMEOUT_MS),
+      }, buildSessionProxyOptions(credentials));
+    } catch (err) {
+      log?.debug?.("FREEBUFF", `waiting-room ads ${provider} failed: ${err?.message}`);
+    }
+  }
+  try {
+    await proxyAwareFetch(FREEBUFF_STREAK_URL, {
+      method: "GET",
+      headers: sessionHeaders(credentials),
+      signal: AbortSignal.timeout(FREEBUFF_WAITING_ROOM_FETCH_TIMEOUT_MS),
+    }, buildSessionProxyOptions(credentials));
+  } catch (err) {
+    log?.debug?.("FREEBUFF", `waiting-room streak failed: ${err?.message}`);
+  }
+}
+
+/** Read + clear the waiting-room flag; returns true when the chain must fire. */
+async function consumeWaitingRoomFlag(credentials) {
+  const fb = credentials?.providerSpecificData?.freebuff;
+  if (!fb?.waitingRoomRequiredAt) return false;
+  const connectionId = credentials?.connectionId;
+  if (connectionId) {
+    try {
+      const conn = credentials?._connection || null;
+      const existingPsd = conn?.providerSpecificData || credentials?.providerSpecificData || {};
+      const existingFb = { ...(existingPsd.freebuff || {}) };
+      delete existingFb.waitingRoomRequiredAt;
+      await updateProviderConnection(connectionId, {
+        providerSpecificData: { ...existingPsd, freebuff: existingFb },
+      });
+    } catch { /* best-effort — the flag clears in-memory below */ }
+  }
+  if (credentials.providerSpecificData?.freebuff) {
+    delete credentials.providerSpecificData.freebuff.waitingRoomRequiredAt;
+  }
+  return true;
+}
+
+/**
+ * Stamp the waiting-room flag (a 428 waiting_room_required arrived). The NEXT
+ * claim walks the ad chain before burning a unit. DB writes stay in this file.
+ */
+export async function stampWaitingRoomRequired(credentials) {
+  const connectionId = credentials?.connectionId;
+  if (!connectionId) return;
+  try {
+    const conn = credentials?._connection || null;
+    const existingPsd = conn?.providerSpecificData || credentials?.providerSpecificData || {};
+    const existingFb = existingPsd.freebuff || {};
+    await updateProviderConnection(connectionId, {
+      providerSpecificData: { ...existingPsd, freebuff: { ...existingFb, waitingRoomRequiredAt: new Date().toISOString() } },
+    });
+    if (credentials.providerSpecificData) {
+      credentials.providerSpecificData.freebuff = {
+        ...(credentials.providerSpecificData.freebuff || {}),
+        waitingRoomRequiredAt: new Date().toISOString(),
+      };
+    }
+  } catch { /* best-effort — the in-memory stamp below still serves this process */ }
+  if (credentials.providerSpecificData) {
+    credentials.providerSpecificData.freebuff = {
+      ...(credentials.providerSpecificData.freebuff || {}),
+      waitingRoomRequiredAt: new Date().toISOString(),
+    };
+  }
 }
 
 /**
@@ -253,8 +502,12 @@ function sessionHeaders(credentials) {
  * BURNS one quota unit; callers must only reach it when no warm session exists.
  * Serialized per (connection|model) by a promise-chain mutex that releases on
  * timeout/error.
+ *
+ * Wire ceremony (reference #120): the POST carries NO body and therefore NO
+ * Content-Type — the CLI's session POST is a bare fetch with Authorization +
+ * the x-freebuff-model header only.
  */
-export async function claimSession(credentials, model, proxyOptions = null, signal = null) {
+export async function claimSession(credentials, model, proxyOptions = null, signal = null, log = null) {
   const connectionId = credentials?.connectionId || "unknown";
   const key = `${connectionId}|${model}`;
   const prev = claimChains.get(key) || Promise.resolve();
@@ -270,13 +523,20 @@ export async function claimSession(credentials, model, proxyOptions = null, sign
     if (fresh?.model === model && isLive(fresh)) return fresh;
 
     warnDirectEgressOnce(credentials);
+
+    // Waiting-room ceremony: a prior 428 stamped the flag — walk the ad chain
+    // before burning the claim unit (best-effort, reference FireWaitingRoomChain).
+    if (await consumeWaitingRoomFlag(credentials)) {
+      await fireWaitingRoomChain(credentials, proxyOptions, log);
+    }
+
     const timeoutSignal = AbortSignal.timeout(FREEBUFF_SESSION_FETCH_TIMEOUT_MS);
     const merged = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
 
     const response = await proxyAwareFetch(FREEBUFF_SESSION_URL, {
       method: "POST",
       headers: { ...sessionHeaders(credentials), "x-freebuff-model": model },
-      body: JSON.stringify({}),
+      // #120: bodyless POST, no Content-Type.
       signal: merged,
     }, buildSessionProxyOptions(credentials));
 
@@ -302,7 +562,8 @@ export async function claimSession(credentials, model, proxyOptions = null, sign
         instanceId: claim.instanceId,
         agentId: FREEBUFF_MODEL_AGENT_IDS[model] || FREEBUFF_FALLBACK_AGENT_ID,
         claimedAt: new Date(now).toISOString(),
-        expiresAt: new Date(now + FREEBUFF_SESSION_TTL_MS).toISOString(),
+        // Per-model TTL: GLM rows expire upstream in 1h; everything else in 24h.
+        expiresAt: new Date(now + freebuffSessionTtlMs(model)).toISOString(),
       };
       await writeSession(credentials, session);
       return session;
@@ -346,9 +607,9 @@ export async function discoverWarmSession(credentials, proxyOptions = null) {
       instanceId,
       agentId: FREEBUFF_MODEL_AGENT_IDS[model] || FREEBUFF_FALLBACK_AGENT_ID,
       claimedAt: new Date(now).toISOString(),
-      // Upstream TTL is opaque here — keep the claimed session on our margin;
-      // stale state self-heals through the executor's reclaim-once loop.
-      expiresAt: new Date(now + FREEBUFF_SESSION_TTL_MS).toISOString(),
+      // Per-model margin — upstream TTL is otherwise opaque here; stale state
+      // self-heals through the executor's reclaim-once loop.
+      expiresAt: new Date(now + freebuffSessionTtlMs(model)).toISOString(),
     };
     await writeSession(credentials, session);
     return session;
@@ -380,7 +641,48 @@ export async function ensureSession(credentials, model, proxyOptions = null, sig
     log?.debug?.("FREEBUFF", `boot rediscovery: ${discovered ? `found ${discovered.model}` : "no warm session"}`);
   }
 
-  return await claimSession(credentials, model, proxyOptions, signal);
+  return await claimSession(credentials, model, proxyOptions, signal, log);
+}
+
+/**
+ * Zero-cost token-health probe (reference ProbeAccount + tokenhealth.go):
+ * GET session WITHOUT an instance-id header claims no slot and burns no quota;
+ * GET /api/v1/me confirms the token still resolves an account. Returns
+ * { ok, sessionStatus?, account? } — read-only, never throws.
+ */
+export async function probeFreebuffToken(credentials, proxyOptions = null) {
+  const token = credentials?.accessToken;
+  if (!token) return { ok: false, error: "missing token" };
+  const opts = buildSessionProxyOptions(credentials);
+  let sessionStatus = null;
+  try {
+    const res = await proxyAwareFetch(FREEBUFF_SESSION_URL, {
+      method: "GET",
+      headers: sessionHeaders(credentials),
+      signal: AbortSignal.timeout(FREEBUFF_SESSION_FETCH_TIMEOUT_MS),
+    }, opts);
+    const text = await res.text().catch(() => "");
+    if (!res.ok) {
+      const g = classifyGate(res.status, text);
+      return { ok: false, sessionStatus: res.status, gate: g };
+    }
+    try {
+      const json = JSON.parse(text);
+      const src = json && typeof json === "object" && json.session && typeof json.session === "object" ? json.session : json;
+      sessionStatus = typeof src?.status === "string" ? src.status : "unknown";
+    } catch { sessionStatus = "unparseable"; }
+  } catch (err) {
+    return { ok: false, error: err?.message || "probe failed" };
+  }
+  try {
+    const res = await proxyAwareFetch(FREEBUFF_ME_URL, {
+      method: "GET",
+      headers: sessionHeaders(credentials),
+      signal: AbortSignal.timeout(FREEBUFF_SESSION_FETCH_TIMEOUT_MS),
+    }, opts);
+    if (!res.ok) return { ok: sessionStatus !== null, sessionStatus, account: null, error: `me ${res.status}` };
+  } catch { /* account leg best-effort — the session leg already spoke */ }
+  return { ok: true, sessionStatus };
 }
 
 /** Test hooks — module state must reset between unit tests. */
@@ -391,4 +693,5 @@ export const __test__ = {
     warnedDirectEgress.clear();
   },
   mirrorSize: () => sessionMirror.size,
+  isDailyCapScalars,
 };

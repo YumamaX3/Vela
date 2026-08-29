@@ -25,6 +25,16 @@ import {
   FREEBUFF_MODEL_AGENT_IDS,
 } from "../../config/freebuff.js";
 
+// Display names for the served catalog (the picker's copy).
+const FREEBUFF_DISPLAY_NAMES = {
+  "openai/gpt-5.6-luna": "GPT-5.6 Luna",
+  "upstage/solar-pro4": "Solar Pro 4",
+  "z-ai/glm-5.2": "GLM 5.2",
+  "z-ai/glm-5.3-flash": "GLM 5.3 Flash",
+  "deepseek/deepseek-v4-flash": "DeepSeek V4 Flash",
+  "mimo/mimo-v2.5": "MiMo 2.5",
+};
+
 export default {
   id: "freebuff",
   priority: 45,
@@ -67,13 +77,7 @@ export default {
   },
   models: Object.keys(FREEBUFF_MODEL_AGENT_IDS).map((id) => ({
     id,
-    name: id.split("/")[1]
-      .replace(/^deepseek-v4-/, "DeepSeek V4 ")
-      .replace(/^mimo-/, "MiMo ")
-      .replace(/^minimax-/, "MiniMax ")
-      .replace(/^gpt-/, "GPT-")
-      .replace(/-/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase()),
+    name: FREEBUFF_DISPLAY_NAMES[id] || id.split("/")[1],
   })),
   features: {
     usage: true,
