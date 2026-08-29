@@ -25,6 +25,28 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.33 — The Hardened Hull 🛡️
+
+> *"The helm and the hull carry the whole voyage. Before this tide, they were good. Now they are fortified — and nothing they already protected was weakened."*
+
+**🔧 custom-server.js — the helm, hardened (additive; every existing covenant intact):**
+- **Response security headers** — every response the gateway emits now carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, and a restrictive `Permissions-Policy`. Applied gap-only (a handler that already set one wins). A gateway-wide CSP is deliberately NOT injected — the dashboard owns its CSP, and one here would break proxied SSE streams
+- **Connection hygiene** — `keepAliveTimeout` (65s) and `headersTimeout` (66s) bound idle kept-alive sockets and header receipt. `requestTimeout` stays at Node's default on purpose: this server proxies long-lived SSE streams, and a low cap would sever them
+- Unchanged by decree: the unspoofable IP stamp, hop-by-hop stripping, the h2c downgrade guard, graceful drain, the main-path guard
+
+**🐳 Dockerfile — the hull, hardened:**
+- **`ca-certificates`** — the gateway makes TLS calls to upstream providers, npm, and GitHub; without a current CA bundle those fail. Now always aboard
+- **`tini` as PID 1** — reaps zombies and forwards SIGTERM cleanly to the entrypoint, so the graceful drain in the helm receives the signal reliably
+- **`VELA_DEPLOYMENT=docker`** baked into the image — the update notice (v0.9.32) now knows its berth without the chart having to say it
+- **`VELA_VERSION` label stamped by CI** — the OCI `image.version` label is injected from the git tag via `build-arg` (docker-publish.yml), so every image self-describes accurately instead of carrying a stale `0.9.21`
+- Unchanged by decree: the mysql2 transitive closure, the builder's `node:sqlite` pin, the healthcheck, STOPSIGNAL, non-root entry
+
+**Charts**: both compose charts pin 0.9.33.
+
+**Proof**: custom-server-peer-headers + dockerfile-mysql2-closure + update-info all green (27/27) · `node --check custom-server.js` clean · production build green in 35s · the one pre-existing h2c assertion debt remains as-is (proven failing on the pristine tree; the downgrade semantics are protected and untouched)
+
+---
+
 # v0.9.32 — The Horizon Bell 🔔
 
 > *"The notice that never rang for a GHCR harbor now rings true — with the ship's log aboard and the right command for the berth."*

@@ -29,7 +29,9 @@ WORKDIR /app
 
 # ─── Vela — The AI Gateway ───────────────────────────────────────────────
 # Full OCI metadata so the image self-describes in registries and UIs.
-ARG VELA_VERSION=0.9.21
+# VELA_VERSION is injected by CI (docker build --build-arg VELA_VERSION=<tag>);
+# the default below is only a fallback for local builds.
+ARG VELA_VERSION=dev
 LABEL org.opencontainers.image.title="Vela"
 LABEL org.opencontainers.image.description="The AI Gateway — one OpenAI-compatible endpoint across 140+ providers"
 LABEL org.opencontainers.image.source="https://github.com/YumamaX3/Vela"
@@ -42,6 +44,16 @@ ENV PORT=32060
 ENV HOSTNAME=0.0.0.0
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATA_DIR=/app/data
+ENV VELA_DEPLOYMENT=docker
+
+# ─── Runtime hardening ───────────────────────────────────────────────────
+# ca-certificates: the gateway makes TLS calls to upstream providers, the
+# npm registry, and GitHub's API; without a current CA bundle those fail.
+# tini: a proper PID 1 that reaps zombies and forwards signals cleanly, so
+# SIGTERM reaches the Node process for the graceful drain.
+RUN apk --no-cache upgrade && apk --no-cache add ca-certificates tini su-exec && \
+  printf '#!/bin/sh\nchown -R node:node /app/data /app/data-home 2>/dev/null\nexec su-exec node "$@"\n' > /entrypoint.sh && \
+  chmod +x /entrypoint.sh
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/static ./.next/static
@@ -79,11 +91,6 @@ RUN mkdir -p /app/data && chown -R node:node /app && \
   mkdir -p /app/data-home && chown node:node /app/data-home && \
   ln -sf /app/data-home /root/.vela 2>/dev/null || true
 
-# Fix permissions at runtime (handles mounted volumes), then drop root → node.
-RUN apk --no-cache upgrade && apk --no-cache add su-exec && \
-  printf '#!/bin/sh\nchown -R node:node /app/data /app/data-home 2>/dev/null\nexec su-exec node "$@"\n' > /entrypoint.sh && \
-  chmod +x /entrypoint.sh
-
 # Graceful drain is handled in custom-server.js (SIGTERM → close → drain → exit).
 STOPSIGNAL SIGTERM
 
@@ -94,5 +101,7 @@ EXPOSE 32060
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD wget -qO- http://127.0.0.1:32060/api/health >/dev/null 2>&1 || exit 1
 
-ENTRYPOINT ["/entrypoint.sh"]
+# tini is PID 1 — it reaps zombies and forwards SIGTERM cleanly to the
+# entrypoint, which chowns mounted volumes then drops to the node user.
+ENTRYPOINT ["/sbin/tini", "--", "/entrypoint.sh"]
 CMD ["node", "custom-server.js"]

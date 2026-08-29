@@ -65,6 +65,11 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Stamp the OCI image.version label from the tag (metadata-action's
+          # version output; falls back to "dev" on non-tag dispatches).
+          build-args: |
+            VELA_VERSION=${{ steps.meta.outputs.version }}
+            GITHUB_SHA=${{ github.sha }}
           cache-from: type=registry,ref=${{ steps.image.outputs.name }}:buildcache
           cache-to: type=registry,ref=${{ steps.image.outputs.name }}:buildcache,mode=max
           platforms: linux/amd64,linux/arm64

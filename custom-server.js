@@ -25,6 +25,26 @@ const HOP_BY_HOP = new Set([
   "upgrade",
 ]);
 
+// Response security headers applied to every response the gateway emits
+// (dashboard HTML, /v1 JSON/SSE, API routes). Only headers that are
+// universally safe for a proxied-API surface are set — a Content-Security-
+// Policy is deliberately NOT injected here: the dashboard's React runtime
+// owns its own CSP, and a gateway-wide CSP would break proxied SSE streams.
+const SECURITY_HEADERS = {
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
+};
+
+// Connection hygiene for a long-lived gateway. keepAliveTimeout bounds idle
+// kept-alive sockets; headersTimeout bounds header receipt and MUST exceed
+// keepAliveTimeout (Node throws otherwise). requestTimeout is left at Node's
+// default on purpose — this server proxies long-lived SSE streams, and a low
+// request cap would sever them.
+const KEEPALIVE_TIMEOUT_MS = 65_000;
+const HEADERS_TIMEOUT_MS = 66_000;
+
 // Per-process secret proving x-9r-real-ip was stamped below rather than sent by the client.
 // A bare `next start` / `next dev` never loads this file, so it cannot produce a matching
 // header even though the env var is inherited by child processes. Named like x-9r-cli-token
@@ -73,6 +93,13 @@ http.createServer = (...args) => {
   const rest = args.filter((a) => typeof a !== "function");
   if (!handler) return origCreate(...args);
   const wrapped = (req, res) => {
+    // Apply the security header set before the handler runs, so every
+    // response the gateway emits carries them. Skip keys the handler already
+    // set (Next may set its own x-frame-options on some routes) — the handler
+    // wins, and we only fill the gaps.
+    for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+      if (!res.hasHeader?.(name)) res.setHeader(name, value);
+    }
     const socketIp = req.socket && req.socket.remoteAddress ? req.socket.remoteAddress : "";
     const xff = req.headers["x-forwarded-for"];
     const xRealIp = req.headers["x-real-ip"];
@@ -96,6 +123,9 @@ http.createServer = (...args) => {
     return handler(req, res);
   };
   const server = origCreate(...rest, wrapped);
+  // Connection hygiene for a long-lived gateway (see the constants above).
+  server.keepAliveTimeout = KEEPALIVE_TIMEOUT_MS;
+  server.headersTimeout = HEADERS_TIMEOUT_MS;
   server.once("listening", () => {
     startBackgroundTokenRefreshFromCustomServer();
   });
