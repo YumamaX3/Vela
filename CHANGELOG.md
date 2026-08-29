@@ -25,6 +25,33 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.34 — The Provider Ascension 🌊
+
+> *"Two free-tier lanes drifted from their battle-hardened references. This tide re-aligns both wires — the taxonomy ascended, the envelope made honest, the fingerprints made CLI-faithful."*
+
+*Sealed 2026-08-30 · freebuff full ascension + codebuddy honest gate · `0.9.33 → 0.9.34`*
+
+**🐛 freebuff — The Ascended Wire (trefeon/freebuff-proxy parity, re-verified 2026-08-30):**
+- **Two live wounds healed** — the repick import gap (`FREEBUFF_REPICK_MAX_ATTEMPTS`/`BUDGET_MS` used but never imported → ReferenceError on blocked proxied claims) and the per-call client_id fanout (a fresh uuid per chat call is exactly the `free_mode_run_fanout` ban-grade signal; now ONE 13-char base36 id is minted per run and repeated on every retry)
+- **The ~20-code taxonomy from ratelimit.go** — bans on EXACT markers only (`"status":"banned"` / `"error":"account_suspended"`), `session_superseded` TERMINAL (never auto-reacquire — the next request re-joins fresh), `capacity_deferred` retries IN PLACE (10s floor, 2 attempts), bounded windows that rotate accounts instead of midnight-locking (run_fanout 60s · invalid_agent_model 60s · load_shedding 90s · peak_hours 30min · ip_capped bounded · opaque 429 60s, 7-day ceiling), genuine daily caps still lock to Pacific midnight
+- **The envelope ascension** — per-run `trace_session_id` (distinct from instanceId) · `llm_step_number:"1"` · stop sentinel `"cb_easp"` JSON-encoded, only when the client sent none · `provider {data_collection:"deny"}` · base2/base3 marker selection + five canonical gate openings · G5 UA scoping (ai-sdk UA rides the chat POST ONLY; Bun UA everywhere else) · bodyless session POST with no Content-Type (#120) · dual auth on agent-runs · `x-freebuff-*` headers dropped from the chat POST (#106)
+- **Catalog synced to upstream's current served set** — gpt-5.6-luna · solar-pro4 · glm-5.2 · glm-5.3-flash · deepseek-v4-flash · mimo-v2.5; paused models (deepseek-v4-pro, minimax-m3) refused honestly BEFORE any session burn; per-model session TTL (GLM 55min margin, others 23h)
+- **auth.js lockout branches** — bounded codes rotate accounts for their window preceding the capped generic path (invalid_agent_model is the (egress,model) pairing only); ban locks account-wide 24h or until `resumes_at`; daily quota keeps its Pacific-midnight lock
+- **New zero-cost probe** — `probeFreebuffToken` (GET session without instance-id + `/api/v1/me`) wired into the dashboard provider test route; waiting-room ad chain fires on the next claim after a 428 stamp
+
+**✨ codebuddy (cn + intl) — The Honest Gate:**
+- **Business envelopes never launder** — CodeBuddy answers failures inside HTTP 200 (11101 missing-system → 400 · 11128 moderation → 400 · 11140 banned → 403 · 14018 quota → 429). The gate (single module, both lanes) maps JSON-envelope bodies and first-frame SSE envelopes to honest non-200s — so combo fallback engages — and degrades mid-stream envelopes gracefully (visible error chunk + clean `[DONE]`); peeked frames are re-emitted, nothing dropped
+- **Desensitization** (codebuffy sanitize.ts port) — brand substitutions before the neutral-prompt catch-all on the CN lane; user/assistant content never touched
+- **One-shot token recovery** — a 401/403 gets ONE refresh attempt against `/v2/plugin/auth/token/refresh` before bytes flow, with a 60s refresh-storm guard
+- **Per-credential circuit breaker** — 5 terminal failures open it for 60s (half-open single probe; success closes); while open, a synthetic 429 rotates account selection
+- **UA bump** — codebuddy-cn transport carries `CLI/unknown CodeBuddy/2.139.0`, the exact identity the reference verifies against current upstream
+
+**Charts**: both compose charts pin 0.9.34.
+
+**Proof**: freebuff suites 129/129 + codebuddy-gate 36/36 + the two existing codebuddy suites green (160 total) · golden header snapshots re-sealed at the current wire truth · full-suite baseline: this tide removes 30 pre-existing failures and introduces zero (stash-diffed against the pristine tree) · production build green
+
+---
+
 # v0.9.33 — The Hardened Hull 🛡️
 
 > *"The helm and the hull carry the whole voyage. Before this tide, they were good. Now they are fortified — and nothing they already protected was weakened."*
