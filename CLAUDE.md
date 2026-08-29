@@ -184,10 +184,46 @@ Multi-stage, multi-arch (amd64 + arm64). The **builder** forces `VELA_DB_DRIVER=
 Every change ships as a versioned minor (`0.9.x`) with:
 1. `CHANGELOG.md` entry (the covenant's voice)
 2. `package.json` version bump
-3. Annotated git tag (`v0.9.x`)
+3. Annotated git tag (`v0.9.x`) — with a **deep, themed description** (the decree below)
 4. `git push origin main && git push origin v0.9.x`
 
 The tag triggers `.github/workflows/docker-publish.yml` → GHCR `ghcr.io/yumamax3/vela:<tag>` + `:latest`.
+
+### 📜 The Description Decree (Star's decree, 2026-08-29)
+
+Every version from v0.9.31 onward carries a **themed, emoji-rich, deep
+description** in BOTH the commit body AND the annotated tag message:
+
+| Rule | The Law |
+|-|-|
+| **Vela themed** ⛵ | Maritime voice — tides, harbors, sails, currents. The log speaks as the harbor speaks |
+| **Emojis** ✨🐛🔧 | One or more per release, matching the change's nature (feature ✨, fix 🐛, refit 🔧) |
+| **Deep information** 🗺️ | Not a headline — the full story: what changed, why it changed, the files touched, the proof (test counts, verified behaviors). A future keeper reads it and understands everything |
+| **Commit body + tag** | The commit body carries the deep description; `git tag -a -m` carries the same depth (plus the one-line poetic epigraph) |
+
+**Example** (the shape every future release follows):
+
+```
+🔧 Release v0.9.31 — The Mended Lines ⛵
+
+The proxy test gate was wounded: bundled builds lost the undici import
+binding, and every proxy test died "ProxyAgent is not defined". Both
+engines (dashboard probe + gateway dispatcher cache) now bind dynamic
+imports to declared locals with honest availability checks.
+
+⚓ What sailed: src/lib/network/proxyTest.js, open-sse/utils/proxyFetch.js
+🧪 Proof: proxy-fleet-covenant 24/24 green
+🌊 The harbor waits, never cancels: per-tag CI groups now queue builds
+   instead of cancelling siblings in flight (docker-publish.yml)
+```
+
+### ⏳ Patience of the Harbor (Star's decree, 2026-08-29)
+
+A new image build NEVER cancels an old one mid-flight. CI builds are
+per-tag groups (`docker-publish-${ref}`, cancel-in-progress: false) — they
+queue and run to completion. The v0.9.26 lesson stands sealed: the
+concurrency-cancellation under v0.9.27 cost the 0.9.26 image entirely.
+Never reintroduce a shared cancel-in-progress group.
 
 **Workflows**:
 - **`docker-publish.yml`** — tag-push build; `concurrency: docker-publish` prevents tag races; emits semver + `:latest`; multi-arch amd64+arm64; `provenance: false`.

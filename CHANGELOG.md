@@ -25,6 +25,22 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.31 — The Mended Lines ⛵
+
+> *"A rope frays where it is not watched. The proxy gate was wounded — every test died 'ProxyAgent is not defined'. Both engines are bound true again, and the harbor learns two new laws."*
+
+**🐛 The proxy gate, mended (the dashboard wound the Star named):**
+- The proxy test probe (`src/lib/network/proxyTest.js`) and the gateway's dispatcher cache (`open-sse/utils/proxyFetch.js`) destructuring-assigned their dynamic undici imports (`({ ProxyAgent } = await import("undici"))`) — an assignment into an import binding that survives plain Node but dies as `ReferenceError: ProxyAgent is not defined` once bundled by Next. Both engines now bind the dynamic import to a **declared local** with honest availability checks, so the dashboard's "Test proxy" speaks real results instead of `Invalid proxy URL: ProxyAgent is not defined`
+- SOCKS5 and HTTP(s) branches both guarded; a missing agent class now returns an honest, actionable message
+
+**📜 Two new laws, sealed by the Star's decree:**
+- **The Description Decree** — every release from here on carries a deep, themed, emoji-rich description in BOTH the commit body and the tag message: what changed, why, files touched, proof. Written into CLAUDE.md's Release Covenant
+- **Patience of the Harbor** — `docker-publish.yml` now groups builds **per tag** (`cancel-in-progress: false`). A new image build never cancels an old one mid-flight again — the v0.9.26 loss stands sealed as the lesson
+
+**Proof**: `proxy-fleet-covenant` 24/24 green · the four qoder suites remain 98/98 green
+
+---
+
 # v0.9.30 — The Honest Gate ⚖️
 
 > *"An error hidden inside a success is a lie the client has to eat. The gate now speaks the truth."*

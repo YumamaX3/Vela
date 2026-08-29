@@ -6,12 +6,14 @@ on:
       - "v*"
   workflow_dispatch:
 
-# A tag push must not race another tag push (two v* tags in quick succession
-# would collide on :latest / buildcache). One release at a time; the newest
-# tag supersedes a stale run.
+# Every tag build runs to completion — no tag may cancel a sibling build.
+# (The v0.9.26 image never shipped because the v0.9.27 push cancelled it
+# mid-build under the old single-group cancel-in-progress policy — the
+# Star's decree: wait, don't cancel.) Each tag owns its own group; the
+# shared :latest and buildcache writes naturally resolve last-writer-wins.
 concurrency:
-  group: docker-publish
-  cancel-in-progress: true
+  group: docker-publish-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build-and-push:
