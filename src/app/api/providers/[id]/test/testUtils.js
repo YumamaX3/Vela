@@ -18,6 +18,7 @@ import {
   KIMCHI_CONFIG,
 } from "@/lib/oauth/constants/oauth";
 import { buildClineHeaders } from "@/shared/utils/clineAuth";
+import { probeFreebuffToken } from "open-sse/services/freebuffSession.js";
 
 // OAuth provider test endpoints
 const OAUTH_TEST_CONFIG = {
@@ -821,6 +822,30 @@ case "llm7": {
           },
         }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key", refreshed: false };
+      }
+      case "freebuff": {
+        // Zero-cost token-health probe (reference ProbeAccount + tokenhealth.go):
+        // GET the session WITHOUT an instance-id header (claims no slot) + GET
+        // /api/v1/me. Never burns a quota unit — freebuff quota is tied to the
+        // session's egress IP, so the probe rides the connection's own proxy
+        // config (strictProxy when set), never a test-only egress.
+        const probe = await probeFreebuffToken(
+          {
+            accessToken: connection.accessToken,
+            connectionId: connection.id,
+            providerSpecificData: connection.providerSpecificData || {},
+            _connection: connection,
+          },
+          effectiveProxy,
+        );
+        return {
+          valid: probe.ok,
+          error: probe.ok
+            ? null
+            : probe.error || (probe.gate
+              ? `Gate: ${probe.gate.kind}${probe.gate.message ? ` — ${String(probe.gate.message).slice(0, 120)}` : ""}`
+              : `Session: ${probe.sessionStatus || "unreachable"}`),
+        };
       }
       default:
         return { valid: false, error: "Provider test not supported" };

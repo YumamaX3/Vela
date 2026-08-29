@@ -3,7 +3,7 @@ import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/con
 import fleet from "@/lib/network/proxyFleet.js"; // Fleet Captain for fitness recording
 import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "open-sse/services/accountFallback.js";
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
-import { FREEBUFF_MODEL_LOCK_MS } from "open-sse/config/freebuff.js";
+import { FREEBUFF_MODEL_LOCK_MS, FREEBUFF_COOLDOWNS, FREEBUFF_MAX_COOLDOWN_MS } from "open-sse/config/freebuff.js";
 import { resolveProviderId, FREE_PROVIDERS, FREE_TIER_PROVIDERS } from "@/shared/constants/providers.js";
 import * as log from "../utils/logger.js";
 
@@ -43,6 +43,55 @@ function freebuffModelLockedMs(status, errorText, provider) {
   if (resolveProviderId(provider) !== "freebuff" || Number(status) !== 409) return null;
   if (!String(errorText || "").includes("model_locked")) return null;
   return FREEBUFF_MODEL_LOCK_MS;
+}
+
+// Freebuff bounded cooldowns (reference freebuff-proxy ratelimit.go): minutes-
+// scale refusals that must rotate accounts for their window — never the capped
+// generic path (which truncates at 30min and loses the code), never the daily-
+// quota midnight lock. Most are account-wide (the upstream counter is per
+// account/IP); invalid_agent_model is the (egress, model) pairing only.
+const FREEBUFF_BOUNDED_CODES = [
+  { marker: "free_mode_run_fanout", ms: FREEBUFF_COOLDOWNS.RUN_FANOUT_MS, accountWide: true },
+  { marker: "free_mode_invalid_agent_model", ms: FREEBUFF_COOLDOWNS.INVALID_AGENT_MODEL_MS, accountWide: false },
+  { marker: "load_shedding", ms: FREEBUFF_COOLDOWNS.LOAD_SHED_MS, accountWide: true },
+  { marker: "peak_hours", ms: FREEBUFF_COOLDOWNS.PEAK_HOURS_MS, accountWide: true },
+  { marker: "ip_capped", ms: FREEBUFF_COOLDOWNS.IP_CAPPED_DEFAULT_MS, accountWide: true },
+  { marker: "waiting_room_required", ms: FREEBUFF_COOLDOWNS.WAITING_ROOM_RETRY_MS, accountWide: true },
+  { marker: "waiting_room_queued", ms: FREEBUFF_COOLDOWNS.WAITING_ROOM_RETRY_MS, accountWide: true },
+  { marker: "session_limit_reached", ms: FREEBUFF_COOLDOWNS.WAITING_ROOM_RETRY_MS, accountWide: true },
+];
+function freebuffBoundedCooldown(status, errorText, provider) {
+  if (resolveProviderId(provider) !== "freebuff") return null;
+  // The executor surfaces the bounded family as 429 (rate codes), 428
+  // (waiting_room_required) and 503 (waiting_room_queued) — all three ride
+  // this branch instead of the capped generic path.
+  if (![428, 429, 503].includes(Number(status))) return null;
+  const text = String(errorText || "");
+  for (const entry of FREEBUFF_BOUNDED_CODES) {
+    if (text.includes(entry.marker)) return { cooldownMs: entry.ms, accountWide: entry.accountWide };
+  }
+  return null;
+}
+
+// Freebuff ban: 403 {"status":"banned"} / {"error":"account_suspended"} —
+// terminal account fate. 24h default lock (no resumes_at upstream) or until
+// the body's resumes_at, ceiling-clamped. Account-wide, and it MUST precede
+// the capped generic resetsAtMs branch (30min cap would release a ban early).
+function freebuffBanCooldownMs(status, errorText, provider) {
+  if (resolveProviderId(provider) !== "freebuff" || Number(status) !== 403) return null;
+  const text = String(errorText || "");
+  if (!text.includes("banned") && !text.includes("account_suspended")) return null;
+  // Two shapes carry the resume moment: the executor's synthesized message
+  // ("…resumes at <ISO>…") and a raw upstream body ("resumes_at":"<ISO>").
+  let m = text.match(/resumes? at (\d{4}-\d{2}-\d{2}T[\d:.]+Z)/i);
+  if (!m) m = text.match(/"resumes_at"\s*:\s*"(\d{4}-\d{2}-\d{2}T[\d:.]+Z)"/i);
+  if (m) {
+    const t = Date.parse(m[1]);
+    if (Number.isFinite(t) && t > Date.now()) {
+      return Math.min(t - Date.now(), FREEBUFF_MAX_COOLDOWN_MS);
+    }
+  }
+  return FREEBUFF_COOLDOWNS.BAN_MS;
 }
 
 /**
@@ -280,9 +329,19 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
 
   // GitHub premium-request exhaustion is account-wide until the next UTC month.
   const githubResetAtMs = githubMonthlyResetMs(status, errorText, provider);
-  // Freebuff: daily-quota reset (account-wide) and model_locked (per-model).
-  // Both precede the capped generic resetsAtMs branch below.
-  const freebuffResetAtMs = freebuffDailyResetMs(status, errorText, provider, resetsAtMs);
+  // Freebuff taxonomy: ban (24h account-wide) → bounded cooldowns (rotating
+  // windows; per-model ONLY for invalid_agent_model) → daily-quota reset
+  // (Pacific midnight, account-wide) → model_locked (per-model 65min). Bounded
+  // PRECEDES daily-quota because chatCore hands over a resetsAtMs even for
+  // bounded kinds (parseError projects now+window) — the daily branch would
+  // capture it and flatten the accountWide distinction. Genuine daily-quota
+  // text carries no bounded marker, so the order is unambiguous. All precede
+  // the capped generic resetsAtMs branch below, whose MAX_RATE_LIMIT_COOLDOWN_MS
+  // (30 min) would truncate a Pacific-midnight wait (up to ~24h) into
+  // 30-minute retry churn.
+  const freebuffBanMs = freebuffBanCooldownMs(status, errorText, provider);
+  const freebuffBounded = freebuffBoundedCooldown(status, errorText, provider);
+  const freebuffResetAtMs = freebuffBounded ? null : freebuffDailyResetMs(status, errorText, provider, resetsAtMs);
   const freebuffLockMs = freebuffModelLockedMs(status, errorText, provider);
 
   // Provider-specific precise cooldown (e.g. codex usage_limit_reached resets_at) overrides backoff
@@ -291,9 +350,17 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
     shouldFallback = true;
     cooldownMs = githubResetAtMs - Date.now();
     newBackoffLevel = 0;
+  } else if (freebuffBanMs) {
+    shouldFallback = true;
+    cooldownMs = freebuffBanMs;
+    newBackoffLevel = 0;
   } else if (freebuffResetAtMs) {
     shouldFallback = true;
     cooldownMs = freebuffResetAtMs - Date.now();
+    newBackoffLevel = 0;
+  } else if (freebuffBounded) {
+    shouldFallback = true;
+    cooldownMs = freebuffBounded.cooldownMs;
     newBackoffLevel = 0;
   } else if (freebuffLockMs) {
     shouldFallback = true;
@@ -309,8 +376,11 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
   if (!shouldFallback) return { shouldFallback: false, cooldownMs: 0 };
 
   const reason = typeof errorText === "string" ? errorText.slice(0, 100) : "Provider error";
-  // GitHub + freebuff daily quota are account-wide; everything else is per-model.
-  const lockModel = (githubResetAtMs || freebuffResetAtMs) ? null : model;
+  // GitHub + freebuff ban + freebuff daily quota are account-wide; freebuff
+  // bounded codes rotate accounts (account-wide) except invalid_agent_model
+  // (the (egress, model) pairing); everything else is per-model.
+  const accountWide = !!(githubResetAtMs || freebuffBanMs || freebuffResetAtMs || (freebuffBounded && freebuffBounded.accountWide));
+  const lockModel = accountWide ? null : model;
   const lockUpdate = buildModelLockUpdate(lockModel, cooldownMs);
 
   await updateProviderConnection(connectionId, {
