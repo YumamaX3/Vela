@@ -50,13 +50,24 @@ export async function testProxyUrl({ proxyUrl, testUrl, timeoutMs } = {}) {
     })();
 
     try {
-      // SOCKS5 branch — undici Socks5ProxyAgent
+      // Bind the dynamic imports to DECLARED locals — destructuring-assigning
+      // into the import bindings (`({ ProxyAgent } = await import(...))`)
+      // compiles to bare assignments and dies as "ProxyAgent is not defined"
+      // once bundled (the dashboard showed exactly that wound).
+      const undici = await import("undici");
       if (/^socks5:\/\//i.test(normalized)) {
-        ({ Socks5ProxyAgent } = await import("undici"));
+        // SOCKS5 branch — undici Socks5ProxyAgent
+        const Socks5ProxyAgent = undici.Socks5ProxyAgent;
+        if (!Socks5ProxyAgent) {
+          return { ok: false, status: 400, error: "Invalid proxy URL: this undici build has no Socks5ProxyAgent — use an http(s):// proxy" };
+        }
         dispatcher = new Socks5ProxyAgent({ uri: normalized });
       } else {
         // HTTP(s) proxy
-        ({ ProxyAgent } = await import("undici"));
+        const ProxyAgent = undici.ProxyAgent;
+        if (!ProxyAgent) {
+          return { ok: false, status: 400, error: "Invalid proxy URL: this undici build has no ProxyAgent" };
+        }
         dispatcher = new ProxyAgent({ uri: normalized });
       }
     } catch (err) {
