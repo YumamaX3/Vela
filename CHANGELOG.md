@@ -25,6 +25,19 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.28 — The Unbound Panels 🔓
+
+> *"The settings no longer wait for the tool to arrive — prepare the harbor before the ship docks."*
+
+**CLI Tools — manual configs without install:**
+- All twelve CLI tool cards (Claude · Cline · Codex · Cowork · DeepSeek TUI · Droid · Grok Build · Hermes · Jcode · Kilo · OpenClaw · OpenCode) now show their **full config panel — endpoint, API key, model, Apply — even when the CLI is not installed**
+- The settings APIs already wrote configs unconditionally; the gate was client-side only. Now you can pre-configure a tool's `~/.config` before installing it — Apply writes the file, and the next status check reports the tool as detected (self-healing)
+- The not-detected banner (install guide + copy-snippet manual config) stays alongside the panel — guidance and control, together
+
+No schema change. No migration. Twelve gates opened, server-side untouched.
+
+---
+
 # v0.9.27 — The Living Console 📟
 
 > *"Every word the gateway speaks now carries its hour, its level, and a hand to hold it still."*
