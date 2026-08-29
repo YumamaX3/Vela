@@ -25,6 +25,22 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.27 — The Living Console 📟
+
+> *"Every word the gateway speaks now carries its hour, its level, and a hand to hold it still."*
+
+**Console Log — from scrolling wall to readable instrument:**
+- **Timestamps**: every captured line now carries `HH:MM:SS [LEVEL]` — stamped server-side at capture; the ring keeps 1000 lines (was 200)
+- **Level filter chips**: toggle LOG / INFO / WARN / ERROR / DEBUG — isolate the errors in one click
+- **Text filter**: search across the visible lines
+- **Auto-scroll toggle**: Following ↔ Paused — scrolling up also pauses the follow until you return to the bottom (the Star's decree)
+- **Connection dot + line counter**: live stream state and `N / 1000` ring fill, both visible in the toolbar
+- **Copy all + Download .txt** for bug reports; **word-wrap toggle** for long payloads; **error/warn rows tinted** for the eye
+
+No schema change. No migration. One buffer stamp, one config line, one client rewrite.
+
+---
+
 # v0.9.26 — The Living Deck ⚓
 
 > *"The numbers no longer wait for the hand that turns the page — they breathe with the tide."*

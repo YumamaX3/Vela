@@ -41,8 +41,15 @@ function scheduleFlush() {
   state.flushTimer?.unref?.();
 }
 
+// HH:MM:SS in the server's own timezone — the dashboard renders it as-is.
+function timeStamp() {
+  return new Date().toLocaleTimeString("en-GB", { hour12: false });
+}
+
 function toLogLine(level, args) {
-  return args.map(formatArg).join(" ");
+  // Every captured line carries its arrival time and level tag — the
+  // dashboard's Console Log filters, tints, and diagnoses by these.
+  return `${timeStamp()} [${level.toUpperCase()}] ${args.map(formatArg).join(" ")}`;
 }
 
 // Strip ANSI escape codes so terminal colors don't bleed into UI
