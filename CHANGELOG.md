@@ -25,6 +25,21 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.30 — The Honest Gate ⚖️
+
+> *"An error hidden inside a success is a lie the client has to eat. The gate now speaks the truth."*
+
+**Qoder executor — the error gate ascended (every shape the Star met in production):**
+- 🔧 **First-frame errors are honest now**: a 400/403/418/504 terminal frame at the head of the stream becomes a real non-200 response — before, it was laundered into a 200 stream, so chatCore saw success, combo fallback never fired, and clients ate the raw error text. Mid-stream errors keep graceful degradation (visible error chunk + clean `[DONE]`), because partial work is already on the client
+- 🔧 **Transient HTTP retries**: bare 408/429/5xx from Qoder's CDN/WAF now get up to two in-place retries (2s, 5s backoff) re-issuing the identical signed body — safe, because stable `request_set_id` + `chat_record_id` make every retry idempotent upstream
+- 🔧 **Queue gate gets a wall-clock budget**: the 10605 admission wait is capped at 90s total (on top of the 10-attempt cap), so a deep queue can never hold a request hostage past the budget
+- 🔧 **Honest exhaustion statuses**: queue-exhausted probes that reveal billing (code 112) now surface 403 instead of 429, so combo fallback engages over a dry quota rather than a busy lane; auth failures pass through untouched (401/403), never retried
+- 🔧 **Error messages carry upstream detail**: nested envelopes (`{"code":"provider_error","message":"..."}`) are peeled to the deepest human message — no more bare "upstream error (400)" with no reason
+
+**Proof**: new `tests/unit/qoder-handler.test.js` (27 tests — all six production error shapes, the peeler, the HTTP retry policy, the budget constants) + the two regression tests that pinned the old leak behavior re-forged to pin the honest gate. Four qoder suites: **98/98 green**.
+
+---
+
 # v0.9.29 — The Homecoming Deck 🏠
 
 > *"The original silhouette returns, but every number it speaks is now the living truth."*

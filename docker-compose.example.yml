@@ -61,7 +61,7 @@ services:
     # breaker, fallback-rules DB, per-key ACL, pool egress geo, prompt
     # injectors. v0.9.12+ carries the redesigned sidebar, single-page
     # usage, /quota.
-    image: ghcr.io/yumamax3/vela:0.9.29   # bump to the release you want
+    image: ghcr.io/yumamax3/vela:0.9.30   # bump to the release you want
     container_name: vela-gateway
     hostname: vela-gateway
     restart: unless-stopped

@@ -418,19 +418,25 @@ describe("wrapQoderSSE", () => {
     expect(out).toContain(`data: ${inner}\n\n`);
   });
 
-  // Regression for review finding #3: chunks could leak past [DONE] when
-  // the success branch had no doneEmitted guard. We synthesize an error
-  // envelope (which sets doneEmitted=true) followed by a valid envelope
-  // and assert the second envelope is NOT forwarded.
-  it("does not forward chunks after [DONE] has been emitted", async () => {
+  // Regression for review finding #3: chunks could leak past the terminal
+  // error when the error branch had no doneEmitted guard. First-frame errors
+  // never stream at all anymore (honest non-200 response), so the leak guard
+  // now lives on the mid-stream path: after the error chunk + [DONE],
+  // nothing may pass.
+  it("does not forward chunks after a mid-stream terminal error", async () => {
+    const okEnv = JSON.stringify({
+      statusCodeValue: 200,
+      body: JSON.stringify({ choices: [{ delta: { content: "work" } }] }),
+    });
     const errorEnv = JSON.stringify({ statusCodeValue: 500, body: "boom" });
     const validInner = JSON.stringify({ choices: [{ delta: { content: "leak" } }] });
     const validEnv = JSON.stringify({ statusCodeValue: 200, body: validInner });
     const wrapped = await wrapQoderSSE(
-      makeResponse([`data: ${errorEnv}\n\ndata: ${validEnv}\n\n`]),
+      makeResponse([`data: ${okEnv}\n\ndata: ${errorEnv}\n\ndata: ${validEnv}\n\n`]),
       "qoder/auto",
     );
     const out = await drain(wrapped);
+    expect(out).toContain("work");
     expect(out).not.toContain("leak");
     // Should still have a single [DONE].
     const doneCount = (out.match(/data: \[DONE\]/g) || []).length;
@@ -453,10 +459,31 @@ describe("wrapQoderSSE", () => {
     expect(() => JSON.parse(dataLine.slice("data: ".length))).not.toThrow();
   });
 
-  it("upstream error envelope produces an error chunk + [DONE]", async () => {
+  // First-frame errors surface as honest non-200 responses so chatCore's
+  // error path and combo fallback engage (v0.9.30 — the old behavior
+  // laundered them into 200 streams and the fallback never fired).
+  it("a first-frame error envelope becomes an honest non-200 response", async () => {
     const env = JSON.stringify({ statusCodeValue: 503, body: "service unavailable" });
     const wrapped = await wrapQoderSSE(makeResponse([`data: ${env}\n\n`]), "qoder/lite");
+    expect(wrapped.status).toBe(503);
+    expect(wrapped.ok).toBe(false);
+    const json = await wrapped.json();
+    expect(json.error.message).toContain("service unavailable");
+  });
+
+  // Mid-stream errors (content already flowed) keep graceful degradation:
+  // a visible error chunk + clean [DONE], because the partial work is
+  // already on the client and no fallback can reclaim it.
+  it("a mid-stream error envelope produces an error chunk + [DONE]", async () => {
+    const inner = JSON.stringify({ choices: [{ delta: { content: "partial work" } }] });
+    const okEnv = JSON.stringify({ statusCodeValue: 200, body: inner });
+    const errEnv = JSON.stringify({ statusCodeValue: 503, body: "service unavailable" });
+    const wrapped = await wrapQoderSSE(
+      makeResponse([`data: ${okEnv}\n\ndata: ${errEnv}\n\n`]),
+      "qoder/lite",
+    );
     const out = await drain(wrapped);
+    expect(out).toContain("partial work");
     expect(out).toContain("[qoder error 503");
     expect(out).toContain("data: [DONE]\n\n");
   });
