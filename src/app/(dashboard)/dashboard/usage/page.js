@@ -14,7 +14,7 @@
 //   - ProviderTopology  (ReactFlow live routing map — was never on this page)
 //   - Live Activity feed (SSE recentRequests)
 //   - RequestDetailsTab  (full request ledger + drawer — was never on this page)
-//   - Elegant segmented period control: Today · 24h · 7 · 14 · 30 · All time
+//   - Elegant segmented period control: Today · 7 · 14 · 30 · All time
 "use client";
 
 import { Suspense, useState, useEffect, useMemo, useRef } from "react";
@@ -37,7 +37,6 @@ import { useProviders } from "./hooks/useProviders";
 
 const PERIOD_OPTIONS = [
   { label: "Today", value: "today" },
-  { label: "24h", value: "24h" },
   { label: "7 days", value: "7d" },
   { label: "14 days", value: "14d" },
   { label: "30 days", value: "30d" },
@@ -151,8 +150,31 @@ const KPI_STYLES = {
 
 function KpiBand({ period }) {
   const { data: kpis, loading } = useMetrics("kpis", `period=${period}`);
+  // Realtime: after the initial fetch, re-read the same KPI endpoint on a
+  // light interval and swap the numbers in place — no page reload, no
+  // skeleton flicker. Cadence matches the SSE coalesced full-refresh (≥15s).
+  const [kpiFresh, setKpiFresh] = useState(null);
 
-  if (loading || !kpis) {
+  useEffect(() => {
+    let alive = true;
+    const id = setInterval(() => {
+      fetch(`/api/usage/metrics/kpis?period=${period}`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((fresh) => {
+          if (alive && fresh) setKpiFresh(fresh);
+        })
+        .catch(() => {});
+    }, 15_000);
+    return () => { alive = false; clearInterval(id); };
+  }, [period]);
+
+  // Period change → the polled snapshot belongs to the old window; drop it so
+  // the REST fetch's fresh period data renders immediately (no stale numbers).
+  useEffect(() => { setKpiFresh(null); }, [period]);
+
+  const kpisData = kpiFresh || kpis;
+
+  if (loading || !kpisData) {
     return (
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {[...Array(5)].map((_, i) => (
@@ -167,45 +189,45 @@ function KpiBand({ period }) {
       key: "requests",
       icon: "bolt",
       label: "Requests",
-      value: kpis.requests?.value,
-      previous: kpis.requests?.previous,
-      sub: `${formatNumber(kpis.requests?.previous)} previous`,
+      value: kpisData.requests?.value,
+      previous: kpisData.requests?.previous,
+      sub: `${formatNumber(kpisData.requests?.previous)} previous`,
       format: (n) => Math.round(n).toLocaleString(),
     },
     {
       key: "promptTokens",
       icon: "input",
       label: "Input Tokens",
-      value: kpis.promptTokens?.value,
-      previous: kpis.promptTokens?.previous,
-      sub: `${formatNumber(kpis.promptTokens?.previous)} previous`,
+      value: kpisData.promptTokens?.value,
+      previous: kpisData.promptTokens?.previous,
+      sub: `${formatNumber(kpisData.promptTokens?.previous)} previous`,
       format: (n) => formatNumber(n),
     },
     {
       key: "cachedTokens",
       icon: "database",
       label: "Cached Tokens",
-      value: kpis.cachedTokens?.value,
-      previous: kpis.cachedTokens?.previous,
-      sub: `${formatNumber(kpis.cachedTokens?.previous)} previous`,
+      value: kpisData.cachedTokens?.value,
+      previous: kpisData.cachedTokens?.previous,
+      sub: `${formatNumber(kpisData.cachedTokens?.previous)} previous`,
       format: (n) => formatNumber(n),
     },
     {
       key: "completionTokens",
       icon: "output",
       label: "Output Tokens",
-      value: kpis.completionTokens?.value,
-      previous: kpis.completionTokens?.previous,
-      sub: `${formatNumber(kpis.completionTokens?.previous)} previous`,
+      value: kpisData.completionTokens?.value,
+      previous: kpisData.completionTokens?.previous,
+      sub: `${formatNumber(kpisData.completionTokens?.previous)} previous`,
       format: (n) => formatNumber(n),
     },
     {
       key: "cost",
       icon: "payments",
       label: "Est. Cost",
-      value: kpis.cost?.value,
-      previous: kpis.cost?.previous,
-      sub: perMtok(kpis),
+      value: kpisData.cost?.value,
+      previous: kpisData.cost?.previous,
+      sub: perMtok(kpisData),
       format: (n) => formatCost(n),
     },
   ];
@@ -472,7 +494,7 @@ export default function UsagePage() {
 
 function UsagePageInner() {
   const searchParams = useSearchParams();
-  const initialPeriod = searchParams?.get("period") || "7d";
+  const initialPeriod = searchParams?.get("period") || "today";
   const [period, setPeriod] = useState(initialPeriod);
 
   // Live stats (REST + SSE merge) — funds topology + live feed.
