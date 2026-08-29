@@ -365,10 +365,10 @@ exports[`GOLDEN buildHeaders (default executor providers) > cline → headers (a
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
     "HTTP-Referer": "https://cline.bot",
-    "User-Agent": "Vela/0.9.3",
+    "User-Agent": "Vela/0.9.33",
     "X-CLIENT-TYPE": "Vela",
-    "X-CLIENT-VERSION": "0.9.3",
-    "X-CORE-VERSION": "0.9.3",
+    "X-CLIENT-VERSION": "0.9.33",
+    "X-CORE-VERSION": "0.9.33",
     "X-IS-MULTIROOT": "false",
     "X-PLATFORM": "win32",
     "X-PLATFORM-VERSION": "v25.8.1",
@@ -378,10 +378,10 @@ exports[`GOLDEN buildHeaders (default executor providers) > cline → headers (a
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
     "HTTP-Referer": "https://cline.bot",
-    "User-Agent": "Vela/0.9.3",
+    "User-Agent": "Vela/0.9.33",
     "X-CLIENT-TYPE": "Vela",
-    "X-CLIENT-VERSION": "0.9.3",
-    "X-CORE-VERSION": "0.9.3",
+    "X-CLIENT-VERSION": "0.9.33",
+    "X-CORE-VERSION": "0.9.33",
     "X-IS-MULTIROOT": "false",
     "X-PLATFORM": "win32",
     "X-PLATFORM-VERSION": "v25.8.1",
@@ -392,10 +392,10 @@ exports[`GOLDEN buildHeaders (default executor providers) > cline → headers (a
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
     "HTTP-Referer": "https://cline.bot",
-    "User-Agent": "Vela/0.9.3",
+    "User-Agent": "Vela/0.9.33",
     "X-CLIENT-TYPE": "Vela",
-    "X-CLIENT-VERSION": "0.9.3",
-    "X-CORE-VERSION": "0.9.3",
+    "X-CLIENT-VERSION": "0.9.33",
+    "X-CORE-VERSION": "0.9.33",
     "X-IS-MULTIROOT": "false",
     "X-PLATFORM": "win32",
     "X-PLATFORM-VERSION": "v25.8.1",
@@ -411,10 +411,10 @@ exports[`GOLDEN buildHeaders (default executor providers) > clinepass → header
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
     "HTTP-Referer": "https://cline.bot",
-    "User-Agent": "Vela/0.9.3",
+    "User-Agent": "Vela/0.9.33",
     "X-CLIENT-TYPE": "Vela",
-    "X-CLIENT-VERSION": "0.9.3",
-    "X-CORE-VERSION": "0.9.3",
+    "X-CLIENT-VERSION": "0.9.33",
+    "X-CORE-VERSION": "0.9.33",
     "X-IS-MULTIROOT": "false",
     "X-PLATFORM": "win32",
     "X-PLATFORM-VERSION": "v25.8.1",
@@ -424,10 +424,10 @@ exports[`GOLDEN buildHeaders (default executor providers) > clinepass → header
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
     "HTTP-Referer": "https://cline.bot",
-    "User-Agent": "Vela/0.9.3",
+    "User-Agent": "Vela/0.9.33",
     "X-CLIENT-TYPE": "Vela",
-    "X-CLIENT-VERSION": "0.9.3",
-    "X-CORE-VERSION": "0.9.3",
+    "X-CLIENT-VERSION": "0.9.33",
+    "X-CORE-VERSION": "0.9.33",
     "X-IS-MULTIROOT": "false",
     "X-PLATFORM": "win32",
     "X-PLATFORM-VERSION": "v25.8.1",
@@ -438,10 +438,10 @@ exports[`GOLDEN buildHeaders (default executor providers) > clinepass → header
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
     "HTTP-Referer": "https://cline.bot",
-    "User-Agent": "Vela/0.9.3",
+    "User-Agent": "Vela/0.9.33",
     "X-CLIENT-TYPE": "Vela",
-    "X-CLIENT-VERSION": "0.9.3",
-    "X-CORE-VERSION": "0.9.3",
+    "X-CLIENT-VERSION": "0.9.33",
+    "X-CORE-VERSION": "0.9.33",
     "X-IS-MULTIROOT": "false",
     "X-PLATFORM": "win32",
     "X-PLATFORM-VERSION": "v25.8.1",
@@ -475,7 +475,7 @@ exports[`GOLDEN buildHeaders (default executor providers) > codebuddy-cn → hea
     "Accept": "text/event-stream",
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
-    "User-Agent": "CLI/2.108.1 CodeBuddy/2.108.1",
+    "User-Agent": "CLI/unknown CodeBuddy/2.139.0",
     "X-IDE-Name": "CLI",
     "X-IDE-Type": "CLI",
     "X-Product": "SaaS",
@@ -485,7 +485,7 @@ exports[`GOLDEN buildHeaders (default executor providers) > codebuddy-cn → hea
   "nonStream": {
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
-    "User-Agent": "CLI/2.108.1 CodeBuddy/2.108.1",
+    "User-Agent": "CLI/unknown CodeBuddy/2.139.0",
     "X-IDE-Name": "CLI",
     "X-IDE-Type": "CLI",
     "X-Product": "SaaS",
@@ -496,7 +496,7 @@ exports[`GOLDEN buildHeaders (default executor providers) > codebuddy-cn → hea
     "Accept": "text/event-stream",
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
-    "User-Agent": "CLI/2.108.1 CodeBuddy/2.108.1",
+    "User-Agent": "CLI/unknown CodeBuddy/2.139.0",
     "X-IDE-Name": "CLI",
     "X-IDE-Type": "CLI",
     "X-Product": "SaaS",
@@ -663,18 +663,18 @@ exports[`GOLDEN buildHeaders (default executor providers) > freebuff → headers
     "Accept": "text/event-stream",
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
-    "User-Agent": "ai-sdk/openai-compatible/0.10.7/codebuff",
+    "User-Agent": "ai-sdk/openai-compatible/1.0.0/codebuff",
   },
   "nonStream": {
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
-    "User-Agent": "ai-sdk/openai-compatible/0.10.7/codebuff",
+    "User-Agent": "ai-sdk/openai-compatible/1.0.0/codebuff",
   },
   "oauth": {
     "Accept": "text/event-stream",
     "Authorization": "Bearer <TOK>",
     "Content-Type": "application/json",
-    "User-Agent": "ai-sdk/openai-compatible/0.10.7/codebuff",
+    "User-Agent": "ai-sdk/openai-compatible/1.0.0/codebuff",
   },
 }
 `;
@@ -916,8 +916,8 @@ exports[`GOLDEN buildHeaders (default executor providers) > kimi → headers (ap
     "X-Msh-Device-Id": "kimi-<TS>",
     "X-Msh-Device-Model": "Windows x64",
     "X-Msh-Device-Name": "Shiori-TUF",
-    "X-Msh-Platform": "Vela",
-    "X-Msh-Version": "0.9.3",
+    "X-Msh-Platform": "vela",
+    "X-Msh-Version": "0.9.33",
     "x-api-key": "<CRED>",
   },
   "nonStream": {
@@ -927,8 +927,8 @@ exports[`GOLDEN buildHeaders (default executor providers) > kimi → headers (ap
     "X-Msh-Device-Id": "kimi-<TS>",
     "X-Msh-Device-Model": "Windows x64",
     "X-Msh-Device-Name": "Shiori-TUF",
-    "X-Msh-Platform": "Vela",
-    "X-Msh-Version": "0.9.3",
+    "X-Msh-Platform": "vela",
+    "X-Msh-Version": "0.9.33",
     "x-api-key": "<CRED>",
   },
   "oauth": {
@@ -939,14 +939,33 @@ exports[`GOLDEN buildHeaders (default executor providers) > kimi → headers (ap
     "X-Msh-Device-Id": "kimi-<TS>",
     "X-Msh-Device-Model": "Windows x64",
     "X-Msh-Device-Name": "Shiori-TUF",
-    "X-Msh-Platform": "Vela",
-    "X-Msh-Version": "0.9.3",
+    "X-Msh-Platform": "vela",
+    "X-Msh-Version": "0.9.33",
     "x-api-key": "<CRED>",
   },
 }
 `;
 
 exports[`GOLDEN buildHeaders (default executor providers) > llm7 → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+  },
+  "nonStream": {
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Authorization": "Bearer <TOK>",
+    "Content-Type": "application/json",
+  },
+}
+`;
+
+exports[`GOLDEN buildHeaders (default executor providers) > madefaka → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
     "Accept": "text/event-stream",
@@ -1840,6 +1859,13 @@ exports[`GOLDEN buildUrl (default executor providers) > llm7 → url (stream + n
 {
   "nonStream": "https://api.llm7.io/v1/chat/completions",
   "stream": "https://api.llm7.io/v1/chat/completions",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > madefaka → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://madefaka.my.id/v1/chat/completions",
+  "stream": "https://madefaka.my.id/v1/chat/completions",
 }
 `;
 
