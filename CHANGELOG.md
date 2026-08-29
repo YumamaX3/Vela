@@ -36,6 +36,9 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 No schema change. No migration. The retreat's lesson honored: narrow commit, port the approach, not the broad blast.
 
+**Live Activity — fourteen rows of the living stream:**
+- The realtime feed now shows **14 rows** (was 7) — the recent ring already carries 20, so the supply holds
+
 ---
 
 # v0.9.23 — The Stillwater Design 🪞⚡
