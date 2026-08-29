@@ -406,7 +406,7 @@ function RankedList({ period, metric, dimension, title, subtitle, icon, valueFmt
 
 // ── Live activity feed (SSE recentRequests) ─────────────────────────────────
 function LiveActivity({ requests = [] }) {
-  const rows = (Array.isArray(requests) ? requests : []).slice(0, 7);
+  const rows = (Array.isArray(requests) ? requests : []).slice(0, 14);
 
   return (
     <Card
