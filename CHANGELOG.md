@@ -25,6 +25,24 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.32 — The Horizon Bell 🔔
+
+> *"The notice that never rang for a GHCR harbor now rings true — with the ship's log aboard and the right command for the berth."*
+
+**✨ The update notice, ascended from the 9router bell to a Vela instrument:**
+- **The truth-source, mended** — the ancestor asked the npm registry for a `Vela` package that does not exist there, so the notice never rang for a docker deployment. The new `src/lib/updateInfo.js` probes the real sources in order: **GitHub releases** (notes aboard) → **GitHub tags** → npm fallback, with `GH_TOKEN` passthrough, strict `x.y.z` semver (retreat markers never count as "latest"), a 1-hour cache, and a fail-open contract — an unreachable registry must never break `/api/version`
+- **Deployment awareness** ⚓ — the gateway detects its berth (`VELA_DEPLOYMENT` env wins, else `/.dockerenv`, k8s markers) and hands the right command: `docker compose pull && docker compose up -d` for docker, the npm install command for the CLI berth, the image-tag path for k8s
+- **Release notes in the bell** 📜 — the incoming tide's own section of the ship's log renders inside the notice (the GitHub release body when one exists; the CHANGELOG section otherwise), sanitized before it crosses the HTML boundary
+- **The banner, Vela-styled** 🎨 — the green strip becomes a coral pulse: warm-brand gradient card, pinging ember dot, version arrow (`v0.9.31 → v0.9.32`), a dismiss button that remembers per-version (localStorage), and a 6-hour poll rhythm instead of one-shot mount
+
+**The shape of `/api/version` now**: `{ currentVersion, latestVersion, hasUpdate, source, releaseNotes, deployment, updateCommand, checkedAt }` — the old three fields kept, the rest additive.
+
+**Charts**: both compose charts pin 0.9.32 and carry `VELA_DEPLOYMENT: docker` (+ optional `GH_TOKEN`).
+
+**Proof**: `tests/unit/update-info.test.js` 18/18 (semver strictness, changelog extraction, berth detection, command mapping) · production build green in 57s
+
+---
+
 # v0.9.31 — The Mended Lines ⛵
 
 > *"A rope frays where it is not watched. The proxy gate was wounded — every test died 'ProxyAgent is not defined'. Both engines are bound true again, and the harbor learns two new laws."*
