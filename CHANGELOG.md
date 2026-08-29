@@ -25,6 +25,19 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.25 — The Cached Tokens KPI ◎
+
+> *"The tokens that were already warm — now counted, where the original harbor showed them."*
+
+**Usage deck — the 4→5 card band (ported from the retreat's proven tide, v0.9.27):**
+- **Cached Tokens KPI card**: the band now shows five cards — Requests · Input · **Cached** (teal, `database` icon) · Output · Est. Cost. The backend already computed it end-to-end (`usageAggregation.js` JSON scan → `kpisImpl` → `/api/usage/metrics/kpis`); only the card was absent from the deck
+- **Live Activity marker**: recent requests now read `Input↑ Cached◎ Output↓`
+- **Twin parity**: the sqlite twin's `getActiveRequests` recent-ring now maps `cachedTokens` (`cached_tokens` | `cache_read_input_tokens`), matching the mysql twin that already carried it
+
+No schema change. No migration. The retreat's lesson honored: narrow commit, port the approach, not the broad blast.
+
+---
+
 # v0.9.23 — The Stillwater Design 🪞⚡
 
 > *"Fail before the failure. Speak the live request. The Mirror's two waves, sealed into the gateway."*

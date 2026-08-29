@@ -144,6 +144,7 @@ function PeriodSegmented({ value, onChange }) {
 const KPI_STYLES = {
   requests: "from-[#E56A4A] to-[#C7502F]",
   promptTokens: "from-[#6366F1] to-[#4338CA]",
+  cachedTokens: "from-[#14B8A6] to-[#0F766E]",
   completionTokens: "from-[#16A34A] to-[#15803D]",
   cost: "from-[#F59E0B] to-[#D97706]",
 };
@@ -153,8 +154,8 @@ function KpiBand({ period }) {
 
   if (loading || !kpis) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {[...Array(4)].map((_, i) => (
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        {[...Array(5)].map((_, i) => (
           <Card key={i} className="h-[118px] animate-pulse" />
         ))}
       </div>
@@ -181,6 +182,15 @@ function KpiBand({ period }) {
       format: (n) => formatNumber(n),
     },
     {
+      key: "cachedTokens",
+      icon: "database",
+      label: "Cached Tokens",
+      value: kpis.cachedTokens?.value,
+      previous: kpis.cachedTokens?.previous,
+      sub: `${formatNumber(kpis.cachedTokens?.previous)} previous`,
+      format: (n) => formatNumber(n),
+    },
+    {
       key: "completionTokens",
       icon: "output",
       label: "Output Tokens",
@@ -201,7 +211,7 @@ function KpiBand({ period }) {
   ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
       {cards.map((c) => {
         const diff = (c.value ?? 0) - (c.previous ?? 0);
         const pct =
@@ -437,7 +447,7 @@ function LiveActivity({ requests = [] }) {
                 </span>
                 <span className="shrink-0 text-[11px] text-text-muted">{r.provider}</span>
                 <span className="ml-auto shrink-0 text-[11px] tabular-nums text-text-muted">
-                  {formatNumber(r.promptTokens)}↑ {formatNumber(r.completionTokens)}↓
+                  {formatNumber(r.promptTokens)}↑ {formatNumber(r.cachedTokens)}◎ {formatNumber(r.completionTokens)}↓
                 </span>
                 <span className="w-7 shrink-0 text-right text-[11px] tabular-nums text-text-subtle">
                   {timeAgo(r.timestamp)}
