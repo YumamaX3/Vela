@@ -46,13 +46,13 @@ When the user needs a specific capability, fetch that skill's `SKILL.md` from it
 
 | Capability | Raw URL |
 |---|---|
-| Chat / code-gen | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela-chat/SKILL.md |
-| Image generation | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela-image/SKILL.md |
-| Text-to-speech | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela-tts/SKILL.md |
-| Speech-to-text | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela-stt/SKILL.md |
-| Embeddings | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela-embeddings/SKILL.md |
-| Web search | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela-web-search/SKILL.md |
-| Web fetch (URL → markdown) | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela-web-fetch/SKILL.md |
+| Chat / code-gen | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela-chat/SKILL.md |
+| Image generation | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela-image/SKILL.md |
+| Text-to-speech | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela-tts/SKILL.md |
+| Speech-to-text | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela-stt/SKILL.md |
+| Embeddings | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela-embeddings/SKILL.md |
+| Web search | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela-web-search/SKILL.md |
+| Web fetch (URL → markdown) | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela-web-fetch/SKILL.md |
 
 ## Errors
 
