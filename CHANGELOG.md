@@ -25,6 +25,25 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.36 — The Skills Ascension ✨
+
+> *"The fleet of nine sails finally has a harbor worthy of it — a command deck that hands Vela to any AI agent in one paste."*
+
+**✨ The dashboard Skills page, rebuilt from the keel:**
+- **Command Deck** — gateway URL input + live probe (`/api/health`) with an honest status pill (idle / probing / reachable / unreachable); the agent picker (Claude Code · Cursor · Cline · Codex · Other) renders the exact paste-ready line for each convention; the snippet rides in a warm-ink terminal panel; everything personalizes to the probed URL
+- **Gateway memory** — the URL is remembered in localStorage and re-probed on revisit (private-mode safe, fail-open)
+- **The fleet, organized** — 9 skill cards grouped by capability (Conversation & Knowledge · Voice & Vision · Web) with the START HERE entry card spanning the deck
+- **Preview drawer** — click any card to fetch and render its SKILL.md inline (marked + a native defense-in-depth sanitizer, frontmatter stripped), with loading-skeleton and error states
+- **Search** — filters name, description, endpoint, and keywords; honest empty state
+- **Bulk deck** — one-click copy of the full setup block (env exports + entry line) or all nine raw links
+- **Mended**: the GitHub tree link sails on `main` (was hardcoded `master`) · the video skill restored to the dashboard fleet (skills/ shipped 9, the constants only 8) · `Drawer` joins the shared component barrel
+
+**🗂️ skills/ tended:** all ten files healed from `refs/heads/master` to `refs/heads/main` · the README's dashboard pointer updated
+
+**🧪 Proof:** new happy-dom suite 9/9 green (constants integrity · full render · search + empty state · probe personalization · drawer fetch + render · both sanitizer gates) · regression suites 120/120 green · vitest gains an esbuild jsx pre-transform (the house convention is JSX inside .js) · production build green
+
+---
+
 # v0.9.35 — The Final Purge 🧹
 
 > *"What v0.9.21 began, this tide completes. The old brand survived in the places the first wave never reached — the docs, the gitbook, the translations, the skills, and three env names that carried a live security wire. Every last one now answers to Vela."*
