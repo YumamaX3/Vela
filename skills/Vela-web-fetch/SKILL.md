@@ -5,7 +5,7 @@ description: Fetch URL → markdown / text / HTML via Vela /v1/web/fetch using F
 
 # Vela — Web Fetch
 
-Requires `VELA_URL` (and `VELA_KEY` if auth enabled). See https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela/SKILL.md for setup.
+Requires `VELA_URL` (and `VELA_KEY` if auth enabled). See https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela/SKILL.md for setup.
 
 ## Discover
 

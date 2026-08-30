@@ -5,7 +5,7 @@ description: Text-to-speech via Vela /v1/audio/speech using OpenAI / ElevenLabs 
 
 # Vela — Text-to-Speech
 
-Requires `VELA_URL` (and `VELA_KEY` if auth enabled). See https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela/SKILL.md for setup.
+Requires `VELA_URL` (and `VELA_KEY` if auth enabled). See https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela/SKILL.md for setup.
 
 ## Discover
 

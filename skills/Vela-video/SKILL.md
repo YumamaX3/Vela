@@ -5,7 +5,7 @@ description: Generate videos via Vela /v1/videos/generations using xAI Grok Imag
 
 # Vela — Video Generation (xAI Grok Imagine)
 
-Requires `VELA_URL` (and `VELA_KEY` if auth enabled). See https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela/SKILL.md for setup.
+Requires `VELA_URL` (and `VELA_KEY` if auth enabled). See https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela/SKILL.md for setup.
 
 Requires a connected **xAI account** in the Vela dashboard — either **Grok Build OAuth** (SuperGrok / X Premium+ subscription sign-in) or a direct **xAI API key** from console.x.ai. The two are separate auth types with separate billing; the dashboard shows which one each connection uses.
 

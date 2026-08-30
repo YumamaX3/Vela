@@ -66,6 +66,10 @@
     0 12px 36px -8px rgba(15,23,42,0.10);
   --shadow-focus: 0 0 0 3px rgba(229,106,74,0.18);
 
+  /* Command-deck terminal — warm ink panel, cream text */
+  --color-terminal: #2a211c;
+  --color-terminal-text: #f2e9e1;
+
   color-scheme: light;
 }
 
@@ -114,6 +118,10 @@
     0 1px 2px rgba(0,0,0,0.4),
     0 16px 48px -8px rgba(0,0,0,0.55);
   --shadow-focus: 0 0 0 3px rgba(229, 106, 74, 0.18);
+
+  /* Command-deck terminal — deeper in the dark */
+  --color-terminal: #141110;
+  --color-terminal-text: #e9e1d8;
 
   color-scheme: dark;
 }
@@ -601,6 +609,81 @@ button:disabled,
   border: none;
   border-top: 1px solid var(--color-border);
   margin: 1.5rem 0;
+}
+
+/* Skill preview markdown body — shares the changelog's typographic
+   decisions, plus tables and pre blocks (SKILL.md files lean on both). */
+.skill-md-body h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 1.5rem 0 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.skill-md-body h1:first-child { margin-top: 0; }
+.skill-md-body h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 1rem 0 0.5rem;
+  color: var(--color-primary);
+}
+.skill-md-body h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0.75rem 0 0.4rem;
+}
+.skill-md-body ul, .skill-md-body ol {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+.skill-md-body ul { list-style: disc; }
+.skill-md-body ol { list-style: decimal; }
+.skill-md-body li { margin: 0.25rem 0; line-height: 1.6; }
+.skill-md-body p { margin: 0.5rem 0; line-height: 1.6; }
+.skill-md-body code {
+  background: var(--color-bg-alt);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.875em;
+  font-family: ui-monospace, monospace;
+}
+.skill-md-body pre {
+  background: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+  overflow-x: auto;
+}
+.skill-md-body pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.skill-md-body a {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+.skill-md-body hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1.5rem 0;
+}
+.skill-md-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 0.85rem;
+}
+.skill-md-body th, .skill-md-body td {
+  border: 1px solid var(--color-border);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+}
+.skill-md-body th {
+  background: var(--color-bg-alt);
+  font-weight: 600;
 }
 
 /* ============================================================
