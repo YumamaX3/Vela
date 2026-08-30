@@ -25,6 +25,33 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.35 — The Final Purge 🧹
+
+> *"What v0.9.21 began, this tide completes. The old brand survived in the places the first wave never reached — the docs, the gitbook, the translations, the skills, and three env names that carried a live security wire. Every last one now answers to Vela."*
+
+**🧹 The decree (2026-08-30)**: everything becomes Vela · `decolua/9router` becomes `YumamaX3/Vela` — no exceptions outside the historical record.
+
+**⚡ Runtime + CI — the env family renamed in lockstep:**
+- `NINEROUTER_PEER_TOKEN` → `VELA_PEER_TOKEN` — the per-process security stamp (custom-server.js mints it; src/lib/auth/trustedPeer.js verifies it against x-9r-peer-token), renamed in one atomic wave across both ends + 5 test suites (120 tests green)
+- `NINEROUTER_PROXY_CLIENT_MAX_BODY_SIZE` → `VELA_PROXY_CLIENT_MAX_BODY_SIZE` (next.config.mjs) · `NINEROUTER_CLI_APP_DIR` → `VELA_CLI_APP_DIR` (cli/scripts ×2)
+- gitbook-pages.yml: the Pages deploy repointed from the old org's `9router.github.io` to `YumamaX3/vela.github.io`
+
+**🌐 Landing + skills constants:** every `github.com/decolua/Vela` link → `github.com/YumamaX3/Vela` (Footer, Navigation, HeroSection, page.js) · `src/shared/constants/skills.js` repo → `YumamaX3/Vela`, branch `master` → `main` (the truth) · LICENSE copyright → YumamaX3
+
+**📚 GitBook — 100 content pages × 5 languages + app code:** 9Router → Vela · npm install → `vela` · `decolua/9router` URLs → `YumamaX3/Vela` · `9router.com` → `vela.ai` · env vars → `VELA_URL`/`VELA_KEY` · docsConfig title/logo/appUrl/githubUrl · package name → `vela-docs`
+
+**🖤 i18n literals — 34 translation JSONs:** every branded key + value → Vela (`sk_9router` → `sk_Vela`, MITM + Antigravity strings), all 34 re-validated as parseable JSON · the four deep-lag locales (fa/km/th/zh-CN) caught up in the same stroke
+
+**🗂️ Skills — renamed + rewired:** `skills/9router*` → `skills/Vela*` (9 dirs, git mv — matches the dashboard URL builder exactly) · every raw URL → `github.com/YumamaX3/Vela` · README table repointed
+
+**📖 READMEs × 12 + docs:** fork-framing sentences rewritten in 11 languages — Vela sails its own course (MIT, its own forges) · npm badges → the `vela` package · the stale zh-CN legacy README rebuilt from the current root file · docs/ARCHITECTURE + VERSIONING cleansed
+
+**⚪ Intentionally kept — the historical record:** CHANGELOG.md's purge narrative and CLAUDE.md's Great Purge table still name the old brand (they ARE the record of the rename). The `x-9r-*` security family stays sealed as v0.9.21 decreed.
+
+**🧪 Proof:** 5 renamed suites 120/120 green · production build green · final census: zero tracked survivors outside the CHANGELOG/CLAUDE.md historical record.
+
+---
+
 # v0.9.34 — The Provider Ascension 🌊
 
 > *"Two free-tier lanes drifted from their battle-hardened references. This tide re-aligns both wires — the taxonomy ascended, the envelope made honest, the fingerprints made CLI-faithful."*
