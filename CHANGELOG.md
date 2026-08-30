@@ -25,6 +25,24 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.37 — The Returning Shore 🐛
+
+> *"Every OAuth callback now sails back to the harbor it left — the shore the operator actually stands on, not a localhost they may never have visited."*
+
+**🐛 The wound:** provider-connection OAuth (Gemini, Antigravity, Claude, Cursor, GitLab, iFlow, Kimchi, Cline — every provider that calls back to the app's `/callback` page) hardcoded `redirect_uri = http://localhost:<port>/callback`. Open the dashboard from a LAN IP (`http://192.168.1.20:32060`), a Tailscale hostname, or any remote shore, and Google redirected the browser to `localhost:32060` — the operator's own machine, not the gateway. On any headless/remote deployment the authorization code landed nowhere.
+
+**✨ The decree (Star, 2026-08-30):** the callback derives from the URL Vela is being accessed on — localhost stays localhost, `192.168.1.20` stays `192.168.1.20`, hostnames stay hostnames.
+
+**🔧 The fix — three points, one law:**
+- **`src/lib/oauth/utils/redirect.js`** (new) — `getBrowserCallbackOrigin()` (client: `window.location.origin`) and `getCallbackOrigin(request)` (server: the request's own host header; `x-forwarded-host` honored ONLY for loopback peers, matching custom-server.js's stamping protocol so a remote client can never spoof the callback target; BASE_URL env as the exotic-deployment override)
+- **`OAuthModal.js`** — the app-port redirect_uri now rides the dashboard's own origin; the flow opens an auto-relaying popup from EVERY shore (the old localhost-only gate sent remote users to manual paste); the postMessage listener hardens to strict same-origin (callback popup rides our origin by construction)
+- **`/api/oauth/[provider]/authorize`** — the hardcoded `http://localhost:8080/callback` fallback now derives from the request's host
+- **Untouched by design**: the dedicated loopback proxies keep localhost — codex (1455), xai (56121), trae/windsurf/zed bind 127.0.0.1 on the operator's machine; they are not the server
+
+**🧪 Proof:** new suites 13/13 green (origin derivation across localhost/LAN IP/hostname/https/forwarded/spoof-guard/BASE_URL/SSR + modal redirect_uri for gemini-cli/codex/xai) · full-fleet regression: 49 failed files WITH the change vs 50 WITHOUT — zero new failures, one legacy file healed (`model-test-routing`) · production build green
+
+---
+
 # v0.9.36 — The Skills Ascension ✨
 
 > *"The fleet of nine sails finally has a harbor worthy of it — a command deck that hands Vela to any AI agent in one paste."*
