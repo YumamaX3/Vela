@@ -81,10 +81,15 @@ export async function getModelInfo(modelStr) {
 /**
  * Check if model is a combo and get models list
  * @returns {Promise<string[]|null>} Array of models or null if not a combo
+ *
+ * Combo names may contain slashes (e.g. "vela/cc/opus" — the Star's decree,
+ * v0.9.39), so the lookup runs for EVERY shape: slash-bearing names that are
+ * not combos simply miss here and fall through to provider/model resolution.
+ * Combos are checked first on purpose — a combo name wins over a
+ * coincidentally identical provider/model pair.
  */
 export async function getComboModels(modelStr) {
-  // Only check if it's not in provider/model format
-  if (modelStr.includes("/")) return null;
+  if (!modelStr) return null;
 
   const combo = await getComboByName(modelStr);
   if (combo && combo.models && combo.models.length > 0) {

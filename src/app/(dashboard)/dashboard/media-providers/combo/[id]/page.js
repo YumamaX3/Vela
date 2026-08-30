@@ -7,6 +7,7 @@ import { Card, Button, Input, Toggle, ModelSelectModal } from "@/shared/componen
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { resolveKeyRef } from "@/shared/utils/keyVault";
 import { AI_PROVIDERS, MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
+import { validateComboName } from "@/shared/constants/comboValidation";
 
 // Parse "providerId/model" or just "providerId" → { providerId, model }
 function parseModelEntry(entry) {
@@ -15,8 +16,6 @@ function parseModelEntry(entry) {
   if (idx < 0) return { providerId: entry, model: "" };
   return { providerId: entry.slice(0, idx), model: entry.slice(idx + 1) };
 }
-
-const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
 
 const KIND_LABELS = {
   webSearch: "Web Search",
@@ -96,8 +95,8 @@ export default function ComboDetailPage() {
   useEffect(() => { fetchAll(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const validateName = (v) => {
-    if (!v.trim()) { setNameError("Name is required"); return false; }
-    if (!VALID_NAME_REGEX.test(v)) { setNameError("Only letters, numbers, -, _ and ."); return false; }
+    const verdict = validateComboName(v);
+    if (!verdict.ok) { setNameError(verdict.error); return false; }
     setNameError("");
     return true;
   };
