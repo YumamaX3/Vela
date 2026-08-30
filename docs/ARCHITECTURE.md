@@ -267,7 +267,7 @@ rate or a pattern to fix.
 ## 🔐 Authentication & Security
 
 - **Session** — JWT cookie (`JWT_SECRET`). The Vela session cookie name is
-  separate from upstream 9Router's (v0.6.12).
+  separate from upstream (pre-Vela).
 - **First login** — `INITIAL_PASSWORD` (default `123456`; change it).
   SSO paths exist: OIDC and SAML routes under `/api/auth/*`.
 - **API keys** — per-endpoint keys hashed with `API_KEY_SECRET`; machine id

@@ -79,4 +79,4 @@ jobs:
 # The image ships to ghcr.io ONLY. This repository is private, and pushes made
 # with GITHUB_TOKEN inherit that visibility — the package is private by
 # inheritance, pullable only by users with repo access. No Docker Hub target:
-# the upstream 'decolua/9router' leftover was removed with the Vela rebrand.
+# the upstream 'YumamaX3/Vela' leftover was removed with the Vela rebrand.

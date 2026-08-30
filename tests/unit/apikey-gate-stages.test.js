@@ -101,13 +101,13 @@ beforeEach(() => {
   // In-memory stage state lives on global — reset so tests stay independent.
   delete global._velaRateWindows;
   delete global._velaBudgetCache;
-  process.env.NINEROUTER_PEER_TOKEN = PEER_TOKEN;
+  process.env.VELA_PEER_TOKEN = PEER_TOKEN;
   mocks.getAdapter.mockResolvedValue({ run: vi.fn(), all: vi.fn(() => []) });
 });
 
 afterEach(() => {
   vi.useRealTimers();
-  delete process.env.NINEROUTER_PEER_TOKEN;
+  delete process.env.VELA_PEER_TOKEN;
   process.env.NODE_ENV = originalNodeEnv;
 });
 
@@ -419,7 +419,7 @@ describe("extractClientIp — the proven header only", () => {
   });
 
   it("rejects the header when no peer token is configured (process never stamped one)", () => {
-    delete process.env.NINEROUTER_PEER_TOKEN;
+    delete process.env.VELA_PEER_TOKEN;
     expect(extractClientIp(req({ "x-9r-peer-token": PEER_TOKEN, "x-9r-real-ip": "203.0.113.7" }))).toBeNull();
   });
 

@@ -72,4 +72,4 @@ cd tests && npx vitest run translator/golden-url-header.test.js -u
 | Package | Name | Why |
 |-|-|-|
 | Root app (dashboard + gateway) | `vela-app` | private; rebranded Vela |
-| CLI launcher (`cli/`) | `9router` | npm install command + updater compatibility — kept deliberately |
+| CLI launcher (`cli/`) | `vela` | npm install command + updater compatibility |

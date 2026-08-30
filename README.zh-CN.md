@@ -8,7 +8,7 @@
   [![Version](https://img.shields.io/badge/version-0.6.70-blue?style=flat-square)](./CHANGELOG.md)
   [![Providers](https://img.shields.io/badge/providers-129-0ea5e9?style=flat-square)](./docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
-  [![CLI](https://img.shields.io/npm/v/9router?style=flat-square&label=cli%20%229router%22)](https://www.npmjs.com/package/9router)
+  [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
   [![License](https://img.shields.io/badge/license-see%20LICENSE-gray?style=flat-square)](./LICENSE)
 
   [🚀 快速开始](#-快速开始) · [✨ 核心特性](#-核心特性) · [📚 文档](#-文档) · [🌐 语言](#-语言)
@@ -42,7 +42,7 @@ Vela 是一个**本地 AI 路由网关 + 仪表盘**。你把所有 AI 工具指
 
 内里乾坤:一个运行在 **32060** 端口上的 Next.js 服务(仪表盘 + API),一个与供应商解耦的路由引擎(`open-sse/`),以及一个 SQLite 数据库 —— 需要时它可以长出一个 MariaDB 孪生库(sqlite → mysql → mirror)。
 
-> 📌 **注意:** Vela 复刻(fork)自 [9Router](https://github.com/decolua/9router),重塑品牌并重铸内核 —— 存储、备份、定价与分类体系均为 Vela 自铸。CLI 启动器为了安装兼容性保留了 `9router` 这个 npm 包名。
+> 📌 **注意:** Vela 自成航路 —— 一片开源水域锻造的 AI 网关,存储、备份、定价与分类体系皆为自铸。CLI 以 `vela` 之名从 npm 安装。
 
 ---
 
@@ -111,11 +111,11 @@ docker run -d --name vela \
 ### 方案 B —— npm CLI
 
 ```bash
-npm install -g 9router
-9router
+npm install -g vela
+vela
 ```
 
-CLI 负责安装、启动并管理服务器(启动器包在 npm 上保留 `9router` 之名)。
+CLI 负责安装、启动并管理服务器(启动器包在 npm 上保留 `vela` 之名)。
 
 ### 方案 C —— 从源码运行
 
@@ -181,7 +181,7 @@ open-sse/            the provider-agnostic routing/translation engine
 ├── providers/       registry (129 files) + pricing covenant
 └── rtk/             token saver hooks (fail-open)
 
-cli/                 the launcher package (npm: 9router)
+cli/                 the launcher package (npm: vela)
 docs/                the charts — start at docs/README.md
 plans/               sealed design plans (Storage Covenant, Pricing Covenant…)
 tests/               vitest suite (independent ESM package)
@@ -198,7 +198,7 @@ i18n/                localized READMEs (10 languages)
 
 ## 🏛️ 起源与许可
 
-Vela 复刻自 [decolua/9Router](https://github.com/decolua/9router)(MIT),自 v0.6.0 起扬帆独行。上游的功劳归于上游;存储、备份、定价与分类体系是 Vela 自己的锻炉。见 [LICENSE](./LICENSE)。
+Vela 自 v0.6.0 起扬帆独行 —— 网关以 MIT 许可发布,完全自铸。见 [LICENSE](./LICENSE)。
 
 ---
 

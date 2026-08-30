@@ -8,7 +8,7 @@
   [![Version](https://img.shields.io/badge/version-0.6.70-blue?style=flat-square)](../CHANGELOG.md)
   [![Providers](https://img.shields.io/badge/providers-129-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
-  [![CLI](https://img.shields.io/npm/v/9router?style=flat-square&label=cli%20%229router%22)](https://www.npmjs.com/package/9router)
+  [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
   [![License](https://img.shields.io/badge/license-see%20LICENSE-gray?style=flat-square)](../LICENSE)
 
   [🚀 クイックスタート](#-quick-start) · [✨ 主な機能](#-key-features) · [📚 ドキュメント](#-documentation) · [🌐 言語](#-languages)
@@ -44,7 +44,7 @@ Velaは**ローカルAIルーティングゲートウェイ + ダッシュボー
 
 その中身:ポート**32060**で動くNext.jsサーバー(ダッシュボード + API)、プロバイダー非依存のルーティングエンジン(`open-sse/`)、そして必要になればMariaDBの双子を増やせるSQLiteデータベース(sqlite → mysql → mirror)。
 
-> 📌 **注記:** Velaは[9Router](https://github.com/decolua/9router)のフォークであり、リブランドと鍛え直しを経ています — ストレージ、バックアップ、価格設定、カテゴリの各システムはVela独自のものです。CLIランチャーはインストール互換性のためnpm名`9router`を維持しています。
+> 📌 **注記:** Velaは独自の航路を進みます — 開かれた海から鍛えられたAIゲートウェイであり、ストレージ、バックアップ、価格設定、カテゴリの各システムはすべて自前です。CLIはnpmから `vela` としてインストールします。
 
 ---
 
@@ -113,11 +113,11 @@ docker run -d --name vela \
 ### 選択肢B — npm CLI
 
 ```bash
-npm install -g 9router
-9router
+npm install -g vela
+vela
 ```
 
-CLIがサーバーのインストール・起動・管理を行います(ランチャーパッケージはnpm上で`9router`の名前を維持しています)。
+CLIがサーバーのインストール・起動・管理を行います(ランチャーパッケージはnpm上で`vela`の名前を維持しています)。
 
 ### 選択肢C — ソースから
 
@@ -183,7 +183,7 @@ open-sse/            the provider-agnostic routing/translation engine
 ├── providers/       registry (129 files) + pricing covenant
 └── rtk/             token saver hooks (fail-open)
 
-cli/                 the launcher package (npm: 9router)
+cli/                 the launcher package (npm: vela)
 docs/                the charts — start at docs/README.md
 plans/               sealed design plans (Storage Covenant, Pricing Covenant…)
 tests/               vitest suite (independent ESM package)
@@ -200,7 +200,7 @@ i18n/                localized READMEs (10 languages)
 
 ## 🏛️ 来歴とライセンス
 
-Velaは[decolua/9Router](https://github.com/decolua/9router)(MIT)からフォークし、v0.6.0以降は独自の航路を進んでいます。上流へのクレジットは然るべきところに残しています。ストレージ、バックアップ、価格設定、カテゴリの各システムはVela独自の鍛造です。[LICENSE](../LICENSE)を参照してください。
+Velaはv0.6.0以降、独自の航路を進んでいます — ゲートウェイはMITライセンスで、完全に自前のものです。[LICENSE](../LICENSE)を参照してください。
 
 ---
 

@@ -8,7 +8,7 @@
   [![Version](https://img.shields.io/badge/version-0.6.70-blue?style=flat-square)](../CHANGELOG.md)
   [![Providers](https://img.shields.io/badge/providers-129-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
-  [![CLI](https://img.shields.io/npm/v/9router?style=flat-square&label=cli%20%229router%22)](https://www.npmjs.com/package/9router)
+  [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
   [![License](https://img.shields.io/badge/license-see%20LICENSE-gray?style=flat-square)](../LICENSE)
 
   [🚀 Bắt đầu nhanh](#-quick-start) · [✨ Tính năng](#-key-features) · [📚 Tài liệu](#-documentation) · [🌐 Ngôn ngữ](#-languages)
@@ -44,7 +44,7 @@ Vela là **gateway định tuyến AI cục bộ + bảng điều khiển**. B�
 
 Bên trong: một máy chủ Next.js (bảng điều khiển + API) chạy trên cổng **32060**, một engine định tuyến độc lập với nhà cung cấp (`open-sse/`), và một cơ sở dữ liệu SQLite có thể mọc thêm bản song sinh MariaDB khi bạn cần (sqlite → mysql → mirror).
 
-> 📌 **Ghi chú:** Vela là một fork của [9Router](https://github.com/decolua/9router), được đổi tên và rèn lại — các hệ thống lưu trữ, sao lưu, định giá và phân loại là của riêng Vela. Trình khởi chạy CLI giữ tên npm `9router` để đảm bảo tương thích cài đặt.
+> 📌 **Ghi chú:** Vela dong buồm theo hải trình riêng — một cổng AI được rèn từ vùng nước mở, với mọi hệ thống là của riêng mình: lưu trữ, sao lưu, định giá và phân loại. CLI cài đặt dưới tên `vela` từ npm.
 
 ---
 
@@ -113,11 +113,11 @@ docker run -d --name vela \
 ### Lựa chọn B — npm CLI
 
 ```bash
-npm install -g 9router
-9router
+npm install -g vela
+vela
 ```
 
-CLI cài đặt, khởi chạy và quản lý máy chủ (gói khởi chạy giữ tên `9router` trên npm).
+CLI cài đặt, khởi chạy và quản lý máy chủ (gói khởi chạy giữ tên `vela` trên npm).
 
 ### Lựa chọn C — Từ mã nguồn
 
@@ -183,7 +183,7 @@ open-sse/            the provider-agnostic routing/translation engine
 ├── providers/       registry (129 files) + pricing covenant
 └── rtk/             token saver hooks (fail-open)
 
-cli/                 the launcher package (npm: 9router)
+cli/                 the launcher package (npm: vela)
 docs/                the charts — start at docs/README.md
 plans/               sealed design plans (Storage Covenant, Pricing Covenant…)
 tests/               vitest suite (independent ESM package)
@@ -200,7 +200,7 @@ README này được dịch sang 10 ngôn ngữ khác — liên kết nằm ở 
 
 ## 🏛️ Nguồn gốc & Giấy phép
 
-Vela được fork từ [decolua/9Router](https://github.com/decolua/9router) (MIT) và dong buồm theo hải trình riêng từ v0.6.0. Ghi nhận upstream được giữ đúng nơi cần thiết; các hệ thống lưu trữ, sao lưu, định giá và phân loại là những lò rèn của riêng Vela. Xem [LICENSE](../LICENSE).
+Vela dong buồm theo hải trình riêng từ v0.6.0 — gateway được cấp phép MIT và hoàn toàn là của riêng mình. Xem [LICENSE](../LICENSE).
 
 ---
 
