@@ -25,6 +25,32 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.40 — The Combo Harbor ✨
+
+> *"The fleet of combos was a flat ledger — names with depth but no address, sails with no tally. Now every combo lives in its harbor, and every harbor keeps a log of the traffic it carries."*
+
+**✨ The decree (Star, 2026-08-30):** fully redesign the combos page — new layout, new features, categorize and organize, look fancy — and upgrade the backend too. The Full Tide was chosen.
+
+**🗄️ The backend — per-combo usage attribution (the gap that could never be answered):**
+- **Migration 015** (`src/lib/db/migrations/015-combo-usage.js`, portable adapter surface) — `usageHistory.combo` + `requestDetails.combo` columns (NULL = direct request) + `idx_uh_combo`; SCHEMA_VERSION heals 13 → 15; columns declared in `TABLES` so auto-sync and the MySQL bootstrap diff heal them too — **every old database auto-migrates on boot** (the Star's standing decree)
+- **The thread** — `chat.js` passes the requested combo name through `handleSingleModelChat` → `handleChatCore` → `sharedCtx` → the three terminal handlers (streaming / non-streaming / forced-SSE-to-JSON) → `saveUsageStats` → `saveRequestUsage`. Fusion panel AND judge rows carry the combo. Explicit threading, no hidden context — deterministic, zero behavior change for direct requests
+- **`GET /api/combos/usage`** — per-combo totals (requests, tokens, cost, ok-count, first/last seen) + a fixed-width bucketed series for sparklines; guarded by the existing `/api/combos` wall; both harbor twins implement it (sqlite + mysql with BIGINT-safe normalization)
+
+**🎨 The frontend — the page becomes a harbor:**
+- **Namespace harbors** — slash-bearing names group into collapsible sections (`vela/cc`, `vela/deepseek`); un-namespaced combos sail in the open water below
+- **The toolbar** — search by name or member model, strategy filter, three sorts (name / recently used / members), clear-filters honesty
+- **Redesigned cards** — strategy-tinted identity (coral fallback · emerald round-robin · violet fusion), ALL member chips with capacity badges, copy · edit · duplicate · delete in one row
+- **Live signals per card** — 24h usage sparkline (coral), request/token/cost totals, % ok chip, last-seen time, and a reachability chip (`2/2 connected`) derived from active connections + provider-node prefixes
+- **Fleet stats strip** — combos · models in fleet · fusion combos · active in 24h
+- **Fleet management** — duplicate a combo (next free `-copy` suffix), JSON export/import (merge by name, skips invalid or existing)
+- **Carried forward untouched** — the capacity adapter section, the combo form modal (its name hint now tells the slash story)
+
+**🎨 The discipline** — dials E2/R2/M2 held; the coral accent appears exactly where the pulse lives; every state honest (empty fleet, empty filters, no usage in 24h); loading skeletons; keyboard-reachable actions; no em-dashes in copy
+
+**🧪 Proof:** new suites 41 green (migration 015 on the sql.js crash driver + idempotency + slash-name acceptance · combo threading through saveUsageStats/buildRequestDetail + INSERT contracts in all four repos · aggregation totals/series/window + route clamps against a real temp DB · happy-dom page: harbors, stats strip, sparkline, ok-chip, reachability, search, empty states) · full-fleet regression via stash-baseline: **zero new failing files** (41 failing with the change, all failing identically at baseline) · production build green
+
+---
+
 # v0.9.39 — The Namespaced Fleet ✨
 
 > *"Combos may now carry a name with depth — `vela/cc/opus`, `vela/anthropic/sonnet` — so an operator's fleet reads like an address, and every combo has a home."*
