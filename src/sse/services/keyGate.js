@@ -348,10 +348,18 @@ export function kindStage(key, { kind = null } = {}) {
  * provider/model prefix) is outside allowedProviders. Alias-resolved: the
  * request may name an alias; the ACL checks both the raw prefix and the
  * resolved provider id.
+ *
+ * Combo requests are exempt by construction: a combo is resolved before the
+ * gate runs (comboModels present), and combo names may themselves contain
+ * slashes (v0.9.39 — "vela/cc/opus") that must never be read as a provider
+ * prefix. Their members are checked by modelScopeStage at dispatch time;
+ * comboStage checks the combo name itself.
  */
-export function providerStage(key, { requestModel = null } = {}) {
+export function providerStage(key, { requestModel = null, comboModels = null } = {}) {
   if (key.allowedProviders == null) return { ok: true };
-  if (!requestModel || requestModel.startsWith("combo/")) return { ok: true }; // combos are the comboStage's scope
+  if (!requestModel) return { ok: true };
+  if (Array.isArray(comboModels) && comboModels.length) return { ok: true }; // resolved combo — its scope
+  if (requestModel.startsWith("combo/")) return { ok: true }; // legacy combo addressing — comboStage's scope
   const slash = requestModel.indexOf("/");
   const provider = slash > 0 ? requestModel.slice(0, slash) : "";
   if (!provider) return { ok: true };
@@ -365,13 +373,20 @@ export function providerStage(key, { requestModel = null } = {}) {
 }
 
 /**
- * Combo stage — blocks combo-name requests whose combo is outside
- * allowedCombos. The combo name is matched without the "combo/" prefix.
+ * Combo stage — blocks combo requests whose combo is outside allowedCombos.
+ * Two addressing forms: a resolved combo (comboModels present — the FULL
+ * slash-bearing name is checked, v0.9.39) and the legacy "combo/<name>"
+ * request form (the prefix is stripped before matching).
  */
-export function comboStage(key, { requestModel = null } = {}) {
+export function comboStage(key, { requestModel = null, comboModels = null } = {}) {
   if (key.allowedCombos == null) return { ok: true };
-  if (!requestModel || !requestModel.startsWith("combo/")) return { ok: true };
-  const comboName = requestModel.slice("combo/".length);
+  const isResolvedCombo = Array.isArray(comboModels) && comboModels.length && requestModel;
+  const comboName = isResolvedCombo
+    ? requestModel
+    : requestModel && requestModel.startsWith("combo/")
+      ? requestModel.slice("combo/".length)
+      : null;
+  if (!comboName) return { ok: true };
   if (triStateAllowed(key.allowedCombos, comboName)) return { ok: true };
   return deny(HTTP_STATUS.FORBIDDEN, GATE_CODES.MODEL_FORBIDDEN, `Combo "${comboName}" not allowed for this API key`);
 }
@@ -453,8 +468,10 @@ export async function authorizeApiRequest(
 
   for (const stage of STAGES) {
     // Stages may be async (spendStage reads the usage ledger) — await each verdict.
-    // The ACL stages (kind/provider/combo) read their scope from the request.
-    const verdict = await stage(key, { clientIp: resolvedIp, requestModel, kind });
+    // The ACL stages (kind/provider/combo) read their scope from the request;
+    // comboModels tells providerStage/comboStage that a combo resolved (so
+    // slash-bearing combo names never read as provider prefixes, v0.9.39).
+    const verdict = await stage(key, { clientIp: resolvedIp, requestModel, kind, comboModels });
     if (!verdict.ok) return verdict;
   }
 

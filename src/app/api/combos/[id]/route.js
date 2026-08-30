@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { getComboById, updateCombo, deleteCombo, getComboByName } from "@/lib/localDb";
 import { resetComboRotation } from "open-sse/services/combo.js";
-
-// Validate combo name: only a-z, A-Z, 0-9, -, _
-const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
+import { validateComboName } from "@/shared/constants/comboValidation";
 
 // GET /api/combos/[id] - Get combo by ID
 export async function GET(request, { params }) {
@@ -28,22 +26,25 @@ export async function PUT(request, { params }) {
     const { id } = await params;
     const body = await request.json();
     
-    // Validate name format if provided
+    // Validate name format if provided (slashes allowed since v0.9.39)
+    let validatedBody = body;
     if (body.name) {
-      if (!VALID_NAME_REGEX.test(body.name)) {
-        return NextResponse.json({ error: "Name can only contain letters, numbers, -, _ and ." }, { status: 400 });
+      const verdict = validateComboName(body.name);
+      if (!verdict.ok) {
+        return NextResponse.json({ error: verdict.error }, { status: 400 });
       }
-      
+
       // Check if name already exists (exclude current combo)
-      const existing = await getComboByName(body.name);
+      const existing = await getComboByName(verdict.name);
       if (existing && existing.id !== id) {
         return NextResponse.json({ error: "Combo name already exists" }, { status: 400 });
       }
+      validatedBody = { ...body, name: verdict.name };
     }
-    
+
     // Capture previous name to invalidate rotation state on rename
     const prev = await getComboById(id);
-    const combo = await updateCombo(id, body);
+    const combo = await updateCombo(id, validatedBody);
     
     if (!combo) {
       return NextResponse.json({ error: "Combo not found" }, { status: 404 });
