@@ -393,7 +393,7 @@ export async function saveRequestUsage(entry) {
     // Gate 14: telemetry on the first write, never retrofit.
     db.transaction(() => {
       const res = db.run(
-        `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass) VALUES(?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo) VALUES(?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(timestamp, provider, model, connectionId, keyId, promptTokens, completionTokens) DO NOTHING`,
         [
           entry.timestamp, entry.provider || "", entry.model || "",
@@ -402,6 +402,7 @@ export async function saveRequestUsage(entry) {
           promptTokens, completionTokens, entry.cost || 0, entry.status || "ok",
           stringifyJson(tokens), stringifyJson(meta),
           latencyMs, ttftMs, httpStatus, statusClass,
+          entry.combo || null, // migration 015 — NULL = direct request
         ]
       );
 
@@ -1083,4 +1084,66 @@ export async function getInsights(opts) {
 // usageAggregation.js; this twin passes its own harbor for the enrichment.
 export async function getHealthTimeline(opts) {
   return healthTimelineImpl(await getAdapter(), { ...opts, repos: "./repos/sqlite" });
+}
+
+// ─── v0.9.40 — per-combo usage aggregation (migration 015) ─────────────
+// The combos page asks "which combo burns my tokens?": per-combo totals
+// (requests, tokens, cost, ok count, first/last activity) plus a
+// fixed-width bucketed series for the sparkline. Only rows carrying a combo
+// name are aggregated (direct requests stay NULL and are skipped). Bucket
+// edges are fixed slots ending "now", so the sparkline shape is stable.
+export async function getComboUsage({ hours = 24, buckets = 24 } = {}) {
+  const db = await getAdapter();
+  const windowMs = Math.max(1, Number(hours) || 24) * 3600000;
+  const since = new Date(Date.now() - windowMs).toISOString();
+
+  const totals = db.all(
+    `SELECT combo,
+            COUNT(*) AS requests,
+            SUM(promptTokens) AS promptTokens,
+            SUM(completionTokens) AS completionTokens,
+            SUM(cost) AS cost,
+            SUM(CASE WHEN statusClass = 'ok' THEN 1 ELSE 0 END) AS ok,
+            MIN(timestamp) AS firstAt,
+            MAX(timestamp) AS lastAt
+     FROM usageHistory
+     WHERE combo IS NOT NULL AND timestamp >= ?
+     GROUP BY combo`,
+    [since]
+  );
+
+  const comboMap = {};
+  for (const r of totals) {
+    comboMap[r.combo] = {
+      combo: r.combo,
+      requests: r.requests || 0,
+      promptTokens: r.promptTokens || 0,
+      completionTokens: r.completionTokens || 0,
+      cost: r.cost || 0,
+      ok: r.ok || 0,
+      firstAt: r.firstAt || null,
+      lastAt: r.lastAt || null,
+      series: Array.from({ length: Math.max(1, Number(buckets) || 24) }, () => ({ requests: 0, tokens: 0, ok: 0 })),
+    };
+  }
+
+  const rows = db.all(
+    `SELECT combo, timestamp, promptTokens, completionTokens, statusClass
+     FROM usageHistory
+     WHERE combo IS NOT NULL AND timestamp >= ?`,
+    [since]
+  );
+  const startMs = Date.now() - windowMs;
+  const slotMs = windowMs / Math.max(1, Number(buckets) || 24);
+  for (const r of rows) {
+    const agg = comboMap[r.combo];
+    if (!agg) continue;
+    const idx = Math.min(Math.max(Math.floor((new Date(r.timestamp).getTime() - startMs) / slotMs), 0), agg.series.length - 1);
+    const slot = agg.series[idx];
+    slot.requests += 1;
+    slot.tokens += (r.promptTokens || 0) + (r.completionTokens || 0);
+    if (r.statusClass === "ok") slot.ok += 1;
+  }
+
+  return { hours, buckets, since, combos: Object.values(comboMap) };
 }

@@ -10,4 +10,6 @@ export {
   getFilteredSeries, getBreakdown, getStackedSeries, getPercentiles,
   getKpis, getInsights, getLedgerRows, getExportCursor,
   getHealthTimeline, // Usage Observatory W4-D — provider health timeline strips
+  // v0.9.40 — per-combo attribution aggregation (migration 015)
+  getComboUsage,
 } from "@/lib/db/index.js";

@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 13;
+export const SCHEMA_VERSION = 15;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -169,6 +169,12 @@ export const TABLES = {
       ttftMs: "INTEGER",
       httpStatus: "INTEGER",
       statusClass: "TEXT DEFAULT ''",
+      // Migration 015 — combo attribution. The requested combo name when the
+      // request arrived via a combo (member + judge rows carry it); NULL for
+      // direct provider/model requests. NULL is safe here — combo is never
+      // part of the uq_uh_dedupe identity. Declared so auto-sync + the mysql
+      // bootstrap diff heal the column on fresh installs and the twin.
+      combo: "TEXT",
     },
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_uh_ts ON usageHistory(timestamp DESC)",
@@ -183,6 +189,9 @@ export const TABLES = {
       "CREATE INDEX IF NOT EXISTS idx_uh_ts_keyId ON usageHistory(timestamp, keyId)",
       "CREATE INDEX IF NOT EXISTS idx_uh_ts_status ON usageHistory(timestamp, statusClass)",
       "CREATE INDEX IF NOT EXISTS idx_uh_ts_latency ON usageHistory(timestamp, latencyMs)",
+      // Migration 015 — the per-combo aggregation path (combos page usage
+      // sparklines + totals query combo within a time window).
+      "CREATE INDEX IF NOT EXISTS idx_uh_combo ON usageHistory(combo, timestamp DESC)",
       // Migration 004's dedupe identity — declared here so auto-sync heals it
       // if it is ever dropped (mirrors the uq_ak_key_hash pattern in apiKeys).
       "CREATE UNIQUE INDEX IF NOT EXISTS uq_uh_dedupe ON usageHistory(timestamp, provider, model, connectionId, keyId, promptTokens, completionTokens)",
@@ -237,6 +246,9 @@ export const TABLES = {
       connectionId: "TEXT",
       status: "TEXT",
       data: "TEXT NOT NULL",
+      // Migration 015 — combo attribution (NULL = direct request). Kept in
+      // parity with usageHistory.combo so both ledgers tell the same story.
+      combo: "TEXT",
     },
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_rd_ts ON requestDetails(timestamp DESC)",

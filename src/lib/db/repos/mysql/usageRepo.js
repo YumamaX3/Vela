@@ -405,7 +405,7 @@ export async function saveRequestUsage(entry) {
     await db.transaction(async (tx) => {
       try {
         await tx.run(
-          `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass) VALUES(?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo) VALUES(?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             entry.timestamp, entry.provider || "", entry.model || "",
             entry.connectionId || "", entry.keyId || "", entry.keyPrefix || null,
@@ -413,6 +413,7 @@ export async function saveRequestUsage(entry) {
             promptTokens, completionTokens, entry.cost || 0, entry.status || "ok",
             stringifyJson(tokens), stringifyJson(meta),
             latencyMs, ttftMs, httpStatus, statusClass,
+            entry.combo || null, // migration 015 — NULL = direct request
           ]
         );
         inserted = true;
@@ -1094,4 +1095,64 @@ export async function getPerProviderFrame(windowMs = 60_000) {
     // Fail-open: serve the stale frame if we have one, else an empty window.
     return perProviderMemo.frame || { perProvider: {}, windowMs, ts: now };
   }
+}
+
+// ─── v0.9.40 — per-combo usage aggregation (migration 015) ─────────────
+// Mirror of the sqlite harbor's getComboUsage (parity-by-construction).
+// BIGINT safety: COUNT/SUM arrive as strings/bigints from mysql2 — normalize
+// every aggregate through Number() exactly like getKeyUsageStats does.
+export async function getComboUsage({ hours = 24, buckets = 24 } = {}) {
+  const db = await getMysqlAdapter();
+  const windowMs = Math.max(1, Number(hours) || 24) * 3600000;
+  const since = new Date(Date.now() - windowMs).toISOString();
+
+  const totals = await db.all(
+    `SELECT combo,
+            COUNT(*) AS requests,
+            SUM(promptTokens) AS promptTokens,
+            SUM(completionTokens) AS completionTokens,
+            SUM(cost) AS cost,
+            SUM(CASE WHEN statusClass = 'ok' THEN 1 ELSE 0 END) AS ok,
+            MIN(timestamp) AS firstAt,
+            MAX(timestamp) AS lastAt
+     FROM usageHistory
+     WHERE combo IS NOT NULL AND timestamp >= ?
+     GROUP BY combo`,
+    [since]
+  );
+
+  const comboMap = {};
+  for (const r of totals) {
+    comboMap[r.combo] = {
+      combo: r.combo,
+      requests: Number(r.requests) || 0,
+      promptTokens: Number(r.promptTokens) || 0,
+      completionTokens: Number(r.completionTokens) || 0,
+      cost: Number(r.cost) || 0,
+      ok: Number(r.ok) || 0,
+      firstAt: r.firstAt || null,
+      lastAt: r.lastAt || null,
+      series: Array.from({ length: Math.max(1, Number(buckets) || 24) }, () => ({ requests: 0, tokens: 0, ok: 0 })),
+    };
+  }
+
+  const rows = await db.all(
+    `SELECT combo, timestamp, promptTokens, completionTokens, statusClass
+     FROM usageHistory
+     WHERE combo IS NOT NULL AND timestamp >= ?`,
+    [since]
+  );
+  const startMs = Date.now() - windowMs;
+  const slotMs = windowMs / Math.max(1, Number(buckets) || 24);
+  for (const r of rows) {
+    const agg = comboMap[r.combo];
+    if (!agg) continue;
+    const idx = Math.min(Math.max(Math.floor((new Date(r.timestamp).getTime() - startMs) / slotMs), 0), agg.series.length - 1);
+    const slot = agg.series[idx];
+    slot.requests += 1;
+    slot.tokens += (Number(r.promptTokens) || 0) + (Number(r.completionTokens) || 0);
+    if (r.statusClass === "ok") slot.ok += 1;
+  }
+
+  return { hours, buckets, since, combos: Object.values(comboMap) };
 }

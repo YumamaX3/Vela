@@ -33,4 +33,5 @@ export const getInsights = bound.getInsights; // W4-B — the Lookout signal reg
 export const getHealthTimeline = bound.getHealthTimeline; // W4-D — provider health timeline strips
 export const getLedgerRows = bound.getLedgerRows;
 export const getExportCursor = bound.getExportCursor;
+export const getComboUsage = bound.getComboUsage; // v0.9.40 — per-combo attribution (migration 015)
 export const getPerProviderFrame = bound.getPerProviderFrame; // W1-D memo

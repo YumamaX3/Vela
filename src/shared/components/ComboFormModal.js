@@ -127,7 +127,7 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
               <Input label="Combo Name" value={name} onChange={handleNameChange} placeholder="my-combo" error={nameError} />
             )}
             <p className="text-[10px] text-text-muted mt-0.5">
-              {forcePrefix ? `Auto-prefixed with "${forcePrefix}". ` : ""}Only letters, numbers, -, _ and . allowed
+              {forcePrefix ? `Auto-prefixed with "${forcePrefix}". ` : ""}Letters, numbers, -, _, . and / allowed · use / to namespace, e.g. vela/cc/opus
             </p>
           </div>
 

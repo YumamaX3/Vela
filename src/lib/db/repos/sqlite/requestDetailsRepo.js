@@ -109,6 +109,7 @@ async function flushToDatabase() {
             connectionId: item.connectionId || null,
             timestamp: item.timestamp,
             status: item.status || null,
+            combo: item.combo || null, // migration 015 — NULL = direct request
             latency: item.latency || {},
             tokens: item.tokens || {},
             request: truncateField(item.request, config.maxJsonSize),
@@ -119,8 +120,8 @@ async function flushToDatabase() {
           };
 
           db.run(
-            `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, status = excluded.status, data = excluded.data`,
-            [record.id, record.timestamp, record.provider, record.model, record.connectionId, record.status, stringifyJson(record)]
+            `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, combo, data) VALUES(?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET timestamp = excluded.timestamp, provider = excluded.provider, model = excluded.model, connectionId = excluded.connectionId, status = excluded.status, combo = excluded.combo, data = excluded.data`,
+            [record.id, record.timestamp, record.provider, record.model, record.connectionId, record.status, record.combo, stringifyJson(record)]
           );
         }
 

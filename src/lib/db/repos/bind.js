@@ -116,6 +116,7 @@ const USAGE_WAVE_NAMES = new Set([
   "getChartData", "appendRequestLog", "getRecentLogs",
   "getFilteredSeries", "getBreakdown", "getStackedSeries", "getPercentiles", "getProviderHealthFrame",
   "getKpis", "getInsights", "getLedgerRows", "getExportCursor",
+  "getComboUsage", // v0.9.40: per-combo attribution aggregation (migration 015)
   "getPerProviderFrame", // W1-D: the memoized SSE health frame
   "getHealthTimeline", // W4-D: provider health timeline strips
 ]);
