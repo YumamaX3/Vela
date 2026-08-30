@@ -25,6 +25,23 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.39 — The Namespaced Fleet ✨
+
+> *"Combos may now carry a name with depth — `vela/cc/opus`, `vela/anthropic/sonnet` — so an operator's fleet reads like an address, and every combo has a home."*
+
+**✨ The decree (Star, 2026-08-30):** combo names may contain slashes, so operators can namespace their fleets — `vela/cc/opus`, `vela/anthropic/sonnet`, `vela/deepseek/deepseek-v4-flash`. Combos only; real `provider/model` addressing is untouched.
+
+**🔧 The tide, six points:**
+- **`src/shared/constants/comboValidation.js`** (new) — one shared law for combo names: letters, numbers, `-`, `_`, `.`, and `/`; guards against leading/trailing slashes, empty segments (`//`), `.`/`..` segments, names over 128 chars, and the reserved `combo/` addressing prefix
+- **`src/sse/services/model.js`** — `getComboModels` looks up every shape now (the old `includes("/")` early-return is gone); slash-bearing names that are not combos fall through to `provider/model` resolution unchanged, and a combo name wins over a coincidentally identical provider/model pair
+- **`src/sse/services/keyGate.js`** — the stages learn the combo truth: `comboModels` is threaded through `authorizeApiRequest`; `providerStage` never reads a resolved combo's own slashes as a provider prefix; `comboStage` enforces `allowedCombos` against the FULL slash-bearing name (the legacy `combo/<name>` form still works)
+- **API validation** — `POST /api/combos` and `PUT /api/combos/[id]` both ride the shared law (the old inline regex is gone)
+- **Dashboard** — the combos page, the reusable `ComboFormModal`, and the media-provider combo editor all validate through the same law; the name hint now reads "Letters, numbers, -, _, . and / allowed — use / to namespace, e.g. vela/cc/opus"
+
+**🧪 Proof:** new suites 24/24 green (validation matrix + resolution/gate behavior) · full-fleet regression: the only failing file outside the ledger (`model-routing`) fails identically with the changes stashed — pre-existing, not this tide · production build green
+
+---
+
 # v0.9.38 — Harbor Morning ✨
 
 > *"A gateway homepage should not greet you with a wall of tiles — it should greet you like a morning. The greeting and the date meet you at the door; one living sentence tells today's story; the live pulse is the single thing you look at."*
