@@ -8,22 +8,22 @@ Drop-in skills for any AI agent (Claude, Cursor, ChatGPT, custom SDK). Just **co
 
 | Capability | Copy link below and paste to your AI |
 |---|---|
-| **Entry / Setup** (start here) | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela/SKILL.md |
-| Chat / code-gen | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela-chat/SKILL.md |
-| Image generation | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela-image/SKILL.md |
-| Video generation (xAI Grok Imagine) | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela-video/SKILL.md |
-| Text-to-speech | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela-tts/SKILL.md |
-| Speech-to-text | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela-stt/SKILL.md |
-| Embeddings | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela-embeddings/SKILL.md |
-| Web search | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela-web-search/SKILL.md |
-| Web fetch (URL → markdown) | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela-web-fetch/SKILL.md |
+| **Entry / Setup** (start here) | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela/SKILL.md |
+| Chat / code-gen | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela-chat/SKILL.md |
+| Image generation | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela-image/SKILL.md |
+| Video generation (xAI Grok Imagine) | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela-video/SKILL.md |
+| Text-to-speech | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela-tts/SKILL.md |
+| Speech-to-text | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela-stt/SKILL.md |
+| Embeddings | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela-embeddings/SKILL.md |
+| Web search | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela-web-search/SKILL.md |
+| Web fetch (URL → markdown) | https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela-web-fetch/SKILL.md |
 
 ## How to use
 
 Paste to your AI (Claude, Cursor, ChatGPT, …):
 
 ```
-Read this skill and use it: https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/master/skills/Vela/SKILL.md
+Read this skill and use it: https://raw.githubusercontent.com/YumamaX3/Vela/refs/heads/main/skills/Vela/SKILL.md
 ```
 
 Then ask normally — *"generate an image of a cat"*, *"transcribe this URL"*, etc.
@@ -40,4 +40,4 @@ Verify: `curl $VELA_URL/api/health` → `{"ok":true}`.
 ## Links
 
 - Source: https://github.com/YumamaX3/Vela
-- Dashboard: https://vela.ai
+- Dashboard skills page: open `Dashboard → Skills` on your Vela instance — the command deck there personalizes every snippet for your gateway URL.
