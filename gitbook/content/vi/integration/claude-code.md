@@ -1,12 +1,12 @@
 # Tích hợp Claude Code
 
-Tích hợp 9Router với Claude Code CLI để định tuyến request API Anthropic qua hệ thống routing thông minh của 9Router.
+Tích hợp Vela với Claude Code CLI để định tuyến request API Anthropic qua hệ thống routing thông minh của Vela.
 
 ## Yêu cầu
 
 - Claude Code CLI đã cài đặt
-- 9Router đang chạy cục bộ hoặc cloud endpoint đã cấu hình
-- API key từ 9Router dashboard
+- Vela đang chạy cục bộ hoặc cloud endpoint đã cấu hình
+- API key từ Vela dashboard
 
 ## Setup
 
@@ -15,7 +15,7 @@ Tích hợp 9Router với Claude Code CLI để định tuyến request API Anth
 Đặt các biến môi trường sau trong file cấu hình shell (`~/.bashrc`, `~/.zshrc`, hoặc `~/.bash_profile`):
 
 ```bash
-# Base URL for 9Router
+# Base URL for Vela
 export ANTHROPIC_BASE_URL="http://localhost:32060/v1"
 
 # Optional: Set default models for aliases
@@ -40,7 +40,7 @@ echo $ANTHROPIC_BASE_URL
 
 ## Model Aliases
 
-Claude Code hỗ trợ các alias model sau ánh xạ sang model 9Router:
+Claude Code hỗ trợ các alias model sau ánh xạ sang model Vela:
 
 | Alias | Model | Biến môi trường |
 |-------|-------|---------------------|
@@ -86,7 +86,7 @@ Claude Code lưu cấu hình trong `~/.claude/settings.json`. Bạn có thể s�
 
 Nếu gặp lỗi kết nối:
 
-1. Xác minh 9Router đang chạy: `curl http://localhost:32060/health`
+1. Xác minh Vela đang chạy: `curl http://localhost:32060/health`
 2. Kiểm tra biến môi trường đã set đúng
 3. Đảm bảo không firewall nào chặn port 32060
 
@@ -94,16 +94,16 @@ Nếu gặp lỗi kết nối:
 
 Nếu gặp lỗi "model not found":
 
-1. Xác minh tên model khớp với cấu hình 9Router
-2. Kiểm tra kết nối provider đang hoạt động trong 9Router dashboard
+1. Xác minh tên model khớp với cấu hình Vela
+2. Kiểm tra kết nối provider đang hoạt động trong Vela dashboard
 3. Đảm bảo model có sẵn trong các provider đã kết nối
 
 ## Cloud Endpoint
 
-Để dùng 9Router cloud endpoint thay vì localhost:
+Để dùng Vela cloud endpoint thay vì localhost:
 
 ```bash
-export ANTHROPIC_BASE_URL="https://9router.com"
+export ANTHROPIC_BASE_URL="https://vela.ai"
 ```
 
-Đảm bảo bạn đã cấu hình API key trong 9Router cloud dashboard.
+Đảm bảo bạn đã cấu hình API key trong Vela cloud dashboard.

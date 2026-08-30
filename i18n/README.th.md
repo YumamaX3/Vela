@@ -8,7 +8,7 @@
   [![Version](https://img.shields.io/badge/version-0.6.70-blue?style=flat-square)](../CHANGELOG.md)
   [![Providers](https://img.shields.io/badge/providers-129-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
-  [![CLI](https://img.shields.io/npm/v/9router?style=flat-square&label=cli%20%229router%22)](https://www.npmjs.com/package/9router)
+  [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
   [![License](https://img.shields.io/badge/license-see%20LICENSE-gray?style=flat-square)](../LICENSE)
 
   [🚀 เริ่มต้นอย่างรวดเร็ว](#-เริ่มต้นอย่างรวดเร็ว) · [✨ ฟีเจอร์หลัก](#-ฟีเจอร์หลัก) · [📚 เอกสาร](#-เอกสาร) · [🌐 ภาษา](#-ภาษา)
@@ -44,7 +44,7 @@ Vela คือ **เกตเวย์กำหนดเส้นทาง AI �
 
 ภายในประกอบด้วย: เซิร์ฟเวอร์ Next.js (แดชบอร์ด + API) บนพอร์ต **32060**, เอนจินกำหนดเส้นทางที่ไม่ขึ้นกับผู้ให้บริการ (`open-sse/`) และฐานข้อมูล SQLite ที่สามารถเติบโตไปเป็น MariaDB คู่แฝดได้เมื่อคุณต้องการ (sqlite → mysql → mirror)
 
-> 📌 **หมายเหตุ:** Vela เป็นฟอร์กของ [9Router](https://github.com/decolua/9router) ที่ได้รับการรีแบรนด์และตีขึ้นใหม่ — ระบบจัดเก็บข้อมูล การสำรองข้อมูล การตั้งราคา และหมวดหมู่เป็นของ Vela เอง ตัวติดตั้ง CLI คงชื่อ `9router` บน npm ไว้เพื่อความเข้ากันได้ในการติดตั้ง
+> 📌 **หมายเหตุ:** Vela แล่นในเส้นทางของตัวเอง — เกตเวย์ AI ที่ตีขึ้นจากน่านน้ำเปิด ระบบทั้งหมดเป็นของตัวเอง: จัดเก็บข้อมูล สำรองข้อมูล ตั้งราคา และหมวดหมู่ ติดตั้ง CLI ในชื่อ `vela` จาก npm
 
 ---
 
@@ -113,11 +113,11 @@ docker run -d --name vela \
 ### ตัวเลือก B — npm CLI
 
 ```bash
-npm install -g 9router
-9router
+npm install -g vela
+vela
 ```
 
-CLI จะติดตั้ง เริ่มต้น และจัดการเซิร์ฟเวอร์ (แพ็คเกจตัวติดตั้งคงชื่อ `9router` ไว้บน npm)
+CLI จะติดตั้ง เริ่มต้น และจัดการเซิร์ฟเวอร์ (แพ็คเกจตัวติดตั้งคงชื่อ `vela` ไว้บน npm)
 
 ### ตัวเลือก C — จากซอร์สโค้ด
 
@@ -183,7 +183,7 @@ open-sse/            the provider-agnostic routing/translation engine
 ├── providers/       registry (129 files) + pricing covenant
 └── rtk/             token saver hooks (fail-open)
 
-cli/                 the launcher package (npm: 9router)
+cli/                 the launcher package (npm: vela)
 docs/                the charts — start at docs/README.md
 plans/               sealed design plans (Storage Covenant, Pricing Covenant…)
 tests/               vitest suite (independent ESM package)
@@ -200,7 +200,7 @@ README นี้ถูกแปลเป็นอีก 10 ภาษา — ล�
 
 ## 🏛️ ที่มาและลิขสิทธิ์
 
-Vela แตกออกมาจาก [decolua/9Router](https://github.com/decolua/9router) (MIT) และแล่นในเส้นทางของตัวเองตั้งแต่ v0.6.0 เป็นต้นมา เครดิตของ upstream ยังคงอยู่ที่ที่มันควรอยู่; ระบบจัดเก็บข้อมูล การสำรองข้อมูล การตั้งราคา และหมวดหมู่เป็นผลงานการตีเหล็กของ Vela เอง ดูที่ [LICENSE](../LICENSE)
+Vela แล่นในเส้นทางของตัวเองตั้งแต่ v0.6.0 เป็นต้นมา — เกตเวย์อยู่ภายใต้สัญญาอนุญาต MIT และเป็นของตัวเองเต็มที่ ดูที่ [LICENSE](../LICENSE)
 
 ---
 

@@ -8,7 +8,7 @@
   [![Versión](https://img.shields.io/badge/version-0.6.70-blue?style=flat-square)](../CHANGELOG.md)
   [![Proveedores](https://img.shields.io/badge/providers-129-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
   [![Imagen](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
-  [![CLI](https://img.shields.io/npm/v/9router?style=flat-square&label=cli%20%229router%22)](https://www.npmjs.com/package/9router)
+  [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
   [![Licencia](https://img.shields.io/badge/license-see%20LICENSE-gray?style=flat-square)](../LICENSE)
 
   [🚀 Inicio rápido](#-inicio-rápido) · [✨ Recursos](#-recursos-principales) · [📚 Docs](#-documentación) · [🌐 Idiomas](#-idiomas)
@@ -44,7 +44,7 @@ Vela es un **gateway local de enrutamiento de IA + panel de control**. Apuntas t
 
 Bajo cubierta: un servidor Next.js (panel + API) en el puerto **32060**, un motor de enrutamiento independiente de proveedores (`open-sse/`) y una base de datos SQLite que puede crecer con un gemelo MariaDB cuando lo quieras (sqlite → mysql → mirror).
 
-> 📌 **Nota:** Vela es un fork de [9Router](https://github.com/decolua/9router), renombrado y reforjado — los sistemas de almacenamiento, respaldo, precios y categorías son obra del propio Vela. El lanzador CLI conserva el nombre `9router` en npm para compatibilidad de instalación.
+> 📌 **Nota:** Vela navega su propio rumbo — una pasarela de IA forjada en aguas abiertas, con todos los sistemas propios: almacenamiento, respaldo, precios y categorías. El CLI se instala como `vela` desde npm.
 
 ---
 
@@ -113,11 +113,11 @@ Para la carta completa — gemelo MariaDB, postura mirror, motor de respaldo, si
 ### Opción B — CLI npm
 
 ```bash
-npm install -g 9router
-9router
+npm install -g vela
+vela
 ```
 
-El CLI instala, inicia y gestiona el servidor (el paquete del lanzador conserva el nombre `9router` en npm).
+El CLI instala, inicia y gestiona el servidor (el paquete del lanzador conserva el nombre `vela` en npm).
 
 ### Opción C — Desde el código fuente
 
@@ -183,7 +183,7 @@ open-sse/            the provider-agnostic routing/translation engine
 ├── providers/       registry (129 files) + pricing covenant
 └── rtk/             token saver hooks (fail-open)
 
-cli/                 the launcher package (npm: 9router)
+cli/                 the launcher package (npm: vela)
 docs/                the charts — start at docs/README.md
 plans/               sealed design plans (Storage Covenant, Pricing Covenant…)
 tests/               vitest suite (independent ESM package)
@@ -200,7 +200,7 @@ Este README está traducido a otros 10 idiomas — los enlaces están en el bann
 
 ## 🏛️ Procedencia y licencia
 
-Vela nació como fork de [decolua/9Router](https://github.com/decolua/9router) (MIT) y navega su propio rumbo desde la v0.6.0. El crédito al upstream se conserva donde corresponde; los sistemas de almacenamiento, respaldo, precios y categorías son forjas del propio Vela. Consulta [LICENSE](../LICENSE).
+Vela navega su propio rumbo desde la v0.6.0 — el gateway está licenciado bajo MIT y es plenamente propio. Consulta [LICENSE](../LICENSE).
 
 ---
 

@@ -1,12 +1,12 @@
 # Tích hợp Roo AI Assistant
 
-Tích hợp 9Router với Roo AI Assistant để truy cập nhiều model AI qua một giao diện thống nhất.
+Tích hợp Vela với Roo AI Assistant để truy cập nhiều model AI qua một giao diện thống nhất.
 
 ## Yêu cầu
 
 - Roo AI Assistant đã cài đặt
-- 9Router API key từ [dashboard](https://9router.com/dashboard)
-- 9Router đang chạy (cục bộ hoặc cloud)
+- Vela API key từ [dashboard](https://vela.ai/dashboard)
+- Vela đang chạy (cục bộ hoặc cloud)
 
 ## Các bước Cấu hình
 
@@ -20,21 +20,21 @@ Khởi chạy Roo AI Assistant và mở panel settings.
 2. Chọn **Ollama** làm provider type
 3. Cấu hình các settings sau:
 
-**Cho 9Router cục bộ:**
+**Cho Vela cục bộ:**
 ```
 Base URL: http://localhost:32060/v1
 API Key: your-api-key-from-dashboard
 ```
 
-**Cho 9Router cloud:**
+**Cho Vela cloud:**
 ```
-Base URL: https://9router.com/v1
+Base URL: https://vela.ai/v1
 API Key: your-api-key-from-dashboard
 ```
 
 ### 3. Chọn Model
 
-Chọn từ các model 9Router có sẵn:
+Chọn từ các model Vela có sẵn:
 
 **Claude Models:**
 - `cc/claude-opus-4-5-20251101` - Mạnh nhất
@@ -54,7 +54,7 @@ Chọn từ các model 9Router có sẵn:
 Gửi tin nhắn test để xác minh tích hợp:
 
 ```
-Hello! Can you confirm you're connected through 9Router?
+Hello! Can you confirm you're connected through Vela?
 ```
 
 ## Ví dụ Sử dụng
@@ -87,19 +87,19 @@ Model: cx/deepseek-reasoner
 ## Troubleshooting
 
 ### Connection Failed
-- Xác minh 9Router đang chạy: `curl http://localhost:32060/health`
+- Xác minh Vela đang chạy: `curl http://localhost:32060/health`
 - Kiểm tra API key đúng
 - Đảm bảo Base URL bao gồm hậu tố `/v1`
 
 ### Model không khả dụng
 - Kiểm tra tên model khớp chính xác (case-sensitive)
-- Xác minh model được bật trong 9Router plan
+- Xác minh model được bật trong Vela plan
 - Thử model khác từ danh sách
 
 ### Phản hồi Chậm
 - Chuyển sang model nhanh hơn (haiku, flash)
 - Kiểm tra kết nối network
-- Theo dõi logs 9Router để xem vấn đề
+- Theo dõi logs Vela để xem vấn đề
 
 ## Cấu hình Nâng cao
 
