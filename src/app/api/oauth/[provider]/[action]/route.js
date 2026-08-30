@@ -37,6 +37,7 @@ import {
 } from "@/lib/oauth/utils/server";
 import { detectIdeInstalled } from "@/lib/oauth/utils/ideDetect";
 import { ZED_HOSTED_CONFIG } from "@/lib/oauth/constants/oauth";
+import { getCallbackOrigin } from "@/lib/oauth/utils/redirect";
 
 async function completeXaiManualCode(code, state) {
   const session = state ? getXaiSessionStatus(state) : null;
@@ -90,7 +91,10 @@ export async function GET(request, { params }) {
     const { searchParams } = new URL(request.url);
 
     if (action === "authorize") {
-      const redirectUri = searchParams.get("redirect_uri") || "http://localhost:8080/callback";
+      // Fallback derives from the request's own host — so even callers that
+      // omit redirect_uri send the provider back to the shore they came from,
+      // never blindly to localhost.
+      const redirectUri = searchParams.get("redirect_uri") || `${getCallbackOrigin(request)}/callback`;
       // Collect provider-specific meta params (e.g. gitlab passes baseUrl, clientId, clientSecret)
       const reservedParams = new Set(["redirect_uri"]);
       const meta = {};
