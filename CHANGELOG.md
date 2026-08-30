@@ -25,6 +25,24 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.38 — Harbor Morning ✨
+
+> *"A gateway homepage should not greet you with a wall of tiles — it should greet you like a morning. The greeting and the date meet you at the door; one living sentence tells today's story; the live pulse is the single thing you look at."*
+
+**✨ The dashboard homepage, redesigned around one question — what does it feel like when the operator walks in?**
+- **The masthead** — a real greeting (`Good morning/afternoon/evening.`) with the live date and version chip, replacing the old heading-over-gradient opening
+- **One living sentence** — "Today the harbor moved 1,284 requests · 2.1M tokens · $3.42 spend · 3 live now": every figure live truth from the same stream the observatory rides, honest wording when the harbor is quiet or the gateway unreachable
+- **The Pulse — the single focal point** — the 10-minute request-flow chart, full-width, coral line over a fading coral fill, a breathing live dot and the 10-minute total in the header; still-water empty state when no traffic rides the stream
+- **Four quiet tiles** — Requests · Tokens · Spend · Cache rate, each with a live sub-line, replacing the four white tiles inside the gradient band
+- **Below the fold** — Recent Activity (streaming live, honest empty state) beside Fleet Status (glowing health dots, `n/m providers ok` chip in the masthead, "Connect a provider" path when nothing is configured)
+- **Retired by design**: the coral gradient hero band (the old signature — voice leads now, coral appears exactly once) · the provider topology map (its true home is the usage observatory) · the four-button quick-actions strip (the sidebar and inline links already carry navigation)
+
+**🎨 The discipline** — dials E2/R2/M2 (Stripe-grade energy, consistent rhythm, hover/ping motion only); tokens alone (coral, warm neutrals, `--shadow-warm/soft`); every interactive element keyboard-navigable with visible focus; loading skeletons; every number `tabular-nums`
+
+**🧪 Proof:** new happy-dom suite 8/8 green (masthead · living sentence · quiet-harbor honesty · pulse chart + still water · four tiles · activity + fleet · empty-fleet path) · full-fleet regression: failing-file set byte-identical to the pre-tide baseline — zero new failures · production build green
+
+---
+
 # v0.9.37 — The Returning Shore 🐛
 
 > *"Every OAuth callback now sails back to the harbor it left — the shore the operator actually stands on, not a localhost they may never have visited."*
