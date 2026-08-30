@@ -1,6 +1,6 @@
 # インストール
 
-トラブルシューティングのヒント付きの9Router詳細インストールガイド。
+トラブルシューティングのヒント付きのVela詳細インストールガイド。
 
 ---
 
@@ -31,37 +31,37 @@ npm --version
 
 ### 方法1: グローバルインストール (推奨)
 
-どこからでも使用できるように9Routerをグローバルインストール:
+どこからでも使用できるようにVelaをグローバルインストール:
 
 ```bash
-npm install -g 9router
+npm install -g vela
 ```
 
-**9Routerを起動:**
+**Velaを起動:**
 
 ```bash
-9router
+Vela
 ```
 
 **利点:**
 - ✅ どのディレクトリからでも実行
-- ✅ シンプルなコマンド: `9router`
-- ✅ `npm update -g 9router` で自動更新
+- ✅ シンプルなコマンド: `Vela`
+- ✅ `npm update -g Vela` で自動更新
 
 ### 方法2: ローカルインストール
 
 特定のプロジェクトにインストール:
 
 ```bash
-mkdir my-9router
-cd my-9router
-npm install 9router
+mkdir my-Vela
+cd my-Vela
+npm install -g vela
 ```
 
-**9Routerを起動:**
+**Velaを起動:**
 
 ```bash
-npx 9router
+npx Vela
 ```
 
 **利点:**
@@ -74,8 +74,8 @@ npx 9router
 GitHubからクローンしてビルド:
 
 ```bash
-git clone https://github.com/decolua/9router.git
-cd 9router/app
+git clone https://github.com/YumamaX3/Vela.git
+cd Vela/app
 npm install
 npm run build
 npm start
@@ -93,13 +93,13 @@ npm start
 ### サーバーを起動
 
 ```bash
-9router
+Vela
 ```
 
 **何が起こるか:**
 1. サーバーが `http://localhost:32060` で起動
 2. ダッシュボードが自動的にブラウザで開く
-3. `~/.9router` にデータディレクトリが作成される
+3. `~/.Vela` にデータディレクトリが作成される
 4. APIキーが自動生成される
 
 ### ダッシュボードログイン
@@ -193,7 +193,7 @@ export JWT_SECRET="your-secure-secret-change-this"
 export INITIAL_PASSWORD="your-password"
 
 # ストレージ
-export DATA_DIR="~/.9router"
+export DATA_DIR="~/.Vela"
 
 # サーバー
 export PORT="32060"
@@ -205,11 +205,11 @@ export ENABLE_REQUEST_LOGS="false"
 
 ### データディレクトリ
 
-**デフォルトの場所:** `~/.9router`
+**デフォルトの場所:** `~/.Vela`
 
 **内容:**
 ```
-~/.9router/
+~/.Vela/
   ├── db.json           # データベース (プロバイダー、コンボ、使用量)
   ├── api-keys.json     # APIキー
   └── logs/             # リクエストログ (有効化されている場合)
@@ -219,7 +219,7 @@ export ENABLE_REQUEST_LOGS="false"
 
 ```bash
 export DATA_DIR="/custom/path"
-9router
+Vela
 ```
 
 ### ポート設定
@@ -230,13 +230,13 @@ export DATA_DIR="/custom/path"
 
 ```bash
 export PORT="3000"
-9router
+Vela
 ```
 
 **またはコマンドラインで:**
 
 ```bash
-9router --port 3000
+Vela --port 3000
 ```
 
 ---
@@ -263,14 +263,14 @@ kill -9 <PID>
 **解決策2: 別のポートを使用**
 
 ```bash
-9router --port 3000
+Vela --port 3000
 ```
 
 ### Permission Denied
 
 **エラー:**
 ```
-Error: EACCES: permission denied, mkdir '/usr/local/lib/node_modules/9router'
+Error: EACCES: permission denied, mkdir '/usr/local/lib/node_modules/Vela'
 ```
 
 **解決策: sudoを使用 (非推奨) またはnpm権限を修正**
@@ -283,7 +283,7 @@ echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
 
 # 再度インストール
-npm install -g 9router
+npm install -g vela
 ```
 
 ### Node.jsバージョンが古すぎる
@@ -345,23 +345,23 @@ Dashboard → Provider → Disconnect → Reconnect
 
 ### 高メモリ使用量
 
-**問題:** 9RouterがRAMを使いすぎている
+**問題:** VelaがRAMを使いすぎている
 
 **解決策: サーバーを再起動**
 
 ```bash
 # 停止
-pkill -f 9router
+pkill -f Vela
 
 # 起動
-9router
+Vela
 ```
 
 **または自動再起動にPM2を使用:**
 
 ```bash
 npm install -g pm2
-pm2 start 9router --name 9router
+pm2 start Vela --name Vela
 pm2 save
 ```
 
@@ -372,8 +372,8 @@ pm2 save
 ### ローカル開発
 
 ```bash
-npm install -g 9router
-9router
+npm install -g vela
+Vela
 ```
 
 **ユースケース:** 個人コーディング、テスト
@@ -382,7 +382,7 @@ npm install -g 9router
 
 ```bash
 # インストール
-npm install -g 9router
+npm install -g vela
 
 # 設定
 export JWT_SECRET="your-secure-secret"
@@ -391,7 +391,7 @@ export NODE_ENV="production"
 
 # PM2で起動
 npm install -g pm2
-pm2 start 9router --name 9router
+pm2 start Vela --name Vela
 pm2 save
 pm2 startup
 ```
@@ -401,15 +401,15 @@ pm2 startup
 ### Docker
 
 ```bash
-docker pull 9router/9router:latest
+docker pull Vela/Vela:latest
 
 docker run -d \
   -p 32060:32060 \
   -e JWT_SECRET="your-secure-secret" \
   -e INITIAL_PASSWORD="your-password" \
-  -v 9router-data:/root/.9router \
-  --name 9router \
-  9router/9router:latest
+  -v Vela-data:/root/.Vela \
+  --name Vela \
+  Vela/Vela:latest
 ```
 
 **ユースケース:** コンテナデプロイ、Kubernetes
@@ -444,13 +444,13 @@ server {
 ### グローバルインストールを削除
 
 ```bash
-npm uninstall -g 9router
+npm uninstall -g Vela
 ```
 
 ### データディレクトリを削除
 
 ```bash
-rm -rf ~/.9router
+rm -rf ~/.Vela
 ```
 
 ### 設定を削除
@@ -458,7 +458,7 @@ rm -rf ~/.9router
 ```bash
 # シェル設定から環境変数を削除
 nano ~/.bashrc  # または ~/.zshrc
-# 9router関連のエクスポートを削除
+# Vela関連のエクスポートを削除
 ```
 
 ---
@@ -473,6 +473,6 @@ nano ~/.bashrc  # または ~/.zshrc
 
 ## ヘルプが必要?
 
-- **ウェブサイト**: [9router.com](https://9router.com)
-- **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
-- **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
+- **ウェブサイト**: [vela.ai](https://vela.ai)
+- **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
+- **Issues**: [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)

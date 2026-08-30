@@ -8,7 +8,7 @@
   [![Version](https://img.shields.io/badge/version-0.6.70-blue?style=flat-square)](../CHANGELOG.md)
   [![Providers](https://img.shields.io/badge/providers-129-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
-  [![CLI](https://img.shields.io/npm/v/9router?style=flat-square&label=cli%20%229router%22)](https://www.npmjs.com/package/9router)
+  [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
   [![License](https://img.shields.io/badge/license-see%20LICENSE-gray?style=flat-square)](../LICENSE)
 
   [🚀 Mulai Cepat](#-quick-start) · [✨ Fitur](#-key-features) · [📚 Dokumentasi](#-documentation) · [🌐 Bahasa](#-languages)
@@ -44,7 +44,7 @@ Vela adalah **gateway routing AI lokal + dashboard**. Anda mengarahkan semua per
 
 Di balik layar: server Next.js (dashboard + API) di port **32060**, engine routing yang agnostik terhadap penyedia (`open-sse/`), dan database SQLite yang dapat menumbuhkan kembaran MariaDB saat Anda menginginkannya (sqlite → mysql → mirror).
 
-> 📌 **Catatan:** Vela adalah fork dari [9Router](https://github.com/decolua/9router), dengan rebranding dan tempaan ulang — sistem storage, backup, pricing, dan kategori adalah milik Vela sendiri. Peluncur CLI mempertahankan nama npm `9router` demi kompatibilitas instalasi.
+> 📌 **Catatan:** Vela berlayar dengan haluanya sendiri — gerbang AI yang ditempa dari perairan terbuka, dengan seluruh sistem miliknya sendiri: storage, backup, pricing, dan kategori. CLI terpasang sebagai `vela` dari npm.
 
 ---
 
@@ -113,11 +113,11 @@ Untuk peta lengkapnya — kembaran MariaDB, postur mirror, engine backup, sideca
 ### Opsi B — npm CLI
 
 ```bash
-npm install -g 9router
-9router
+npm install -g vela
+vela
 ```
 
-CLI menginstal, menjalankan, dan mengelola server (paket peluncur mempertahankan nama `9router` di npm).
+CLI menginstal, menjalankan, dan mengelola server (paket peluncur mempertahankan nama `vela` di npm).
 
 ### Opsi C — Dari source
 
@@ -183,7 +183,7 @@ open-sse/            the provider-agnostic routing/translation engine
 ├── providers/       registry (129 files) + pricing covenant
 └── rtk/             token saver hooks (fail-open)
 
-cli/                 the launcher package (npm: 9router)
+cli/                 the launcher package (npm: vela)
 docs/                the charts — start at docs/README.md
 plans/               sealed design plans (Storage Covenant, Pricing Covenant…)
 tests/               vitest suite (independent ESM package)
@@ -200,7 +200,7 @@ README ini diterjemahkan ke 10 bahasa lainnya — tautannya ada di banner di ata
 
 ## 🏛️ Asal-Usul & Lisensi
 
-Vela difork dari [decolua/9Router](https://github.com/decolua/9router) (MIT) dan berlayar dengan haluanya sendiri sejak v0.6.0. Kredit upstream dijaga sebagaimana mestinya; sistem storage, backup, pricing, dan kategori adalah tempaan Vela sendiri. Lihat [LICENSE](../LICENSE).
+Vela berlayar dengan haluanya sendiri sejak v0.6.0 — gateway ini berlisensi MIT dan sepenuhnya miliknya. Lihat [LICENSE](../LICENSE).
 
 ---
 

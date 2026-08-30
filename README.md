@@ -42,7 +42,7 @@ Vela is a **local AI routing gateway + dashboard**. You point every AI tool at o
 
 Under the hood: a Next.js server (dashboard + API) on port **32060**, a provider-agnostic routing engine (`open-sse/`), and a SQLite database that can grow a MariaDB twin when you want one (sqlite → mysql → mirror).
 
-> 📌 **Note:** Vela is a fork of [9Router](https://github.com/decolua/9router), rebranded and reforged — the storage, backup, pricing, and category systems are Vela's own. The CLI launcher keeps the `9router` npm name for install compatibility.
+> 📌 **Note:** Vela sails its own course — an AI gateway forged from open waters, with every system its own: storage, backup, pricing, and category. The CLI installs as `vela` from npm.
 
 ---
 
@@ -111,11 +111,11 @@ For the full chart — MariaDB twin, mirror posture, backup engine, Headroom sid
 ### Option B — npm CLI
 
 ```bash
-npm install -g 9router
-9router
+npm install -g vela
+vela
 ```
 
-The CLI installs, starts, and manages the server (the launcher package keeps the `9router` name on npm).
+The CLI installs, starts, and manages the server (the launcher package keeps the `vela` name on npm).
 
 ### Option C — From source
 
@@ -181,7 +181,7 @@ open-sse/            the provider-agnostic routing/translation engine
 ├── providers/       registry (129 files) + pricing covenant
 └── rtk/             token saver hooks (fail-open)
 
-cli/                 the launcher package (npm: 9router)
+cli/                 the launcher package (npm: vela)
 docs/                the charts — start at docs/README.md
 plans/               sealed design plans (Storage Covenant, Pricing Covenant…)
 tests/               vitest suite (independent ESM package)
@@ -198,7 +198,7 @@ This README is translated into 10 more languages — links in the banner above. 
 
 ## 🏛️ Provenance & License
 
-Vela forked from [decolua/9Router](https://github.com/decolua/9router) (MIT) and sails its own course from v0.6.0 onward. Upstream credit is kept where it is due; the storage, backup, pricing, and category systems are Vela's own forges. See [LICENSE](./LICENSE).
+Vela sails its own course from v0.6.0 onward — the gateway is MIT licensed and fully its own. See [LICENSE](./LICENSE).
 
 ---
 

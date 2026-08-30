@@ -1,7 +1,7 @@
 "use client";
 // The Vela Home Deck — dashboard homepage.
 //
-// Carries the original 9router silhouette (coral gradient hero band, four
+// Carries the original Vela silhouette (coral gradient hero band, four
 // white stat tiles, two-column deck, provider topology at home) but every
 // number is live truth — nothing is fabricated. The ancestor page simulated
 // activity with random intervals; this deck rides the real usage stream.
@@ -182,7 +182,7 @@ export default function HomePageClient() {
         </div>
       </div>
 
-      {/* ── Hero band — the 9router signature, live numbers ────────── */}
+      {/* ── Hero band — the Vela signature, live numbers ────────── */}
       <div className="relative overflow-hidden rounded-[14px] border border-brand-500/20 bg-gradient-to-br from-brand-600 via-brand-500 to-brand-400 p-6 shadow-[var(--shadow-warm)]">
         {/* Ember glow — the deck's identity motif */}
         <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
@@ -251,7 +251,7 @@ export default function HomePageClient() {
         />
       </div>
 
-      {/* ── The deck: main column + sidebar (9router silhouette) ───── */}
+      {/* ── The deck: main column + sidebar (Vela silhouette) ───── */}
       <div className="grid min-w-0 grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         {/* Left — topology + request flow */}
         <div className="flex min-w-0 flex-col gap-6">

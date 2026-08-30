@@ -1,6 +1,6 @@
 # Cài đặt
 
-Hướng dẫn cài đặt chi tiết cho 9Router với mẹo troubleshooting.
+Hướng dẫn cài đặt chi tiết cho Vela với mẹo troubleshooting.
 
 ---
 
@@ -31,37 +31,37 @@ npm --version
 
 ### Cách 1: Cài Global (Khuyên dùng)
 
-Cài 9Router toàn cục để dùng ở bất kỳ đâu:
+Cài Vela toàn cục để dùng ở bất kỳ đâu:
 
 ```bash
-npm install -g 9router
+npm install -g vela
 ```
 
-**Khởi động 9Router:**
+**Khởi động Vela:**
 
 ```bash
-9router
+Vela
 ```
 
 **Lợi ích:**
 - ✅ Chạy từ mọi thư mục
-- ✅ Lệnh đơn giản: `9router`
-- ✅ Auto-update với `npm update -g 9router`
+- ✅ Lệnh đơn giản: `Vela`
+- ✅ Auto-update với `npm update -g Vela`
 
 ### Cách 2: Cài Local
 
 Cài trong project cụ thể:
 
 ```bash
-mkdir my-9router
-cd my-9router
-npm install 9router
+mkdir my-Vela
+cd my-Vela
+npm install -g vela
 ```
 
-**Khởi động 9Router:**
+**Khởi động Vela:**
 
 ```bash
-npx 9router
+npx Vela
 ```
 
 **Lợi ích:**
@@ -74,8 +74,8 @@ npx 9router
 Clone và build từ GitHub:
 
 ```bash
-git clone https://github.com/decolua/9router.git
-cd 9router/app
+git clone https://github.com/YumamaX3/Vela.git
+cd Vela/app
 npm install
 npm run build
 npm start
@@ -93,13 +93,13 @@ npm start
 ### Khởi động Server
 
 ```bash
-9router
+Vela
 ```
 
 **Điều gì xảy ra:**
 1. Server khởi động tại `http://localhost:32060`
 2. Dashboard tự động mở trong browser
-3. Data directory được tạo tại `~/.9router`
+3. Data directory được tạo tại `~/.Vela`
 4. API key được tạo tự động
 
 ### Đăng nhập Dashboard
@@ -193,7 +193,7 @@ export JWT_SECRET="your-secure-secret-change-this"
 export INITIAL_PASSWORD="your-password"
 
 # Storage
-export DATA_DIR="~/.9router"
+export DATA_DIR="~/.Vela"
 
 # Server
 export PORT="32060"
@@ -205,11 +205,11 @@ export ENABLE_REQUEST_LOGS="false"
 
 ### Data Directory
 
-**Vị trí mặc định:** `~/.9router`
+**Vị trí mặc định:** `~/.Vela`
 
 **Nội dung:**
 ```
-~/.9router/
+~/.Vela/
   ├── db.json           # Database (providers, combos, usage)
   ├── api-keys.json     # API keys
   └── logs/             # Request logs (if enabled)
@@ -219,7 +219,7 @@ export ENABLE_REQUEST_LOGS="false"
 
 ```bash
 export DATA_DIR="/custom/path"
-9router
+Vela
 ```
 
 ### Cấu hình Port
@@ -230,13 +230,13 @@ export DATA_DIR="/custom/path"
 
 ```bash
 export PORT="3000"
-9router
+Vela
 ```
 
 **Hoặc dùng command line:**
 
 ```bash
-9router --port 3000
+Vela --port 3000
 ```
 
 ---
@@ -263,14 +263,14 @@ kill -9 <PID>
 **Giải pháp 2: Dùng port khác**
 
 ```bash
-9router --port 3000
+Vela --port 3000
 ```
 
 ### Permission Denied
 
 **Lỗi:**
 ```
-Error: EACCES: permission denied, mkdir '/usr/local/lib/node_modules/9router'
+Error: EACCES: permission denied, mkdir '/usr/local/lib/node_modules/Vela'
 ```
 
 **Giải pháp: Dùng sudo (không khuyến nghị) hoặc fix npm permissions**
@@ -283,7 +283,7 @@ echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
 
 # Then install again
-npm install -g 9router
+npm install -g vela
 ```
 
 ### Node.js Phiên bản quá cũ
@@ -345,23 +345,23 @@ Dashboard → Provider → Disconnect → Reconnect
 
 ### Sử dụng RAM cao
 
-**Vấn đề:** 9Router dùng quá nhiều RAM
+**Vấn đề:** Vela dùng quá nhiều RAM
 
 **Giải pháp: Khởi động lại server**
 
 ```bash
 # Stop
-pkill -f 9router
+pkill -f Vela
 
 # Start
-9router
+Vela
 ```
 
 **Hoặc dùng PM2 để auto-restart:**
 
 ```bash
 npm install -g pm2
-pm2 start 9router --name 9router
+pm2 start Vela --name Vela
 pm2 save
 ```
 
@@ -372,8 +372,8 @@ pm2 save
 ### Phát triển cục bộ
 
 ```bash
-npm install -g 9router
-9router
+npm install -g vela
+Vela
 ```
 
 **Use case:** Code cá nhân, testing
@@ -382,7 +382,7 @@ npm install -g 9router
 
 ```bash
 # Install
-npm install -g 9router
+npm install -g vela
 
 # Configure
 export JWT_SECRET="your-secure-secret"
@@ -391,7 +391,7 @@ export NODE_ENV="production"
 
 # Start with PM2
 npm install -g pm2
-pm2 start 9router --name 9router
+pm2 start Vela --name Vela
 pm2 save
 pm2 startup
 ```
@@ -401,15 +401,15 @@ pm2 startup
 ### Docker
 
 ```bash
-docker pull 9router/9router:latest
+docker pull Vela/Vela:latest
 
 docker run -d \
   -p 32060:32060 \
   -e JWT_SECRET="your-secure-secret" \
   -e INITIAL_PASSWORD="your-password" \
-  -v 9router-data:/root/.9router \
-  --name 9router \
-  9router/9router:latest
+  -v Vela-data:/root/.Vela \
+  --name Vela \
+  Vela/Vela:latest
 ```
 
 **Use case:** Containerized deployment, Kubernetes
@@ -444,13 +444,13 @@ server {
 ### Gỡ Global Installation
 
 ```bash
-npm uninstall -g 9router
+npm uninstall -g Vela
 ```
 
 ### Xóa Data Directory
 
 ```bash
-rm -rf ~/.9router
+rm -rf ~/.Vela
 ```
 
 ### Xóa Cấu hình
@@ -458,7 +458,7 @@ rm -rf ~/.9router
 ```bash
 # Remove environment variables from shell config
 nano ~/.bashrc  # or ~/.zshrc
-# Delete 9router-related exports
+# Delete Vela-related exports
 ```
 
 ---
@@ -473,6 +473,6 @@ nano ~/.bashrc  # or ~/.zshrc
 
 ## Cần trợ giúp?
 
-- **Website**: [9router.com](https://9router.com)
-- **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
-- **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
+- **Website**: [vela.ai](https://vela.ai)
+- **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
+- **Issues**: [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
