@@ -119,6 +119,7 @@ async function flushToDatabase() {
             connectionId: item.connectionId || null,
             timestamp: item.timestamp,
             status: item.status || null,
+            combo: item.combo || null, // migration 015 — NULL = direct request
             latency: item.latency || {},
             tokens: item.tokens || {},
             request: truncateField(item.request, config.maxJsonSize),
@@ -129,8 +130,8 @@ async function flushToDatabase() {
           };
 
           await tx.run(
-            `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE timestamp = VALUES(timestamp), provider = VALUES(provider), model = VALUES(model), connectionId = VALUES(connectionId), status = VALUES(status), data = VALUES(data)`,
-            [record.id, record.timestamp, record.provider, record.model, record.connectionId, record.status, stringifyJson(record)]
+            `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, combo, data) VALUES(?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE timestamp = VALUES(timestamp), provider = VALUES(provider), model = VALUES(model), connectionId = VALUES(connectionId), status = VALUES(status), combo = VALUES(combo), data = VALUES(data)`,
+            [record.id, record.timestamp, record.provider, record.model, record.connectionId, record.status, record.combo, stringifyJson(record)]
           );
         }
 

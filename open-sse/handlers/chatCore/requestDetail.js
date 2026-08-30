@@ -63,6 +63,7 @@ export function buildRequestDetail(base, overrides = {}) {
     provider: base.provider || "unknown",
     model: base.model || "unknown",
     connectionId: base.connectionId || undefined,
+    combo: base.combo || null, // migration 015 — the requesting combo, when one
     timestamp: new Date().toISOString(),
     latency: base.latency || { ttft: 0, total: 0 },
     tokens: base.tokens || { prompt_tokens: 0, completion_tokens: 0 },
@@ -94,7 +95,7 @@ export function formatDoneLine({ usage, latency }) {
   return `DONE ${latency?.total ?? 0}ms${ttftStr} · ${inStr} · OUT ${outTok}`;
 }
 
-export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, endpoint, label = "USAGE", silent = false, latencyMs = null, ttftMs = null, httpStatus = null, rtk = null }) {
+export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, endpoint, combo = null, label = "USAGE", silent = false, latencyMs = null, ttftMs = null, httpStatus = null, rtk = null }) {
   if (!tokens || typeof tokens !== "object") return;
 
   const inTokens = tokens.input_tokens ?? tokens.prompt_tokens ?? 0;
@@ -117,6 +118,8 @@ export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, 
 
   // Observatory W1-B telemetry — the new fields ride the same row write; the
   // repo derives statusClass + funds meta.rtkSavedCostUsd (both fail-open).
+  // combo (migration 015) rides the same row too — the combo name the caller
+  // asked for, when this usage belongs to a combo request (member or judge).
   saveRequestUsage({
     provider: provider || "unknown",
     model: model || "unknown",
@@ -125,6 +128,7 @@ export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, 
     connectionId: connectionId || undefined,
     apiKey: apiKey || undefined,
     endpoint: endpoint || null,
+    combo: combo || null,
     latencyMs, ttftMs, httpStatus, rtk
   }).catch(() => {});
 }
