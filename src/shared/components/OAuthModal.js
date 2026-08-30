@@ -5,6 +5,7 @@ import PropTypes from "prop-types";
 import { Modal, Button, Input } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { DEVICE_CODE_PROVIDERS } from "@/shared/constants/deviceCodeProviders.js";
+import { getBrowserCallbackOrigin } from "@/lib/oauth/utils/redirect";
 
 // Providers using the dynamic-port local callback proxy.
 // Browser OAuth: popup → auto callback → auto exchange → poll-status.
@@ -54,16 +55,12 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
   const { copied, copy } = useCopyToClipboard();
 
   // State for client-only values to avoid hydration mismatch
-  const [isLocalhost, setIsLocalhost] = useState(false);
   const [placeholderUrl, setPlaceholderUrl] = useState("/callback?code=...");
   const callbackProcessedRef = useRef(false);
 
-  // Detect if running on localhost (client-side only)
+  // Client-side origin, resolved post-mount to avoid hydration mismatch
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setIsLocalhost(
-        window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-      );
       setPlaceholderUrl(`${window.location.origin}/callback?code=...`);
     }
   }, []);
@@ -282,7 +279,13 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
         return;
       }
 
-      // Authorization code flow - build redirect URI (some providers require fixed ports)
+      // Authorization code flow - build redirect URI.
+      // Codex/xAI bind dedicated loopback proxies (fixed ports 1455/56121 on
+      // the operator's machine) and must always point at localhost. Every
+      // other provider calls back to this very app — so the URI is derived
+      // from the origin the operator is actually browsing the dashboard on:
+      // localhost stays localhost, a LAN IP (192.168.1.20) stays that IP,
+      // a hostname stays a hostname. (Star's decree 2026-08-30.)
       const appPort = window.location.port || (window.location.protocol === "https:" ? "443" : "80");
       let redirectUri;
       if (provider === "codex") {
@@ -290,7 +293,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
       } else if (provider === "xai") {
         redirectUri = "http://127.0.0.1:56121/callback";
       } else {
-        redirectUri = `http://localhost:${appPort}/callback`;
+        redirectUri = `${getBrowserCallbackOrigin()}/callback`;
       }
 
       // Build authorize URL first to get codeVerifier/state for codex server-side mode
@@ -371,12 +374,15 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
         if (!popupRef.current) {
           setStep("input");
         }
-      } else if (!isLocalhost || provider === "codex" || provider === "xai") {
-        // Non-localhost or proxy failed: manual input mode
+      } else if (provider === "codex" || provider === "xai") {
+        // Fixed-port loopback proxies never reach this server — the operator
+        // pastes the callback URL back into the input below.
         setStep("input");
         window.open(data.authUrl, "_blank");
       } else {
-        // Localhost (non-Codex/xAI): Open popup and wait for message
+        // The redirect_uri rides the dashboard's own origin, so the popup
+        // can auto-relay the callback wherever the dashboard is being
+        // accessed from — localhost, LAN IP, or any other shore.
         setStep("waiting");
         popupRef.current = window.open(data.authUrl, "oauth_popup", "width=600,height=700");
         if (!popupRef.current) {
@@ -387,7 +393,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
       setError(err.message);
       setStep("error");
     }
-  }, [provider, isLocalhost, startPolling, oauthMeta, idcConfig, authMode, startProxyFlow]);
+  }, [provider, startPolling, oauthMeta, idcConfig, authMode, startProxyFlow]);
 
   // Reset state and start OAuth when modal opens
   useEffect(() => {
@@ -508,11 +514,11 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
 
     // Method 1: postMessage from popup
     const handleMessage = (event) => {
-      // Allow messages from same origin or localhost (any port)
-      const isLocalhost = event.origin.includes("localhost") || event.origin.includes("127.0.0.1");
-      const isSameOrigin = event.origin === window.location.origin;
-      if (!isLocalhost && !isSameOrigin) return;
-      
+      // Strict same-origin check. The callback popup lives on this
+      // dashboard's own origin (redirect_uri derives from it) — anything
+      // else is rejected, so a hostile page can never hand us a forged code.
+      if (event.origin !== window.location.origin) return;
+
       if (event.data?.type === "oauth_callback") {
         handleCallback(event.data.data);
       }
