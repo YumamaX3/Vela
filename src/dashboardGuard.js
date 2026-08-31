@@ -3,6 +3,7 @@ import { getSettings, validateApiKey } from "@/lib/localDb";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { verifyDashboardAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth/dashboardSession";
 import { hasTrustedPeerHeaders } from "@/lib/auth/trustedPeer";
+import { timingSafeEqual } from "@/shared/utils/timingSafeEqual.js";
 
 const CLI_TOKEN_HEADER = "x-vela-cli-token";
 const CLI_TOKEN_SALT = "vela-cli-auth";
@@ -16,7 +17,22 @@ async function getCliToken() {
 async function hasValidCliToken(request) {
   const token = request.headers.get(CLI_TOKEN_HEADER);
   if (!token) return false;
-  return token === await getCliToken();
+  // Constant-time compare (house pattern — SHA-256 digests, length-check-first).
+  return timingSafeEqual(token, await getCliToken());
+}
+
+// Locality-before-credential (CLI Rebirth M0): the machine-derived CLI token
+// proves proximity to the box, nothing more — it is honored ONLY from a local
+// origin. Remote callers must present an API key or a JWT session instead.
+async function hasLocalCliToken(request) {
+  if (!isLocalRequest(request)) return false;
+  return await hasValidCliToken(request);
+}
+
+// True when a non-local caller presents a machine token — every seam rejects
+// that shape with 403 (forbidden), not 401 (unauthenticated).
+function presentsRemoteCliToken(request) {
+  return !isLocalRequest(request) && Boolean(request.headers.get(CLI_TOKEN_HEADER));
 }
 
 // Public API paths — no auth required (LLM API has its own key auth inside handler).
@@ -174,12 +190,15 @@ async function hasValidApiKey(request) {
 
 async function canAccessPublicLlmApi(request) {
   if (isLocalRequest(request)) return true;
-  if (await hasValidCliToken(request)) return true;
+  // Locality before credential: the machine token admits local callers only —
+  // remote callers must present an API key.
+  if (await hasLocalCliToken(request)) return true;
   return await hasValidApiKey(request);
 }
 
 async function canAccessLocalOnlyRoute(request) {
-  if (await hasValidCliToken(request)) return true;
+  // Locality before credential: the machine token admits local callers only.
+  if (await hasLocalCliToken(request)) return true;
   // Browser on host: loopback Host + Origin (blocks tunnel/CSRF) + auth (JWT or requireLogin=false)
   if (isLocalRequest(request) && await isAuthenticated(request)) return true;
   return false;
@@ -229,10 +248,15 @@ export async function proxy(request) {
     }
   }
 
-  // Always protected - require valid JWT or local CLI token (machineId-based)
+  // Always protected - require valid JWT or LOCAL CLI token (machineId-based).
+  // Locality before credential: the CLI-token admission requires locality; the
+  // JWT branch is unchanged. A remote caller whose only credential is the
+  // machine token is forbidden, not unauthenticated.
   if (ALWAYS_PROTECTED.some((p) => pathname.startsWith(p))) {
-    if (await hasValidCliToken(request) || await hasValidToken(request))
+    if (await hasLocalCliToken(request) || await hasValidToken(request))
       return NextResponse.next();
+    if (presentsRemoteCliToken(request))
+      return NextResponse.json({ error: "Forbidden: CLI token is only accepted from local origins" }, { status: 403 });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -246,14 +270,23 @@ export async function proxy(request) {
       );
     }
     if (await canAccessPublicLlmApi(request)) return NextResponse.next();
+    // A remote caller whose only credential is the machine token is forbidden,
+    // not merely unauthenticated — the token is local-bound.
+    if (presentsRemoteCliToken(request))
+      return NextResponse.json({ error: "Forbidden: CLI token is only accepted from local origins" }, { status: 403 });
     return NextResponse.json({ error: "API key required for remote API access" }, { status: 401 });
   }
 
   // Deny-by-default for /api/* — public allow-list bypasses, everything else requires auth.
+  // Locality before credential: CLI-token admission requires locality; the
+  // JWT/requireLogin posture (isAuthenticated) is unchanged. A remote caller
+  // whose only credential is the machine token is forbidden, not unauthenticated.
   if (pathname.startsWith("/api/")) {
     if (isPublicApi(pathname)) return NextResponse.next();
-    if (await hasValidCliToken(request) || await isAuthenticated(request))
+    if (await hasLocalCliToken(request) || await isAuthenticated(request))
       return NextResponse.next();
+    if (presentsRemoteCliToken(request))
+      return NextResponse.json({ error: "Forbidden: CLI token is only accepted from local origins" }, { status: 403 });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
