@@ -130,7 +130,7 @@ Production: `npm run build && PORT=32060 HOSTNAME=0.0.0.0 npm run start`
 
 ### Then connect a tool
 
-1. Open `http://localhost:32060/dashboard` (default password `123456` — change it)
+1. Open `http://localhost:32060/dashboard` (no default password — on first run the local console enters without one; set a password under Profile → Security to enable remote access)
 2. **Providers** → connect one (Kiro AI is a good free start)
 3. **Endpoints** → copy an API key
 4. Point your tool at the gateway:

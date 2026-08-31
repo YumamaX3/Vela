@@ -7,7 +7,9 @@ import { DATA_DIR } from "@/lib/dataDir";
 import { getSettings } from "@/lib/localDb";
 import { timingSafeEqual } from "@/shared/utils/timingSafeEqual.js";
 
-const DEFAULT_PASSWORD = "123456";
+// Tag 3 (M0 security foundation): the "123456" default password is retired.
+// There is no longer any guessable fallback — an unset password cannot
+// authenticate anyone, from any origin.
 
 // Vela's own session cookie. Browsers key cookies by domain, NOT by port, so a
 // cookie named `auth_token` (Vela's) is shared between both gateways when they
@@ -79,14 +81,16 @@ export function clearDashboardAuthCookie(cookieStore) {
 }
 
 // Verify the current dashboard password (re-auth for sensitive actions).
+// Tag 3: a stored hash verifies via bcrypt; an INITIAL_PASSWORD env fallback
+// compares in constant time; anything else is UNCONFIGURED and never
+// authenticates (the old "123456" fallback is retired).
 export async function verifyDashboardPassword(password) {
   if (typeof password !== "string" || !password) return false;
   const settings = await getSettings();
   const storedHash = settings?.password;
   if (storedHash) return bcrypt.compare(password, storedHash);
-  const initialPassword = process.env.INITIAL_PASSWORD || DEFAULT_PASSWORD;
-  // Constant-time compare (house pattern) for the initial/default password
-  // fallback. Tag 3 removes this fallback entirely; until then it must not
-  // leak length/prefix via timing.
+  const initialPassword = process.env.INITIAL_PASSWORD;
+  if (typeof initialPassword !== "string" || !initialPassword) return false;
+  // Constant-time compare (house pattern) for the env fallback.
   return timingSafeEqual(password, initialPassword);
 }

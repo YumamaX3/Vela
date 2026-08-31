@@ -36,6 +36,10 @@ export async function GET() {
       samlConfigured: isSamlConfigured(settings),
       samlLoginLabel: (settings.samlLoginLabel || "Sign in with SAML SSO").trim() || "Sign in with SAML SSO",
       hasPassword: !!settings.password,
+      // Tag 3: the login page decides between frictionless entry (loopback,
+      // nothing configured anywhere) and "no password configured" guidance.
+      // Exposing presence flags only — never the credential itself.
+      hasInitialPassword: !!process.env.INITIAL_PASSWORD,
       displayName,
       loginMethod,
       authenticated: !!session,
@@ -56,6 +60,7 @@ export async function GET() {
       samlConfigured: false,
       samlLoginLabel: "Sign in with SAML SSO",
       hasPassword: false,
+      hasInitialPassword: false,
       displayName: "Password user",
       loginMethod: "Password",
       authenticated: false,

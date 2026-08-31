@@ -70,10 +70,11 @@ export async function PATCH(request) {
           return NextResponse.json({ error: "Invalid current password" }, { status: 401 });
         }
       } else {
-        // First time setting password, no current password needed
-        // Allow empty currentPassword or default "123456"
-        if (body.currentPassword && body.currentPassword !== "123456") {
-           return NextResponse.json({ error: "Invalid current password" }, { status: 401 });
+        // First time setting password, no current password needed. Tag 3:
+        // the retired "123456" default is no longer treated as a valid
+        // current password — absent-or-empty is the only accepted shape.
+        if (body.currentPassword) {
+          return NextResponse.json({ error: "Invalid current password" }, { status: 401 });
         }
       }
 
