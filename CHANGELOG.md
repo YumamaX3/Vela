@@ -25,6 +25,24 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.41 — The Four Seals 🔒
+
+> *"Four gates stood open that no chart had drawn as open — the exported secret, the guessable key, the flood of attempts, the forged address. This tide seals all four. The harbor was never truly breached; but it will never again be this close."*
+
+**🔒 The decree:** the CLI-rebirth Mirror (2026-08-31) surfaced six live holes in the existing hull and designed their closure as M0 — the security foundation that ships before a single new command leaf. Four tags, four seals, each independently committable and proven:
+
+**Seal 1 · Tag 1 (`d2a0af76`) — the token learns its place:** the CLI machine token was accepted as a universal admin credential from ANY origin. It is now local-bound across all four guard seams (the fourth seam at `canAccessPublicLlmApi` found by the Tidebreaker), remote-with-token gets an honest 403, and all three secret compares (dashboard token, peer token, initial-password fallback) moved to constant-time `timingSafeEqual` (SHA-256 digests, length-check-first, house pattern).
+
+**Seal 2 · Tag 2 (`af38f53f`) — the export keeps its word:** `exportDb()` spread every connection's full data blob — upstream apiKey/accessToken/refreshToken/idToken plus nested providerSpecificData credentials (clientSecret, copilotToken, machineId, firebaseIdToken — each evidence-cited to its provider source) — into every plaintext export, and the apiKeys key column raw. Now: `exportDb({ redact: true })` rides the S2 field-list redaction at the plaintext HTTP surface ONLY (the encrypted backup artifact path and mirror resync keep full fidelity by construction), userinfo-credential proxy URLs (`scheme://user:pass@host`) redact WHOLE, and `apiKeys.key` exports as NULL unconditionally in both DB twins — keyHash/keyPrefix carry identity.
+
+**Seal 3 · Tag 3 (`2e3872a7`) — the default retires; brute force meets the tide:** every fresh install answered to `123456` — public knowledge. RETIRED entirely: an unconfigured password never authenticates from any origin. Loopback keeps its frictionless operator posture (the console must not brick); every remote origin is refused with an honest 403 naming the setting path. The login surface gains the house-pattern lockout ladder (5 failures → 1 min · 10 → 15 min · 20 → 1 hour, top tier holds, success resets) PLUS an independent fixed-window limiter (10 attempts / 15 min → 429 + Retry-After); IP bucketing trusts `x-9r-real-ip` only behind the validated `x-9r-peer-token` — spoofed headers cannot rotate their lockout. The forced-password-change ceremony it guarded retires with it; reset-password now CLEARS. Communication plan swept end to end: README + README.zh-CN + DOCKER.md, login page, profile page, CLI menu copy, 5 i18n locales.
+
+**Seal 4 · Tag 4 (`f6b1e134`) — the forged address is refused:** provider-test routes fetched operator-typed `baseUrl` / `azureEndpoint` / node baseUrl with zero validation — a classic SSRF entry, and automatic redirects could bounce into blocked ranges after any surface check. New `src/lib/network/providerUrlSafety.js`: http/https only; loopback, metadata/link-local, unspecified, and documentation ranges blocked — IPv4-mapped `::ffff:` folds judged by the embedded value; hostile literals (decimal `2130706433`, hex `0x7f000001`, octal `017700000001`, shortened `127.1`, backslash/userinfo tricks) judged as numbers with the raw authority re-checked against the parsed hostname; redirect hardening re-validates every hop (`redirect: "manual"`, ≤3 hops, blocked hop throws); RFC1918 + CGNAT + ULA DELIBERATELY allowed — homelab gateways test providers through LAN/Tailscale proxies, and blocking them breaks the primary self-hosted workflow for zero gain; `allowLocal` opt-in loosens loopback only, never metadata; DNS rebinding documented as accepted residual with the resolve-and-pin path named.
+
+**🧪 Proof:** 187/187 across the unified M0 gate (redaction pins — ten planted fake secrets absent from the serialized payload, full-fidelity default preserved · limiter contract + route wiring with injectable clock · retired-default probes across origins · 75 SSRF cases — blocked literals, allowed homelab ranges, hop re-validation, route surfaces refuse-before-fetch with zero fetches escaped) · production build green · secret scan clean on every commit
+
+---
+
 # v0.9.40 — The Combo Harbor ✨
 
 > *"The fleet of combos was a flat ledger — names with depth but no address, sails with no tally. Now every combo lives in its harbor, and every harbor keeps a log of the traffic it carries."*
