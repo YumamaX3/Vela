@@ -54,12 +54,17 @@ function jsonReq(method, qs = "", body = undefined) {
 const VIEW = { name: "Money this week", params: "tab=overview&period=7d&prov=openai" };
 
 describe("W4-A saved views — migration 009 + schema mirror", () => {
-  it("migration registry and schema mirror advanced to 10", async () => {
+  it("migration registry and schema mirror stay in lockstep", async () => {
     const { MIGRATIONS, latestVersion } = await import("@/lib/db/migrations/index.js");
-    expect(latestVersion()).toBe(10);
-    expect(MIGRATIONS.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     const { TABLES, SCHEMA_VERSION } = await import("@/lib/db/schema.js");
-    expect(SCHEMA_VERSION).toBe(10);
+    // Written for the W4-A schema at version 10; re-anchored to the PROPERTY
+    // instead of the number (M0 forge): the registry must be contiguous — no
+    // missing migration — and in lockstep with the schema mirror. Anchoring
+    // the exact version list fossilized this pin; migrations 011–015 all
+    // landed green in their own suites while this one failed by design.
+    expect(latestVersion()).toBe(SCHEMA_VERSION);
+    const versions = MIGRATIONS.map((m) => m.version).sort((a, b) => a - b);
+    expect(versions).toEqual(Array.from({ length: latestVersion() }, (_, i) => i + 1));
     expect(TABLES.usageViews).toBeTruthy();
     expect(TABLES.usageViews.columns.name).toBe("TEXT NOT NULL");
   });
