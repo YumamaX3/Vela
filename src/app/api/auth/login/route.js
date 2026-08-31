@@ -5,10 +5,18 @@ import { cookies } from "next/headers";
 import { setDashboardAuthCookie } from "@/lib/auth/dashboardSession";
 import { isOidcConfigured } from "@/lib/auth/oidc";
 import { isSamlConfigured } from "@/lib/auth/saml.js";
-import { checkLock, recordFail, recordSuccess, getClientIp } from "@/lib/auth/loginLimiter";
+import {
+  checkLock,
+  recordFail,
+  recordSuccess,
+  getClientIp,
+  consumeLoginAttempt,
+} from "@/lib/auth/loginLimiter";
 import { isLocalRequest } from "@/dashboardGuard";
+import { timingSafeEqual } from "@/shared/utils/timingSafeEqual.js";
+import { NO_PASSWORD_REMOTE_MESSAGE } from "@/lib/auth/loginMessages.js";
 
-const RESET_HINT = "Forgot password? Reset to default via Vela CLI → Settings → Reset Password to Default.";
+const RESET_HINT = "Forgot password? Clear it via Vela CLI → Settings → Reset Password (clear), then enter from the local console and set a new one under Profile → Security.";
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 
 function isTunnelRequest(request, settings) {
@@ -18,6 +26,16 @@ function isTunnelRequest(request, settings) {
   return (tunnelHost && host === tunnelHost) || (tailscaleHost && host === tailscaleHost);
 }
 
+// Tag 3: with the default password retired, an unset-password local login has
+// no credential at all. The dashboard must not brick for the operator at the
+// console, so loopback requests pass through frictionless — exactly today's
+// posture, minus the guessable password.
+async function admitPasswordlessLoopback(request) {
+  const cookieStore = await cookies();
+  await setDashboardAuthCookie(cookieStore, request);
+  return NextResponse.json({ success: true }, { headers: NO_STORE_HEADERS });
+}
+
 export async function POST(request) {
   try {
     const ip = getClientIp(request);
@@ -25,7 +43,18 @@ export async function POST(request) {
     if (lock.locked) {
       return NextResponse.json(
         { error: `Too many failed attempts. Try again in ${lock.retryAfter}s. ${RESET_HINT}`, retryAfter: lock.retryAfter, resetHint: RESET_HINT },
-        { status: 429, headers: { "Retry-After": String(lock.retryAfter) } }
+        { status: 429, headers: { "Retry-After": String(lock.retryAfter), ...NO_STORE_HEADERS } }
+      );
+    }
+
+    // Fixed-window rate limit, independent of the failure ladder: bounds raw
+    // attempt volume per IP even when individual attempts never touch a
+    // password compare.
+    const gate = consumeLoginAttempt(ip);
+    if (!gate.allowed) {
+      return NextResponse.json(
+        { error: `Too many login attempts. Try again in ${gate.retryAfter}s.`, retryAfter: gate.retryAfter },
+        { status: 429, headers: { "Retry-After": String(gate.retryAfter), ...NO_STORE_HEADERS } }
       );
     }
 
@@ -37,7 +66,6 @@ export async function POST(request) {
       return NextResponse.json({ error: "Dashboard access via tunnel is disabled" }, { status: 403 });
     }
 
-    // Default password is '123456' if not set
     const storedHash = settings.password;
 
     if (settings.authMode === "sso" || settings.authMode === "saml" || settings.authMode === "oidc") {
@@ -50,47 +78,32 @@ export async function POST(request) {
       }
     }
 
+    // Tag 3: NO password is configured anywhere (no stored hash, no
+    // INITIAL_PASSWORD env). Loopback keeps the frictionless operator
+    // posture; every non-loopback origin is refused — never falls open.
+    if (!storedHash && !process.env.INITIAL_PASSWORD) {
+      if (isLocalRequest(request)) return admitPasswordlessLoopback(request);
+      return NextResponse.json(
+        { error: NO_PASSWORD_REMOTE_MESSAGE },
+        { status: 403, headers: NO_STORE_HEADERS }
+      );
+    }
+
     let isValid = false;
     if (storedHash) {
       isValid = await bcrypt.compare(password, storedHash);
     } else {
-      // Use env var or default
-      const initialPassword = process.env.INITIAL_PASSWORD || "123456";
-      isValid = password === initialPassword;
+      // INITIAL_PASSWORD env fallback — constant-time compare (house pattern).
+      isValid = timingSafeEqual(password, process.env.INITIAL_PASSWORD);
     }
 
     if (isValid) {
       recordSuccess(ip);
 
-      // Default password still in use on a remote client → force a password
-      // change before the dashboard is exposed remotely (keeps local UX intact).
-      const mustChangePassword =
-        !storedHash && !process.env.INITIAL_PASSWORD && !isLocalRequest(request);
-
-      if (mustChangePassword) {
-        // Do NOT issue a session token: a fresh install's default password is
-        // public knowledge ("123456"), so handing out a valid JWT would let any
-        // remote attacker authenticate and (e.g.) PATCH /api/settings to disable
-        // authentication entirely (CVE-2026-56679 class). Require the password
-        // to be changed first.
-        //
-        // NOTE: this intentionally leaves no remote self-service password-change
-        // path — the change-password flow (PATCH /api/settings) requires a JWT,
-        // which we deliberately withhold. A remote fresh-install user must either
-        // change the password from the local machine or set INITIAL_PASSWORD
-        // before first launch. This is a deliberate security trade-off, not an
-        // oversight: issuing any credential before the default password is
-        // rotated re-opens the exact attack chain this branch closes.
-        return NextResponse.json(
-          { success: false, error: "Default password must be changed before remote access. Change it from the local machine (or set INITIAL_PASSWORD).", mustChangePassword },
-          { status: 403, headers: NO_STORE_HEADERS }
-        );
-      }
-
       const cookieStore = await cookies();
       await setDashboardAuthCookie(cookieStore, request);
 
-      return NextResponse.json({ success: true, mustChangePassword: false }, { headers: NO_STORE_HEADERS });
+      return NextResponse.json({ success: true }, { headers: NO_STORE_HEADERS });
     }
 
     const { remainingBeforeLock } = recordFail(ip);
@@ -98,7 +111,7 @@ export async function POST(request) {
     if (postLock.locked) {
       return NextResponse.json(
         { error: `Too many failed attempts. Try again in ${postLock.retryAfter}s. ${RESET_HINT}`, retryAfter: postLock.retryAfter, resetHint: RESET_HINT },
-        { status: 429, headers: { "Retry-After": String(postLock.retryAfter) } }
+        { status: 429, headers: { "Retry-After": String(postLock.retryAfter), ...NO_STORE_HEADERS } }
       );
     }
     return NextResponse.json(

@@ -50,8 +50,10 @@ docker start vela          # start again
 docker rm -f vela          # remove
 ```
 
-> ⚠️ **Warning:** the default login password is `123456` when
-> `INITIAL_PASSWORD` is unset. Always set your own.
+> ⚠️ **Note:** there is no default password. When `INITIAL_PASSWORD` is
+> unset, the dashboard admits the local console without a password but
+> refuses remote logins until one is set. Set `INITIAL_PASSWORD` (or set a
+> password under Profile → Security) to enable remote access.
 
 ---
 

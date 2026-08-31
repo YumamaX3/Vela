@@ -130,7 +130,7 @@ PORT=32060 NEXT_PUBLIC_BASE_URL=http://localhost:32060 npm run dev
 
 ### 然后接入你的工具
 
-1. 打开 `http://localhost:32060/dashboard`(默认密码 `123456` —— 请修改)
+1. 打开 `http://localhost:32060/dashboard`(无默认密码 —— 首次运行时本地控制台可免密进入;在 Profile → Security 设置密码后才能远程访问)
 2. **Providers** → 连接一家(Kiro AI 是个不错的免费起点)
 3. **Endpoints** → 复制一个 API 密钥
 4. 把你的工具指向网关:

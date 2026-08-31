@@ -411,7 +411,8 @@ async function updateSettings(data) {
 }
 
 /**
- * Reset dashboard password to default (clears stored hash server-side)
+ * Clear the stored dashboard password (server-side). There is no default to
+ * reset to — the install returns to the unconfigured posture.
  * @returns {Promise<Object>} { success }
  */
 async function resetPassword() {
