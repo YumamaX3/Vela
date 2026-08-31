@@ -9,7 +9,11 @@
 // max-payload bounds + shape validation BEFORE any write; RESTORE-QUARANTINED
 // fields restore only under an explicit adoptSecrets flag; the DEFAULT
 // preserves CURRENT values (captured pre-wipe, stitched back).
-// S2 — secret-field redaction BELOW the completeness law (repos/backupSecurity.js).
+// S2 — secret-field redaction BELOW the completeness law (repos/backupSecurity.js):
+//      settings keys via redactSecretSettings, connection/pool data blobs via
+//      CONNECTION_SECRET_FIELDS + CONNECTION_NESTED_SECRET_FIELDS (opt-in on
+//      the plaintext export: exportDb({ redact: true })), and the apiKeys.key
+//      column is ALWAYS exported NULL.
 // S3 — backupLedger + the future outbox excluded from exportDb BY NAME.
 //
 // The engine surface is re-exported so callers that import this module keep
@@ -24,6 +28,7 @@ import {
   quarantineSettingsPayload,
   quarantineKeyRow,
   RESTORE_QUARANTINED_SETTING_KEYS,
+  redactSecretConnectionData,
 } from "../backupSecurity.js";
 
 // The engine — re-exported for backward-compatible imports.
@@ -46,7 +51,13 @@ export const MAX_PAYLOAD_BYTES = 512 * 1024 * 1024;
 export const EXPORT_EXCLUDED_TABLES = ["backupLedger", "outbox", "mirrorSeq"];
 
 // ─── exportDb — completeness + S2 redaction + S3 exclusions ──────────────
-export async function exportDb({ includeRequestDetails = false } = {}) {
+// redact — M0 Tag 2: the plaintext-HTTP-export-only switch. When true,
+// providerConnections/proxyPools data blobs ride the S2 field-list redaction
+// (backupSecurity.js — the single source of truth). The DEFAULT stays
+// full-fidelity BY CONSTRUCTION: runBackup's encrypted artifact path and
+// mirrorSweep's full resync both ride this same function and both need the
+// real credentials (they are NOT in the S6 secret-file bundle).
+export async function exportDb({ includeRequestDetails = false, redact = false } = {}) {
   const db = await getAdapter();
   const { exportSettings } = await import("../settingsRepo.js");
   const settings = await exportSettings(); // S2 — redacted at the source
@@ -54,11 +65,22 @@ export async function exportDb({ includeRequestDetails = false } = {}) {
   let tables;
   db.transaction(() => {
     tables = {
-      providerConnections: db.all(`SELECT * FROM providerConnections`).map((r) => ({ ...parseJson(r.data, {}), id: r.id, provider: r.provider, authType: r.authType, name: r.name, email: r.email, priority: r.priority, isActive: r.isActive === 1, createdAt: r.createdAt, updatedAt: r.updatedAt })),
+      providerConnections: db.all(`SELECT * FROM providerConnections`).map((r) => {
+        const data = parseJson(r.data, {});
+        return { ...(redact ? redactSecretConnectionData(data) : data), id: r.id, provider: r.provider, authType: r.authType, name: r.name, email: r.email, priority: r.priority, isActive: r.isActive === 1, createdAt: r.createdAt, updatedAt: r.updatedAt };
+      }),
       providerNodes: db.all(`SELECT * FROM providerNodes`).map((r) => ({ ...parseJson(r.data, {}), id: r.id, type: r.type, name: r.name, createdAt: r.createdAt, updatedAt: r.updatedAt })),
-      proxyPools: db.all(`SELECT * FROM proxyPools`).map((r) => ({ ...parseJson(r.data, {}), id: r.id, isActive: r.isActive === 1, testStatus: r.testStatus, createdAt: r.createdAt, updatedAt: r.updatedAt })),
+      proxyPools: db.all(`SELECT * FROM proxyPools`).map((r) => {
+        const data = parseJson(r.data, {});
+        return { ...(redact ? redactSecretConnectionData(data) : data), id: r.id, isActive: r.isActive === 1, testStatus: r.testStatus, createdAt: r.createdAt, updatedAt: r.updatedAt };
+      }),
       apiKeys: db.all(`SELECT * FROM apiKeys`).map((r) => ({
-        id: r.id, key: r.key, name: r.name, machineId: r.machineId, isActive: r.isActive === 1, createdAt: r.createdAt,
+        // S2 (M0 Tag 2) — the `key` column never rides a plaintext export.
+        // Same house style as usageHistory.apiKey below: NULL, never the
+        // column value. Since W1 the column holds only placeholders
+        // (vela-minted-* / revoked-* / restored-*), but nulling it closes the
+        // shape for any pre-W1 survivor row — keyHash/keyPrefix carry identity.
+        id: r.id, key: null, name: r.name, machineId: r.machineId, isActive: r.isActive === 1, createdAt: r.createdAt,
         keyVersion: r.keyVersion ?? null, keyHash: r.keyHash ?? null, keyPrefix: r.keyPrefix ?? null,
         description: r.description ?? null, allowedModels: r.allowedModels ?? null,
         isInternal: r.isInternal === 1 || r.isInternal === true, deletedAt: r.deletedAt ?? null,
