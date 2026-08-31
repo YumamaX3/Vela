@@ -751,7 +751,6 @@
   "Requires outbound port 7844 (TCP/UDP). Connection may take 10-30s.": "Requer porta de saída 7844 (TCP/UDP). Conexão pode levar 10-30s.",
   "Reset": "Redefinir",
   "Reset Codex limit?": "Redefinir limite do Codex?",
-  "Reset Password to Default": "Redefinir Senha para Padrão",
   "Reset judge to Auto": "Redefinir julgador para Automático",
   "Reset to Defaults": "Redefinir para Padrões",
   "Resources": "Recursos",

@@ -1,7 +1,9 @@
-// CLI Rebirth M0 Tag 1 — the initial/default password fallback compare is
-// constant-time (house pattern: SHA-256 digests, length-check-first). Wrong
-// lengths must reject gracefully, never throw. The bcrypt path for stored
-// hashes stays untouched.
+// CLI Rebirth M0 — Tag 1 established constant-time compare for the fallback
+// path; Tag 3 RETIRED the "123456" default entirely. What remains: an unset
+// password never authenticates (any origin / any caller), INITIAL_PASSWORD
+// env still works through the constant-time fallback, and the bcrypt path
+// for stored hashes stays untouched. Wrong lengths must reject gracefully,
+// never throw.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import bcrypt from "bcryptjs";
 
@@ -18,10 +20,10 @@ process.env.JWT_SECRET = "test-jwt-secret";
 
 const { verifyDashboardPassword } = await import("../../src/lib/auth/dashboardSession.js");
 
-describe("verifyDashboardPassword — initial password fallback (constant-time)", () => {
+describe("verifyDashboardPassword — retired default password", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getSettings.mockResolvedValue({}); // no stored hash → fallback path
+    mocks.getSettings.mockResolvedValue({}); // no stored hash
     delete process.env.INITIAL_PASSWORD;
   });
 
@@ -29,15 +31,12 @@ describe("verifyDashboardPassword — initial password fallback (constant-time)"
     delete process.env.INITIAL_PASSWORD;
   });
 
-  it("accepts the DEFAULT_PASSWORD when no stored hash exists", async () => {
-    await expect(verifyDashboardPassword("123456")).resolves.toBe(true);
+  it("no longer authenticates with the retired 123456 default", async () => {
+    await expect(verifyDashboardPassword("123456")).resolves.toBe(false);
   });
 
-  it("rejects a wrong password on the fallback path", async () => {
+  it("rejects any password when nothing is configured", async () => {
     await expect(verifyDashboardPassword("wrong-password")).resolves.toBe(false);
-  });
-
-  it("rejects a wrong-length password gracefully (no throw)", async () => {
     await expect(verifyDashboardPassword("1")).resolves.toBe(false);
     await expect(verifyDashboardPassword("1234567890-much-longer")).resolves.toBe(false);
   });
@@ -47,11 +46,14 @@ describe("verifyDashboardPassword — initial password fallback (constant-time)"
     await expect(verifyDashboardPassword(undefined)).resolves.toBe(false);
   });
 
-  it("honors INITIAL_PASSWORD when set", async () => {
+  it("honors INITIAL_PASSWORD when set (constant-time compare)", async () => {
     process.env.INITIAL_PASSWORD = "correct-horse-battery";
 
     await expect(verifyDashboardPassword("correct-horse-battery")).resolves.toBe(true);
     await expect(verifyDashboardPassword("wrong-horse")).resolves.toBe(false);
+    // Wrong-length guesses reject gracefully on the constant-time path.
+    await expect(verifyDashboardPassword("1")).resolves.toBe(false);
+    await expect(verifyDashboardPassword("correct-horse-battery-extra")).resolves.toBe(false);
   });
 
   it("still uses the bcrypt path when a stored hash exists", async () => {

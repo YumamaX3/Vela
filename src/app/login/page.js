@@ -61,9 +61,11 @@ export default function LoginPage() {
   const [oidcLoginLabel, setOidcLoginLabel] = useState("Sign in with OIDC");
   const [samlConfigured, setSamlConfigured] = useState(false);
   const [samlLoginLabel, setSamlLoginLabel] = useState("Sign in with SAML SSO");
-  const [mustChange, setMustChange] = useState(false);
-  const [newPassword, setNewPassword] = useState("");
-  const [showNewPassword, setShowNewPassword] = useState(false);
+  // Tag 3: true once /api/auth/status reports no password configured
+  // anywhere (no stored hash, no INITIAL_PASSWORD env). The login page is
+  // only reachable on a loopback console in that state — the card explains
+  // entry is frictionless instead of advertising a default password.
+  const [unconfigured, setUnconfigured] = useState(false);
 
   // Footer status — version + gateway health, polled gently
   const [version, setVersion] = useState(null);
@@ -95,6 +97,7 @@ export default function LoginPage() {
             return;
           }
           setHasPassword(!!data.hasPassword);
+          setUnconfigured(!(data.hasPassword || data.hasInitialPassword));
           setAuthMode(data.authMode || "password");
           setSsoType(data.ssoType || "oidc");
           setOidcConfigured(data.oidcConfigured === true);
@@ -128,6 +131,30 @@ export default function LoginPage() {
     return () => clearInterval(id);
   }, []);
 
+  // Tag 3: an unconfigured install is only reachable on the loopback console —
+  // the server admits such logins with no credential (frictionless, today's
+  // posture) and hands back the session cookie.
+  const handleFrictionlessEntry = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (res.ok) openGate();
+      else {
+        const data = await res.json();
+        setError(data.error || "An error occurred. Please try again.");
+      }
+    } catch {
+      setError("An error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const openGate = () => {
     setSuccess(true);
     setTimeout(() => window.location.assign("/dashboard"), 750);
@@ -147,11 +174,6 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
-        const data = await res.json();
-        if (data.mustChangePassword) {
-          setMustChange(true);
-          return;
-        }
         openGate();
       } else {
         const data = await res.json();
@@ -165,30 +187,6 @@ export default function LoginPage() {
         } else if (typeof data.remainingBeforeLock === "number") {
           setAttemptsLeft(Math.max(0, data.remainingBeforeLock));
         }
-      }
-    } catch (err) {
-      setError("An error occurred. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Force a new password before entering the dashboard (default + remote).
-  const handleSetNewPassword = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword: password, newPassword }),
-      });
-      if (res.ok) {
-        openGate();
-      } else {
-        const data = await res.json();
-        setError(data.error || "Failed to set password");
       }
     } catch (err) {
       setError("An error occurred. Please try again.");
@@ -338,45 +336,21 @@ export default function LoginPage() {
             </div>
 
             <div className="login-card p-7 sm:p-8">
-              {mustChange ? (
-                <form onSubmit={handleSetNewPassword} className="login-stagger flex flex-col gap-4">
-                  <div className="flex items-start gap-3 rounded-xl bg-warning/10 border border-warning/30 p-3">
-                    <span className="material-symbols-outlined text-[20px] text-warning shrink-0 mt-0.5">lock_reset</span>
-                    <p className="text-sm text-amber-600 dark:text-amber-400">
-                      Set a new password before accessing the dashboard remotely.
+              {unconfigured ? (
+                <div className="login-stagger flex flex-col gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-text-main">Welcome</h2>
+                    <p className="text-sm text-text-muted mt-0.5">
+                      No dashboard password is set yet. Entry is open on this
+                      machine — set a password under Profile → Security to
+                      enable remote access.
                     </p>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-medium" htmlFor="new-password">New password</label>
-                    <div className="relative">
-                      <Input
-                        id="new-password"
-                        type={showNewPassword ? "text" : "password"}
-                        placeholder="Enter new password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        required
-                        autoFocus
-                        inputClassName="pr-11"
-                      />
-                      <button
-                        type="button"
-                        className="login-eye"
-                        onClick={() => setShowNewPassword((v) => !v)}
-                        aria-label={showNewPassword ? "Hide password" : "Show password"}
-                        title={showNewPassword ? "Hide password" : "Show password"}
-                      >
-                        <span className="material-symbols-outlined text-[18px]">
-                          {showNewPassword ? "visibility_off" : "visibility"}
-                        </span>
-                      </button>
-                    </div>
-                    {error && <p className="text-xs text-red-500">{error}</p>}
-                  </div>
-                  <Button type="submit" variant="primary" className="w-full" loading={loading} disabled={!newPassword}>
-                    Set password
+                  {error && <p className="text-xs text-red-500">{error}</p>}
+                  <Button type="button" variant="primary" className="w-full" icon="login" loading={loading} onClick={handleFrictionlessEntry}>
+                    Enter dashboard
                   </Button>
-                </form>
+                </div>
               ) : (
                 <div className="login-stagger flex flex-col gap-4">
                   <div>
@@ -486,7 +460,7 @@ export default function LoginPage() {
                         )}
                         {resetHint && (
                           <p className="text-xs text-text-muted">
-                            Forgot password? Open <code className="bg-sidebar px-1 rounded">Vela</code> CLI on the host → <b>Settings</b> → <b>Reset Password to Default</b>.
+                            Forgot password? Open <code className="bg-sidebar px-1 rounded">Vela</code> CLI on the host → <b>Settings</b> → <b>Reset Password (clear)</b>, then set a new one from the local console.
                           </p>
                         )}
                       </div>
@@ -503,13 +477,10 @@ export default function LoginPage() {
                       </Button>
 
                       <div className="flex flex-col gap-1.5 mt-1">
-                        <p className="text-xs text-center text-text-muted">
-                          Default password is <code className="bg-sidebar px-1 rounded">123456</code>
-                        </p>
                         {hasPassword === false && (
                           <p className="text-xs text-center text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1">
                             <span className="material-symbols-outlined text-[14px]">warning</span>
-                            Security risk: no password set. You will be asked to set one when logging in remotely.
+                            Security risk: no password set. Remote access stays locked until one is set (Profile → Security).
                           </p>
                         )}
                       </div>
