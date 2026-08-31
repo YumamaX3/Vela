@@ -5,6 +5,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { DATA_DIR } from "@/lib/dataDir";
 import { getSettings } from "@/lib/localDb";
+import { timingSafeEqual } from "@/shared/utils/timingSafeEqual.js";
 
 const DEFAULT_PASSWORD = "123456";
 
@@ -84,5 +85,8 @@ export async function verifyDashboardPassword(password) {
   const storedHash = settings?.password;
   if (storedHash) return bcrypt.compare(password, storedHash);
   const initialPassword = process.env.INITIAL_PASSWORD || DEFAULT_PASSWORD;
-  return password === initialPassword;
+  // Constant-time compare (house pattern) for the initial/default password
+  // fallback. Tag 3 removes this fallback entirely; until then it must not
+  // leak length/prefix via timing.
+  return timingSafeEqual(password, initialPassword);
 }
