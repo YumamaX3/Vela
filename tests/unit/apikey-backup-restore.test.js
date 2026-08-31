@@ -70,8 +70,9 @@ describe("backup/restore — hash survival, plaintext ban", () => {
     expect(JSON.stringify(payload)).not.toContain(key);
 
     const exported = payload.apiKeys[0];
-    expect(exported.key).not.toBe(key); // legacy column carries only the sentinel
-    expect(exported.key).toBe(`vela-minted-${exported.id}`);
+    // M0 Tag 2 — the key column exports as NULL unconditionally (previously
+    // the vela-minted placeholder). keyHash is the only exported identity.
+    expect(exported.key).toBeNull();
     expect(exported.keyHash).toBeTruthy(); // hash IS exported — it's the identity
   });
 

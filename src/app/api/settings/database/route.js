@@ -16,11 +16,14 @@ export async function GET(request) {
     if (!isCliRequest(request) && !(await verifyDashboardPassword(request.headers.get(PASSWORD_HEADER)))) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
     }
-    // S2 (Storage Covenant Wave B2): exportDb now redacts SECRET_SETTING_KEYS
-    // at the source — this endpoint can never hand out password /
-    // mitmSudoEncrypted / oidcClientSecret again. The completeness law still
-    // holds for every non-secret field.
-    const payload = await exportDb();
+    // S2 (Storage Covenant Wave B2 + M0 Tag 2): exportDb({ redact: true }) —
+    // this plaintext surface can never hand out SECRET_SETTING_KEYS, upstream
+    // connection credentials (CONNECTION_SECRET_FIELDS), or gateway key
+    // material (apiKeys.key is always NULL in exports). The completeness law
+    // still holds for every non-secret field. The encrypted backup artifact
+    // path (runBackup) and mirror resync stay full-fidelity — they are NOT
+    // plaintext surfaces.
+    const payload = await exportDb({ redact: true });
     return NextResponse.json(payload);
   } catch (error) {
     console.log("Error exporting database:", error);

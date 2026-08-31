@@ -16,23 +16,35 @@ import {
   quarantineSettingsPayload,
   quarantineKeyRow,
   RESTORE_QUARANTINED_SETTING_KEYS,
+  redactSecretConnectionData,
 } from "../backupSecurity.js";
 
 // S1 bounds + S3 exclusions — identical law to the sqlite twin.
 export const MAX_PAYLOAD_BYTES = 512 * 1024 * 1024;
 export const EXPORT_EXCLUDED_TABLES = ["backupLedger", "outbox", "mirrorSeq"];
 
-export async function exportDb({ includeRequestDetails = false } = {}) {
+// redact — M0 Tag 2: identical law to the sqlite twin — see its header. The
+// plaintext HTTP export surface opts in; the artifact + resync callers stay
+// full-fidelity BY CONSTRUCTION.
+export async function exportDb({ includeRequestDetails = false, redact = false } = {}) {
   const db = await getMysqlAdapter();
   const { exportSettings } = await import("./settingsRepo.js");
   const settings = await exportSettings(); // S2 — redacted at the source
 
   const tables = {
-    providerConnections: (await db.all(`SELECT * FROM providerConnections`)).map((r) => ({ ...parseJson(r.data, {}), id: r.id, provider: r.provider, authType: r.authType, name: r.name, email: r.email, priority: r.priority, isActive: r.isActive === 1 || r.isActive === true, createdAt: r.createdAt, updatedAt: r.updatedAt })),
+    providerConnections: (await db.all(`SELECT * FROM providerConnections`)).map((r) => {
+      const data = parseJson(r.data, {});
+      return { ...(redact ? redactSecretConnectionData(data) : data), id: r.id, provider: r.provider, authType: r.authType, name: r.name, email: r.email, priority: r.priority, isActive: r.isActive === 1 || r.isActive === true, createdAt: r.createdAt, updatedAt: r.updatedAt };
+    }),
     providerNodes: (await db.all(`SELECT * FROM providerNodes`)).map((r) => ({ ...parseJson(r.data, {}), id: r.id, type: r.type, name: r.name, createdAt: r.createdAt, updatedAt: r.updatedAt })),
-    proxyPools: (await db.all(`SELECT * FROM proxyPools`)).map((r) => ({ ...parseJson(r.data, {}), id: r.id, isActive: r.isActive === 1 || r.isActive === true, testStatus: r.testStatus, createdAt: r.createdAt, updatedAt: r.updatedAt })),
+    proxyPools: (await db.all(`SELECT * FROM proxyPools`)).map((r) => {
+      const data = parseJson(r.data, {});
+      return { ...(redact ? redactSecretConnectionData(data) : data), id: r.id, isActive: r.isActive === 1 || r.isActive === true, testStatus: r.testStatus, createdAt: r.createdAt, updatedAt: r.updatedAt };
+    }),
     apiKeys: (await db.all(`SELECT * FROM apiKeys`)).map((r) => ({
-      id: r.id, key: r.key, name: r.name, machineId: r.machineId, isActive: r.isActive === 1 || r.isActive === true, createdAt: r.createdAt,
+      // S2 (M0 Tag 2) — identical law to the sqlite twin: NULL, never the
+      // column value. keyHash/keyPrefix carry the identity.
+      id: r.id, key: null, name: r.name, machineId: r.machineId, isActive: r.isActive === 1 || r.isActive === true, createdAt: r.createdAt,
       keyVersion: r.keyVersion ?? null, keyHash: r.keyHash ?? null, keyPrefix: r.keyPrefix ?? null,
       description: r.description ?? null, allowedModels: r.allowedModels ?? null,
       isInternal: r.isInternal === 1 || r.isInternal === true, deletedAt: r.deletedAt ?? null,
