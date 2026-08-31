@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { timingSafeEqual } from "../../src/shared/utils/timingSafeEqual.js";
 
 const mocks = vi.hoisted(() => ({
   nextResponse: Symbol("next"),
@@ -263,13 +264,17 @@ describe("dashboard guard local-only access", () => {
     expect(response.status).toBe(403);
   });
 
-  it("allows local-only route with valid CLI token", async () => {
+  // Updated by CLI Rebirth M0 Tag 1: this case previously asserted success —
+  // it encoded the vulnerability (machine token admitted from any origin).
+  // The machine token is now LOCAL-BOUND: a remote origin presenting it is 403.
+  it("rejects local-only route from a remote origin even with a valid CLI token", async () => {
     const response = await proxy(request("/api/mcp/filesystem/sse", {
       host: "router.example.com",
       "x-vela-cli-token": "cli-token",
     }));
 
-    expect(response).toBe(mocks.nextResponse);
+    expect(response.status).toBe(403);
+    expect(response.body.error).toBe("Local only: CLI token required");
   });
 });
 
@@ -290,5 +295,164 @@ describe("dashboard guard helpers", () => {
     });
 
     expect(__test__.extractApiKey(apiRequest)).toBe("header-key");
+  });
+});
+
+describe("timingSafeEqual helper (house pattern)", () => {
+  it("matches equal secrets", () => {
+    expect(timingSafeEqual("the-machine-token", "the-machine-token")).toBe(true);
+  });
+
+  it("rejects mismatched secrets", () => {
+    expect(timingSafeEqual("the-machine-token", "the-machine-tokan")).toBe(false);
+  });
+
+  it("rejects wrong-length input gracefully (no throw)", () => {
+    expect(timingSafeEqual("short", "a-much-longer-secret-value")).toBe(false);
+    expect(timingSafeEqual("a-much-longer-secret-value", "short")).toBe(false);
+  });
+
+  it("rejects absent/empty/non-string input gracefully (no throw)", () => {
+    expect(timingSafeEqual("", "secret")).toBe(false);
+    expect(timingSafeEqual("secret", "")).toBe(false);
+    expect(timingSafeEqual(undefined, "secret")).toBe(false);
+    expect(timingSafeEqual(null, "secret")).toBe(false);
+    expect(timingSafeEqual(12345, "12345")).toBe(false);
+  });
+});
+
+describe("dashboard guard — machine token is locality-bound (CLI Rebirth M0 Tag 1)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.VELA_PEER_TOKEN = PEER_TOKEN;
+    mocks.getSettings.mockResolvedValue({ requireLogin: true });
+    mocks.validateApiKey.mockResolvedValue(false);
+    mocks.getConsistentMachineId.mockResolvedValue("cli-token");
+    mocks.verifyDashboardAuthToken.mockResolvedValue(false);
+  });
+
+  // Seam 1 — the public LLM API plane (/v1): the most dangerous seam.
+  it("rejects a remote origin presenting only the machine token on /v1", async () => {
+    const response = await proxy(request("/v1/chat/completions", {
+      host: "router.example.com",
+      "x-vela-cli-token": "cli-token",
+    }));
+
+    expect(response.status).toBe(403);
+    expect(response.body.error).toBe("Forbidden: CLI token is only accepted from local origins");
+    expect(mocks.validateApiKey).not.toHaveBeenCalled();
+  });
+
+  it("still admits the machine token on /v1 from a local origin", async () => {
+    const response = await proxy(localRequest("/v1/chat/completions", {
+      "x-vela-cli-token": "cli-token",
+    }));
+
+    expect(response).toBe(mocks.nextResponse);
+  });
+
+  it("a valid API key still admits a remote caller who also carries a machine token", async () => {
+    mocks.validateApiKey.mockResolvedValue(true);
+
+    const response = await proxy(request("/v1/chat/completions", {
+      host: "router.example.com",
+      "x-vela-cli-token": "cli-token",
+      authorization: "Bearer sk-valid",
+    }));
+
+    expect(response).toBe(mocks.nextResponse);
+    expect(mocks.validateApiKey).toHaveBeenCalledWith("sk-valid");
+  });
+
+  // Seam 2 — LOCAL_ONLY routes (the remote rejection lives in the local-only
+  // describe above; here we pin that the local machine token keeps its scope).
+  it("still admits the machine token on LOCAL_ONLY routes from a local origin", async () => {
+    const response = await proxy(localRequest("/api/mcp/filesystem/sse", {
+      "x-vela-cli-token": "cli-token",
+    }));
+
+    expect(response).toBe(mocks.nextResponse);
+  });
+
+  // Seam 3 — ALWAYS_PROTECTED routes.
+  it("rejects a remote origin presenting only the machine token on an ALWAYS_PROTECTED route", async () => {
+    const response = await proxy(request("/api/shutdown", {
+      host: "router.example.com",
+      "x-vela-cli-token": "cli-token",
+    }));
+
+    expect(response.status).toBe(403);
+    expect(response.body.error).toBe("Forbidden: CLI token is only accepted from local origins");
+  });
+
+  it("still admits the machine token on ALWAYS_PROTECTED routes from a local origin", async () => {
+    const response = await proxy(localRequest("/api/shutdown", {
+      "x-vela-cli-token": "cli-token",
+    }));
+
+    expect(response).toBe(mocks.nextResponse);
+  });
+
+  it("a valid JWT still admits a remote caller who also carries a machine token (ALWAYS_PROTECTED)", async () => {
+    mocks.verifyDashboardAuthToken.mockResolvedValue(true);
+
+    const apiRequest = request("/api/shutdown", {
+      host: "router.example.com",
+      "x-vela-cli-token": "cli-token",
+    });
+    apiRequest.cookies = { get: (name) => (name === "vela_auth_token" ? { value: "jwt-ok" } : undefined) };
+
+    const response = await proxy(apiRequest);
+
+    expect(response).toBe(mocks.nextResponse);
+  });
+
+  // Seam 4 — deny-by-default /api/* protected routes.
+  it("rejects a remote origin presenting only the machine token on a protected /api route", async () => {
+    const response = await proxy(request("/api/settings", {
+      host: "router.example.com",
+      "x-vela-cli-token": "cli-token",
+    }));
+
+    expect(response.status).toBe(403);
+    expect(response.body.error).toBe("Forbidden: CLI token is only accepted from local origins");
+  });
+
+  it("still admits the machine token on protected /api routes from a local origin", async () => {
+    const response = await proxy(localRequest("/api/settings", {
+      "x-vela-cli-token": "cli-token",
+    }));
+
+    expect(response).toBe(mocks.nextResponse);
+  });
+
+  // Timing-safe compare graceful degradation at the guard level.
+  it("handles a wrong-length CLI token without throwing (remote stays 403)", async () => {
+    const response = await proxy(request("/api/keys", {
+      host: "router.example.com",
+      "x-vela-cli-token": "much-longer-than-the-machine-token",
+    }));
+
+    expect(response.status).toBe(403);
+  });
+
+  it("handles a wrong-length CLI token without throwing (local falls through to 401)", async () => {
+    const response = await proxy(localRequest("/api/keys", {
+      "x-vela-cli-token": "short",
+    }));
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBe("Unauthorized");
+  });
+
+  it("treats a wrong-length peer token as untrusted — no locality, no throw", async () => {
+    const response = await proxy(request("/v1/models", {
+      host: "localhost:32060",
+      "x-9r-real-ip": "127.0.0.1",
+      "x-9r-peer-token": "short",
+    }));
+
+    expect(response.status).toBe(401);
+    expect(response.body.error).toBe("API key required for remote API access");
   });
 });
