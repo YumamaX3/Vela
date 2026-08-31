@@ -19,6 +19,12 @@ import {
 } from "@/lib/oauth/constants/oauth";
 import { buildClineHeaders } from "@/shared/utils/clineAuth";
 import { probeFreebuffToken } from "open-sse/services/freebuffSession.js";
+import {
+  validateProviderTestUrl,
+  validateProviderTestBaseUrl,
+  probeWithHopValidation,
+  allowLocalTestingFor,
+} from "@/lib/network/providerUrlSafety.js";
 
 // OAuth provider test endpoints
 const OAUTH_TEST_CONFIG = {
@@ -466,12 +472,27 @@ async function fetchWithConnectionProxy(url, options = {}, effectiveProxy = null
   });
 }
 
+/**
+ * Redirect-safe variant of fetchWithConnectionProxy: automatic redirect
+ * following is disabled and every hop is re-validated against the SSRF gate.
+ * A hop into a blocked range throws ProviderUrlSafetyError, which callers
+ * surface as an honest "redirect target not allowed" test failure. Used only
+ * for OPERATOR-controlled targets — fixed provider endpoints keep the plain
+ * proxy-aware fetch.
+ */
+async function fetchWithConnectionProxySafe(url, options = {}, effectiveProxy = null) {
+  return probeWithHopValidation(url, (u, o) => fetchWithConnectionProxy(u, o, effectiveProxy), options);
+}
+
 async function testApiKeyConnection(connection, effectiveProxy = null) {
   if (isOpenAICompatibleProvider(connection.provider)) {
     const modelsBase = connection.providerSpecificData?.baseUrl;
     if (!modelsBase) return { valid: false, error: "Missing base URL" };
+    // SSRF gate — the baseUrl is operator-controlled (src/lib/network/providerUrlSafety.js)
+    const safe = validateProviderTestBaseUrl(modelsBase);
+    if (!safe.ok) return { valid: false, error: safe.message };
     try {
-      const res = await fetchWithConnectionProxy(`${modelsBase.replace(/\/$/, "")}/models`, {
+      const res = await fetchWithConnectionProxySafe(`${safe.baseUrl}/models`, {
         headers: { "Authorization": `Bearer ${connection.apiKey}` },
       }, effectiveProxy);
       return { valid: res.ok, error: res.ok ? null : "Invalid API key or base URL" };
@@ -483,12 +504,15 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
   if (isAnthropicCompatibleProvider(connection.provider)) {
     let modelsBase = connection.providerSpecificData?.baseUrl;
     if (!modelsBase) return { valid: false, error: "Missing base URL" };
+    modelsBase = modelsBase.replace(/\/$/, "");
+    if (modelsBase.endsWith("/messages")) modelsBase = modelsBase.slice(0, -9);
+    // SSRF gate — the baseUrl is operator-controlled (src/lib/network/providerUrlSafety.js)
+    const safe = validateProviderTestBaseUrl(modelsBase);
+    if (!safe.ok) return { valid: false, error: safe.message };
     try {
-      modelsBase = modelsBase.replace(/\/$/, "");
-      if (modelsBase.endsWith("/messages")) modelsBase = modelsBase.slice(0, -9);
-      const messagesUrl = `${modelsBase}/v1/messages`;
+      const messagesUrl = `${safe.baseUrl}/v1/messages`;
       const model = connection.defaultModel || "claude-3-haiku-20240307";
-      const res = await fetchWithConnectionProxy(messagesUrl, {
+      const res = await fetchWithConnectionProxySafe(messagesUrl, {
         method: "POST",
         headers: {
           "x-api-key": connection.apiKey,
@@ -528,12 +552,15 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
       case "azure": {
         const psd = connection.providerSpecificData || {};
         const endpoint = (psd.azureEndpoint || "").replace(/\/$/, "");
+        // SSRF gate — the Azure endpoint is operator-controlled
+        const safeEndpoint = validateProviderTestBaseUrl(endpoint);
+        if (!safeEndpoint.ok) return { valid: false, error: safeEndpoint.message };
         const deployment = psd.deployment || "gpt-4";
         const apiVersion = psd.apiVersion || "2024-10-01-preview";
-        const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
+        const url = `${safeEndpoint.baseUrl}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
         const headers = { "api-key": connection.apiKey, "Content-Type": "application/json" };
         if (psd.organization) headers["OpenAI-Organization"] = psd.organization;
-        const res = await fetchWithConnectionProxy(url, {
+        const res = await fetchWithConnectionProxySafe(url, {
           method: "POST", headers,
           body: JSON.stringify({ messages: [{ role: "user", content: "test" }], max_completion_tokens: 1 }),
         }, effectiveProxy);
@@ -688,8 +715,20 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
       }
       case "ollama-local": {
         const host = resolveOllamaLocalHost(connection);
-        const res = await fetch(`${host}/api/tags`);
-        return { valid: res.ok, error: res.ok ? null : `Ollama not reachable at ${host}` };
+        // SSRF gate with the local opt-in: ollama-local genuinely runs on
+        // localhost (its default is http://localhost:11434). allowLocal
+        // loosens loopback ONLY — metadata/link-local stay blocked, and the
+        // opt-in comes solely from providerSpecificData/VELA_ALLOW_LOCAL_TESTING.
+        const safeHost = validateProviderTestBaseUrl(host, {
+          allowLocal: allowLocalTestingFor({ connection }),
+        });
+        if (!safeHost.ok) return { valid: false, error: safeHost.message };
+        try {
+          const res = await fetch(`${safeHost.baseUrl}/api/tags`);
+          return { valid: res.ok, error: res.ok ? null : `Ollama not reachable at ${safeHost.baseUrl}` };
+        } catch (err) {
+          return { valid: false, error: err.message };
+        }
       }
       case "deepgram": {
         const res = await fetchWithConnectionProxy("https://api.deepgram.com/v1/projects", { headers: { Authorization: `Token ${connection.apiKey}` } }, effectiveProxy);
@@ -804,7 +843,10 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
       }
 case "llm7": {
         const baseUrl = connection.providerSpecificData?.baseUrl || "https://api.llm7.io/v1";
-        const res = await fetchWithConnectionProxy(`${baseUrl.replace(/\/$/, "")}/models`, {
+        // SSRF gate — the baseUrl is operator-controlled (falls back to llm7's fixed endpoint)
+        const safeLlm7 = validateProviderTestBaseUrl(baseUrl);
+        if (!safeLlm7.ok) return { valid: false, error: safeLlm7.message };
+        const res = await fetchWithConnectionProxySafe(`${safeLlm7.baseUrl}/models`, {
           headers: { Authorization: `Bearer ${connection.apiKey}` },
         }, effectiveProxy);
         return { valid: res.ok, error: res.ok ? null : "Invalid API key or base URL" };

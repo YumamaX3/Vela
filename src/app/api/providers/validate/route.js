@@ -6,6 +6,13 @@ import { resolveOllamaLocalHost, resolveXiaomiTokenplanBaseUrl, PROVIDERS } from
 import { openaiToCommandCodeRequest } from "open-sse/translator/request/openai-to-commandcode.js";
 import { resolveQoderCredentials, resolveQoderModels } from "open-sse/services/qoderModels.js";
 import { normalizeProviderId } from "@/lib/providerNormalization";
+import {
+  validateProviderTestUrl,
+  validateProviderTestBaseUrl,
+  probeWithHopValidation,
+  allowLocalTestingFor,
+  ProviderUrlSafetyError,
+} from "@/lib/network/providerUrlSafety.js";
 
 // Probe a webSearch/webFetch provider using its searchConfig/fetchConfig.
 // Returns true if API key is accepted (status !== 401 && !== 403).
@@ -103,8 +110,13 @@ export async function POST(request) {
         if (!node) {
           return NextResponse.json({ error: "OpenAI Compatible node not found" }, { status: 404 });
         }
-        const modelsUrl = `${node.baseUrl?.replace(/\/$/, "")}/models`;
-        const res = await fetch(modelsUrl, {
+        // SSRF gate — the node baseUrl is operator-controlled (src/lib/network/providerUrlSafety.js)
+        const safeBase = validateProviderTestBaseUrl(node.baseUrl);
+        if (!safeBase.ok) {
+          return NextResponse.json({ error: safeBase.message }, { status: 400 });
+        }
+        const modelsUrl = `${safeBase.baseUrl}/models`;
+        const res = await probeWithHopValidation(modelsUrl, fetch, {
           headers: { "Authorization": `Bearer ${apiKey}` },
         });
         isValid = res.ok;
@@ -120,8 +132,13 @@ export async function POST(request) {
         if (!node) {
           return NextResponse.json({ error: "Custom Embedding node not found" }, { status: 404 });
         }
-        const baseUrl = node.baseUrl?.replace(/\/$/, "");
-        const modelsRes = await fetch(`${baseUrl}/models`, {
+        // SSRF gate — the node baseUrl is operator-controlled
+        const safeBase = validateProviderTestBaseUrl(node.baseUrl);
+        if (!safeBase.ok) {
+          return NextResponse.json({ error: safeBase.message }, { status: 400 });
+        }
+        const baseUrl = safeBase.baseUrl;
+        const modelsRes = await probeWithHopValidation(`${baseUrl}/models`, fetch, {
           headers: { "Authorization": `Bearer ${apiKey}` },
         });
         if (modelsRes.ok) {
@@ -132,7 +149,7 @@ export async function POST(request) {
           return NextResponse.json({ valid: false, error: "Invalid API key" });
         }
         // Fallback: probe /embeddings with a common test model — many providers lack /models
-        const embedRes = await fetch(`${baseUrl}/embeddings`, {
+        const embedRes = await probeWithHopValidation(`${baseUrl}/embeddings`, fetch, {
           method: "POST",
           headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({ model: "test", input: "ping" }),
@@ -156,10 +173,16 @@ export async function POST(request) {
           normalizedBase = normalizedBase.slice(0, -9); // remove /messages
         }
 
-        const messagesUrl = `${normalizedBase}/v1/messages`;
+        // SSRF gate — the node baseUrl is operator-controlled
+        const safeBase = validateProviderTestBaseUrl(normalizedBase);
+        if (!safeBase.ok) {
+          return NextResponse.json({ error: safeBase.message }, { status: 400 });
+        }
+
+        const messagesUrl = `${safeBase.baseUrl}/v1/messages`;
         const model = node.defaultModel || "claude-3-haiku-20240307";
 
-        const res = await fetch(messagesUrl, {
+        const res = await probeWithHopValidation(messagesUrl, fetch, {
           method: "POST",
           headers: {
             "x-api-key": apiKey,
@@ -208,18 +231,23 @@ export async function POST(request) {
       if (provider === "azure") {
         const { providerSpecificData } = body;
         const endpoint = (providerSpecificData?.azureEndpoint || "").replace(/\/$/, "");
+        // SSRF gate — the Azure endpoint is operator-controlled
+        const safeEndpoint = validateProviderTestBaseUrl(endpoint);
+        if (!safeEndpoint.ok) {
+          return NextResponse.json({ error: safeEndpoint.message }, { status: 400 });
+        }
         const deployment = providerSpecificData?.deployment || "gpt-4";
         const apiVersion = providerSpecificData?.apiVersion || "2024-10-01-preview";
         const organization = providerSpecificData?.organization;
 
-        const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
+        const url = `${safeEndpoint.baseUrl}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
         const headers = {
           "api-key": apiKey,
           "Content-Type": "application/json",
         };
         if (organization) headers["OpenAI-Organization"] = organization;
 
-        const azureRes = await fetch(url, {
+        const azureRes = await probeWithHopValidation(url, fetch, {
           method: "POST",
           headers,
           body: JSON.stringify({
@@ -380,9 +408,18 @@ export async function POST(request) {
             "ollama-local": `${resolveOllamaLocalHost({ providerSpecificData })}/api/tags`,
             "xiaomi-tokenplan": `${resolveXiaomiTokenplanBaseUrl({ providerSpecificData })}/models`,
           };
+          const targetUrl = endpoints[provider];
+          // SSRF gate — ollama-local's host comes from providerSpecificData;
+          // the local opt-in loosens loopback ONLY (metadata stays blocked).
+          const safeTarget = validateProviderTestUrl(targetUrl, {
+            allowLocal: allowLocalTestingFor({ connection: { providerSpecificData } }),
+          });
+          if (!safeTarget.ok) {
+            return NextResponse.json({ error: safeTarget.message }, { status: 400 });
+          }
           const headers = {};
           if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
-          const res = await fetch(endpoints[provider], { headers, signal: AbortSignal.timeout(8000) });
+          const res = await fetch(safeTarget.url, { headers, signal: AbortSignal.timeout(8000) });
           // xai returns 400 for bad key, 403 for valid-but-no-credit. Other providers use 401.
           if (provider === "xai") {
             isValid = res.status === 200 || res.status === 403;
@@ -651,6 +688,11 @@ export async function POST(request) {
         }
       }
     } catch (err) {
+      // SSRF refusals (incl. redirect hops) are 400-class input errors,
+      // not auth failures — name the refusal honestly.
+      if (err instanceof ProviderUrlSafetyError) {
+        return NextResponse.json({ error: err.message }, { status: 400 });
+      }
       error = err.message;
       isValid = false;
     }
