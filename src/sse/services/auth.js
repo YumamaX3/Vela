@@ -1,6 +1,14 @@
 import { getProviderConnections, validateApiKey, updateProviderConnection, getSettings, getProxyPools } from "@/lib/localDb";
 import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/connectionProxy";
-import fleet from "@/lib/network/proxyFleet.js"; // Fleet Captain for fitness recording
+// v0.9.42: was `import fleet from "@/lib/network/proxyFleet.js"` — a DEFAULT
+// import, and proxyFleet.js:864 is `export default global.__velaProxyFleet ||
+// null`, evaluated at module-eval time before init() has run. ESM freezes a
+// default-export expression to its value at instantiation, so `fleet` was
+// permanently null and `fleet.recordOutcome(...)` threw a TypeError that the
+// fire-and-forget catch swallowed — every failure signal on every lane was
+// silently discarded. The named export is a real function binding; importing it
+// costs nothing new (this file already imported the module) and cannot be null.
+import { recordOutcome } from "@/lib/network/proxyFleet.js";
 import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "open-sse/services/accountFallback.js";
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
 import { FREEBUFF_MODEL_LOCK_MS, FREEBUFF_COOLDOWNS, FREEBUFF_MAX_COOLDOWN_MS } from "open-sse/config/freebuff.js";
@@ -112,6 +120,13 @@ async function buildVirtualNoAuthConnection(providerId) {
   const resolvedProxy = await resolveConnectionProxyConfig({ proxyPoolId: pickedId || "" });
   return {
     id: "noauth",
+    // v0.9.42: stamped at birth. The virtual lane is the ONLY one whose pool
+    // rotates per request (pickProxyPoolId above), and clearAccountError had no
+    // way to learn which provider it was clearing — it hardcoded "freebuff",
+    // so every non-freebuff noauth success was recorded against the wrong
+    // fitness key. Identity travels with the credential instead of being
+    // guessed downstream.
+    provider: providerId,
     connectionName: "Public",
     isActive: true,
     accessToken: "public",
@@ -317,12 +332,34 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
 export async function markAccountUnavailable(connectionId, status, errorText, provider = null, model = null, resetsAtMs = null) {
   if (!connectionId || connectionId === "noauth") return { shouldFallback: false, cooldownMs: 0 };
 
-  // Fleet outcome signal — poolId derivable from DB (pool ID → provider-specific data stored per connection)
+  // Fleet outcome signal — poolId read from the connection's OWN persisted data.
+  //
+  // v0.9.42: this line was the severance that made the whole fitness engine
+  // inert. `connections` here are RAW DB rows, whose pool binding lives at
+  // `providerSpecificData.proxyPoolId` (the name connectionProxy.js:70 reads,
+  // and the name proxy-pools/route.js:41 counts bindings by). The code asked
+  // those rows for `connectionProxyPoolId` — a name that exists ONLY on the
+  // synthesized credential objects built at :122 and :292, never on a row.
+  // So poolId was always undefined → "" → recordOutcome's guard
+  // (proxyFleet.js:410) returned immediately → every pool's fitness stayed at
+  // zero forever → pickSmart:294 degraded to `poolIds[0]`, and the fleet could
+  // never learn which pool was actually working.
+  //
+  // Both names are accepted now: `??` takes the persisted binding on the raw
+  // row, and falls through to the synthesized name for callers that pass
+  // credentials instead of a connection. Neither is fabricated.
   const connections = await getProviderConnections({ provider });
   const conn = connections.find(c => c.id === connectionId);
-  const poolId = conn?.providerSpecificData?.connectionProxyPoolId;
+  const poolId = conn?.providerSpecificData?.proxyPoolId
+    ?? conn?.providerSpecificData?.connectionProxyPoolId;
   try {
-    await fleet.recordOutcome(poolId || "", provider || "", { ok: false, latencyMs: undefined });
+    // latencyMs omitted deliberately: no measured duration reaches this seam.
+    // The real timing lives in chatCore (nonStreamingHandler.js:323,
+    // streamingHandler.js:141) against a requestStartTime that never travels
+    // here. recordOutcome skips the EWMA update when latencyMs is undefined
+    // (proxyFleet.js:428), so omitting it is honest — inventing a number would
+    // poison the latency average with fiction.
+    await recordOutcome(poolId || "", provider || "", { ok: false });
   } catch { /* fire-and-forget: never break login */ }
 
   const backoffLevel = conn?.backoffLevel || 0;
@@ -413,17 +450,32 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
  * @param {string|null} model - model that succeeded
  */
 export async function clearAccountError(connectionId, currentConnection, model = null) {
-  if (!connectionId || connectionId === "noauth") return;
-
-  // Fleet outcome signal — poolId derivable from connection provider-specific data
-  const conn = currentConnection._connection || currentConnection;
-  const poolId = conn?.providerSpecificData?.connectionProxyPoolId;
+  // Fleet outcome signal — hoisted ABOVE the guard below.
+  //
+  // v0.9.42: this signal used to sit after `if (!connectionId ||
+  // connectionId === "noauth") return;`, so it could never fire on the no-auth
+  // lane — which is the ONLY lane whose pool binding lives on a synthesized
+  // credential object (`connectionProxyPoolId`, stamped at :122). The authed
+  // lanes read raw DB rows, which persist the binding as `proxyPoolId`. The
+  // guard therefore discarded precisely the successes the fleet most needed to
+  // learn from.
+  //
+  // Every caller (all 8, verified) passes `currentConnection`, and for the
+  // virtual lane that object carries both the pool and — since this tide — the
+  // provider. `_connection` unwraps the authed lane to its raw row. `??` takes
+  // whichever name that lane actually uses; neither is fabricated.
+  const conn = currentConnection?._connection || currentConnection;
+  const poolId = conn?.providerSpecificData?.proxyPoolId
+    ?? conn?.providerSpecificData?.connectionProxyPoolId;
   try {
-    await (async () => {
-      const fleet = await import("@/lib/network/proxyFleet.js");
-      await fleet.recordOutcome(poolId || "", "freebuff", { ok: true, latencyMs: undefined });
-    })();
+    // Was hardcoded "freebuff": every non-freebuff success was recorded against
+    // the wrong fitness key. `provider` is a real indexed column on
+    // providerConnections (schema.js:37), so the raw row carries it, and the
+    // virtual credential now stamps it at birth.
+    await recordOutcome(poolId || "", conn?.provider || "", { ok: true });
   } catch { /* fire-and-forget: never break login */ }
+
+  if (!connectionId || connectionId === "noauth") return;
 
   const now = Date.now();
   const allLockKeys = Object.keys(conn).filter(k => k.startsWith("modelLock_"));
