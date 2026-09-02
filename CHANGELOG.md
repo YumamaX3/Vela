@@ -25,6 +25,105 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.43 — The Proven Restore 🛟
+
+> *"A lifeboat nobody has ever lowered is a decoration. This tide lowers it — into a scratch harbor, with the live ship untouched — and proves it comes back up carrying everyone aboard."*
+
+**⚙️ The decree (Proxy Fleet Rebirth, milestone 0.5 — the Sentinel):** the sealed ADR gated
+milestone 1 (Security Closure) on one hard criterion: *"`tethys_sentry_snapshot` taken **and a
+restore proven** (not just a backup — `migrate.js` auto-backs-up)."* The parenthetical is the
+whole point. `migrate.js:233-241` already takes a pre-schema backup on every single boot, so
+"a backup file exists" proves **nothing**. What had to be proven is that **data comes back**.
+
+**🕳️ The gap this closes — a restore engine nobody had ever restored from:**
+Storage Covenant Wave B shipped a real restore (`restoreBackup`, `backupEngine.js:232`) and a
+restore **drill** (`runRestoreDrill`, `:306`). Both were live in production. And **not one test
+in the entire suite exercised either** — `ls tests/unit | grep -i backup` returned nothing at
+v0.9.42.
+
+Worse, the drill proves less than its name promises. It opens the newest artifact into a scratch
+sqlite DB and fails **only** if `expectedTables.filter(t => !have.has(t))` is non-empty
+(`:332-338`). An artifact whose payload decrypts to **completely empty tables** passes the drill
+with `ok: true`. The drill proves the crypto and the schema. It does **not** prove data fidelity.
+
+**🧪 What is now proven — `tests/unit/backup-restore-sentinel.test.js` (11 tests, all green):**
+
+The load-bearing test is a full round-trip: **WRITE → SEAL → DESTROY → OPEN → IMPORT → READ →
+COMPARE.** A `proxyPools` row is created, backed up, and then **deleted** — the delete is what
+makes this a restore proof rather than a no-op read, because without it a passing assertion
+could be satisfied by the row never having left the live database. Then it is restored and every
+field is compared one by one, with `proxyUrl` carrying embedded credentials on purpose so the
+round-trip proves it cannot corrupt them.
+
+Also proven in the same suite:
+- **The key gate refuses** when `VELA_BACKUP_ENCRYPTION_KEY` is unset, or shorter than the
+  16-char minimum-entropy bound (`getBackupEncryptionKey`, `:35-49`).
+- **A wrong key is rejected** — the AES-256-GCM tag is verified **before** any restore step
+  (S5), so a corrupted or foreign artifact can never be half-applied.
+- **A newer-schema artifact is refused** — `artifact schema version N is newer than this build`,
+  so a downgraded install cannot silently eat a future database.
+- **The pre-restore safety backup is taken** (`safetyBackupTaken === true`) — the escape hatch
+  that makes a bad restore recoverable.
+- **The drill runs green** against a real artifact, and returns
+  `{ ok: false, skipped: "no-artifact" }` when none exists — **an honest refusal, not a green
+  lie.**
+- **A three-pool fleet round-trips with no cross-row bleed**, including one pool with
+  `isActive: false`, which exercises the *real-column* half of the export/import symmetry rather
+  than the blob half.
+
+**Why `proxyPools` specifically:** that table has only **six real columns** (`id`, `isActive`,
+`testStatus`, `data`, `createdAt`, `updatedAt`) and everything else — `name`, `proxyUrl`, `type`,
+`noProxy`, `strictProxy`, `lastTestedAt`, `lastError` — rides the `data` JSON blob. `exportDb`
+spreads the blob flat (`backupRepo.js:73-76`); `importDb` destructures the six columns back out
+and re-blobs `...rest` (`:236-240`). Milestone 2b is about to **add a real column** to exactly
+this table, and milestone 1 is about to add **credential redaction** across this exact seam. Both
+changes stress that symmetry. This suite is the net that catches them.
+
+**🔬 Proof-of-proof — the test was mutation-tested, because a guard that cannot fail is not a guard:**
+`importDb`'s re-blob was deliberately broken to simulate the drift milestone 2b could introduce:
+
+```js
+const { id, isActive, testStatus, createdAt, updatedAt, type, ...rest } = p;  // `type` dropped
+```
+
+Result: **2 tests failed** with `AssertionError: expected undefined to be 'socks5'` and
+`expected undefined to be 'http'` — the round-trip caught a silently-dropped blob field. The
+mutation was reverted and `git diff` confirmed **empty residue**. That run also measured the
+true duration at **2149ms**, which right-sized the heavy test's timeout from the default 5s
+(which it had hit, at 5056ms under load) to an honest **20s** — roughly 9× headroom for a slow
+CI runner or the sql.js fallback driver, but not so generous that a genuine hang hides for a
+minute.
+
+**🪤 The harness trap this exposed (documented so milestone 2b does not walk into it):**
+The first run failed 5 of 11 with *misleading* symptoms — `TypeError: The database connection is
+not open`, and the no-artifact drill reporting `ok: true`. Two module-level caches defeat naive
+per-test `DATA_DIR` isolation:
+1. `src/lib/db/paths.js` **freezes** `DB_DIR` / `DATA_FILE` / `BACKUPS_DIR` at first import, so
+   reassigning `process.env.DATA_DIR` afterwards changes nothing.
+2. `src/lib/db/driver.js` binds `const state = global._dbAdapter` **once** at module eval, so
+   `delete global._dbAdapter` never rebinds it — the next `getAdapter()` returns the *previous*
+   test's already-closed instance.
+
+The failure mode is silent cross-contamination: tests see each other's artifacts, so a stale
+`.velabak` from an earlier test makes the no-artifact case report success. The fix is
+**`vi.resetModules()` in both `beforeEach` and `afterEach`, with `DATA_DIR` set BEFORE the first
+dynamic import** of every test. Note this is **not** the harness used by
+`key-acl-migration-013.test.js`, which gets away with plain `delete global._dbAdapter` only
+because it never re-points `DATA_DIR` between tests. Any future suite that moves `DATA_DIR` per
+test needs `resetModules` — including milestone 2b's migration-016 crash-driver test.
+
+**🔒 Security:** the encryption key used throughout the suite is a test value, and every IP in
+the fixtures is an example address — no live credential and no live host enters a test.
+
+**⚠️ Recorded deviation, not hidden:** milestone 0 (v0.9.42) shipped while milestone 0.5's
+restore proof was still owed; the ADR ordered 0.5 → 0. The proof now stands, so the sequence is
+satisfied retroactively and **milestone 1 (Security Closure) is unblocked.**
+
+**📦 Files:** `tests/unit/backup-restore-sentinel.test.js` (new). No production source changed
+in this release — the engine was already correct; it was simply **unproven**.
+
+---
+
 # v0.9.42 — The Live Wounds 🩸
 
 > *"The fleet had a captain who could not see, a helmsman who steered for a shore that did not exist, and four lookouts who had been blind since the day they were posted — and every one of them was reported 'healthy'. This tide does not add a feature. It stops the bleeding."*
