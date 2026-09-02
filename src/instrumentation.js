@@ -15,10 +15,13 @@ export async function register() {
     const { initConsoleLogCapture } = await import("@/lib/consoleLogBuffer");
     initConsoleLogCapture();
 
-    // Boot Fleet Captain once per server lifetime (fire-and-forget)
+    // Boot Fleet Captain once per server lifetime (fire-and-forget).
+    // v0.9.42: call startFleet, not init. init only builds the singleton;
+    // startFleet also starts the egress geo probe and the geo pruner sweeper,
+    // neither of which ever ran while this reached past it for `init`.
     try {
-      const { init } = await import("@/lib/network/fleetStartup.js");
-      await init();
+      const { startFleet } = await import("@/lib/network/fleetStartup.js");
+      await startFleet();
     } catch (err) {
       console.warn("[instrumentation] Fleet Captain init failed:", err.message);
     }

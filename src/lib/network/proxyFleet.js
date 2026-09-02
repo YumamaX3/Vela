@@ -25,14 +25,39 @@
  * - detectIdlePools() — zero-outcome + 30d age → unfit idle_ttl_exceeded (7d TTL)
  * - dynamic sweep concurrency min(16, max(4, ceil(N/50)))
  * - init() lifecycle replaces auto-run initCaptain() side effects
+ *
+ * v0.9.42 — The Live Wounds. The two claims above that this tide corrects:
+ * "probeEgress/checkPoolHealth real" was false — both called symbols that were
+ * never imported, so neither ever ran. The same class of wound getProxyPools
+ * had, one function away, surviving a fix that claimed to have closed it.
+ * And the fitness signal chain has never carried a production signal: auth.js
+ * reads connectionProxyPoolId, a field that exists only in synthesized
+ * credentials, so recordOutcome received "" and its guard returned every time.
+ * pickSmart therefore returned poolIds[0] unconditionally. Both are repaired.
  */
 
-import { getFitnessRows, upsertFitnessBatch, resetFitness } from "../db/repos/proxyFitnessRepo.js";
+// v0.9.42: renamed from `resetFitness` — the repo fn is db-FIRST
+// (`resetFitness(db, poolId, providerId)`), and the facade re-exported it raw,
+// so callers using the natural `(poolId, providerId)` arity shifted their args:
+// `db` received the poolId string and `db.run` threw "is not a function" behind
+// a generic 500. The module now owns a caller-facing wrapper of that name.
+import { getFitnessRows, upsertFitnessBatch, resetFitness as resetFitnessRows } from "../db/repos/proxyFitnessRepo.js";
 import { getProxyPools, getProxyPoolById, updateProxyPool } from "../db/repos/proxyPoolsRepo.js";
 import { getAdapter } from "../db/driver.js";
 import { resolveConnectionProxyConfig } from "./connectionProxy.js";
 import { isAvailable, recordFailure, recordSuccess, onRetryAfter, flushNow as flushBreakerNow } from "./circuitBreaker.js";
 import { setPoolGeo } from "./poolGeo.js"; // v0.9.18 — shared egress geo registry
+// v0.9.42 — two symbols this module CALLED but never imported. Each threw a
+// ReferenceError that its caller's fail-open catch swallowed into {ok:false},
+// which is indistinguishable from "this pool is dead":
+//   testProxyUrl (checkPoolHealth) — the unimported symbol behind the fleet
+//     self-liquidation. Now the shared probe, which also routes relay pools
+//     through their own envelope and classifies the verdict honestly.
+//   proxyAwareFetch (probeEgress)  — the real fetch path; getDispatcher, which
+//     probeEgress also called, is not exported by proxyFetch.js at all and its
+//     result was never used.
+import { testPoolReachability } from "./proxyTest.js";
+import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
 
 const RE_PICK_CODES = new Set(["country_blocked", "ip_capped"]); // C16 LOCKED
 const MAX_REPICKS = 3;
@@ -222,6 +247,47 @@ function commitUpdate(poolId, provider, updates) {
   const fitness = getOrCreateFitness(poolId, provider);
   Object.assign(fitness, updates);
   markDirty(poolId, provider);
+}
+
+/**
+ * Reset fitness for a pool (optionally scoped to one provider).
+ *
+ * v0.9.42: this is the caller-facing wrapper the facade re-exported as
+ * `resetFitness` — but the repo fn is db-first, so the natural (poolId,
+ * providerId) call shifted args and threw behind a generic 500 (fitness/route
+ * POST). The wrapper takes the adapter itself.
+ *
+ * It purges THREE places, not one, or the reset silently undoes itself:
+ *   1. the persisted rows (resetFitnessRows — the repo DELETE),
+ *   2. the in-memory fitnessStore entries (else the next getOrCreateFitness
+ *      hands back stale counts), and
+ *   3. any pending dirtyKeys for those entries (else the next 30s flushNow
+ *      re-upserts exactly what was just deleted — the resurrection trap).
+ *
+ * @param {string} poolId
+ * @param {string|null} providerId - null/"" resets every provider for the pool
+ * @returns {number} rows cleared from the in-memory store
+ */
+export async function resetFitness(poolId, providerId = null) {
+  const db = await getAdapter();
+  await resetFitnessRows(db, poolId, providerId);
+
+  // Purge memory + pending writes for the same scope. A providerId of null/""
+  // matches every key for this pool; a specific providerId matches one key.
+  const inScope = (key) => (providerId === null || providerId === "")
+    ? key.startsWith(`${poolId}|`)
+    : key === `${poolId}|${providerId}`;
+
+  let cleared = 0;
+  if (fitnessStore) {
+    for (const key of [...fitnessStore.keys()]) {
+      if (inScope(key)) { fitnessStore.delete(key); cleared++; }
+    }
+  }
+  for (const key of [...dirtyKeys]) {
+    if (inScope(key)) dirtyKeys.delete(key);
+  }
+  return cleared;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -454,7 +520,7 @@ export function recordClaimGate(poolId, providerId, code) {
  * executor never has to re-derive them (executor's local proxyOptions are a
  * snapshot — the covenant requires the fresh one returned, Gate 6 revision).
  */
-export async function repick(model, excludePoolIds, maxAttempts = MAX_REPICKS, budgetMs = REPICK_BUDGET_MS) {
+export async function repick(model, excludePoolIds, maxAttempts = MAX_REPICKS, budgetMs = REPICK_BUDGET_MS, providerId = "freebuff") {
   try {
     const deadline = Date.now() + budgetMs;
     const excluded = new Set(excludePoolIds || []);
@@ -463,8 +529,11 @@ export async function repick(model, excludePoolIds, maxAttempts = MAX_REPICKS, b
     while (attempts < maxAttempts) {
       if (Date.now() >= deadline) break;
 
-      // For freebuff, we need providerId
-      const providerId = "freebuff"; // hardcoded for now; pass as param
+      // v0.9.42: providerId was hardcoded "freebuff" inside the loop with a
+      // "pass as param" TODO beside it. It is now a trailing parameter with
+      // that same value as default — the lone caller (freebuff.js:367, four
+      // positional args) is unchanged, and any future caller can name its own
+      // provider instead of corrupting freebuff's fitness rows.
       const allPools = await getProxyPools({ isActive: true }); // self-binding facade
       const poolIds = allPools.filter(p => p.proxyUrl && !excluded.has(p.id)).map(p => p.id);
 
@@ -567,11 +636,14 @@ export async function probeEgress(poolId, pool = null) {
     const poolRow = pool || (await getProxyPoolById(poolId));
     if (!poolRow?.proxyUrl) return { ok: false, ip: null, country: null, error: "pool has no proxyUrl" };
 
-    // Build the per-pool dispatcher through the same path freebuff/executors use
+    // v0.9.42: this used to build a dispatcher via getDispatcher — a symbol
+    // proxyFetch.js never exported — and then never use it; both fetches below
+    // already go through proxyAwareFetch, which builds its own dispatcher from
+    // the same url. The dead call threw a ReferenceError on every probe, which
+    // the catch turned into {ok:false}, so egress geo never populated.
     const urlOnly = poolRow.proxyUrl.startsWith("socks5://") || poolRow.proxyUrl.startsWith("http://")
       ? poolRow.proxyUrl
       : `http://${poolRow.proxyUrl}`;
-    const dispatcher = await getDispatcher(urlOnly);
 
     // Timing control: per-pool AbortController (timeout + caller signal)
     const ctrl = new AbortController();
@@ -620,18 +692,32 @@ export async function probeEgress(poolId, pool = null) {
 /**
  * Start health scheduler (boot hook) — real 5-min sweep: idle detection,
  * bulk health check with dynamic concurrency, probe egress.
+ *
+ * v0.9.42: re-entrancy guard. A sweep over 1,000 pools can take far longer
+ * than the 300s interval, so passes stacked on top of each other, each
+ * re-disabling and re-probing the same rows. poolEgressProbe.js:96 already had
+ * this guard (`if (probing) return`) — the health sweep lacked it.
  */
+let sweepInFlight = false;
+
 export function startHealthScheduler() {
   if (healthSchedulerStarted) return;
   healthSchedulerStarted = true;
 
   // Periodic bulk health check (concurrency-capped)
   setInterval(async () => {
+    if (sweepInFlight) {
+      console.warn("[proxyFleet] health sweep skipped — previous pass still in flight");
+      return;
+    }
+    sweepInFlight = true;
     try {
       await detectIdlePools();
       await checkAllPools({ autoDisable: true });
     } catch (err) {
       console.warn("[proxyFleet] health scheduler failed:", err.message);
+    } finally {
+      sweepInFlight = false;
     }
   }, 300 * 1000); // every 5 minutes
 }
@@ -644,26 +730,52 @@ export function stopHealthScheduler() {
 }
 
 /**
- * Check single pool health — real socks/http test via proxyTest delegation
+ * Check single pool health — shared type-aware probe (proxyTest.js).
+ *
+ * v0.9.42: was `testProxyUrl(...)`, never imported — every call threw a
+ * ReferenceError that the catch below turned into {ok:false}, which the sweep
+ * read as "dead" and disabled. This is the mechanism behind the fleet
+ * self-liquidation, replicated to the mirror twin through updateProxyPool.
+ *
+ * Now returns a three-state `verdict`: "alive" | "dead" | "indeterminate".
+ * Callers disable ONLY on "dead".
+ *
  * @param {string} poolId
+ * @param {object} [pool] - the pool row, when the caller already holds it
+ *   (avoids the N+1 the bulk sweep was doing — probeEgress:559 is the
+ *   in-file precedent for exactly this row-passing shape)
  */
-export async function checkPoolHealth(poolId) {
+export async function checkPoolHealth(poolId, pool = null) {
   try {
-    const pool = await getProxyPoolById(poolId);
-    if (!pool?.proxyUrl) return { ok: false, error: "pool not found" };
+    const poolRow = pool || (await getProxyPoolById(poolId));
+    if (!poolRow?.proxyUrl) {
+      return { ok: false, verdict: "dead", elapsedMs: 0, error: "pool not found" };
+    }
 
-    const result = await testProxyUrl({
-      proxyUrl: pool.proxyUrl,
-      timeoutMs: 8000,
-    });
-    return { ok: !!result?.ok, elapsedMs: result?.elapsedMs || 0, error: result?.error || null };
+    const result = await testPoolReachability(poolRow, { timeoutMs: AUTO_DISABLE_TIMEOUT_MS });
+    return {
+      ok: result.verdict === "alive",
+      verdict: result.verdict,
+      elapsedMs: result.elapsedMs || 0,
+      error: result.error || null,
+      status: result.status ?? null,
+    };
   } catch (err) {
-    return { ok: false, elapsedMs: 0, error: err.message };
+    // A throw is INDETERMINATE, never death — the probe's own path may have
+    // faltered (an unimported symbol did exactly that for months).
+    return { ok: false, verdict: "indeterminate", elapsedMs: 0, error: err.message };
   }
 }
 
 /**
  * Bulk check all pools (capped concurrency — dynamic: min(16, max(4, ceil(N/50))))
+ *
+ * v0.9.42: two repairs.
+ *  - autoDisable now fires ONLY on verdict === "dead". An indeterminate result
+ *    (timeout, 5xx, rate-limited probe target, a throw) leaves the pool active
+ *    and counts separately, so a probe-path outage can no longer empty the fleet.
+ *  - the row is passed into checkPoolHealth instead of re-fetched per pool.
+ *    The sweep already held every row at :670 and then did N+1 lookups anyway.
  */
 export async function checkAllPools({ autoDisable = false, concurrency = null } = {}) {
   try {
@@ -678,12 +790,12 @@ export async function checkAllPools({ autoDisable = false, concurrency = null } 
     for (let i = 0; i < total; i += dynamicConcurrency) {
       const batch = allPools.slice(i, i + dynamicConcurrency);
       await Promise.all(batch.map(async (pool) => {
-        const result = await checkPoolHealth(pool.id);
+        const result = await checkPoolHealth(pool.id, pool);
         results.push({ poolId: pool.id, ...result });
 
-        if (autoDisable && !result.ok) {
-          // Auto-disable dead pool (timeout on the disable so a hung DB
-          // write never stalls the sweep)
+        if (autoDisable && result.verdict === "dead") {
+          // Auto-disable a PROVEN-dead pool only (timeout on the disable so a
+          // hung DB write never stalls the sweep)
           await Promise.race([
             disablePool(pool.id),
             new Promise(r => setTimeout(r, AUTO_DISABLE_TIMEOUT_MS)),
@@ -692,7 +804,12 @@ export async function checkAllPools({ autoDisable = false, concurrency = null } 
       }));
     }
 
-    return { total, alive: results.filter(r => r.ok).length, dead: results.filter(r => !r.ok).length };
+    return {
+      total,
+      alive: results.filter(r => r.verdict === "alive").length,
+      dead: results.filter(r => r.verdict === "dead").length,
+      indeterminate: results.filter(r => r.verdict === "indeterminate").length,
+    };
   } catch (err) {
     console.warn("[proxyFleet] checkAllPools failed:", err.message);
     return null;
@@ -790,4 +907,45 @@ export async function init() {
   return global.__velaProxyFleet;
 }
 
-export default global.__velaProxyFleet || null;
+/**
+ * v0.9.42: the default export WAS `export default global.__velaProxyFleet ||
+ * null` — a value frozen at module-eval time. That is the root cause of the
+ * fleet's silence across four routes (probe, fitness, export, bulk-health) and
+ * the severed failure signal in auth.js: the module body MUST run before init()
+ * can be called, since init is defined in it, so the global is always unset at
+ * that instant and the default always evaluated to null. Every `fleet.X()`
+ * then threw "Cannot read properties of null" into a catch that reported a
+ * generic 500 — "probe failed", "fitness query failed", "export failed",
+ * "health check failed" — so the wound looked like four unrelated flaky
+ * endpoints instead of one binding.
+ *
+ * Dev masked it: hot-reload re-evaluates this module while the global survives
+ * (the very property the header brags about), so `fleet` became real after the
+ * first edit and everything appeared to work.
+ *
+ * The facade below is LAZY — each property resolves through the named export at
+ * ACCESS time, not at import time. Callers keep their `fleet.X()` shape and get
+ * the real function whether init() has run or not. `__test__` stays reachable
+ * for the same reason fleetStartup.js needed it.
+ */
+const fleetFacade = {
+  get pick() { return pick; },
+  get resolveForConnection() { return resolveForConnection; },
+  get resolveVirtualConnection() { return resolveVirtualConnection; },
+  get recordOutcome() { return recordOutcome; },
+  get recordClaimGate() { return recordClaimGate; },
+  get repick() { return repick; },
+  get flushNow() { return flushNow; },
+  get getFitnessSummary() { return getFitnessSummary; },
+  get resetFitness() { return resetFitness; },
+  get checkPoolHealth() { return checkPoolHealth; },
+  get checkAllPools() { return checkAllPools; },
+  get probeEgress() { return probeEgress; },
+  get detectIdlePools() { return detectIdlePools; },
+  get startHealthScheduler() { return startHealthScheduler; },
+  get stopHealthScheduler() { return stopHealthScheduler; },
+  get init() { return init; },
+  get __test__() { return { loadFitness, flushNow, detectIdlePools, probeCache }; },
+};
+
+export default fleetFacade;
