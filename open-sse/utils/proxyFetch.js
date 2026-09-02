@@ -222,9 +222,21 @@ async function getDispatcher(proxyUrl) {
   if (!normalized) return null;
 
   if (!proxyDispatchers.has(normalized)) {
-    // Evict oldest entry if max size reached
+    // Evict oldest entry if max size reached.
+    // v0.9.42: CLOSE the evicted dispatcher. An undici dispatcher owns a
+    // connection pool and its sockets; deleting the Map entry drops the only
+    // reference without releasing them, so every eviction leaked fds for the
+    // lifetime of the process. Fire-and-forget and fail-open — a close error
+    // must never break the fetch that triggered the eviction.
     if (proxyDispatchers.size >= MEMORY_CONFIG.proxyDispatchersMaxSize) {
-      proxyDispatchers.delete(proxyDispatchers.keys().next().value);
+      const oldestKey = proxyDispatchers.keys().next().value;
+      const evicted = proxyDispatchers.get(oldestKey);
+      proxyDispatchers.delete(oldestKey);
+      try {
+        await evicted?.close?.();
+      } catch {
+        // ignore — the entry is already gone from the cache
+      }
     }
 
     let protocol;

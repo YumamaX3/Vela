@@ -1,39 +1,21 @@
 import { NextResponse } from "next/server";
 import { getProxyPoolById, updateProxyPool } from "@/models";
-import { testProxyUrl } from "@/lib/network/proxyTest";
-import { fetch as undiciFetch } from "undici";
-
-async function testVercelRelay(relayUrl, timeoutMs = 10000) {
-  const controller = new AbortController();
-  const startedAt = Date.now();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await undiciFetch(relayUrl, {
-      method: "GET",
-      headers: {
-        "x-relay-target": "https://httpbin.org",
-        "x-relay-path": "/get",
-      },
-      signal: controller.signal,
-    });
-    return {
-      ok: res.ok,
-      status: res.status,
-      statusText: res.statusText,
-      elapsedMs: Date.now() - startedAt,
-    };
-  } catch (err) {
-    return {
-      ok: false,
-      status: 500,
-      error: err?.name === "AbortError" ? "Relay test timed out" : (err?.message || String(err)),
-    };
-  } finally {
-    clearTimeout(timer);
-  }
-}
+import { testPoolReachability } from "@/lib/network/proxyTest";
 
 // POST /api/proxy-pools/[id]/test - Test proxy pool entry
+//
+// v0.9.42: this route carried its own copy of the relay test and its own idea
+// of what a failure meant, while proxyFleet's health sweep carried a different
+// one — and the sweep's copy called a symbol that was never imported, so it
+// judged EVERY pool dead every five minutes. A manual test here would revive a
+// pool; the next sweep liquidated it again. Two verdicts, one fleet, a flicker.
+//
+// Both paths now go through testPoolReachability, which is type-aware (relays
+// are probed through their envelope, not CONNECTed through) and returns a
+// three-state verdict. isActive is touched ONLY on a deterministic result:
+//   alive         → activate
+//   dead          → deactivate
+//   indeterminate → leave the operator's own choice alone, report honestly
 export async function POST(request, { params }) {
   try {
     const { id } = await params;
@@ -43,25 +25,38 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: "Proxy pool not found" }, { status: 404 });
     }
 
-    const result = proxyPool.type === "vercel" || proxyPool.type === "cloudflare" || proxyPool.type === "deno"
-      ? await testVercelRelay(proxyPool.proxyUrl)
-      : await testProxyUrl({ proxyUrl: proxyPool.proxyUrl });
+    const result = await testPoolReachability(proxyPool);
     const now = new Date().toISOString();
 
-    await updateProxyPool(id, {
-      testStatus: result.ok ? "active" : "error",
+    // Only a deterministic verdict may move isActive. An indeterminate one
+    // records what happened without overwriting the operator's intent —
+    // otherwise a flaky probe target silently disables a working pool.
+    const updates = {
+      testStatus: result.verdict === "alive"
+        ? "active"
+        : result.verdict === "dead"
+          ? "error"
+          : "unknown",
       lastTestedAt: now,
-      lastError: result.ok ? null : (result.error || `Proxy test failed with status ${result.status}`),
-      isActive: result.ok,
-    });
+      lastError: result.verdict === "alive"
+        ? null
+        : (result.error || `Proxy test failed with status ${result.status}`),
+    };
+    if (result.verdict !== "indeterminate") updates.isActive = result.verdict === "alive";
+
+    await updateProxyPool(id, updates);
 
     return NextResponse.json({
-      ok: result.ok,
+      ok: result.verdict === "alive",
+      verdict: result.verdict,
       status: result.status,
       statusText: result.statusText || null,
       error: result.error || null,
       elapsedMs: result.elapsedMs || 0,
       testedAt: now,
+      // Tells the UI whether the pool's enabled state was actually changed,
+      // so an indeterminate result is not mistaken for a pass or a disable.
+      activeStateChanged: Object.prototype.hasOwnProperty.call(updates, "isActive"),
     });
   } catch (error) {
     console.log("Error testing proxy pool:", error);

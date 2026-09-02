@@ -5,6 +5,7 @@ import {
   getProxyPoolById,
   updateProxyPool,
 } from "@/models";
+import { VALID_PROXY_TYPES } from "@/lib/constants/proxyTypes";
 
 function normalizeProxyPoolUpdate(body = {}) {
   const updates = {};
@@ -38,8 +39,10 @@ function normalizeProxyPoolUpdate(body = {}) {
   }
 
   if (Object.prototype.hasOwnProperty.call(body, "type")) {
-    const validTypes = ["http", "vercel", "cloudflare"];
-    updates.type = validTypes.includes(body?.type) ? body.type : "http";
+    // v0.9.42: was a local 3-type literal ["http","vercel","cloudflare"] —
+    // missing "deno", so a PUT on a deno relay pool silently coerced its type
+    // to "http" and broke its relay routing. Now the shared six-type constant.
+    updates.type = VALID_PROXY_TYPES.includes(body?.type) ? body.type : "http";
   }
 
   return { updates };

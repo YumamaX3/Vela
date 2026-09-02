@@ -45,10 +45,14 @@ export async function getProxyPools(filter = {}) {
   const params = [];
   if (filter.isActive !== undefined) { where.push("isActive = ?"); params.push(filter.isActive ? 1 : 0); }
   if (filter.testStatus) { where.push("testStatus = ?"); params.push(filter.testStatus); }
-  const sql = `SELECT * FROM proxyPools${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`;
-  const list = db.all(sql, params).map(rowToPool);
-  list.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
-  return list;
+  // v0.9.42: the sort moved into SQL. It was `list.sort((a, b) => new Date(b.updatedAt || 0)
+  // - new Date(a.updatedAt || 0))` — two Date allocations PER COMPARISON, on a
+  // full-table scan that runs on several request paths. updatedAt is a real
+  // column (not a blob key), so the database can order it directly. NULLs sort
+  // last, matching the old `|| 0` epoch fallback.
+  const sql = `SELECT * FROM proxyPools${where.length ? ` WHERE ${where.join(" AND ")}` : ""}
+     ORDER BY updatedAt IS NULL, updatedAt DESC`;
+  return db.all(sql, params).map(rowToPool);
 }
 
 export async function getProxyPoolById(id) {

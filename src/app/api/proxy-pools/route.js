@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
 import { createProxyPool, getProviderConnections, getProxyPools } from "@/models";
+// v0.9.42: was a local 4-type literal (http|vercel|cloudflare|deno) that
+// silently disagreed with lib/constants/proxyTypes.js — which declares six
+// types and was imported by nobody. The result: a socks5:// pool URL passed
+// the transport layer (proxyFetch.js:241 has had a Socks5ProxyAgent branch
+// since v0.9.4) but could never be CREATED, because this literal coerced it
+// to "http" in normalizeProxyPoolInput. One shared constant now decides for
+// both routes.
+import { VALID_PROXY_TYPES } from "@/lib/constants/proxyTypes";
 
 function toBoolean(value) {
   if (value === "true") return true;
   if (value === "false") return false;
   return undefined;
 }
-
-const VALID_PROXY_TYPES = ["http", "vercel", "cloudflare", "deno"];
 
 function normalizeProxyPoolInput(body = {}) {
   const name = typeof body?.name === "string" ? body.name.trim() : "";
