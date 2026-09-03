@@ -162,7 +162,29 @@ describe("S1.3: the sweep is mixed-verdict honest", () => {
 
     const result = await checkAllPools({ autoDisable: true });
 
-    expect(result).toEqual({ total: 3, alive: 1, dead: 1, indeterminate: 1 });
+    // ⚠️ WIDENED DELIBERATELY at v0.9.44 (milestone 0.6, LIVE-B) — not broken by
+    // accident. `checkAllPools` now also returns the per-pool `results` array it
+    // had always built internally, so `bulk-health/route.js` can delegate to it
+    // instead of keeping its own drifted copy of this loop. The three counts are
+    // unchanged and still asserted strictly; the new key is asserted too, so
+    // this stays a whole-shape assertion rather than silently loosening into
+    // `objectContaining`.
+    //
+    // `results` is matched unordered on purpose: with 3 pools the dynamic
+    // concurrency is min(16, max(4, ceil(3/50))) = 4, so all three run in ONE
+    // `Promise.all` batch and their `results.push()` order is nondeterministic.
+    expect(result).toEqual({
+      total: 3,
+      alive: 1,
+      dead: 1,
+      indeterminate: 1,
+      results: expect.arrayContaining([
+        expect.objectContaining({ poolId: "alive-one", verdict: "alive" }),
+        expect.objectContaining({ poolId: "dead-one", verdict: "dead" }),
+        expect.objectContaining({ poolId: "unsure-one", verdict: "indeterminate" }),
+      ]),
+    });
+    expect(result.results).toHaveLength(3);
     expect(repoMocks.updateProxyPool).toHaveBeenCalledTimes(1);
     expect(repoMocks.updateProxyPool).toHaveBeenCalledWith("dead-one", { isActive: false });
   });
