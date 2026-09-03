@@ -66,6 +66,22 @@ export async function exportDb({ includeRequestDetails = false, redact = false }
       promptTokens: Number(r.promptTokens ?? 0), completionTokens: Number(r.completionTokens ?? 0),
       cost: r.cost == null ? null : Number(r.cost), status: r.status,
       tokens: parseJson(r.tokens, null), meta: parseJson(r.meta, null),
+      // v0.9.44 (milestone 0.6, LIVE-C): 14 → 19 fields, in lockstep with the
+      // sqlite twin of this function. This export feeds BOTH an operator
+      // artifact and `runFullResync`'s primary→twin payload (mirrorSweep.js),
+      // so the five missing fields were dropped on the backup path and on the
+      // resync path alike.
+      //
+      // Numeric columns are Number()-coerced here because the mysql driver can
+      // hand back DECIMAL/BIGINT as strings — the same reason promptTokens and
+      // cost above are coerced. NULL stays NULL: latencyMs/ttftMs/httpStatus
+      // mean "unmeasured" and must never be 0-faked (usageRepo.js:12).
+      latencyMs: r.latencyMs == null ? null : Number(r.latencyMs),
+      ttftMs: r.ttftMs == null ? null : Number(r.ttftMs),
+      httpStatus: r.httpStatus == null ? null : Number(r.httpStatus),
+      // '' is the normalized unknown, sealed by migration 008:91 — never NULL.
+      statusClass: r.statusClass ?? "",
+      combo: r.combo ?? null,
     })),
     usageDaily: (await db.all(`SELECT * FROM usageDaily ORDER BY dateKey ASC`)).map((r) => ({ dateKey: r.dateKey, data: parseJson(r.data, {}) })),
     // S3 — backupLedger + outbox excluded BY NAME (EXPORT_EXCLUDED_TABLES).
@@ -75,6 +91,12 @@ export async function exportDb({ includeRequestDetails = false, redact = false }
     tables.requestDetails = (await db.all(`SELECT * FROM requestDetails ORDER BY timestamp DESC`)).map((r) => ({
       id: r.id, timestamp: r.timestamp, provider: r.provider, model: r.model,
       connectionId: r.connectionId, status: r.status, data: parseJson(r.data, {}),
+      // v0.9.44 (milestone 0.6, LIVE-D): 7 → 8 fields, in lockstep with the
+      // sqlite twin of this function. Migration 015's `combo` was written live
+      // (requestDetailsRepo.js:65) but emitted by neither engine's export, so an
+      // artifact from the twin lost the same field an artifact from the primary
+      // did — both halves of the mirror agreed on the omission.
+      combo: r.combo ?? null,
     }));
   }
 
@@ -267,10 +289,20 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
     }
 
     for (const h of payload.usageHistory || []) {
+      // v0.9.44 (milestone 0.6, LIVE-C): 15 → 20 bound columns, in lockstep with
+      // the sqlite twin of this loop and with the export above. `apiKey` remains
+      // a literal NULL (plaintext banned from artifacts), so 20 columns / 19
+      // placeholders. statusClass → '' by migration 008's invariant;
+      // latencyMs/ttftMs/httpStatus → NULL, never 0-faked.
+      //
+      // The `ON DUPLICATE KEY UPDATE status = VALUES(status)` clause is left
+      // exactly as it was: this transaction DELETEs the table unconditionally
+      // just above, so it can only fire on a payload carrying duplicate ids, and
+      // widening it would be a behaviour change outside this wound's scope.
       await tx.run(
-        `INSERT INTO usageHistory(id, timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO usageHistory(id, timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo) VALUES(?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE status = VALUES(status)`,
-        [h.id, h.timestamp, h.provider || "", h.model || "", h.connectionId || "", h.keyId || "", h.keyPrefix ?? null, h.endpoint ?? null, h.promptTokens ?? 0, h.completionTokens ?? 0, h.cost ?? 0, h.status ?? null, stringifyJson(h.tokens ?? null), stringifyJson(h.meta ?? null)]
+        [h.id, h.timestamp, h.provider || "", h.model || "", h.connectionId || "", h.keyId || "", h.keyPrefix ?? null, h.endpoint ?? null, h.promptTokens ?? 0, h.completionTokens ?? 0, h.cost ?? 0, h.status ?? null, stringifyJson(h.tokens ?? null), stringifyJson(h.meta ?? null), h.latencyMs ?? null, h.ttftMs ?? null, h.httpStatus ?? null, h.statusClass ?? "", h.combo ?? null]
       );
     }
     for (const d of payload.usageDaily || []) {
@@ -278,9 +310,15 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
     }
     if (Array.isArray(payload.requestDetails)) {
       for (const rd of payload.requestDetails) {
+        // v0.9.44 (milestone 0.6, LIVE-D): 7 → 8 columns. The
+        // `ON DUPLICATE KEY UPDATE data = VALUES(data)` clause is unchanged —
+        // this transaction DELETEs requestDetails unconditionally above, so it
+        // only fires on a payload with duplicate ids, and note it does NOT
+        // update combo. Widening it would be a behaviour change outside this
+        // wound's scope; the DELETE makes it unreachable in the restore path.
         await tx.run(
-          `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data)`,
-          [rd.id, rd.timestamp, rd.provider ?? null, rd.model ?? null, rd.connectionId ?? null, rd.status ?? null, stringifyJson(rd.data ?? {})]
+          `INSERT INTO requestDetails(id, timestamp, provider, model, connectionId, status, data, combo) VALUES(?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data)`,
+          [rd.id, rd.timestamp, rd.provider ?? null, rd.model ?? null, rd.connectionId ?? null, rd.status ?? null, stringifyJson(rd.data ?? {}), rd.combo ?? null]
         );
       }
     }

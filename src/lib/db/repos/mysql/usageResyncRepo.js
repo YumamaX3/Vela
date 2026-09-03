@@ -27,9 +27,23 @@ export async function applyUsageBatch(rows) {
   const db = await getMysqlAdapter();
   await db.transaction(async (tx) => {
     for (const r of rows) {
+      // v0.9.44 (milestone 0.6, LIVE-C): 15 → 20 columns. The five telemetry /
+      // combo columns were absent here while the PRIMARY read seam selected 14
+      // and the live writer inserts 19 — so the twin's columns existed (healed
+      // by mysql/bootstrap.js's additive diff against TABLES) but were written
+      // as NULL forever, and no sweep could see it because `usageHistory` is not
+      // in FINGERPRINT_TABLES.
+      //
+      // The two column laws, applied at the write boundary:
+      //   - latencyMs / ttftMs / httpStatus → `?? null`, NEVER `?? 0`. NULL is
+      //     "unmeasured"; 0 would fabricate an instant request.
+      //   - statusClass → `?? ""`. Migration 008:91 seals `''` as the normalized
+      //     unknown and deriveStatusClass can only ever return a string, so a
+      //     NULL here would violate the invariant idx_uh_ts_status relies on.
+      //   - combo → `?? null` (NULL = direct request, migration 015).
       await tx.run(
-        `INSERT INTO usageHistory(id, timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta)
-         VALUES(?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO usageHistory(id, timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo)
+         VALUES(?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE id = id`,
         [
           r.id, r.timestamp, r.provider || "", r.model || "",
@@ -37,6 +51,8 @@ export async function applyUsageBatch(rows) {
           r.endpoint ?? null, r.promptTokens ?? 0, r.completionTokens ?? 0,
           r.cost ?? 0, r.status ?? null,
           stringifyJson(r.tokens ?? null), stringifyJson(r.meta ?? null),
+          r.latencyMs ?? null, r.ttftMs ?? null, r.httpStatus ?? null,
+          r.statusClass ?? "", r.combo ?? null,
         ]
       );
     }
