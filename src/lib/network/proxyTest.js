@@ -68,7 +68,16 @@ export async function testProxyUrl({ proxyUrl, testUrl, timeoutMs } = {}) {
         if (!Socks5ProxyAgent) {
           return { ok: false, status: 400, error: "Invalid proxy URL: this undici build has no Socks5ProxyAgent — use an http(s):// proxy" };
         }
-        dispatcher = new Socks5ProxyAgent({ uri: normalized });
+        // ⚠️ POSITIONAL url — NOT `{ uri: normalized }`. Signature is
+        // `(proxyUrl, options = {})`; an object reaches the protocol check with
+        // `url.protocol === undefined` and throws InvalidArgumentError at
+        // CONSTRUCTION. The ProxyAgent sibling below genuinely takes `{ uri }`.
+        // (v0.9.44: this throw was caught at :80 as status 400, and 400 IS in
+        // DETERMINISTIC_FAILURE_STATUSES below, so classifyProbeVerdict called
+        // every socks5 pool "dead" and the sweep disabled them — a
+        // per-scheme self-liquidation that Wave 0's indeterminate≠dead law
+        // could not catch, because the status looked deterministic.)
+        dispatcher = new Socks5ProxyAgent(normalized);
       } else {
         // HTTP(s) proxy
         const ProxyAgent = undici.ProxyAgent;
