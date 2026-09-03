@@ -256,7 +256,18 @@ async function getDispatcher(proxyUrl) {
       if (!Socks5ProxyAgent) {
         throw new Error(`unsupported proxy scheme for ${normalized}: Socks5ProxyAgent unavailable in this undici build`);
       }
-      Dispatcher = new Socks5ProxyAgent({ uri: normalized });
+      // ⚠️ POSITIONAL url — NOT `{ uri: normalized }`. Socks5ProxyAgent's
+      // signature is `(proxyUrl, options = {})` and it does
+      // `typeof proxyUrl === 'string' ? new URL(proxyUrl) : proxyUrl`, so an
+      // object passes through with `url.protocol === undefined` and throws
+      // InvalidArgumentError at CONSTRUCTION, before any socket opens. The
+      // ProxyAgent sibling below genuinely takes `{ uri }` — do not "match" it
+      // here. (v0.9.44: the `{ uri }` shape threw for every socks5 pool, the
+      // catch at :380 fell back to DIRECT and silently bypassed the operator's
+      // proxy; in proxyTest.js the same throw became status 400, which IS in
+      // DETERMINISTIC_FAILURE_STATUSES, so the sweep disabled every socks5
+      // pool as "dead".)
+      Dispatcher = new Socks5ProxyAgent(normalized);
     } else {
       const ProxyAgent = undici.ProxyAgent;
       if (!ProxyAgent) {
