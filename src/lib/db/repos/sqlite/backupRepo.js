@@ -100,6 +100,21 @@ export async function exportDb({ includeRequestDetails = false, redact = false }
         keyId: r.keyId || null, keyPrefix: r.keyPrefix, endpoint: r.endpoint,
         promptTokens: r.promptTokens, completionTokens: r.completionTokens,
         cost: r.cost, status: r.status, tokens: parseJson(r.tokens, null), meta: parseJson(r.meta, null),
+        // v0.9.44 (milestone 0.6, LIVE-C): 14 → 19 fields. These five were
+        // absent from EVERY transfer path — this export, both importDb INSERTs
+        // (sqlite + mysql), and both usageResync seams — so an artifact carried
+        // 15-column rows and a restore wrote 15, silently dropping the
+        // Observatory telemetry and combo attribution on the way through. Note
+        // `apiKey: null` directly above is a DELIBERATE law (a plaintext
+        // credential banned from artifacts); these five riding along unannounced
+        // next to it is what made the omission look intentional. It was not.
+        //
+        // statusClass transfers as-is — it is '' (never NULL) on the primary by
+        // migration 008:91's sealed invariant, and '' is meaningful (normalized
+        // "unknown"), so coalescing it to null here would corrupt the value.
+        latencyMs: r.latencyMs ?? null, ttftMs: r.ttftMs ?? null,
+        httpStatus: r.httpStatus ?? null, statusClass: r.statusClass ?? "",
+        combo: r.combo ?? null,
       })),
       usageDaily: db.all(`SELECT * FROM usageDaily ORDER BY dateKey ASC`).map((r) => ({ dateKey: r.dateKey, data: parseJson(r.data, {}) })),
       // S3 — backupLedger + outbox EXCLUDED BY NAME (EXPORT_EXCLUDED_TABLES).
@@ -109,6 +124,19 @@ export async function exportDb({ includeRequestDetails = false, redact = false }
       tables.requestDetails = db.all(`SELECT * FROM requestDetails ORDER BY timestamp DESC`).map((r) => ({
         id: r.id, timestamp: r.timestamp, provider: r.provider, model: r.model,
         connectionId: r.connectionId, status: r.status, data: parseJson(r.data, {}),
+        // v0.9.44 (milestone 0.6, LIVE-D): 7 → 8 fields. Migration 015 added
+        // `combo` to TABLES.requestDetails ("kept in parity with
+        // usageHistory.combo so both ledgers tell the same story") and to the
+        // LIVE writer (requestDetailsRepo.js:65, which inserts 8 columns and
+        // even updates combo in its ON CONFLICT clause) — but this export
+        // emitted 7 and the restore INSERT below took 7, so combo was dropped on
+        // the way out AND on the way back in. Same negligence class as LIVE-C,
+        // from the same migration, in the adjacent table.
+        //
+        // Found while checking a DIFFERENT claim — which is the argument for
+        // tracing paths rather than accepting summaries: no research stream
+        // reported this one.
+        combo: r.combo ?? null,
       }));
     }
   });
@@ -293,9 +321,24 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
     }
 
     for (const h of payload.usageHistory || []) {
+      // v0.9.44 (milestone 0.6, LIVE-C): 15 → 20 bound columns, matching the
+      // export above. Without these the RESTORE silently dropped the Observatory
+      // telemetry and combo attribution even from an artifact that carried them
+      // — so the loss was not twin-only. `apiKey` stays a literal NULL in the
+      // VALUES list (the plaintext column is banned from artifacts by law),
+      // which is why the column count (20) exceeds the placeholder count (19).
+      //
+      // Coalescing rules, both load-bearing:
+      //   statusClass → '' (migration 008:91's sealed invariant; idx_uh_ts_status
+      //   aggregates on it, and NULL would make "unknown" invisible to the index)
+      //   latencyMs/ttftMs/httpStatus → NULL, never 0 (NULL = unmeasured)
+      //
+      // An OLD artifact (exported before this fix) simply has no such keys, so
+      // every `?? ` falls through to the documented default — the restore stays
+      // backward-compatible with artifacts written by v0.9.43 and earlier.
       db.run(
-        `INSERT OR REPLACE INTO usageHistory(id, timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [h.id, h.timestamp, h.provider || "", h.model || "", h.connectionId || "", h.keyId || "", h.keyPrefix ?? null, h.endpoint ?? null, h.promptTokens ?? 0, h.completionTokens ?? 0, h.cost ?? 0, h.status ?? null, stringifyJson(h.tokens ?? null), stringifyJson(h.meta ?? null)]
+        `INSERT OR REPLACE INTO usageHistory(id, timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo) VALUES(?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [h.id, h.timestamp, h.provider || "", h.model || "", h.connectionId || "", h.keyId || "", h.keyPrefix ?? null, h.endpoint ?? null, h.promptTokens ?? 0, h.completionTokens ?? 0, h.cost ?? 0, h.status ?? null, stringifyJson(h.tokens ?? null), stringifyJson(h.meta ?? null), h.latencyMs ?? null, h.ttftMs ?? null, h.httpStatus ?? null, h.statusClass ?? "", h.combo ?? null]
       );
     }
     for (const d of payload.usageDaily || []) {
@@ -303,9 +346,13 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
     }
     if (Array.isArray(payload.requestDetails)) {
       for (const rd of payload.requestDetails) {
+        // v0.9.44 (milestone 0.6, LIVE-D): 7 → 8 columns, matching the export
+        // above. `combo` is NULL for a direct (non-combo) request per migration
+        // 015, so `?? null` is the honest default and an older artifact with no
+        // `combo` key restores exactly as it did before.
         db.run(
-          `INSERT OR REPLACE INTO requestDetails(id, timestamp, provider, model, connectionId, status, data) VALUES(?, ?, ?, ?, ?, ?, ?)`,
-          [rd.id, rd.timestamp, rd.provider ?? null, rd.model ?? null, rd.connectionId ?? null, rd.status ?? null, stringifyJson(rd.data ?? {})]
+          `INSERT OR REPLACE INTO requestDetails(id, timestamp, provider, model, connectionId, status, data, combo) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
+          [rd.id, rd.timestamp, rd.provider ?? null, rd.model ?? null, rd.connectionId ?? null, rd.status ?? null, stringifyJson(rd.data ?? {}), rd.combo ?? null]
         );
       }
     }
