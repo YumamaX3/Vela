@@ -56,12 +56,32 @@ export async function setUsageWatermark(id) {
 
 /** One bounded batch of usageHistory rows BEYOND the watermark, id-ordered.
  *  S3: the legacy plaintext apiKey column is never selected — it cannot cross
- *  to the twin (the twin's writer writes NULL there by law). */
+ *  to the twin (the twin's writer writes NULL there by law).
+ *
+ *  v0.9.44 (milestone 0.6, LIVE-C): the Observatory telemetry columns and combo
+ *  attribution ARE selected now. They were simply absent from this list while
+ *  `apiKey` above is a DELIBERATE, documented exclusion — one exclusion is a
+ *  designed law, five riding along unannounced was negligence. The live writer
+ *  (usageRepo.js:396) inserts all nineteen; the twin's columns exist because
+ *  migration 008/015 declared them in TABLES and mysql/bootstrap.js's additive
+ *  diff heals the twin on every boot. With them missing here, the twin's five
+ *  columns were permanently NULL — and because `usageHistory` is absent from
+ *  FINGERPRINT_TABLES (the set holds exactly six keys), NO sweep could detect it.
+ *
+ *  Two column-specific laws, both honoured by the apply seam:
+ *   - latencyMs / ttftMs / httpStatus keep NULL when the caller had no signal.
+ *     NULL means "unmeasured"; 0 would mean "measured as instant" (usageRepo.js:12
+ *     — "never 0-faked"). So these transfer as-is, never coalesced to 0.
+ *   - statusClass is NEVER NULL: '' is the normalized unknown (migration 008:91
+ *     seals it with `UPDATE … SET statusClass = '' WHERE statusClass IS NULL`,
+ *     and deriveStatusClass returns '' on every path including its catch).
+ */
 export async function fetchUsageBatch(afterId, batchSize) {
   const db = await getAdapter();
   return db.all(
     `SELECT id, timestamp, provider, model, connectionId, keyId, keyPrefix,
-            endpoint, promptTokens, completionTokens, cost, status, tokens, meta
+            endpoint, promptTokens, completionTokens, cost, status, tokens, meta,
+            latencyMs, ttftMs, httpStatus, statusClass, combo
      FROM usageHistory WHERE id > ? ORDER BY id ASC LIMIT ?`,
     [afterId, batchSize]
   );
