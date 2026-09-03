@@ -809,6 +809,16 @@ export async function checkAllPools({ autoDisable = false, concurrency = null } 
       alive: results.filter(r => r.verdict === "alive").length,
       dead: results.filter(r => r.verdict === "dead").length,
       indeterminate: results.filter(r => r.verdict === "indeterminate").length,
+      // v0.9.44 (milestone 0.6, LIVE-B): the per-pool detail this array already
+      // held at :794 but never returned. Returning it is what lets
+      // `bulk-health/route.js` delegate instead of carrying a second copy of
+      // this loop — the copy that had drifted into deactivating pools on
+      // `!result.ok` (no indeterminate bucket, plus an N+1 re-fetch of a row the
+      // caller already held). The defect class was duplication, so the repair
+      // removes the second copy rather than fixing it. The scheduler at :716
+      // discards this return value entirely, so widening the shape is inert
+      // there.
+      results,
     };
   } catch (err) {
     console.warn("[proxyFleet] checkAllPools failed:", err.message);
