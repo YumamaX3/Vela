@@ -25,6 +25,136 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.44 — The Downstream Wounds 🩸
+
+> *"The hull was mended and the lifeboat proven — but the bilge was still taking water. This tide
+> follows the leak downstream of the repairs, to the places the fix never reached: a proxy scheme
+> that silently bypassed itself, a health loop that had forked and rotted alone, and six columns
+> that every transfer path agreed to forget."*
+
+**⚙️ The decree (Proxy Fleet Rebirth, milestone 0.6):** Wave 0 (v0.9.42) healed the proxy fleet's
+*engine* and milestone 0.5 (v0.9.43) proved its *restore*. Then six re-run research streams were
+folded back into the design of record and found **three classes of wound living downstream of both
+repairs** — each *actively wrong in production today*, which is the exact bar Wave 0 itself was
+defined by. The Star cut them their own minor rather than folding them into Security Closure or
+waiting for their natural milestones. A fourth item — the docs-site build blocker — rode along
+because it was one line and was blocking milestone 6.
+
+**🩸 LIVE-A — every `socks5://` pool was broken, twice over.**
+Both dispatcher construction sites passed `new Socks5ProxyAgent({ uri: normalized })`, but undici's
+signature is `(proxyUrl, options = {})` and it does `typeof proxyUrl === 'string' ? new URL(proxyUrl)
+: proxyUrl` — so an object reaches the protocol check with `url.protocol === undefined` and throws
+`InvalidArgumentError` at **construction**, before any socket opens. Proven empirically against the
+installed undici 7.29.0, not inferred. The throw then did two different kinds of damage depending on
+which site caught it:
+
+- In `proxyFetch.js`, the catch fell back to **DIRECT** unless `strictProxy` was set — a *silent
+  egress bypass* of the operator's own proxy.
+- In `proxyTest.js`, the throw became `{ ok:false, status:400 }` — and **400 is inside**
+  `DETERMINISTIC_FAILURE_STATUSES`, so `classifyProbeVerdict` returned `"dead"` and the health sweep
+  disabled every socks5 pool, replicating the disable to the live MariaDB twin. A **per-scheme
+  self-liquidation** that Wave 0's `indeterminate ≠ dead` law could not catch, because the status
+  wore a deterministic mask.
+
+The bug looked plausible because the `ProxyAgent` sibling branch *genuinely* takes `{ uri }`. Two
+dispatchers, two different constructor conventions — the fix passes the URL positionally at both
+sites and asserts the asymmetry in a test, so a future reader "tidying up" the branches to match
+cannot reintroduce it.
+
+**🩸 LIVE-B — `bulk-health` had forked the health loop before v0.9.42 and never adopted the repair.**
+`checkAllPools` is fully correct: it gates `autoDisable` on `verdict === "dead"`, counts all three
+states, uses dynamic concurrency, passes the row to avoid an N+1, and races the disable against a
+timeout. This route kept its own **pre-v0.9.42 copy** and had all three defects Wave 0 had removed
+from the engine:
+
+| # | Defect | Consequence |
+|-|-|-|
+| B1 | `if (autoDisable && !result.ok)` | deactivated a pool on a timeout, a 5xx, or a throw in the probe's own path — the exact mechanism that once emptied the whole fleet |
+| B2 | no `indeterminate` bucket | three states collapsed to two, so an indeterminate probe was *reported* as dead |
+| B3 | `checkPoolHealth(pool.id)` | re-fetched a pool row the route already held — an N+1 across the fleet |
+
+**The defect class was duplication, so the repair removes the second copy rather than fixing it.**
+`checkAllPools` now returns the per-pool `results` array it had always built internally but discarded,
+and the route is a thin pass-through — one loop, one law, no way to diverge again. The endpoint has
+zero callers today (it is wired in a later milestone), so its payload gained the honest
+`indeterminate` count and its `concurrency` default moved from a pinned `4` to `null`, letting the
+engine's dynamic `min(16, max(4, ceil(N/50)))` apply — the value the 5-minute scheduler has always
+used. An engine returning `null` (total failure) is now a loud **500**, never an empty 200 that reads
+as "the fleet is healthy".
+
+**🩸 LIVE-C — five `usageHistory` columns were dropped by every transfer path.**
+Migrations 008 (`latencyMs`, `ttftMs`, `httpStatus`, `statusClass`) and 015 (`combo`) added the five
+to `TABLES`, so the live writer inserts all **nineteen** columns and `mysql/bootstrap.js`'s additive
+diff gives the twin the columns on every boot. But every path that *moves* rows carried fourteen:
+the resync SELECT, the resync INSERT, and both engines' backup export and restore import. The twin's
+five columns were permanently NULL, and **backup → restore lost them too** — the loss was not
+twin-only. `usageHistory` is absent from `FINGERPRINT_TABLES`, so **no divergence sweep could ever
+detect it.**
+
+The omission looked intentional because it sits one line below a *deliberate* exclusion: `apiKey` is
+banned from artifacts by law, and the resync seam's own comment names it. One documented exclusion is
+a designed law; five more riding along unannounced next to it is negligence wearing the law's coat.
+Both column laws were read from source rather than guessed — `latencyMs`/`ttftMs`/`httpStatus`
+transfer as **NULL, never 0-faked** (NULL means *unmeasured*; 0 would fabricate an instant request,
+and the Observatory's latency buckets aggregate on it), while `statusClass` transfers as **`''`, never
+NULL** (migration 008 seals `''` as the normalized unknown and `idx_uh_ts_status` aggregates on the
+column).
+
+**🩸 LIVE-D — `requestDetails.combo`, found by tracing rather than by reading a summary.**
+Migration 015 added `combo` to `requestDetails` "in parity with `usageHistory.combo` so both ledgers
+tell the same story", and the live writer inserts 8 columns and even updates `combo` in its
+`ON CONFLICT` clause — but both engines' export emitted **7** and both restores inserted **7**. Same
+negligence class, same migration, adjacent table. **No research stream reported this one.** It
+surfaced while checking a *different* claim, which is the argument for tracing paths rather than
+accepting summaries.
+
+**🧪 Proof — 43 new tests across three storms, every one mutation-tested.**
+
+| Storm | Tests | What it proves |
+|-|-|-|
+| `proxy-storm-socks5-construction` | 12 | the undici constructor contract against **real** undici — deliberately no `vi.mock` — plus that a socks5 probe now classifies `indeterminate`, never `dead` |
+| `proxy-storm-bulk-health-delegation` | 20 | the route **delegates**: it never lists pools, never writes a pool, forwards `autoDisable` as intent rather than acting on it, and fails loud on a null engine |
+| `proxy-storm-transfer-column-fidelity` | 11 | a real **write → export → DESTROY → import → read** round-trip of all six columns through both ledgers, plus the resync seam |
+
+Every assertion was mutation-tested: **13 mutations, 13 red** on the predicted assertions, each
+followed by a byte-identical `git diff` restore proof. The socks5 storm exists because Wave 0's own
+storms were blind to LIVE-A — they mocked undici with a permissive stand-in and then asserted
+`toBeInstanceOf` against *the mock's own class*, a self-fulfilling assertion that stayed green while
+every socks5 pool in production was broken. This storm uses the real dependency against a closed
+local port: hermetic (~1s), and discriminating, because every assertion has a different value before
+and after the fix.
+
+The round-trip is the stronger of the two LIVE-C/D proofs and it subsumes a column count: a
+column/placeholder mismatch **throws at runtime**, so writing real SQL against a real adapter means
+sqlite itself validates the counts. All six INSERT sites were also parsed and checked directly —
+`cols = placeholders + literal NULLs` and `binds = placeholders` at every one (20/19/1 ×3, 8/8/0 ×2).
+
+**🔬 A schema claim proved empirically rather than trusted.** `schema.js` asserts `combo` is never part
+of the `uq_uh_dedupe` identity. The test suite's first draft inserted two otherwise-identical rows and
+sqlite refused the second, naming the seven-column identity — `combo` was not in it. The failure *is*
+the evidence.
+
+**📖 The docs-site build blocker, healed.** `gitbook/components/LanguageSwitcher.js` had two undefined
+symbols — `useEffect` was never imported (the file imported `useLayoutEffect`) and `setMounted` was
+called but never declared. The "hydration guard" it belonged to guarded nothing: the `createPortal`
+renders under `{open && …}` with `open` initialising `false`, so server and first-client render both
+emit nothing and cannot mismatch. CI's "Build static export" step is now green. **Publishing still
+cannot happen** — `GH_PAGES_DEPLOY_KEY` is unset and the Pages repository 404s, both owed to the
+operator rather than to the code.
+
+**🧭 What this deliberately does NOT do.** `usageHistory` still has no divergence fingerprint (that is
+milestone 3's registration work — the columns transfer now, but a future drift in that table stays
+invisible). `export` and `probe` under `/api/proxy-pools` remain permanently broken as written and are
+out of scope. The undici floor stays at 7.x: LIVE-A fixed the *call shape*, not the CVE-motivated
+7.29.0 → 8.10.1 assessment or defect #5704 (socket leak on negotiation timeout, unfixed on all 7.x
+with zero backports).
+
+⚓ **Files:** `open-sse/utils/proxyFetch.js` · `src/lib/network/proxyTest.js` · `src/lib/network/proxyFleet.js` · `src/app/api/proxy-pools/bulk-health/route.js` · `src/lib/db/repos/{sqlite,mysql}/backupRepo.js` · `src/lib/db/repos/{sqlite,mysql}/usageResyncRepo.js` · `gitbook/components/LanguageSwitcher.js` · 3 new storms + storm 1's widened shape assertion
+🧪 **Proof:** 43 new tests, 13 mutations all red, blast-radius diff against a HEAD worktree = **zero newly-broken**; build green with `bulk-health` compiled as a dynamic route
+🌊 **Gate discipline:** measured by an explicit file list — `npx vitest run -c tests/vitest.config.js tests/unit/proxy-storm-*.test.js` → *the runner is the authority on the count*, never a grep (`it.each` expands at runtime). No milestone gate in this rebirth ever says "full suite green": 13 pre-existing failures across 5 files are owed a triage tide and were **not** re-baselined to make this one pass.
+
+---
+
 # v0.9.43 — The Proven Restore 🛟
 
 > *"A lifeboat nobody has ever lowered is a decoration. This tide lowers it — into a scratch harbor, with the live ship untouched — and proves it comes back up carrying everyone aboard."*
