@@ -1,7 +1,7 @@
 // Usage Observatory W4-B — GET /api/usage/metrics/insights
 // The Lookout's feed: the signal registry (usageInsights.js) evaluated over
 // the SAME window + census the decks look at. Reads inherit dashboardGuard's
-// JWT-or-requireLogin (PROTECTED_API_PATHS "/api/usage" prefix).
+// JWT-or-requireLogin (its deny-by-default "/api/*" branch).
 // Column guards ride the evaluator: every signal demands a minimum sample
 // before it may speak; a quiet window returns an honest empty list.
 import { NextResponse } from "next/server";
