@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { cn } from "@/shared/utils/cn";
+import { useScrollLock } from "@/shared/hooks/useScrollLock";
 import Button from "./Button";
 import Tooltip from "./Tooltip";
 
@@ -24,14 +25,12 @@ export default function Modal({
     full: "max-w-4xl",
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => { document.body.style.overflow = ""; };
-  }, [isOpen]);
+  // Was an inline `document.body.style.overflow = "hidden" / ""` effect identical
+  // to the one in Drawer.js. A blind unlock means the LAST layer to close released
+  // the page even while another was still open — reachable because
+  // NineRemotePromoModal is mounted from Sidebar.js:324 and so sits on every
+  // dashboard page. Now ref-counted across all three overlays.
+  useScrollLock(isOpen);
 
   useEffect(() => {
     const handleEscape = (e) => {
