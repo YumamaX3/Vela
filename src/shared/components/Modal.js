@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import { cn } from "@/shared/utils/cn";
 import { useScrollLock } from "@/shared/hooks/useScrollLock";
+import { useFocusTrap } from "@/shared/hooks/useFocusTrap";
 import Button from "./Button";
 import Tooltip from "./Tooltip";
 
@@ -32,6 +33,18 @@ export default function Modal({
   // dashboard page. Now ref-counted across all three overlays.
   useScrollLock(isOpen);
 
+  // Modal had no focus handling at all, so a keyboard user could Tab out of an
+  // open dialog into the page behind it and activate controls they could not see.
+  // It also made the scroll-lock bug reachable: with no trap, tabbing to the
+  // sidebar opened NineRemotePromoModal (mounted from Sidebar.js:324, present on
+  // every dashboard page), and closing it unlocked the page behind this Modal.
+  const { ref: panelRef } = useFocusTrap(isOpen);
+
+  // useId, not a constant: ConfirmModal renders a Modal, and a page can render a
+  // ConfirmModal beside a plain Modal, so a hardcoded aria-labelledby target
+  // would point both dialogs at the same heading.
+  const titleId = useId();
+
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === "Escape" && isOpen) onClose();
@@ -44,16 +57,21 @@ export default function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Overlay */}
+      {/* Overlay — aria-hidden because the content div carries the dialog role */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-[2px] fade-in"
         onClick={closeOnOverlay ? onClose : undefined}
+        aria-hidden="true"
       />
 
       {/* Modal content */}
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
         className={cn(
-          "relative w-full bg-surface",
+          "relative w-full max-w-full bg-surface",
           "border border-border-subtle",
           "rounded-[14px] shadow-[var(--shadow-elev)]",
           "fade-in",
@@ -83,7 +101,7 @@ export default function Modal({
                 </div>
               )}
               {title && (
-                <h2 className="text-lg font-semibold text-text-main">{title}</h2>
+                <h2 id={titleId} className="text-lg font-semibold text-text-main">{title}</h2>
               )}
             </div>
             {/* X button — mobile only */}
@@ -92,7 +110,7 @@ export default function Modal({
               aria-label="Close"
               className="md:hidden p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors"
             >
-              <span className="material-symbols-outlined text-[20px]">close</span>
+              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">close</span>
             </button>
           </div>
         )}
