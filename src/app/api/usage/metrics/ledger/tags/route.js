@@ -1,7 +1,7 @@
 // Usage Observatory W4-C — PUT /api/usage/metrics/ledger/tags
 // The ledger's annotation surface: REPLACE the full tag set on one
 // usageHistory row. Reads inherit dashboardGuard's JWT-or-requireLogin
-// (PROTECTED_API_PATHS "/api/usage" prefix) — consistent with every ledger
+// (its deny-by-default "/api/*" branch) — consistent with every ledger
 // sibling (a tag writes about an observed request, so it rides the same
 // posture as the read surface; nothing here escalates).
 //

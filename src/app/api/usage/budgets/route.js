@@ -1,9 +1,10 @@
 // Usage Observatory W3-A — /api/usage/budgets — the budget-definition surface.
 //
-// Protection: the dashboardGuard middleware covers the whole "/api/usage"
-// prefix (PROTECTED_API_PATHS) — posture-consistent with every other usage
-// config surface (phase13 Gate-11 decision: config rides the same posture as
-// the reads; only the unbounded export stream escalates).
+// Protection: the dashboardGuard middleware covers every "/api/*" path by
+// default (its deny-by-default branch: JWT or local CLI token, and it passes
+// on requireLogin===false) — posture-consistent with every other usage config
+// surface (phase13 Gate-11 decision: config rides the same posture as the
+// reads; only the unbounded export stream escalates, via ALWAYS_PROTECTED).
 //
 // Addressing: budget ids carry ":" and (for model scope) "/" — e.g.
 // "model:openai/gpt-4o". Path-segment routes would meet the encoded-slash

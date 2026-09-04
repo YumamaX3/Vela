@@ -3,8 +3,8 @@
 // usageAggregation.js (healthTimelineImpl): ≤3d an exact usageHistory scan
 // bucketed by LOCAL day (the rollup writer's own key convention), 7d+ the
 // usageDaily.statusByProvider rollup — O(days), never O(rows). Reads inherit
-// dashboardGuard's JWT-or-requireLogin (PROTECTED_API_PATHS "/api/usage"
-// prefix) like every metrics sibling. The identifier covenant rides
+// dashboardGuard's JWT-or-requireLogin (its deny-by-default "/api/*" branch)
+// like every metrics sibling. The identifier covenant rides
 // parseFilters/parsePeriod — unknown values become an honest 400.
 import { NextResponse } from "next/server";
 import { getHealthTimeline } from "@/lib/usageDb";

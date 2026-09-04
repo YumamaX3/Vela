@@ -1,8 +1,9 @@
 // Usage Observatory W3-D — /api/usage/digest — preview the weekly digest.
 //
-// Protection: the dashboardGuard middleware covers the whole "/api/usage"
-// prefix (PROTECTED_API_PATHS) — posture-consistent with every other usage
-// read surface. Read-only: builds the digest shape from the ledger without
+// Protection: the dashboardGuard middleware covers every "/api/*" path by
+// default (its deny-by-default branch: JWT or local CLI token, and it passes
+// on requireLogin===false) — posture-consistent with every other usage read
+// surface. Read-only: builds the digest shape from the ledger without
 // sending it and without touching the once-per-week marker.
 //
 //   GET /api/usage/digest — { enabled, status, digest } for the config card's
