@@ -25,6 +25,135 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.46 — The Mended Rule 🧭
+
+> *"An operator writes a fallback rule, saves it, and the harbor quietly ignores it — five minors
+> running. Not a crash, not a warning in the dashboard: one missing `await`, and a guard that could
+> never fire because a Promise is truthy. The log line said `a.all is not a function`, and the cause
+> was nowhere near the log line."*
+
+**🐛 The wound (Seam 2, operator combo fallback rules — broken since v0.9.16).**
+`src/lib/db/repos/bindFallbackRules.js` called `getAdapter()` **without `await`**. `getAdapter` is
+declared `async` in `src/lib/db/driver.js`, so `db` held a Promise instead of an adapter. Three
+consequences stacked:
+
+1. **The documented fail-open was dead code.** The module's own header promised *"any adapter
+   failure returns a null repo"* — but `if (!db) return null` cannot catch a Promise, because a
+   Promise is truthy. The promise was unfulfillable from the day it was written.
+2. **The repo looked correctly shaped, so nothing upstream could notice.** `combo.js` gates on
+   `typeof repo.getRulesForSourceModel === "function"`, which passed. The throw happened later and
+   further away — inside `sqlite/fallbackRulesRepo.js`'s `db.all(sql, params)` — where the combo
+   engine's catch swallowed it into `[WARN][combo] fallback-rules lookup failed, using hardcoded
+   defaults`. Observed live on 2026-09-02 as **`a.all is not a function`** (`db`, minified).
+3. **It was cached forever.** `repoCache` is module-level, so the broken binding persisted for the
+   process lifetime after the first request.
+
+Net effect: **operator-defined combo fallback rules never once applied**, in production, across
+v0.9.16 → v0.9.45. Combos fell back through hardcoded rotation only.
+
+**🔧 The fix.** The binder is now `async` and awaits the adapter; all five call sites await it
+(`src/sse/handlers/chat.js`, `tts.js`, `search.js`, `imageGeneration.js`, `fetch.js` — every one
+verified to sit inside an `export async function`). Three properties repaired alongside the
+`await`, because the `await` alone would have left the contract half-true:
+
+| Property | Before | After |
+|-|-|-|
+| Fail-open | dead code — a Promise passed the null guard | **real** — the adapter's shape is asserted at bind time, so a malformed adapter returns `null` *here*, named, instead of throwing later inside the twin |
+| Failed binds | n/a | **not memoized** — only a successful bind caches, so a first request racing adapter init does not disable rules for the process lifetime |
+| Warning | once per failed request | **latched** — one per process |
+
+The assertion checks only what the two bound paths actually use (`db.all`); `getFallbackRuleById`
+uses `db.get` but is **not** bound here, so asserting `.get` would have refused to bind over a defect
+that cannot reach these closures. Recorded in-source so the next keeper narrows rather than widens.
+
+**🧪 Proof — a real adapter, not a mock.** `tests/unit/fallback-rules-seam.test.js` stayed green
+through all five broken minors, and its own header is why: it claimed *"S4. The bindFallbackRules
+helper returns a repo-shaped object or null"* while S4's body was `describe("S4: no repo passed…")`
+and never imported the binder. Every suite handed `handleComboChat` a **literal** repo object — the
+consumer was proven, the producer never touched by any test in the repo. That header is corrected
+here rather than left to mislead.
+
+The new `tests/unit/bind-fallback-rules.test.js` drives a **real migrated adapter** against a real
+`fallbackRules` table, inserts real rows through the real repo, and asserts real results — because a
+permissive mock is exactly what made this invisible. 11 tests, mutation-proven in three directions:
+
+| Mutation | Result |
+|-|-|
+| drop the `await` (recreate v0.9.16) | **8 of 11 red** |
+| remove the shape assertion | **1 red** — precisely the malformed-adapter test |
+| cache the failed bind | **2 red** — the retry test and the memoization test |
+
+Blast radius over an explicit 17-file storm list (every suite touching the five handlers, `combo.js`,
+or fallback rules): **2 failures, identical to pristine HEAD** — `force-stream-config.test.js`, a
+pre-existing partial-mock defect (`No "formatHeadroomSizeLog" export is defined on the headroom.js
+mock`), proven failing the same way with my changes stashed. A third case in that file
+(`only openai/codex/commandcode force streaming`) flips between runs **within an identical tree** —
+measured at 2, 3, 2 failures over three consecutive runs of the same composition, so it is
+run-dependent and not attributable to this change. `npm run build` exits 0.
+
+**⚠️ Characterized, not fixed — a second wound behind the first.**
+`getRulesForSourceModel` rewrites wildcards as `sourceModel.replace(/\*/g, '%')` then queries with
+the **`GLOB`** operator. `%` is `LIKE` syntax; to SQLite's `GLOB` a `%` is a *literal percent
+character*. Probed directly against `better-sqlite3`, not inferred:
+
+```
+❌ NO HIT   GLOB 'combo/%'          ← what the code produces
+✅ MATCH    GLOB 'combo/*'          ← what the code meant
+✅ MATCH    GLOB 'combo/flagship'   ← exact
+✅ MATCH    LIKE 'combo/%'          ← contrast: % IS a LIKE wildcard
+```
+
+So a wildcard rule can **never** match — exact `sourceModel` values work, `combo/*` returns zero
+rows. Pre-existing since migration 012 and orthogonal to the `await` fix, so it is **pinned as a
+characterization test** (`B5`) asserting today's wrong behavior, and reported rather than silently
+widened into a hotfix: fixing it *changes* behavior, making rules that never fired start firing.
+When it is fixed, invert those two assertions in the same commit.
+
+**📖 Also recorded:** the `fallbackRules` table is born of migration **012** with its v2 columns
+(`triggerType`, `conditionOp`, `conditionVal`, `targetModels`, `cooldownSkip`) from migration
+**014** — and it is **not** declared in `schema.js`'s `TABLES`, so the additive sync cannot supply
+those columns. The versioned chain must run. The test harness documents this so a future reader does
+not assume `TABLES` covers every table.
+
+**⚖️ A correction to v0.9.45's own log — `npm audit` is not 0.**
+The previous entry claimed, at line 144 and in its §5.6 prose, that `npm audit` reports **0
+vulnerabilities**. It does not, and did not when that entry was written. Measured against
+v0.9.45's *own committed lockfile*, extracted with `git show v0.9.45:package-lock.json` into a
+scratch directory and audited untouched by this tide:
+
+```
+metadata.vulnerabilities: {info:0, low:0, moderate:4, high:0, critical:0, total:4}
+  dompurify      moderate  <=3.4.12                        (via monaco-editor)
+  monaco-editor  moderate  0.54.0-dev-20250909-0.56.0-dev  DIRECT dependency
+  qs             moderate  2.2.5 - 6.15.3                  (via express → body-parser)
+  @xmldom/xmldom moderate  <=0.8.14
+```
+
+The cause was a **scope error, not a fabrication**: §5.6's evidence was a synthetic
+`undici@7.27.0 → 7.29.0` install in a scratch directory, where the audit genuinely read 0. That
+result was then written as a repo-wide claim. The scratch install proved the undici floor closed
+GHSA-vmh5-mc38-953g — which it does, and the §5.6 *decision* stands — but it could not and did not
+say anything about the other packages in the tree. Both places in v0.9.45's CHANGELOG now carry the
+correction inline rather than being silently rewritten, so the false reading stays checkable.
+
+**Why this is not fixed here.** The advisory publication dates predate the v0.9.45 commit
+(2026-09-04): dompurify's newest is **2026-08-07**, qs ×2 and xmldom are all **2026-09-02**. So this
+tide introduced none of them. And `npm audit fix` changes nothing — `added:0 removed:0 changed:0` —
+because the only real fix is `monaco-editor 0.55.1 → 0.56.0`, which npm flags
+`isSemVerMajor: true`. Clearing these four means a **major bump of a direct dependency** (the
+dashboard's code editor, pulling dompurify and xmldom with it), which is blast radius far beyond a
+one-line await. It is owed to its own tide, deliberately and by name, rather than folded into a
+hotfix where it would ride unreviewed.
+
+One discrepancy worth recording because it misleads anyone auditing by hand: `npm ls qs` reports
+**6.16.0** while both the lockfile and `node_modules/qs/package.json` pin **6.15.3**. The advisory
+reads the lockfile, so 6.15.3 is the truth and the installed tree is behind. `npm ci` would install
+6.15.3, not 6.16.0.
+
+Co-authored-by: Shiori Shorekeeper <shiorishorekeeper@gmail.com>
+
+---
+
 # v0.9.45 — The Sealed Hatches 🔐
 
 > *"Every opening the proxy fleet left in its hull is now a hatch with a bolt on it. Not patched from
@@ -47,7 +176,7 @@ removed the guard and watched a test go red.
 | **Egress header fence** 🚧 | §5.3 | `x-9r-*` internals travelled to third-party hosts | 18 tests · **11/11 mutations** |
 | **Read-boundary redaction** 🎭 | §5.4 | proxy credentials in plaintext, in responses *and* errors | 42 + 15 tests · **8/8 mutations both directions** |
 | **SSRF gate** 🛡️ | §5.5 | a pool URL pointed anywhere, including `169.254.169.254` | 34 tests · **16/16 mutations** |
-| **Dependency floor** 📦 | §5.6 | a fresh install could ship a TLS-validation bypass | `npm audit` 0 vulnerabilities |
+| **Dependency floor** 📦 | §5.6 | a fresh install could ship a TLS-validation bypass | undici pinned `^7.29.0`, clearing GHSA-vmh5-mc38-953g (synthetic 7.27.0 → 7.29.0 probe) · ⚠️ **the repo-wide audit is NOT 0 — see the v0.9.46 correction** |
 
 **🔑 §5.2 — the relay fleet was an open-proxy farm, and the fix is a protocol version.**
 Every relay Vela ever deployed to Deno, Cloudflare, or Vercel was **publicly reachable and
@@ -153,8 +282,11 @@ The floor exists to close a CVE, and the ADR put it **below** the CVE. Probed ag
 `undici@7.27.0` install: advisory **GHSA-vmh5-mc38-953g**, *"TLS certificate validation bypass via
 dropped `requestTls` in SOCKS5 ProxyAgent"*, severity **high**, affected range **`7.0.0 - 7.28.0`**.
 The ADR's target `^7.28.0` sits *inside* that range — encoding it would have shipped a green gate
-over a live TLS bypass on the exact path this milestone guards. **Shipped `^7.29.0`**, where
-`npm audit` reports **0 vulnerabilities**. 7.29.0 is also the ceiling of the published 7.x line, so
+over a live TLS bypass on the exact path this milestone guards. **Shipped `^7.29.0`**, which clears
+that advisory — proven on a synthetic `undici@7.27.0 → 7.29.0` install, where the audit read **0
+vulnerabilities**. ⚠️ **Correction, recorded in the v0.9.46 entry: that 0 was the scratch install's
+count, not this repository's.** A repo-wide `npm audit` against v0.9.45's own committed lockfile
+reports **4 moderate**, every one published before that commit was made. 7.29.0 is also the ceiling of the published 7.x line, so
 the range resolves to exactly one version with no drift room and does not cross into 8.x — that
 assessment stays owed before milestone 4.
 
