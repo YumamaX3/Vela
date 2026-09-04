@@ -137,6 +137,16 @@ async function buildVirtualNoAuthConnection(providerId) {
       connectionProxyPoolId: resolvedProxy.proxyPoolId || null,
       vercelRelayUrl: resolvedProxy.vercelRelayUrl || "",
     },
+    // §5.2d — the relay secret travels TOP LEVEL, deliberately outside the
+    // providerSpecificData block directly above it. That block is persisted:
+    // updateProviderCredentials spreads providerSpecificData wholesale into the
+    // connections row (tokenRefresh.js:177-182), reached from mergedCreds
+    // (tokenRefresh.js:244). A secret stamped there would land plaintext in a
+    // second table, unredacted — §5.2b's whole design undone on a different blob.
+    // Top-level keys are transient: the same function reads only eleven named ones
+    // and relayAuth is not among them, and maskConnectionForRead deletes it.
+    relayAuth: resolvedProxy.relayAuth || "",
+    relayVersion: resolvedProxy.relayVersion || 1,
   };
 }
 
@@ -307,6 +317,12 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
         connectionProxyPoolId: resolvedProxy.proxyPoolId || null,
         vercelRelayUrl: resolvedProxy.vercelRelayUrl || "",
       },
+      // §5.2d — TOP LEVEL, not inside the providerSpecificData block above, for the
+      // persistence reason documented at the noauth credential's stamping site
+      // (:133). This is the credential chatCore reads, so it is the one that carries
+      // a relay secret onto the live request path.
+      relayAuth: resolvedProxy.relayAuth || "",
+      relayVersion: resolvedProxy.relayVersion || 1,
       connectionId: connection.id,
       // Include current status for optimization check
       testStatus: connection.testStatus,
