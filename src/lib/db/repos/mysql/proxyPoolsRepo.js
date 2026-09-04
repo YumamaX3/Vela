@@ -72,6 +72,15 @@ export async function createProxyPool(data) {
     testStatus: data.testStatus || "unknown",
     lastTestedAt: data.lastTestedAt || null,
     lastError: data.lastError || null,
+    // §5.2 — relay auth, mirrored from the sqlite twin. Both ride the `data` blob,
+    // so the additive bootstrap.js diff carries them without a versioned migration
+    // (the mysql harbor NEVER runs versioned migrations). Listed explicitly because
+    // createProxyPool builds a literal and DROPS unnamed keys, unlike
+    // updateProxyPool below which merges. relayVersion defaults to 1, never 2:
+    // every relay already deployed was built from the v1 body that forwards ALL
+    // headers, and a caller sends x-relay-auth only at relayVersion >= 2.
+    relayToken: data.relayToken ?? null,
+    relayVersion: data.relayVersion ?? 1,
     createdAt: now,
     updatedAt: now,
   };

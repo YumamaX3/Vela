@@ -38,7 +38,17 @@ export const SECRET_SETTING_KEYS = [
  *  must never leave the database in a PLAINTEXT export (the data blob the
  *  connectionsRepo round-trips; evidence: connectionsRepo OPTIONAL_FIELDS +
  *  src/lib/oauth/providers/* mapTokens, which persist accessToken/refreshToken/
- *  idToken/apiKey onto the connection row). */
+ *  idToken/apiKey onto the connection row).
+ *
+ *  Despite the CONNECTION_ name this set also governs proxyPools: the walk at
+ *  redactSecretConnectionData is applied to BOTH data blobs (see
+ *  sqlite/backupRepo.js:70 and :75, and the mysql twin at :37 and :42). §5.2's
+ *  relayToken is a proxy-pool field that lives here for exactly that reason —
+ *  measured, not assumed: a probe of this walk with a realistic relay pool blob
+ *  returned the token verbatim before it was added, because a 43-char opaque
+ *  token carries no userinfo and so URL_USERINFO_RE never fires on it. The name
+ *  is now narrower than the set's reach; renaming it would touch every importer
+ *  for no behavioural gain, so the reach is documented instead. */
 export const CONNECTION_SECRET_FIELDS = [
   "apiKey",
   "accessToken",
@@ -46,6 +56,17 @@ export const CONNECTION_SECRET_FIELDS = [
   "idToken",
   "token",
   "password",
+  // §5.2 — the per-pool relay bearer secret. Rides proxyPools.data, is minted at
+  // deploy, and is delivered to a platform secret store that is write-only on all
+  // three platforms (Vercel "sensitive" is never decryptable; Cloudflare's
+  // GET …/secrets returns name+type with the value omitted; Deno omits `value`
+  // when secret:true). So this row is the ONLY readable copy — which is also why
+  // it must never leave in a plaintext export.
+  //
+  // relayVersion is deliberately NOT here: it is a protocol marker, not a secret,
+  // and a restore that dropped it would silently re-allow a v1 relay to receive a
+  // token it would then forward upstream.
+  "relayToken",
 ];
 
 /** S2 — M0 Tag 2: secret fields nested one-or-more levels inside

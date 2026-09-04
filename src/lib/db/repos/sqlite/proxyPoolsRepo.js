@@ -74,6 +74,23 @@ export async function createProxyPool(data) {
     testStatus: data.testStatus || "unknown",
     lastTestedAt: data.lastTestedAt || null,
     lastError: data.lastError || null,
+    // §5.2 — relay auth. Both ride the `data` blob (proxyPools has only 6 real
+    // columns: id/isActive/testStatus/data/createdAt/updatedAt), so NO migration
+    // is needed and the additive bootstrap.js diff carries the twin for free.
+    //
+    // They are listed here explicitly because this function builds a literal and
+    // therefore DROPS any key it does not name — unlike updateProxyPool below,
+    // which merges. A caller passing relayToken to createProxyPool before this
+    // line existed would have lost it silently, with no error anywhere.
+    //
+    // relayVersion defaults to 1, NEVER 2, and that default is load-bearing. Every
+    // relay already deployed in the world was built from the v1 body, which
+    // forwards ALL headers. A caller sends x-relay-auth only when
+    // relayVersion >= 2 — so defaulting to 2 would hand a v1 relay a secret that
+    // it then forwards to the upstream provider. Defaulting to 1 makes the new
+    // field a no-op until a deploy explicitly opts a pool in.
+    relayToken: data.relayToken ?? null,
+    relayVersion: data.relayVersion ?? 1,
     createdAt: now,
     updatedAt: now,
   };

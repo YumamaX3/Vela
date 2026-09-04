@@ -8,9 +8,23 @@ vi.mock("@/lib/localDb", () => ({
   updateProviderConnection: vi.fn(),
 }));
 
-vi.mock("@/lib/network/connectionProxy", () => ({
-  resolveConnectionProxyConfig: vi.fn(),
-}));
+// v0.9.45 §5.2d — quotaAutoPing.js now imports `buildProxyOptionsPayload` alongside
+// `resolveConnectionProxyConfig`. A partial vi.mock makes property ACCESS throw
+// vitest's own `No "X" export is defined on the mock` error, which aborted
+// pingConnection before it reached the resetCache write — so five assertions failed
+// on `undefined` rather than on any behavior change.
+//
+// The builder is pulled in REAL via importOriginal, deliberately NOT stubbed: the
+// point of §5.2d is that all ten proxyOptions sites agree on one shape, and a stub
+// would only prove the stub. Keeping the real one means this suite still exercises
+// the strictProxy:false override the production call passes.
+vi.mock("@/lib/network/connectionProxy", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    resolveConnectionProxyConfig: vi.fn(),
+    buildProxyOptionsPayload: actual.buildProxyOptionsPayload,
+  };
+});
 
 vi.mock("@/app/api/usage/[connectionId]/route.js", () => ({
   refreshAndUpdateCredentials: vi.fn(),
@@ -171,6 +185,46 @@ describe("quota auto-ping", () => {
     expect(deps.updateProviderConnection).toHaveBeenCalledWith("codex-1", expect.objectContaining({
       lastPingedResetAt: "2026-01-01T17:01:00.000Z",
       lastPingedResetKey: "2026-01-01T17:01:00.000Z",
+    }));
+  });
+
+  // v0.9.45 §5.2d — this is the assertion the comment above promises. The cfg
+  // deliberately CONFLICTS with the production call: strictProxy:true stored, relayAuth
+  // and relayVersion carried. If buildProxyOptionsPayload ignored its own override the
+  // first expect would fail; if the secret travelled without its version the pairing
+  // expect would fail. Both are the shapes that a stub would have let pass silently.
+  it("passes the shared proxyOptions payload — strictProxy forced false, relay secret paired with its version", async () => {
+    deps.getSettings.mockResolvedValue({ codexAutoPing: { connections: { "codex-1": true } } });
+    deps.getProviderConnections.mockImplementation(async ({ provider }) => (
+      provider === "codex" ? [{ id: "codex-1", provider: "codex", authType: "oauth", accessToken: "token" }] : []
+    ));
+    state.resetCache["codex:codex-1"] = "2026-01-01T17:00:00.000Z";
+    getCodexUsage.mockResolvedValue({
+      quotas: { session: { used: 1, total: 100, remaining: 99, resetAt: "2026-01-01T17:01:00.000Z" } },
+    });
+    // The conflict: a stored strictProxy:true that the quota ping must override, because
+    // a quota ping degrades to direct rather than failing hard.
+    deps.resolveConnectionProxyConfig.mockResolvedValue({
+      connectionProxyEnabled: true,
+      connectionProxyUrl: "http://203.0.113.7:8080",
+      connectionNoProxy: "",
+      vercelRelayUrl: "",
+      strictProxy: true,
+      relayAuth: "relay-token-abc",
+      relayVersion: 2,
+    });
+
+    await runQuotaAutoPingTick(deps, state);
+
+    const executor = deps.getExecutor.mock.results[0].value;
+    expect(executor.execute).toHaveBeenCalledTimes(1);
+    const callArg = executor.execute.mock.calls[0][0];
+    expect(callArg.proxyOptions).toEqual(expect.objectContaining({
+      connectionProxyEnabled: true,
+      connectionProxyUrl: "http://203.0.113.7:8080",
+      strictProxy: false,          // overridden, NOT the stored true
+      relayAuth: "relay-token-abc", // the secret travels...
+      relayVersion: 2,              // ...paired with its version gate
     }));
   });
 

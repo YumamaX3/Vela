@@ -19,9 +19,18 @@ vi.mock("@/lib/localDb", () => ({
   getProviderConnectionById: mocks.getProviderConnectionById,
 }));
 
-vi.mock("@/lib/network/connectionProxy", () => ({
-  resolveConnectionProxyConfig: mocks.resolveConnectionProxyConfig,
-}));
+// v0.9.45 §5.2d — this route now imports `buildProxyOptionsPayload` too. Partial
+// vi.mocks throw on ACCESS of an unlisted export, so the route bailed before any
+// credential refresh and three assertions saw `undefined`. The builder is pulled in
+// REAL rather than stubbed: a stub could only confirm itself, and the §5.2d claim is
+// that every site agrees on one shape.
+vi.mock("@/lib/network/connectionProxy", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    resolveConnectionProxyConfig: mocks.resolveConnectionProxyConfig,
+    buildProxyOptionsPayload: actual.buildProxyOptionsPayload,
+  };
+});
 
 vi.mock("@/app/api/usage/[connectionId]/route.js", () => ({
   refreshAndUpdateCredentials: mocks.refreshAndUpdateCredentials,
