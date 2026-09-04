@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { cn } from "@/shared/utils/cn";
+import { useScrollLock } from "@/shared/hooks/useScrollLock";
 
 export default function Drawer({
   isOpen,
@@ -19,14 +20,10 @@ export default function Drawer({
     full: "w-full",
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => { document.body.style.overflow = ""; };
-  }, [isOpen]);
+  // Ref-counted with Modal.js and NineRemotePromoModal.js — see useScrollLock for
+  // the unlock-while-open bug this replaces. This effect was byte-for-byte
+  // identical to Modal.js:26-34.
+  useScrollLock(isOpen);
 
   useEffect(() => {
     const handleEscape = (e) => {
