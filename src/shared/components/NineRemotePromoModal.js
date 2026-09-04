@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useScrollLock } from "@/shared/hooks/useScrollLock";
 
 const FEATURES = [
   { icon: "terminal", label: "Terminal", desc: "Full shell access" },
@@ -18,12 +19,20 @@ const BULLETS = [
 const NINE_REMOTE_URL = "https://9remote.cc";
 
 export default function NineRemotePromoModal({ isOpen, onClose }) {
+  // This is the layer that made the stacking bug reachable on EVERY dashboard
+  // page: it is mounted from Sidebar.js:324, and Sidebar is mounted by
+  // DashboardLayout.js:81/90. Closing it used to blind-write overflow = "" and
+  // unlock the page behind a Modal that was still open.
+  useScrollLock(isOpen);
+
+  // Escape semantics preserved exactly: the listener is attached only while open,
+  // matching this component's original early-return shape (Modal and Drawer attach
+  // always and guard inside the handler instead).
   useEffect(() => {
     if (!isOpen) return;
-    document.body.style.overflow = "hidden";
     const onEsc = (e) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", onEsc);
-    return () => { document.body.style.overflow = ""; document.removeEventListener("keydown", onEsc); };
+    return () => { document.removeEventListener("keydown", onEsc); };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
