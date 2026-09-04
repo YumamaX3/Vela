@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getProviderConnections } from "@/lib/localDb";
 import { backfillCodexEmails } from "@/lib/oauth/providers";
 import { USAGE_APIKEY_PROVIDERS, USAGE_SUPPORTED_PROVIDERS } from "@/shared/constants/providers";
+import { maskConnectionProxyForRead } from "@/lib/db/repos/proxyRedaction.js";
 
 const SAFE_FIELDS = [
   "id", "provider", "authType", "name", "email", "displayName",
@@ -38,7 +39,12 @@ function sanitize(c) {
     for (const f of SAFE_PSD_FIELDS) {
       if (c.providerSpecificData[f] !== undefined) psd[f] = c.providerSpecificData[f];
     }
-    safe.providerSpecificData = psd;
+    // §5.4 — the allow-list above deliberately INCLUDES connectionProxyUrl, which
+    // is the same credential class as a proxy pool's url (userinfo embedded).
+    // "Safe to emit" was true of the field NAME; the VALUE still carried the
+    // password. Masking happens after the whitelist so the shape this route
+    // promises is unchanged — only the credential leaves it.
+    safe.providerSpecificData = maskConnectionProxyForRead(psd);
   }
   return safe;
 }

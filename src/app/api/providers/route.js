@@ -9,6 +9,13 @@ import {
 import { APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { AI_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isCustomEmbeddingProvider } from "@/shared/constants/providers";
 import { normalizeProviderId, normalizeProviderSpecificData } from "@/lib/providerNormalization";
+// §5.4 — the read-boundary masker. The same credential class as a proxy pool's
+// url rides providerSpecificData.connectionProxyUrl (proxy-pools/page.js:483
+// builds that url from host:port:user:pass), so it masks on the way out too.
+// One shared function replaces the per-route `delete result.apiKey` copies —
+// this route and [id]/route.js each had their own, and this one set the fields
+// to `undefined` instead of deleting, a third variant of one law.
+import { maskConnectionForRead } from "@/lib/db/repos/proxyRedaction.js";
 
 export const dynamic = "force-dynamic";
 
@@ -66,14 +73,7 @@ export async function GET() {
       const name = isCompatible
         ? (c.name || nodeNameMap[c.provider] || c.providerSpecificData?.nodeName || c.provider)
         : c.name;
-      return {
-        ...c,
-        name,
-        apiKey: undefined,
-        accessToken: undefined,
-        refreshToken: undefined,
-        idToken: undefined,
-      };
+      return maskConnectionForRead({ ...c, name });
     });
 
     return NextResponse.json({ connections: safeConnections });
@@ -185,11 +185,10 @@ export async function POST(request) {
       testStatus: testStatus || "unknown",
     });
 
-    // Hide sensitive fields
-    const result = { ...newConnection };
-    delete result.apiKey;
-
-    return NextResponse.json({ connection: result }, { status: 201 });
+    // Hide sensitive fields — the shared masker, not a hand-rolled delete. The
+    // old copy removed apiKey only, so accessToken/refreshToken/idToken and the
+    // nested connectionProxyUrl all crossed this boundary in plaintext on create.
+    return NextResponse.json({ connection: maskConnectionForRead(newConnection) }, { status: 201 });
   } catch (error) {
     console.log("Error creating provider:", error);
     return NextResponse.json({ error: "Failed to create provider" }, { status: 500 });

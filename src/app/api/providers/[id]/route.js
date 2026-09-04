@@ -5,6 +5,12 @@ import {
   updateProviderConnection,
   deleteProviderConnection,
 } from "@/models";
+// §5.4 — the read-boundary masker. Replaces this route's hand-rolled
+// `delete result.apiKey / accessToken / refreshToken / idToken`, which left
+// providerSpecificData.connectionProxyUrl crossing in plaintext. Server-side
+// dialing is unaffected: testUtils.js reads via getProviderConnectionById, never
+// through this response (proven, not assumed).
+import { maskConnectionForRead } from "@/lib/db/repos/proxyRedaction.js";
 
 function normalizeProxyConfig(body = {}) {
   const hasAnyProxyField =
@@ -69,14 +75,10 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Connection not found" }, { status: 404 });
     }
 
-    // Hide sensitive fields
-    const result = { ...connection };
-    delete result.apiKey;
-    delete result.accessToken;
-    delete result.refreshToken;
-    delete result.idToken;
-
-    return NextResponse.json({ connection: result });
+    // Hide sensitive fields — the shared masker (top-level credentials AND the
+    // nested legacy proxy url), replacing four hand-rolled deletes that missed
+    // providerSpecificData.connectionProxyUrl.
+    return NextResponse.json({ connection: maskConnectionForRead(connection) });
   } catch (error) {
     console.log("Error fetching connection:", error);
     return NextResponse.json({ error: "Failed to fetch connection" }, { status: 500 });
@@ -157,14 +159,11 @@ export async function PUT(request, { params }) {
 
     const updated = await updateProviderConnection(id, updateData);
 
-    // Hide sensitive fields
-    const result = { ...updated };
-    delete result.apiKey;
-    delete result.accessToken;
-    delete result.refreshToken;
-    delete result.idToken;
-
-    return NextResponse.json({ connection: result });
+    // Hide sensitive fields — the shared masker. This was a SECOND hand-rolled
+    // copy of the four deletes inside this one file (GET had its own), which is
+    // how the PUT response kept leaking connectionProxyUrl after a GET-side fix
+    // would have looked complete.
+    return NextResponse.json({ connection: maskConnectionForRead(updated) });
   } catch (error) {
     console.log("Error updating connection:", error);
     return NextResponse.json({ error: "Failed to update connection" }, { status: 500 });
