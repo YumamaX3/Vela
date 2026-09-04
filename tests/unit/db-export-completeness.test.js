@@ -132,8 +132,17 @@ describe("Storage Covenant A3 — export completeness law", () => {
     expect(payload.disabledModels.openai).toEqual(["gpt-4.1"]);
     expect(payload.customModels.length).toBe(1);
 
-    // Provenance header
-    expect(payload._meta.schemaVersion).toBe(10);
+    // Provenance header. schemaVersion is pinned to the LIVE SCHEMA_VERSION constant,
+    // not a hardcoded number: this assertion once read `toBe(10)` and went stale when
+    // migrations 011–015 landed, failing for five minors until §5.5's blast-radius
+    // sweep surfaced it. Comparing against the constant the backup engine itself reads
+    // (backupEngine.js:179/:192 write `schemaVersion: SCHEMA_VERSION`) makes the
+    // assertion follow every future migration automatically — a migration bumps the
+    // constant, and the test stays true without an edit. Dynamic import matches this
+    // file's vi.resetModules() pattern and guarantees the same module instance.
+    const { SCHEMA_VERSION } = await import("@/lib/db/schema.js");
+    expect(SCHEMA_VERSION).toBeGreaterThan(0); // the constant resolved, not undefined
+    expect(payload._meta.schemaVersion).toBe(SCHEMA_VERSION);
     expect(payload._meta.sourceMode).toBe("sqlite");
     expect(payload._meta.sourceDriver).toBeTruthy();
     expect(payload._meta.exportedAt).toBeTruthy();
