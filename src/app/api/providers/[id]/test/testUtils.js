@@ -1,5 +1,5 @@
 import { getProviderConnectionById, updateProviderConnection } from "@/lib/localDb";
-import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
+import { resolveConnectionProxyConfig, buildProxyOptionsPayload } from "@/lib/network/connectionProxy";
 import { testProxyUrl } from "@/lib/network/proxyTest";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
 import { getDefaultModel } from "open-sse/config/providerModels.js";
@@ -452,18 +452,38 @@ async function testOAuthConnection(connection, effectiveProxy = null) {
 }
 
 async function fetchWithConnectionProxy(url, options = {}, effectiveProxy = null) {
-  // Vercel relay: forward via relay URL
+  // Vercel relay: forward via relay URL.
+  //
+  // §5.2d — this branch used to pass ONLY vercelRelayUrl and drop every other field
+  // of the resolved config. That was harmless while the payload carried nothing but
+  // routing, but it would have made a v2 relay untestable through the provider test
+  // path: no relayAuth, so relayAuthHeaders sends no x-relay-auth, so the relay
+  // fail-closes with 401 and the operator sees "connection test failed" against a
+  // relay that is perfectly healthy. The shared builder carries the whole payload.
   if (effectiveProxy?.vercelRelayUrl) {
     const { proxyAwareFetch } = await import("open-sse/utils/proxyFetch.js");
-    return proxyAwareFetch(url, options, {
-      vercelRelayUrl: effectiveProxy.vercelRelayUrl,
-    });
+    return proxyAwareFetch(url, options, buildProxyOptionsPayload(effectiveProxy));
   }
 
   if (!effectiveProxy?.connectionProxyEnabled || !effectiveProxy?.connectionProxyUrl) {
     return fetch(url, options);
   }
 
+  // This branch keeps its hand-built payload DELIBERATELY, and the asymmetry with
+  // the relay branch above is load-bearing rather than sloppiness:
+  //
+  //   • It omits strictProxy. proxyAwareFetch consults strictProxy only on the
+  //     dispatcher path (proxyFetch.js:380/:402), so passing the pool's value here
+  //     would make a strictProxy=true pool fail HARD during a provider test where it
+  //     currently falls back to direct and the test passes. That is a real behaviour
+  //     change to operator-visible results, and it is not §5.2d's business.
+  //   • The relay branch is the opposite: proxyAwareFetch returns from the relay path
+  //     at :365, before strictProxy is first read at :380, so carrying it there is
+  //     inert and costs nothing.
+  //
+  // A future reader who unifies these two "for consistency" silently changes which
+  // provider tests pass. The relay secret is the only field this branch genuinely
+  // does not need, because a connectionProxyUrl pool is not a relay.
   const { proxyAwareFetch } = await import("open-sse/utils/proxyFetch.js");
   return proxyAwareFetch(url, options, {
     connectionProxyEnabled: true,

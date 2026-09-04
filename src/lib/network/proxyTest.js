@@ -1,4 +1,8 @@
 import { ProxyAgent, fetch as undiciFetch } from "undici";
+// §5.2e — the probe and the request path share ONE version gate, so a relay is never
+// authenticated by one and refused by the other. relayTemplate.js imports nothing of
+// its own, so this adds no cycle.
+import { relayAuthHeaders } from "./relayTemplate.js";
 
 const DEFAULT_TEST_URL = "https://google.com/";
 const DEFAULT_TIMEOUT_MS = 8000;
@@ -138,8 +142,25 @@ export async function testProxyUrl({ proxyUrl, testUrl, timeoutMs } = {}) {
  *
  * One home for the verdict: the [id]/test route and the fleet health sweep both
  * come through here, so a single relay is never judged two different ways.
+ *
+ * §5.2e — A v2 relay authenticates, so this probe must carry the secret or it gets
+ * 401 on every sweep and the pool can never be confirmed alive. The secret arrives
+ * via relayAuthHeaders, which applies the SAME version gate the request path uses,
+ * and that gate is doubly load-bearing on this path:
+ *
+ *   A v1 relay forwards EVERY header to whatever host it is told. This probe's host
+ *   is httpbin.org — a third party — and httpbin's /get echoes request headers back
+ *   in its response body. So sending x-relay-auth to a v1 relay would disclose the
+ *   secret to a third-party service. The gate here is not only about the relay
+ *   accepting or refusing; it is what keeps the secret off the wire to httpbin.
+ *
+ * @param {object} args
+ * @param {string} args.relayUrl the relay's public https url
+ * @param {number} [args.timeoutMs]
+ * @param {string} [args.relayAuth] the pool's stored relay secret
+ * @param {number} [args.relayVersion] 2 sends the secret; anything else sends none
  */
-export async function testRelayUrl({ relayUrl, timeoutMs } = {}) {
+export async function testRelayUrl({ relayUrl, timeoutMs, relayAuth, relayVersion } = {}) {
   const normalizedRelayUrl = normalizeString(relayUrl);
   if (!normalizedRelayUrl) {
     return { ok: false, status: 400, error: "relayUrl is required" };
@@ -159,6 +180,9 @@ export async function testRelayUrl({ relayUrl, timeoutMs } = {}) {
     const res = await undiciFetch(normalizedRelayUrl, {
       method: "GET",
       headers: {
+        // Spread first so the relay's own control headers below can never be
+        // shadowed, and so a withheld secret adds nothing at all.
+        ...relayAuthHeaders({ relayAuth, relayVersion }),
         "x-relay-target": RELAY_PROBE_TARGET,
         "x-relay-path": RELAY_PROBE_PATH,
       },
@@ -220,7 +244,18 @@ export async function testPoolReachability(pool, { timeoutMs } = {}) {
     return { ok: false, status: 400, error: "pool has no proxyUrl", verdict: "dead" };
   }
   const result = RELAY_PROXY_TYPES.has(pool.type)
-    ? await testRelayUrl({ relayUrl: pool.proxyUrl, timeoutMs })
+    ? // §5.2e — the whole pool row is threaded, not just its URL: a v2 relay's probe
+      // needs the stored secret to authenticate. Both callers already pass a full row
+      // (proxy-pools/[id]/test/route.js:28, proxyFleet.js:755), and the row is the
+      // raw store shape here — getProxyPoolById is not masked; the masker fires only
+      // at HTTP read boundaries. relayVersion defaults to 1 for every pre-§5.2 row,
+      // which withholds the secret.
+      await testRelayUrl({
+        relayUrl: pool.proxyUrl,
+        timeoutMs,
+        relayAuth: pool.relayToken,
+        relayVersion: pool.relayVersion,
+      })
     : await testProxyUrl({ proxyUrl: pool.proxyUrl, timeoutMs });
   return { ...result, verdict: classifyProbeVerdict(result) };
 }

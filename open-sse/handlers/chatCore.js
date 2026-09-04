@@ -58,6 +58,38 @@ export function stripContinuityFields(body) {
   return body;
 }
 
+/**
+ * Reduce a proxy/relay URL to `scheme://host:port` for a log line.
+ *
+ * Extracted from what the connectionProxyUrl branch of the PROXY log did inline, so
+ * both branches of one log statement now share one law — the relay branch used to
+ * print its URL raw while this one masked it.
+ *
+ * The one deliberate behaviour change: an unparseable URL returns `[unparseable]`
+ * instead of the raw string. The inline version kept raw on a parse failure, which
+ * is backwards for a masker — a URL that fails to parse is exactly the one whose
+ * contents are least understood, and userinfo credentials (`https://user:pass@host`)
+ * are legal URL syntax that this reduction is meant to strip.
+ *
+ * @param {string} raw
+ * @returns {string} `scheme://host[:port]`, or `[unparseable]`, or "" for empty input
+ */
+export function maskUrlForLog(raw) {
+  const value = typeof raw === "string" ? raw.trim() : "";
+  if (!value) return "";
+  try {
+    const parsed = new URL(value);
+    const host = parsed.hostname || "";
+    const port = parsed.port ? `:${parsed.port}` : "";
+    const protocol = parsed.protocol || "http:";
+    // An empty host means the URL parsed to something with no authority — printing
+    // the original would defeat the reduction.
+    return host ? `${protocol}//${host}${port}` : "[unparseable]";
+  } catch {
+    return "[unparseable]";
+  }
+}
+
 export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking, userInjectors = null, combo = null }) {
   const { provider, model } = modelInfo;
   const requestStartTime = Date.now();
@@ -326,32 +358,61 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     log, provider, model, reqTag
   });
 
+  // One of FOUR hand-built proxyOptions literals in the house. The other six payload sites
+  // call buildProxyOptionsPayload (connectionProxy.js:64), which carries the full census.
+  // Ten sites total. Every number here was MEASURED at v0.9.45, and two earlier drafts of
+  // this comment were wrong in opposite directions — one said "the tenth and only
+  // hand-built literal" with "nine call the builder" (the builder has six callers, and
+  // this is not the only literal), a correction then said "eight sites, two literals"
+  // (which undercounted, by missing two egress probes in files this tide never touched).
+  // Re-count before editing this sentence; see the census comment for the exact greps.
+  //
+  // The other three literals:
+  //   • providers/[id]/test/testUtils.js:488 — hand-built for the OPPOSITE reason: it
+  //     deliberately omits fields including strictProxy, and sets no vercelRelayUrl, so it
+  //     cannot reach a relay at all.
+  //   • poolEgressProbe.js:70 and proxyFleet.js:655/:660 — both pass `url:` rather than
+  //     `vercelRelayUrl:`, so they never enter the relay branch of proxyAwareFetch and
+  //     carry no secret. Pre-existing, untouched by §5.2, and recorded in the CHANGELOG as
+  //     an owed item rather than claimed as fixed.
+  //
+  // This one cannot use the builder because its six fields come from TWO different objects:
+  // the four routing fields live on `credentials.providerSpecificData` (that is where
+  // auth.js puts them) while relayAuth/relayVersion live on `credentials` itself. The shared
+  // builder reads all six from one object, so passing either source here would drop the
+  // other half. Merging the two into one argument would mean spreading psd over the
+  // credential — which is precisely the leak the top-level channel exists to avoid, because
+  // psd is what updateProviderCredentials persists.
   const proxyOptions = {
     connectionProxyEnabled: credentials?.providerSpecificData?.connectionProxyEnabled === true,
     connectionProxyUrl: credentials?.providerSpecificData?.connectionProxyUrl || "",
     connectionNoProxy: credentials?.providerSpecificData?.connectionNoProxy || "",
     vercelRelayUrl: credentials?.providerSpecificData?.vercelRelayUrl || "",
+    // §5.2d — read from the credential's TOP LEVEL, never its providerSpecificData.
+    // auth.js stamps them there deliberately: that blob is persisted wholesale into
+    // the connections row by updateProviderCredentials, so a relay secret stamped
+    // into it would be written plaintext to a second table. proxyAwareFetch passes
+    // these to relayAuthHeaders, which applies the version gate — a v1 pool gets no
+    // header at all, because a v1 relay would forward the secret to the upstream
+    // provider.
+    relayAuth: typeof credentials?.relayAuth === "string" ? credentials.relayAuth : "",
+    relayVersion: Number(credentials?.relayVersion) || 1,
   };
 
   if (proxyOptions.vercelRelayUrl) {
     const connectionName = credentials?.connectionName || credentials?.connectionId || "unknown";
     const poolId = credentials?.providerSpecificData?.connectionProxyPoolId || "none";
-    log?.info?.("PROXY", `${provider.toUpperCase()} | ${model} | conn=${connectionName} | pool=${poolId} | vercel-relay=${proxyOptions.vercelRelayUrl}`);
+    // Masked to scheme+host+port, the same reduction the connectionProxyUrl branch
+    // below has always applied. It was logged raw here while :354 masked the other
+    // one — two branches of one log statement with two different laws. A relay URL
+    // carries no credential in its userinfo today, so this is not a live leak; it is
+    // the asymmetry itself that is the wound, because the next relay URL that does
+    // carry one would print it from exactly this line.
+    log?.info?.("PROXY", `${provider.toUpperCase()} | ${model} | conn=${connectionName} | pool=${poolId} | vercel-relay=${maskUrlForLog(proxyOptions.vercelRelayUrl)} | relay-v${proxyOptions.relayVersion}${proxyOptions.relayAuth ? "" : " | no-secret"}`);
   } else if (proxyOptions.connectionProxyEnabled && proxyOptions.connectionProxyUrl) {
-    let maskedProxyUrl = proxyOptions.connectionProxyUrl;
-    try {
-      const parsed = new URL(proxyOptions.connectionProxyUrl);
-      const host = parsed.hostname || "";
-      const port = parsed.port ? `:${parsed.port}` : "";
-      const protocol = parsed.protocol || "http:";
-      maskedProxyUrl = `${protocol}//${host}${port}`;
-    } catch {
-      // Keep raw if URL parsing fails
-    }
-
     const poolId = credentials?.providerSpecificData?.connectionProxyPoolId || "none";
     const connectionName = credentials?.connectionName || credentials?.connectionId || "unknown";
-    log?.info?.("PROXY", `${provider.toUpperCase()} | ${model} | conn=${connectionName} | pool=${poolId} | url=${maskedProxyUrl}`);
+    log?.info?.("PROXY", `${provider.toUpperCase()} | ${model} | conn=${connectionName} | pool=${poolId} | url=${maskUrlForLog(proxyOptions.connectionProxyUrl)}`);
   }
 
   if (proxyOptions.connectionProxyEnabled && proxyOptions.connectionNoProxy) {

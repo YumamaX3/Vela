@@ -7,7 +7,7 @@ import { getCodexUsage } from "open-sse/services/usage/codex.js";
 import { getExecutor } from "open-sse/executors/index.js";
 import { CLAUDE_CLI_SPOOF_HEADERS } from "open-sse/providers/shared.js";
 import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
-import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
+import { resolveConnectionProxyConfig, buildProxyOptionsPayload } from "@/lib/network/connectionProxy";
 import { refreshAndUpdateCredentials } from "@/app/api/usage/[connectionId]/route.js";
 import { QUOTA_AUTOPING_CONFIG } from "@/shared/constants/config";
 
@@ -91,16 +91,6 @@ function shouldPingForReset(providerConfig, cachedReset, resetAt, now) {
 
   const resetMs = new Date(resetAt).getTime();
   return Number.isFinite(resetMs) && now >= resetMs - C.pingLeadMs;
-}
-
-function buildProxyOptions(cfg) {
-  return {
-    connectionProxyEnabled: cfg.connectionProxyEnabled === true,
-    connectionProxyUrl: cfg.connectionProxyUrl || "",
-    connectionNoProxy: cfg.connectionNoProxy || "",
-    vercelRelayUrl: cfg.vercelRelayUrl || "",
-    strictProxy: false,
-  };
 }
 
 async function sendClaudePing(connection, providerConfig, proxyOptions, deps) {
@@ -196,7 +186,13 @@ async function pingConnection(conn, provider, providerConfig, handler, deps, sta
   if (shouldSkipAfterFailure(state, key)) return;
 
   const proxyCfg = await deps.resolveConnectionProxyConfig(conn.providerSpecificData);
-  const proxyOptions = buildProxyOptions(proxyCfg);
+  // §5.2d — the local five-field builder this file used to carry is DELETED, not
+  // extended. It was a copy of the literal nine other sites hand-built, which is
+  // exactly the drift shape LIVE-B recorded (bulk-health kept its own pre-v0.9.42
+  // loop and diverged from the repaired checkAllPools). Adding relayAuth there would
+  // have made ten sites to keep in step; the shared builder makes one. strictProxy
+  // stays false so a quota ping degrades to direct instead of failing hard.
+  const proxyOptions = buildProxyOptionsPayload(proxyCfg, { strictProxy: false });
 
   let connection = conn;
   try {

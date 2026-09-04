@@ -20,7 +20,7 @@ import { resolveGrokCliModels } from "open-sse/services/grokCliModels.js";
 import { resolveCursorModels } from "open-sse/services/cursorModels.js";
 import { resolveZedModels } from "open-sse/shared/zedAuth.js";
 import { updateProviderCredentials } from "@/sse/services/tokenRefresh";
-import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
+import { resolveConnectionProxyConfig, buildProxyOptionsPayload } from "@/lib/network/connectionProxy";
 import { capabilitiesFromServiceKind, getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
 
 const parseOpenAIStyleModels = (data) => {
@@ -200,13 +200,7 @@ const LIVE_MODEL_RESOLVERS = {
       connectionId: conn.id,
     }, {
       log: console,
-      proxyOptions: {
-        connectionProxyEnabled: proxy.connectionProxyEnabled === true,
-        connectionProxyUrl: proxy.connectionProxyUrl || "",
-        connectionNoProxy: proxy.connectionNoProxy || "",
-        vercelRelayUrl: proxy.vercelRelayUrl || "",
-        strictProxy: proxy.strictProxy === true,
-      },
+      proxyOptions: buildProxyOptionsPayload(proxy),
       onCredentialsRefreshed: async (refreshed) => {
         await updateProviderCredentials(conn.id, {
           ...refreshed,
