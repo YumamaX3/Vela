@@ -59,7 +59,7 @@ export async function handleTts(request) {
       comboName: modelStr,
       comboStrategy,
       comboStickyLimit,
-      fallbackRulesRepo: getFallbackRulesRepo()
+      fallbackRulesRepo: await getFallbackRulesRepo()
     });
   }
 

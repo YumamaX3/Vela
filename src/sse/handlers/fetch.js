@@ -98,7 +98,7 @@ export async function handleFetch(request) {
       comboName: providerInput,
       comboStrategy,
       comboStickyLimit,
-      fallbackRulesRepo: getFallbackRulesRepo()
+      fallbackRulesRepo: await getFallbackRulesRepo()
     });
   }
 
