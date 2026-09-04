@@ -79,7 +79,7 @@ export async function handleSearch(request) {
       comboName: providerInput,
       comboStrategy,
       comboStickyLimit,
-      fallbackRulesRepo: getFallbackRulesRepo()
+      fallbackRulesRepo: await getFallbackRulesRepo()
     });
   }
 

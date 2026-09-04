@@ -61,7 +61,7 @@ export async function handleImageGeneration(request) {
       comboName: modelStr,
       comboStrategy,
       comboStickyLimit,
-      fallbackRulesRepo: getFallbackRulesRepo()
+      fallbackRulesRepo: await getFallbackRulesRepo()
     });
   }
 

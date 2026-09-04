@@ -82,7 +82,7 @@ export async function handleChat(request, clientRawRequest = null) {
   // The gate — identity + model scope in one stage pipeline (plan §3.4).
   // requireApiKey=false passes through; combos gate on ALL members.
   const settings = await getSettings();
-  const fallbackRulesRepo = getFallbackRulesRepo(); // Seam 2 — bound once per request, null ⇒ no rules
+  const fallbackRulesRepo = await getFallbackRulesRepo(); // Seam 2 — bound once per request, null ⇒ no rules
   {
     const gateComboModels = await getComboModels(modelStr);
     // allowInternal — chat is the MITM-facing path; the deterministic internal
