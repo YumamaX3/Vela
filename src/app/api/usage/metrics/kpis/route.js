@@ -1,7 +1,7 @@
 // Usage Observatory W2-B — GET /api/usage/metrics/kpis
 // Current-window totals + previous-window totals (one CASE WHEN query) so the
 // KPI cards can show honest deltas. Reads inherit dashboardGuard's
-// JWT-or-requireLogin (PROTECTED_API_PATHS "/api/usage" prefix).
+// JWT-or-requireLogin (its deny-by-default "/api/*" branch).
 import { NextResponse } from "next/server";
 import { getKpis } from "@/lib/usageDb";
 import { parseFilters, parsePeriod, metricsErrorResponse } from "../_lib/params";

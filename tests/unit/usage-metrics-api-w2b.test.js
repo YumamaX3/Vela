@@ -247,19 +247,47 @@ describe("W2-B Metrics API — export safety (phase13)", () => {
 });
 
 describe("W2-B guard registration — export escalates, reads stay posture-consistent", () => {
-  it("dashboardGuard ALWAYS_PROTECTED carries the export surface; reads ride /api/usage", async () => {
+  it("dashboardGuard ALWAYS_PROTECTED carries the export surface; reads ride the deny-by-default branch", async () => {
     // Source-inspection census pin (the middleware enforces these at runtime;
     // the W1 precedent pins registry membership in-repo so a drift fails fast).
     const src = fs.readFileSync(
       path.resolve(__dirname, "../../src/dashboardGuard.js"),
       "utf8"
     );
-    expect(src).toContain('"/api/usage/metrics/export"'); // ALWAYS_PROTECTED
-    expect(src).toContain('"/api/usage"');                 // PROTECTED_API_PATHS
-    // The export entry must sit in the ALWAYS_PROTECTED block (before the
-    // PROTECTED_API_PATHS declaration), not after it.
-    const exportPos = src.indexOf('"/api/usage/metrics/export"');
-    const protectedBlockPos = src.indexOf("const PROTECTED_API_PATHS");
-    expect(exportPos).toBeLessThan(protectedBlockPos);
+
+    // Pin MEMBERSHIP by slicing the array text, never a positional indexOf
+    // comparison. Two reasons, both bitten once already:
+    //   1. The old anchor was `const PROTECTED_API_PATHS` — dead code, removed at
+    //      v0.9.45 when §5.1's prescribed edit was reconciled against the real
+    //      guard (commit bb868085 had orphaned the list). indexOf returned -1.
+    //   2. A positional anchor on a string that also appears in a COMMENT measures
+    //      the comment, not the code — `pathname.startsWith("/api/")` occurs in
+    //      the removal note near the top of the file, so it would resolve before
+    //      the export entry and silently invert the ordering assertion.
+    const listStart = src.indexOf("const ALWAYS_PROTECTED");
+    expect(listStart).toBeGreaterThan(-1);
+    const listEnd = src.indexOf("];", listStart);
+    expect(listEnd).toBeGreaterThan(listStart);
+    const alwaysProtected = src.slice(listStart, listEnd);
+
+    // Exactly two usage surfaces escalate, and both are NAMED LEAVES. There is no
+    // bare "/api/usage" prefix entry, so every other usage surface (kpis,
+    // timeseries, breakdown, percentiles, ledger, digest, budgets) falls through
+    // to the deny-by-default "/api/*" branch in proxy() — JWT-or-requireLogin.
+    // That branch is the live mechanism the old pin named by its dead list.
+    expect(alwaysProtected.match(/"\/api\/usage[^"]*"/g)).toEqual([
+      '"/api/usage/metrics/export"',
+      '"/api/usage/views"',
+    ]);
+    expect(alwaysProtected).not.toContain('"/api/usage"');
+
+    // And the branch they fall through to must still exist, downstream of the
+    // escalation check — sliced from proxy() so the comment occurrence above
+    // cannot satisfy it.
+    const proxyStart = src.indexOf("export async function proxy(");
+    expect(proxyStart).toBeGreaterThan(-1);
+    expect(
+      src.indexOf('pathname.startsWith("/api/")', proxyStart)
+    ).toBeGreaterThan(-1);
   });
 });

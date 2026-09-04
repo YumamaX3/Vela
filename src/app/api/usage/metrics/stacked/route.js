@@ -4,7 +4,7 @@
 // Overview deck's stacked areas (Row C) and the Analytics deck's UsageByKey /
 // ErrorMix. Dimension, metric, granularity and period are validated against
 // the frozen identifier-covenant maps; reads inherit dashboardGuard
-// (PROTECTED_API_PATHS /api/usage prefix — same posture as its siblings).
+// (its deny-by-default "/api/*" branch — same posture as its siblings).
 import { NextResponse } from "next/server";
 import { getStackedSeries } from "@/lib/usageDb";
 import {

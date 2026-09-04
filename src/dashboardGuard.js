@@ -61,8 +61,9 @@ const ALWAYS_PROTECTED = [
   "/api/oauth/cursor/auto-import",
   "/api/oauth/kiro/auto-import",
   // Pricing Covenant: mutating endpoint that triggers server-side outbound fetches —
-  // never public even when requireLogin is off. (Prefix overlap with the
-  // PROTECTED_API_PATHS "/api/pricing" entry is intentional.)
+  // never public even when requireLogin is off. (It sits in ALWAYS_PROTECTED while the
+  // wider /api/pricing/* prefix falls through to the deny-by-default /api/* branch
+  // below; the overlap is intentional — only /sync must escalate above requireLogin.)
   "/api/pricing/sync",
   // Storage Covenant Wave B4 (S4): the backup surface — restore must NEVER ride
   // the deny-by-default /api/* branch that passes when requireLogin===false,
@@ -82,26 +83,60 @@ const ALWAYS_PROTECTED = [
   "/api/usage/views",
 ];
 
-// Require auth, but allow through if requireLogin is disabled
-const PROTECTED_API_PATHS = [
-  "/api/settings",
-  "/api/keys",
-  "/api/providers",
-  "/api/provider-nodes",
+// Require auth, but allow through if requireLogin is disabled.
+//
+// ⚠️ DEAD CODE REMOVED AT v0.9.45 (milestone 1, Security Closure). This list was
+// consulted by `proxy()` until commit bb868085 ("deny-by-default API auth")
+// replaced `if (PROTECTED_API_PATHS.some(...))` with the `pathname.startsWith("/api/")`
+// branch below, leaving the 18-entry list defined but ORPHANED — never consulted,
+// never exported, referenced only in comments (8 usage-route headers cited it as
+// the live gating mechanism; those comments were corrected in the same commit).
+// The live mechanism is the deny-by-default branch: any `/api/*` path not in
+// PUBLIC_API_PATHS / PUBLIC_PREFIXES / ALWAYS_PROTECTED / LOCAL_ONLY_PATHS passes
+// when `hasLocalCliToken(request) || isAuthenticated(request)`, and isAuthenticated
+// returns TRUE whenever requireLogin===false. The posture this list once named is
+// now that branch's behavior.
+//
+// §5.1's design ("remove /api/proxy-pools so it defaults to ALWAYS_PROTECTED")
+// could not be implemented literally — there is no default-to-ALWAYS_PROTECTED, and
+// removing from a dead list is a no-op. The Star's decree 2026-09-03 resolved it to
+// the method-aware fail-closed block below (PROXY_POOLS_POSTURE_READS), scoped to
+// /api/proxy-pools so every other route stays byte-identical.
+
+// Security Closure (v0.9.45, milestone 1, §5.1) — the proxy-pools posture-read
+// allow-list. Everything under /api/proxy-pools is FAIL-CLOSED by default (a
+// mutation, or a read not named here, always requires a JWT or a local CLI token,
+// regardless of requireLogin); ONLY these exact pathnames, and ONLY on GET, ride the
+// posture-consistent deny-by-default branch below.
+//
+// The three entries carry every verified dashboard GET consumer (7 files):
+//   GET /api/proxy-pools          — page.js:83 (?includeUsage), providers/[id]/page.js:303,
+//                                   ConnectionsCard.js:313, ProviderLimits/index.js:457,
+//                                   NoAuthProxyCard.js:26 (all ?isActive) — query strings are
+//                                   not part of nextUrl.pathname, so one entry covers all five.
+//   GET /api/proxy-pools/fitness  — page.js:73, FleetStatusPanel.jsx:16
+//   GET /api/proxy-pools/export   — no consumer today (§15.4 lists it dead) but posture-consistent
+//                                   by design, and it leaks the full pool set when wired.
+//
+// Why fail-closed and not "remove from a list": PROTECTED_API_PATHS (the mechanism
+// §5.1 described) is dead code — see its removal note above. The deny-by-default branch
+// passes the WHOLE prefix when requireLogin===false, including the three deploy routes
+// that mint open forward-proxies and bulk-health with autoDisable. This block is the
+// method-aware gate that branch cannot express.
+//
+// Coupling that must not be separated: this read-list is safe ONLY because redaction
+// (§5.4) lands in the same release — GET /api/proxy-pools returns full pool objects
+// today (proxyUrl carries credentials). The list and the masking ship together or not
+// at all.
+//
+// A new GET read route under the prefix is over-protected → it 401s visibly in the UI
+// until added here. Loud beats silent. (GET /api/proxy-pools/<id> is exactly that case:
+// exported but unused by any consumer, so it fail-closes with no dashboard impact.)
+const PROXY_POOLS_POSTURE_READS = new Set([
   "/api/proxy-pools",
-  "/api/combos",
-  "/api/models",
-  "/api/usage",
-  "/api/oauth",
-  "/api/cloud",
-  "/api/media-providers",
-  "/api/pricing",
-  "/api/tags",
-  "/api/cli-tools",
-  "/api/mcp",
-  "/api/translator",
-  "/api/tunnel",
-];
+  "/api/proxy-pools/fitness",
+  "/api/proxy-pools/export",
+]);
 
 // Routes that spawn child processes or read host secrets — restrict to localhost.
 const LOCAL_ONLY_PATHS = [
@@ -171,6 +206,15 @@ function isPublicLlmApi(pathname) {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
+// Pure predicate behind §5.1's gate, extracted so a storm can assert the
+// read-list/method matrix without standing up a request. A pathname under the
+// prefix is a posture-consistent read ONLY on GET and ONLY if listed; everything
+// else (any mutation, any unlisted read) is fail-closed.
+function isProxyPoolsPostureRead(pathname, method) {
+  if (!pathname.startsWith("/api/proxy-pools")) return false;
+  return method === "GET" && PROXY_POOLS_POSTURE_READS.has(pathname);
+}
+
 function extractApiKey(request) {
   const authHeader = request.headers.get("Authorization");
   if (authHeader?.startsWith("Bearer ")) return authHeader.slice(7);
@@ -236,6 +280,10 @@ export const __test__ = {
   extractApiKey,
   canAccessPublicLlmApi,
   canAccessLocalOnlyRoute,
+  // §5.1 — the fail-closed gate's read/method predicate, exposed so the storm can
+  // assert the matrix without a live request.
+  isProxyPoolsPostureRead,
+  PROXY_POOLS_POSTURE_READS,
 };
 
 export async function proxy(request) {
@@ -275,6 +323,55 @@ export async function proxy(request) {
     if (presentsRemoteCliToken(request))
       return NextResponse.json({ error: "Forbidden: CLI token is only accepted from local origins" }, { status: 403 });
     return NextResponse.json({ error: "API key required for remote API access" }, { status: 401 });
+  }
+
+  // Security Closure (§5.1) — proxy-pools fail-closed gate. Placed BEFORE the
+  // deny-by-default /api/* branch so it wins for the whole prefix. Method-aware:
+  // the guard is otherwise purely path-based, and this is the one place the ADR
+  // required distinguishing a posture-consistent read from a mutation.
+  if (pathname.startsWith("/api/proxy-pools")) {
+    // Preflight carries no body and no action — passes unconditionally. The dashboard
+    // is same-origin so a preflight never fires today; this is insurance for a
+    // cross-origin caller and costs nothing.
+    if (request.method === "OPTIONS") return NextResponse.next();
+
+    const isPostureRead = isProxyPoolsPostureRead(pathname, request.method);
+
+    if (!isPostureRead) {
+      // Fail-closed: every mutation (POST/PUT/DELETE) and every unlisted read requires
+      // a JWT or a LOCAL CLI token, regardless of requireLogin. This is what protects
+      // the deploy routes that mint open forward-proxies and bulk-health's autoDisable
+      // from being reachable unauthenticated under requireLogin=false.
+      //
+      // The third arm is the locality escape, and it is load-bearing. Without it this
+      // gate 401s EVERY proxy-pools mutation for a first-run local user: README:133
+      // documents entry with no password (requireLogin===false), and a browser on the
+      // box carries neither a JWT cookie nor the machine-derived CLI header. Measured,
+      // not theorised — a probe of the eleven surfaces under that exact posture showed
+      // create / edit / toggle / test / delete / bulk-health / all three deploy routes
+      // returning 401 while the page itself still rendered. The locality escape is the
+      // same shape canAccessLocalOnlyRoute already uses for 15 spawn-capable routes, so
+      // this is a house posture, not a new one.
+      //
+      // What stays closed: isLocalRequest is unspoofable — it needs the socket-derived
+      // x-9r-real-ip proven by the per-process x-9r-peer-token AND a loopback Origin, so
+      // a remote caller, a cross-origin page loaded on localhost, and a requireLogin=true
+      // instance without a JWT all still fall through to 401/403 below.
+      if (await hasLocalCliToken(request) || await hasValidToken(request)
+          || (isLocalRequest(request) && await isAuthenticated(request)))
+        return NextResponse.next();
+      // Locality-before-credential (matches the ALWAYS_PROTECTED, public-LLM and
+      // deny-by-default seams): a remote caller whose sole credential is the machine
+      // token is FORBIDDEN (403), not merely unauthenticated (401). The Star's chosen
+      // preview returned 401 here; I return 403 to keep this seam honest with the
+      // house pattern — a machine token from a remote origin is a distinct, louder
+      // failure than no credential. Deviation named, not silent.
+      if (presentsRemoteCliToken(request))
+        return NextResponse.json({ error: "Forbidden: CLI token is only accepted from local origins" }, { status: 403 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    // Posture-consistent GET read → fall through to the deny-by-default branch, which
+    // passes it under requireLogin===false exactly as the other dashboard reads are.
   }
 
   // Deny-by-default for /api/* — public allow-list bypasses, everything else requires auth.
