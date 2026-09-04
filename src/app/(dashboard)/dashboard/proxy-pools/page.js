@@ -17,10 +17,18 @@ function formatDateTime(value) {
   return date.toLocaleString();
 }
 
-function normalizeFormData(data = {}) {
+// §5.4 — when EDITING, proxyUrl is deliberately left blank rather than loaded
+// from the pool. The GET response is now masked (credentials stripped), and the
+// repo's updateProxyPool MERGES (`{ ...rowToPool(row), ...data }`), so whatever
+// this form sends for proxyUrl is what gets stored. Sending the masked value — or
+// a sentinel — would silently overwrite the operator's real credential with
+// "http://host:port/" and break the pool. Blank means "untouched", and
+// handleSave omits the key entirely in that case, so normalizeProxyPoolUpdate's
+// hasOwnProperty guard keeps the stored value.
+function normalizeFormData(data = {}, { isEdit = false } = {}) {
   return {
     name: data.name || "",
-    proxyUrl: data.proxyUrl || "",
+    proxyUrl: isEdit ? "" : (data.proxyUrl || ""),
     noProxy: data.noProxy || "",
     isActive: data.isActive !== false,
     strictProxy: data.strictProxy === true,
@@ -109,7 +117,7 @@ export default function ProxyPoolsPage() {
 
   const openEditModal = (proxyPool) => {
     setEditingProxyPool(proxyPool);
-    setFormData(normalizeFormData(proxyPool));
+    setFormData(normalizeFormData(proxyPool, { isEdit: true }));
     setShowFormModal(true);
   };
 
@@ -119,19 +127,27 @@ export default function ProxyPoolsPage() {
   };
 
   const handleSave = async () => {
+    const isEdit = !!editingProxyPool;
     const payload = {
       name: formData.name.trim(),
-      proxyUrl: formData.proxyUrl.trim(),
       noProxy: formData.noProxy.trim(),
       isActive: formData.isActive === true,
       strictProxy: formData.strictProxy === true,
     };
 
-    if (!payload.name || !payload.proxyUrl) return;
+    // §5.4 — proxyUrl rides the payload ONLY when the operator typed one.
+    // On edit the field starts blank and means "keep what is stored"; the route's
+    // normalizeProxyPoolUpdate is hasOwnProperty-guarded, so an absent key never
+    // enters `updates` and the repo's merge preserves the real credential. On
+    // create the field is required, exactly as before.
+    const typedProxyUrl = formData.proxyUrl.trim();
+    if (typedProxyUrl) payload.proxyUrl = typedProxyUrl;
+
+    if (!payload.name) return;
+    if (!isEdit && !payload.proxyUrl) return;
 
     setSaving(true);
     try {
-      const isEdit = !!editingProxyPool;
       const res = await fetch(isEdit ? `/api/proxy-pools/${editingProxyPool.id}` : "/api/proxy-pools", {
         method: isEdit ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -526,21 +542,21 @@ export default function ProxyPoolsPage() {
 
     setImporting(true);
     try {
-      const existingKeys = new Set(
-        proxyPools.map((pool) => `${(pool.proxyUrl || "").trim()}|||${(pool.noProxy || "").trim()}`)
-      );
-
+      // §5.4 — duplicate detection moved SERVER-SIDE. This used to seed a Set from
+      // `pool.proxyUrl` in the GET response and compare it against the plaintext
+      // the operator just pasted. Reads are now masked, so that comparison could
+      // never match and every import would silently create duplicates. The route
+      // answers with 409 PROXY_POOL_ALREADY_EXISTS instead — which is both exact
+      // (plaintext vs plaintext, no client-side hash that would need crypto.subtle
+      // and therefore break on the plain-http LAN origins this app is documented to
+      // run on) and stronger: there was no server-side check at all before, so two
+      // tabs or two operators could create the same pool. Intra-batch duplicates are
+      // covered too — once the first line lands, the second 409s.
       let created = 0;
       let skipped = 0;
       let failed = 0;
 
       for (const entry of parsedEntries) {
-        const dedupeKey = `${entry.proxyUrl}|||`;
-        if (existingKeys.has(dedupeKey)) {
-          skipped += 1;
-          continue;
-        }
-
         const res = await fetch("/api/proxy-pools", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -554,7 +570,8 @@ export default function ProxyPoolsPage() {
 
         if (res.ok) {
           created += 1;
-          existingKeys.add(dedupeKey);
+        } else if (res.status === 409) {
+          skipped += 1;
         } else {
           failed += 1;
         }
@@ -1029,7 +1046,10 @@ export default function ProxyPoolsPage() {
             label="Proxy URL"
             value={formData.proxyUrl}
             onChange={(e) => setFormData((prev) => ({ ...prev, proxyUrl: e.target.value }))}
-            placeholder="http://127.0.0.1:7897"
+            placeholder={editingProxyPool ? "Stored — leave blank to keep current" : "http://127.0.0.1:7897"}
+            hint={editingProxyPool
+              ? "Credentials are never sent back to the browser. Enter a new full URL to replace the stored one; leave blank to keep it."
+              : undefined}
           />
           <Input
             label="No Proxy"
@@ -1067,7 +1087,11 @@ export default function ProxyPoolsPage() {
             <Button
               fullWidth
               onClick={handleSave}
-              disabled={!formData.name.trim() || !formData.proxyUrl.trim() || saving}
+              // §5.4 — proxyUrl is required on CREATE only. On edit the field
+              // starts blank to mean "keep the stored credential", so requiring
+              // it would make every existing pool unsaveable without retyping a
+              // secret the browser no longer holds.
+              disabled={!formData.name.trim() || (!editingProxyPool && !formData.proxyUrl.trim()) || saving}
             >
               {saving ? "Saving..." : "Save"}
             </Button>

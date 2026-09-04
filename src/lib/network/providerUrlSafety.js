@@ -246,6 +246,155 @@ function extractRawHost(rawUrl) {
   return m ? m[1] : null;
 }
 
+/* ── §5.5 — the proxy-pool gate ─────────────────────────────────────── */
+
+const POOL_SCHEME_MESSAGE = "Only http://, https:// or socks5:// proxy URLs are allowed";
+const POOL_BLOCKED_MESSAGE = "That proxy URL points at a reserved local range and is not allowed";
+const POOL_UNPARSEABLE_MESSAGE = "Proxy URL could not be parsed";
+const POOL_MISSING_MESSAGE = "Proxy URL is missing or empty";
+const POOL_LOOPBACK_NAME_MESSAGE =
+  "Use a literal loopback address (127.0.0.1 or ::1) rather than a hostname — a name can resolve to anything";
+
+/**
+ * Is this host a LITERAL loopback address — 127.0.0.0/8 or ::1 — judged numerically?
+ *
+ * Deliberately narrow: it returns false for the NAME "localhost" and for every other
+ * hostname. That is the whole of the §5.5 DNS-rebinding defence. A name can be made to
+ * resolve to 127.0.0.1 (or to 169.254.169.254) at connect time, and nothing this module
+ * can see distinguishes a benign `clash.internal` from a rebinding one — so the exemption
+ * is granted only where there is no resolution step to subvert. A literal cannot rebind.
+ *
+ * Hostile spellings are covered for free because this runs on the same numeric parsers
+ * the provider gate uses: `127.1`, `0x7f000001`, `017700000001` and `[::1]` all parse to
+ * loopback and are all exempt, exactly as a correctly-typed `127.0.0.1` is.
+ */
+function isLiteralLoopbackHost(host) {
+  const h = stripZoneAndBrackets(host);
+  if (!h) return false;
+
+  if (h.includes(":")) {
+    const v6 = parseIpv6(h);
+    return v6 !== null && classifyIpv6(v6) === "loopback";
+  }
+
+  const v4 = parseIpv4Literal(h);
+  return v4 !== null && classifyIpv4(v4) === "loopback";
+}
+
+/**
+ * Validate a proxy-pool `proxyUrl` at create/update.
+ *
+ * A SEPARATE FUNCTION FROM validateProviderTestUrl ON PURPOSE, though it reuses every
+ * internal (parseIpv4Literal / parseIpv6 / classifyIpv4 / classifyIpv6 / judgeHost /
+ * extractRawHost) so the hostile-literal armour is written once. Three reasons the two
+ * laws cannot share one signature — each measured, not assumed:
+ *
+ *   1. SCHEME. validateProviderTestUrl refuses everything but http(s). Pools legitimately
+ *      dial socks5:// — `VALID_PROXY_TYPES` includes it, proxyFetch has had a
+ *      Socks5ProxyAgent branch since v0.9.4, and proxy-pools/route.js:3-9 records that
+ *      v0.9.42 specifically FIXED socks5 pools being uncreatable. Gating pools through
+ *      the provider function would re-open that wound, and the ADR's own
+ *      `127.0.0.1:7890` example fails on scheme before loopback is ever considered.
+ *
+ *   2. THE LOOPBACK EXEMPTION. `allowLocalLoopback` is NOT a loopback exemption — it is
+ *      a total bypass: `if (opts.allowLocalLoopback === true) return { ok: true, url: raw }`
+ *      returns before host judging AND before the scheme gate, so with that flag set
+ *      `http://169.254.169.254/` and even `file:///etc/passwd` both pass. Measured. It
+ *      is set by nobody in live source today, which is why this gate does not become its
+ *      first consumer. `allowLocal` is closer but still admits the NAME `localhost`,
+ *      which §5.5 excludes for the rebinding reason above. So the exemption is built
+ *      here, narrowly, rather than reused.
+ *
+ *   3. THE RANGE POLICY IS ALREADY RIGHT. RFC1918 / CGNAT / ULA are deliberately allowed
+ *      by classifyIpv4/classifyIpv6 (module header :26-30) because a homelab gateway's
+ *      proxies live on exactly those ranges. That is inherited unchanged, and it is why
+ *      this gate delegates to judgeHost rather than reimplementing ranges.
+ *
+ * ACCEPTED WITH RATIONALE (ADR §5.5): an authenticated operator may point a pool at any
+ * loopback service on their own gateway. The operator is the trust root of their own
+ * installation — that is configuration, not SSRF. What is NOT accepted is an operator
+ * value reaching cloud metadata or a non-network scheme, which is what the refusals below
+ * still prevent.
+ *
+ * RESIDUAL, DOCUMENTED NOT HIDDEN: the DNS-rebinding TOCTOU the provider surface accepts
+ * (header :51-61) applies here too, and is arguably weightier — a pool URL is dialed on
+ * every request rather than once for a test. A hostname pool whose DNS later resolves to
+ * 169.254.169.254 would connect. Mitigation is unchanged from the provider surface and
+ * equally cheap from here: resolve-and-pin. Not done in §5.5.
+ *
+ * Returns { ok: true, url } or { ok: false, code, message } with code one of
+ * "scheme" | "blocked-range" | "loopback-name" | "unparseable".
+ */
+export function validateProxyPoolUrl(rawUrl) {
+  const raw =
+    typeof rawUrl === "string" ? rawUrl.trim() : rawUrl == null ? "" : String(rawUrl).trim();
+  if (!raw) return refusal("unparseable", POOL_MISSING_MESSAGE);
+
+  // A bare "host:port" is what proxyFetch's normalizeProxyUrl accepts, so it is judged
+  // here the same way — prefixed — rather than refused. Two reasons this cannot just be
+  // handed to `new URL` directly: `new URL("127.0.0.1:7890")` does NOT throw, it parses
+  // "127.0.0.1:" as the SCHEME and yields an EMPTY hostname, so the host would never be
+  // judged at all. Prefixing is what makes the value judgeable, and it keeps operators
+  // who type the short form working instead of getting a new 400.
+  const candidate = raw.includes("://") ? raw : `http://${raw}`;
+
+  let parsed;
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    return refusal("unparseable", POOL_UNPARSEABLE_MESSAGE);
+  }
+
+  // Exactly the three schemes proxyFetch can dial. `socks:` is excluded on purpose:
+  // undici's Socks5ProxyAgent accepts socks:// but proxyFetch routes to it only on
+  // /^socks5:\/\//i, so a socks:// pool would be handed to ProxyAgent and fail with
+  // "Invalid URL protocol" at dispatch time — a pool that saves and then cannot work.
+  // Judging the schemes that actually reach a dispatcher keeps the gate honest.
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:" && parsed.protocol !== "socks5:") {
+    return refusal("scheme", POOL_SCHEME_MESSAGE);
+  }
+
+  const hostname = parsed.hostname;
+
+  // The exemption, first and narrowest: a LITERAL loopback address walks through. This
+  // is checked before judgeHost because judgeHost refuses loopback unconditionally, and
+  // before the name check below because a literal is never a name.
+  if (isLiteralLoopbackHost(hostname)) return { ok: true, url: candidate };
+
+  // The name "localhost" is refused WITH ITS OWN CODE rather than lumped into
+  // blocked-range. It is almost certainly what the operator meant by a local proxy, and
+  // a generic "reserved range" message would send them looking in the wrong place. The
+  // fix is one keystroke — 127.0.0.1 — and the message says so.
+  const bare = stripZoneAndBrackets(hostname).toLowerCase().replace(/\.$/, "");
+  if (bare === "localhost") return refusal("loopback-name", POOL_LOOPBACK_NAME_MESSAGE);
+
+  // Everything else goes through the same hostile-literal path the provider gate uses,
+  // with allowLocal FALSE: metadata (169.254/16), unspecified (0.0.0.0/8, ::), link-local
+  // (fe80::/10) and documentation (2001:db8::/32) are refused, while RFC1918 / CGNAT /
+  // ULA and ordinary hostnames are allowed.
+  const gate = judgeHost(hostname, { allowLocal: false });
+  if (!gate.ok) {
+    return refusal(gate.code, gate.code === "scheme" ? POOL_SCHEME_MESSAGE : POOL_BLOCKED_MESSAGE);
+  }
+
+  // Judge the RAW spelling too, as the provider gate does: URL parsers normalize some
+  // hostile literals, and the gap between grammars is where a bypass hides. A raw host
+  // that is a literal loopback is exempt on the same narrow terms.
+  const rawHost = extractRawHost(candidate);
+  if (rawHost !== null && rawHost !== hostname) {
+    if (isLiteralLoopbackHost(rawHost)) return { ok: true, url: candidate };
+    if (stripZoneAndBrackets(rawHost).toLowerCase().replace(/\.$/, "") === "localhost") {
+      return refusal("loopback-name", POOL_LOOPBACK_NAME_MESSAGE);
+    }
+    const rawGate = judgeHost(rawHost, { allowLocal: false });
+    if (!rawGate.ok) {
+      return refusal(rawGate.code, rawGate.code === "scheme" ? POOL_SCHEME_MESSAGE : POOL_BLOCKED_MESSAGE);
+    }
+  }
+
+  return { ok: true, url: candidate };
+}
+
 /* ── Public API ─────────────────────────────────────────────────────── */
 
 /**
