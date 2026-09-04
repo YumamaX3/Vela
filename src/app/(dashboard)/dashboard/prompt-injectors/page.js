@@ -68,7 +68,10 @@ export default function PromptInjectorsPage() {
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [confirmState, setConfirmState] = useState(null);
   const [showPresets, setShowPresets] = useState(false);
-  const notify = useNotificationStore((s) => s.notify);
+  // addNotification, not notify — the store exposes no `notify` key, so the old
+  // selector returned undefined and every notify({...}) call threw TypeError.
+  // All 15 call sites already pass addNotification's exact { type, message } shape.
+  const notify = useNotificationStore((s) => s.addNotification);
 
   const load = useCallback(async () => {
     try {
@@ -197,7 +200,13 @@ export default function PromptInjectorsPage() {
         <div>
           <h1 className="text-lg font-semibold">Prompt Injectors</h1>
           <p className="text-sm text-muted-foreground">
-            Operator-defined prompts injected into the system message of every matching chat request — with live variables ({{model}}, {{date}}…) and per-request overrides.
+            {/* {"{{model}}"} not {{model}} — in JSX text, {{model}} parses as an
+                expression container holding the object shorthand {model}, which
+                dereferences an undefined identifier and throws ReferenceError on
+                EVERY render. The page could not paint at all. The em dash here is
+                an R-02 violation and is deliberately left for the redesign tide,
+                so this commit stays one logical change. */}
+            Operator-defined prompts injected into the system message of every matching chat request — with live variables ({"{{model}}"}, {"{{date}}"}…) and per-request overrides.
           </p>
         </div>
         <div className="flex gap-2">
@@ -241,7 +250,7 @@ export default function PromptInjectorsPage() {
         )}
       </Card>
 
-      <Modal open={showFormModal} onClose={() => setShowFormModal(false)} title={editingIndex === null ? "Add Injector" : "Edit Injector"}>
+      <Modal isOpen={showFormModal} onClose={() => setShowFormModal(false)} title={editingIndex === null ? "Add Injector" : "Edit Injector"}>
         <div className="space-y-4">
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Name</label>
@@ -329,7 +338,7 @@ export default function PromptInjectorsPage() {
         </div>
       </Modal>
 
-      <Modal open={showPresets} onClose={() => setShowPresets(false)} title="Injector presets">
+      <Modal isOpen={showPresets} onClose={() => setShowPresets(false)} title="Injector presets">
         <div className="space-y-2">
           {PRESETS.map((p) => (
             <button
@@ -346,7 +355,7 @@ export default function PromptInjectorsPage() {
       </Modal>
 
       <ConfirmModal
-        open={!!confirmState}
+        isOpen={!!confirmState}
         title={confirmState?.title}
         message={confirmState?.message}
         onConfirm={async () => {
