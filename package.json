@@ -1,6 +1,6 @@
 {
   "name": "vela-app",
-  "version": "0.9.44",
+  "version": "0.9.45",
   "description": "Vela — the AI gateway: one OpenAI-compatible endpoint routing 40+ providers, with full key governance",
   "homepage": "https://github.com/YumamaX3/Vela#readme",
   "repository": {
@@ -52,7 +52,7 @@
     "selfsigned": "^5.5.0",
     "socks-proxy-agent": "^8.0.5",
     "sql.js": "^1.14.1",
-    "undici": "^7.19.2",
+    "undici": "^7.29.0",
     "uuid": "^13.0.0",
     "zustand": "^5.0.10"
   },

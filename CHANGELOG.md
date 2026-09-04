@@ -25,6 +25,257 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.45 — The Sealed Hatches 🔐
+
+> *"Every opening the proxy fleet left in its hull is now a hatch with a bolt on it. Not patched from
+> the outside — re-cut from within, so the bolt is part of the hatch and cannot be forgotten. Six
+> gates closed, and each one proven by breaking it on purpose."*
+
+**⚙️ The decree (Proxy Fleet Rebirth, milestone 1 — Security Closure):** Wave 0 (v0.9.42) healed
+the fleet's *engine*, milestone 0.5 (v0.9.43) proved its *restore*, and v0.9.44 closed the three
+wounds living *downstream* of both. This tide is the one all three were clearing the way for: the
+sealed ADR's §5.1–§5.6, every security boundary the proxy system crosses. Nine milestones were
+planned; this is the first that closes a class of exposure rather than a defect.
+
+**Six gates, and the proof for each.** Nothing below is claimed without a mutation harness that
+removed the guard and watched a test go red.
+
+| Gate | Section | What it closes | Proof |
+|-|-|-|-|
+| **Fail-closed routing** 🔒 | §5.1 | the proxy-pools surface read posture-open | 39 tests |
+| **Relay authentication** 🔑 | §5.2 | every deployed relay was an **open proxy** | 62 tests |
+| **Egress header fence** 🚧 | §5.3 | `x-9r-*` internals travelled to third-party hosts | 18 tests · **11/11 mutations** |
+| **Read-boundary redaction** 🎭 | §5.4 | proxy credentials in plaintext, in responses *and* errors | 42 + 15 tests · **8/8 mutations both directions** |
+| **SSRF gate** 🛡️ | §5.5 | a pool URL pointed anywhere, including `169.254.169.254` | 34 tests · **16/16 mutations** |
+| **Dependency floor** 📦 | §5.6 | a fresh install could ship a TLS-validation bypass | `npm audit` 0 vulnerabilities |
+
+**🔑 §5.2 — the relay fleet was an open-proxy farm, and the fix is a protocol version.**
+Every relay Vela ever deployed to Deno, Cloudflare, or Vercel was **publicly reachable and
+unauthenticated**, and it forwarded to any host. The dashboard said "relay deployed" and meant "here
+is an open proxy with your egress IP". The repair gives the relay a secret and a version:
+
+- `relayTemplate.js` becomes **one home for both halves** — `RELAY_VERSION` (what the relay
+  requires) and `relayAuthHeaders` (what the caller sends) sit in one file so the two cannot drift.
+  The gate is **load-bearing, not decorative**: the relay authenticates *first*, before anything
+  else, so an unauthenticated caller gets a bare 401 and learns nothing about the allow-list.
+- `persistRelayPool` stamps `relayVersion: 2` **only** at the moment a v2 body is actually deployed.
+  The default stays **1** — and that default carries weight. Every relay already in the world was
+  built from the v1 body, which forwards *all* headers. A caller sends `x-relay-auth` only when
+  `relayVersion >= 2`, so defaulting to 2 would hand a v1 relay a secret that it then forwards to
+  the upstream provider. Defaulting to 1 makes the new field a no-op until a deploy opts in.
+- The secret travels **top level, deliberately outside `providerSpecificData`**. That block is
+  persisted: `updateProviderCredentials` spreads it wholesale into the connections row, so a secret
+  stamped there would land plaintext in a second table, unredacted — §5.2b's whole design undone on
+  a different blob.
+- The three deploy routes deliver it the way each platform actually works, and this is why they were
+  **restructured rather than extended**: Vercel's env changes never reach an existing deployment and
+  `POST /v13/deployments` has no env channel at all, so the only working order is *ensure project →
+  set secret → deploy*. Cloudflare carries it inline as a `secret_text` binding — not `plain_text`,
+  which is frozen into an append-only version history forever. Deno sets it at app creation, and the
+  old code refused a 409 outright, which meant **a Deno relay could never be re-deployed or have its
+  token rotated**. It now patches the secret on the 409 and then deploys.
+- All three **abort rather than deploy** when the secret cannot be set. A relay without its secret
+  fail-closes on every request — safe but useless, and the dashboard would have reported success.
+
+`backupSecurity.js` gained `relayToken` to its redaction set. The set is named
+`CONNECTION_*` but governs `proxyPools` too, because one walk is applied to both blobs — measured,
+not assumed: a probe with a realistic relay pool blob returned the token **verbatim** before this,
+because a 43-char opaque token carries no userinfo and so the existing URL regex never fires on it.
+`relayVersion` is deliberately **not** redacted: it is a protocol marker, and a restore that dropped
+it would silently re-allow a v1 relay to receive a token it would then forward upstream.
+
+**🚧 §5.3 — the fence had to learn four shapes, because `{ ...headers }` was corrupting three of
+them.** Stripping `x-9r-*` at egress looked like a spread-and-filter one-liner until a test fed it
+an array. `{ ...[["a",1]] }` produces `{0:["a",1]}`, and `{ ...new Headers(...) }` produces `{}` —
+silently deleting **every** header, including `Authorization`. The fence is now shape-aware across
+plain objects, `Headers` instances (cloned, never mutating the caller's), array-of-pairs, and
+anything else passed through untouched. `x-9r-internal-models-fetch` is the one exempt header, by
+the Star's decree.
+
+**🎭 §5.4 — mask at the origin, not the sink.** The credential leak had two paths and they needed
+different repairs. Pool and connection reads went through a generic funnel with N consumers that
+gains more, so masking each sink was a losing race: `proxyRedaction.js` now masks at the boundary and
+five routes share it, replacing three *different* hand-rolled variants of one law (`delete result.apiKey`,
+`apiKey: undefined`, and an allow-list that named `connectionProxyUrl` as safe — the field **name** was
+safe, the **value** still carried the password). The repo layer is untouched: `proxyFleet` and
+`connectionProxy` need plaintext to dial.
+
+The error path was narrower and worse than the ADR said. A thrown `unsupported proxy scheme for
+<url>` interpolated the raw URL — credentials included — and that message reaches an **API client's
+response body**, not just a `console.warn`. Masking covers the message interpolation only, never
+`normalized` itself, which is both the dispatcher cache key and the construction argument and needs
+the real credentials. A dedicated over-mask guard pins all three: the constructor gets the full URL,
+`ProxyAgent` gets the full `uri`, and the cache key discriminates two pools differing only by
+credential. The harness caught a real coverage gap here — masking `set`/`get` while `has` checks the
+raw URL makes the cache never hit, and a 2-fetch collision test sees 2 constructions either way. The
+fix was a reuse assertion: same URL × 3 fetches → exactly **1** construction.
+
+One guard was **added and then removed**. A `constructDispatcher()` wrapper to catch undici
+constructor throws was probed against 14 failure shapes plus `.cause.message`: none leak. Removing
+a guard no test could ever prove is the honest outcome — an untestable guard is a false green
+wearing armour.
+
+**🛡️ §5.5 — the SSRF gate, and the ADR's range policy was inverted.** §5.5 specified create/update
+by naming two HTTP routes; the protected asset is `pool.proxyUrl`, which has **five** writers, so all
+five are gated. The gate is a dedicated `validateProxyPoolUrl` sharing the tested hostile-literal
+internals (`judgeHost`, `parseIpv4Literal`, `parseIpv6`, `classifyIpv4`, `classifyIpv6`) but with its
+own scheme policy and its own loopback rule, so the provider gate's suite cannot regress.
+
+Three measurements forced the ADR to be corrected rather than followed:
+
+| The ADR said | What was measured | Shipped |
+|-|-|-|
+| `socks5` allowed | `proxyFetch.js` routes to `Socks5ProxyAgent` only on `/^socks5:\/\//i`, so a `socks://` pool reaches `ProxyAgent` and fails **at dispatch time** — a row that saves and then cannot work | `socks://` **excluded** |
+| RFC1918/CGNAT refused | refusing them would break every homelab operator, which is most of this harbor's users | **allowed**, per the Star's decree |
+| `localhost` exempt | a name exemption reopens DNS rebinding for the exempted class | **literal loopback IPs only**, judged numerically |
+
+The exemption being literal-only is what kills the rebinding class: `127.0.0.1` and `::1` pass
+through the existing parsers, and the name `localhost` is refused with its own code
+(`loopback-name`) so the refusal is legible. One subtlety was measured rather than assumed —
+`new URL("localhost:7890")` does **not** throw; it parses `localhost:` as the *scheme* with an empty
+hostname, while `new URL("127.0.0.1:7890")` does throw. A bare `host:port` therefore needs a `://`
+prefix before it is judgeable, and a naive gate would silently never judge `localhost:7890` at all.
+`socks5:` is also a **non-special** scheme in WHATWG URL, so it keeps hostile literals like
+`0x7f000001` unnormalized where `http:` normalizes them — both spellings are tested.
+
+**🛡️ §5.5b — the bypass found while building §5.5.** Gating create/update left the three deploy
+routes persisting pool URLs directly, so the gate had a door beside it. Both are closed, because they
+fail differently: early slug validation per route **before any platform call** (a refusal *after*
+deploy orphans a live, publicly reachable relay holding a freshly minted secret), and
+`validateProxyPoolUrl` inside `persistRelayPool` — the chokepoint all three funnel through. Measured
+with no validation: `projectName = "169.254.169.254/#"` persisted a cloud-metadata hostname, and
+`orgDomain = "a/b.deno.net"` escaped the suffix to `relay-1.a`. A slug is now a DNS label, and an
+org domain a validated hostname — which also makes the CF API path safe *by construction* rather than
+depending on an `encodeURIComponent` staying put.
+
+**📦 §5.6 — the dependency floor, with both of the ADR's boundaries measured wrong.**
+The floor exists to close a CVE, and the ADR put it **below** the CVE. Probed against a synthetic
+`undici@7.27.0` install: advisory **GHSA-vmh5-mc38-953g**, *"TLS certificate validation bypass via
+dropped `requestTls` in SOCKS5 ProxyAgent"*, severity **high**, affected range **`7.0.0 - 7.28.0`**.
+The ADR's target `^7.28.0` sits *inside* that range — encoding it would have shipped a green gate
+over a live TLS bypass on the exact path this milestone guards. **Shipped `^7.29.0`**, where
+`npm audit` reports **0 vulnerabilities**. 7.29.0 is also the ceiling of the published 7.x line, so
+the range resolves to exactly one version with no drift room and does not cross into 8.x — that
+assessment stays owed before milestone 4.
+
+The ADR's stated *reason* was also wrong, though its conclusion survived. It credited the floor to
+`Socks5ProxyAgent` arriving at 7.28; a tarball probe puts the first appearance at **7.23.0** (absent
+in 7.19.2–7.22.0). The constructor shape was probed too, because "the export exists" is not "it
+accepts the call we make" — that gap *is* the LIVE-A wound class. At 7.23.0 / 7.26.0 / 7.28.0 /
+7.29.0 alike, arity is 1, the positional form constructs cleanly, and the old broken `{uri}` form
+throws. So a *functional* floor would have been `^7.23.0`; the **security** floor is `^7.29.0` and is
+the binding one. The two questions — when did the API arrive, when was the vulnerability fixed — have
+different answers, and the ADR conflated them. Only the second governs a security floor.
+
+`socks-proxy-agent@^8.0.5` is vestigial (zero source importers; a repo-wide grep returns hits only
+inside `.next/` build artifacts) and is pruned in **Wave 4, not here**.
+
+**🐛 A pre-existing wound, found by the sweep and fixed in its own commit.**
+`db-export-completeness.test.js` asserted `schemaVersion === 10` while `SCHEMA_VERSION` is **15** —
+proven stale at pristine HEAD, failing for five minors. It is now pinned to the imported constant
+rather than a literal, so a migration bumps the constant and the test follows without an edit. Per
+the Star's decree this shipped as its own commit, not folded into a feature.
+
+**🐛 A regression this tide introduced, caught by the blast-radius diff and fixed.**
+The first draft of §5.4's import in `proxyFetch.js` used `@/lib/db/repos/proxyRedaction.js`,
+justified by "open-sse already imports `@/lib/usageDb` six times". That reasoning held for those six
+(db modules reached through webpack's transform) and **failed here**: `reasoningContentInjector.test.js`
+builds a graph that reparses `open-sse/executors/base.js` as native ES module, never consults vite's
+alias table, and died at import time with `Cannot find package '@/lib'`. That suite passed at
+pristine HEAD and failed on this change. `proxyFetch.js` is the engine's most-mocked module (25
+suites), so coupling its import shape to a build tool was the wrong trade; both imports are now
+relative, matching this file's own convention, and a regression guard pins the rule. The build is
+unaffected — webpack bundles `open-sse` into the standalone chunks either way, which is also why the
+raw `COPY /app/open-sse` in the Dockerfile is not the executing path (`usageDb.js` has no raw copy in
+standalone, yet `chatCore.js` has imported it in production since before this tide).
+
+**⚙️ Two partial mocks repaired, and one comment that turned out to be a lie.**
+`quota-auto-ping` and `codex-reset-credits` mocked `connectionProxy` with a single export, so
+accessing the new `buildProxyOptionsPayload` threw vitest's own `No "X" export is defined on the mock`
+— eight assertions failed on `undefined` rather than on any behaviour change. Both now pull the
+**real** builder in via `importOriginal`, deliberately not a stub: the point of §5.2d is that every
+payload site agrees on one shape, and a stub would only prove the stub. That claim was then checked
+rather than trusted — `codex-reset-credits` genuinely asserted `strictProxy: false` through the route,
+but `quota-auto-ping` asserted **nothing** about the payload, so the comment promising it was false. A
+test now exists that makes it true, with a cfg that *conflicts* (`strictProxy: true` stored) so it can
+only pass if the override is honoured, and it was mutation-tested red against a builder that ignores
+its own override.
+
+**🐛 A false count this tide wrote, and the correction that was *also* false.**
+Auditing the numbers about to ship, I found `chatCore.js` describing its payload as "the tenth and
+only hand-built proxyOptions literal" with "the other nine call buildProxyOptionsPayload". The builder
+has **six** callers, and it is not the only literal — so the comment was corrected. The correction
+said **eight** sites and **two** literals. That was *also* wrong, and wrong in the more dangerous
+direction: it counted only the literals in files this tide touched and missed two in files it never
+opened.
+
+The definitive census is **ten** payload sites — **six** through the builder, **four** hand-built:
+`chatCore.js:377`, `testUtils.js:488`, `poolEgressProbe.js:70`, and `proxyFleet.js:655/:660`. The
+original "ten" had been right all along. Both comments now carry the census inline plus the *two*
+greps needed to recount it, because either grep alone undercounts — one finds the builder calls, the
+other the literals.
+
+**The security question was answered separately**, because a wrong denominator and a missing secret
+look identical from a distance: **every relay-capable payload carries both `relayAuth` and
+`relayVersion`.** The builder emits them as a pair, the relay branch in `resolveConnectionProxyConfig`
+reads `relayToken` off the pool row, and `chatCore` stamps them top level. The three literals that
+omit them cannot reach a relay — `testUtils.js:488` sets no `vercelRelayUrl`, and both egress probes
+pass `url:` rather than `vercelRelayUrl:`, so they never enter the relay branch of `proxyAwareFetch`
+where `relayAuthHeaders` is applied. No gap.
+
+**⚠️ A pre-existing defect the census surfaced, recorded and NOT claimed as fixed.**
+Both egress probes (`poolEgressProbe.js:70`, `proxyFleet.js`'s `probeEgress`) dial `pool.proxyUrl`
+through the *dispatcher* path, treating it as an HTTP CONNECT proxy. For a relay pool that URL is
+`https://relay.deno.net` — and a Deno, Cloudflare, or Vercel relay cannot serve CONNECT at all, so the
+probe fails and the pool's egress geo panel stays empty. This is **not** a §5.2 regression: the relay
+branch keys on `vercelRelayUrl`, that key appears exactly **3 times** in `proxyFetch.js` at both
+pristine HEAD and this tide, both probes passed `url:` at HEAD too, and relay pools reach the probe
+because its only filter is `!!p?.proxyUrl` with no type check. So the probe was already broken for
+relay pools before this release, and it fails the same way after. Fixing it means changing probe
+semantics to route through the relay protocol — a behaviour change to a dashboard feature that is not
+security closure, and outside this milestone's scope. **Owed**, with the other probe items, to a
+triage tide.
+
+**🧪 The verification record — and what it does not claim.**
+This milestone does **not** claim a green suite, because the repository has no green suite to claim.
+Measured at pristine HEAD over `tests/unit` — the same scope as every number in this table — **40
+files / 97 cases were already failing**, and `known-fails.txt` covers 9. (A wider repo-wide sweep at
+milestone 0.5 reported 48 files / 112 tests; that figure includes `tests/contract` and
+`tests/translator`, so it is **not** comparable to this table and is not cited as if it were.)
+Re-baselining to make a gate pass is forbidden, so the gate is a **blast-radius diff against pristine
+HEAD** in a worktree built *outside* the repo (an in-repo worktree contaminates vitest globs and makes
+failures appear twice).
+
+| | pristine HEAD | this tide |
+|-|-|-|
+| suites | 948 | **988** |
+| tests | 2,755 | **2,966** |
+| failing cases | 97 | **96** |
+| failing files | 40 | **39** |
+
+**Newly broken: 0. Newly fixed: 1** (the `db-export-completeness` repair above) — and that one fix is
+why the failing-*file* count drops 40 → 39: it was the only failing case in its file. The 12 proxy storms
+run **303 tests, all green**, of which **210 are new** this milestone.
+
+Three cases flipped between the full-list run and isolation **in both trees** —
+`force-stream-config`, `health-timeline-w4d`, `usage-metrics-api-w2b`. They are order-flakes whose
+verdict depends on run composition, not repairs, and are **not** claimed as fixed. One more, the
+`p99 < 1ms` latency assertion in `apikey-migration-002`, failed in full-run pass 1 and passed in
+pass 2 and in isolation in both trees 3/3 — a load-order flake, recorded rather than counted either
+way. A triage tide for the four is owed.
+
+`npm run build` exits **0**; standalone assets copy; the traced bundle carries the new modules.
+
+**⚠️ What this tide does NOT claim.** §5.2's relay authentication protects **newly deployed**
+relays. A relay deployed before this version keeps its v1 body and its `relayVersion: 1` row, and
+remains an open proxy until it is re-deployed — by design, because rotating a deployed relay's secret
+out from under it would break it silently. Re-deploying is the operator's act, and the dashboard now
+surfaces the version so the gap is visible rather than assumed closed. The `x-9r-*` header family is
+**stripped at egress, never renamed** — stripping and renaming are different acts, and the stamping
+protocol still depends on those names.
+
+---
+
 # v0.9.44 — The Downstream Wounds 🩸
 
 > *"The hull was mended and the lifeboat proven — but the bilge was still taking water. This tide
