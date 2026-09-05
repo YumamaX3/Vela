@@ -203,7 +203,8 @@ select {
   --shadow-elev: var(--shadow-elev);
   --shadow-focus: var(--shadow-focus);
 
-  /* Font - Inter primary, Apple system fallback */
+  /* Font — a literal stack, on purpose. See the `body` rule below for why
+     `var(--font-inter)` cannot live here. */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif;
 }
 
@@ -211,9 +212,78 @@ select {
 body {
   background-color: var(--color-bg);
   color: var(--color-text-main);
-  font-family: var(--font-sans);
+  /* Prefer next/font's metric-adjusted face. `--font-inter` is emitted on <body>
+     itself (class `__variable_*`) as `"Inter","Inter Fallback"`, where Inter
+     Fallback is a size-adjusted stand-in — so text holds its metrics across the
+     swap instead of reflowing (CLS). The literal 'Inter' is the fallback for any
+     context where the class did not apply.
+
+     Resolved HERE rather than in `@theme`, deliberately: a `var(--font-inter)`
+     inside `--font-sans` would be substituted at `:root`, where the variable is
+     undefined, which makes the whole token guaranteed-invalid at computed-value
+     time and silently drops body to the browser's initial font. `--font-sans`
+     below stays a literal stack so the `.font-sans` utility keeps working.
+
+     This rule is unlayered, so it beats `.font-sans` (utilities layer) — which is
+     also true today, where both resolve to the same literal stack. */
+  font-family: var(--font-inter, 'Inter'), -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Focused elements must show where focus is.
+
+   Measured gap: 140 interactive elements carry NO focus treatment at all — 70
+   buttons, 60 anchors, 9 inputs, 1 select — across files like Footer.js (12),
+   Navigation.js (8), TokenSaverClient.js (8) and the media-provider cards. They
+   were keyboard-reachable and invisible to a keyboard user.
+
+   Why `@layer base`, and why not unlayered: this file's plain rules are UNLAYERED,
+   and unlayered author CSS beats every `@layer`. An unlayered `:focus-visible`
+   would therefore also beat the 12 deliberate `focus-visible:outline-none` sites
+   and the 90 that pair a suppression with their own `focus:border-primary` (46) /
+   `focus:ring-*` (39) / `focus:shadow-*` (6) indicator, giving 57 elements a
+   double ring. In `base`, utilities win: every element that already styles its own
+   focus keeps exactly what it has, and only the 140 bare ones fall through to this.
+
+   Two independent mechanisms put utilities above base, and BOTH hold here — which
+   matters, because a comment citing only one would be true by accident if the
+   other changed. Tailwind's own source declares
+   `@layer theme, base, components, utilities;` (tailwindcss/index.css:1), and that
+   declaration order is what decides precedence. That statement does NOT survive
+   into the built bundle (measured: absent from every emitted chunk), where order
+   instead follows first appearance — and the bundle emits `@layer base` before
+   `@layer utilities` anyway. Same outcome either way, verified rather than assumed;
+   globals-css-tokens.test.js asserts the emitted order directly.
+
+   `--color-primary` is `#E56A4A` in BOTH themes (lines 21 and 83 are identical),
+   so one declaration serves light and dark. Against `--color-bg` it clears WCAG
+   1.4.11's 3:1 non-text contrast floor. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* `h-dvh` needs a real fallback — the class list cannot provide one.
+
+   Tailwind orders `.h-screen` AFTER `.h-dvh` in the built CSS (the relationship
+   is what matters, not the byte offsets — those move on every build), so a class
+   list carrying both resolves to `100vh` and `dvh` never applies; and
+   `cn("h-screen h-dvh")` collapses to just `"h-dvh"` anyway, since twMerge treats
+   them as one group. Both measured. An unsupported `100dvh` is not a graceful
+   degradation either — the declaration is invalid and dropped, leaving
+   `height: auto` and a broken app shell on an older browser.
+
+   So the fallback is explicit and gated on the feature test. This file's rules are
+   unlayered, so this beats the utilities layer, and `@supports not` means it only
+   ever matches where dvh is genuinely unavailable. Fixes every `h-dvh` consumer,
+   present (DashboardLayout.js) and future. */
+@supports not (height: 100dvh) {
+  .h-dvh { height: 100vh; }
+  .min-h-dvh { min-height: 100vh; }
+  .max-h-dvh { max-height: 100vh; }
 }
 
 /* Selection - brand-tinted */
@@ -940,12 +1010,50 @@ html:not(.dark) .login-card {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Respect those who prefer stillness */
+/* Respect those who prefer stillness.
+
+   This rule was scoped to `.login-page *, .login-page::before` — which left every
+   animation OUTSIDE the login page running at full speed for a user who asked for
+   stillness. The casualties it newly reaches, by SELECTOR (line numbers drift with
+   every edit and an earlier draft of this comment cited eight that were all stale
+   on arrival; single durations are wrong too — see the note below):
+
+     · .animate-spin · .animate-pulse · .animate-border-glow · .animate-pulse-glow
+     · .btn-cta · .btn-cta::before
+     · .topology-router-core · .topology-router-icon · .topology-router-label
+     · .topology-edge-kame · .topology-edge-halo · .topology-edge-plasma
+     · 15 inline `style={{ animation: "... infinite" }}` sites across 12 files —
+       landing/components/AnimatedBackground.js (3), the four media-provider example
+       cards (5), and one each in providers/[id], proxy-pools, ModelsCard,
+       PassthroughModelsSection, CompatibleModelsSection and landing/page.js
+
+   `topology-edge-dash` and `topology-edge-flicker` each run at TWO different
+   durations, from two different selectors — so naming one duration per keyframe is
+   always wrong. The login-* animations are absent from this list on purpose: the
+   old `.login-page *` scope already covered them.
+
+   globals-css-tokens.test.js asserts the full selector → animation → infinite chain
+   for every entry above, so this list cannot rot into fiction the way a line number
+   silently does.
+
+   The widened selector reaches the inline ones too: an `!important` declaration in
+   a stylesheet DOES override a non-important inline style, so `animation-duration`
+   set via `style={{...}}` is beaten here. That is the whole reason this works
+   without touching 15 component files.
+
+   `scroll-behavior` is included because the accessibility rule prescribes it; no
+   site sets it today (measured), so it is a guard against a future one.
+
+   0.01ms, not 0s: a zero duration makes some transition callbacks fire
+   synchronously or not at all, and `animation-iteration-count: 1` stops an infinite
+   loop without leaving the element parked mid-keyframe. */
 @media (prefers-reduced-motion: reduce) {
-  .login-page *,
-  .login-page::before {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
