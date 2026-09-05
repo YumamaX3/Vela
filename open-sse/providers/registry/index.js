@@ -131,6 +131,7 @@ import p128 from "./nesarouter.js";
 import p129 from "./codecrafters.js";
 import p130 from "./freebuff.js";
 import p131 from "./madefaka.js";
+import p132 from "./jerouter.js";
 
 export default [
   p0,
@@ -263,4 +264,5 @@ export default [
   p129,
   p130,
   p131,
+  p132,
 ];
