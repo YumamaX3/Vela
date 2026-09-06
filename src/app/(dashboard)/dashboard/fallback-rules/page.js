@@ -254,7 +254,8 @@ export default function FallbackRulesPage() {
             No fallback rules yet. Add one to define what happens when a model fails or a request overflows its context window.
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left text-muted-foreground">
                 <th className="p-3">Source</th>
@@ -297,6 +298,7 @@ export default function FallbackRulesPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
 
@@ -410,7 +412,7 @@ export default function FallbackRulesPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">Priority (lower runs first)</label>
               <Input
@@ -450,7 +452,7 @@ export default function FallbackRulesPage() {
           <div className="rounded-md bg-muted/40 p-3 text-xs font-mono">
             {testState?.rule?.sourceModel} → {(testState?.targets || []).join(" → ") || "—"}
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">HTTP status</label>
               <Input value={testState?.status || ""} onChange={(e) => setTestState({ ...testState, status: e.target.value })} />
