@@ -30,6 +30,7 @@ const navGroups = [
       { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: "api" },
       { href: "/dashboard/providers", label: "Providers", icon: "dns" },
       { href: "/dashboard/combos", label: "Combos", icon: "layers" },
+      { href: "/dashboard/routed-by-combo", label: "Routed by Combo", icon: "route" },
       // { href: "/dashboard/basic-chat", label: "Basic Chat", icon: "chat" }, // Hidden
       // { href: "/dashboard/pxpipe", label: "PXPIPE", icon: "image" }, // Hidden
     ],
