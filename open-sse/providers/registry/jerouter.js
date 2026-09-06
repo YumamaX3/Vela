@@ -62,5 +62,6 @@ export default {
     { id: "laguna-xs-2.1", name: "Laguna XS 2.1", supportedFormats: ["openai", "claude"] },
     { id: "inkling", name: "Inkling", supportedFormats: ["openai", "claude"] },
     { id: "qwen3.8-27b", name: "Qwen 3.8 27B", supportedFormats: ["openai", "claude"] },
+    { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", supportedFormats: ["openai", "claude"] },
   ],
 };
