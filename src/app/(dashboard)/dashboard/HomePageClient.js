@@ -23,6 +23,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardSkeleton } from "@/shared/components";
 import { translate } from "@/i18n/runtime";
 import { useUsageStream } from "@/app/(dashboard)/dashboard/usage/hooks/useUsageStream";
+import { usePageVisible } from "@/shared/hooks/usePageVisible";
 
 function greetingKey() {
   const h = new Date().getHours();
@@ -75,6 +76,7 @@ export default function HomePageClient() {
   const [version, setVersion] = useState(null);
   const [gatewayOk, setGatewayOk] = useState(null); // null = unknown yet
   const [day, setDay] = useState("");
+  const visible = usePageVisible();
 
   useEffect(() => {
     setDay(dayLabel());
@@ -95,7 +97,11 @@ export default function HomePageClient() {
   }, []);
 
   // Heartbeat — ping /api/health every 15s so the live chip tells truth.
+  // Paused while the tab is hidden (perf audit V6): a hidden tab gets
+  // nothing; on return the effect re-runs and pings immediately, so the
+  // user comes back to fresh state, not a stale throttled timer.
   useEffect(() => {
+    if (!visible) return undefined;
     let alive = true;
     const ping = () =>
       fetch("/api/health", { cache: "no-store" })
@@ -104,7 +110,7 @@ export default function HomePageClient() {
     ping();
     const id = setInterval(ping, 15_000);
     return () => { alive = false; clearInterval(id); };
-  }, []);
+  }, [visible]);
 
   const totalTokens = (stats?.totalPromptTokens || 0) + (stats?.totalCompletionTokens || 0);
   const cached = stats?.totalCachedTokens || 0;

@@ -10,6 +10,7 @@
 
 import { useState, useEffect } from "react";
 import Card from "@/shared/components/Card";
+import { usePageVisible } from "@/shared/hooks/usePageVisible";
 import { fmt } from "./UsageTable";
 
 function timeAgo(timestamp) {
@@ -20,16 +21,62 @@ function timeAgo(timestamp) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-// Auto-update time display every second without re-rendering parent
+// Auto-update time display (perf audit V5). WAS: one setInterval(1000) PER
+// ROW — 20 rows meant 20 re-renders/second in this rail alone, forever,
+// even though the displayed string rarely changes (it only moves when a
+// boundary crosses: s→m→h→d). NOW: ONE module-level ticker process-wide;
+// each row subscribes to it and re-renders only when ITS OWN label changes
+// (per-second only while the row is under a minute old, then the label is
+// stable and React's Object.is bail-out skips the render entirely).
+function timeAgoLabel(timestamp, now) {
+  const diff = Math.floor((now - new Date(timestamp)) / 1000);
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+const tickSubscribers = new Set();
+let tickTimer = null;
+
+function subscribeTicker(fn) {
+  tickSubscribers.add(fn);
+  // The ticker lives only while at least one TimeAgo is mounted; with no
+  // subscribers there is nothing to update, so the interval clears itself.
+  if (!tickTimer) {
+    tickTimer = setInterval(() => {
+      const now = Date.now();
+      tickSubscribers.forEach((fn) => fn(now));
+    }, 1000);
+  }
+  return () => {
+    tickSubscribers.delete(fn);
+    if (tickSubscribers.size === 0) {
+      clearInterval(tickTimer);
+      tickTimer = null;
+    }
+  };
+}
+
 function TimeAgo({ timestamp }) {
-  const [, setTick] = useState(0);
+  const visible = usePageVisible();
+  const [label, setLabel] = useState(() => timeAgoLabel(timestamp, Date.now()));
 
   useEffect(() => {
-    const timer = setInterval(() => setTick(t => t + 1), 1000);
-    return () => clearInterval(timer);
-  }, []);
+    // Sync immediately when the row's timestamp changes (new request lands).
+    setLabel(timeAgoLabel(timestamp, Date.now()));
+    // Hidden tab: labels frozen (they will resync on the timestamp change or
+    // the next visible tick — perf audit V6).
+    if (!visible) return undefined;
+    return subscribeTicker((now) => {
+      setLabel((prev) => {
+        const next = timeAgoLabel(timestamp, now);
+        return next === prev ? prev : next; // Object.is bail-out — no render when unchanged
+      });
+    });
+  }, [timestamp, visible]);
 
-  return <>{timeAgo(timestamp)}</>;
+  return <>{label}</>;
 }
 
 export default function RecentRequests({ requests = [] }) {
