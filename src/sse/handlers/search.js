@@ -144,8 +144,23 @@ async function handleSingleProviderSearch(body, providerInput, request, apiKey, 
   let lastError = null;
   let lastStatus = null;
 
+  // Credential fallback: some search providers reuse the API key of a related
+  // chat provider (e.g. ollama-search reuses the `ollama` chat key). When the
+  // search provider has no own connection, fall back to the linked provider's
+  // credentials (ported from upstream 9router 5a86f6a8 — W4, v0.9.50).
+  const fallbackProviderId = resolvedProvider.credentialFallback;
+
   while (true) {
-    const credentials = await getProviderCredentials(providerId, excludeConnectionIds);
+    let credentials = await getProviderCredentials(providerId, excludeConnectionIds);
+
+    // Fall back to the related chat provider's credentials when this search
+    // provider has none of its own (one key, chat + search).
+    if (!credentials && fallbackProviderId) {
+      credentials = await getProviderCredentials(fallbackProviderId, excludeConnectionIds);
+      if (credentials) {
+        log.info("AUTH", `[${providerId}] reusing ${fallbackProviderId} credentials`);
+      }
+    }
 
     if (!credentials || credentials.allRateLimited) {
       if (credentials?.allRateLimited) {

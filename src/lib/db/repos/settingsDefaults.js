@@ -55,6 +55,7 @@ export const DEFAULT_SETTINGS = {
   rtkEnabled: true,
   headroomEnabled: false,
   headroomUrl: DEFAULT_HEADROOM_URL,
+  headroomTimeoutMs: 3000,
   headroomCompressUserMessages: false,
   cavemanEnabled: false,
   cavemanLevel: "full",
