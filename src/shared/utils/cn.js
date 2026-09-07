@@ -31,14 +31,21 @@
  * utilities. twMerge does not know them and cannot: `shadow-[var(--shadow-elev)]`
  * is AMBIGUOUS to a parser — the variable could resolve to a box-shadow length or
  * to a colour — so twMerge keeps both classes and CSS order decides again. The app
- * hits this constantly (30 arbitrary `shadow-[var(--shadow-…)]` usages, incl.
- * — ⚠️ the `…` here is deliberate, NOT a `*`: Tailwind v4 extracts candidates
- * from comments too, and `shadow-[var(--shadow-*)]` in this text generated
- * `.shadow-\[var\(--shadow-\*\)\] { --tw-shadow: var(--shadow-*); }` — an
- * invalid `*` inside var() that broke the dev-server CSS parse (the prod
- * build never emitted it, so the wound was dev-only). Never write a literal
- * `*` in class-name-shaped text anywhere in src/.
+ * hits this constantly (30 arbitrary shadow-var usages, incl.
  * Modal.js:56, Drawer.js:53, Card.js:29, Loading.js:53).
+ *
+ * ⚠️ WHY THIS COMMENT CONTAINS NO CLASS-SHAPED TEXT WITH A WILDCARD:
+ * Tailwind v4 extracts candidates from raw text — comments included.
+ * On 2026-09-07 an earlier version of this note spelled out the
+ * wildcard form of the shadow-var pattern (with an asterisk where
+ * the token name goes), and the dev server faithfully generated a
+ * rule for it: an asterisk is invalid inside a CSS var() reference,
+ * so the emitted stylesheet failed to parse and /dashboard 500'd.
+ * The production build never emitted that rule (no real call site
+ * carries the wildcard), which is why dev and prod disagreed. The
+ * rule this file now lives by: NEVER write class-name-shaped text
+ * with a wildcard in any comment under src/ — describe the hazard
+ * in words instead, exactly as this note does.
  *
  * So both vocabularies are taught to twMerge here. All five Vela shadow tokens are
  * box-shadow LENGTHS (--shadow-soft/warm/elevated/elev/focus, globals.css:60-67,
