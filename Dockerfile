@@ -69,6 +69,11 @@ COPY --from=builder /app/node_modules/next ./node_modules/next
 # sql.js loads dist/sql-wasm.wasm by path at runtime; tracing only follows JS imports,
 # so the last-resort DB driver would abort with ENOENT on the missing binary.
 COPY --from=builder /app/node_modules/sql.js ./node_modules/sql.js
+# node-machine-id is createRequire-loaded at runtime (src/mitm/manager.js:156) and
+# a plain ESM import in src/shared/utils/machine*.js that tracing omits — the
+# standalone image would crash on first machine-id read (ported from upstream
+# 9router 15687d19 — W1, v0.9.47).
+COPY --from=builder /app/node_modules/node-machine-id ./node_modules/node-machine-id
 # mysql2 loads via a runtime dynamic import (src/lib/db/mysql/pool.js); file tracing
 # does not follow it, so the mysql/mirror postures would boot with no mysql2 present.
 # mysql2 is pure JS (no native bindings) but NOT self-contained — its 9 runtime deps

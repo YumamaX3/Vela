@@ -25,6 +25,45 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.47 — The Sealed Gates 🔒
+> *"The gate was only as strong as the parse of the address written upon it. Now the harbor reads the address as the machine does — and the gate holds."* ⛵
+
+**W1 of the upstream divergence closure** — the four security fixes from
+9router v0.5.55–v0.5.69 that Vela never carried, each verified against our
+source first (the fork census measured 87 uncaptured upstream subjects;
+these four sail first because they guard every request).
+
+- 🐛 **SSRF guard hardening** (`src/shared/utils/ssrfGuard.js`, port of b870b5d4/#3714):
+  four bypasses closed — alternate IPv6 encodings (hex `::ffff:7f00:1`, NAT64
+  `64:ff9b::`, IPv4-compatible) now parse to 16-bit groups instead of
+  pattern-matching the string; trailing-dot FQDNs (`localhost.`) normalize
+  before matching; CGNAT `100.64.0.0/10` joins the blocklist (cloud metadata
+  proxies); and two new layers — `assertPublicUrlResolved()` does DNS
+  resolution so wildcard-DNS domains (nip.io/sslip.io) resolving to private
+  addresses are rejected, and `fetchPublic()` re-validates every redirect hop
+  so a validated URL can't 30x into the intranet.
+- 🐛 **cowork MCP probe SSRF** (`src/app/api/cli-tools/cowork-mcp-tools/route.js`,
+  port of 97f3ab97): remote callers' probe URLs pass `assertPublicUrl`; local
+  callers keep self-hosted MCP servers.
+- 🐛 **Root `/responses` rewrite protected** (`src/dashboardGuard.js`, port of
+  98579f98): middleware runs before Next.js rewrites, so a pre-rewrite remote
+  `/responses` request hit no auth at all — it now joins `PUBLIC_PREFIXES` and
+  demands the API key like its siblings.
+- 🐛 **503 when all credentials rate-limited** (`src/sse/handlers/chat.js`,
+  port of 15687d19): `lastStatus` could carry a stale or provider-specific
+  code that masked Service Unavailable; the all-rate-limited branch now always
+  returns 503, the code combo fallback and clients key their retries on.
+- 🐛 **node-machine-id bundled into the Docker image** (Dockerfile, same
+  upstream commit): createRequire-loaded at runtime (`src/mitm/manager.js`),
+  tracing omits it — the standalone image crashed on first machine-id read.
+  The closure guard test now knows the new COPY line.
+
+🧪 Proof: w1-ssrf-guard-hardening 10/10 green (one block per bypass) ·
+dockerfile-mysql2-closure 2/2 · dashboard-guard 40/40 (exercises the new
+prefix) · proxy-storm-ssrf-gate + search-ssrf-guard green · build green ·
+secret scan clean. Total 82 guard-suite tests + 10 new.
+
+---
 # v0.9.46 — The Mended Rule 🧭
 
 > *"An operator writes a fallback rule, saves it, and the harbor quietly ignores it — five minors
