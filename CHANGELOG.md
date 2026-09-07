@@ -25,6 +25,50 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.50 — The New Shores 🗺️
+> *"Four new islands on the search horizon — an X-firehose, a Zai foghorn folded into GLM's mast, an Ollama cloud-harbor — and the compression window bends to the operator's hand."* ⛵
+
+**W4 of the upstream divergence closure** — the search-provider and
+handler wave from 9router v0.5.35..v0.5.69.
+
+- ✨ **Xquik** — new X-search provider (xquik.com): GET-based tweet search,
+  key in the `x-api-key` header (never the URL), cursor pagination,
+  queryType Latest/Top gate, per-post credit accounting surfaced as
+  `provider_credits_used` with `search_cost_usd: null` when USD is
+  unknown (upstream f0a6d358).
+- ✨ **ollama-search** — search provider riding the `ollama` chat key via
+  the new `credentialFallback` registry field (upstream 5a86f6a8).
+- ✨ **zai-search folded into GLM** — the glm registry entry gains
+  `serviceKinds: ["llm","webSearch"]` + an MCP web_search_prime
+  searchConfig: one Coding-plan key serves chat AND search (upstream
+  9dbdca0e). GLM also gains the `glm-5-turbo` catalog entry.
+- ✨ **Antigravity as a web-search provider** — grounded answers through
+  the IDE client shape: `searchViaChat` with Gemini 2.5 Flash default,
+  segment-expansion windows (150/250 chars), dedup + join, real 403
+  surfacing (upstream 2f17352c).
+- ✨ **Ollama Cloud web fetch** — fetch handler dispatches to ollama,
+  response may carry `links`, registry gains the fetch config (upstream
+  e0ffc7e2 + the jina-reader JSON-POST recovery 3c17d340 riding along).
+- 🔧 **Headroom timeout configurable** — `settings.headroomTimeoutMs`
+  (default 3000) threads chat → chatCore → compressWithHeadroom, guarded
+  by `normalizeTimeout()` so a bad value degrades to the default instead
+  of an unbounded or zero AbortSignal (upstream).
+- 🔧 **Search handler credential fallback** — `credentialFallback` joined
+  PROVIDER_MEDIA keys; the search loop falls back to the linked chat
+  provider's credentials when it has none of its own.
+- 🔧 **Provider icon svg support** — `getProviderIconSrc` serves `.svg`
+  for providers shipping vector art.
+- 🔧 **validate route** honors `validateUrl` (Xquik's credits endpoint).
+- ✨ **Grok CLI bulk import** — paste a JSON array of accounts on the
+  provider page; new bulk-import route + BulkImportGrokCliModal (upstream
+  abb20d9f).
+
+🧪 Proof: NEW xquik suite 6/6 + ollama-web-fetch suite 4/4 green ·
+search SSRF suites 42/42 (the reworked handlers still fail closed) ·
+translator suite at the pre-existing 5-failure baseline · build ✓ ·
+secret scan clean.
+
+---
 # v0.9.49 — The New Models ✨
 > *"New sails for the fleet: a Gemini that sees in tiers, a GLM that watches, a DeepSeek that dreams in images, and an xAI that reads half a million tokens at once."* ⛵
 
