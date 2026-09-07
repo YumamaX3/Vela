@@ -25,6 +25,43 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.53 — The Signature Ledger 🖋️
+> *"Google forgets the signature; the harbor remembers it. Now the Antigravity tide carries its proof of thought across every turn."* ⛵
+
+The deferred debt from the W6 divergence closure, paid with the surgical
+tide it was owed. Gemini thoughtSignatures — Google's proof-of-thinking
+tokens attached to each functionCall — are dropped from client history,
+and Anthigravity 400s a functionCall replayed without one. The store
+remembers them so the executor can backfill.
+
+- ✨ **NEW `open-sse/services/thoughtSignatureStore.js`** — KV-backed
+  (SQLite kv + 1h memory tier) store: capture on response, sync read on
+  backfill, session-scoped with a global fallback key (the executor's
+  sessionId can wobble between turns), TTL'd and pruned both tiers.
+- ✨ **Antigravity executor** — parallel functionCall handling: the FIRST
+  call carries its real signature (cache-hit or the default), siblings
+  stay unsigned per Google's contract; stale default signatures no
+  longer mask cacheable real ones.
+- ✨ **gemini-to-openai (capture)** — signatures parsed from response
+  parts and stored per call id; standalone signature parts held for the
+  next functionCall; function-call emission deduplicated through a
+  shared builder.
+- ✨ **openai-to-gemini (replay)** — client history signatures ride back
+  to Gemini on the request path.
+- ✨ **ANTIGRAVITY_PROMPT_REWRITES** — competitive-branding stripping
+  (b566b20a, the companion commit this executor depends on) now lives in
+  appConstants: Claude-agent self-identifications and opencode brand
+  strings rewrite to Antigravity before the request rides, killing the
+  429s Google fires on cross-brand payloads.
+- 🧪 **NEW smoke suite** `tests/unit/thought-signature-store.test.js` —
+  5 cases pinning the contract: store/read, global fallback semantics,
+  latest-wins overwrite, null-for-unknown, null-session scope.
+
+🧪 Proof: signature suite 5/5 · translator at the pre-existing 5-failure
+baseline · antigravity suites green (oauth-client failure pre-exists at
+pristine HEAD) · build ✓ · secret scan clean.
+
+---
 # v0.9.52 — The Quiet Deck 🎨
 > *"The last wave settles: every card reads true at any length, every failure speaks its name, and the page no longer pretends the harbor is always local."* ⛵
 
