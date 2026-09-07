@@ -25,6 +25,41 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.52 — The Quiet Deck 🎨
+> *"The last wave settles: every card reads true at any length, every failure speaks its name, and the page no longer pretends the harbor is always local."* ⛵
+
+**W6 — the final wave of the upstream divergence closure** (v0.5.35 →
+v0.5.69, 87 uncaptured subjects now carried).
+
+- 🐛 **API-key mask clamp** — a key shorter than the 8-char prefix made
+  `repeat(negative)` throw RangeError in three media-provider example
+  cards (upstream).
+- 🐛 **Connection-test timeouts** — a 15s AbortSignal when the caller
+  supplies none; provider tests no longer hang and exhaust the pool.
+  Plus `matchSearch` returns false for falsy names instead of crashing
+  the providers page (upstream).
+- 🐛 **CommandCode in-stream errors** — executor rewritten upstream-side
+  to parse business envelopes and surface honest non-200s so combo and
+  account fallback engage; NDJSON wrap now inspects before wrapping
+  (upstream 67d9182e). New 5-test executor suite.
+- 🐛 **Cursor agent tool-error leak** — unsupported ExecServerMessage
+  variants fail the turn with an SSE error frame instead of narrating
+  protocol state as assistant text; late frames after turn close are
+  dropped (upstream 5e597908). New 6-test suite.
+- 🐛 **Anthropic-compatible beta forwarding** — nodes fronting real
+  Claude models (multi-account proxies, corporate gateways) now receive
+  the same beta flags the `claude` provider sends; gated by model id so
+  gateways fronting Kimi/GLM are untouched (upstream fb9fab02).
+- 🐛 **Dynamic mode label** — the profile page detects a remote host and
+  says "Remote Mode" instead of lying about local storage (upstream
+  28cfd9fa).
+- 🎨 **Connection list capped** — 500px max-height with scroll on the
+  provider connections card (upstream 831001c3).
+
+🧪 Proof: cursor suite 6/6 · commandcode suite 5/5 · translator at the
+pre-existing 5-failure baseline · build ✓ · secret scan clean.
+
+---
 # v0.9.51 — The Quota Fleet 📊
 > *"The harbor now counts what each island spends and when its tide returns — no more guessing which account starves next."* ⛵
 
