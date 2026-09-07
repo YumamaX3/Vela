@@ -1462,91 +1462,121 @@ export default function APIPageClient() {
         )}
       </Card>
 
-      {/* Add Key Modal */}
+      {/* Add Key Modal — Prism redesign: sectioned ceremony (Identity/Access/Limits),
+          pinned footer, terminal-styled reveal on the created-key step. All state
+          wiring preserved verbatim; only the rendering is reborn. */}
       <Modal
         isOpen={showAddModal}
         title={translate("Create API Key")}
+        size="lg"
+        className="p-0! max-h-[90vh] h-dvh sm:h-auto sm:max-h-[85vh] flex flex-col"
         onClose={() => {
           setShowAddModal(false);
           resetCreateForm();
         }}
       >
-        <div className="flex flex-col gap-4">
-          <Input
-            label={translate("Key Name")}
-            value={newKeyName}
-            onChange={(e) => setNewKeyName(e.target.value)}
-            placeholder={translate("Production Key")}
-          />
-          <Input
-            label={translate("Description (optional)")}
-            value={newKeyDescription}
-            onChange={(e) => setNewKeyDescription(e.target.value)}
-            placeholder={translate("What this key is used for")}
-          />
-          <Input
-            label={translate("Category (optional)")}
-            value={newKeyCategory}
-            onChange={(e) => setNewKeyCategory(e.target.value)}
-            placeholder={translate("e.g. friend, hermes, others")}
-            list="key-category-options"
-            hint={translate("Group keys by purpose — pick an existing one or type your own")}
-          />
-
-          {/* Allowed models — grouped per provider, same picker the combos use */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <p className="text-sm font-medium">{translate("Restrict models")}</p>
-                <p className="text-xs text-text-muted">{translate("Limit which models this key can call")}</p>
+        <div className="flex flex-col h-full min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 flex flex-col gap-5">
+            {/* Section: Identity */}
+            <section className="flex flex-col gap-3.5">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary" style={{ fontSize: "16px" }} aria-hidden="true">badge</span>
+                <h3 className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">{translate("Identity")}</h3>
               </div>
-              <Toggle size="sm" checked={newKeyScopeOn} onChange={(c) => { setNewKeyScopeOn(c); if (!c) setNewKeyScope([]); }} />
-            </div>
-            {newKeyScopeOn && (
-              <>
-                <Button icon="add" variant="outline" size="sm" onClick={() => setScopePickerFor("create")}>
-                  {translate("Add Model")}
-                </Button>
-                {newKeyScope.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {newKeyScope.map((m) => (
-                      <span key={m} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 border border-primary/30 text-xs font-mono">
-                        {m}
-                        <button
-                          onClick={() => setNewKeyScope((prev) => prev.filter((x) => x !== m))}
-                          className="text-text-muted hover:text-red-500"
-                          aria-label={translate("Remove")}
-                        >
-                          <span className="material-symbols-outlined" style={{ fontSize: "12px" }}>close</span>
-                        </button>
-                      </span>
-                    ))}
+              <Input
+                label={translate("Key Name")}
+                value={newKeyName}
+                onChange={(e) => setNewKeyName(e.target.value)}
+                placeholder={translate("Production Key")}
+              />
+              <Input
+                label={translate("Description (optional)")}
+                value={newKeyDescription}
+                onChange={(e) => setNewKeyDescription(e.target.value)}
+                placeholder={translate("What this key is used for")}
+              />
+              <Input
+                label={translate("Category (optional)")}
+                value={newKeyCategory}
+                onChange={(e) => setNewKeyCategory(e.target.value)}
+                placeholder={translate("e.g. friend, hermes, others")}
+                list="key-category-options"
+                hint={translate("Group keys by purpose — pick an existing one or type your own")}
+              />
+            </section>
+
+            <div className="border-t border-border-subtle" role="presentation" />
+
+            {/* Section: Access */}
+            <section className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary" style={{ fontSize: "16px" }} aria-hidden="true">shield_lock</span>
+                  <div>
+                    <h3 className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">{translate("Restrict models")}</h3>
+                    <p className="text-xs text-text-muted">{translate("Limit which models this key can call")}</p>
                   </div>
-                ) : (
-                  <p className="text-xs text-text-muted mt-2">{translate("No models selected")}</p>
-                )}
-                {newKeyScope.length > 0 && (
-                  <p className="text-xs text-text-muted mt-1.5">{newKeyScope.length} {translate("selected")}</p>
-                )}
-              </>
+                </div>
+                <Toggle size="sm" checked={newKeyScopeOn} onChange={(c) => { setNewKeyScopeOn(c); if (!c) setNewKeyScope([]); }} />
+              </div>
+              {newKeyScopeOn && (
+                <div className="rounded-lg border border-border-subtle bg-surface-2/30 p-3 flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-text-muted">
+                      {newKeyScope.length > 0
+                        ? `${newKeyScope.length} ${translate("selected")}`
+                        : translate("No models selected")}
+                    </span>
+                    <Button icon="add" variant="outline" size="sm" onClick={() => setScopePickerFor("create")}>
+                      {translate("Add Model")}
+                    </Button>
+                  </div>
+                  {newKeyScope.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {newKeyScope.map((m) => (
+                        <span key={m} className="group inline-flex items-center gap-1 pl-2 pr-1 py-1 rounded-md bg-primary/10 border border-primary/30 text-xs font-mono">
+                          {m}
+                          <button
+                            onClick={() => setNewKeyScope((prev) => prev.filter((x) => x !== m))}
+                            className="p-0.5 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                            aria-label={`${translate("Remove")} ${m}`}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: "12px" }}>close</span>
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+
+            <div className="border-t border-border-subtle" role="presentation" />
+
+            {/* Section: Limits */}
+            <section className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary" style={{ fontSize: "16px" }} aria-hidden="true">tune</span>
+                <h3 className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">{translate("Limits")}</h3>
+              </div>
+              {/* W3 limits — rate, budgets, window, expiry, IP allowlist */}
+              <KeyLimitsEditor
+                key={`create-${showAddModal}`}
+                value={createLimits}
+                onChange={setCreateLimits}
+              />
+            </section>
+
+            {createError && (
+              <p className="text-sm text-red-500 flex items-center gap-1.5" role="alert">
+                <span className="material-symbols-outlined" style={{ fontSize: "16px" }} aria-hidden="true">error</span>
+                {createError}
+              </p>
             )}
           </div>
 
-          {/* W3 limits — rate, budgets, window, expiry, IP allowlist */}
-          <KeyLimitsEditor
-            key={`create-${showAddModal}`}
-            value={createLimits}
-            onChange={setCreateLimits}
-          />
-
-          {createError && (
-            <p className="text-sm text-red-500">{createError}</p>
-          )}
-
-          <div className="flex gap-2">
-            <Button onClick={handleCreateKey} fullWidth disabled={!newKeyName.trim()}>
-              {translate("Create")}
-            </Button>
+          {/* Pinned footer — save is always visible, no scroll-to-save */}
+          <div className="border-t border-border-subtle px-4 py-3 sm:px-5 bg-surface-2/20 flex flex-col-reverse sm:flex-row gap-2 shrink-0">
             <Button
               onClick={() => {
                 setShowAddModal(false);
@@ -1557,40 +1587,58 @@ export default function APIPageClient() {
             >
               {translate("Cancel")}
             </Button>
+            <Button onClick={handleCreateKey} fullWidth disabled={!newKeyName.trim()}>
+              {translate("Create")}
+            </Button>
           </div>
         </div>
       </Modal>
 
-      {/* Created Key Modal — the one-time show-once ceremony */}
+      {/* Created Key Modal — the one-time show-once ceremony.
+          Prism redesign: the key lives in the terminal panel (the warm-ink
+          token, like the command deck) because a one-time secret should
+          read as a vault opening, not a form field. */}
       <Modal
         isOpen={!!createdKey}
         title={translate("API Key Created")}
         onClose={() => { if (createdKeyAck) closeCreatedKeyModal(); }}
       >
         <div className="flex flex-col gap-4">
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-            <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2 font-medium">
-              {translate("Save this key now!")}
-            </p>
-            <p className="text-sm text-yellow-700 dark:text-yellow-300">
-              {translate("This is the only time this key will ever be shown. Vela stores only its hash — if you lose it, create a new key and delete this one.")}
-            </p>
+          <div className="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning/10 p-3.5">
+            <span className="material-symbols-outlined text-warning shrink-0" style={{ fontSize: "20px" }} aria-hidden="true">key</span>
+            <div>
+              <p className="text-sm text-text-main mb-1 font-semibold">
+                {translate("Save this key now!")}
+              </p>
+              <p className="text-xs text-text-muted">
+                {translate("This is the only time this key will ever be shown. Vela stores only its hash — if you lose it, create a new key and delete this one.")}
+              </p>
+            </div>
           </div>
-          <div className="flex gap-2 items-center">
-            <Input
-              value={createdKey?.key || ""}
-              readOnly
-              className="flex-1 font-mono text-sm"
-            />
+
+          {/* The vault — terminal panel styling, the one deliberate accent surface */}
+          <div
+            className="rounded-lg border border-black/20 dark:border-white/10 p-4 font-mono text-sm break-all select-all"
+            style={{ background: "var(--color-terminal)", color: "var(--color-terminal-text)" }}
+          >
+            <p className="text-[10px] uppercase tracking-wider opacity-60 mb-2" style={{ color: "var(--color-terminal-text)" }}>
+              vela api key · shown once
+            </p>
+            <p className="leading-relaxed">{createdKey?.key || ""}</p>
+          </div>
+
+          <div className="flex justify-end">
             <Button
               variant="secondary"
+              size="sm"
               icon={copied === "created_key" ? "check" : "content_copy"}
               onClick={() => copy(createdKey?.key, "created_key")}
             >
               {copied === "created_key" ? translate("Copied!") : translate("Copy")}
             </Button>
           </div>
-          <label className="flex items-center gap-2 text-sm text-text-muted cursor-pointer">
+
+          <label className="flex items-center gap-2 text-sm text-text-muted cursor-pointer select-none">
             <input
               type="checkbox"
               checked={createdKeyAck}
@@ -1605,95 +1653,128 @@ export default function APIPageClient() {
         </div>
       </Modal>
 
-      {/* Edit Key Modal — whitelist mutation (name, description, allowed models) */}
+      {/* Edit Key Modal — whitelist mutation (name, description, allowed models).
+          Prism redesign: mirrors the create ceremony's sectioned rhythm so the
+          two surfaces read as one family. State wiring preserved verbatim. */}
       <Modal
         isOpen={!!editingKey}
         title={translate("Edit API Key")}
+        size="lg"
+        className="p-0! max-h-[90vh] h-dvh sm:h-auto sm:max-h-[85vh] flex flex-col"
         onClose={() => setEditingKey(null)}
       >
-        <div className="flex flex-col gap-4">
-          <Input
-            label={translate("Key Name")}
-            value={editingKey?.name || ""}
-            onChange={(e) => setEditingKey((prev) => ({ ...prev, name: e.target.value }))}
-            placeholder={translate("Production Key")}
-          />
-          <Input
-            label={translate("Description (optional)")}
-            value={editingKey?.description || ""}
-            onChange={(e) => setEditingKey((prev) => ({ ...prev, description: e.target.value }))}
-            placeholder={translate("What this key is used for")}
-          />
-          <Input
-            label={translate("Category (optional)")}
-            value={editingKey?.category || ""}
-            onChange={(e) => setEditingKey((prev) => ({ ...prev, category: e.target.value }))}
-            placeholder={translate("e.g. friend, hermes, others")}
-            list="key-category-options"
-            hint={translate("Leave empty to keep this key uncategorized")}
-          />
-
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <p className="text-sm font-medium">{translate("Restrict models")}</p>
-                <p className="text-xs text-text-muted">{translate("Limit which models this key can call")}</p>
+        <div className="flex flex-col h-full min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 flex flex-col gap-5">
+            {/* Section: Identity */}
+            <section className="flex flex-col gap-3.5">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary" style={{ fontSize: "16px" }} aria-hidden="true">badge</span>
+                <h3 className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">{translate("Identity")}</h3>
               </div>
-              <Toggle
-                size="sm"
-                checked={editingKey?.scopeOn || false}
-                onChange={(c) => setEditingKey((prev) => ({ ...prev, scopeOn: c, allowedModels: c ? prev.allowedModels : [] }))}
+              <Input
+                label={translate("Key Name")}
+                value={editingKey?.name || ""}
+                onChange={(e) => setEditingKey((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder={translate("Production Key")}
               />
-            </div>
-            {editingKey?.scopeOn && (
-              <>
-                <Button icon="add" variant="outline" size="sm" onClick={() => setScopePickerFor("edit")}>
-                  {translate("Add Model")}
-                </Button>
-                {(editingKey?.allowedModels || []).length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {(editingKey?.allowedModels || []).map((m) => (
-                      <span key={m} className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 border border-primary/30 text-xs font-mono">
-                        {m}
-                        <button
-                          onClick={() => setEditingKey((prev) => ({ ...prev, allowedModels: prev.allowedModels.filter((x) => x !== m) }))}
-                          className="text-text-muted hover:text-red-500"
-                          aria-label={translate("Remove")}
-                        >
-                          <span className="material-symbols-outlined" style={{ fontSize: "12px" }}>close</span>
-                        </button>
-                      </span>
-                    ))}
+              <Input
+                label={translate("Description (optional)")}
+                value={editingKey?.description || ""}
+                onChange={(e) => setEditingKey((prev) => ({ ...prev, description: e.target.value }))}
+                placeholder={translate("What this key is used for")}
+              />
+              <Input
+                label={translate("Category (optional)")}
+                value={editingKey?.category || ""}
+                onChange={(e) => setEditingKey((prev) => ({ ...prev, category: e.target.value }))}
+                placeholder={translate("e.g. friend, hermes, others")}
+                list="key-category-options"
+                hint={translate("Leave empty to keep this key uncategorized")}
+              />
+            </section>
+
+            <div className="border-t border-border-subtle" role="presentation" />
+
+            {/* Section: Access */}
+            <section className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary" style={{ fontSize: "16px" }} aria-hidden="true">shield_lock</span>
+                  <div>
+                    <h3 className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">{translate("Restrict models")}</h3>
+                    <p className="text-xs text-text-muted">{translate("Limit which models this key can call")}</p>
                   </div>
-                ) : (
-                  <p className="text-xs text-text-muted mt-2">{translate("No models selected")}</p>
-                )}
-                {editingKey?.scopeOn && (editingKey?.allowedModels || []).length > 0 && (
-                  <p className="text-xs text-text-muted mt-1.5">{(editingKey?.allowedModels || []).length} {translate("selected")}</p>
-                )}
-              </>
+                </div>
+                <Toggle
+                  size="sm"
+                  checked={editingKey?.scopeOn || false}
+                  onChange={(c) => setEditingKey((prev) => ({ ...prev, scopeOn: c, allowedModels: c ? prev.allowedModels : [] }))}
+                />
+              </div>
+              {editingKey?.scopeOn && (
+                <div className="rounded-lg border border-border-subtle bg-surface-2/30 p-3 flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-text-muted">
+                      {(editingKey?.allowedModels || []).length > 0
+                        ? `${(editingKey?.allowedModels || []).length} ${translate("selected")}`
+                        : translate("No models selected")}
+                    </span>
+                    <Button icon="add" variant="outline" size="sm" onClick={() => setScopePickerFor("edit")}>
+                      {translate("Add Model")}
+                    </Button>
+                  </div>
+                  {(editingKey?.allowedModels || []).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {(editingKey?.allowedModels || []).map((m) => (
+                        <span key={m} className="inline-flex items-center gap-1 pl-2 pr-1 py-1 rounded-md bg-primary/10 border border-primary/30 text-xs font-mono">
+                          {m}
+                          <button
+                            onClick={() => setEditingKey((prev) => ({ ...prev, allowedModels: prev.allowedModels.filter((x) => x !== m) }))}
+                            className="p-0.5 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                            aria-label={`${translate("Remove")} ${m}`}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: "12px" }}>close</span>
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+
+            <div className="border-t border-border-subtle" role="presentation" />
+
+            {/* Section: Limits — seeded from the server record, saved in full */}
+            {editingKey && (
+              <section className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary" style={{ fontSize: "16px" }} aria-hidden="true">tune</span>
+                  <h3 className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">{translate("Limits")}</h3>
+                </div>
+                <KeyLimitsEditor
+                  key={editingKey.id}
+                  value={editingKey.limits}
+                  onChange={(limits) => setEditingKey((prev) => (prev ? { ...prev, limits } : prev))}
+                />
+              </section>
+            )}
+
+            {editingKey?.error && (
+              <p className="text-sm text-red-500 flex items-center gap-1.5" role="alert">
+                <span className="material-symbols-outlined" style={{ fontSize: "16px" }} aria-hidden="true">error</span>
+                {editingKey.error}
+              </p>
             )}
           </div>
 
-          {/* W3 limits — seeded from the server record, saved in full */}
-          {editingKey && (
-            <KeyLimitsEditor
-              key={editingKey.id}
-              value={editingKey.limits}
-              onChange={(limits) => setEditingKey((prev) => (prev ? { ...prev, limits } : prev))}
-            />
-          )}
-
-          {editingKey?.error && (
-            <p className="text-sm text-red-500">{editingKey.error}</p>
-          )}
-
-          <div className="flex gap-2">
-            <Button onClick={handleSaveKey} fullWidth disabled={!editingKey?.name?.trim() || editingKey?.saving}>
-              {editingKey?.saving ? translate("Saving...") : translate("Save")}
-            </Button>
+          {/* Pinned footer */}
+          <div className="border-t border-border-subtle px-4 py-3 sm:px-5 bg-surface-2/20 flex flex-col-reverse sm:flex-row gap-2 shrink-0">
             <Button onClick={() => setEditingKey(null)} variant="ghost" fullWidth>
               {translate("Cancel")}
+            </Button>
+            <Button onClick={handleSaveKey} fullWidth disabled={!editingKey?.name?.trim() || editingKey?.saving}>
+              {editingKey?.saving ? translate("Saving...") : translate("Save")}
             </Button>
           </div>
         </div>

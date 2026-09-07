@@ -191,6 +191,7 @@ translate
 travel_explore
 trending_down
 trophy
+tune
 upload
 upload_file
 verified
