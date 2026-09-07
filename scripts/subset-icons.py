@@ -28,11 +28,25 @@ The generated font is COMMITTED — the build does not need Python. Regenerate
 only when the icon inventory changes (script exits non-zero on drift between
 manifest and current scan, see check mode).
 
-Scan recipe (run from repo root, then merge + sort -u into icon-ligatures.txt):
-  grep -rhoE 'material-symbols-outlined[^>]*>[a-z_0-9]+<' src --include='*.js' \
+Scan recipe (run from repo root, then merge + filter to names in the
+codepoints map + sort -u into icon-ligatures.txt). FIVE shapes cover the
+current corpus — a missing shape means icons render as raw ligature text.
+(The grep patterns below are written for the shell; in this docstring
+backslashes are doubled so Python does not warn about invalid escapes.)
+  grep -rhoE 'material-symbols-outlined[^>]*>[a-z_0-9]+<' src open-sse cli --include='*.js' \
     | grep -oE '>[a-z_0-9]+<' | tr -d '<>' | sort -u
-  grep -rhoE 'icon(=|: ?)"[a-z_0-9]+"' src --include='*.js' \
+  grep -rhoE 'icon(=|: ?)"[a-z_0-9]+"' src open-sse cli --include='*.js' \
     | grep -oE '"[a-z_0-9]+"' | tr -d '"' | sort -u
+  # TERNARY icons — ThemeToggle's dark_mode/light_mode live here, and a
+  # static-children regex cannot see them (2026-09-07 Star-caught wound):
+  #   grep -rhoE '? ?"[a-z_0-9]+" ?: ?"[a-z_0-9]+"' ...
+  # Logical-OR icon fallbacks:
+  #   grep -rhoE '|| ?"[a-z_0-9]+"' ...
+  # Broad icon-prop quotes (single/dynamic):
+  #   grep -rhoE 'icon=?[a-z_0-9]+"?' ... | grep -vE '^(icon|setIcon)$'
+After merging, KEEP ONLY names that exist in the codepoints map (the raw
+sweeps also catch ordinary words like "dark", "default", "check") — the
+merge filter in this repo's history used the ms.codepoints list for that.
 
 Requires: pip install fonttools brotli
 Usage: py -3.12 scripts/subset-icons.py [--check]
