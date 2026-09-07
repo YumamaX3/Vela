@@ -25,6 +25,44 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.49 — The New Models ✨
+> *"New sails for the fleet: a Gemini that sees in tiers, a GLM that watches, a DeepSeek that dreams in images, and an xAI that reads half a million tokens at once."* ⛵
+
+**W3 of the upstream divergence closure** — the model-catalog wave from
+9router v0.5.35..v0.5.69. Every catalog verified at runtime after the port
+(dialable through PROVIDER_MODELS, capability lookups resolving).
+
+- ✨ **Gemini 3.8 Flash** — four antigravity tiers (high/medium/low/plain)
+  plus the `*gemini-3.8*` capability pattern (1M ctx, audio+video in);
+  Antigravity IDE fingerprint bumps 2.1.1 → 2.11.0 (upstream 70f15aa5).
+- ✨ **GLM 5.3 Flash (Vision)** — glm.js + glm-cn.js + opencode-go; natively
+  multimodal: vision + videoInput + pdf, 1M ctx, zai effort supported
+  (upstream 9c650e1d).
+- ✨ **DeepSeek V4 Flash Vision (Exp)** — DeepSeek's first V4 with image
+  input, 1M ctx / 384k out (same upstream commit).
+- ✨ **Grok 4.6** — 500k context pattern capability (upstream, same commit).
+- ✨ **GPT-5.6 Sol / Terra / Luna image aliases** on Codex — join 5.5/5.4
+  in the image catalog (upstream ed963931).
+- ✨ **Muse Spark 1.2/1.3 on opencode-go** — responses-only entries force
+  chatCore past sourceFormat-matched transports into translation; the go
+  provider also gains the usage URL + features block (upstream 11222eff
+  + e74db4d0). (Vela's Jerouter already carried both models for its own
+  dual-endpoint surface.)
+- ✨ **qoder catalog refresh** — Qwen3.8-Flash and GLM-5.3-Flash added,
+  GLM-5.2 slot replaced (upstream 2ab6a4c9).
+- ✨ **codebuddy-cn catalog synced to the server contract** — Hy3 /
+  Hy4-Preview / GLM-5.3 / GLM-5.3-Flash / Kimi-K3 in; glm-5.0, glm-4.7,
+  glm-5.0-turbo, minimax-m2.7, kimi-k2.5, hy3-preview, deepseek-v3-2-volc
+  out (API 11102 / absent from the published list). **The Star's own
+  v0.9.34 UA bump (CodeBuddy/2.139.0) is preserved** — the upstream file
+  carried their older agent string, caught by the golden-header snapshot.
+
+🧪 Proof: capability lookups all OK at runtime (glm-5.3-flash vision+pdf,
+grok-4.6 500k, gemini-3.8, deepseek vision) · opencode-go 18 models with
+responses-only muse entries · golden-header suite back to the 3 pre-
+existing failures after the UA restore · build ✓ · secret scan clean.
+
+---
 # v0.9.48 — The Mended Streams 🩸
 > *"Sixteen wounds in the currents — a stream that lost its tail, a token count that lost its home, a tool that lost its name. Now the water runs clean end to end."* ⛵
 
