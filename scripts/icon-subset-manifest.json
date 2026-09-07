@@ -193,6 +193,7 @@
     "travel_explore",
     "trending_down",
     "trophy",
+    "tune",
     "upload",
     "upload_file",
     "verified",
@@ -211,7 +212,7 @@
     "wifi_tethering",
     "wrap_text"
   ],
-  "count": 210,
-  "sha256": "767fce0e6b6c451713a4eac5dec30adb7aa070da98ff9f1952f9ad30f351e5a2",
+  "count": 211,
+  "sha256": "05ead33292ba9e29daad7d033367b8530fb470c83a080b46ae9c723e595e6c76",
   "source": "node_modules/material-symbols/material-symbols-outlined.woff2"
 }
