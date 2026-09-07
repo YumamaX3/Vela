@@ -27,6 +27,7 @@ import { resolveProviderId } from "@/shared/constants/providers.js";
 import { resolvePreferredConnection } from "../services/connectionPreference.js";
 import "../services/freebuffPreference.js"; // registers the freebuff session-affinity resolver
 import { getFallbackRulesRepo } from "@/lib/db/repos/bindFallbackRules.js"; // Seam 2 — operator fallback rules
+import { handleAntigravityQuotaError } from "../services/antigravityQuota.js";
 
 /**
  * Resolve an advisory connection preference for (provider, model) — e.g. the
@@ -339,8 +340,22 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
 
     if (result.success) return result.response;
 
-    // Mark account unavailable (auto-calculates cooldown with exponential backoff, or precise resetsAtMs)
-    const { shouldFallback } = await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model, result.resetsAtMs);
+    // Antigravity 409/429: refresh live quota to get exact resetAt before locking
+    // (quota-aware routing — upstream 1a3db1ef + ac98dd9d, W5 v0.9.51)
+    let quotaResetMs = null;
+    let resetsAtMs = result.resetsAtMs;
+    if (provider === "antigravity" && (result.status === 409 || result.status === 429)) {
+      quotaResetMs = await handleAntigravityQuotaError(
+        credentials.connectionId, result.status, model,
+        refreshedCredentials.accessToken, credentials.providerSpecificData
+      );
+      if (quotaResetMs) resetsAtMs = quotaResetMs;
+    }
+    // Exhausted Antigravity model is blocked only in RAM cache until upstream resetAt.
+    // Do not persist a modelLock_* for this path.
+    const shouldFallback = provider === "antigravity" && quotaResetMs
+      ? true
+      : (await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model, resetsAtMs)).shouldFallback;
 
     if (shouldFallback) {
       log.warn("FALLBACK", `⇄ ACC:${credentials.connectionName} UNAVAILABLE (${result.status}) → NEXT ACCOUNT`);
