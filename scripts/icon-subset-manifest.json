@@ -89,6 +89,7 @@
     "keyboard_arrow_down",
     "keyboard_arrow_up",
     "keyboard_capslock",
+    "label",
     "lan",
     "language",
     "layers",
@@ -212,7 +213,7 @@
     "wifi_tethering",
     "wrap_text"
   ],
-  "count": 211,
-  "sha256": "05ead33292ba9e29daad7d033367b8530fb470c83a080b46ae9c723e595e6c76",
+  "count": 212,
+  "sha256": "3808be815560a846fda3eb8ed4116046bd48e507e64e536cceb71505818b980d",
   "source": "node_modules/material-symbols/material-symbols-outlined.woff2"
 }
