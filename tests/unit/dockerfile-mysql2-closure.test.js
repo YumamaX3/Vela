@@ -67,9 +67,12 @@ describe("Wave C7 — the Dockerfile carries mysql2's runtime closure", () => {
     const dockerfile = fs.readFileSync(DOCKERFILE, "utf8");
     const copied = [...dockerfile.matchAll(/COPY --from=builder \/app\/node_modules\/([\w.-]+) \.\/node_modules\/\1/g)]
       .map((m) => m[1]);
-    // Only audit the mysql2-closure block: mysql2 + its deps. The sql.js /
-    // node-forge / next COPYs are separate precedents with their own reasons.
-    const knownOthers = new Set(["sql.js", "node-forge", "next"]);
+    // Only audit the mysql2-closure block: mysql2 + its deps. Other explicit
+    // COPYs are separate precedents with their own reasons: sql.js loads its
+    // wasm by path; node-forge predates this test; next is the framework;
+    // node-machine-id is createRequire-loaded at runtime (src/mitm/manager.js)
+    // and otherwise untraced (W1 divergence wave, v0.9.47).
+    const knownOthers = new Set(["sql.js", "node-forge", "next", "node-machine-id"]);
     const stale = copied.filter((p) => !needed.has(p) && !knownOthers.has(p));
     expect(stale, `Dockerfile copies packages not in mysql2 closure: ${stale.join(", ")}`).toEqual([]);
   });

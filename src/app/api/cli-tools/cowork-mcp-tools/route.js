@@ -1,6 +1,8 @@
 "use server";
 
 import { NextResponse } from "next/server";
+import { assertPublicUrl } from "@/shared/utils/ssrfGuard.js";
+import { isLocalRequest } from "@/dashboardGuard";
 
 const TIMEOUT_MS = 8000;
 
@@ -86,6 +88,15 @@ export async function POST(request) {
     const { url } = await request.json();
     if (!url || typeof url !== "string") {
       return NextResponse.json({ error: "url required" }, { status: 400 });
+    }
+    // SSRF guard for remote callers; local host keeps self-hosted MCP servers
+    // (ported from upstream 9router 97f3ab97 — W1, v0.9.47).
+    if (!isLocalRequest(request)) {
+      try {
+        assertPublicUrl(url);
+      } catch {
+        return NextResponse.json({ error: "URL not allowed" }, { status: 400 });
+      }
     }
     const result = await probeMcp(url);
     return NextResponse.json(result);
