@@ -128,18 +128,28 @@ const NO_AUTH_PROVIDER_IDS = [
   ...Object.keys(FREE_TIER_PROVIDERS),
 ].filter((id) => (FREE_PROVIDERS[id] || FREE_TIER_PROVIDERS[id]).noAuth);
 
+// Reference-stable empty default for activeProviders. A inline `= []` default
+// allocates a fresh array on every render; every consumer that memoizes over
+// it (cursorConnectionIds below) then sees a "changed" dep each render, and
+// its effect re-runs forever. QuickAddBar mounts this modal with no
+// activeProviders on every dashboard page, so the instability compounded
+// into a Maximum-update-depth loop (2026-09-07 audit).
+const EMPTY_ACTIVE_PROVIDERS = [];
+const EMPTY_MODEL_ALIASES = {};
+const EMPTY_ADDED_MODEL_VALUES = [];
+
 export default function ModelSelectModal({
   isOpen,
   onClose,
   onSelect,
   onDeselect,
   selectedModel,
-  activeProviders = [],
+  activeProviders = EMPTY_ACTIVE_PROVIDERS,
   title = "Select Model",
-  modelAliases = {},
+  modelAliases = EMPTY_MODEL_ALIASES,
   kindFilter = null,
   capFilter = null,
-  addedModelValues = [],
+  addedModelValues = EMPTY_ADDED_MODEL_VALUES,
   closeOnSelect = true,
   showCombos = true,
 }) {
@@ -190,7 +200,10 @@ export default function ModelSelectModal({
 
   useEffect(() => {
     if (!isOpen || cursorConnectionIds.length === 0) {
-      setCursorModels([]);
+      // Functional update + reference check: assigning a fresh [] every run
+      // would defeat React's Object.is bail-out and loop forever when the
+      // caller's props are unstable. Only clear when something is present.
+      setCursorModels((prev) => (prev.length === 0 ? prev : []));
       return undefined;
     }
 
