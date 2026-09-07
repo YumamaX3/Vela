@@ -31,7 +31,13 @@
  * utilities. twMerge does not know them and cannot: `shadow-[var(--shadow-elev)]`
  * is AMBIGUOUS to a parser — the variable could resolve to a box-shadow length or
  * to a colour — so twMerge keeps both classes and CSS order decides again. The app
- * hits this constantly (30 arbitrary `shadow-[var(--shadow-*)]` usages, incl.
+ * hits this constantly (30 arbitrary `shadow-[var(--shadow-…)]` usages, incl.
+ * — ⚠️ the `…` here is deliberate, NOT a `*`: Tailwind v4 extracts candidates
+ * from comments too, and `shadow-[var(--shadow-*)]` in this text generated
+ * `.shadow-\[var\(--shadow-\*\)\] { --tw-shadow: var(--shadow-*); }` — an
+ * invalid `*` inside var() that broke the dev-server CSS parse (the prod
+ * build never emitted it, so the wound was dev-only). Never write a literal
+ * `*` in class-name-shaped text anywhere in src/.
  * Modal.js:56, Drawer.js:53, Card.js:29, Loading.js:53).
  *
  * So both vocabularies are taught to twMerge here. All five Vela shadow tokens are
