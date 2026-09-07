@@ -452,6 +452,11 @@ async function testOAuthConnection(connection, effectiveProxy = null) {
 }
 
 async function fetchWithConnectionProxy(url, options = {}, effectiveProxy = null) {
+  // 15s timeout unless the caller supplied a signal: connection tests must
+  // never hang indefinitely and exhaust the connection pool (upstream — W6 v0.9.52).
+  if (!options.signal) {
+    options.signal = AbortSignal.timeout(15000);
+  }
   // Vercel relay: forward via relay URL.
   //
   // §5.2d — this branch used to pass ONLY vercelRelayUrl and drop every other field
