@@ -20,6 +20,10 @@ export const CLAUDE_BLOCK = {
   TOOL_RESULT: "tool_result",
   THINKING: "thinking",
   REDACTED_THINKING: "redacted_thinking",
+  // Anthropic built-in server tools (web search etc.) — their result blocks
+  // ride the same tool_result orphan rules (W2, v0.9.48).
+  SERVER_TOOL_USE: "server_tool_use",
+  WEB_SEARCH_TOOL_RESULT: "web_search_tool_result",
 };
 
 // OpenAI Responses API item types.

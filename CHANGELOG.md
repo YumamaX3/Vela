@@ -25,6 +25,70 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.48 — The Mended Streams 🩸
+> *"Sixteen wounds in the currents — a stream that lost its tail, a token count that lost its home, a tool that lost its name. Now the water runs clean end to end."* ⛵
+
+**W2 of the upstream divergence closure** — the correctness fixes from
+9router v0.5.35..v0.5.69 that Vela never carried. Every port verified
+against our source first (subject-match is not behavior-match).
+
+- 🐛 **Stream tail NDJSON** (`open-sse/utils/stream.js`, port of f9d82c65): the
+  flush block parsed without the target format, so an Ollama final chunk
+  (done:true — carrying finish_reason AND token counts) arriving without a
+  closing newline was dropped. It now parses with the format and rides the
+  same usage accumulation.
+- 🐛 **Usage on client-close** (same file, port of d7f7d70d): a Responses
+  client (codex) closes on response.completed — flush() never ran, usage was
+  lost and onStreamComplete never fired. `finalizeStream()` is now idempotent
+  and callable from transform() AND flush(): terminal event, [DONE], or
+  client hang-up all run the tail exactly once.
+- 🐛 **cached_tokens preserved** (requestDetail.js + usageTracking.js, ports
+  of e7dd72a8 + 4a371d1d): Responses-shaped usage rides `input_tokens_details`
+  and buildUsage() emits the nested `prompt_tokens_details` shape — both now
+  read through `??` fallbacks so the cache count survives every shape.
+- 🐛 **Gemini thinking on OpenAI wires** (thinkingUnified.js + capabilities.js,
+  regression #3718): gemini-level/gemini-budget/claude-* /kiro formats no
+  longer leak native-only shapes onto an openai-compatible wire — Gemini
+  behind a custom provider gets `reasoning_effort`, not `generationConfig`.
+- 🐛 **zai reasoning_effort** (same files): effort extraction now reads the
+  thinking object first (zai sends both shapes), and GLM-5.2/5.3 carry
+  `thinkingEffortSupported` so the field is only sent where z.ai reads it,
+  mapped to exactly low|high|max.
+- 🐛 **Gemini tuple schemas** (formats/gemini.js): `prefixItems` converts to
+  `items` (single → the variant, multiple → anyOf) before keyword stripping;
+  tuple arrays no longer 400 with "missing field".
+- 🐛 **System-prompt injection hardened** (`open-sse/rtk/systemInject.js`,
+  port of the upstream rewrite): dispatch by format label THEN wire shape
+  (instructions → messages[] → input[]), every mutation fail-open, EXACT
+  idempotency (segment match, not substring), Kiro atomic two-write with
+  repair + rollback. Vela's v0.9.19 `position` param is re-threaded through
+  every injector — prepend semantics preserved and smoke-tested.
+- 🐛 **Headroom diagnostic** (rtk/headroom.js): a Responses body that fails to
+  translate to messages[] now sets a diagnostic before the silent null.
+- 🐛 **Claude set**: adaptive thinking maps `auto` effort → "high";
+  permanently-adaptive Fable 5.1 (new model, 1M ctx, `thinkingCanDisable:
+  false`) emits effort without the thinking switch; cache breakpoints anchor
+  on the last CACHEABLE tool (`defer_loading` tools rejected with
+  cache_control); foreign `server_tool_use` ids and their orphaned results
+  are dropped (combo-fallback poisoned ids); the spoofed CC version
+  centralizes to `CLAUDE_CLI_VERSION = 2.1.258` (new-model access gate).
+- 🐛 **Session continuity** (sessionManager.js): the session id is also read
+  from the `x-claude-code-session-id` header — it survives translation to
+  formats that drop `metadata.user_id`.
+- 🐛 **Claude tool `type`** (toolCall.js + chatCore.js): tools without a
+  `type` default to "custom" — strict gateways (MiniMax, error 2013) reject
+  legacy payloads.
+- 🐛 **[1m] context marker** (NEW open-sse/utils/modelMarkers.js + chat.js,
+  port of ee7a9616): Claude Code appends `[1m]` for 1M-context requests; the
+  marker matches no combo/alias/model and died at resolution. Stripped at
+  the door; the capability rides the anthropic-beta header untouched.
+
+🧪 Proof: translator suite 383 passed (vs 371 baseline; the 5 failures are
+the pre-existing set, reproduced at pristine HEAD) · smoke tests on the
+injector (append/idempotent/prepend/Responses/Claude/frozen-body all OK) ·
+modelMarkers smoke OK · build ✓ · secret scan clean.
+
+---
 # v0.9.47 — The Sealed Gates 🔒
 > *"The gate was only as strong as the parse of the address written upon it. Now the harbor reads the address as the machine does — and the gate holds."* ⛵
 

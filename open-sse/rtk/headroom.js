@@ -281,7 +281,13 @@ export async function compressWithHeadroom(body, { enabled, url, model, format, 
         return null;
       }
       const oai = openaiResponsesToOpenAIRequest(model, body, false);
-      if (!Array.isArray(oai?.messages)) return null;
+      // Diagnostic before the silent null: without this the operator sees
+      // "headroom skipped" with no reason when a Responses body fails to
+      // translate to messages[] (ported from upstream 9router — W2, v0.9.48).
+      if (!Array.isArray(oai?.messages)) {
+        setDiagnostic(diagnostics, "openai-responses request did not translate to messages[]");
+        return null;
+      }
       const data = await callCompress(url, oai.messages, model, timeoutMs, compressUserMessages, diagnostics || {});
       if (!data) return null;
       // input: undefined so the translator rebuilds input from the compressed

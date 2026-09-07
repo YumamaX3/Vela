@@ -68,8 +68,7 @@ export function extractThinking(body) {
       return { mode: "auto" };
     }
   }
-
-  // OpenAI chat / Responses shape
+  // OpenAI chat / Responses shape — check effort AFTER the thinking object (zai sends both; the object carries the intent)
   const effort = body.reasoning_effort ?? (typeof body.reasoning === "object" ? body.reasoning?.effort : null);
   if (typeof effort === "string" && effort) {
     const e = effort.toLowerCase();
@@ -77,6 +76,7 @@ export function extractThinking(body) {
     if (e === "auto") return { mode: "auto" };
     return { mode: "level", level: e };
   }
+
 
   // Gemini shape (top-level, generationConfig, or request envelope)
   const tc = body.thinkingConfig || body.generationConfig?.thinkingConfig || body.request?.generationConfig?.thinkingConfig;
@@ -106,11 +106,21 @@ export function extractThinking(body) {
 export const captureThinking = extractThinking;
 
 // Resolve thinking format: provider override > capability > derive(targetFormat).
+// Native-only thinking formats must NOT ride an OpenAI-compatible wire: a
+// Gemini model behind a custom openai-compatible provider would get
+// generationConfig.thinkingConfig (which the wire has no field for) instead
+// of reasoning_effort, silently dropping the effort level (ported from
+// upstream 9router — regression #3718, W2, v0.9.48).
+const NATIVE_ONLY_FORMATS = new Set(["gemini-level", "gemini-budget", "claude-budget", "claude-adaptive", "kiro"]);
+
 function resolveFormat(targetFormat, model, provider) {
   const providerFmt = provider ? PROVIDERS[provider]?.thinkingFormat : null;
   if (providerFmt) return providerFmt;
   const caps = getCapabilitiesForModel(provider, model);
-  if (caps.thinkingFormat) return caps.thinkingFormat;
+  const isOpenAIWire = targetFormat === "openai" || targetFormat === "openai-responses";
+  if (caps.thinkingFormat && !(isOpenAIWire && NATIVE_ONLY_FORMATS.has(caps.thinkingFormat))) {
+    return caps.thinkingFormat;
+  }
   return FORMAT_TO_NATIVE[targetFormat] || "openai";
 }
 
@@ -236,15 +246,20 @@ function applyFormat(fmt, body, cfg, caps, supportedLevels) {
       break;
     }
     case "claude-adaptive": {
+      // Permanently adaptive models (claude-fable-5-1) reject an explicit
+      // thinking switch — effort rides output_config alone for them.
       if (none && canDisable) { body.thinking = { type: "disabled" }; break; }
       // output_config.effort alone does NOT turn thinking on: Anthropic requires
       // an explicit thinking:{type:"adaptive"} on Opus 4.6/4.7/4.8 and Sonnet 4.6
       // ("thinking is off unless you explicitly set it"), and Anthropic-compatible
       // shims (e.g. GitHub Copilot /v1/messages) default thinking off even for
       // Sonnet 5. Send both fields — the documented adaptive-thinking shape.
-      body.thinking = { type: "adaptive" };
-      const level = toLevel(eff);
-      body.output_config = { effort: level === "xhigh" ? "high" : level };
+      // "auto" is not an Anthropic-accepted effort value — map it to "high"
+      // (ported from upstream 9router 77e6a227 — W2, v0.9.48).
+      const adaptiveLevel = toLevel(eff);
+      const permanentlyAdaptive = caps.thinkingCanDisable === false;
+      if (!permanentlyAdaptive) body.thinking = { type: "adaptive" };
+      body.output_config = { effort: (adaptiveLevel === "xhigh" || adaptiveLevel === "auto") ? "high" : adaptiveLevel };
       break;
     }
     case "claude-budget": {
@@ -270,6 +285,18 @@ function applyFormat(fmt, body, cfg, caps, supportedLevels) {
       // Z.ai ignores thinking.disabled → must use enable_thinking:false to turn off.
       if (none && canDisable) { body.enable_thinking = false; delete body.thinking; break; }
       body.thinking = { type: "enabled" };
+      // reasoning_effort is only read by z.ai from GLM-5.2 onward — older GLM ignores it
+      // (see thinkingEffortSupported in capabilities.js). Skip on unsupported models so we
+      // don't send a field the API doesn't recognize (ported from upstream 9router — W2, v0.9.48).
+      if (caps.thinkingEffortSupported) {
+        const zaiLvl = toLevel(eff);
+        // GLM-5.3 only accepts exactly low|high|max (anything else errors); GLM-5.2 accepts
+        // a wider set but z.ai maps low/medium->high and xhigh->max server-side anyway, so
+        // this 3-value mapping matches both.
+        body.reasoning_effort = (zaiLvl === "low" || zaiLvl === "minimal") ? "low"
+          : (zaiLvl === "high" || zaiLvl === "medium") ? "high"
+          : "max";
+      }
       break;
     }
     case "qwen": {

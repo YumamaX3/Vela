@@ -94,6 +94,7 @@ const MAX_CONTINUATION_SESSIONS = 5000;
 // Client headers/body fields that carry an upstream session id (priority order)
 const SESSION_HEADER_KEYS = ["x-session-id", "session-id", "session_id", "x-amp-thread-id"];
 const CLAUDE_CODE_SESSION_RE = /_session_([a-f0-9-]+)$/;
+const CLAUDE_CODE_SESSION_HEADER = "x-claude-code-session-id";
 
 function sha16(text) {
     return crypto.createHash("sha256").update(text).digest("hex").slice(0, 16);
@@ -135,7 +136,11 @@ function extractAntigravitySession(body) {
 }
 
 function extractClientSessionId(headers, body, scope = "") {
-    const claude = extractClaudeCodeSession(body?.metadata?.user_id);
+    // Claude Code sends the session in a header AND in metadata.user_id; the header
+    // survives translation to formats that drop metadata (e.g. Responses API)
+    // (ported from upstream 9router — W2, v0.9.48).
+    const claude = extractClaudeCodeSession(body?.metadata?.user_id)
+        || headerValue(headers, CLAUDE_CODE_SESSION_HEADER);
     if (claude) return `claude:${claude}`;
     const antigravity = extractAntigravitySession(body);
     if (antigravity) return `antigravity:${antigravity}`;
