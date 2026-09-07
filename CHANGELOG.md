@@ -25,6 +25,36 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.51 — The Quota Fleet 📊
+> *"The harbor now counts what each island spends and when its tide returns — no more guessing which account starves next."* ⛵
+
+**W5 of the upstream divergence closure** — the usage/quota wave from
+9router v0.5.35..v0.5.69.
+
+- ✨ **NEW trackers** — `open-sse/services/usage/{zed,glm,opencode-go,groq}.js`:
+  Zed plan quota on the dashboard, GLM multi-interval windows with
+  CREDIT_LIMIT support (split out of misc.js), OpenCode Go quota
+  (rides the go usage API), Groq usage tracking.
+- ✨ **Claude Fable quota rows** — seven-day fable windows parse with
+  display-name mapping + a `seven_day` fallback row (upstream e214fb1c).
+- ✨ **Claude quota dedup/cache** — parallel callers share one upstream
+  call; 429 storms from the quota tracker end (upstream cd4003bc).
+- ✨ **GPT-5.3-Codex-Spark windows** — codex tracker reads the Spark
+  quota shape (upstream 40eed186).
+- ✨ **Antigravity quota-aware routing** — NEW
+  `src/sse/services/antigravityQuota.js`; on 409/429 the handler fetches
+  live quota for the exact resetAt, blocks the model in RAM until reset
+  (no persisted modelLock_*), and falls back to the next account
+  (upstream 1a3db1ef + ac98dd9d). Anti-abuse refresh pacing lands with
+  1442cc73's projectId/token-refresh surface.
+- 🔧 Dashboard quota grouping for Antigravity models (f615a83c) and the
+  fingerprint-pin updates the 2.11.0 bump required in three tests.
+
+🧪 Proof: quota suite 16/16 · headroom 9/9 · antigravity suites green
+after pin updates (the oauth-client failure pre-exists at pristine
+HEAD) · build ✓ · secret scan clean.
+
+---
 # v0.9.50 — The New Shores 🗺️
 > *"Four new islands on the search horizon — an X-firehose, a Zai foghorn folded into GLM's mast, an Ollama cloud-harbor — and the compression window bends to the operator's hand."* ⛵
 
