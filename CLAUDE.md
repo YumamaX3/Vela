@@ -2,7 +2,7 @@
 
 > *Every harbor needs a chart. These are the Shores' navigational papers — where the currents run, which rocks to mind, how the fleet sails. Read them before you touch the helm.* 🪞💜
 
-**Vela** (v0.9.46) — a local AI routing gateway + dashboard. One OpenAI-compatible endpoint (`/v1`) routing traffic across a provider registry of **144 files on disk → 127 imported by the generated index → 91 dialable chat transports** (the other 36 are media/search/embedding providers that legitimately carry no chat transport). Format translation, model-combo fallback (with operator fallback rules), multi-account fallback, OAuth credential management, token refresh, quota tracking, per-key ACL, and prompt injectors.
+**Vela** (v0.9.52) — a local AI routing gateway + dashboard. One OpenAI-compatible endpoint (`/v1`) routing traffic across a provider registry of **144 files on disk → 127 imported by the generated index → 91 dialable chat transports** (the other 36 are media/search/embedding providers that legitimately carry no chat transport). Format translation, model-combo fallback (with operator fallback rules), multi-account fallback, OAuth credential management, token refresh, quota tracking, per-key ACL, and prompt injectors.
 
 > ⚠️ **Count discipline (2026-09-04):** this chart once claimed "143 upstream providers", which
 > matched *no* measurement. Every number above was measured at runtime, not grepped — and the three
@@ -41,7 +41,7 @@ vela/
 ├── Dockerfile                # Multi-stage, multi-arch (amd64 + arm64), HEALTHCHECK
 ├── docker-compose.yml        # Live chart (gitignored — holds the Shores' secrets)
 ├── docker-compose.example.yml# Template chart (tracked)
-├── package.json              # v0.9.46 — bump with every release
+├── package.json              # v0.9.52 — bump with every release
 ├── CHANGELOG.md              # Every minor's covenant entry
 ├── cli/                      # The `vela` npm CLI — bin `vela`, full purge
 ├── open-sse/                 # The gateway engine — providers, RTK, executors, handlers
@@ -488,6 +488,12 @@ not a list of tags that happen to exist.
 
 | Version | Tide | What it sealed |
 |-|-|-|
+| **v0.9.52** | **The Quiet Deck** 🎨 | W6 — final wave of the upstream divergence closure: mask clamp, connection-test timeouts, CommandCode + cursor error honesty (NEW suites), beta forwarding, mode label, list scroll cap |
+| v0.9.51 | The Quota Fleet 📊 | W5 — NEW zed/glm/opencode-go/groq trackers, Claude Fable rows + quota dedup, Codex-Spark windows, antigravityQuota service |
+| v0.9.50 | The New Shores 🗺️ | W4 — Xquik + ollama-search providers, zai-search folded into GLM, Antigravity searchViaChat, Ollama Cloud fetch, headroomTimeoutMs, Grok CLI bulk import |
+| v0.9.49 | The New Models ✨ | W3 — Gemini 3.8 tiers, GLM-5.3-Flash vision, DeepSeek V4 Flash Vision, Grok 4.6, GPT-5.6 image aliases, muse-spark responses-only, qoder/codebuddy-cn catalogs |
+| v0.9.48 | The Mended Streams 🩸 | W2 — 16 correctness fixes: Ollama NDJSON tail, finalizeStream idempotency, cached_tokens shapes, NATIVE_ONLY thinking, hardened systemInject, Claude set (Fable 5.1, defer_loading anchors, foreign server_tool_use, 2.1.258, [1m] strip) |
+| v0.9.47 | The Sealed Gates 🔒 | W1 — SSRF guard hardening (IPv6 hextets, FQDN dots, CGNAT, DNS layer, redirect re-validation), cowork probe guard, root /responses auth, 503 on all-rate-limited, node-machine-id bundled |
 | **v0.9.46** | **The Mended Rule** 🧭 | `bindFallbackRules` awaited the adapter — operator combo fallback rules were **dead since v0.9.16** (a Promise is truthy, so the fail-open guard was dead code); 6 GitHub Releases back-filled; v0.9.45's false `npm audit 0` claim corrected |
 | v0.9.45 | The Sealed Hatches 🔐 | Proxy-fleet rebirth **milestone 1 — Security Closure**: §5.1 fail-closed routing · §5.2 relay auth (every deployed relay was an **open proxy**) · §5.3 `x-9r-*` egress fence · §5.4 read-boundary redaction · §5.5 SSRF gate · §5.6 undici floor `^7.29.0` |
 | v0.9.44 | The Downstream Wounds 🩸 | Milestone 0.6: LIVE-A socks5 `{uri}`→positional (silent DIRECT bypass) · LIVE-B bulk-health forks the loop → delegates · LIVE-C/D six columns dropped by every transfer path incl. backup→restore |
