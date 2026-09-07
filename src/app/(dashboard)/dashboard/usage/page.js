@@ -34,6 +34,7 @@ import { useUsageStream } from "./hooks/useUsageStream";
 import RequestDetailsTab from "./components/RequestDetailsTab";
 import ProviderTopology from "./components/ProviderTopology";
 import { useProviders } from "./hooks/useProviders";
+import { usePageVisible } from "@/shared/hooks/usePageVisible";
 
 const PERIOD_OPTIONS = [
   { label: "Today", value: "today" },
@@ -153,9 +154,13 @@ function KpiBand({ period }) {
   // Realtime: after the initial fetch, re-read the same KPI endpoint on a
   // light interval and swap the numbers in place — no page reload, no
   // skeleton flicker. Cadence matches the SSE coalesced full-refresh (≥15s).
+  // Paused while the tab is hidden (perf audit V6); on return the effect
+  // re-runs and fetches immediately, so the operator sees fresh numbers.
+  const visible = usePageVisible();
   const [kpiFresh, setKpiFresh] = useState(null);
 
   useEffect(() => {
+    if (!visible) return undefined;
     let alive = true;
     const id = setInterval(() => {
       fetch(`/api/usage/metrics/kpis?period=${period}`, { cache: "no-store" })
@@ -166,7 +171,7 @@ function KpiBand({ period }) {
         .catch(() => {});
     }, 15_000);
     return () => { alive = false; clearInterval(id); };
-  }, [period]);
+  }, [period, visible]);
 
   // Period change → the polled snapshot belongs to the old window; drop it so
   // the REST fetch's fresh period data renders immediately (no stale numbers).

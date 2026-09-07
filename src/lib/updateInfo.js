@@ -179,21 +179,54 @@ export async function getUpdateInfo() {
   const currentVersion = pkg.version;
   const deployment = detectDeployment();
 
-  let latest = versionCache.value;
-  if (!latest || Date.now() - versionCache.fetchedAt >= VERSION_CACHE_TTL_MS) {
-    const fromGithub = await fetchLatestFromGithub();
-    if (fromGithub) {
-      latest = fromGithub;
-    } else {
-      const npmVersion = await fetchLatestFromNpm(UPDATER_CONFIG.npmPackageName);
-      latest = npmVersion ? { version: npmVersion, source: "npm", notes: "" } : null;
-    }
-    if (latest) {
-      versionCache.value = latest;
-      versionCache.fetchedAt = Date.now();
-    }
+  const cached = versionCache.value;
+  const cacheFresh = cached && Date.now() - versionCache.fetchedAt < VERSION_CACHE_TTL_MS;
+
+  // STALE-WHILE-REVALIDATE (perf audit V1, 2026-09-07): the cold path used
+  // to AWAIT the GitHub→npm probe chain (2x4s worst case) before answering,
+  // so the first /api/version caller after every boot paid ~5s. Now the
+  // response NEVER blocks on the probe: a cached value answers instantly
+  // (fresh or stale); on a cold cache the caller gets a null-latest
+  // skeleton while ONE shared background probe fills the cache (in-flight
+  // dedup — parallel cold callers share it; the next poll cycle, seconds
+  // later, sees the fresh value). The 1h TTL is unchanged.
+  if (cached) {
+    if (!cacheFresh) probeLatest(); // fire-and-forget revalidate
+    return buildUpdateInfo(currentVersion, deployment, cached);
   }
 
+  // Cold path: return the skeleton NOW, fill in the background.
+  probeLatest();
+  return buildUpdateInfo(currentVersion, deployment, null);
+}
+
+let inflightProbe = null;
+
+/** One probe at a time per process — every cold caller joins this promise. */
+function probeLatest() {
+  inflightProbe ??= (async () => {
+    try {
+      let result = null;
+      const fromGithub = await fetchLatestFromGithub();
+      if (fromGithub) {
+        result = fromGithub;
+      } else {
+        const npmVersion = await fetchLatestFromNpm(UPDATER_CONFIG.npmPackageName);
+        result = npmVersion ? { version: npmVersion, source: "npm", notes: "" } : null;
+      }
+      if (result) {
+        versionCache.value = result;
+        versionCache.fetchedAt = Date.now();
+      }
+      return result;
+    } finally {
+      inflightProbe = null;
+    }
+  })();
+  return inflightProbe;
+}
+
+function buildUpdateInfo(currentVersion, deployment, latest) {
   const latestVersion = latest?.version || null;
   const hasUpdate = latestVersion ? compareVersions(latestVersion, currentVersion) > 0 : false;
 

@@ -1,6 +1,8 @@
 import { Inter } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
-import "material-symbols/outlined.css";
+// Icon font: the committed Vela subset at public/fonts/vela-icons.woff2
+// (115KB) served via the @font-face in globals.css — NOT the npm package's
+// 3.96MB full variable font. See the V4 note in globals.css.
 import "./globals.css";
 import { ThemeProvider } from "@/shared/components/ThemeProvider";
 import "@/lib/network/initOutboundProxy"; // Auto-initialize outbound proxy env

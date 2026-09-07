@@ -13,6 +13,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
+import { usePageVisible } from "@/shared/hooks/usePageVisible";
 
 // Force-stop FE animation if a provider stays active longer than this
 const FE_ACTIVE_TIMEOUT_MS = 60000;
@@ -375,6 +376,7 @@ function buildLayout(providers, activeSet, lastSet, errorSet, haloMap = {}, onPr
 }
 
 export default function ProviderTopology({ providers = [], activeRequests = [], lastProvider = "", errorProvider = "", perProvider = {}, onProviderClick = null }) {
+  const topologyVisible = usePageVisible();
   // Serialize to stable string keys so useMemo only re-runs when values actually change
   const activeKey = useMemo(
     () => activeRequests.map((r) => r.provider?.toLowerCase()).filter(Boolean).sort().join(","),
@@ -429,9 +431,10 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
 
   useEffect(() => {
     if (rawActiveSet.size === 0) return;
+    if (!topologyVisible) return undefined; // perf audit V6: pause when hidden
     const id = setInterval(() => setTick((t) => t + 1), FE_ACTIVE_TICK_MS);
     return () => clearInterval(id);
-  }, [rawActiveSet]);
+  }, [rawActiveSet, topologyVisible]);
 
   const activeSet = useMemo(() => {
     const now = Date.now();
