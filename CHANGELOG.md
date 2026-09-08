@@ -25,6 +25,44 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.55 — The Content-Hashed Glyphs ⛵
+> *"The heal finally sails, and the font wears its own name — a browser cache can never again show yesterday's glyphs as today's."* ⛵
+
+The tide that closes the wound the Star kept seeing: icons rendered as raw
+text. The cause was never the glyph set — every one of the 217 icons was
+proven present in the committed font by its GSUB ligature. The cause was
+**deployment and cache**: v0.9.54's docker image was cancelled mid-build
+(run `34170700136`, 6h20m, never shipped — the heal stayed ashore), and the
+font URL `/fonts/vela-icons.woff2` carried no content version, so browsers
+that cached an older subset never refetched, and glyphs added after their
+first visit drowned as raw ligature text.
+
+- 🐛 **Re-launched the stranded v0.9.54 image** — the five-glyph heal
+  (`pause_circle` and friends) now sails.
+- ✨ **Content-hashed font naming** — `public/fonts/vela-icons.<identity>.woff2`,
+  where `<identity>` is the sha256 of the sorted icon inventory. The URL
+  changes only when the glyph set changes; a browser cache can never serve a
+  stale subset as new.
+- 🔧 **`scripts/subset-icons.py` owns the whole cycle** — regenerates the
+  font, renames it to the identity hash, prunes stale `vela-icons.*.woff2`
+  files, rewrites the `@font-face src` in `globals.css` to match, and updates
+  the manifest. `--check` now also fails on a css-src mismatch. The font
+  name derives from the inventory hash (NOT the woff2 bytes — fontTools'
+  woff2 writer re-stamps `head.modified` on every save, so a byte hash would
+  churn the file name on every identical regeneration).
+- 🐛 **CRLF trap fixed** — the css rewrite reads/writes in binary and
+  normalizes to LF; a Python text-mode write once marked the whole
+  `globals.css` file changed in git (a one-line edit became a 2,146-line
+  diff).
+- ✨ **Registry ascension** — `xquik` and `ollama-search` providers join the
+  generated index (slots 133/134), making their on-disk registry entries
+  reachable at runtime.
+
+🧪 Proof: drift check ✓ (217 icons, stable name across three regenerations)
+· production build ✓ · font GSUB/cmap verified for all 217 icons · diff is
+the font-url line and the comment alone.
+
+---
 # v0.9.53 — The Signature Ledger 🖋️
 > *"Google forgets the signature; the harbor remembers it. Now the Antigravity tide carries its proof of thought across every turn."* ⛵
 
