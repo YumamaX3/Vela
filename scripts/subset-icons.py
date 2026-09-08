@@ -21,8 +21,14 @@ Inputs:
   node_modules/material-symbols/material-symbols-outlined.woff2
 
 Outputs:
-  public/fonts/vela-icons.woff2          — the subset font
-  scripts/icon-subset-manifest.json      — included names + sha256, for drift check
+  public/fonts/vela-icons.<sha16>.woff2  — the subset font, named by its own
+                                sha256 prefix (content-hashed cache busting: a
+                                browser cache can never serve an old subset as
+                                new — the URL changes whenever the glyph set
+                                changes, and globals.css's @font-face src is
+                                rewritten to match automatically)
+  scripts/icon-subset-manifest.json      — included names + sha256 + file name
+                                for drift check
 
 The generated font is COMMITTED — the build does not need Python. Regenerate
 only when the icon inventory changes (script exits non-zero on drift between
@@ -50,12 +56,14 @@ merge filter in this repo's history used the ms.codepoints list for that.
 
 Requires: pip install fonttools brotli
 Usage: py -3.12 scripts/subset-icons.py [--check]
-  --check  exit 1 if public/fonts/vela-icons.woff2 is missing or the
-           manifest does not match scripts/icon-ligatures.txt
+  --check  exit 1 if the committed subset font (per the manifest's file name)
+           is missing, the manifest does not match scripts/icon-ligatures.txt,
+           or globals.css's @font-face src does not point at the manifest file
 """
 
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -66,12 +74,36 @@ from fontTools.ttLib import TTFont
 REPO = Path(__file__).resolve().parent.parent
 LIGATURES_FILE = REPO / "scripts" / "icon-ligatures.txt"
 SOURCE_FONT = REPO / "node_modules" / "material-symbols" / "material-symbols-outlined.woff2"
-OUT_FONT = REPO / "public" / "fonts" / "vela-icons.woff2"
+FONTS_DIR = REPO / "public" / "fonts"
+OUT_FONT = FONTS_DIR / "vela-icons.woff2"  # working name — renamed to the content hash after subsetting
 OUT_MANIFEST = REPO / "scripts" / "icon-subset-manifest.json"
+GLOBALS_CSS = REPO / "src" / "app" / "globals.css"
 CODEPOINTS_URL = (
     "https://raw.githubusercontent.com/google/material-design-icons/master/"
     "variablefont/MaterialSymbolsOutlined%5BFILL%2CGRAD%2Copsz%2Cwght%5D.codepoints"
 )
+
+
+CSS_FONT_URL_RE = re.compile(
+    r"src: url\('/fonts/vela-icons(?:\.[0-9a-f]{16})?\.woff2'\) format\('woff2'\);"
+)
+
+
+def write_css_font_url(file_name):
+    """Point globals.css's @font-face src at the hashed font file.
+
+    Read and write in BINARY and normalize to LF: text mode on Windows
+    translates every \\n to \\r\\n, which would mark the whole file changed
+    in git (a one-line edit becoming a 2,146-line diff). The repo keeps
+    globals.css in LF.
+    """
+    css_bytes = GLOBALS_CSS.read_bytes()
+    css = css_bytes.decode("utf-8").replace("\r\n", "\n")
+    new_src = f"src: url('/fonts/{file_name}') format('woff2');"
+    css, n = CSS_FONT_URL_RE.subn(new_src, css, count=1)
+    if n != 1:
+        sys.exit("could not locate the vela-icons @font-face src url in globals.css")
+    GLOBALS_CSS.write_bytes(css.encode("utf-8"))
 
 
 def load_wanted():
@@ -96,15 +128,23 @@ CODEPOINTS_CACHE = REPO / "assets-tmp" / "ms.codepoints"
 def main():
     check_only = "--check" in sys.argv
     if check_only:
-        if not OUT_FONT.exists() or not OUT_MANIFEST.exists():
-            print("subset font or manifest missing — run scripts/subset-icons.py")
+        if not OUT_MANIFEST.exists():
+            print("subset manifest missing — run scripts/subset-icons.py")
             return 1
         manifest = json.loads(OUT_MANIFEST.read_text())
         wanted = load_wanted()
         if manifest["icons"] != wanted:
             print("icon inventory drifted from the committed subset — regenerate")
             return 1
-        print("subset font up to date:", len(wanted), "icons")
+        font_file = FONTS_DIR / manifest.get("file", "")
+        if not font_file.exists():
+            print(f"committed subset font missing: {font_file.name} — regenerate")
+            return 1
+        css_text = GLOBALS_CSS.read_text(encoding="utf-8")
+        if not CSS_FONT_URL_RE.search(css_text) or manifest["file"] not in css_text:
+            print("globals.css @font-face src does not point at the manifest font — regenerate")
+            return 1
+        print("subset font up to date:", len(wanted), "icons,", manifest.get("file"))
         return 0
 
     wanted = load_wanted()
@@ -157,6 +197,12 @@ def main():
         # Empty ligature sets leave dangling FeatureList entries; harmless for
         # subset stage 2, which recomputes features. Keep the table.
 
+    # Determinism: fontTools stamps the current time into head.modified on
+    # every load/save, which would churn the content hash (and thus the font
+    # file name) on every identical regeneration. Pin it to a constant so the
+    # bytes — and the name — depend only on the glyph content.
+    if "head" in font:
+        font["head"].modified = 0
     with tempfile.NamedTemporaryFile(suffix=".ttf", delete=False) as tmp:
         tmp_path = Path(tmp.name)
     try:
@@ -174,6 +220,7 @@ def main():
             f"--output-file={OUT_FONT}",
             "--flavor=woff2",
             "--no-hinting",
+            "--no-recalc-timestamp",
         ],
         check=True,
     )
@@ -187,16 +234,34 @@ def main():
     if lost:
         sys.exit(f"subset lost icons: {lost}")
 
-    sha = hashlib.sha256(OUT_FONT.read_bytes()).hexdigest()
+    # Deterministic content identity: hash the sorted inventory (the true glyph
+    # contract), NOT the woff2 bytes — fontTools' woff2 writer re-stamps
+    # head.modified on every save, so a byte hash would churn the file name on
+    # every identical regeneration. The name changes only when the glyph set
+    # changes — exactly the cache-busting property the hashed URL needs.
+    ident = hashlib.sha256("\n".join(wanted).encode()).hexdigest()[:16]
+    hashed = FONTS_DIR / f"vela-icons.{ident}.woff2"
+    if hashed != OUT_FONT:
+        if hashed.exists():
+            hashed.unlink()
+        OUT_FONT.rename(hashed)
+    # prune stale subsets — a previous inventory's font must not linger
+    for old in FONTS_DIR.glob("vela-icons.*.woff2"):
+        if old != hashed:
+            old.unlink(missing_ok=True)
+    sha = hashlib.sha256(hashed.read_bytes()).hexdigest()
     OUT_MANIFEST.write_text(json.dumps({
         "icons": wanted,
         "count": len(wanted),
         "sha256": sha,
+        "identity": ident,
+        "file": hashed.name,
         "source": str(SOURCE_FONT.relative_to(REPO)).replace("\\", "/"),
     }, indent=2) + "\n")
+    write_css_font_url(hashed.name)
 
-    size = OUT_FONT.stat().st_size
-    print(f"wrote {OUT_FONT.relative_to(REPO)}: {size:,} bytes ({len(wanted)} icons)")
+    size = hashed.stat().st_size
+    print(f"wrote {hashed.relative_to(REPO)}: {size:,} bytes ({len(wanted)} icons)")
     print(f"original: {SOURCE_FONT.stat().st_size:,} bytes")
     return 0
 

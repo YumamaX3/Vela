@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
-// Icon font: the committed Vela subset at public/fonts/vela-icons.woff2
+// Icon font: the committed Vela subset at public/fonts/vela-icons.<identity>.woff2
+// (content-hashed name — see scripts/subset-icons.py)
 // (115KB) served via the @font-face in globals.css — NOT the npm package's
 // 3.96MB full variable font. See the V4 note in globals.css.
 import "./globals.css";
