@@ -132,6 +132,8 @@ import p129 from "./codecrafters.js";
 import p130 from "./freebuff.js";
 import p131 from "./madefaka.js";
 import p132 from "./jerouter.js";
+import p133 from "./xquik.js";
+import p134 from "./ollama-search.js";
 
 export default [
   p0,
@@ -265,4 +267,6 @@ export default [
   p130,
   p131,
   p132,
+  p133,
+  p134,
 ];

@@ -219,6 +219,8 @@
     "wrap_text"
   ],
   "count": 217,
-  "sha256": "9d9f0655285f9c756a446a36777740f7e7b663177d6f21d5db24080721c87f3e",
+  "sha256": "2b11d41d087a0c9fff13bc1022ed8d7d4c946372f1ae90937764407819684ed3",
+  "identity": "9db5fadc80042b77",
+  "file": "vela-icons.9db5fadc80042b77.woff2",
   "source": "node_modules/material-symbols/material-symbols-outlined.woff2"
 }
