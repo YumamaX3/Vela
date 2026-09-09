@@ -118,6 +118,11 @@ export const MODEL_CAPABILITIES = {
   "kimi-for-coding-highspeed": { vision: true, videoInput: true, reasoning: true, thinkingFormat: "kimi", thinkingCanDisable: false, contextWindow: 262144, maxOutput: 65536 },
   "kimi-k2.7-code":    { vision: true, videoInput: true, reasoning: true, thinkingFormat: "kimi", thinkingCanDisable: false, contextWindow: 262144, maxOutput: 65536 },
   "kimi-k2.7-code-highspeed": { vision: true, videoInput: true, reasoning: true, thinkingFormat: "kimi", thinkingCanDisable: false, contextWindow: 262144, maxOutput: 65536 },
+
+  // Nex N2.5 Pro — vision per the Jerouter V2 live catalog (2026-09-10); the id
+  // matches no glob pattern, so without this exact pin it resolves text-only.
+  // N2.5 Mini stays text per the same catalog.
+  "nex-n2.5-pro":      { vision: true },
 };
 
 const KIRO_GPT_5_6_CAPABILITIES = { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 272000, maxOutput: 128000 };

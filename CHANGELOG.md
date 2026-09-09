@@ -25,6 +25,47 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.57 — The Jerouter Ascension 🍊
+
+> *"The router grew from twenty ships to thirty-two — the chart redrawn from the harbor's own manifest, not from memory."* 🍊
+
+The Star sailed the Jerouter V2 CLI and brought home the live catalog — the
+registry's 20-model roster (dated 2026-09-05) had drifted from the served
+fleet.
+
+- ✨ **The catalog redrawn, 20 → 32 models** — `open-sse/providers/registry/
+  jerouter.js` now carries the full live fleet in the Star's export order.
+  Two models retired upstream and are struck from the chart: `minimax-m3`,
+  `inkling`. Fourteen arrive: `nemotron-3-nano-omni`, `nemotron-3-super`,
+  `nemotron-3.5`, `laguna-s-2.1`, `lfm-2.5-2.6b`, `gemini-3.8-flash`,
+  `claude-opus-4-6`, `claude-sonnet-4-6`, `nex-n2.5-pro`, `nex-n2.5-mini`,
+  `deepseek-v4-pro-0813`, `glm-5.2`, `glm-5.3`,
+  `llama-4-maverick-17b-128e-instruct`.
+- 🔧 **One capability truth pinned** — the live catalog marks `nex-n2.5-pro`
+  vision, but its id matches no glob in `capabilities.js`, so it would have
+  resolved text-only on the dashboard. Pinned exact in `MODEL_CAPABILITIES`
+  (`nex-n2.5-pro: { vision: true }`). `nex-n2.5-mini` stays text per the same
+  catalog. All 32 ids verified against the resolver: every catalog vision
+  mark resolves true, and the three coarse `text` tags the global knowledge
+  outranks (`mimo-v2.5`, `glm-5.3-flash`, `llama-4-maverick…`) resolve vision
+  from Vela's own sealed specs — vision-capable models accept text; the
+  harmful reverse direction affects none of the fleet.
+- 🔧 **The stranded v0.9.56 image, rescued twice** — its first build raced
+  the cache-warm (both launched 10:56:15; the warm had not landed when the
+  build needed it) and died at the 6h ceiling; the rerun on the settled
+  cache crossed in **1m48s**. `ghcr.io/yumamax3/vela:0.9.56` + `:latest`
+  shipped.
+- 📖 **The second image lesson sealed** — a build launched the same second
+  as its cache-warm starves regardless of the previous day's cache: the
+  registry buildcache is written at the END of the warm run, so a build
+  that starts with it can never read it. The lesson joins the 6h-ceiling
+  chart in the harbor's memory.
+
+⚓ Files: `open-sse/providers/registry/jerouter.js`, `open-sse/providers/capabilities.js`, `CHANGELOG.md`, `package.json`, `package-lock.json`, `docker-compose.example.yml`
+🧪 Proof: 32/32 model ids resolve with correct vision marks · capability suites 54/54 green (6 files) · golden wire-shape snapshot blast-radius **zero newly-broken** (pristine HEAD = the same 3 pre-existing failures: cline/clinepass/kimi headers) · lockfile diff version-only
+
+---
+
 # v0.9.56 — The Early Signal ⛵
 
 > *"The harbor heard the outcome before its ledgers woke — and the outcome was not lost, only dropped in the dark. Now the ledgers wake empty instead of unborn."* ⛵
