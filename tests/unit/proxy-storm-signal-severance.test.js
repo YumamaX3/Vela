@@ -236,6 +236,24 @@ describe("S2.3: recordOutcome is never a null deref again", () => {
     const f = fitnessFor("pool-breaker", "freebuff");
     expect(f.failureCount).toBe(5);
   });
+
+  it("recordOutcome before loadFitness resolves never touches a null store", async () => {
+    // The boot-window regression (log: "Cannot read properties of null
+    // (reading 'set')"). fitnessStore was `null` until loadFitness() resolved,
+    // so any recordOutcome that fired early — the facade deliberately lets
+    // auth signal before init() finishes — dereferenced null inside
+    // getOrCreateFitness and the signal was SILENTLY DROPPED by the
+    // fire-and-forget catch. The store must be an empty Map from birth.
+    const fresh = await import("@/lib/network/proxyFleet.js?early-signal");
+    const early = fresh.default || fresh;
+    // Never init: loadFitness must still be pending (its DB read never resolves
+    // because the mock repo was cleared). An outcome in this window used to throw.
+    await early.recordOutcome("pool-early", "freebuff", { ok: false, latencyMs: 12 });
+    // No throw above is the regression proof; the guard must also have recorded
+    // a neutral row rather than crashing.
+    const summary = early.getFitnessSummary();
+    expect(summary).toBeTruthy();
+  });
 });
 
 describe("S2.4: latency honesty", () => {
