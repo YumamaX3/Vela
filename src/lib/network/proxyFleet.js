@@ -79,7 +79,13 @@ const AUTO_DISABLE_TIMEOUT_MS = 8_000;
 // In-Memory Store (boot loads persisted rows)
 // ───────────────────────────────────────────────────────────────────────────
 
-let fitnessStore = null;
+// Start as an empty Map, NOT null: recordOutcome / recordClaimGate can fire
+// before init()'s loadFitness() resolves (the facade deliberately lets auth
+// signal early), and every .set/.has/.get on a null store throws — the
+// "Cannot read properties of null (reading 'set')" boot-window wound. An
+// empty store is safe: every reader guards on !loaded and creates neutral
+// entries; loadFitness() replaces the store wholesale once the rows arrive.
+let fitnessStore = new Map();
 let loaded = false;
 let dirtyKeys = new Set();
 let flushTimer = null;
