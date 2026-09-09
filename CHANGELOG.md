@@ -25,6 +25,49 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.56 — The Early Signal ⛵
+
+> *"The harbor heard the outcome before its ledgers woke — and the outcome was not lost, only dropped in the dark. Now the ledgers wake empty instead of unborn."* ⛵
+
+The fleet's log carried a repeating wound the Star saw live:
+`[proxyFleet] recordOutcome failed: Cannot read properties of null (reading 'set')`.
+
+- 🐛 **The boot-window null deref, healed** — `src/lib/network/proxyFleet.js`
+  opened with `let fitnessStore = null;` and only `init()`'s fire-and-forget
+  `loadFitness()` filled it. But the facade deliberately lets auth signal
+  outcomes *before* `init()` finishes — so `recordOutcome` /
+  `recordClaimGate` could fire in the boot window, call
+  `getOrCreateFitness` → `fitnessStore.set(...)`, and throw on null. The
+  fail-open catch logged the error and **silently dropped the signal**:
+  the pool's fitness row was never written, so `pickSmart` kept scoring
+  a pool it had never learned about.
+- 🔧 **The store is born empty, not unborn** — `fitnessStore` now starts as
+  an empty `Map`. Every reader already guards on `!loaded` and creates
+  neutral entries, so an empty store is safe in the window; when
+  `loadFitness()` resolves it replaces the store wholesale, exactly as
+  before. No behavior changes outside the boot window.
+- 🧪 **Regression test** — `recordOutcome before loadFitness resolves never
+  touches a null store` rides in the S2.3 storm suite
+  (`tests/unit/proxy-storm-signal-severance.test.js`, which now runs 21
+  tests across 2 files, all green at 2.04s).
+- 🔧 **The stranded v0.9.54 image, rescued** — its re-launch (run
+  `34170700136` attempt 2) hit GitHub's own 6-hour per-job ceiling and was
+  killed at 6h02m (cold multi-arch arm64/QEMU rebuild starved — the same
+  workflow succeeded in 23 minutes on a warm cache). v0.9.55's first run
+  died at the identical wall at 6h00m47s. Both are now recorded as
+  infrastructure ceilings, not Patience violations: the Patience decree was
+  never touched. The v0.9.55 rerun (attempt 2) rode the Sep-8 warm cache and
+  landed in **22m39s** — `ghcr.io/yumamax3/vela:0.9.55` + `:latest` shipped.
+- 🔧 **The audit trail** — full `git diff` of `proxyFleet.js` verified
+  before staging: the file carried its `M` flag at session start, and the
+  complete diff is exactly the fitnessStore hunk (19 lines) — no foreign
+  changes rode along.
+
+⚓ Files: `src/lib/network/proxyFleet.js`, `tests/unit/proxy-storm-signal-severance.test.js`, `CHANGELOG.md`, `package.json`, `package-lock.json`, `docker-compose.example.yml`
+🧪 Proof: storm suite 21/21 green · lockfile diff version-only · v0.9.55 image verified shipped
+
+---
+
 # v0.9.55 — The Content-Hashed Glyphs ⛵
 > *"The heal finally sails, and the font wears its own name — a browser cache can never again show yesterday's glyphs as today's."* ⛵
 
