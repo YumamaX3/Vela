@@ -25,6 +25,39 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.58 — The Open Ocean 🌊
+
+> *"Cline's shore was a quay of eight — the harbor's own manifest revealed an ocean of three hundred and twenty-nine, and the chart now sails it all."* 🌊
+
+The Star brought home the live Cline/OpenRouter catalog — the registry held
+8 models while the served fleet numbered 435 raw lanes.
+
+- ✨ **The fleet redrawn, 8 → 329 chat models** — `open-sse/providers/registry/
+  cline.js` regenerated mechanically from the Star's live catalog export
+  (a script carved the roster — 400+ hand-typed ids are a transcription
+  wound waiting to happen). Curated from 435 raw lanes: `:batch` async
+  twins struck, `openrouter/*` meta-lanes (auto-beta/fusion/bodybuilder/
+  pareto-code/free) struck, `~` rolling aliases struck (a pointer that
+  silently changes its target is poison for a deterministic gateway),
+  `perceptron-mk1` (safety classifier, not a chat lane) struck, and the
+  ten image/audio/music-only lanes struck (no chat transport: gemini
+  image lanes, gpt-5/5.4 image lanes, gpt-audio pair, lyria pair,
+  gemini-2.5-flash-image). `:free` lanes **kept** — Vela's pricing layer
+  inherits their paid siblings by decree.
+- 🔧 **Every id verified at runtime** — registry index carries all 329,
+  zero duplicate ids, first `inception/mercury-2.5`, last `openai/gpt-4`.
+  Capability spot-checks resolve true: Gemini/Claude/GLM-4.6v/Kimi-K3
+  vision, qwen3-coder text.
+- 🧪 **Blast radius zero** — the golden wire-shape snapshot's 3 failures
+  (cline/clinepass/kimi headers) are the pre-existing `Vela/0.9.33` vs
+  `0.9.57` version-string pin, proven identical at pristine HEAD; the
+  model-list change touches no header. Capability suites green.
+
+⚓ Files: `open-sse/providers/registry/cline.js`, `CHANGELOG.md`, `package.json`, `package-lock.json`, `docker-compose.example.yml`
+🧪 Proof: 329/329 ids runtime-verified, no dupes · vision spot-checks 5/5 · golden diff = pre-existing version-pin wound only · lockfile diff version-only
+
+---
+
 # v0.9.57 — The Jerouter Ascension 🍊
 
 > *"The router grew from twenty ships to thirty-two — the chart redrawn from the harbor's own manifest, not from memory."* 🍊
