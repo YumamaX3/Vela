@@ -243,6 +243,14 @@ describe("prefers-reduced-motion is no longer scoped to the login page", () => {
       [".topology-edge-kame", "topology-edge-dash"],
       [".topology-edge-halo", "topology-edge-flicker"],
       [".topology-edge-plasma", "topology-edge-dash"],
+      // ── The Crowned Mast (v0.9.59) — header instrument-panel motion ──
+      // Four of these are infinite; mastRise/mastPanelOpen/compassNeedle run
+      // once (entrance + hover choreography), so only the four infinite ones
+      // belong in this chain test — the rule covers them too, but the
+      // "really infinite" assertion would fail on one-shot animations.
+      [".mast-tide::after", "tideLine"],
+      [".mast-beacon-dot", "beaconBreathe"],
+      [".mast-beacon-dot.mast-beacon-call", "beaconCall"],
     ];
 
     for (const [selector, anim] of NEWLY_COVERED) {
