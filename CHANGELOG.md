@@ -25,6 +25,56 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.59 — The Crowned Mast ⛵
+> *"The harbor's mast stood functional and bare — now it bears a compass, a beacon, and a tide-line that never rests, and the whole instrument panel answers before the hand arrives."* ⛵💜
+The Star asked for a fully new header — more themed, more animated, more
+smooth, more icons, more features, more organized — and chose the **Vela
+maritime** identity: the mast becomes an instrument panel, the motif is a
+drifting coral tide-line, and every page announces itself from a compass
+tile. The dashboard's single most-repeated surface now carries the harbor's
+own voice.
+- ✨ **The tide-line motif** — a 1px coral current drifts along the mast's
+  bottom border (`mast-tide::after`, 7s linear drift + 3.5s shimmer), the
+  identity pattern the Star chose from three directions. Killed by the
+  existing global `prefers-reduced-motion` rule like every animation before
+  it.
+- ✨ **The compass tile** — every page's icon rests in a coral-tinted
+  bearing (`bg-primary/10`, `border-primary/15`); on hover the needle spins
+  home (`compassNeedle` 0.55s, once). The page identity is an instrument,
+  not a label.
+- ✨ **The status beacon (new feature)** — `StatusBeacon.js` polls the
+  proven stale-while-revalidate `/api/version` and renders a live instrument
+  chip: green breathing dot + current version; coral glowing dot +
+  "current → latest" linking straight to the GitHub release notes when an
+  update exists; amber "offline" when the horizon is unreachable. Fail-open
+  on every shape (proven against the layout suite's `{}` fetch stub).
+- ✨ **QuickNav, the command grid (new feature)** — `QuickNav.js`: a
+  categorized popover of the whole dashboard in one click, grouped into the
+  four fleets (Helm / Signals / Fleet / Deck, mirroring the sidebar's
+  structure), current page marked with `aria-current="page"`, Escape closes,
+  the trigger's grid icon rotates 90° open. 16 pages, one instrument.
+- ✨ **Breadcrumb depth for all pages** — provider and media-provider
+  detail pages keep their trails; every other page's title now renders
+  inside the full identity block (title h1 + description second line) with
+  the compass tile beside it. Three new page chart entries: Request Logs,
+  Fallback Rules, Prompt Injectors, Routed by Combo (previously bare).
+- ✨ **`/` focuses search (new affordance)** — when a page exposes the
+  header search, pressing `/` (outside any input) focuses it; a `kbd` hint
+  sits in the field's right edge until text arrives. The hint is honest: it
+  disappears the moment it would be wrong.
+- 🎨 **Mount choreography** — title → identity → instrument panel, 60ms
+  stagger (`mastRise`), replayed on every navigation by the layout's
+  existing `key={pathname}` remount. Reduced-motion users see all three
+  arrive at once — the global rule turns every duration to 0.01ms.
+- 🧪 **The motion chain guard widened** — `globals-css-tokens.test.js`'s
+  selector → animation → infinite chain now covers `mast-tide::after` and
+  both beacon variants, so the reduced-motion coverage cannot silently rot
+  to cover nothing.
+⚓ Files: `src/shared/components/Header.js`, `src/shared/components/StatusBeacon.js` (new), `src/shared/components/QuickNav.js` (new), `src/app/globals.css`, `tests/unit/globals-css-tokens.test.js`, `CHANGELOG.md`, `package.json`, `package-lock.json`, `docker-compose.example.yml`
+🧪 Proof: 9 blast-radius suites / 130 tests green · globals-css-tokens 60/60 with the new chain entries · eslint clean on all three components · production build green · Delivery Gate 4/4 PASS (contrast, keyboard, states, no-clone)
+
+---
+
 # v0.9.58 — The Open Ocean 🌊
 
 > *"Cline's shore was a quay of eight — the harbor's own manifest revealed an ocean of three hundred and twenty-nine, and the chart now sails it all."* 🌊

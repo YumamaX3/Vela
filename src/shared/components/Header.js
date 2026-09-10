@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import PropTypes from "prop-types";
@@ -8,12 +8,18 @@ import ProviderIcon from "@/shared/components/ProviderIcon";
 import HeaderMenu from "@/shared/components/HeaderMenu";
 import HeaderLanguage from "@/shared/components/HeaderLanguage";
 import ThemeToggle from "@/shared/components/ThemeToggle";
+import StatusBeacon from "@/shared/components/StatusBeacon";
+import QuickNav from "@/shared/components/QuickNav";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getProviderIconSrc } from "@/shared/utils/providerIcon";
 import { translate } from "@/i18n/runtime";
 
+// ── The page chart ──────────────────────────────────────────────────────────
+// Every dashboard route a pathname can land on gets a title + description +
+// icon, ordered so detail pages match before their parent prefixes. The icon
+// drives the compass tile; the description is the mast's second line.
 const getPageInfo = (pathname) => {
   if (!pathname) return { title: "", description: "", breadcrumbs: [] };
 
@@ -168,9 +174,45 @@ const getPageInfo = (pathname) => {
       icon: "monitor",
       breadcrumbs: [],
     };
+  if (pathname.includes("/logs"))
+    return {
+      title: "Request Logs",
+      description: "Every request that crossed the harbor, recorded",
+      icon: "receipt_long",
+      breadcrumbs: [],
+    };
+  if (pathname.includes("/fallback-rules"))
+    return {
+      title: "Fallback Rules",
+      description: "Operator fallback chains for model combos",
+      icon: "rule",
+      breadcrumbs: [],
+    };
+  if (pathname.includes("/prompt-injectors"))
+    return {
+      title: "Prompt Injectors",
+      description: "Layer operator prompts into requests",
+      icon: "edit_note",
+      breadcrumbs: [],
+    };
+  if (pathname.includes("/routed-by-combo"))
+    return {
+      title: "Routed by Combo",
+      description: "Traffic attribution per combo",
+      icon: "route",
+      breadcrumbs: [],
+    };
   // "/dashboard" itself is the Harbor homepage — it carries its own greeting
   // hero, so the header title slot stays empty (rendered as null).
   return { title: "", description: "", breadcrumbs: [] };
+};
+
+// The mount choreography order: title first (the focus), then the compass
+// tile, then the right instruments. Delays are the rigging's sequence.
+const RISE = {
+  title:  { className: "mast-rise", style: { animationDelay: "0ms" } },
+  tile:   { className: "mast-rise", style: { animationDelay: "60ms" } },
+  panel:  { className: "mast-rise", style: { animationDelay: "120ms" } },
 };
 
 export default function Header({ onMenuClick, showMenuButton = true }) {
@@ -220,82 +262,95 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
   };
 
   return (
-    <header className="shrink-0 flex items-center justify-between gap-3 px-4 lg:px-8 pt-3 pb-2 border-b border-border-subtle bg-surface/60 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none z-20">
+    <header className="mast-tide relative shrink-0 flex items-center justify-between gap-3 px-4 lg:px-8 pt-3 pb-3 border-b border-border-subtle bg-surface/60 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none z-20">
       {/* Mobile menu button */}
       <div className="flex items-center gap-3 lg:hidden shrink-0">
         {showMenuButton && (
           <button
             onClick={onMenuClick}
             className="text-text-main hover:text-primary transition-colors"
+            aria-label="Open navigation"
           >
             <span className="material-symbols-outlined">menu</span>
           </button>
         )}
       </div>
 
-      {/* Page title with breadcrumbs */}
-      <div className="flex flex-col min-w-0 flex-1">
-        {breadcrumbs.length > 0 ? (
-          <div className="flex items-center gap-2">
-            {breadcrumbs.map((crumb, index) => (
-              <div
-                key={`${crumb.label}-${crumb.href || "current"}`}
-                className="flex items-center gap-2"
-              >
-                {index > 0 && (
-                  <span className="material-symbols-outlined text-text-muted text-base">
-                    chevron_right
-                  </span>
-                )}
-                {crumb.href ? (
-                  <Link
-                    href={crumb.href}
-                    className="text-text-muted hover:text-primary transition-colors"
-                  >
-                    {crumb.label}
-                  </Link>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    {crumb.image && (
-                      <ProviderIcon
-                        src={crumb.image}
-                        alt={crumb.label}
-                        size={28}
-                        className="object-contain rounded max-w-[28px] max-h-[28px]"
-                        fallbackText={crumb.label.slice(0, 2).toUpperCase()}
-                      />
-                    )}
-                    <h1 className="text-base lg:text-2xl font-semibold text-text-main tracking-tight truncate">
-                      {translate(crumb.label)}
-                    </h1>
-                  </div>
-                )}
-              </div>
-            ))}
+      {/* Page identity: compass tile + title + description/breadcrumbs */}
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        {icon && (
+          <div
+            className={`hidden lg:flex items-center justify-center size-10 rounded-xl bg-primary/10 border border-primary/15 shrink-0 mast-compass-tile ${RISE.tile.className}`}
+            style={RISE.tile.style}
+            aria-hidden="true"
+          >
+            <span className="material-symbols-outlined text-primary text-[22px]">
+              {icon}
+            </span>
           </div>
-        ) : title ? (
-          <div>
-            <div className="flex items-center gap-2">
-              {icon && (
-                <span className="material-symbols-outlined text-primary text-xl lg:text-2xl">
-                  {icon}
-                </span>
-              )}
-              <h1 className="text-base lg:text-2xl font-semibold tracking-tight truncate">
+        )}
+        <div className="flex flex-col min-w-0">
+          {breadcrumbs.length > 0 ? (
+            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 min-w-0">
+              {breadcrumbs.map((crumb, index) => (
+                <div
+                  key={`${crumb.label}-${crumb.href || "current"}`}
+                  className="flex items-center gap-1.5 min-w-0"
+                >
+                  {index > 0 && (
+                    <span
+                      className="material-symbols-outlined text-text-subtle text-base shrink-0"
+                      aria-hidden="true"
+                    >
+                      chevron_right
+                    </span>
+                  )}
+                  {crumb.href ? (
+                    <Link
+                      href={crumb.href}
+                      className="text-xs lg:text-sm text-text-muted hover:text-primary transition-colors whitespace-nowrap"
+                    >
+                      {translate(crumb.label)}
+                    </Link>
+                  ) : (
+                    <div className="flex items-center gap-2 min-w-0">
+                      {crumb.image && (
+                        <ProviderIcon
+                          src={crumb.image}
+                          alt={crumb.label}
+                          size={26}
+                          className="object-contain rounded max-w-[26px] max-h-[26px]"
+                          fallbackText={crumb.label.slice(0, 2).toUpperCase()}
+                        />
+                      )}
+                      <h1 className={`text-sm lg:text-lg font-semibold text-text-main tracking-tight truncate ${RISE.title.className}`} style={RISE.title.style}>
+                        {translate(crumb.label)}
+                      </h1>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </nav>
+          ) : title ? (
+            <div className="min-w-0">
+              <h1 className={`text-sm lg:text-lg font-semibold tracking-tight truncate ${RISE.title.className}`} style={RISE.title.style}>
                 {translate(title)}
               </h1>
+              {description && (
+                <p
+                  className={`hidden lg:block text-xs text-text-muted truncate mt-0.5 ${RISE.tile.className}`}
+                  style={RISE.tile.style}
+                >
+                  {translate(description)}
+                </p>
+              )}
             </div>
-            {description && (
-              <p className="hidden lg:block text-sm text-text-muted truncate">
-                {translate(description)}
-              </p>
-            )}
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
 
-      {/* Right actions */}
-      <div className="flex items-center gap-1 shrink-0">
+      {/* Right instruments — organized clusters */}
+      <div className={`flex items-center gap-1 shrink-0 ${RISE.panel.className}`} style={RISE.panel.style}>
         {displayName && (loginMethod === "OIDC" || loginMethod === "SAML") && (
           <div
             className="hidden sm:flex items-center max-w-[220px] px-3 py-1.5 rounded-full border border-border bg-surface/70 text-xs text-text-muted truncate"
@@ -308,9 +363,19 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
             </span>
           </div>
         )}
+
+        {/* The beacon — live version / update signal (status cluster) */}
+        <StatusBeacon />
+
+        {/* Search cluster: store-driven search + `/` shortcut */}
         <HeaderSearch />
+
+        {/* Preferences cluster */}
         <ThemeToggle />
         <HeaderLanguage />
+
+        {/* Commands cluster */}
+        <QuickNav />
         <HeaderMenu onLogout={handleLogout} />
       </div>
     </header>
@@ -322,22 +387,45 @@ function HeaderSearch() {
   const query = useHeaderSearchStore((s) => s.query);
   const placeholder = useHeaderSearchStore((s) => s.placeholder);
   const setQuery = useHeaderSearchStore((s) => s.setQuery);
+  const inputRef = useRef(null);
+
+  // "/" focuses the search when the page offers one — a gateway operator's
+  // reflex. Skipped while typing in any input/textarea/contenteditable, so
+  // the shortcut never steals a keystroke from a form.
+  useEffect(() => {
+    if (!visible) return;
+    const onKey = (e) => {
+      if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
+      const el = document.activeElement;
+      const tag = el?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select" || el?.isContentEditable) return;
+      e.preventDefault();
+      document.getElementById("vela-header-search")?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [visible]);
 
   if (!visible) return null;
 
   return (
     <div className="relative w-[160px] sm:w-[220px]">
-      <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-text-muted text-[16px] pointer-events-none">
+      <span
+        className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-text-muted text-[16px] pointer-events-none"
+        aria-hidden="true"
+      >
         search
       </span>
       <input
+        id="vela-header-search"
+        ref={inputRef}
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
-        className="w-full h-8 pl-7 pr-7 rounded-lg border border-border bg-surface/60 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+        className="w-full h-8 pl-7 pr-7 rounded-lg border border-border bg-surface/60 text-sm focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
       />
-      {query && (
+      {query ? (
         <button
           type="button"
           onClick={() => setQuery("")}
@@ -346,6 +434,13 @@ function HeaderSearch() {
         >
           <span className="material-symbols-outlined text-[16px]">close</span>
         </button>
+      ) : (
+        <kbd
+          className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 items-center h-4.5 px-1 rounded border border-border bg-surface text-[10px] font-mono text-text-subtle pointer-events-none"
+          aria-hidden="true"
+        >
+          /
+        </kbd>
       )}
     </div>
   );
