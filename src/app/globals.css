@@ -514,6 +514,105 @@ button:disabled,
 }
 .animate-pulse-glow { animation: pulseGlow 3s ease-in-out infinite; }
 
+/* ============================================================
+   The Crowned Mast (v0.9.59) — header instrument-panel motion.
+   All colors read from --color-* tokens; the global
+   prefers-reduced-motion rule above already kills every one of
+   these (0.01ms / 1 iteration), so no per-class guard is needed.
+   ============================================================ */
+
+/* Mount choreography: each mast element rises in sequence.
+   Applied per-element with an inline animation-delay, so the
+   order is data (the element's place in the rigging), not CSS. */
+@keyframes mastRise {
+  from { transform: translateY(6px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+.mast-rise {
+  opacity: 0;
+  animation: mastRise 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* The tide-line: the header's identity motif. A 1px coral current
+   drifts along the header's bottom border, like light moving on
+   moving water. The ::after carries the visible wave; the drift
+   moves a wide gradient across it so the seam at the wrap point
+   never shows. */
+@keyframes tideLine {
+  0%   { transform: translateX(-25%); }
+  100% { transform: translateX(75%); }
+}
+@keyframes tideShimmer {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 0.75; }
+}
+.mast-tide::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-primary) 18%,
+    var(--color-brand-200) 38%,
+    transparent 62%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: tideLine 7s linear infinite, tideShimmer 3.5s ease-in-out infinite;
+}
+
+/* Compass tile: the page icon rests in a coral-tinted bearing;
+   on hover the needle spins home. */
+@keyframes compassNeedle {
+  0%   { transform: rotate(-14deg) scale(1); }
+  55%  { transform: rotate(10deg) scale(1.12); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+.mast-compass-tile {
+  transition: background-color 0.25s ease, box-shadow 0.25s ease;
+}
+.mast-compass-tile:hover .material-symbols-outlined {
+  animation: compassNeedle 0.55s cubic-bezier(0.34, 1.3, 0.64, 1) 1;
+}
+.mast-compass-tile:hover {
+  box-shadow: var(--shadow-warm);
+}
+
+/* Status beacon: a steady green ember when all is well, breathing
+   softly; the update variant carries the brand glow (owned by the
+   component via a utility class below). */
+@keyframes beaconBreathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  50%      { box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.18); }
+}
+.mast-beacon-dot {
+  animation: beaconBreathe 2.6s ease-in-out infinite;
+}
+@keyframes beaconCall {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(229, 106, 74, 0); }
+  50%      { box-shadow: 0 0 0 5px rgba(229, 106, 74, 0.28); }
+}
+.mast-beacon-dot.mast-beacon-call {
+  animation: beaconCall 2s ease-in-out infinite;
+}
+
+/* Popover entrance for the quick-nav command grid — slightly
+   springier than the generic fade so it feels like an instrument
+   cover flipping open. */
+@keyframes mastPanelOpen {
+  from { transform: translateY(-4px) scale(0.97); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+.mast-panel {
+  transform-origin: top right;
+  animation: mastPanelOpen 0.18s cubic-bezier(0.22, 1.2, 0.36, 1) forwards;
+}
+
 /* CTA shimmer + glow pulse */
 @keyframes ctaShimmer {
   0% { transform: translateX(-120%) skewX(-20deg); }
