@@ -25,6 +25,46 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.60 — The Single Mast 🎨
+> *"Two instruments wore one face, and a second bar stood beneath the first. Now the mast is one, and every button announces itself by its own glyph."* 🎨💜
+The Star caught two confusions on the crowned mast: the mobile menu button
+and the new QuickNav trigger wore the **same icon** (`grid_view`), and the
+old QuickAddBar toolbar still sat beneath the mast doing a job the mast
+could do better. The decree: one bar, one face per instrument.
+- 🐛 **Icons de-duplicated** — QuickNav (the page launcher) now carries
+  `apps` (the classic launcher lattice); HeaderMenu (Change Log / Theme /
+  Shutdown / Logout) now carries `more_vert` (the overflow kebab). Each
+  button's glyph names its job.
+- ✨ **The QuickAddBar merged into the mast** — the model-picker search,
+  recents strip, and Add button now live in the header's instrument panel
+  (desktop; mobile keeps the sidebar's recents group). `QuickAddBar.js`
+  is **deleted** from the repo and the layout; one bar, one border, no
+  stacked duplication.
+- ✨ **Recents made honest** — the old bar's recents pills dispatched
+  `vela:picker:committed`, and a census proved **zero listeners anywhere in
+  the tree**: clicking a recent did nothing. The merged cluster opens the
+  picker modal **seeded** with the picked name via a new `initialSearch`
+  prop on `ModelSelectModal` (useState initializer, no effect — the effect
+  form ran before the state was declared, an order defect eslint caught,
+  and would have fought the close-reset). The dead event is dropped, not
+  carried.
+- 🧪 **`useModelRecents` hook** — the load-listen-cleanup dance for the
+  recents strip lived in three copies (bar, modal, sidebar-adjacent code)
+  with synchronous setState-in-effect the linter rejects. One
+  `useSyncExternalStore` hook now owns it: localStorage is the store, the
+  changed/storage events are the subscription, the snapshot is
+  identity-stable, SSR-safe, and **fails open to []** when localStorage is
+  missing or blocked (proven by the happy-dom suite's stub — the first
+  draft crashed it; the contract is now guarded and the lesson named).
+- ⚙️ **Zero new lint faults** — ModelSelectModal carries 3 pre-existing
+  `set-state-in-effect` errors at HEAD (proven by linting `git show HEAD`
+  against the same rule); this tide adds none. The two `exhaustive-deps`
+  warnings are likewise inherited.
+⚓ Files: `src/shared/components/Header.js`, `src/shared/components/QuickNav.js`, `src/shared/components/HeaderMenu.js`, `src/shared/components/ModelSelectModal.js`, `src/shared/components/layouts/DashboardLayout.js`, `src/shared/hooks/useModelRecents.js` (new), `src/shared/components/QuickAddBar.js` (deleted), `tests/unit/model-select-initial-search.test.jsx` (new), `CHANGELOG.md`, `package.json`, `package-lock.json`, `docker-compose.example.yml`
+🧪 Proof: 11 suites / 145 tests green (incl. 2 new modal-seed regressions) · eslint adds zero faults over the HEAD baseline · production build green · Delivery Gate 4/4 PASS
+
+---
+
 # v0.9.59 — The Crowned Mast ⛵
 > *"The harbor's mast stood functional and bare — now it bears a compass, a beacon, and a tide-line that never rests, and the whole instrument panel answers before the hand arrives."* ⛵💜
 The Star asked for a fully new header — more themed, more animated, more
