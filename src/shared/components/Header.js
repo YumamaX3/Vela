@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import PropTypes from "prop-types";
@@ -10,16 +10,11 @@ import HeaderLanguage from "@/shared/components/HeaderLanguage";
 import ThemeToggle from "@/shared/components/ThemeToggle";
 import StatusBeacon from "@/shared/components/StatusBeacon";
 import QuickNav from "@/shared/components/QuickNav";
-import ModelSelectModal from "@/shared/components/ModelSelectModal";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getProviderIconSrc } from "@/shared/utils/providerIcon";
 import { translate } from "@/i18n/runtime";
-
-// The recents strip — source of truth is useModelRecents (localStorage
-// vela:picker:recents via useSyncExternalStore; no setState-in-effect).
-import useModelRecents from "@/shared/hooks/useModelRecents";
 
 // ── The page chart ──────────────────────────────────────────────────────────
 // Every dashboard route a pathname can land on gets a title + description +
@@ -372,10 +367,6 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
         {/* The beacon — live version / update signal (status cluster) */}
         <StatusBeacon />
 
-        {/* The model picker cluster (merged from QuickAddBar, v0.9.60):
-            search opens ModelSelectModal, recents re-open it seeded,
-            Add model opens it fresh. */}
-        <ModelPickerCluster />
 
         {/* Page search cluster: store-driven search + `/` shortcut.
             Only renders on pages that register a search. */}
@@ -390,104 +381,6 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
         <HeaderMenu onLogout={handleLogout} />
       </div>
     </header>
-  );
-}
-
-// ── ModelPickerCluster ──────────────────────────────────────────────────────
-// The QuickAddBar's job folded into the mast (v0.9.60 — the Single Mast):
-// one search field that opens ModelSelectModal on Enter (seeded with the
-// typed term via initialSearch), a recents strip that opens the modal seeded
-// with the picked name, and an Add model button. One source of truth for
-// recents (localStorage vela:picker:recents) — the modal itself keeps
-// emitting vela:recents:changed, and this strip listens for it, exactly as
-// the deleted bar did. The old bar's vela:picker:committed dispatch had NO
-// listener anywhere in the tree (census, 2026-09-11) — it fired into the
-// void, so this cluster drops the dead event rather than carrying it.
-function ModelPickerCluster() {
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerSeed, setPickerSeed] = useState("");
-  const [typed, setTyped] = useState("");
-  const recents = useModelRecents();
-  const inputRef = useRef(null);
-
-  const openPicker = useCallback((seed) => {
-    setPickerSeed(seed || "");
-    setTyped("");
-    setPickerOpen(true);
-  }, []);
-
-  const visibleRecents = recents.slice(0, 3);
-
-  return (
-    <>
-      {/* Search + recents + Add — the picker instruments, desktop only.
-          Mobile keeps the sidebar's own recents group (as before). */}
-      <div className="hidden lg:flex items-center gap-1.5 min-w-0">
-        <div className="relative w-[170px] xl:w-[220px]">
-          <span
-            className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-text-muted text-[16px] pointer-events-none"
-            aria-hidden="true"
-          >
-            search
-          </span>
-          <input
-            ref={inputRef}
-            type="text"
-            value={typed}
-            onChange={(e) => setTyped(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") openPicker(typed);
-            }}
-            placeholder="Search models…"
-            aria-label="Search models or combos"
-            className="w-full h-8 pl-7 pr-2 rounded-lg border border-border bg-surface/60 text-sm focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
-          />
-        </div>
-
-        {visibleRecents.length > 0 && (
-          <div className="hidden xl:flex items-center gap-1 min-w-0">
-            {visibleRecents.map((r) => (
-              <button
-                key={r.value}
-                type="button"
-                onClick={() => openPicker(r.name || r.value)}
-                title={r.isCombo ? `Open picker at combo ${r.name}` : `Open picker at ${r.name}`}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border border-border-subtle bg-surface text-text-main hover:border-primary/50 hover:bg-primary/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 max-w-[8rem]"
-              >
-                <span
-                  className={`material-symbols-outlined shrink-0 ${r.isCombo ? "text-primary" : "text-text-muted"}`}
-                  style={{ fontSize: "12px" }}
-                  aria-hidden="true"
-                >
-                  {r.isCombo ? "layers" : "history"}
-                </span>
-                <span className="font-mono truncate">{r.name}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={() => openPicker("")}
-          className="inline-flex items-center gap-1 px-2.5 h-8 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-        >
-          <span className="material-symbols-outlined" style={{ fontSize: "14px" }} aria-hidden="true">add</span>
-          Add
-        </button>
-      </div>
-
-      <ModelSelectModal
-        isOpen={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        onSelect={() => setPickerOpen(false)}
-        title="Quick add — pick a model"
-        initialSearch={pickerSeed}
-        // activeProviders/modelAliases deliberately omitted — the modal
-        // falls back to its own fetch path (provider-nodes etc.), exactly
-        // as the deleted QuickAddBar did.
-      />
-    </>
   );
 }
 

@@ -152,11 +152,7 @@ export default function ModelSelectModal({
   addedModelValues = EMPTY_ADDED_MODEL_VALUES,
   closeOnSelect = true,
   showCombos = true,
-  initialSearch = "",
 }) {
-  // Seed note: searchQuery initializes from `initialSearch` in its useState
-  // declaration below — no effect, no lint fault; the field still resets to
-  // "" on close/select as before.
   // Filter activeProviders by serviceKinds when kindFilter set (e.g. "webSearch", "webFetch")
   const filteredActiveProviders = useMemo(() => {
     if (!kindFilter) return activeProviders;
@@ -168,7 +164,7 @@ export default function ModelSelectModal({
   }, [activeProviders, kindFilter]);
 
   const { getCaps } = useModelCaps();
-  const [searchQuery, setSearchQuery] = useState(initialSearch);
+  const [searchQuery, setSearchQuery] = useState("");
   const [activeCategories, setActiveCategories] = useState(new Set(["all"]));
   const [combos, setCombos] = useState([]);
   const [providerNodes, setProviderNodes] = useState([]);
@@ -895,5 +891,4 @@ ModelSelectModal.propTypes = {
   addedModelValues: PropTypes.arrayOf(PropTypes.string),
   closeOnSelect: PropTypes.bool,
   showCombos: PropTypes.bool,
-  initialSearch: PropTypes.string,
 };
