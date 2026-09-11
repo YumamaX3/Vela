@@ -25,6 +25,42 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.61 — The Honest Glyphs 🔤
+> *"An icon that renders as its own name is a promise the font never made. The subset has now met every glyph the mast speaks — and the buttons that had no job have sailed."* 🔤💜
+The Star caught icons rendering as raw text across the dashboard —
+`directions_boat`, `MORE_VERT`, and more — and decreed the header's
+Add/Search-models cluster removed.
+- 🐛 **The icon subset was blind to the crowned mast's glyphs** — the
+  committed subset font (`vela-icons.9db5fadc…`, carved 2026-09-07) predates
+  v0.9.59/60, so every ligature introduced by the mast (`directions_boat`,
+  `more_vert`, `north_east`, `deck`, `sailing`, `monitoring`, and 9 more)
+  had no glyph to become and rendered as its own name. Root cause of the
+  drift: QuickNav's `apps` trigger sits in a **multiline JSX span**, invisible
+  to all five single-line scan shapes the subset docstring prescribes — a
+  new shape was added to the regen (multiline `<span>` with expression
+  bodies), the inventory regenerated from the live corpus (217 → **232**
+  icons, +16/−1), and the font rebuilt (`vela-icons.d44f5d8c…`, 181,204
+  bytes). All 20 probe glyphs proven in the subset's cmap by
+  fontTools post-build.
+- ✨ **The Add/Search-models cluster removed by decree** — the model-picker
+  search, recents strip, and Add button (merged from QuickAddBar in
+  v0.9.60) are gone from the header. Their jobs remain covered where they
+  belong: the sidebar's recents group and pages that mount the picker
+  directly. The `useModelRecents` hook, `ModelSelectModal`'s
+  `initialSearch` prop, and the prop's test suite are removed with it —
+  built solely for that cluster, orphaned by the decree. The dead
+  `vela:picker:committed` dispatch died with v0.9.60; nothing false
+  remains.
+- ⚙️ **The subset drift-check's limit, named** — `--check` verifies the
+  font against the *committed inventory file*, never the *live corpus*, so
+  it passed while 16 glyphs were missing. The inventory must be regenerated
+  by the scan recipe whenever icon-bearing components land; the check now
+  carries the process law in its own terms.
+⚓ Files: `scripts/icon-ligatures.txt`, `scripts/icon-subset-manifest.json`, `public/fonts/vela-icons.d44f5d8c2c885c5d.woff2` (new; `9db5fadc…` pruned), `src/app/globals.css` (font src rewrite), `src/shared/components/Header.js`, `src/shared/components/ModelSelectModal.js`, `src/shared/hooks/useModelRecents.js` (deleted), `tests/unit/model-select-initial-search.test.jsx` (deleted), `CHANGELOG.md`, `package.json`, `package-lock.json`, `docker-compose.example.yml`
+🧪 Proof: 10 suites / 143 tests green · eslint zero new faults over HEAD baseline · 20/20 named glyphs in subset cmap · production build green · Delivery Gate 4/4 PASS
+
+---
+
 # v0.9.60 — The Single Mast 🎨
 > *"Two instruments wore one face, and a second bar stood beneath the first. Now the mast is one, and every button announces itself by its own glyph."* 🎨💜
 The Star caught two confusions on the crowned mast: the mobile menu button
