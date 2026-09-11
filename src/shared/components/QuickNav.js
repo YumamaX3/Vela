@@ -109,7 +109,7 @@ export default function QuickNav({ className = "" }) {
           )}
           aria-hidden="true"
         >
-          grid_view
+          apps
         </span>
       </button>
 
