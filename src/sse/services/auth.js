@@ -465,7 +465,7 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
  * @param {object} currentConnection - credentials object (has _connection) or raw connection
  * @param {string|null} model - model that succeeded
  */
-export async function clearAccountError(connectionId, currentConnection, model = null) {
+export async function clearAccountError(connectionId, currentConnection, model = null, requestStart = null) {
   // Fleet outcome signal — hoisted ABOVE the guard below.
   //
   // v0.9.42: this signal used to sit after `if (!connectionId ||
@@ -499,9 +499,26 @@ export async function clearAccountError(connectionId, currentConnection, model =
   if (!conn.testStatus && !conn.lastError && allLockKeys.length === 0) return;
 
   // Keys to clear: current model's lock + all expired locks
+  //
+  // S8 (ADR-004, v0.9.62) — compare-and-delete on the websearch: lane. A lock
+  // whose failure was stamped AFTER this request started was written by a
+  // CONCURRENT failure; a success older than that lock must not forgive it
+  // (the per-scheme self-liquidation family — LIVE-A v0.9.44). The guard is
+  // scoped to `websearch:` on purpose: the chat lane passes no model (or a
+  // real one) and keeps its forgiving semantics untouched, and a search
+  // success never clears an account-wide lock it did not write.
+  const scopedSearchLane = typeof model === "string" && model.startsWith("websearch:");
   const keysToClear = allLockKeys.filter(k => {
-    if (model && k === `modelLock_${model}`) return true; // succeeded model
-    if (model && k === "modelLock___all") return true;    // account-level lock
+    if (model && k === `modelLock_${model}`) {
+      if (scopedSearchLane) {
+        const failureAt = conn.lastErrorAt ? Date.parse(conn.lastErrorAt) : null;
+        if (requestStart != null && failureAt != null && failureAt > requestStart) {
+          return false; // newer failure owns this lock — leave it
+        }
+      }
+      return true; // succeeded model
+    }
+    if (model && k === "modelLock___all") return !scopedSearchLane; // account-level lock
     const expiry = conn[k];
     return expiry && new Date(expiry).getTime() <= now;   // expired
   });
@@ -517,7 +534,9 @@ export async function clearAccountError(connectionId, currentConnection, model =
 
   const clearObj = Object.fromEntries(keysToClear.map(k => [k, null]));
 
-  // Only reset error state if no active locks remain
+  // Nothing selected to clear and no error state to reset ⇒ no write. The S8
+  // guard can empty keysToClear while a live scoped lock remains (a concurrent
+  // failure owns it) — that case must not emit a {} patch.
   if (remainingActiveLocks.length === 0) {
     Object.assign(clearObj, {
       testStatus: "active",
@@ -527,6 +546,7 @@ export async function clearAccountError(connectionId, currentConnection, model =
       backoffLevel: 0
     });
   }
+  if (Object.keys(clearObj).length === 0) return;
 
   await updateProviderConnection(connectionId, clearObj);
 }
