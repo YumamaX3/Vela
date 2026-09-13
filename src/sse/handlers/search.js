@@ -150,14 +150,31 @@ async function handleSingleProviderSearch(body, providerInput, request, apiKey, 
   // credentials (ported from upstream 9router 5a86f6a8 — W4, v0.9.50).
   const fallbackProviderId = resolvedProvider.credentialFallback;
 
+  // Lock scope for this handler (ported from upstream 9router ec669280 — ADR-004
+  // wound-2 rebase, v0.9.62). Without it markAccountUnavailable would write an
+  // account-wide `modelLock___all`, which isModelLockActive treats as blocking
+  // every model — one failing search on the credentialFallback lane (this
+  // provider borrowing a chat provider's key) would take the shared chat key
+  // offline for chat as well. The key is passed to getProviderCredentials too,
+  // so the lock is written and read back under the same scope.
+  const searchLockKey = `websearch:${providerId}`;
+  // S8 (ADR-004 storm register): the request's start governs whether a
+  // success may clear a scoped lock — a lock whose failure timestamp is newer
+  // than this instant was written by a CONCURRENT failure and stays.
+  const requestStart = Date.now();
+
   while (true) {
-    let credentials = await getProviderCredentials(providerId, excludeConnectionIds);
+    // Provider that actually owns the connection in use — differs from
+    // providerId once we fall back, and error locks must be attributed to it.
+    let credentialProviderId = providerId;
+    let credentials = await getProviderCredentials(providerId, excludeConnectionIds, searchLockKey);
 
     // Fall back to the related chat provider's credentials when this search
     // provider has none of its own (one key, chat + search).
     if (!credentials && fallbackProviderId) {
-      credentials = await getProviderCredentials(fallbackProviderId, excludeConnectionIds);
+      credentials = await getProviderCredentials(fallbackProviderId, excludeConnectionIds, searchLockKey);
       if (credentials) {
+        credentialProviderId = fallbackProviderId;
         log.info("AUTH", `[${providerId}] reusing ${fallbackProviderId} credentials`);
       }
     }
@@ -196,13 +213,18 @@ async function handleSingleProviderSearch(body, providerInput, request, apiKey, 
         });
       },
       onRequestSuccess: async () => {
-        await clearAccountError(credentials.connectionId, credentials);
+        // Clear under the SAME scoped key the failure lane writes (upstream
+        // ec669280 left this unscoped — the scoped lock survived a later
+        // success until some unrelated request swept it). requestStart makes
+        // the clear compare-and-delete (S8): a newer concurrent failure's
+        // lock is not forgiven by an older success.
+        await clearAccountError(credentials.connectionId, credentials, searchLockKey, requestStart);
       }
     });
 
     if (result.success) return result.response;
 
-    const { shouldFallback } = await markAccountUnavailable(credentials.connectionId, result.status, result.error, providerId);
+    const { shouldFallback } = await markAccountUnavailable(credentials.connectionId, result.status, result.error, credentialProviderId, searchLockKey);
 
     if (shouldFallback) {
       log.warn("AUTH", `Account ${credentials.connectionName} unavailable (${result.status}), trying fallback`);
