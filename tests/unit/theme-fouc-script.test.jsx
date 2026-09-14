@@ -339,10 +339,27 @@ describe("the script is placed where it can actually prevent the flash", () => {
   it("is injected in <head>, before the font gate", () => {
     const headStart = LAYOUT_SRC.indexOf("<head>");
     const themeInject = LAYOUT_SRC.indexOf("__html: themeScript");
-    const fontInject = LAYOUT_SRC.indexOf("document.fonts.ready");
+    // The font-gate marker re-pinned at ADR-004 M0: the gate used to be
+    // identified by "document.fonts.ready", which upstream 14401c43 proved
+    // the WRONG signal (it can resolve before the icon face is in the load
+    // queue). "fonts-loaded" is the class both the old and new scripts add —
+    // the stable identity of the gate itself.
+    const fontInject = LAYOUT_SRC.indexOf("fonts-loaded");
     expect(headStart).toBeGreaterThan(-1);
     expect(themeInject).toBeGreaterThan(headStart);
     expect(fontInject).toBeGreaterThan(themeInject);
+  });
+
+  it("the font gate explicitly loads the icon face and fails open", () => {
+    // ADR-004 M0 (14401c43 rebased): the gate must REQUEST "Material Symbols
+    // Outlined" (not merely wait for fonts.ready), resolve on success OR
+    // failure, and veil nothing forever via a timeout. If any clause is
+    // dropped, ligatures can strand invisible or flash as raw text.
+    expect(LAYOUT_SRC).toContain(`d.fonts.load('24px "Material Symbols Outlined"')`);
+    expect(LAYOUT_SRC).toContain(".then(f).catch(f)");
+    expect(LAYOUT_SRC).toContain("setTimeout(f,3000)");
+    // The old ready-only gate must NOT come back.
+    expect(LAYOUT_SRC).not.toContain("document.fonts.ready");
   });
 
   it("the html element carries suppressHydrationWarning, which the script depends on", () => {
