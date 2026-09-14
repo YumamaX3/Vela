@@ -25,6 +25,70 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.62 — The Proven Wounds 🩹
+> *"No stone dropped before its wound was seen red. The fold begins where bleeding stops — the search that locked a chat out, the tool stamp that 400'd a provider, the cookie that outlived its token, the gate that veiled text it promised to render."* 🩹💜
+The Great Fold (ADR-004) opens: upstream 9router v0.5.55→v0.5.75, folded as
+six zoned minors + the 0.10.0 seal. This first minor carries only what the
+Mirror proved before touching.
+- 🐛 **Wound 2 — a failed search could no longer lock chat out** (`ec669280`
+  rebased). `search.js` marked accounts unavailable with no model argument →
+  `modelLock___all` → on the credentialFallback lane (search borrowing a chat
+  key) one 429 took the shared key offline for chat. Now scoped
+  `websearch:<provider>` through write, read, AND clear (upstream left the
+  clear unscoped — a scoped lock survived its own success; Vela passes it
+  everywhere), attributed to the provider that OWNS the connection, and the
+  success clear gained compare-and-delete (S8): a lock written by a NEWER
+  concurrent failure is not forgiven by an older success. Red-first proven at
+  the auth.js seam (`search-lock-scope.test.js`, 6/6 — four wound reds went
+  green on the fix; two contract greens guard the sweep and the chat lane).
+  S9 named: the scoped lock is process-local — single-instance assumption
+  stated in the commit body.
+- 🐛 **Wound 1 — Claude tool `type` stamping scoped to the gateways that
+  demand it** (`998bb3d9`, pulled forward from .63 by Star decree so no
+  shipped minor carries the live DeepSeek wound). Vela's W2 port stamped
+  `type:"custom"` on EVERY Claude-format request; DeepSeek's Anthropic
+  endpoint 400s "unknown variant `custom`" (#3905). A data-driven
+  `requireClaudeToolType` quirk on minimax/minimax-cn governs it now, with the
+  ported `bugs-3905` suite mutation-probed (quirk moved to deepseek → red,
+  restored clean).
+- 🐛 **The golden snapshot sheds its machine** — the wire-shape proof pinned
+  win32, node v25.8.1, the recorder's hostname, and Vela/0.9.33 ×21; it broke
+  on every bump (the v0.9.58-era debt) and could never go green on CI. The
+  sanitizer masks all seven env/version families (mask, never delete — which
+  headers exist stays locked), the regen landed as its own commit diffed
+  alone (exactly 45 lines, zero collateral), and a structural guard reads the
+  committed snap on every runner: one bare version or machine value and the
+  suite goes red. Bonus: the recorder's hostname left committed history.
+- 🐛 **Session + stale locks** — the dashboard cookie now carries maxAge at
+  the JWT's own 24h window (`628ff1ea` rebased + drift guard: one
+  `SESSION_MAX_AGE_SEC` feeds both; the test pins exp > now after a near-miss
+  where a raw number would have meant Jan 1970). Re-activation clears stale
+  health state (`7fee56ba`) in BOTH posture twins — deliberately a private
+  per-twin helper, not a new exported writer, so `updateProviderConnection`'s
+  existing RMW_STALE_HAZARD class holds and both harbors converge by
+  construction; the twin-parity guard is mutation-proven (fork mysql → red).
+- 🐛 **The icon gate waits for the face, not the queue** (`14401c43`) —
+  `fonts.ready` can settle before the icon face is even queued, lifting the
+  veil on an unloaded font: ligatures flash as raw text, the v0.9.61 wound
+  class. The gate now explicitly loads `Material Symbols Outlined`, reveals on
+  success OR failure, fails open at 3s, and fades via opacity; the fouc suite
+  re-pinned + strengthened (old ready-form asserted GONE).
+⚓ Files: src/sse/handlers/search.js, src/sse/services/auth.js,
+  open-sse/handlers/chatCore.js, open-sse/translator/concerns/toolCall.js,
+  open-sse/providers/registry/minimax{,-cn}.js,
+  src/lib/auth/dashboardSession.js,
+  src/lib/db/repos/{sqlite,mysql}/connectionsRepo.js, src/app/layout.js,
+  src/app/globals.css, tests/translator/golden-url-header.test.js (+snap
+  regen), tests/unit/search-lock-scope·connections-stale-lock-reset·
+  dashboard-session-cookie.test.js (new),
+  tests/translator/bugs-3905-deepseek-tool-type.test.js (ported),
+  tests/unit/theme-fouc-script.test.jsx, CHANGELOG.md, package.json,
+  package-lock.json, docker-compose.example.yml
+🧪 Proof: full M0 storm list — 414 passed / 3 baseline-proven reds (all fail
+  identically at pristine HEAD; zero new) · every new proof mutation- or
+  red-first-verified · production build ✓ 41s · Delivery Gate PASS
+---
+
 # v0.9.61 — The Honest Glyphs 🔤
 > *"An icon that renders as its own name is a promise the font never made. The subset has now met every glyph the mast speaks — and the buttons that had no job have sailed."* 🔤💜
 The Star caught icons rendering as raw text across the dashboard —
