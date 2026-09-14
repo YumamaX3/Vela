@@ -16,6 +16,10 @@ import { timingSafeEqual } from "@/shared/utils/timingSafeEqual.js";
 // run side by side on localhost — logging into one evicts the other. Vela's jar
 // is its own (v0.6.12).
 export const AUTH_COOKIE_NAME = "vela_auth_token";
+// One source for the session window: the JWT exp AND the cookie maxAge both
+// derive from this, so they can never drift apart again (ADR-004 — upstream
+// 628ff1ea fixed the cookie but left the two values to be edited in tandem).
+export const SESSION_MAX_AGE_SEC = 24 * 60 * 60; // 24h, in seconds
 
 function loadJwtSecret() {
   if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
@@ -42,7 +46,10 @@ export async function createDashboardAuthToken(claims = {}) {
   return new SignJWT({ authenticated: true, ...claims })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("24h")
+    // A number here would be an ABSOLUTE NumericDate (seconds since epoch), not
+    // a relative span — so express the shared window as a Date. Cookie maxAge
+    // below still wants the raw seconds; both derive from SESSION_MAX_AGE_SEC.
+    .setExpirationTime(new Date(Date.now() + SESSION_MAX_AGE_SEC * 1000))
     .sign(SECRET);
 }
 
@@ -73,6 +80,11 @@ export async function setDashboardAuthCookie(cookieStore, request, claims = {}) 
     secure: shouldUseSecureCookie(request),
     sameSite: "lax",
     path: "/",
+    // ADR-004 wound-fix (upstream 628ff1ea rebased): the JWT already dies at
+    // 24h (setExpirationTime above); an unset maxAge made the cookie browser-
+    // lifetime, so the jar outlived its own token — a dead cookie that only
+    // fails on the next request. Pin the cookie to the token's window.
+    maxAge: SESSION_MAX_AGE_SEC,
   });
 }
 
