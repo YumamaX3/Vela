@@ -130,7 +130,13 @@ export default function RootLayout({ children }) {
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <script
           dangerouslySetInnerHTML={{
-            __html: `if(document.fonts&&document.fonts.ready){document.fonts.ready.then(function(){document.documentElement.classList.add('fonts-loaded')})}else{document.documentElement.classList.add('fonts-loaded')}`,
+            // ADR-004 M0 (upstream 14401c43 rebased): fonts.ready can resolve
+            // before the icon face is even in the load queue — the gate then
+            // opens on an unloaded font and ligatures flash as raw text (the
+            // exact v0.9.61 wound class). Request the face explicitly, reveal
+            // on its settlement (success OR failure — never a permanent veil),
+            // and fail open at 3s if the network stalls.
+            __html: `var d=document,r=d.documentElement,f=function(){r.classList.add('fonts-loaded')};if(d.fonts&&d.fonts.load){d.fonts.load('24px "Material Symbols Outlined"').then(f).catch(f);setTimeout(f,3000)}else{f()}`,
           }}
         />
       </head>
