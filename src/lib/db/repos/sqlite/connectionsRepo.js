@@ -10,6 +10,39 @@ const OPTIONAL_FIELDS = [
   "consecutiveUseCount", "idToken", "lastRefreshAt",
 ];
 
+// ADR-004 wound-fix (upstream 7fee56ba rebased onto the twin split): when a
+// connection is explicitly marked active — successful validation or OAuth
+// re-login — its stale health state is dropped with it: modelLock_* keys,
+// backoffLevel, rateLimitedUntil, errorCode, and the last-error markers.
+// Pre-fix, re-activating a connection inherited every lock the old failure
+// wrote, so a "healthy" connection kept refusing traffic until each expiry.
+// Deliberately a PRIVATE per-twin helper, not a new exported writer: each
+// store normalizes its own row inside updateProviderConnection's transaction,
+// so both harbors converge by construction. updateProviderConnection is
+// already classified RMW_STALE_HAZARD in mirror/replayRegistry.js (:68) — a
+// new exported fn would need a new class; a shared helper called identically
+// from both twins needs none. clearAccountError (src/sse/services/auth.js:468)
+// can still pass testStatus:"active" while a fresh websearch: lock stands
+// (S8 compare-and-delete) — and then the helper only nulls already-expired
+// keys. The two rules agree.
+const MODEL_LOCK_PREFIX = "modelLock_";
+function resetHealthStateOnActivation(existing, patch) {
+  if (patch?.testStatus !== "active") return patch;
+  const normalized = {
+    ...patch,
+    testStatus: "active",
+    lastError: Object.hasOwn(patch, "lastError") ? patch.lastError : null,
+    lastErrorAt: Object.hasOwn(patch, "lastErrorAt") ? patch.lastErrorAt : null,
+    errorCode: null,
+    rateLimitedUntil: null,
+    backoffLevel: 0,
+  };
+  for (const key of Object.keys(existing || {})) {
+    if (key.startsWith(MODEL_LOCK_PREFIX)) normalized[key] = null;
+  }
+  return normalized;
+}
+
 function rowToConn(row) {
   if (!row) return null;
   const extra = parseJson(row.data, {});
@@ -196,7 +229,7 @@ export async function updateProviderConnection(id, data) {
     const row = db.get(`SELECT * FROM providerConnections WHERE id = ?`, [id]);
     if (!row) { result = null; return; }
     const existing = rowToConn(row);
-    const merged = { ...existing, ...data, updatedAt: new Date().toISOString() };
+    const merged = { ...existing, ...resetHealthStateOnActivation(existing, data), updatedAt: new Date().toISOString() };
     upsert(db, merged);
     if (data.priority !== undefined) reorderInTx(db, existing.provider);
     result = merged;
