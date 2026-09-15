@@ -15,6 +15,17 @@ const CACHE_CONTROL_1H = { type: "ephemeral", ttl: "1h" };
 // Check if message has valid non-empty content
 export function hasValidContent(msg) {
   if (typeof msg.content === "string" && msg.content.trim()) return true;
+  // A single content-block object (spec allows string | array; some clients
+  // send the bare object) is valid when its block is valid — never a silent
+  // zero-length content. (ported from upstream 9router 8a81085a — ADR-004 M1)
+  if (msg.content && typeof msg.content === "object" && !Array.isArray(msg.content)) {
+    const block = msg.content;
+    return !!((block.type === CLAUDE_BLOCK.TEXT && block.text?.trim()) ||
+      block.type === CLAUDE_BLOCK.TOOL_USE ||
+      block.type === CLAUDE_BLOCK.TOOL_RESULT ||
+      block.type === CLAUDE_BLOCK.IMAGE ||
+      block.type === CLAUDE_BLOCK.DOCUMENT);
+  }
   if (Array.isArray(msg.content)) {
     return msg.content.some(block =>
       (block.type === CLAUDE_BLOCK.TEXT && block.text?.trim()) ||
@@ -139,7 +150,14 @@ export function normalizeClaudePassthrough(body, model = "") {
     if (Object.keys(body.output_config).length === 0) delete body.output_config;
   }
 
-  // 2. Fold mid-conversation system messages into the neighbouring turn.
+  // Wrap bare content-block objects as one-element arrays before folding.
+  // The mid-conversation-system fold below assumes the array shape; a
+  // bare-object neighbor would otherwise be zeroed to [] (upstream 8a81085a).
+  if (Array.isArray(body.messages)) {
+    for (const msg of body.messages) normalizeMessageContent(msg);
+  }
+
+  // Fold mid-conversation system messages into the neighbouring turn.
   // Hoisting them into body.system would insert volatile content (token counters,
   // reminders) ahead of the whole conversation and invalidate the prefix cache on
   // every request. Folding in place keeps the cached prefix stable.
@@ -235,6 +253,21 @@ export function lastCacheableToolIndex(tools) {
   return -1;
 }
 
+// Content may arrive as a single content block object (spec allows string |
+// array; some clients send the bare object). Wrap it as a one-block array and
+// strip any client-placed cache_control — Vela's marker policy is "only the
+// anchor's markers ride the wire"; a bare object escaping the array-wipe loops
+// is exactly the leak that made upstream's count wrong, and here it is the
+// inconsistency itself. (ported from upstream 9router 8a81085a — ADR-004 M1)
+function normalizeMessageContent(msg) {
+  const c = msg?.content;
+  if (c && typeof c === "object" && !Array.isArray(c)) {
+    delete c.cache_control;
+    msg.content = [c];
+  }
+  return msg;
+}
+
 // Re-anchor cache breakpoints on a Claude passthrough body (same policy as
 // prepareClaudeRequest): last tool + last system block at 1h, last assistant at 5m.
 // The client's own markers point at pre-normalization offsets, so they are dropped.
@@ -261,6 +294,10 @@ export function anchorClaudeCache(body) {
   }
 
   if (Array.isArray(body.messages)) {
+    // Bare-object turns must join the array shape first — the wipe-and-anchor
+    // loop below reads arrays only, so without this a single-object turn
+    // escapes cache_control stripping AND anchoring alike (upstream 8a81085a).
+    for (const msg of body.messages) normalizeMessageContent(msg);
     let anchored = null;
     for (let i = body.messages.length - 1; i >= 0; i--) {
       const msg = body.messages[i];
@@ -339,6 +376,10 @@ export function prepareClaudeRequest(body, provider = null, apiKey = null, conne
     // Pass 1: remove cache_control + filter empty messages
     for (let i = 0; i < len; i++) {
       const msg = body.messages[i];
+
+      // Wrap bare content-block objects first — the cache_control removal below
+      // only walks arrays (upstream 8a81085a).
+      normalizeMessageContent(msg);
 
       // Remove cache_control from content blocks
       if (Array.isArray(msg.content)) {
