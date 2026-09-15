@@ -124,7 +124,15 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // differ — kimi/glm only do /chat/completions). Undeclared models keep the
   // upstream default (use the transport), preserving behavior for glm/deepseek/...
   const useTransport = (!modelSupportedFormats || modelSupportedFormats.includes(sourceFormat)) ? runtimeTransport : null;
-  const targetFormat = modelTargetFormat || useTransport?.format || getTargetFormat(provider, credentials);
+  // A source-format-matched endpoint keeps the request lossless. Prefer it
+  // over a model-level targetFormat, which is only the fallback for clients
+  // whose wire format has no supported transport (for example MiniMax-M3:
+  // OpenAI clients should stay on /chat/completions; other clients can fall
+  // back to its declared Claude target).
+  // (ported from upstream 9router 28d00577 — ADR-004 M1: flips the precedence
+  // Vela inherited so a matched transport is never overridden by a model-level
+  // Claude target that would force a needless OpenAI→Claude translation.)
+  const targetFormat = useTransport?.format || modelTargetFormat || getTargetFormat(provider, credentials);
   if (useTransport && credentials) credentials.runtimeTransport = useTransport;
   const stripList = getModelStrip(alias, model);
   const upstreamModel = getModelUpstreamId(alias, model);
