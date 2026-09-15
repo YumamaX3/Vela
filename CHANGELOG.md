@@ -25,6 +25,77 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.63 — The Sanitized Stream 🧵
+> *"Six stones against the request path: a name that leaked its disguise, a transport that was overridden by a stale target, ids that collided by the millisecond, a schema the endpoint could not parse, a budget smuggled past by a bare object, a built-in whitelist the deep-endpoint demanded."* 🧵💜
+The Great Fold's second minor (ADR-004) — every request-input path from the
+v0.5.55→v0.5.75 current, six stones, each mutation- or red-proven:
+- 🎭 **Streamed claude→claude decloaks** (`eb312bd4`): OAuth tool-cloaking
+  renamed client tools even on same-format passthrough; the stream fast path
+  returned chunks untouched, so clients received "toolname_ide" and rejected
+  their own calls. `decloakStreamChunk` restores the name on the one event that
+  carries it. Ported upstream's 2 suites; mutation-probed (revert the decloak →
+  precisely the restoration case reds).
+- 🧭 **A source-format-matched transport outranks a model-level target**
+  (`28d00577`): MiniMax-M3's declared Claude target forced OpenAI clients
+  through a needless lossy translation (image blocks dropped). Precedence
+  flipped; upstream's 189-line suite drove the flip red-then-green.
+- 🧷 **Responses translator hardening** (`e74db4d0`+`11222eff`): fallback
+  call-ids are now sequence-unique (Date.now() collided across same-ms batches),
+  arguments/output coercion fails-soft on circular values, streaming
+  parallel tool calls key by `item_id` (four parallel calls used to concatenate
+  into index 0 — clients died on InputValidationError), nameless tool calls
+  skipped (#444), instructions extracted honestly from array content (no more
+  "[object Object]" upstream). The request file's 3-way merge kept BOTH truths:
+  Vela's max-tokens simplifications and upstream's hardening — disjoint regions,
+  verified by grep after the merge, proven by 13/13 + the mutation rewind of the
+  item_id keying (3 reds, the exact merge-bug signature).
+- 🧷 **Codex schema lint** (`781c18d8` + fold-law hardening): a tool schema
+  carrying `\p{...}` Unicode-property patterns 400s Codex deterministically on
+  every account (#3922) — the harbor paid a full combo failover per turn.
+  `stripCodexUnsupportedPatterns` walks copy-on-write (untouched schemas keep
+  identity for retries; a field literally named "pattern" under properties is
+  never misread as the keyword; `\\p{Cc}` escaped-literals survive via
+  backslash-parity), applied ONLY on the Codex dispatch path. The upgrade: a
+  no-backslash fast path bounds clean-schema cost to one scan — with the honest
+  record that this guard is a pure optimization (a wrong alternative is also a
+  valid pre-filter), so the load-bearing logic is the ported 7-case suite.
+- 🧵 **Single-object content turns, and the ≤4 cache wire law, Vela's way**
+  (`8a81085a` hand-folded): a client sending `content: {block}` instead of
+  `[{block}]` escaped every array-guarded leg — dropped on the claude→openai
+  lane, marker-smuggling into the anchor, zeroed by the system-fold. All four
+  legs + `hasValidContent` now normalize bare objects. The 4-marker TRIM was
+  declined deliberately: Vela's W2 anchor discards client markers and re-anchors
+  exactly 3 (retaining a client's offset after Vela's normalization could cache
+  a wrong prefix) — the wire law holds by construction, both cap-designs obey
+  it. The ported suite's two cap-mechanism cases were adapted to pin the law +
+  the divergence (named, not hidden), and the smuggle-bite is mutation-proven:
+  deleting the wrap-loop alone reddens it and upstream's own budget case.
+- 🎯 **DeepSeek's /anthropic lane keeps only what it accepts** (`45ec1d30`):
+  the endpoint takes ONLY web_search_* built-ins and 400s "unknown variant
+  `custom`" on the rest; the generic filter was dropping the web_search_* too.
+  A `claudeSupportedToolTypes` whitelist quirk keeps survivors' `type`
+  discriminator intact; every other provider byte-identical. 3905 sibling
+  cross-checked green (3/3 alongside 22/22).
+- 🗯️ **One family deferred with its diagnosis, not shipped thrashed**: the kiro
+  atomic family (1892ed77 + 35b950be) moves to the front of .64. The wire-field
+  death is surgical and mapped (Vela's kiro region is byte-identical to
+  upstream's base; Vela's own dedupStringAppend is the rewrite's idempotency
+  partner), but 35b950be is a ROUTING refactor (drops agentMode:"vibe") that
+  collides with 28 of Vela's 43 openai-to-kiro tests — that is a decline-or-
+  rebuild decision, taken with the fold's evidence on the table, not a forced
+  merge. The trap it exposed became law: a "clean" 3-way apply while Vela's
+  extra wire-write survives it untouched — grep the wire dead, never trust
+  clean-appl. Full diagnosis in the registers (Register E).
+⚓ Files: translator/index.js, claudeCloaking.js, chatCore.js,
+  formats/responsesApi.js + both openai-responses files, codexToolSchema.js
+  (new), executors/codex.js, formats/claude.js, request/claude-to-openai.js,
+  deepseek.js, tests: 5 new/extended suites
+🧪 Proof: consolidated storm 600 passed / 3 named baseline reds (identical at
+  pristine HEAD; minimax's lone first-run red re-ran green — a 1.5s-timing
+  margin, named for a future tide, never re-baselined) · every stone
+  mutation- or red-proven · build ✓ · Delivery Gate PASS
+---
+
 # v0.9.62 — The Proven Wounds 🩹
 > *"No stone dropped before its wound was seen red. The fold begins where bleeding stops — the search that locked a chat out, the tool stamp that 400'd a provider, the cookie that outlived its token, the gate that veiled text it promised to render."* 🩹💜
 The Great Fold (ADR-004) opens: upstream 9router v0.5.55→v0.5.75, folded as
