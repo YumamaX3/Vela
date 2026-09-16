@@ -7,6 +7,7 @@ import fs from "fs/promises";
 import path from "path";
 import os from "os";
 import { parseTOML, stringifyTOML } from "confbox";
+import { redactConfigSecrets } from "./redact.js";
 
 const execAsync = promisify(exec);
 
@@ -83,7 +84,7 @@ const hasVelaConfig = (config) => {
 export async function GET() {
   try {
     const isInstalled = await checkCodexInstalled();
-    
+
     if (!isInstalled) {
       return NextResponse.json({
         installed: false,
@@ -96,7 +97,7 @@ export async function GET() {
 
     return NextResponse.json({
       installed: true,
-      config,
+      config: redactConfigSecrets(config),
       hasVela: hasVelaConfig(config),
       configPath: getCodexConfigPath(),
     });
@@ -128,41 +129,35 @@ export async function POST(request) {
       parsed = parsedToWritable(parseTOML(existingConfig));
     } catch { /* No existing config */ }
 
-    // Update only Vela related fields (api_key goes to auth.json, not config.toml)
+    // Update only Vela related fields.
+    // ADR-004 M2 (upstream 9c45b27c rebased): a CUSTOM model provider is
+    // authenticated by Codex ONLY from env_key / http_headers /
+    // env_http_headers / a token command — auth.json's OPENAI_API_KEY is read
+    // solely by the BUILT-IN openai provider. Writing the key there left every
+    // Vela-routed request 401 "Missing API key" (while clobbering a ChatGPT
+    // login). The key now travels as a static header on the provider section.
     parsed.model = model;
     parsed.model_provider = "Vela";
 
-    // Update or create Vela provider section (no api_key - Codex reads from auth.json)
     // Ensure /v1 suffix is added only once
     const normalizedBaseUrl = baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
     setNestedSection(parsed, "model_providers.Vela", {
       name: "Vela",
       base_url: normalizedBaseUrl,
       wire_api: "responses",
+      http_headers: { Authorization: `Bearer ${apiKey}` },
     });
 
-    // Add subagent configuration
+    // Subagent model is a scalar under [agents]; agents.<role> now declares a
+    // custom role (requires a description), so the legacy [agents.subagent]
+    // table was discarded with a startup warning. Clear it, set the scalar.
     const effectiveSubagentModel = subagentModel || model;
-    setNestedSection(parsed, "agents.subagent", {
-      model: effectiveSubagentModel,
-    });
+    deleteNestedSection(parsed, "agents.subagent");
+    setNestedSection(parsed, "agents.default_subagent_model", effectiveSubagentModel);
 
-    // Write merged config
+    // Write merged config (the key lives here now — GET redacts it on read)
     const configContent = stringifyTOML(parsed);
     await fs.writeFile(configPath, configContent);
-
-    // Update auth.json with OPENAI_API_KEY (Codex reads this first)
-    const authPath = getCodexAuthPath();
-    let authData = {};
-    try {
-      const existingAuth = await fs.readFile(authPath, "utf-8");
-      authData = JSON.parse(existingAuth);
-    } catch { /* No existing auth */ }
-    
-    // Force apikey mode (keep existing tokens untouched for ChatGPT login reuse)
-    authData.OPENAI_API_KEY = apiKey;
-    authData.auth_mode = "apikey";
-    await fs.writeFile(authPath, JSON.stringify(authData, null, 2));
 
     return NextResponse.json({
       success: true,
@@ -201,17 +196,22 @@ export async function DELETE() {
       delete parsed.model_provider;
     }
 
-    // Remove Vela provider section
+    // Remove Vela provider section (takes the http_headers key with it)
     deleteNestedSection(parsed, "model_providers.Vela");
 
-    // Remove subagent configuration
+    // Remove subagent configuration — BOTH the current scalar and the legacy
+    // role-table form, so a machine configured by the previous version is
+    // fully cleaned.
+    deleteNestedSection(parsed, "agents.default_subagent_model");
     deleteNestedSection(parsed, "agents.subagent");
 
     // Write updated config
     const configContent = stringifyTOML(parsed);
     await fs.writeFile(configPath, configContent);
 
-    // Remove OPENAI_API_KEY from auth.json
+    // auth.json is no longer the key's home (POST stopped writing it), but a
+    // machine configured by the PREVIOUS version still carries a stale
+    // OPENAI_API_KEY there — clear it so reset truly resets.
     const authPath = getCodexAuthPath();
     try {
       const existingAuth = await fs.readFile(authPath, "utf-8");
