@@ -340,9 +340,9 @@ export function openaiToKiroRequest(model, body, stream, credentials) {
 
   const timestamp = new Date().toISOString();
 
-  // Kiro CLI/KAS sends these as top-level systemPrompt. Keep a content fallback
-  // too because the CodeWhisperer surface does not always enforce top-level
-  // systemPrompt for direct calls.
+  // The system prompt travels inside the first user turn's content (contentPrefix):
+  // the CodeWhisperer surface rejects a top-level `systemPrompt` with
+  // 400 REQUEST_BODY_INVALID, so the value below is only a replay cache key.
   const systemPromptParts = [];
   if (thinkingBudget !== null && !usesNativeGptEffort) {
     systemPromptParts.push(buildThinkingSystemPrefix(thinkingBudget));
@@ -420,7 +420,15 @@ export function openaiToKiroRequest(model, body, stream, credentials) {
   if (profileArn) {
     payload.profileArn = profileArn;
   }
-  if (systemPrompt) payload.systemPrompt = systemPrompt;
+  // systemPrompt is a replay-cache key, NOT a wire field — kiro.dev 400s
+  // REQUEST_BODY_INVALID on a top-level systemPrompt (the text already rides
+  // contentPrefix in the first user turn). Carried non-enumerable (matching
+  // Vela's _kiroUpstreamModel tag) so result.systemPrompt stays readable for
+  // the replay key while JSON.stringify/structuredClone omit it from the wire.
+  // (upstream 1892ed77 destination fix, Vela's carrier — ADR-004 M2)
+  if (systemPrompt) Object.defineProperty(payload, "systemPrompt", {
+    value: systemPrompt, enumerable: false, configurable: true, writable: true,
+  });
   if (additionalModelRequestFields) {
     payload.additionalModelRequestFields = additionalModelRequestFields;
   }

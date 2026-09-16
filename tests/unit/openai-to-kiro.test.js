@@ -8,6 +8,7 @@
 
 import { describe, it, expect } from "vitest";
 import { openaiToKiroRequest } from "../../open-sse/translator/request/openai-to-kiro.js";
+import { claudeToKiroRequest } from "../../open-sse/translator/request/claude-to-kiro.js";
 
 const contentOf = (result) =>
   result.conversationState.currentMessage.userInputMessage.content;
@@ -627,5 +628,89 @@ describe("openaiToKiroRequest", () => {
       expect(systemPromptOf(result)).not.toContain("<max_thinking_length>");
       expect(result.additionalModelRequestFields).toBeUndefined();
     });
+  });
+});
+
+// ADR-004 M2 — the kiro wire-shape contract (Vela's own, replacing upstream's
+// kiro-minimal-wire-payload.test.js which rode the DECLINED 35b950be routing
+// refactor). kiro.dev 400s REQUEST_BODY_INVALID on any top-level systemPrompt.
+// Vela carries it NON-ENUMERABLE (like _kiroUpstreamModel): the replay cache
+// key and our tests read result.systemPrompt, but the executor's
+// structuredClone→JSON.stringify path must never serialize it to the wire.
+// Each translator gets a body that genuinely populates its systemPrompt local
+// (openai: thinking prefix via reasoning_effort; claude: the system block).
+describe("systemPrompt is a cache key, never a wire field (both kiro translators)", () => {
+  const cases = [
+    ["openaiToKiroRequest",
+      () => openaiToKiroRequest("claude-sonnet-4.6", {
+        messages: [{ role: "user", content: "hi" }],
+        reasoning_effort: "low",
+      }, true, {}),
+      "<max_thinking_length>1024"],
+    ["claudeToKiroRequest",
+      () => claudeToKiroRequest("claude-sonnet-4.6", {
+        system: [{ type: "text", text: "TOP-LEVEL SYSTEM" }],
+        messages: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
+      }, true, {}),
+      "TOP-LEVEL SYSTEM"],
+  ];
+  for (const [name, run, marker] of cases) {
+    it(`${name}: systemPrompt readable in-process`, () => {
+      const r = run();
+      expect(typeof r.systemPrompt).toBe("string");
+      expect(r.systemPrompt).toContain(marker);
+    });
+    it(`${name}: the serialized wire carries NO systemPrompt field`, () => {
+      const r = run();
+      // exactly the executor's path: structuredClone drops non-enumerables,
+      // JSON.stringify would drop them anyway — belt and braces.
+      const wire = JSON.stringify(structuredClone(r));
+      expect(wire).not.toMatch(/"systemPrompt"/);
+      expect("systemPrompt" in structuredClone(r)).toBe(false);
+      // the system text is not LOST — it rides the wire inside the user turn
+      // (contentPrefix), only the top-level FIELD is gone.
+      expect(wire).toContain(marker);
+    });
+    it(`${name}: carrier is enumerable:false, writable (replay-append safe)`, () => {
+      const r = run();
+      const d = Object.getOwnPropertyDescriptor(r, "systemPrompt");
+      expect(d.enumerable).toBe(false);
+      expect(d.writable).toBe(true);
+      expect(() => { r.systemPrompt = `${r.systemPrompt}\n\nAPPENDED`; }).not.toThrow();
+      expect(r.systemPrompt).toContain("APPENDED");
+    });
+  }
+});
+
+// ADR-004 M2 — the wound's own end-to-end story (#3641 et al.): "every kr/
+// model failed whenever an RTK injector was active". injectKiroSystem must
+// append to the user turn (Vela's dedupStringAppend keeps retries idempotent)
+// and NEVER resurrect the top-level field. Vela had no system-inject test
+// file, so these cases double as the injector's kiro coverage.
+describe("RTK injection into a translated kiro body (wound #3641 e2e)", () => {
+  const translate = () => openaiToKiroRequest("claude-sonnet-4.6", {
+    messages: [{ role: "user", content: "hi" }],
+    reasoning_effort: "low",
+  }, true, {});
+  const contentOfTurn = (r) => r.conversationState.currentMessage.userInputMessage.content;
+  it("lands in the user turn, field stays off the wire", async () => {
+    const { injectSystemPrompt } = await import("../../open-sse/rtk/systemInject.js");
+    const body = translate();
+    injectSystemPrompt(body, undefined, "CAVEMAN_TEST_PROMPT_AAA"); // kiro sniffed by shape
+    expect(contentOfTurn(body)).toContain("CAVEMAN_TEST_PROMPT_AAA");
+    // cache key untouched by the injector (no field resurrection):
+    expect(body.systemPrompt).toContain("<max_thinking_length>1024");
+    expect(body.systemPrompt).not.toContain("CAVEMAN_TEST_PROMPT_AAA");
+    expect(JSON.stringify(structuredClone(body))).not.toMatch(/"systemPrompt"/);
+  });
+  it("repeated injection is idempotent across retries", async () => {
+    const { injectSystemPrompt } = await import("../../open-sse/rtk/systemInject.js");
+    const body = translate();
+    injectSystemPrompt(body, undefined, "PONYTAIL_PROMPT_BBB");
+    const once = contentOfTurn(body);
+    injectSystemPrompt(body, undefined, "PONYTAIL_PROMPT_BBB");
+    injectSystemPrompt(body, undefined, "PONYTAIL_PROMPT_BBB");
+    expect(contentOfTurn(body)).toBe(once);
+    expect(once.match(/PONYTAIL_PROMPT_BBB/g)).toHaveLength(1);
   });
 });
