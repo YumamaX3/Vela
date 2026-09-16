@@ -4,6 +4,7 @@ import {
   refreshXaiToken,
   refreshAccessToken,
   refreshKimiToken,
+  refreshClineToken,
   refreshClaudeOAuthToken,
   refreshGoogleToken,
   refreshCodexToken,
@@ -23,6 +24,7 @@ import {
 export {
   refreshAccessToken,
   refreshKimiToken,
+  refreshClineToken,
   refreshClaudeOAuthToken,
   refreshGoogleToken,
   refreshCodexToken,
@@ -145,6 +147,12 @@ const REFRESH_HANDLERS = {
   "codebuddy-cn": (c, log) => refreshCodebuddyToken(c.refreshToken, log),
   "codebuddy-intl": (c, log) => refreshCodebuddyIntlToken(c.refreshToken, log),
   trae: (c, log) => refreshTraeToken(c.refreshToken, c, log),
+  // (ported from upstream 9router f6e7cabe — ADR-004 M2) Cline had NO handler
+  // in this fork at all — its OAuth tokens could never rotate here (silent 401
+  // source, same class as the clinepass one upstream names). ClinePass shares
+  // Cline's WorkOS auth endpoints, so the same refresh serves both.
+  cline: (c, log) => refreshClineToken(c.refreshToken, log),
+  clinepass: (c, log) => refreshClineToken(c.refreshToken, log),
   zed: () => refreshZedToken(),
   windsurf: (c, log) => refreshWindsurfToken(c, log),
   // Kimi Code OAuth (merged into id `kimi`); legacy id still routes here
