@@ -646,6 +646,54 @@ export async function refreshTraeToken(refreshToken, credentials, log) {
 export function refreshZedToken() {
   return null;
 }
+// Cline OAuth refresh (WorkOS token endpoint). Vela note: this handler did not
+// exist at all in this fork — cline AND clinepass OAuth tokens could never
+// rotate here, a second silent 401 source upstream's commit names for
+// clinepass. ClinePass shares Cline's WorkOS endpoints, so both providers
+// route here. The response rides Cline's {data} envelope (unwrap, M2 sibling
+// law — the same class as the ping.js envelope family).
+// (ported from upstream 9router f6e7cabe — ADR-004 M2)
+export async function refreshClineToken(refreshToken, log) {
+  if (!refreshToken) return null;
+  return dedupRefresh("cline", refreshToken, async () => {
+    try {
+      const response = await fetch(PROVIDERS.cline?.refreshUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          refreshToken,
+          grantType: "refresh_token",
+          clientType: "extension",
+        }),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        log?.error?.("TOKEN_REFRESH", "Failed to refresh Cline token", {
+          status: response.status,
+          error: errorText,
+        });
+        return null;
+      }
+      const body = await response.json();
+      const tokens = body?.data || body;
+      if (!tokens?.accessToken) return null;
+      const expiresIn = tokens.expiresAt
+        ? Math.max(1, Math.floor((new Date(tokens.expiresAt).getTime() - Date.now()) / 1000))
+        : (tokens.expiresIn || tokens.expires_in || 3600);
+      return {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken || refreshToken,
+        expiresIn,
+      };
+    } catch (error) {
+      log?.error?.("TOKEN_REFRESH", `Error refreshing Cline token: ${error.message}`);
+      return null;
+    }
+  }, log);
+}
 
 // Windsurf apiKey is the long-lived terminal credential (no OAuth2 refresh_token
 // grant yields a fresh apiKey). Refresh handled out-of-band by the caller.
