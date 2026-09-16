@@ -58,9 +58,14 @@ export default function CodexToolCard({ tool, isExpanded, onToggle, baseUrl, api
       const modelMatch = codexStatus.config.match(/^model\s*=\s*"([^"]+)"/m);
       if (modelMatch) setSelectedModel(modelMatch[1]);
 
-      // Parse subagent settings
-      const subagentModelMatch = codexStatus.config.match(/\[agents\.subagent\]\s*\n\s*model\s*=\s*"([^"]+)"/m);
-      if (subagentModelMatch) setSubagentModel(subagentModelMatch[1]);
+      // Parse subagent settings — the current scalar form
+      // (agents.default_subagent_model, ADR-004 M2) first, then the legacy
+      // [agents.subagent] table so a config written by the previous version
+      // still round-trips its model into the picker on re-open.
+      const subagentScalar = codexStatus.config.match(/^\s*default_subagent_model\s*=\s*"([^"]+)"/m);
+      const subagentLegacy = codexStatus.config.match(/\[agents\.subagent\]\s*\n\s*model\s*=\s*"([^"]+)"/m);
+      const foundSubagent = subagentScalar || subagentLegacy;
+      if (foundSubagent) setSubagentModel(foundSubagent[1]);
     }
   }, [codexStatus]);
 
@@ -169,24 +174,19 @@ model_provider = "Vela"
 name = "Vela"
 base_url = "${getEffectiveBaseUrl()}"
 wire_api = "responses"
+# A CUSTOM provider authenticates ONLY via the header below — auth.json's
+# OPENAI_API_KEY is read solely by the built-in openai provider (ADR-004 M2).
+http_headers = { Authorization = "Bearer ${keyToUse}" }
 
-[agents.subagent]
-model = "${effectiveSubagentModel}"
+[agents]
+default_subagent_model = "${effectiveSubagentModel}"
 `;
 
-    const authContent = JSON.stringify({
-      auth_mode: "apikey",
-      OPENAI_API_KEY: keyToUse
-    }, null, 2);
-
+    // One file now — the key rides inside config.toml; no ~/.codex/auth.json.
     return [
       {
         filename: "~/.codex/config.toml",
         content: configContent,
-      },
-      {
-        filename: "~/.codex/auth.json",
-        content: authContent,
       },
     ];
   };
@@ -252,7 +252,10 @@ model = "${effectiveSubagentModel}"
                     <p className="text-text-muted">After installation, run <code className="px-1 bg-black/5 dark:bg-white/5 rounded">codex</code> to verify.</p>
                     <div className="pt-2 border-t border-border">
                       <p className="text-text-muted text-xs">
-                        Codex uses <code className="px-1 bg-black/5 dark:bg-white/5 rounded">~/.codex/auth.json</code> with <code className="px-1 bg-black/5 dark:bg-white/5 rounded">OPENAI_API_KEY</code>.
+                        Vela routes through a custom provider, so the key rides
+                        in <code className="px-1 bg-black/5 dark:bg-white/5 rounded">~/.codex/config.toml</code>&apos;s
+                        <code className="px-1 bg-black/5 dark:bg-white/5 rounded">[model_providers.Vela] http_headers</code>
+                        {" "}(auth.json is only read by the built-in openai provider).
                         Click &quot;Apply&quot; to auto-configure.
                       </p>
                     </div>
