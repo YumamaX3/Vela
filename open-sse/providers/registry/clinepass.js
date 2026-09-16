@@ -26,6 +26,9 @@ export default {
       "HTTP-Referer": "https://cline.bot",
       "X-Title": "Cline",
     },
+    // Shares Cline's {"success":true,"data":{...}} non-stream envelope
+    // (upstream 9router 122f23ee — ADR-004 M2)
+    quirks: { clineEnvelope: true },
     auth: {
       combined: true,
       header: "Authorization",

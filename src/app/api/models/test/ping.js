@@ -1,4 +1,6 @@
 import { UPDATER_CONFIG } from "@/shared/constants/config";
+import { resolveProviderId } from "@/shared/constants/providers.js";
+import { unwrapClineEnvelope } from "open-sse/shared/clineEnvelope.js";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { isSessionScarceTestTarget } from "./sessionScarce.js";
 
@@ -164,6 +166,12 @@ export async function pingModelByKind(model, kind, baseUrl = `http://127.0.0.1:$
     const detail = parsed?.error?.message || parsed?.msg || parsed?.message || parsed?.error || rawText;
     return { ok: false, latencyMs, error: `HTTP ${res.status}${detail ? `: ${String(detail).slice(0, 240)}` : ""}`, status: res.status };
   }
+
+  // Unwrap Cline's {"success":true,"data":{...choices...}} envelope before the
+  // status/choices reads below. No-op for providers that do not opt in via
+  // transport.quirks.clineEnvelope (only cline/clinepass do).
+  // (upstream 9router 122f23ee — ADR-004 M2)
+  parsed = unwrapClineEnvelope(parsed, resolveProviderId(String(model).split("/")[0]));
 
   const providerStatus = parsed?.status;
   const providerMsg = parsed?.msg || parsed?.message;

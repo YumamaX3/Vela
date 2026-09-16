@@ -22,6 +22,9 @@ export default {
     },
     tokenUrl: "https://api.cline.bot/api/v1/auth/token",
     refreshUrl: "https://api.cline.bot/api/v1/auth/refresh",
+    // Non-stream chat completions come back wrapped in {"success":true,"data":{...}}
+    // (upstream 9router 122f23ee — ADR-004 M2; unwrapClineEnvelope gates on this)
+    quirks: { clineEnvelope: true },
     auth: {
       combined: true,
       header: "Authorization",
