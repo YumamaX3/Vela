@@ -25,6 +25,62 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.64 — The Versioned Gate ⚿
+> *"Zen stopped trusting the token and began asking who was knocking — a bare name drew the door shut; a versioned name, and the canonical shape of a session, opened it again."* ⚿💜
+
+On 2026-09-17 Zen's free lane began **fingerprinting the caller** instead of
+trusting the bearer — and both lanes are gated alike, the keyless `public` one
+and a keyed connection. Every free model answered
+`403 FreeTierError: OpenCode's free tier can only be used from within OpenCode`,
+so the account ladder burned a failover on every turn and `modelLock_big-pickle`
+clamped each account for 120s. The gate names two shapes, and the harbor failed
+both:
+
+- ⚿ **A versioned identity** (`open-sse/executors/opencode.js`): upstream now
+  requires `User-Agent: opencode/<version>` with the floor at **1.17.0** — a bare
+  `opencode`, or any third-party UA, draws the 403, and anything below the floor
+  draws `426 Upgrade Required`. The executor sent a bare `opencode`. It now sends
+  `opencode/1.18.31`, and passes a downstream opencode identity through **only
+  when the gate would accept it** — so a genuine `opencode/1.18.31 ai-sdk/…`
+  client keeps its own UA while every other caller is dressed correctly.
+- 🧵 **A canonical session** (same file): `x-opencode-session` must wear
+  `/^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/` — `ses_` + 12 hex + 14 Base62, thirty
+  characters — with `msg_` as its request twin. The executor minted `ses_` + a
+  bare 32-char UUID, a shape the gate had never seen. Both ids are now generated
+  canonical.
+- 🔗 **Translation, not regeneration**: a client session (`claude:…`,
+  `antigravity:…`, a bare conversation id) is hashed **deterministically**
+  (SHA-256 salted with the downstream tool family) into canonical form, so one
+  conversation keeps one upstream session and prompt caching and affinity survive
+  the crossing. A header that is already canonical passes through untouched,
+  trimmed; an invalid one is translated rather than forwarded.
+- 🛡️ **The race is gone**: the session used to ride `this._currentSessionId`
+  instance state — resolved in `transformRequest`, read back in `buildHeaders` —
+  so two concurrent turns on one executor could overwrite each other's session.
+  It now travels request-locally on that call's credentials
+  (`prepareRequestCredentials` + an `execute` override), and the caller's
+  credential object is never mutated.
+
+**Proven**: `tests/unit/opencode-zen.test.js` (re-pinned to the gate's real
+contract — it had pinned the very UUID and bare-UA shapes that draw the 403) plus
+the new `tests/unit/opencode-session.test.js` — **2 files, 27 tests, all green**
+— covering canonical generation, deterministic translation and its isolation per
+conversation and per tool, native-header passthrough, the version floor in all
+four directions, and the exact headers that leave the wire on both lanes.
+
+⚠️ **Honest limit**: no live upstream probe was run — the Lighthouse tower's
+transports cannot POST with custom headers, and a browser probe cannot set
+`User-Agent` at all. This fix is proven by construction against the gate's
+documented contract and by the wire-boundary assertions, not by a 200 from Zen.
+The gate's shape was read from decolua/9router#4101 (root cause + shipped fix),
+FishBottle7/opencode2dsh#9, and anomalyco/opencode#49621.
+
+⚓ **What sailed**: `open-sse/executors/opencode.js`,
+`tests/unit/opencode-zen.test.js`, `tests/unit/opencode-session.test.js`,
+`package.json`, `docker-compose.example.yml`
+
+---
+
 # v0.9.63 — The Sanitized Stream 🧵
 > *"Six stones against the request path: a name that leaked its disguise, a transport that was overridden by a stale target, ids that collided by the millisecond, a schema the endpoint could not parse, a budget smuggled past by a bare object, a built-in whitelist the deep-endpoint demanded."* 🧵💜
 The Great Fold's second minor (ADR-004) — every request-input path from the
