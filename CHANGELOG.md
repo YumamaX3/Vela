@@ -25,6 +25,60 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.65 — The Watchman's Deck 🧭
+> *"A ship has a rudder to steer, but the watchman needs a crow's nest to see where the shoals lie — and a hand that clears the marks when the storm passes."* 🧭💜
+
+The MIBP parity wave (`mhiqrambg/9router-mibp-version`): Vela already held the
+fitness *engine* (EWMA decay, richer than MIBP's in-memory Map), but lacked its
+operational deck — a dedicated room showing which proxy is blocked on which
+provider, until when, and why, plus the unified sweeper that prunes expired
+marks. This tide sails both, adapted to Vela's design system:
+
+- 🗺️ **The Proxy Fitness deck**
+  (`src/app/(dashboard)/dashboard/proxy-fitness/page.js`): a dedicated room
+  under Tools showing every active `(pool, provider)` block, its reason
+  (`country_blocked`, `ip_capped`, `idle_ttl_exceeded`), the human-readable
+  expiration window, the masked proxy URL, and the live egress IP/country with
+  flapping stability chips. Filters by provider and free-text search. Includes
+  the **Geo probe toggle** (`settings.poolGeoProbeEnabled`) directly on the
+  masthead.
+- 🧹 **The Clear All route**
+  (`src/app/api/proxy-pools/fitness/clear-all/route.js` +
+  `proxyFleet.clearAllFitness`): an operator can sweep blocks with one click —
+  either across the whole fleet or scoped to the filtered provider. Clears
+  memory and the `proxyFitness` database table together.
+- ⏱️ **The Unified State Sweeper** (`src/lib/network/fleetStartup.js` +
+  `proxyFleet.pruneExpiredBlocks`): every 10 minutes, the boot loop sweeps
+  both in-memory stores in one place — expired unfit marks are relaxed back to
+  neutral (the block was already self-recovering at `pick()` time; this
+  reclaims the active entry and queues the persistence flush) alongside stale
+  egress-geo entries.
+- ⚓ **The Load-Bearing Anchor** (`src/lib/network/proxyFleet.js`): Next.js
+  standalone bundles API routes into separate server chunks. A module-level
+  `Map` was per-chunk state: boot hydrated one copy while API routes read
+  another, leaving the fitness route reporting an empty sea over a fleet on
+  fire. The store and dirty set now ride `globalThis[FLEET_STATE_KEY]` — the
+  exact pattern `poolGeo.js` and MIBP's `globalThis.__9routerPoolFitness__`
+  proved.
+- 🧭 **The Sidebar** (`src/shared/components/Sidebar.js`): added `Proxy
+  Fitness` with the `monitor_heart` icon right below `Proxy Pools`.
+
+**Proven**: `tests/unit/proxy-fitness-surface.test.js` (9 tests covering
+`clearAllFitness` all + per-provider, the route contract, and
+`pruneExpiredBlocks`), the 8-suite storm fleet (55+ tests), the mutation-probe
+red-test (pruner without the relax fires the exact assertion error), and
+visual verification on headless Chromium (screenshot of the live block row +
+end-to-end clear).
+
+⚓ **What sailed**: `src/lib/network/proxyFleet.js`,
+`src/lib/network/fleetStartup.js`, `src/shared/components/Sidebar.js`,
+`src/app/(dashboard)/dashboard/proxy-fitness/page.js`,
+`src/app/api/proxy-pools/fitness/clear-all/route.js`,
+`tests/unit/proxy-fitness-surface.test.js`, `package.json`,
+`docker-compose.example.yml`
+
+---
+
 # v0.9.64 — The Versioned Gate ⚿
 > *"Zen stopped trusting the token and began asking who was knocking — a bare name drew the door shut; a versioned name, and the canonical shape of a session, opened it again."* ⚿💜
 

@@ -85,9 +85,21 @@ const AUTO_DISABLE_TIMEOUT_MS = 8_000;
 // "Cannot read properties of null (reading 'set')" boot-window wound. An
 // empty store is safe: every reader guards on !loaded and creates neutral
 // entries; loadFitness() replaces the store wholesale once the rows arrive.
-let fitnessStore = new Map();
+//
+// v0.9.65: BOTH anchors ride globalThis. Next.js standalone bundles each API
+// route as its own server chunk, so a module-level Map is per-route state —
+// instrumentation hydrates one copy while every route reads another (the
+// fitness API returned an empty sea over a fleet that was on fire). The
+// globalThis anchor is process-wide: one store, one dirty set, every bundle.
+// MIBP anchored its fitness on globalThis.__9routerPoolFitness__ for exactly
+// this reason; poolGeo.js already carries the same precedent
+// (globalThis[GEO_STATE_KEY]). Keys keep the proxyFleet brand.
+const FLEET_STATE_KEY = "__velaProxyFleetState";
+globalThis[FLEET_STATE_KEY] ??= { fitnessStore: new Map(), dirtyKeys: new Set() };
+const fleetState = globalThis[FLEET_STATE_KEY];
+let fitnessStore = fleetState.fitnessStore;
+let dirtyKeys = fleetState.dirtyKeys;
 let loaded = false;
-let dirtyKeys = new Set();
 let flushTimer = null;
 let flushArmed = false;
 const probeCache = new Map(); // poolId -> { ip, country, observedAt } — sliding window
@@ -101,7 +113,10 @@ async function loadFitness() {
     // Wrap in try/catch — boot failure defaults to neutral/legacy behavior
     const db = await getAdapter(); // lazy singleton — house idiom
     const rows = await getFitnessRows(db);
-    fitnessStore = new Map();
+    // Refill IN PLACE — the store is anchored on globalThis (per-route bundle
+    // dedup). Reassigning the binding here would orphan every other chunk's
+    // reference to the shared Map.
+    fitnessStore.clear();
 
     for (const row of rows) {
       const key = `${row.poolId}|${row.provider}`;
@@ -116,7 +131,7 @@ async function loadFitness() {
   } catch (err) {
     // Boot fail-open: empty store = neutral fitness = legacy behavior (C15)
     console.warn("[proxyFleet] boot failed — defaulting to neutral fitness:", err.message);
-    fitnessStore = new Map();
+    fitnessStore.clear();
     loaded = true;
   }
 }
@@ -294,6 +309,64 @@ export async function resetFitness(poolId, providerId = null) {
     if (inScope(key)) dirtyKeys.delete(key);
   }
   return cleared;
+}
+
+/**
+ * Clear ALL fitness state — memory and DB rows alike (v0.9.65, the MIBP
+ * proxy-fitness deck's "clear all" action). Optionally scoped to one provider:
+ * the deck's provider filter passes it through so an operator can sweep only
+ * the provider's blocks. Returns the number of in-memory keys purged.
+ * @param {string|null} providerId - null/"" clears every provider
+ */
+export async function clearAllFitness(providerId = null) {
+  const db = await getAdapter();
+  if (providerId === null || providerId === "") {
+    await db.run("DELETE FROM proxyFitness");
+  } else {
+    await db.run("DELETE FROM proxyFitness WHERE provider = ?", [providerId]);
+  }
+
+  const matches = (key) => {
+    if (providerId === null || providerId === "") return true;
+    const sep = key.indexOf("|");
+    return sep >= 0 && key.slice(sep + 1) === providerId;
+  };
+
+  let cleared = 0;
+  if (fitnessStore) {
+    for (const key of [...fitnessStore.keys()]) {
+      if (matches(key)) { fitnessStore.delete(key); cleared++; }
+    }
+  }
+  for (const key of [...dirtyKeys]) {
+    if (matches(key)) dirtyKeys.delete(key);
+  }
+  return cleared;
+}
+
+/**
+ * Prune expired unfit marks from memory (v0.9.65, the unified state sweeper —
+ * MIBP parity). A fitness entry whose unfitUntil has passed is no longer
+ * blocking: pick()'s own unfit filter already ignores it (self-recovering by
+ * design), so this only reclaims the entry's active state — it drops the unfit
+ * flag back to neutral in memory. The DB row keeps its history until a flush
+ * overwrites it or the operator clears it; nothing here deletes history.
+ * Returns how many entries were relaxed.
+ */
+export function pruneExpiredBlocks(now = Date.now()) {
+  if (!fitnessStore) return 0;
+  let relaxed = 0;
+  for (const fitness of fitnessStore.values()) {
+    if (!fitness?.unfit || !fitness.unfitUntil) continue;
+    const until = Date.parse(fitness.unfitUntil);
+    if (Number.isNaN(until) || now < until) continue;
+    fitness.unfit = 0;
+    fitness.unfitReason = null;
+    fitness.unfitUntil = null;
+    relaxed++;
+    if (fitness.poolId && fitness.provider) markDirty(fitness.poolId, fitness.provider);
+  }
+  return relaxed;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -954,6 +1027,8 @@ const fleetFacade = {
   get flushNow() { return flushNow; },
   get getFitnessSummary() { return getFitnessSummary; },
   get resetFitness() { return resetFitness; },
+  get clearAllFitness() { return clearAllFitness; },
+  get pruneExpiredBlocks() { return pruneExpiredBlocks; },
   get checkPoolHealth() { return checkPoolHealth; },
   get checkAllPools() { return checkAllPools; },
   get probeEgress() { return probeEgress; },
