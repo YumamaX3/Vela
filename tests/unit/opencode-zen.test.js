@@ -5,7 +5,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import opencode from "../../open-sse/providers/registry/opencode.js";
-import { OpenCodeExecutor } from "../../open-sse/executors/opencode.js";
+import {
+  OpenCodeExecutor,
+  OPENCODE_REQUEST_RE,
+  OPENCODE_SESSION_RE,
+} from "../../open-sse/executors/opencode.js";
 
 // ── hybrid-lane harness (mocks hoisted; auth.js imported at top level) ─────
 const dbMocks = vi.hoisted(() => ({
@@ -102,10 +106,14 @@ describe("OpenCodeExecutor hybrid auth headers", () => {
     for (const cred of [{ apiKey: "zen-key" }, { accessToken: "public" }]) {
       const h = headerFor(cred);
       expect(h["x-opencode-client"]).toBe("desktop");
-      expect(h["x-opencode-session"]).toMatch(/^ses_[0-9a-f]{32}$/);
-      expect(h["x-opencode-request"]).toMatch(/^msg_[0-9a-f]{32}$/);
+      // Zen's 2026-09-17 gate rejects a UUID-shaped id — canonical only.
+      expect(h["x-opencode-session"]).toMatch(OPENCODE_SESSION_RE);
+      expect(h["x-opencode-session"]).toHaveLength(30);
+      expect(h["x-opencode-request"]).toMatch(OPENCODE_REQUEST_RE);
+      expect(h["x-opencode-request"]).toHaveLength(30);
       expect(h["x-opencode-project"]).toBe("global");
-      expect(h["User-Agent"]).toBe("opencode");
+      // Bare "opencode" is refused; the version floor is 1.17.0.
+      expect(h["User-Agent"]).toBe("opencode/1.18.31");
       expect(h["Content-Type"]).toBe("application/json");
       expect(h.Accept).toBe("text/event-stream");
     }
