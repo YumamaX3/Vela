@@ -134,6 +134,15 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // Claude target that would force a needless OpenAI→Claude translation.)
   const targetFormat = useTransport?.format || modelTargetFormat || getTargetFormat(provider, credentials);
   if (useTransport && credentials) credentials.runtimeTransport = useTransport;
+  // The mirror case: no source-format transport matched, so the model's own
+  // targetFormat drives the body — and the endpoint must follow the body, or a
+  // Responses-shaped payload lands on /chat/completions (opencode-go muse-spark,
+  // the upstream #3819/#3820 wound). Only a transport that actually exists for
+  // that format is used; every other provider is left exactly as it was.
+  else if (credentials && targetFormat) {
+    const targetTransport = resolveTransport(provider, targetFormat);
+    if (targetTransport) credentials.runtimeTransport = targetTransport;
+  }
   const stripList = getModelStrip(alias, model);
   const upstreamModel = getModelUpstreamId(alias, model);
 
@@ -449,6 +458,12 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     providerHeaders = result.headers;
     finalBody = result.transformedBody;
     providerResponseFormat = result.responseFormat || targetFormat;
+    // An executor may rename tools on the wire (opencode conceals the
+    // file-search quartet from the free-tier gate) and hand back the map so the
+    // client still receives the names it declared.
+    if (result.toolNameMap?.size) {
+      toolNameMap = new Map([...(toolNameMap || []), ...result.toolNameMap]);
+    }
     reqLogger.logTargetRequest(providerUrl, providerHeaders, finalBody);
   } catch (error) {
     trackPendingRequest(model, provider, connectionId, false, true);
