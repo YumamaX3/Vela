@@ -23,6 +23,26 @@
 // 2.0+, Grok, Perplexity). Verify with: curl -s https://models.dev/api.json
 
 import { matchPattern } from "./pricing.js";
+import REGISTRY from "./registry/index.js";
+// Alias → provider id, derived from the registry (the single source). This is
+// the registry-derived subset of services/model.js's ALIAS_TO_PROVIDER_ID; the
+// hand-seeded media-only aliases there (el/jina/polly) are omitted because no
+// media-only provider carries a PROVIDER_CAPABILITIES override to look up.
+//
+// Why this lives here: combo members and capacity-adapter pools are composed as
+// "<alias>/<model>" — ModelSelectModal.js builds them with getProviderAlias —
+// and both combo.js and capacityAdapter.js slice that prefix off and hand it to
+// getCapabilitiesForModel UNRESOLVED. A provider whose alias differs from its id
+// (jerouter/je, kiro/kr, qoder/qd) would therefore silently miss its
+// PROVIDER_CAPABILITIES entry on every combo and capacity-adapter lane, while
+// behaving correctly on the direct request path (which resolves via parseModel).
+const PROVIDER_ALIAS_TO_ID = {};
+for (const entry of REGISTRY) {
+  if (!entry?.id) continue;
+  PROVIDER_ALIAS_TO_ID[entry.id] = entry.id;
+  if (entry.alias) PROVIDER_ALIAS_TO_ID[entry.alias] = entry.id;
+  for (const a of entry.aliases || []) PROVIDER_ALIAS_TO_ID[a] = entry.id;
+}
 
 /**
  * Safe floor — every resolved result is merged over this so consumers
@@ -222,6 +242,26 @@ export const PROVIDER_CAPABILITIES = {
     "laguna-s-2.1":  { reasoning: true, thinkingFormat: "openai", contextWindow: 1000000, maxOutput: 32000 },
     "laguna-xs-2.1": { reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 32000 },
   },
+  // Jerouter (alias je) — the 2026-09-18 V2 catalog annotates each model as
+  // vision or text; these nine are the ones whose global pattern disagreed.
+  // Declared as deltas over DEFAULT_CAPABILITIES, like every other entry here.
+  // Both directions are represented and both are deliberate:
+  //  · vision → the pattern said text (step-3.7-flash, nemotron-3-nano-omni,
+  //    free, deepseek-v4.1-flash, dots-3-note-preview), so vision is turned ON.
+  //  · text → the pattern said vision (llama-4-maverick, mimo-v2.5,
+  //    gpt-5.6-luna, glm-5.3-flash), so vision and its input modalities are
+  //    turned OFF — the catalog is the authority for THIS router's lanes.
+  "jerouter": {
+    "step-3.7-flash":       { vision: true, reasoning: true, thinkingFormat: "step", contextWindow: 128000 },
+    "nemotron-3-nano-omni": { vision: true, reasoning: true, contextWindow: 128000 },
+    "free":                 { vision: true },
+    "deepseek-v4.1-flash":  { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 384000 },
+    "dots-3-note-preview":  { vision: true },
+    "glm-5.3-flash":        { reasoning: true, thinkingFormat: "zai", thinkingEffortSupported: true, contextWindow: 1000000, maxOutput: 131072 },
+    "llama-4-maverick-17b-128e-instruct": { contextWindow: 1000000 },
+    "mimo-v2.5":            { contextWindow: 1048576, maxOutput: 131072 },
+    "gpt-5.6-luna":         { search: true, reasoning: true, thinkingFormat: "openai", contextWindow: 400000, maxOutput: 128000 },
+  },
 };
 
 /**
@@ -383,7 +423,10 @@ export function getCapabilitiesForModel(provider, model) {
 
   // 1. Provider-specific override
   if (provider) {
-    const providerCaps = PROVIDER_CAPABILITIES[provider];
+    // Callers on the combo / capacity-adapter lanes pass the raw "<alias>"
+    // token (see PROVIDER_ALIAS_TO_ID above), so normalize before lookup.
+    const providerKey = PROVIDER_ALIAS_TO_ID[provider] || provider;
+    const providerCaps = PROVIDER_CAPABILITIES[providerKey];
     if (providerCaps?.[model]) return { ...DEFAULT_CAPABILITIES, ...providerCaps[model] };
     if (providerCaps?.[baseModel]) return { ...DEFAULT_CAPABILITIES, ...providerCaps[baseModel] };
   }

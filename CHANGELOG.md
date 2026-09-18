@@ -25,6 +25,56 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.68 — The Alias Lantern 🏮
+> *"A ship may answer to two names — the one on her hull and the one the harbor calls her — but a lantern that lights only one of them leaves half the fleet in the dark."* 🏮💜
+Two things sailed together this tide: the Star's fresh Jerouter catalog, and the
+defect that catalog's annotation exposed.
+- 📋 **The Jerouter V2 catalog**
+  (`open-sse/providers/registry/jerouter.js`): the roster is re-charted to the
+  Star's 2026-09-18 export — **38 models**, five retired upstream
+  (`nemotron-3-ultra`, `qwen3.8-flash`, `hy3`, `deepseek-v4-pro-0813`,
+  `glm-5.3`) and eleven joined (`grok-4.5`, `grok-4.6`, `free`,
+  `deepseek-v4.1-flash`, `dots-3-note-preview`, `gemma4`, `union-alpha`, the
+  three `gemini-3.8-flash` effort lanes, and `gpt-5.6-luna`). Twenty-seven
+  carried over untouched.
+- 👁️ **The nine modality corrections**
+  (`open-sse/providers/capabilities.js` → `PROVIDER_CAPABILITIES.jerouter`):
+  the catalog annotates every model vision or text, and **nine disagreed** with
+  what Vela's global pattern table inferred. Both directions are corrected and
+  both are deliberate — five where the pattern said text but the catalog says
+  vision (`step-3.7-flash`, `nemotron-3-nano-omni`, `free`,
+  `deepseek-v4.1-flash`, `dots-3-note-preview`), and four where the pattern
+  said vision but the catalog says text (`glm-5.3-flash`, `llama-4-maverick`,
+  `mimo-v2.5`, `gpt-5.6-luna`). Measured before and after, not assumed.
+- 🏮 **The Alias Lantern — the real find**: the modality work surfaced that
+  `getCapabilitiesForModel` was being handed **unresolved provider aliases**.
+  Combo members are composed as `"<alias>/<model>"` (`ModelSelectModal.js:345`
+  builds them with `getProviderAlias`), and both `combo.js:92` and
+  `capacityAdapter.js:80` slice that prefix off and pass it straight in — while
+  only the direct request path runs `parseModel`'s alias resolution. So any
+  provider whose alias differs from its id (`jerouter`/`je`, `kiro`/`kr`,
+  `qoder`/`qd`) **silently missed its `PROVIDER_CAPABILITIES` entry on every
+  combo and capacity-adapter lane**. The lookup now normalizes the token through
+  a registry-derived alias map, so all three providers — and any aliased
+  provider added later — resolve identically on both lanes. One fix at the
+  source, not three patches at the symptoms.
+**Proven**: `tests/unit/jerouter-catalog.test.js` (7 tests — roster parity,
+no duplicates, names + formats, retired models absent, dual-endpoint shape,
+per-model modality, and id-lane ≡ alias-lane) and
+`tests/unit/provider-alias-capabilities.test.js` (3 tests — the pairs are
+**derived from the registry**, so a future aliased provider with overrides is
+covered automatically). The alias guard was mutation-probed: reverting the
+one-line normalization turns it red and names the diverging lanes. 18/18 green
+across the capability suites, 192 passed on the wider run, eslint clean.
+*(The `pricing-covenant` failure in that run is pre-existing and unrelated — it
+reads `plans/research/models-dev-harvest-2026-08-15.json`, a path that does not
+exist in this checkout and was never tracked.)*
+⚓ **What sailed**: `open-sse/providers/registry/jerouter.js`,
+`open-sse/providers/capabilities.js`, `tests/unit/jerouter-catalog.test.js`,
+`tests/unit/provider-alias-capabilities.test.js`, `package.json`,
+`docker-compose.example.yml`
+
+---
 # v0.9.67 — The Swept Keel 🧹
 > *"A hull does not care that the barnacle was once a living thing — it only knows the drag. Scrape it, and the ship remembers her own speed."* 🧹💜
 A husk surfaced while the Telemetry Deck's tide was being sealed: an untracked,
