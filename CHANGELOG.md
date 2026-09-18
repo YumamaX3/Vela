@@ -25,6 +25,60 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.66 — The Telemetry Deck 📡
+> *"A log is only a wall of sound until someone teaches it to speak in levels — then the watchman stops reading the storm and starts hearing it."* 📡💜
+The Console Log room was the oldest untouched room in the harbor: a flat black
+pane of tinted lines with five filter chips. It could show you the output; it
+could not tell you what the output *was*. This tide rebuilds it end to end —
+the buffer learns structure, the wire carries it, and the deck renders it as a
+live instrument:
+- 📡 **The Structured Buffer** (`src/lib/consoleLogBuffer.js`): every captured
+  line now yields a structured entry beside the raw string — a monotonic `seq`,
+  the wall-clock `time`, the ISO `iso`, the level, the message, and the
+  `[TAG]` tokens it carries (`[DB]`, `[RTK]`, `[AUTH]`, `[STREAM]`…). One
+  `buildEntry()` builds both shapes from a single timestamp, so the raw line
+  and its structured twin can never drift. Both rings still trim to
+  `CONSOLE_LOG_CONFIG.maxLines` together.
+- 📊 **The Stats Endpoint** (`getConsoleLogStats()` + the
+  `/api/translator/console-logs` route): level counts and tag frequency,
+  opt-in via `?stats=true`, with `?structured=true`, `?level=`, `?tag=`, `?q=`
+  and `?limit=` filters applied server-side.
+- 🌊 **The Structured Wire** (`.../console-logs/stream/route.js`): the SSE
+  channel now emits an `entries` event beside the legacy `lines` event and
+  seeds `type:"init"` with the structured backlog, so a reader that asks for
+  `?structured=true` gets the whole instrument in one stream.
+- 🛰️ **The Telemetry HUD** (`.../console-log/ConsoleLogClient.js`): a levels
+  row whose chips carry their own counts, a tag rail built from the live
+  top-ten, and a 30-second rate meter that ages even when the harbor is quiet.
+  Level chips, tag chips, a regex toggle (`.*`) with visible error state, and
+  a Structured/Raw view switch all filter the pane.
+- 🔍 **The Inspector**: every row opens a drawer with the entry's time, ISO
+  timestamp, sequence, id, full message, and raw line — copyable in one click.
+- 🧭 **The Smaller Honesties**: `/` focuses search from anywhere; a
+  jump-to-latest pill appears when the reader scrolls away from the tail;
+  Clear arms once and confirms on the second press; exports land as `.txt`
+  and `.json`.
+- 🛡️ **The Icon Guard** (`tests/unit/icon-subset.test.js`): the pruned icon
+  subset (232 glyphs) silently fails to form a ligature when a name is absent
+  — the raw text renders as a 240px word. `table_rows` had done exactly that
+  in this deck. The guard now scans every `icon="…"` prop and inline span in
+  `src/` against `scripts/icon-ligatures.txt`; mutation-probed red on
+  `table_rows`, green on the fix.
+**Proven**: `tests/unit/console-log-buffer.test.js` (6 tests: stamping, ring
+trim, structured shape, level/tag/query filters, stats), `tests/unit/icon-subset.test.js`
+(2 tests, mutation-verified), eslint clean across all five changed files, and
+visual verification on headless Chromium through `localhost` — live stream
+connected, 31 entries buffered, every control clicked one at a time (level
+chip, regex, view toggle, search `26/1000 → 1/26`, row drawer, Follow, Wrap),
+in both themes.
+⚓ **What sailed**: `src/lib/consoleLogBuffer.js`,
+`src/app/api/translator/console-logs/route.js`,
+`src/app/api/translator/console-logs/stream/route.js`,
+`src/app/(dashboard)/dashboard/console-log/ConsoleLogClient.js`,
+`tests/unit/console-log-buffer.test.js`, `tests/unit/icon-subset.test.js`,
+`package.json`, `docker-compose.example.yml`
+
+---
 # v0.9.65 — The Watchman's Deck 🧭
 > *"A ship has a rudder to steer, but the watchman needs a crow's nest to see where the shoals lie — and a hand that clears the marks when the storm passes."* 🧭💜
 
