@@ -76,7 +76,9 @@ jobs:
           provenance: false
           sbom: false
 
-# The image ships to ghcr.io ONLY. This repository is private, and pushes made
-# with GITHUB_TOKEN inherit that visibility — the package is private by
-# inheritance, pullable only by users with repo access. No Docker Hub target:
-# the upstream 'YumamaX3/Vela' leftover was removed with the Vela rebrand.
+# The image ships to ghcr.io ONLY. ⚠️ The repository is PUBLIC (measured
+# 2026-09-19), and pushes made with GITHUB_TOKEN inherit that visibility — so
+# the package is PUBLIC too and anyone may pull it. It carries no secrets
+# (every secret is injected as env at deploy), which is the only reason that is
+# tolerable — never bake a credential into a layer. No Docker Hub target: the
+# upstream 'YumamaX3/Vela' leftover was removed with the Vela rebrand.

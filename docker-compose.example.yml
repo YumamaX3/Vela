@@ -22,9 +22,10 @@ name: vela
 #   🪞 vela-twin      — OPTIONAL MariaDB twin for mysql|mirror postures
 #   💨 vela-headroom  — OPTIONAL request-compression sidecar (internal-only)
 #
-# ⚠️ The image is PRIVATE — it inherits the Vela repo's visibility.
-#    First deploy on a machine requires:
-#      docker login ghcr.io       # PAT with read:packages + repo access
+# ⚠️ The image is PUBLIC — it inherits the Vela repo's visibility (measured
+#    2026-09-19). No login is needed to pull it, and it carries no secrets
+#    (every secret is injected as env below). If you ever need a private image,
+#    make the repo private — the GHCR package follows it.
 #
 # 🗝️ Storage postures (Storage Covenant, v0.9.x):
 #    VELA_DB_MODE selects the harbor — sqlite (default), mysql (MariaDB IS

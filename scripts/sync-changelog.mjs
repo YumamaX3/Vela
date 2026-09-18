@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Ship's Log local serve — the dashboard's Changelog modal reads the log
-// from the gateway itself (public/CHANGELOG.md), because the GitHub repo is
-// private and raw.githubusercontent returns 404 for private repos.
+// from the gateway itself (public/CHANGELOG.md), so the dashboard never
+// depends on GitHub's raw endpoint — no rate limit, no network, and it keeps
+// working if the repo's visibility ever changes.
 // Run on every dev startup and before every build; the postbuild standalone
 // asset copier then carries public/ into the standalone output, so shipped
 // builds keep working too.

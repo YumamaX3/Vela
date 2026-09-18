@@ -9,7 +9,8 @@ export const APP_CONFIG = {
 
 // GitHub configuration — the changelog is served from the gateway itself
 // (public/CHANGELOG.md, mirrored from the root log by scripts/sync-changelog.mjs)
-// because the repo is private and raw.githubusercontent 404s for private repos.
+// because the gateway serves it locally — no rate limit and no dependence on
+// GitHub's raw endpoint.
 export const GITHUB_CONFIG = {
   changelogUrl: "/CHANGELOG.md",
 };

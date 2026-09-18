@@ -29,7 +29,7 @@ The carry rules, when rounding crosses a boundary:
 Add the change to `CHANGELOG.md` (The Ship's Log). It is the single source of
 truth — the dashboard serves a derived copy (`public/CHANGELOG.md`,
 gitignored, mirrored by `scripts/sync-changelog.mjs` on every dev startup and
-build, because the repo is private). After any manual changelog edit outside
+build, so the dashboard serves it without depending on GitHub's raw endpoint). After any manual changelog edit outside
 the dev/build scripts, re-run that script to refresh the served copy.
 
 - Create a **new release heading at the top** of the file —

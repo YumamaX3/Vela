@@ -25,8 +25,9 @@ storage postures · Headroom sidecar · upgrades · local builds.
 ## 🚀 Quick Start
 
 ```bash
-# 1. Authenticate — the image is PRIVATE (it inherits the repo's visibility).
-#    Use a GitHub PAT with read:packages + repo access.
+# 1. Authenticate — OPTIONAL. The image is PUBLIC (it inherits the Vela repo's
+#    visibility, measured 2026-09-19), so anonymous pulls work. Log in only for
+#    a rate limit or read:packages against a private mirror.
 docker login ghcr.io
 
 # 2. Pull and sail
