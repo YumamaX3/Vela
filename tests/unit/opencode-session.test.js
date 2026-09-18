@@ -28,6 +28,8 @@ const makeCredentials = (overrides = {}) => ({
   rawHeaders: {},
   ...overrides,
 });
+// The ported fingerprint (upstream #4105/#4111) — shared by both describes below.
+const FULL_UA = "opencode/1.18.31 ai-sdk/provider-utils/4.0.46 runtime/bun/1.3.14";
 
 const prepare = (executor, overrides = {}) =>
   executor.prepareRequestCredentials({
@@ -143,13 +145,13 @@ describe("User-Agent identity", () => {
     getExecutor("opencode").buildHeaders(makeCredentials({ rawHeaders }))["User-Agent"];
 
   it("defaults to a gate-valid version when the caller sends none", () => {
-    expect(uaFor({})).toBe("opencode/1.18.31");
-    expect(uaFor({ "user-agent": "Claude-Code/1.0" })).toBe("opencode/1.18.31");
+    expect(uaFor({})).toBe(FULL_UA);
+    expect(uaFor({ "user-agent": "Claude-Code/1.0" })).toBe(FULL_UA);
   });
 
   it("replaces a bare or outdated opencode identity", () => {
-    expect(uaFor({ "user-agent": "opencode" })).toBe("opencode/1.18.31");
-    expect(uaFor({ "user-agent": "opencode/1.15.0" })).toBe("opencode/1.18.31");
+    expect(uaFor({ "user-agent": "opencode" })).toBe(FULL_UA);
+    expect(uaFor({ "user-agent": "opencode/1.15.0" })).toBe(FULL_UA);
   });
 
   it("passes a gate-valid opencode identity through", () => {
@@ -176,7 +178,7 @@ describe("the wire the gate sees", () => {
     expect(result.headers["x-opencode-session"]).toMatch(OPENCODE_SESSION_RE);
     expect(sent["x-opencode-session"]).toBe(result.headers["x-opencode-session"]);
     expect(sent["x-opencode-session"]).not.toMatch(/^ses_[0-9a-f]{32}$/);
-    expect(sent["User-Agent"]).toBe("opencode/1.18.31");
+    expect(sent["User-Agent"]).toBe(FULL_UA);
     expect(sent["Authorization"]).toBe("Bearer public");
     expect(credentials).not.toHaveProperty("_opencodeSession");
   });
@@ -193,7 +195,7 @@ describe("the wire the gate sees", () => {
 
     const sent = fetchMock.mock.calls[0][1].headers;
     expect(sent["Authorization"]).toBe("Bearer zen-key-abc");
-    expect(sent["User-Agent"]).toBe("opencode/1.18.31");
+    expect(sent["User-Agent"]).toBe(FULL_UA);
     expect(sent["Accept"]).toBe("text/event-stream");
     expect(sent["x-opencode-session"]).toBe(result.headers["x-opencode-session"]);
   });

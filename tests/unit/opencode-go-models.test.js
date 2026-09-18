@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PROVIDER_MODELS, getModelSupportedFormats } from "../../open-sse/config/providerModels.js";
+import { PROVIDER_MODELS, getModelSupportedFormats, getModelTargetFormat } from "../../open-sse/config/providerModels.js";
 import { PROVIDERS } from "../../open-sse/config/providers.js";
 import { resolveTransport } from "../../open-sse/services/provider.js";
 
@@ -9,6 +9,9 @@ const CHAT_ONLY = ["glm-5.2", "glm-5.1", "kimi-k2.7-code", "kimi-k2.6", "mimo-v2
 const CLAUDE_CAPABLE = ["minimax-m3", "minimax-m2.7", "minimax-m2.5", "qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus"];
 // Models that also expose the OpenAI /responses endpoint
 const RESPONSES_CAPABLE = ["deepseek-v4-pro", "deepseek-v4-flash"];
+// Models the Responses API alone serves (muse-spark): a chat/completions call
+// answers 500 upstream (#3819/#3820), so targetFormat must drive the endpoint.
+const RESPONSES_ONLY = ["muse-spark-1.2-contributor", "muse-spark-1.3-contributor"];
 
 // Mirror of chatCore's per-model transport guard: use the sourceFormat-matched
 // transport only when the model declares support for that sourceFormat.
@@ -17,16 +20,26 @@ function pickTransport(provider, sourceFormat, alias, model) {
   const rt = resolveTransport(provider, sourceFormat);
   return supported?.includes(sourceFormat) ? rt : null;
 }
+// Mirror of chatCore's targetFormat fallback: when no source-format transport
+// matched, the model's own targetFormat picks the endpoint, so the body and the
+// URL can never disagree (the muse-spark wound, upstream #3819/#3820).
+function pickTargetTransport(provider, sourceFormat, alias, model) {
+  const matched = pickTransport(provider, sourceFormat, alias, model);
+  if (matched) return matched;
+  const targetFormat = getModelTargetFormat(alias, model);
+  return targetFormat ? resolveTransport(provider, targetFormat) : null;
+}
 
 describe("OpenCode Go model catalog", () => {
   it("matches the documented model IDs", () => {
     const ids = (PROVIDER_MODELS["opencode-go"] || []).map((m) => m.id);
     expect(ids).toEqual([
-      "glm-5.2", "glm-5.1", "kimi-k2.7-code", "kimi-k2.6",
-      "deepseek-v4-pro", "deepseek-v4-flash",
+      "glm-5.3-flash", "glm-5.2", "glm-5.1", "kimi-k2.7-code", "kimi-k2.6",
+      "deepseek-v4-pro", "deepseek-v4-flash", "deepseek-v4-flash-vision-exp",
       "mimo-v2.5", "mimo-v2.5-pro",
       "minimax-m3", "minimax-m2.7", "minimax-m2.5",
       "qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus",
+      "muse-spark-1.2-contributor", "muse-spark-1.3-contributor",
     ]);
   });
 });
@@ -93,5 +106,26 @@ describe("OpenCode Go per-model transport guard (chatCore logic)", () => {
     for (const m of CLAUDE_CAPABLE) {
       expect(pickTransport("opencode-go", "openai-responses", "opencode-go", m)).toBeNull();
     }
+  });
+});
+describe("OpenCode Go responses-only models (muse-spark)", () => {
+  it("declares openai-responses as the sole supported format", () => {
+    for (const m of RESPONSES_ONLY) {
+      expect(getModelSupportedFormats("opencode-go", m)).toEqual(["openai-responses"]);
+      expect(getModelTargetFormat("opencode-go", m)).toBe("openai-responses");
+    }
+  });
+  it("an OpenAI client matches no source transport — targetFormat must drive the endpoint", () => {
+    for (const m of RESPONSES_ONLY) {
+      // No source-format transport matches an OpenAI client on a responses-only model.
+      expect(pickTransport("opencode-go", "openai", "opencode-go", m)).toBeNull();
+      // The fallback routes it to /responses, never /chat/completions.
+      expect(pickTargetTransport("opencode-go", "openai", "opencode-go", m)?.baseUrl)
+        .toBe("https://opencode.ai/zen/go/v1/responses");
+    }
+  });
+  it("leaves ordinary chat models on /chat/completions", () => {
+    expect(pickTargetTransport("opencode-go", "openai", "opencode-go", "glm-5.2")?.baseUrl)
+      .toBe("https://opencode.ai/zen/go/v1/chat/completions");
   });
 });

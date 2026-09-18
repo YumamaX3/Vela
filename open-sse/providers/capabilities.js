@@ -262,6 +262,23 @@ export const PROVIDER_CAPABILITIES = {
     "mimo-v2.5":            { contextWindow: 1048576, maxOutput: 131072 },
     "gpt-5.6-luna":         { search: true, reasoning: true, thinkingFormat: "openai", contextWindow: 400000, maxOutput: 128000 },
   },
+  // OpenCode Zen (keyless free lane) and OpenCode Go (paid) — Meta's muse-spark,
+  // served by the Responses API. Upstream's caps table declares vision +
+  // reasoning + tools for it, and Vela's measured floor said none of the three.
+  // Scoped to these two providers deliberately: Jerouter resells the SAME ids as
+  // text-only (its own annotation, pinned by jerouter-catalog.test.js), so a
+  // global "*muse-spark*" pattern would trample a different truth on a different
+  // lane. The free lane carries both the plain and the "-contributor-free" ids.
+  "opencode": {
+    "muse-spark-1.2":                  { vision: true, reasoning: true, tools: true },
+    "muse-spark-1.3":                  { vision: true, reasoning: true, tools: true },
+    "muse-spark-1.2-contributor-free": { vision: true, reasoning: true, tools: true },
+    "muse-spark-1.3-contributor-free": { vision: true, reasoning: true, tools: true },
+  },
+  "opencode-go": {
+    "muse-spark-1.2-contributor":      { vision: true, reasoning: true, tools: true },
+    "muse-spark-1.3-contributor":      { vision: true, reasoning: true, tools: true },
+  },
 };
 
 /**

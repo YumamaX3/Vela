@@ -25,6 +25,77 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.69 — The Quartet's Case ⚿
+> *"The gate did not read the name on the hull — it read the shape of the tools in her hold. Bash, when the harbour wanted bash."* ⚿💜
+v0.9.64 gave Zen's fingerprinting gate a versioned User-Agent and a canonical
+session — and the free lane still answered `403 FreeTierError` on every turn.
+This tide finds the second half of the lock, ports it from the Go repo
+(`luqman-v1/9router-go`), and mends a routing wound the same reading exposed.
+- 🧰 **The tool quartet's case — the real gate** (`open-sse/executors/opencode.js`):
+  upstream fingerprints its own client through the **case of the file-search
+  tool quartet in the request BODY** — `bash`, `glob`, `grep`, `read`. Claude
+  Code CLI declares the same built-ins capitalised (`Bash`, `Glob`, `Grep`,
+  `Read`), so the fingerprint never matched and the gate refused the request.
+  Measured upstream 2026-09-18: capitalised → 403, lowercase → 200, **both →
+  500** — so the quartet is **renamed, never duplicated** (a lowercase twin
+  beside the caller's `Bash` yields two tools of one name and turns the 403
+  into a 500). The client still receives the spelling it declared: the
+  executor hands back a map, and the name is restored on the outgoing chunk.
+- 🎫 **The canonical project id** (same file): `x-opencode-project` was the
+  literal `"global"` — the exact placeholder upstream stopped accepting
+  (PR #4111). It is now a fresh **40-char hex** id, and a real client value
+  still passes through; only the placeholder is replaced.
+- 🔑 **`x-api-key: public`** (same file): the gate reads the credential in
+  **both** shapes — the Bearer pair it has always seen and `x-api-key` beside
+  it. The keyless lane now sends `public` on both; a keyed connection sends its
+  key on both.
+- 🖋️ **The full fingerprint** (same file): the User-Agent becomes
+  `opencode/1.18.31 ai-sdk/provider-utils/4.0.46 runtime/bun/1.3.14` — the
+  shape the shipped binary emits (upstream #4105/#4111). A downstream opencode
+  identity is still passed through, but only when it clears the 1.17.0 floor.
+- 🛰️ **The Responses lane** (same file): muse-spark / grok-4.6 / gpt-5.6-luna
+  live on the **Responses API alone** — a `chat/completions` call for them
+  answers `500` upstream (#3819/#3820, v0.5.75). The executor now converts the
+  body out and the SSE stream back, exactly as the GitHub executor does for
+  Copilot's `/responses` lane.
+- 🧭 **The endpoint follows the body — a real wound, mended**
+  (`open-sse/handlers/chatCore.js`): `opencode-go`'s muse-spark declares
+  `targetFormat: openai-responses`, but because no **source-format** transport
+  matched an OpenAI client, the transport guard returned `null` and the
+  Responses-shaped payload was posted to **`/chat/completions`** — the precise
+  defect upstream fixed in v0.5.75. chatCore now falls back to the transport for
+  the model's own target format when no source transport matched, so body and
+  URL can never disagree. Verified by probe: muse-spark → `/zen/go/v1/responses`,
+  glm-5.2 and deepseek untouched.
+- 👁️ **muse-spark's declared capabilities** (`open-sse/providers/capabilities.js`):
+  upstream's table gives it vision + reasoning + tools; Vela's measured floor
+  said none of the three. Scoped to the **opencode providers** deliberately —
+  Jerouter resells the *same ids* as text-only, and a global pattern would have
+  trampled that different truth on a different lane (the `jerouter-catalog`
+  suite caught exactly that in this tide's own work).
+**Proven**: `tests/unit/opencode-zen.test.js` (+7 tests — the responses lane,
+conceal-by-rename, the top-level name shape, chunk restoration, and the scoped
+capabilities including the Jerouter divergence), `tests/unit/opencode-session.test.js`
+and `tests/unit/opencode-go-models.test.js` re-pinned to the ported fingerprint
+and the responses-only lane. **70/70 green** across the opencode + capability +
+jerouter suites; eslint clean. The full unit run shows **zero regressions**
+(no file fails that passed at baseline) and **one file fixed** — the
+`opencode-go-models` catalog assertion, which had drifted stale before this
+tide (42 → 41 failing files; 100 → 99 failing tests, all pre-existing and
+environment-related). The executor's own `0x1000n` BigInt literal, silently
+mangled by an edit mid-tide, was caught by the session suite and restored.
+⚠️ **Honest limit**: the gate's *complete* condition could not be satisfied
+end-to-end from this machine — every header variant, with and without tools,
+still drew `403 FreeTierError`, which points to a network/IP-level check that
+headers cannot reach. The body-level quartet fix is ported from the Go repo's
+measured 403/200/500 matrix and proven by unit tests at the wire boundary, not
+by a 200 from Zen.
+⚓ **What sailed**: `open-sse/executors/opencode.js`,
+`open-sse/handlers/chatCore.js`, `open-sse/providers/capabilities.js`,
+`tests/unit/opencode-zen.test.js`, `tests/unit/opencode-session.test.js`,
+`tests/unit/opencode-go-models.test.js`, `package.json`,
+`docker-compose.example.yml`
+---
 # v0.9.68 — The Alias Lantern 🏮
 > *"A ship may answer to two names — the one on her hull and the one the harbor calls her — but a lantern that lights only one of them leaves half the fleet in the dark."* 🏮💜
 Two things sailed together this tide: the Star's fresh Jerouter catalog, and the
