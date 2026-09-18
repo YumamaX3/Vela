@@ -91,10 +91,69 @@ headers cannot reach. The body-level quartet fix is ported from the Go repo's
 measured 403/200/500 matrix and proven by unit tests at the wire boundary, not
 by a 200 from Zen.
 ⚓ **What sailed**: `open-sse/executors/opencode.js`,
-`open-sse/handlers/chatCore.js`, `open-sse/providers/capabilities.js`,
+`open-sse/handlers/chatCore.js`,
+`open-sse/providers/capabilities.js`,
 `tests/unit/opencode-zen.test.js`, `tests/unit/opencode-session.test.js`,
 `tests/unit/opencode-go-models.test.js`, `package.json`,
 `docker-compose.example.yml`
+
+---
+
+## 🚨 Security follow-up — 2026-09-19 (the same tide, the next day)
+
+**What was found.** Verifying the Star's rule — *edit `docker-compose.yml`, never
+push it* — turned into a search of git history for the live chart's own secrets.
+`gh` reports the repository as **PUBLIC** (`isPrivate: false`), and the
+codebase's doctrine said it was private. **The doctrine was wrong.** So the
+secrets inlined in the live chart were not merely in history — they were
+**published**:
+
+| Secret | Where it leaked |
+|-|-|
+| `JWT_SECRET`, `API_KEY_SECRET`, `MACHINE_ID_SALT`, `INITIAL_PASSWORD` | `513dadab` (2026-08-15, *"set real inline secrets — deploy-ready chart"*), still readable at `raw.githubusercontent.com/…/513dadab/docker-compose.yml` (**HTTP 200**) |
+| MariaDB twin password | **clean** — 0 matches in all history |
+
+`b2d65535` (2026-08-16, *"split the chart"*) untracked the file, which stopped
+*future* commits — it did not remove the past. The four values sat publicly
+readable for **five weeks**, and all four still matched the live chart: **none
+had ever been rotated**.
+
+**What was done.**
+- 🔑 **All four rotated** in the live chart (fresh values, same shapes; a
+  pre-rotation backup kept outside the repo). Verified: **0/5** live secrets
+  appear anywhere in history.
+-  **History scrubbed** — `git filter-repo --invert-paths --path
+  docker-compose.yml`, then a force-push of `main` and all **70** remote tags
+  (156 local tags exist; the 86 legacy `v0.2`/`v0.3` tags were deliberately
+  **not** pushed — they do not belong on the remote). Verified: **0/4** old
+  secrets in any commit; `0` commits touch the path; 69 `v0.9.*` tags survived;
+  `HEAD` and the tracked example chart intact.
+-  **Both tag-triggered workflows paused** for the duration
+  (`docker-publish`, `cache-warm` — the `v*` trigger would otherwise have queued
+  ~70 builds) and re-enabled immediately after. No spurious build ran.
+- 📖 **The false premise corrected in six files** — the claim that the repo is
+  private was the actual cause, and it is now the truth:
+  `.github/workflows/docker-publish.yml` (the image is **public**; it carries no
+  secrets, which is the only reason that is tolerable),
+  `docker-compose.example.yml`, `DOCKER.md`, `docs/VERSIONING.md`,
+  `scripts/sync-changelog.mjs`, `src/shared/constants/config.js`. The live chart
+  gained the durable rule, dated, directly above the secrets it guards.
+
+**⚠️ Residual, stated plainly.** The rewrite changed every commit hash from
+`513dadab` forward — this is why `v0.9.69`'s release commit is now `9344d553`,
+not `d1d02e67`. **All published refs are clean** (`main` and all 70 tags point
+at rewritten commits). But some now-orphaned old commits remain fetchable by
+**direct SHA** on github.com (`513dadab` answers HTTP 200 while `b2d65535`
+already 404s) until GitHub garbage-collects them. The values in them are
+**rotated and therefore inert**; a support ticket to force a GC would remove the
+bytes, not the risk. Anyone holding a pre-rewrite clone still has the old
+objects — another reason rotation, not deletion, is the load-bearing fix.
+
+**The rule, now absolute:** `docker-compose.yml` is edited on disk and **never**
+committed or pushed; only `docker-compose.example.yml` belongs in GitHub.
+A false belief about visibility is what made this possible — verify with
+`gh repo view --json visibility`, never with doctrine.
+
 ---
 # v0.9.68 — The Alias Lantern 🏮
 > *"A ship may answer to two names — the one on her hull and the one the harbor calls her — but a lantern that lights only one of them leaves half the fleet in the dark."* 🏮💜
