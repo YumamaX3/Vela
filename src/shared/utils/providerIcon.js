@@ -25,14 +25,11 @@ export function resolveProviderIconId(providerId) {
   return aliased;
 }
 
-/** `/providers/{id}.{png|svg}` or null when previously failed. */
+/** `/providers/{id}.png` or null when previously failed. */
 export function getProviderIconSrc(providerId) {
   const id = resolveProviderIconId(providerId);
-  // svg for vector logos (zai-search carried one upstream; glm folded it away),
-  // png for everything else
   if (!id) return null;
-  const ext = id === "zai-search" ? "svg" : "png";
-  return `/providers/${id}.${ext}`;
+  return `/providers/${id}.png`;
 }
 
 /** Call from img onError so later mounts skip the request. */

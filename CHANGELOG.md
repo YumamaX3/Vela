@@ -25,6 +25,39 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.67 — The Swept Keel 🧹
+> *"A hull does not care that the barnacle was once a living thing — it only knows the drag. Scrape it, and the ship remembers her own speed."* 🧹💜
+A husk surfaced while the Telemetry Deck's tide was being sealed: an untracked,
+**0-byte** `open-sse/providers/registry/zai-search.js`. It was not a provider.
+It was the empty shell of one — struck away on 2026-08-28 by `9dbdca0e`
+("fold zai-search into the glm provider"), whose entire substance now lives in
+`glm.js` (`searchConfig` pointing at Z.AI's `web_search_prime` MCP endpoint,
+`serviceKinds: ["llm", "webSearch"]`). Nothing imported it — the registry is a
+static import list — and no `zai-search.svg` was ever shipped for it. This tide
+sweeps the last two remnants:
+- 🧹 **The Husks Are Gone**: the 0-byte file is deleted, and the unreachable
+  `id === "zai-search" ? "svg" : "png"` branch in
+  `src/shared/utils/providerIcon.js` — the only source of `.svg` in the icon
+  resolver, and dead since the fold — is collapsed to the plain `.png` return
+  every caller already received.
+- 🔍 **Why The Collapse Was Safe, Not Assumed**: `public/providers/kimchi.svg`
+  ships beside `kimchi.png`, so a careless collapse would have silently swapped
+  that provider's icon. Because only `"zai-search"` ever took the svg path,
+  kimchi already resolved to `.png` before the change — the collapse is
+  behavior-preserving, and now provable rather than argued.
+- 🛡️ **The Contract Test** (`tests/unit/provider-icon-src.test.js`): 8 tests
+  pinning the URL shape — normalization, the three brand aliases, null for
+  empty/non-string input, the no-`.svg` regression pin, kimchi's `.png`
+  resolution, and the session 404 cache (including alias-target recording).
+**Proven**: `tests/unit/provider-icon-src.test.js` + `tests/unit/icon-subset.test.js`
+(10 tests, all green), eslint clean, and a repo-wide sweep confirming the only
+remaining `zai-search` mentions are the two explanatory comments that record
+*why* the fold happened — kept deliberately, as history rather than code.
+⚓ **What sailed**: `src/shared/utils/providerIcon.js`,
+`tests/unit/provider-icon-src.test.js`, `package.json`,
+`docker-compose.example.yml`
+
+---
 # v0.9.66 — The Telemetry Deck 📡
 > *"A log is only a wall of sound until someone teaches it to speak in levels — then the watchman stops reading the storm and starts hearing it."* 📡💜
 The Console Log room was the oldest untouched room in the harbor: a flat black
