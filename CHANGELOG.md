@@ -25,6 +25,88 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.70 — The Five Rooms 🗂️
+> *"A chart is not a harbour, and a scroll is not a room. Same water — but only one of them lets you find what you sailed in for."* 🗂️💜
+
+The Endpoint room was one room pretending to be four. A single 2,063-line
+client held the addresses, the key fleet, the transport switches, the security
+posture, and six modals — stacked vertically, with no way to reach any of it
+but to scroll past all of it. Every visit paid for every part. This tide gives
+the room its walls, and empties the file that held them.
+-  **The Five Rooms** (`EndpointPageClient.js` · `components/TabBar.js`):
+  **Overview · API Keys · Access · Security · Diagnostics**. The bar speaks the
+  dialect the Skills room already uses (`role="tablist"` / `role="tab"` /
+  `aria-selected`) rather than inventing a second vocabulary for the same idea,
+  and implements the APG tabs pattern properly: **one** tab stop for the whole
+  bar with a roving `tabindex`, ArrowLeft/ArrowRight to move within it,
+  Home/End to jump — so a keyboard user is never forced through five stops to
+  leave the room.
+- 🗂️ **The Taxonomy** — 19 files where 11 used to sprawl, and the 2,063-line
+  client now holds **142** lines of shell. `hooks/useEndpointController.js`
+  (the state machine, lifted **verbatim**), `components/{endpoint,keys,modals,tabs}/`,
+  `lib/{constants,ping,keyLimits,clients}.js`. Only addresses changed: not one
+  expression of the original behavior was rewritten.
+- ⚡ **Quick connect** (`lib/clients.js`, new): a paste-ready snippet per client
+  — Claude Code, Cursor, Cline, Codex CLI, any OpenAI-compatible SDK. Every
+  snippet is copied from the shape the CLI Tools room already generates
+  (`ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN`; Cline's `openAiBaseUrl`
+  **without** `/v1`; Codex's `[model_providers.Vela]` with `wire_api` and the
+  key in `http_headers`), so the two rooms can never disagree about how a client
+  is wired. The key is read from this browser's vault when one is stored there —
+  and when none is, the snippet says so and prints an obvious placeholder rather
+  than a convincing fake credential.
+- 📈 **Diagnostics** (new room): a real probe that times `GET /api/health` from
+  the browser, reports the measured milliseconds, keeps the session's last twelve
+  samples as a bar-per-sample history with best/worst, and states its own limit
+  — it measures browser→dashboard, not an upstream provider. Beside it, the
+  facts the page already holds, so nothing is asked of the network twice.
+- 🛡️ **The Security room says only what is true** (new): each control stated as
+  fact — required API key, dashboard login, per-transport exposure. The verdict
+  is **weighted by exposure**: with no transport enabled the room says
+  *"nothing is exposed to the network yet"* instead of crying wolf about a
+  home install that runs without a login **by choice** — which is the same
+  judgment the transport enable-gate already makes. A control is counted as
+  unmet, but only *warns* once something is actually reachable.
+- 🧭 **The Small Honesties**: the last-used room is remembered (safe-wrapped —
+  `localStorage` throws in private mode and a dashboard should not care); the
+  old `#require-api-key` anchor that the page's own warning banners still emit
+  is **mapped** to its new room rather than silently broken; badges are semantic
+  (the key count, the controls needing attention) and never decorative.
+
+**The wounds that only *running* found.** The build was green four times while
+the page was broken — every one of these was caught by opening the real room in
+a browser and clicking, and is recorded because that is the lesson:
+- ⚠️ **`baseUrl` lived three lines past the extraction boundary** — the shell
+  threw `Cannot read properties of undefined (reading 'endsWith')` and the room
+  rendered its error boundary. The declaration and its hydration effect are now
+  in the controller where the state belongs.
+- ⚠️ **`UNCATEGORIZED` and `currentEndpoint`** were referenced by extracted JSX
+  but defined outside it — the first took the whole page down on the API Keys
+  room, the second killed the Access room. Both restored at their new addresses.
+- ⚠️ **`space_dashboard`, `door_front`, `gpp_maybe`** are not in Vela's
+  **pruned 232-glyph subset** (`scripts/icon-ligatures.txt`) — a ligature the
+  font does not ship renders as its literal name, so the Overview tab displayed
+  the word **"SPACE_DASHBOARD"** across the header. Swapped for glyphs the
+  subset actually carries (`dashboard`, `router`, `shield`).
+**Proven**: `npm run build` green (Next 16.3.1, 155/155 pages); **eslint clean**
+across the whole room; and the room driven in headless Chromium against the real
+local harbor — **all five tabs render, console empty**, keyboard moves
+`ArrowRight→keys→access`, `End→diagnostics`, `Home→overview`;
+the Diagnostics probe measured a real **17 ms**; the `#require-api-key` deep link
+lands on Security; the API Keys badge was checked against `/api/keys` itself
+(**2**, matching); and `tests/unit/icon-subset.test.js` **2/2 green**, which is
+the guard that exists for exactly the glyph wound above. (`TokenSaverClient.js`
+carries 3 pre-existing `react-hooks` errors — measured **4 at HEAD**, so this
+tide reduced them; none are new. No `.js` test in the repo references the
+endpoint room, so this is a UI change whose proof is the browser, not a suite.)
+⚓ **What sailed**: `src/app/(dashboard)/dashboard/endpoint/**` (19 files —
+`EndpointPageClient.js`, `hooks/useEndpointController.js`,
+`components/TabBar.js`, `components/{endpoint,keys,modals,tabs}/**`,
+`lib/{constants,ping,keyLimits,clients}.js`),
+`src/app/(dashboard)/dashboard/token-saver/TokenSaverClient.js` (import repointed
+to the moved constants), `package.json`, `docker-compose.example.yml`
+
+---
 # v0.9.69 — The Quartet's Case ⚿
 > *"The gate did not read the name on the hull — it read the shape of the tools in her hold. Bash, when the harbour wanted bash."* ⚿💜
 v0.9.64 gave Zen's fingerprinting gate a versioned User-Agent and a canonical
