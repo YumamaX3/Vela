@@ -281,7 +281,7 @@ gh api "repos/YumamaX3/Vela/releases/tags/v0.9.x" --jq '.html_url'
 | **Name convention** 🏷️ | `v0.9.x — The Themed Name <emoji>` — strip a leading `⛵` so it matches the existing list (`v0.9.40 — The Combo Harbor ✨`) |
 | **Body** 📜 | The tag's deep description, verbatim via `--notes-file`. The Description Decree already put the full story there; a Release that paraphrases it loses the proof |
 | **Never draft** | Publish it — a draft Release is invisible |
-| **Audit the gap** 🔍 | `gh api "repos/YumamaX3/Vela/releases?per_page=100" --jq 'length'` vs `git ls-remote --tags origin \| grep -c 'v0\.9\.'` — the counts must agree |
+| **Audit the gap** 🔍 | Compare **unique annotated tags** against Releases — never raw `ls-remote` lines: `git ls-remote --tags origin \| grep -v '\^{}' \| sed 's#.*refs/tags/##' \| grep '^v0\.9\.' \| LC_ALL=C sort` vs `gh api 'repos/YumamaX3/Vela/releases?per_page=100' --jq '.[].tag_name' \| LC_ALL=C sort`, then `comm -23` for the gap. Two traps, both measured 2026-09-19: the peeled `^{}` refs **double** the raw count (136 lines for 70 tags), and `sort -V` silently breaks `comm` ("not in sorted order") — version order is not byte order. Measured census: **70 tags · 43 Releases**; every tag from **v0.9.38 through v0.9.73** has one, and the 27 without (v0.9.1 · v0.9.4–.23 · v0.9.25–.29 · v0.9.37) all **predate this decree**. Recorded rather than back-filled: those tags carry no deep description to reuse verbatim, and inventing one would put words in an older tide's mouth |
 
 > ⚠️ **This decree exists because of a six-version gap.** Releases stopped at
 > v0.9.40 while tags continued through v0.9.46 — so v0.9.41, .42, .43, .44, .45
