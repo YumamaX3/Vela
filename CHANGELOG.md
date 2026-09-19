@@ -25,6 +25,157 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.71 — The Far Current 🌊
+> *"A current does not stop at the harbour line. What another sea learned, this one may sail by — the ship cares only that the hull is sound."* 🌊💜
+
+Thirty-two commits rose in a **sibling harbour** — the upstream project Vela was cloned
+from — between 2026-09-10 and 2026-09-18 (`73cb8914…a8c9d380`, v0.5.75 → v0.5.81). This
+tide carries every one of them across: **94 files were touched upstream** — this harbour
+took **90**, and the four it did not take are named below, each with its reason. Nothing
+was copied blind: each file was read against our own tree, and where our shore had
+already learned the same lesson differently, the two were **reconciled** rather than
+overwritten.
+
+- ✨ **Claude Code's own window** (`ClaudeToolCard.js`, `claude-settings/route.js`,
+  `appConstants.js`): the CLI's auto-compact window is now driven explicitly, plus a
+  **1M-context toggle** — write the ceiling the client should ask for, instead of
+  leaving it to the CLI's default.
+
+- ✨ **DeepSeek-V4.1-Flash** joins `codebuddy-intl` and `ollama`; `deepseek-v4.*` now
+  accepts effort **low…max**, and the registry **flags** what it supports:
+  `thinkingEffortSupported` and `vision` (`thinkingLevels.js`, `capabilities.js`, and a
+  new `open-sse/providers/visionPatterns.js`) — so the dashboard stops guessing an
+  id's capabilities from its name.
+
+- ✨ **Persian** (`public/i18n/literals/fa.json`) — a ninth locale, carried in whole.
+
+- 🐛 **The stream that died politely** (`streamingHandler.js`, `utils/streamHandler.js`):
+  an upstream abort **after** HTTP 200 used to close the socket in silence — the client
+  saw a clean end-of-stream and could not tell it from a finished answer. Aborts are now
+  reported **in-band**, as a frame the reader can act on
+  (`responses-abort-terminal.test.js`).
+
+- 🐛 **CommandCode** — five repairs at once: images and `reasoning_effort` survive
+  `/alpha/generate` (`openai-to-commandcode` + `commandcode-to-openai`); a transient
+  stream error is **retried** and no longer manufactures a fake stop chunk; the usage
+  service is ours now (`open-sse/services/usage/commandcode.js`, new); and the projector
+  keeps the fields upstream kept (`openai-to-commandcode.test.js`,
+  `commandcode-usage.test.js`, `commandcode-executor.test.js`).
+
+- 🐛 **The OpenCode family** — the deepest vein of this tide, six separate wounds:
+  Union Alpha routes through the **Messages API**; the free tier's `403 FreeTierError`
+  is answered with the **canonical session format and the User-Agent the gate actually
+  reads**; **one stable upstream session per identity** (the churn was causing the 429s);
+  Muse Spark responses **drop the prior reasoning items**; Muse Free's tool choice is
+  normalized; and `forceStream` is declared on the transport so the free tier's SSE
+  aggregates (`opencode-session.test.js`, `opencode-free-tool-choice.test.js`,
+  `opencode-muse-spark-thinking.test.js`).
+
+- 🐛 **opencode-go** routes **every** responses-only model — thinking variants included —
+  to `/responses`, through a new executor (`open-sse/executors/opencode-go.js`), with its
+  own suite (`opencode-go-muse-spark-responses.test.js`).
+
+- 🐛 **Kiro's names, restored** — underscores survive tool names, sanitized names are
+  restored on the way back, tool-result **images are kept** rather than flattened, and a
+  tool-result-only user turn gets a neutral placeholder instead of an empty turn
+  (`kiro-tool-name-roundtrip.test.js`, `kiro-tool-result-placeholder.test.js`). Thinking
+  display is preserved across the same path (`thinkingUnified.js`).
+
+- 🐛 **Antigravity's three leaks**: the Claude Code **billing header** is stripped from
+  system prompts, the Hermes identity is sanitized, and cached thought signatures are
+  scoped to their **model family** — a cross-family signature is no longer replayed
+  (`antigravity-billing-header-rewrite.test.js`,
+  `antigravity-thought-signature-family.test.js`).
+
+- 🐛 **One bare model id, one provider**: `codex-auto-review` now routes to Codex
+  (`codex-auto-review-routing.test.js`).
+
+- 🐛 **Zed, hardened**: OAuth lifecycle, live model discovery, the completions wire, and
+  native auth — four suites' worth (`zed-native-auth.test.js`, `zed-live-models.test.js`,
+  `zed-completions-wire.test.js`), and its OAuth list priority lowered to sit where it
+  belongs (`4641c2b7`).
+
+- 🐛 **Auth: a 4xx is not a dead account** (`services/accountFallback.js`) — a
+  request-scoped 4xx no longer cools the whole account down
+  (`account-fallback-4xx.test.js`).
+
+- 🐛 **Usage & catalog**: DeepSeek's credit balance reads honestly
+  (`services/usage/deepseek.js`), the synced model catalog is **scoped to the gateways
+  that actually serve it** (`src/lib/modelCatalog/sync.js` + `/api/models/catalog-sync`
+  route, new), and Xiaomi MiMo gains its own usage tracker
+  (`services/usage/xiaomi-mimo.js`, `shared/mimoAccount.js`) — with
+  `model-catalog-scope.test.js` proving the scope.
+
+- 🔧 **The Zen probe, reconciled** — the one place where upstream and this harbour had
+  **already solved the same problem differently**. Upstream's new case probes the free
+  tier with `Bearer public`; ours proved the *stored key* against the same models gate.
+  A keyless connection (Zen runs keyless out of the box — our own registry says so) was
+  being told **"Invalid API key"** for having no key at all. Now the probe **sends the
+  credential the connection has**: keyed → the key, read as 401/403; keyless → `Bearer
+  public`, read as the free tier, never as a bad key. Both halves are pinned by a new
+  suite of their own (`tests/unit/opencode-probe-lane.test.js`).
+
+- 🔧 **What this harbour deliberately did *not* take** — named, so the next keeper does
+  not re-derive it:
+  - `src/shared/components/Sidebar.js` — upstream added a `New` badge and then
+    commented it out. **Vela never carried the badge**, so there is nothing to hide: a
+    no-op dressed as a change.
+  - `package.json` / `cli/package.json` — upstream's `0.5.75 → 0.5.81` is *their*
+    versioning. Ours is this log.
+  - `CHANGELOG.md` — their log entry is their voice; this is ours.
+
+- 🧪 **Proof** — measured, not asserted:
+  - **The taken suites fly**: the **26 upstream test files** carried across run
+    **270 cases — 266 pass, 4 stand as `it.fails` (documented upstream bugs), 0 fail**.
+    Add the reconciled probe lane (`opencode-probe-lane.test.js`, 11 cases) and the
+    tide's own proof is **27 files / 281 cases, 277 pass + 4 expected-fail**.
+    (`npx vitest run --config tests/vitest.config.js …, 8.6s`)
+  - **No new wounds in the wide water**: the full suite was run against pristine
+    `e4e013ad` in an isolated worktree *and* against this harbour — **112 failing cases
+    before, 113 after**. The three that differed (`s3-offsite`, two `xai-oauth-service`
+    cases) **pass 15/15 in isolation** and passed in an earlier full run of the same
+    tree: load-flake, **zero attributable to this port**. Two cases that failed at
+    pristine came back green.
+  - **Census**: 94 files rose upstream, **90 were taken**, 4 named above and refused.
+  - **🧱 The build found what no test could.** `npm run build` caught **two syntax wounds**
+    no suite covered — the seam where a merge meets a file both harbours had edited:
+    - `src/shared/components/OAuthModal.js:463` — upstream turned `startOAuthFlow` into a
+      plain `async () => {` (the ref-sync effect now keeps its identity stable), but this
+      port left Vela's old `}, [provider, startPolling, …]);` tail behind. Closed as `};`.
+    - `QuotaTable.js:190` — upstream's new `{!isUnlimited && !isCreditBalance && (` opened
+      without its partner; the `)}` after the progress bar never crossed. Restored.
+    - a doubled `...(authData.systemId ? …)` spread in `exchangeTokens` — one copy removed.
+    Every touched file (**98**) was then swept through esbuild's parser: **0 failures**.
+  - **🔍 The presence check — the step that proves "taken" is not "half-taken".** Every
+    line upstream *added* across the 90 taken files was searched for in our tree. **121
+    lines do not appear verbatim (109 whitespace-blind)**; each was opened and classified,
+    and **not one is a silent miss**:
+    - `open-sse/executors/opencode.js` (93) — Vela's **deeper** counterparts, each named:
+      `cloakChatTools` for the chat lane + `concealFingerprintTools` for the responses lane
+      (upstream's single `cloakOpencodeTools` duplicates where ours renames, and the comment
+      records why: *a twin on the responses lane turns the 403 into a 500*); a **strengthened
+      UA** (`opencode/1.18.31 ai-sdk/provider-utils/4.0.46 runtime/bun/1.3.14`) where upstream
+      sends the bare `opencode/1.18.31`; `/zen/v1/messages` for Union Alpha with its own
+      `anthropic-version` header; Vela's own canonical-session generators where upstream has
+      `unstableRandom`/`nativeSession`; and `RESPONSES_MODELS_EXACT` + muse-spark matching
+      where upstream lists two ids. A declaration-identity pass confirms **7 upstream names
+      absent, all seven with counterparts** — `opencode-go`, `services/model.js`,
+      `accountFallback.js` and `providers/shared.js` came across **name-for-name, 0 absent**.
+    - `capabilities.js` (5) — comments only; the entries themselves are present
+      (`codebuddy-intl.deepseek-v4.1-flash` → `thinkingFormat: "openai"`, vision on).
+    - `thinkingUnified.js` (1) — ours guards the adaptive shape behind `!permanentlyAdaptive`
+      (Fable 5.1 rejects it), upstream's `canDisable` is still covered by our `none && canDisable`
+      branch.
+    - `openai-to-commandcode.js` (3) — a **documented refusal**: `mediaType` is undocumented,
+      read by no consumer in either tree, and duplicates `mimeType`.
+    - `testUtils.js` (1) — ours is a superset (`valid ? null : keyed ? "Invalid API key" : …`).
+    - the two ported test files (6) — assertions worn in our own dialect (canonical UA,
+      `mimeType`), passing green.
+    - `fa.json` (12) — **my own check's false positive**: the lines are present; only the
+      space after the colon differs. Whitespace-blind, the count drops 121 → 109.
+
+---
+
 # v0.9.70 — The Five Rooms 🗂️
 > *"A chart is not a harbour, and a scroll is not a room. Same water — but only one of them lets you find what you sailed in for."* 🗂️💜
 

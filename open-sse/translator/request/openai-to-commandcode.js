@@ -5,6 +5,7 @@
  *  - params.system: STRING at top level (Anthropic-style; system messages NOT allowed in messages[])
  *  - params.messages[*].role ∈ {"user","assistant","tool"}
  *  - params.messages[*].content: Array of content blocks (NEVER a string)
+ *  - image_url / image source → {type:"image", image:"data:...;base64,...", mimeType}
  *  - tool_use blocks (assistant): {type:"tool-call", toolCallId, toolName, input}
  *  - tool_result blocks (role=user): {type:"tool-result", toolCallId, toolName, output}
  *  - tools[*]: Anthropic plain {name, description, input_schema}
@@ -12,8 +13,9 @@
 import { register } from "../index.js";
 import { FORMATS } from "../formats.js";
 import { randomUUID } from "crypto";
-import { ROLE, OPENAI_BLOCK } from "../schema/index.js";
+import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index.js";
 import { DEFAULT_MAX_TOKENS } from "../../config/runtimeConfig.js";
+import { parseDataUri, encodeDataUri } from "../concerns/image.js";
 
 function flattenText(content) {
   if (content == null) return "";
@@ -29,6 +31,54 @@ function flattenText(content) {
   return String(content);
 }
 
+// NOTE (Vela divergence from upstream master, deliberate): upstream's
+// toNativeImageBlock ALSO sets `mediaType: <same mime>`. That field is
+// undocumented, is read by no consumer in either tree, and duplicates mimeType —
+// and upstream's own tests contradict each other over it: three pin
+// {type, image, mimeType} (openai-to-commandcode ×2, bugs-gemini-cursor-commandcode)
+// while one (agent-client-fixes) demands mediaType from an input shape that is
+// byte-identical to theirs — i.e. upstream cannot satisfy both, and their two
+// translator tests are red at master. This port follows the documented contract
+// (the header comment above and the three agreeing tests). Re-add the field only
+// if CommandCode's wire proves it rejects the block without it.
+function toNativeImageBlock(part) {
+  if (!part || typeof part !== "object") return null;
+
+  if (part.type === OPENAI_BLOCK.IMAGE_URL) {
+    const url = typeof part.image_url === "string" ? part.image_url : part.image_url?.url;
+    const parsed = parseDataUri(url);
+    if (!parsed) return null;
+    return {
+      type: OPENAI_BLOCK.IMAGE,
+      image: encodeDataUri(parsed.mimeType, parsed.base64),
+      mimeType: parsed.mimeType,
+    };
+  }
+
+  if (part.type === OPENAI_BLOCK.IMAGE || part.type === CLAUDE_BLOCK.IMAGE) {
+    if (typeof part.image === "string" && part.image.startsWith("data:")) {
+      const parsed = parseDataUri(part.image);
+      const mime = part.mimeType || parsed?.mimeType || "image/png";
+      return {
+        type: OPENAI_BLOCK.IMAGE,
+        image: part.image,
+        mimeType: mime,
+      };
+    }
+    const source = part.source;
+    if (source?.type === "base64" && typeof source.data === "string") {
+      const mime = source.media_type || "image/png";
+      return {
+        type: OPENAI_BLOCK.IMAGE,
+        image: encodeDataUri(mime, source.data),
+        mimeType: mime,
+      };
+    }
+  }
+
+  return null;
+}
+
 function toContentBlocks(content) {
   if (content == null) return [{ type: OPENAI_BLOCK.TEXT, text: "" }];
   if (typeof content === "string") return [{ type: OPENAI_BLOCK.TEXT, text: content }];
@@ -40,10 +90,12 @@ function toContentBlocks(content) {
       } else if (part && typeof part === "object") {
         if (part.type === OPENAI_BLOCK.TEXT && typeof part.text === "string") {
           blocks.push({ type: OPENAI_BLOCK.TEXT, text: part.text });
-        } else if (part.type === OPENAI_BLOCK.IMAGE_URL || part.type === OPENAI_BLOCK.IMAGE) {
-          blocks.push({ type: OPENAI_BLOCK.TEXT, text: "[image omitted]" });
-        } else if (typeof part.text === "string") {
-          blocks.push({ type: OPENAI_BLOCK.TEXT, text: part.text });
+        } else {
+          const image = toNativeImageBlock(part);
+          if (image) blocks.push(image);
+          else if (typeof part.text === "string") {
+            blocks.push({ type: OPENAI_BLOCK.TEXT, text: part.text });
+          }
         }
       }
     }
@@ -88,6 +140,10 @@ function convertMessages(messages = []) {
 
     if (role === ROLE.ASSISTANT) {
       const blocks = [];
+      const rc = m.reasoning_content || m.thought || m.reasoning;
+      if (rc || (Array.isArray(m.tool_calls) && m.tool_calls.length > 0)) {
+        blocks.push({ type: "reasoning", text: rc || " " });
+      }
       const text = flattenText(m.content);
       if (text) blocks.push({ type: OPENAI_BLOCK.TEXT, text });
       if (Array.isArray(m.tool_calls)) {

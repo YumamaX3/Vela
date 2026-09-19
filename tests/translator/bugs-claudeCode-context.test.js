@@ -54,9 +54,10 @@ describe("Claude Code CLI context → OpenAI", () => {
     expect(JSON.stringify(out)).toContain("ENCRYPTED_BLOB");
   });
 
-  // claude-to-openai.js:155-173 — tool_result image block stringified into raw JSON
-  // KNOWN BUG
-  it.fails("tool_result image block is preserved", () => {
+  // claude-to-openai.js:203-222 — WAS the bug: tool_result image block stringified into raw JSON
+  // FIXED 2026-09-19 (upstream 9router v0.5.81 port): the image rides in the user turn
+  // that follows the tool messages, tagged with the call it came from.
+  it("tool_result image block is preserved", () => {
     const out = T(FORMATS.CLAUDE, FORMATS.OPENAI, {
       messages: [
         { role: "assistant", content: [{ type: "tool_use", id: "call_1", name: "screenshot", input: {} }] },

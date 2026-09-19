@@ -25,5 +25,15 @@ export async function register() {
     } catch (err) {
       console.warn("[instrumentation] Fleet Captain init failed:", err.message);
     }
+
+    // Model-catalog sync (fire-and-forget): the gateway's published modality /
+    // limit snapshot, refreshed on a 24h cadence. Dynamic for the same reason as
+    // the Fleet Captain import above — keep the fs tree out of the Edge bundle.
+    try {
+      const { startModelCatalogSync } = await import("@/lib/modelCatalog/sync.js");
+      startModelCatalogSync();
+    } catch (err) {
+      console.warn("[instrumentation] Model catalog sync failed:", err.message);
+    }
   }
 }
