@@ -18,6 +18,7 @@ auto_awesome
 backup
 badge
 bar_chart
+bedtime
 block
 blur_on
 bolt
@@ -60,6 +61,8 @@ directions_boat
 dns
 done
 download
+download_done
+drive_file_rename_outline
 edit
 edit_note
 email
@@ -78,6 +81,7 @@ folder_open
 forum
 gavel
 graphic_eq
+grid_view
 group
 group_work
 health_and_safety
@@ -186,6 +190,7 @@ show_chart
 sleep
 smart_toy
 snowflake
+sort
 south
 spatial_audio
 speaker
@@ -200,6 +205,7 @@ swap_calls
 swap_vert
 sync
 sync_alt
+table_rows
 tag
 terminal
 today
@@ -212,6 +218,8 @@ trending_down
 trending_up
 trophy
 tune
+unfold_less
+unfold_more
 update
 upload
 upload_file
