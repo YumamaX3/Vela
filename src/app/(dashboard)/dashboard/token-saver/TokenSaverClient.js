@@ -8,7 +8,7 @@ import {
   WENYAN_LOCALES,
   CAVEMAN_LEVELS,
   PONYTAIL_LEVELS,
-} from "../endpoint/endpointConstants";
+} from "../endpoint/lib/constants";
 
 export default function TokenSaverClient() {
   const [rtkEnabled, setRtkEnabledState] = useState(true);
