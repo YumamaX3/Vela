@@ -1141,10 +1141,14 @@ html:not(.dark) .login-card {
      · .btn-cta · .btn-cta::before
      · .topology-router-core · .topology-router-icon · .topology-router-label
      · .topology-edge-kame · .topology-edge-halo · .topology-edge-plasma
-     · 15 inline `style={{ animation: "... infinite" }}` sites across 12 files —
+     · 16 inline `style={{ animation: "... infinite" }}` sites across 12 files —
        landing/components/AnimatedBackground.js (3), the four media-provider example
-       cards (5), and one each in providers/[id], proxy-pools, ModelsCard,
-       PassthroughModelsSection, CompatibleModelsSection and landing/page.js
+       cards (5, one of them twice), providers/[id] (3: page.js twice, plus
+       ModelRow), and one each in proxy-pools, ModelsCard, PassthroughModelsSection,
+       CompatibleModelsSection and landing/page.js. (This read "15 ... one each in
+       providers/[id]" while the tree held sixteen: the list had dropped ModelRow
+       entirely and counted providers/[id]/page.js's two sites as one. The test
+       below measures the number, so the correction is checked, not trusted.)
 
    `topology-edge-dash` and `topology-edge-flicker` each run at TWO different
    durations, from two different selectors — so naming one duration per keyframe is
