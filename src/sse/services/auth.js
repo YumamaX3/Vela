@@ -428,7 +428,7 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
   }
   if (!shouldFallback) return { shouldFallback: false, cooldownMs: 0 };
 
-  const reason = typeof errorText === "string" ? errorText.slice(0, 100) : "Provider error";
+  const reason = typeof errorText === "string" ? errorText.slice(0, 200) : "Provider error";
   // GitHub + freebuff ban + freebuff daily quota are account-wide; freebuff
   // bounded codes rotate accounts (account-wide) except invalid_agent_model
   // (the (egress, model) pairing); everything else is per-model.

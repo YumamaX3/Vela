@@ -4,14 +4,16 @@ import { PROVIDERS } from "../../open-sse/config/providers.js";
 import { resolveTransport } from "../../open-sse/services/provider.js";
 
 // Chat-only models (no /messages, no /responses support on opencode-go)
-const CHAT_ONLY = ["glm-5.2", "glm-5.1", "kimi-k2.7-code", "kimi-k2.6", "mimo-v2.5", "mimo-v2.5-pro"];
+const CHAT_ONLY = ["glm-5.3", "glm-5.2", "glm-5.1", "kimi-k2.7-code", "kimi-k2.6", "kimi-k3",
+  "deepseek-flash", "longcat-2.0", "mimo-v2.5", "mimo-v2.5-pro", "hy4-preview", "hy3"];
 // Models that also expose the Anthropic /messages endpoint
-const CLAUDE_CAPABLE = ["minimax-m3", "minimax-m2.7", "minimax-m2.5", "qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus"];
+const CLAUDE_CAPABLE = ["minimax-m3", "minimax-m2.7", "minimax-m2.5",
+  "qwen3.8-max", "qwen3.8-flash", "qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus"];
 // Models that also expose the OpenAI /responses endpoint
 const RESPONSES_CAPABLE = ["deepseek-v4-pro", "deepseek-v4-flash"];
-// Models the Responses API alone serves (muse-spark): a chat/completions call
-// answers 500 upstream (#3819/#3820), so targetFormat must drive the endpoint.
-const RESPONSES_ONLY = ["muse-spark-1.2-contributor", "muse-spark-1.3-contributor"];
+// Models the Responses API alone serves: a chat/completions call answers 500
+// upstream (#3819/#3820), so targetFormat must drive the endpoint.
+const RESPONSES_ONLY = ["muse-spark-1.2-contributor", "muse-spark-1.3-contributor", "grok-4.6", "gpt-5.6-luna"];
 
 // Mirror of chatCore's per-model transport guard: use the sourceFormat-matched
 // transport only when the model declares support for that sourceFormat.
@@ -34,13 +36,28 @@ describe("OpenCode Go model catalog", () => {
   it("matches the documented model IDs", () => {
     const ids = (PROVIDER_MODELS["opencode-go"] || []).map((m) => m.id);
     expect(ids).toEqual([
-      "glm-5.3-flash", "glm-5.2", "glm-5.1", "kimi-k2.7-code", "kimi-k2.6",
+      "deepseek-flash",
+      "glm-5.3-flash", "glm-5.3", "glm-5.2", "glm-5.1", "kimi-k2.7-code", "kimi-k2.6", "kimi-k3",
       "deepseek-v4-pro", "deepseek-v4-flash", "deepseek-v4-flash-vision-exp",
-      "mimo-v2.5", "mimo-v2.5-pro",
+      "longcat-2.0", "mimo-v2.5", "mimo-v2.5-pro",
       "minimax-m3", "minimax-m2.7", "minimax-m2.5",
-      "qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus",
+      "qwen3.8-max", "qwen3.8-flash", "qwen3.7-max", "qwen3.7-plus", "qwen3.6-plus",
+      "hy4-preview", "hy3",
+      "grok-4.6", "gpt-5.6-luna",
       "muse-spark-1.2-contributor", "muse-spark-1.3-contributor",
     ]);
+  });
+});
+
+describe("OpenCode Go thinking-suffix model lookup", () => {
+  it("preserves Responses routing for gpt-5.6-luna thinking variants", () => {
+    expect(getModelSupportedFormats("opencode-go", "gpt-5.6-luna(high)")).toEqual(["openai-responses"]);
+    expect(getModelTargetFormat("opencode-go", "gpt-5.6-luna(high)")).toBe("openai-responses");
+  });
+
+  it("preserves Responses routing for grok-4.6 thinking variants", () => {
+    expect(getModelSupportedFormats("opencode-go", "grok-4.6(high)")).toEqual(["openai-responses"]);
+    expect(getModelTargetFormat("opencode-go", "grok-4.6(high)")).toBe("openai-responses");
   });
 });
 

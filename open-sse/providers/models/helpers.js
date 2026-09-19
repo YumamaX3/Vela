@@ -18,3 +18,12 @@ export function withCodexReviewModels(models) {
     ];
   });
 }
+
+// Muse Spark is served by the Responses API on both OpenCode lanes — a future
+// id must land there without a registry edit (upstream v0.5.81).
+export function isMuseSparkModel(modelId) {
+  if (!modelId || typeof modelId !== "string") return false;
+  const clean = modelId.replace(/\([^()]+\)\s*$/, "").trim();
+  const base = clean.includes("/") ? clean.split("/").pop() : clean;
+  return /^muse[-_]?spark(?:$|[-_:.\s])/i.test(base);
+}

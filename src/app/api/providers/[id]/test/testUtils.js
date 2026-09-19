@@ -509,6 +509,44 @@ async function fetchWithConnectionProxySafe(url, options = {}, effectiveProxy = 
   return probeWithHopValidation(url, (u, o) => fetchWithConnectionProxy(u, o, effectiveProxy), options);
 }
 
+/**
+ * OpenCode Zen is a hybrid lane: a real key takes precedence over the keyless
+ * free tier, so the probe must send the credential the connection actually has.
+ * Bundling the headers with the `keyed` flag keeps the verdict rule (keyed
+ * probes read 401/403 as invalid; the free tier reads the status as a whole)
+ * beside the credential it belongs to.
+ */
+export function opencodeProbeLane(apiKey) {
+  const keyed = typeof apiKey === "string" && apiKey.trim().length > 0;
+  return keyed
+    ? {
+        keyed,
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "User-Agent": "opencode",
+          Accept: "application/json",
+        },
+      }
+    : {
+        keyed,
+        headers: { Authorization: "Bearer public", "User-Agent": "opencode/1.18.31" },
+      };
+}
+
+/**
+ * The verdict half of the same rule. Keyed: the gate answers 401/403 for a key
+ * it rejects, so any other status is a pass. Keyless: `Bearer public` is the
+ * free tier's own token, so the whole status must be ok — and a failure is the
+ * free tier being unavailable, never "invalid key" when there is no key.
+ */
+export function opencodeProbeVerdict(keyed, status) {
+  const valid = keyed ? status !== 401 && status !== 403 : status >= 200 && status < 300;
+  return {
+    valid,
+    error: valid ? null : keyed ? "Invalid API key" : "OpenCode free tier unavailable",
+  };
+}
+
 async function testApiKeyConnection(connection, effectiveProxy = null) {
   if (isOpenAICompatibleProvider(connection.provider)) {
     const modelsBase = connection.providerSpecificData?.baseUrl;
@@ -812,15 +850,16 @@ async function testApiKeyConnection(connection, effectiveProxy = null) {
       case "opencode": {
         // OpenCode Zen (hybrid lane): prove the stored key against Zen's models
         // gate — a GET, so the test burns nothing. Mirrors the validate route.
+        // Keyless connections (noAuth is set, and keyless is a first-class state
+        // per the registry's own notice) probe the public free tier instead: an
+        // empty `Bearer ` would report "Invalid API key" for a lane that
+        // legitimately has none. The keyless half is upstream 9router v0.5.81's
+        // case, merged with Vela's keyed proof rather than replacing it.
+        const lane = opencodeProbeLane(connection.apiKey);
         const res = await fetchWithConnectionProxy("https://opencode.ai/zen/v1/models", {
-          headers: {
-            Authorization: `Bearer ${connection.apiKey}`,
-            "User-Agent": "opencode",
-            Accept: "application/json",
-          },
+          headers: lane.headers,
         }, effectiveProxy);
-        const valid = res.status !== 401 && res.status !== 403;
-        return { valid, error: valid ? null : "Invalid API key" };
+        return opencodeProbeVerdict(lane.keyed, res.status);
       }
       case "opencode-go": {
         const res = await fetchWithConnectionProxy("https://opencode.ai/zen/go/v1/chat/completions", {

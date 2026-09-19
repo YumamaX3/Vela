@@ -116,12 +116,26 @@ describe("commandcode-to-openai — finish", () => {
 });
 
 describe("commandcode-to-openai — error event", () => {
-  it("stringifies object errors so client sees readable message", () => {
-    const { chunks } = feed([
-      { type: "error", error: { type: "server_error", message: "Boom" } },
-    ]);
-    const text = chunks[0].choices[0].delta.content;
-    expect(text).toContain("Boom");
-    expect(text).not.toContain("[object Object]");
+  // A mid-stream error must NOT ride out as content with finish_reason "stop":
+  // a client that sees a clean stop cannot tell a failed answer from a finished
+  // one. The translator throws instead, so the stream handler marks it errored.
+  // (Deliberate contract change — upstream 9router v0.5.81, commit 092c84ea.)
+  it("throws a readable error and emits no content on a mid-stream error", () => {
+    const state = {};
+    const chunks = [];
+    let thrown = null;
+    try {
+      const out = commandCodeToOpenAIResponse(
+        JSON.stringify({ type: "error", error: { type: "server_error", message: "Boom" } }),
+        state,
+      );
+      if (out) chunks.push(...out);
+    } catch (err) {
+      thrown = err;
+    }
+
+    expect(chunks, "an error must not be emitted as content").toEqual([]);
+    expect(thrown?.message, "the client must see why the stream failed").toContain("Boom");
+    expect(thrown?.message).not.toContain("[object Object]");
   });
 });
