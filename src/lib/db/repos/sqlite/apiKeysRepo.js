@@ -7,7 +7,7 @@ import { validateKeyLimits, KeyLimitsValidationError } from "../../keyLimits.js"
 // Static (not dynamic) import — resolveKey is on the gate hot path and a
 // per-call `await import()` inflates p99 under CPU contention. apiKey.js
 // reaches only stdlib + DATA_DIR, so no import cycle.
-import { parseVelaKey, hashKey } from "@/shared/utils/apiKey";
+import { parseVelaKeyShape, hashKey } from "@/shared/utils/apiKey";
 import { touchKeyLastUsed } from "./usageRepo.js";
 
 export { KeyLimitsValidationError } from "../../keyLimits.js";
@@ -204,14 +204,18 @@ export async function deleteApiKey(id) {
 
 /**
  * Resolve a bearer token to its row (the gate's lookup). Fail-closed:
- * bad format, bad CRC, unknown hash, soft-deleted → null. Returns the row
+ * malformed shape, unknown hash, soft-deleted → null. Returns the row
  * even when paused — the GATE speaks the distinct codes (paused → 403,
  * unknown → 401). Honors a single rotation grace slot.
  */
 export async function resolveKey(rawKey) {
   const db = await getAdapter();
-  const parsed = parseVelaKey(rawKey);
-  if (!parsed) return null;
+  // Shape, never the crc. The crc binds a key to the secret that minted it and is
+  // only a fast-path pre-reject; the authentication decision is the exact sha256
+  // below. A key minted before a rotation is still the string its row was minted
+  // from, so gating on the crc here turned every rotation into a total lockout and
+  // left the grace branch beneath unreachable.
+  if (!parseVelaKeyShape(rawKey)) return null;
   const hash = hashKey(rawKey);
   const now = new Date().toISOString();
   const row = db.get(
