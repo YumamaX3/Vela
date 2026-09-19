@@ -216,6 +216,8 @@ Multi-stage, multi-arch (amd64 + arm64). The **builder** forces `VELA_DB_DRIVER=
 > **⚠️ CI GOTCHA**: the build (`npm run build` → `sync-changelog.mjs` + `next build`) needs `package-lock.json` AND `scripts/sync-changelog.mjs` + `scripts/copy-standalone-assets.mjs` tracked. They were once gitignored and every tag build broke. **Never re-untrack them.**
 
 > **⚠️ The arm64 `npm ci` hang (2026-09-19, measured).** The QEMU mitigation above covers `npm run build` — it does **not** cover the install step, which runs *before* it. A tag build (v0.9.71, run `35448469846`) sat at `[linux/arm64 builder 3/5] RUN … npm ci` for **5h58m** after `qemu: uncaught target signal 4 (Illegal instruction) - core dumped`, until GitHub's **6-hour job ceiling** cancelled it: **the amd64 half built cleanly and every layer was then discarded** — `ghcr.io/yumamax3/vela:0.9.71` answered **404** until a re-run (attempt 2) landed it in ~90s off the warm cache. It is **flaky, not deterministic**: v0.9.70's own log shows the same arm64 install flying (`added 653 packages in 2m`). v0.9.67 and v0.9.68 were both cancelled at this same wall (`0.9.68` measured 404 — that tide still has **no image**), so **a cancelled tag build ships no hull**: `gh run rerun <id> --failed` is the recovery, and `ghcr.io/.../manifests/<ver>` an anonymous-token `curl` is how you prove an image exists without `read:packages`.
+>
+> ⚠️ **The mast census (2026-09-19, measured).** Re-derived with that anonymous-token `curl`: `0.9.66` **200** · `0.9.67` **404** · `0.9.68` **404** · `0.9.69` **200** · `0.9.70` **200** · `0.9.71` **200** · `latest` **200**. So **two minors still ship no hull** — .67 and .68, both cancelled at this same arm64 wall — while their Releases are live and carry the full story. Only the image is missing; each is recoverable with `gh run rerun <id> --failed` on **its own tag run**, never by re-tagging.
 
 ---
 
@@ -286,6 +288,25 @@ gh api "repos/YumamaX3/Vela/releases/tags/v0.9.x" --jq '.html_url'
 > and .46 each had a deep annotated tag and **no Release at all**. All six were
 > back-filled on 2026-09-04 from their own tag bodies. A tag nobody publishes is
 > a sealed letter never posted.
+
+> ⚠️ **A second gap, found and closed 2026-09-19.** The first back-fill was not
+> the last: **v0.9.66, .67, .68 and .69 each carried a tag and no Release** —
+> four more minors drifting *after* the decree, sealed by the same hand that
+> forgot to post them. All four were back-filled the same day from their own tag
+> bodies, except **v0.9.69, whose tag body is 38 characters** (the minimum
+> `git tag -a` message) — its Release carries the **commit body** instead, which
+> is exactly why the Description Decree puts the deep text in *both* places.
+> Census at that tide: **73 distinct tags, 42 Releases, 31 unreleased** — and
+> every one of the 31 is **pre-decree** (`v0.6.50–v0.6.80` from the fork's own
+> history, plus `v0.9.1–v0.9.29` and `v0.9.37`). Re-derive both lists and
+> `comm -23` them, **`LC_ALL=C` on the sort** — `sort -V` produces an order
+> `comm` rejects ("file 1 is not in sorted order"), and process substitution is
+> unavailable on this shell, so write the two lists to scratch files:
+> ```bash
+> git ls-remote --tags origin | sed 's|.*refs/tags/||' | cut -d'^' -f1 | LC_ALL=C sort -u > .rel-tags.txt
+> gh api "repos/YumamaX3/Vela/releases?per_page=100" --paginate --jq '.[].tag_name' | LC_ALL=C sort -u > .rel-rel.txt
+> comm -23 .rel-tags.txt .rel-rel.txt; rm -f .rel-tags.txt .rel-rel.txt
+> ```
 
 ### 📜 The Description Decree (Star's decree, 2026-08-29)
 
