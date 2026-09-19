@@ -284,9 +284,14 @@ describe("prefers-reduced-motion is no longer scoped to the login page", () => {
   });
 
   it("the inline-animation sites the widened rule reaches are counted, not asserted", () => {
-    // The comment in globals.css claims "15 inline sites across 12 files". A cited
+    // The comment in globals.css claims "16 inline sites across 12 files". A cited
     // number is a claim that rots the moment someone adds a spinner, and this is the
     // same class of drift the eight stale line numbers were. So it is measured here.
+    //
+    // The 15 → 16 correction (2026-09-20) was this detector working late: the tree
+    // had held sixteen since at least v0.9.70 while both this constant and the
+    // stylesheet comment said fifteen, so the gate was red and unread. The count is
+    // now equal on both sides — and the assertion below is the thing that keeps it.
     //
     // A stylesheet `!important` DOES override a non-important inline style, which is
     // why the widened selector reaches these at all without touching 12 component
@@ -311,7 +316,7 @@ describe("prefers-reduced-motion is no longer scoped to the login page", () => {
     walk(join(process.cwd(), "src"));
 
     const total = sites.reduce((a, s) => a + s.n, 0);
-    expect(total, `inline infinite-animation sites moved from 15 to ${total}; update the globals.css comment`).toBe(15);
+    expect(total, `inline infinite-animation sites moved from 16 to ${total}; update the globals.css comment`).toBe(16);
     expect(sites.length, `file count moved from 12 to ${sites.length}`).toBe(12);
 
     // And the widest single file is the one the comment names first.
