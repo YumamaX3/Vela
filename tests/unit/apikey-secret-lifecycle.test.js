@@ -1,5 +1,8 @@
 // Test covenant: apikey-secret-lifecycle — auto-generation, env precedence,
-// rotation as the global revocation lever.
+// rotation staleness. The strict parser refuses a crc minted under a previous
+// root (below); resolveKey still authenticates the stored key, so a rotation is
+// not a fleet-wide revocation — see apikey-rotation-grace.test.js. Revoking a
+// key is per-key: delete it.
 // Plan: plans/vela-key-governance.md §3.8 + §7.
 import fs from "node:fs";
 import os from "node:os";
@@ -55,7 +58,7 @@ describe("API_KEY_SECRET lifecycle", () => {
     expect(envSecret).not.toBe(fileSecret);
   });
 
-  it("rotating the secret revokes every minted key (global lever)", async () => {
+  it("rotating the secret makes every minted key's crc stale (the parser's lever)", async () => {
     // Mint under secret A
     process.env.API_KEY_SECRET = "secret-A";
     const { generateApiKey, parseVelaKey } = await import("@/shared/utils/apiKey.js");
@@ -67,7 +70,9 @@ describe("API_KEY_SECRET lifecycle", () => {
     process.env.API_KEY_SECRET = "secret-B";
     const rotated = await import("@/shared/utils/apiKey.js");
 
-    // Old key's CRC no longer verifies under the new root → rejected everywhere
+    // Old key's CRC no longer verifies under the new root — the strict parser
+    // refuses it. Authorization is a separate question: resolveKey admits the
+    // stored key by its sha256 (apikey-rotation-grace.test.js pins that).
     expect(rotated.parseVelaKey(minted.key)).toBeNull();
     // New mints under B verify fine
     const fresh = rotated.generateApiKey();

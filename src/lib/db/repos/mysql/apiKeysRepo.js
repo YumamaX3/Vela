@@ -14,7 +14,7 @@ import { validateKeyLimits, KeyLimitsValidationError } from "../../keyLimits.js"
 // Static (not dynamic) import — resolveKey is on the gate hot path and a
 // per-call `await import()` inflates p99 under CPU contention. apiKey.js
 // reaches only stdlib + DATA_DIR, so no import cycle.
-import { parseVelaKey, hashKey } from "@/shared/utils/apiKey";
+import { parseVelaKeyShape, hashKey } from "@/shared/utils/apiKey";
 
 export { KeyLimitsValidationError } from "../../keyLimits.js";
 
@@ -207,14 +207,16 @@ export async function deleteApiKey(id) {
 
 /**
  * Resolve a bearer token to its row (the gate's lookup). Fail-closed:
- * bad format, bad CRC, unknown hash, soft-deleted → null. Returns the row
+ * malformed shape, unknown hash, soft-deleted → null. Returns the row
  * even when paused — the GATE speaks the distinct codes (paused → 403,
  * unknown → 401). Honors a single rotation grace slot.
  */
 export async function resolveKey(rawKey) {
   const db = await getMysqlAdapter();
-  const parsed = parseVelaKey(rawKey);
-  if (!parsed) return null;
+  // Shape, never the crc — the exact sha256 below is the authentication decision,
+  // and a key minted under a previous API_KEY_SECRET must be able to reach it (and
+  // the rotation-grace branch). See the sqlite twin for the full reasoning.
+  if (!parseVelaKeyShape(rawKey)) return null;
   const hash = hashKey(rawKey);
   const now = new Date().toISOString();
   const row = await db.get(

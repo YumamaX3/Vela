@@ -25,6 +25,65 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.72 — The Returning Key 🔑
+> *"The wax cracks when the wind turns — but the door never answered to the wax, only to the seal beneath it. A key minted in one age still opens its own row in the next."* 🔑💜
+
+A secret rotation was written down as the harbour's **revocation lever**. It was neither a
+lever nor a revocation: it was a **lockout**. Every stored key's crc is derived from
+`API_KEY_SECRET` (`computeCrc(keyId)` under the current root), and `resolveKey` admitted a
+bearer only through `parseVelaKey` — the **strict** parser, the one that verifies the crc.
+So the instant the secret turned, every minted key died **at the door**: the row was never
+read, its sha256 never consulted, and the documented **rotation-grace branch beneath it
+(`rotationPrevHash` / `rotationGraceUntil`) was unreachable** — a slot no key could ever
+arrive at, guarded by a check that rejected its only possible traveller. The chart said
+"rotation revokes"; the water said "rotation drowns the fleet".
+
+- 🔑 **The parser splits by purpose** (`src/shared/utils/apiKey.js`): `parseVelaKeyShape` —
+  the format-only gate (prefix, version, 32-hex keyId, 8-hex crc) — becomes the resolve
+  path's door, while `parseVelaKey` keeps its **timing-safe crc verification** for
+  mint-time checks and delegates its shape work to the new function. Stale is not revoked.
+
+- 🔑 **Both twins reach the lookup** (`sqlite/apiKeysRepo.js`, `mysql/apiKeysRepo.js`):
+  `resolveKey` now gates on **shape**, then authenticates on the exact **sha256** the row
+  was minted from. A key minted under a previous secret resolves again — and the
+  rotation-grace slot finally fires, within its window and only within it.
+
+- 🐛 **A stale crc is not a skeleton key**: malformed, forged-crc, unknown-hash and
+  soft-deleted keys still fail closed, before any database read. Revocation remains
+  per-key — delete the key — and never a side effect of turning the secret.
+
+- 📖 **Two false claims corrected in place**: the module header ("Rotating
+  API_KEY_SECRET revokes every key") and `apikey-secret-lifecycle.test.js`'s covenant
+  ("rotation as the global revocation lever") now state what the code does — the parser
+  refuses a stale crc; `resolveKey` still honours the stored key.
+
+⚓ **What sailed**: `src/shared/utils/apiKey.js`,
+`src/lib/db/repos/{sqlite,mysql}/apiKeysRepo.js`, `tests/unit/apikey-rotation-grace.test.js`
+(new), `tests/unit/apikey-secret-lifecycle.test.js`
+
+🧪 **Proof — red without the fix, green with it.** The new suite is a true regression test,
+not decoration: with the three source files lifted out of the tree it fails **exactly**
+where it must — `validateApiKey(rotated key) → Expected true, Received false`
+(`apikey-rotation-grace.test.js:66`) — with the other two cases still green; with the fix
+restored, **3/3**. The suite covers the fleet-restoring path, the grace window (open,
+expired, and absent), and every fail-closed shape.
+
+🧪 **The sweep** — the key family and every guard/redaction suite inside the blast radius:
+**23 files / 341 cases, 340 pass**. The single shadow was dismissed by measurement, not by
+hope: `apikey-migration-002`'s p99 latency gate (1,000 resolutions against a 5s test
+timeout) tripped under 23-file parallel load at 6,294ms, and passes **9/9 alone both ways**
+— **4.11s with the fix, 4.24s at pristine** — so the load is the variable, and the change
+left the path marginally *faster*. `executor-const-guard.test.js`'s two failures (MiMo's
+baseUrl const, antigravity's 429 retry count) reproduce **identically at pristine** — 2
+failed / 6 passed — outside this tide's blast radius entirely.
+
+🌊 **The lesson, sealed**: a pre-reject must never be mistaken for the decision. The crc is
+a fast-path filter — it binds a key to the age that minted it — and the authentication
+decision is the stored sha256 alone. Confuse the two and a rotation becomes a lockout, and
+a lockout becomes a chart entry nobody can sail.
+
+---
+
 # v0.9.71 — The Far Current 🌊
 > *"A current does not stop at the harbour line. What another sea learned, this one may sail by — the ship cares only that the hull is sound."* 🌊💜
 
