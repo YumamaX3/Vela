@@ -25,6 +25,122 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.73 — The Harbor Manifest 📜
+> *"A fleet is not known by its hulls alone, but by the ledger that names them — how many sail, which harbor each belongs to, and which of them the tide has left idle. Write the manifest once, and every eye on the deck reads the same sea."* 📜💜
+
+The combos page was a **flat card grid**: every combo in one undifferentiated list, its
+arithmetic computed in the browser from whatever the page happened to have loaded, and its
+dangerous operations run one request at a time. This tide rebuilds it as an **operator's
+flight deck** — masthead, fleet pulse, category rail, two lenses, a detail drawer, and a
+bulk bar — and moves the arithmetic where it belongs: **the server**. Four new routes give
+the deck one truth to read, and the page keeps a client-side fallback only for the first
+paint, so the census and every lens can never quietly disagree.
+
+The same tide mended the **glyph inventory**. The deck's new controls asked the font for
+eight glyphs the subset had never carried — `sort`, `grid_view`, `table_rows`,
+`unfold_less`, `unfold_more`, `bedtime`, `download_done`, `drive_file_rename_outline` — and
+the deck faithfully rendered the ligature's **raw name** where an icon should have been.
+The inventory now names them; the font is re-minted under a new content-hashed identity.
+
+- 📊 **The fleet gets a manifest** (`GET /api/combos/stats`): one server-computed census —
+  combos (llm only) and `combosAllKinds` (every kind in the table), members, unique models,
+  providers, unreachable members, empty combos, fusion count, active/idle — plus the
+  strategy mix, the **harbor tree** derived from `/` prefixes, the top combos by 24 h
+  traffic, and an **attention list** that says *why* (`no members`, `N member providers
+  offline`, `82% ok`). The idle list is capped at 50; the window is clamped to 1–720 h.
+
+- 🎛️ **Bulk actions with a verdict each** (`POST /api/combos/bulk`): `duplicate` (mints the
+  same `<name>-copy`, `-copy-2`, … shape the page's button always produced), `setStrategy`
+  (one settings write for the whole selection, then one rotation reset), `renameNamespace`
+  (a name outside the prefix **fails by name**, a collision is **refused**, never silently
+  dropped), and `delete`. A partial success is reported as exactly that — never a blanket
+  `ok`. Unknown action, empty selection and a strategy rewrite with nothing to set all
+  answer honest 400s; a `GET` on the same route publishes the action roster so a client
+  renders the bar from the server's own vocabulary.
+
+- 📤 **Export is the database's truth, strategies included** (`GET /api/combos/export`):
+  a `vela-combos` v1 file, `scope=llm|all`, served as an attachment. The payload carries
+  `settings.comboStrategies` for the exported names only — the old client-side export could
+  not carry them at all, and **a fleet shipped without its strategies routes differently on
+  the far shore**.
+
+- 📥 **Import previews before it writes** (`POST /api/combos/import`): the whole file is
+  judged first — invalid names, conflicts, and the exact names that would land —
+  `mode: "dry-run"` **writes nothing**, `mode: "apply"` lands that plan;
+  `onConflict: skip | overwrite | rename` decides the collision; strategies ride along
+  **only for names that actually landed**, because a strategy about a skipped combo is a
+  setting about nothing. The old client looped `POST /api/combos` and counted what stuck,
+  so a mistyped file half-landed before anyone could see what it contained.
+
+- 🖥️ **The page is a console now** (`page.js` + 14 components, 2 hooks, 4 lib modules): a
+  **masthead** (title, purpose, Import/Export/New) and a **fleet pulse** band; a **toolbar**
+  with search (`/` focuses, `Esc` clears), strategy + health filters, sort, the lens switch,
+  and collapse-all; a **category rail** of smart views (`Needs attention`, `Idle`,
+  `No models`), the **harbor namespace tree**, and the strategy categories — each with a
+  live count; harbor-grouped collapsible sections rendered as **Cards** or a **dense Table**
+  (sticky name column, horizontally scrolling); **multi-select with a bulk bar**; a
+  **detail drawer** (members with caps, 24 h usage, strategy editor with a judge picker,
+  per-member reachability, quick actions); keyboard shortcuts (`/`, `Esc`, `n`); an honest
+  error + retry state; and the lens choice persisted (`vela.combos.view`). The capacity
+  adapter band is carried forward, restyled into the same system.
+
+- 🔧 **The contracts held through a full rewrite**: `tests/unit/combos-page-redesign.test.jsx`
+  — 8 cases reading rendered text — stayed green, including `Models in fleet`,
+  `Fusion combos`, `Active · 24h`, `95% ok`, `2/2 connected`, `No combos match your filters`
+  and the empty-state names. The page changed completely; what it promises did not.
+
+- 🐛 **Eight glyphs the subset never carried** (`scripts/icon-ligatures.txt`,
+  `scripts/icon-subset-manifest.json`, `src/app/globals.css`): the inventory grows
+  **232 → 240**, the font is re-minted content-hashed
+  (`vela-icons.d44f5d8c2c885c5d.woff2` → `vela-icons.5e3897820e1737e7.woff2`,
+  **181,204 → 184,384 bytes**, +3,180), and `tests/unit/icon-subset.test.js` guards the
+  contract 2/2. Every glyph was confirmed **formed** in the live deck — cards *and* table —
+  with zero raw ligature words in either lens.
+
+- ⚙️ **The forge's missing input, recorded rather than rediscovered**:
+  `scripts/subset-icons.py` reads its codepoint map from `assets-tmp/ms.codepoints`, which
+  is **neither tracked nor fetched** (`CODEPOINTS_URL` is declared but never used). This
+  tide rebuilt that cache from the source font's own `cmap` + `GSUB` to forge the subset;
+  the gap is named here so the next keeper is not stranded in the same dark.
+
+⚓ **What sailed**: `src/app/(dashboard)/dashboard/combos/page.js` (rewritten),
+`combos/components/{CombosMasthead,FleetPulse,ComboToolbar,ComboRail,ComboGrid,ComboCard,ComboTable,ComboDetailDrawer,StrategyControl,HealthPill,UsageCell,BulkActionBar,CombosEmptyState,CapacityAdapterSection,index}.js` (new),
+`combos/hooks/{useCombosData,useComboFilters}.js` (new),
+`combos/lib/{comboMeta,comboFormat,comboGroups,comboApi}.js` (new),
+`src/app/api/combos/{stats,bulk,export,import}/route.js` + `_lib/combosApi.js` (new),
+`scripts/icon-ligatures.txt`, `scripts/icon-subset-manifest.json`, `src/app/globals.css`,
+`public/fonts/vela-icons.5e3897820e1737e7.woff2` (new, and the old one deleted),
+`tests/unit/combos-fleet-api.test.js` (new)
+
+🧪 **Proof — the guard, mutation-tested.** `tests/unit/combos-fleet-api.test.js` drives all
+four routes against a **real migrated SQLite** (per-test `DATA_DIR`, `vi.resetModules()` in
+both hooks, the sibling suite's recipe): the census arithmetic (llm-only vs all-kinds,
+harbor grouping, attention reasons, idle fleet), usage attribution that lets **no direct row**
+into a combo's numbers, export scope + strategies + attachment header, bulk verdicts
+(`-copy` minting, an outsider and a collision **both refused by name**, three honest 400s),
+and the import dry run. It is not decoration: wounding the dry-run early return
+(`mode === "dry-run"` → a dead string) reddened **exactly one** case —
+`judges the whole file and writes nothing until apply is asked for` — **1 failed / 8 passed**
+— and restoring it returned **9/9**. The first run reddened two by **my own arithmetic**, not
+the harbor's: with no usage rows the whole fleet is honestly idle (not just the member-less
+combo), and `usageHistory` carries a UNIQUE key over the entire row, so three identical
+inserts collide — the guard now gives each sounding its own moment. Both mended in the test,
+neither by weakening it.
+
+🧪 **The deck, read in the live browser**: cards render every icon formed; switching to the
+dense lens renders **4 rows** with headers `Name · Members · STRATEGY · Health · 24h requests ·
+TOKENS · Cost · OK · LAST · ACTIONS` and the `sort` glyph formed at 24 px; the lens choice
+persists to `localStorage`. `npm run build` is green — 174 s, standalone assets copied.
+
+🌊 **The lesson, sealed**: a console is only as honest as its arithmetic. Compute the census
+**once, on the server**, and let every lens read the same numbers — otherwise the page and
+the API drift one quiet release at a time, and the operator reads a fleet that does not
+exist. And when a deck grows a control, the **inventory grows with it**: an icon the subset
+never carried does not fail loudly, it simply prints its own ligature name where a glyph
+should be, and every eye on the deck learns to read `table_rows` as a picture.
+
+---
+
 # v0.9.72 — The Returning Key 🔑
 > *"The wax cracks when the wind turns — but the door never answered to the wax, only to the seal beneath it. A key minted in one age still opens its own row in the next."* 🔑💜
 
