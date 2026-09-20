@@ -43,6 +43,30 @@ const VELA_STARS = [
 
 const LOCK_MAX_ATTEMPTS = 5; // mirrors loginLimiter MAX_FAILS_BEFORE_LOCK
 
+// The session label (migration 016's `label` column): a name for THIS device, so
+// a session can be told apart from its neighbours. It is not an identity — it
+// gates nothing — and the route sanitises whatever we hand it, capping at the
+// ledger's own 120 characters. Deliberately NOT persisted in the browser: a
+// second store would need an effect-hydration dance (setState in an effect is a
+// lint error here, and a lazy localStorage read mismatches SSR), and the ledger
+// is already the record that outlives the tab.
+const DEVICE_LABEL_MAX = 120;
+
+function DeviceLabelField({ value, onChange }) {
+  return (
+    <Input
+      id="deviceLabel"
+      label="Device name"
+      hint="Optional — recorded with this session in the ledger so your devices can be told apart."
+      placeholder="e.g. Ryzen NAS — Chrome"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      maxLength={DEVICE_LABEL_MAX}
+      autoComplete="off"
+    />
+  );
+}
+
 export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -66,6 +90,7 @@ export default function LoginPage() {
   // only reachable on a loopback console in that state — the card explains
   // entry is frictionless instead of advertising a default password.
   const [unconfigured, setUnconfigured] = useState(false);
+  const [deviceLabel, setDeviceLabel] = useState("");
 
   // Footer status — version + gateway health, polled gently
   const [version, setVersion] = useState(null);
@@ -141,7 +166,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ label: deviceLabel }),
       });
       if (res.ok) openGate();
       else {
@@ -170,7 +195,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password, label: deviceLabel }),
       });
 
       if (res.ok) {
@@ -347,6 +372,7 @@ export default function LoginPage() {
                     </p>
                   </div>
                   {error && <p className="text-xs text-red-500">{error}</p>}
+                  <DeviceLabelField value={deviceLabel} onChange={setDeviceLabel} />
                   <Button type="button" variant="primary" className="w-full" icon="login" loading={loading} onClick={handleFrictionlessEntry}>
                     Enter dashboard
                   </Button>
@@ -464,6 +490,8 @@ export default function LoginPage() {
                           </p>
                         )}
                       </div>
+
+                      <DeviceLabelField value={deviceLabel} onChange={setDeviceLabel} />
 
                       <Button
                         type="submit"

@@ -25,6 +25,48 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.78 — The Named Berths ⚓
+> *"The roll counted every landing and could not tell one from another. So I set a signboard at the door: the operator writes the name of the device they arrive on, and a row that was only a number becomes a berth I can recognise."* ⚓💜
+
+v0.9.77 made the ledger live; this tide gives its rows their names. The `label` column was already
+declared, already selected, already returned by `GET /api/auth/sessions` — and no writer had ever
+filled it, so every session was born anonymous. Now the door asks, and the name lands.
+
+**✨ Features**
+- **The signboard at the door** (`src/app/login/page.js`, +32) — a **Device name** field on both
+  doors of the login card: the password form and the frictionless unconfigured path. It is offered,
+  never required, and it is remembered by **nothing** in the browser — deliberately. A second store
+  would need an effect-hydration dance (`setState` in an effect is a lint error in this harbour, and
+  a lazy `localStorage` read mismatches SSR), and the ledger is already the record that outlives the
+  tab. The field's hint says exactly what the current water supports.
+- **The name reaches the roll** (`src/app/api/auth/login/route.js`, +25) — the route parses `label`,
+  sanitises it at the trust boundary (control characters flattened to spaces, whitespace collapsed,
+  trimmed, then capped at the ledger's own 120), and passes it to `recordSession()` on **both** mint
+  paths. Until now the password door passed `{ ip }` alone — the column was born `null` and stayed
+  `null`, and a column no writer fills is indistinguishable from one that does not exist.
+
+**🔧 Changes & Improvements**
+- **The cap and the flattening live at the boundary, not in the ledger.** `sessionLedger.js` truncates
+  at 120 but does **not** flatten — a label is one line — so the route owns that rule (and owns the
+  named constant) rather than leaving the ledger to guess.
+- **A scope note, written where it cannot rot**: no surface renders the ledger yet.
+  `GET /api/auth/sessions` returns `label`, `ip` and `userAgent`, and no page consumes it. Filling the
+  column is this tide's plumbing; the reading surface is owed, and the hint copy was re-worded to
+  claim only what is true today rather than promise a list nobody can open.
+
+**⚙️ Internal**
+- `tests/unit/login-device-label.test.js` — **4 cases**, driving the real route into a real migrated
+  harbour (settings, cookies and the mint are mocked; the ledger, the repo and the SQLite row are not),
+  and **mutation-tested in both directions**: dropping the label from the two `recordSession` calls
+  reddens cases 1, 2 and 4 while case 3 (absent → `null`, never a fabricated name) correctly stays
+  green; stripping the sanitizer reddens **case 2 alone**.
+- `npx eslint src/app/api/auth/login/route.js src/app/login/page.js` → **0 errors**; the three
+  remaining `<img>` notes are the page's own pre-existing warnings.
+- `docker-compose.example.yml` pin moved with `package.json` (guarded by
+  `tests/unit/docker-compose-pin.test.js`); the live, gitignored chart bumped on disk and never staged.
+
+---
+
 # v0.9.77 — The Muster Roll 📜
 > *"A stateless token was a sailor whose name stood on no list — impossible to find, and impossible to dismiss. So I opened a roll, wrote every landed session into it, and gave the ladder a stone floor the tide cannot wash away."* 📜💜
 

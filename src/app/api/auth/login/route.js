@@ -28,14 +28,28 @@ function isTunnelRequest(request, settings) {
   return (tunnelHost && host === tunnelHost) || (tailscaleHost && host === tailscaleHost);
 }
 
+// A device label is operator-authored text that lands in the ledger's `label`
+// column and is read back on the session list. It is NOT an identity: it gates
+// nothing, and the schema says so in as many words ("never trusted as
+// identity"). Sanitised HERE because this is the trust boundary — the cap
+// matches sessionLedger's own slice so the client cannot choose how much of the
+// column it fills, and control characters are flattened because a label is one
+// line.
+const DEVICE_LABEL_MAX = 120;
+function sanitizeDeviceLabel(raw) {
+  if (typeof raw !== "string") return null;
+  const flattened = raw.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
+  return flattened ? flattened.slice(0, DEVICE_LABEL_MAX) : null;
+}
+
 // Tag 3: with the default password retired, an unset-password local login has
 // no credential at all. The dashboard must not brick for the operator at the
 // console, so loopback requests pass through frictionless — exactly today's
 // posture, minus the guessable password.
-async function admitPasswordlessLoopback(request, ip) {
+async function admitPasswordlessLoopback(request, ip, deviceLabel = null) {
   const cookieStore = await cookies();
   const minted = await setDashboardAuthCookie(cookieStore, request);
-  await recordSession(minted, request, { ip });
+  await recordSession(minted, request, { ip, label: deviceLabel });
   await auditAuthEvent(AUTH_EVENTS.LOGIN_FRICTIONLESS, { request, ip, detail: { method: "frictionless" } });
   return NextResponse.json({ success: true }, { headers: NO_STORE_HEADERS });
 }
@@ -64,7 +78,8 @@ export async function POST(request) {
       );
     }
 
-    const { password } = await request.json();
+    const { password, label } = await request.json();
+    const deviceLabel = sanitizeDeviceLabel(label);
     const settings = await getSettings();
 
     // Block login via tunnel/tailscale if dashboard access is disabled
@@ -91,7 +106,7 @@ export async function POST(request) {
     // INITIAL_PASSWORD env). Loopback keeps the frictionless operator
     // posture; every non-loopback origin is refused — never falls open.
     if (!storedHash && !process.env.INITIAL_PASSWORD) {
-      if (isLocalRequest(request)) return admitPasswordlessLoopback(request, ip);
+      if (isLocalRequest(request)) return admitPasswordlessLoopback(request, ip, deviceLabel);
       await auditAuthEvent(AUTH_EVENTS.LOGIN_BLOCKED, { request, ip, detail: { reason: "no_password_configured_remote" } });
       return NextResponse.json(
         { error: NO_PASSWORD_REMOTE_MESSAGE },
@@ -112,7 +127,7 @@ export async function POST(request) {
 
       const cookieStore = await cookies();
       const minted = await setDashboardAuthCookie(cookieStore, request);
-      await recordSession(minted, request, { ip });
+      await recordSession(minted, request, { ip, label: deviceLabel });
       await auditAuthEvent(AUTH_EVENTS.LOGIN_OK, {
         request,
         ip,
