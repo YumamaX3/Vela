@@ -486,6 +486,11 @@ node custom-server.js   # production server (IP stamp + h2c + drain)
 #    ⚠️ ALSO bump the image pin in BOTH docker-compose.example.yml (tracked)
 #    AND docker-compose.yml (gitignored, on disk) — the Star's decree:
 #    every update sails both charts. NEVER stage docker-compose.yml.
+#    The tracked chart's pin is GUARDED: `tests/unit/docker-compose-pin.test.js`
+#    fails if it drifts from package.json, and asserts docker-compose.yml stays
+#    gitignored. Skipped once (v0.9.75) before the guard existed — the five
+#    tides before it all matched, so the rite was sound and only the instrument
+#    was missing. Run that suite before you tag.
 #    ⚠️ NEVER `git add -A` — the working tree carries the Star's unrelated edits
 #    (Button.js, Card.js) and untracked strays. Stage the tide's files BY NAME.
 npm install --package-lock-only          # lockfile version follows; diff must be version-only
