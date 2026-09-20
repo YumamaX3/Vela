@@ -10,6 +10,13 @@ export async function POST() {
     await updateSettings({ password: null });
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Error-hygiene (Auth Hardening W1): the caller gets a stable line; the
+    // internal detail (a DB or crypto failure describing its own shape) goes to
+    // the log, where consoleLogBuffer keeps it readable by the operator.
+    console.error("[auth/reset-password] unexpected failure:", error?.message || error);
+    return NextResponse.json(
+      { error: "Could not reset the password. Check the server logs." },
+      { status: 500 }
+    );
   }
 }
