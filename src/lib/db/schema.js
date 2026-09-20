@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 15;
+export const SCHEMA_VERSION = 16;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -302,6 +302,70 @@ export const TABLES = {
     primaryKey: "PRIMARY KEY (poolId, provider)",
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_pf_pool ON proxyFitness(poolId)",
+    ],
+  },
+  // Auth Hardening W1 (migration 016) — the session ledger. One row per issued
+  // dashboard session, keyed by the JWT's own `jti`, so a stateless token
+  // finally has something to list and something to revoke. `revokedAt` is the
+  // kill switch the verifier consults; expiresAt drives the prune. Declared
+  // here so the additive auto-sync and the MariaDB twin's bootstrap diff both
+  // see it.
+  authSessions: {
+    columns: {
+      id: "TEXT PRIMARY KEY", // the jti — the token's own identity claim
+      createdAt: "TEXT NOT NULL",
+      lastSeenAt: "TEXT NOT NULL",
+      expiresAt: "TEXT NOT NULL",
+      ip: "TEXT",
+      userAgent: "TEXT",
+      label: "TEXT", // operator-facing device name; never trusted as identity
+      revokedAt: "TEXT",
+      revokedReason: "TEXT",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_as_expires ON authSessions(expiresAt)",
+      "CREATE INDEX IF NOT EXISTS idx_as_revoked ON authSessions(revokedAt)",
+    ],
+  },
+  // Auth Hardening W1 (migration 016) — the durable ladder. loginLimiter.js
+  // kept its failure counters and its fixed-window counters in module-scope
+  // Maps, so a restart wiped every lockout; its own header called that an
+  // "accepted residual". This is that store on disk: one row per caller key,
+  // carrying BOTH the escalation ladder (fails/tier/lockUntil) and the
+  // independent request window (windowStart/windowCount). Times are epoch-ms
+  // INTEGER, nullable where "unset" is the honest value. lastActivityAt drives
+  // the TTL prune, so the table cannot grow without bound.
+  authFailures: {
+    columns: {
+      ipKey: "TEXT PRIMARY KEY", // the caller key getClientIp() derives
+      fails: "INTEGER NOT NULL DEFAULT 0",
+      tier: "INTEGER NOT NULL DEFAULT 0",
+      lockUntil: "INTEGER",
+      windowStart: "INTEGER",
+      windowCount: "INTEGER NOT NULL DEFAULT 0",
+      lastActivityAt: "INTEGER NOT NULL DEFAULT 0",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_af_last ON authFailures(lastActivityAt)",
+    ],
+  },
+  // Auth Hardening W1 (migration 016) — the audit trail. Nothing recorded a
+  // login outcome, a lockout, or a revocation before this wave. `detail` is a
+  // metadata-only surface BY CONTRACT: no password, no token and no hash ever
+  // reaches it. The column is `eventType`, not `event`, because `event` is a
+  // MySQL reserved word and the twin builds its DDL from this very definition.
+  authAuditLog: {
+    columns: {
+      id: "INTEGER PRIMARY KEY AUTOINCREMENT",
+      ts: "TEXT NOT NULL",
+      eventType: "TEXT NOT NULL",
+      ip: "TEXT",
+      userAgent: "TEXT",
+      detail: "TEXT",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_aal_ts ON authAuditLog(ts DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_aal_event ON authAuditLog(eventType, ts DESC)",
     ],
   },
 };

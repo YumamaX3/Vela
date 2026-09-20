@@ -286,9 +286,64 @@ function isPublicApi(pathname) {
   return PUBLIC_API_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
+// ── CSRF second lock (Auth Hardening W1) ─────────────────────────────────
+// The dashboard session rides a cookie, and its only defence against a
+// cross-site submit is SameSite=Lax — browser policy, not a check we run. When
+// a browser honours it, an attacker's form carries no cookie; when a client
+// relaxes or rewrites it (an old engine, an extension, a rewriting proxy), the
+// cookie rides along and nothing on our side objects.
+//
+// Sec-Fetch-Site is written by the browser and is not settable from page
+// script, so it is one signal a cross-site page cannot forge: a request the
+// browser itself labels `cross-site` is never a dashboard call.
+//
+// It sits at the TOP of proxy(), above every auth branch, because the routes
+// most worth stealing are reached through the ALWAYS_PROTECTED branch and a
+// check placed below it would leave those relying on SameSite alone.
+//
+// The exemptions are named, never positional — a list cannot be broken by
+// moving a branch. Each is a caller that arrives cross-site BY DESIGN and holds
+// no CSRF-able cookie:
+//   • /api/auth/saml and /api/auth/oidc — an IdP posts a signed assertion
+//     cross-site by protocol. The assertion is the credential; refusing it
+//     would break enterprise login to defend a threat the cookie never carried.
+//   • the LLM surface (PUBLIC_PREFIXES) — browser clients call the gateway
+//     cross-origin on purpose and authenticate with a bearer key.
+//
+// Safe methods are never caught: a cross-site GET is how OAuth returns and how
+// links arrive, and only a body-carrying method can mutate state. Nor is a
+// caller that sends no Sec-Fetch-Site at all (curl, the CLI, another agent) —
+// those authenticate with a bearer key or a CLI token, so they are not CSRF
+// vectors in the first place.
+const CROSS_SITE_EXEMPT_PREFIXES = [
+  "/api/auth/saml",
+  "/api/auth/oidc",
+  "/v1",
+  "/v1beta",
+  "/api/v1",
+  "/api/v1beta",
+  "/codex",
+  "/responses",
+];
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+function isCrossSiteMutation(request) {
+  if (request.headers.get("sec-fetch-site") !== "cross-site") return false;
+  return MUTATING_METHODS.has((request.method || "GET").toUpperCase());
+}
+
+function isCrossSiteExempt(pathname) {
+  return CROSS_SITE_EXEMPT_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`)
+  );
+}
+
 export const __test__ = {
   isLocalRequest,
   isPublicLlmApi,
+  isCrossSiteMutation,
+  isCrossSiteExempt,
+  CROSS_SITE_EXEMPT_PREFIXES,
   extractApiKey,
   canAccessPublicLlmApi,
   canAccessLocalOnlyRoute,
@@ -300,6 +355,13 @@ export const __test__ = {
 
 export async function proxy(request) {
   const { pathname } = request.nextUrl;
+
+  // CSRF second lock — the note above isCrossSiteMutation() carries the why.
+  // Above every auth branch on purpose: ALWAYS_PROTECTED's routes are the ones
+  // most worth stealing, and they are reached below.
+  if (isCrossSiteMutation(request) && !isCrossSiteExempt(pathname)) {
+    return NextResponse.json({ error: "Forbidden: cross-site mutation refused" }, { status: 403 });
+  }
 
   // Local-only gate for spawn-capable / host-secret routes.
   if (LOCAL_ONLY_PATHS.some((p) => pathname.startsWith(p))) {

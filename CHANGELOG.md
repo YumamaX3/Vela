@@ -25,6 +25,70 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.76 — The Second Lock 🔐
+> *"The cookie was the only gate the waves could not forge, and I trusted its silence. So I set a second lock behind it — one the browser writes itself and no page can counterfeit."* 🔐💜
+
+Three things crossed tonight, and all three were about **what a gate says when it fails**. The
+keel of the session ledger went down in migration 016; two routes stopped narrating their own
+wounds to whoever probed them; and a second lock rose at the crown of the edge guard.
+
+**✨ Features**
+- **The session ledger's keel** (`src/lib/db/migrations/016-auth-sessions-audit.js`) — three
+  tables: `authSessions` (one row per issued dashboard session, keyed by the JWT's own `jti`,
+  so a stateless token finally has something to list and something to revoke), `authFailures`
+  (the limiter's durable ground), and `authAuditLog` (what the gate decided, and when). Built
+  from `TABLES` so the versioned chain, the additive auto-sync and the MariaDB twin's bootstrap
+  diff cannot drift into three dialects. `SCHEMA_VERSION` 15 → 16; `m016` registered.
+- **The CSRF second lock** (`src/dashboardGuard.js`) — a request the browser itself labels
+  `sec-fetch-site: cross-site`, carrying a mutating method, is refused **403 at the top of
+  `proxy()`**, above every auth branch.
+- **Two new proof suites** — `tests/unit/auth-sessions-audit-migration-016.test.js` and
+  `tests/unit/csrf-second-lock.test.js`.
+
+**🐛 Fixes**
+- **A 500 no longer describes its own shape.** `/api/auth/login` (a PUBLIC path) and
+  `/api/auth/reset-password` returned `error.message` verbatim, so a DB or crypto failure
+  narrated itself to an unauthenticated caller. Both now answer one stable line and send the
+  detail to `console.error`, where `consoleLogBuffer` keeps it readable to the **operator** on
+  the dashboard's console-log page.
+
+**🔧 Changes & Improvements**
+- The lock's exemptions are **named, never positional** — a list cannot be broken by moving a
+  branch. `/api/auth/saml` and `/api/auth/oidc`: an IdP posts a signed assertion cross-site *by
+  protocol*, and the assertion is the credential, so refusing it would break enterprise login to
+  defend a threat the cookie never carried. The LLM prefixes (`/v1`, `/v1beta`, `/api/v1`,
+  `/api/v1beta`, `/codex`, `/responses`): browser clients call the gateway cross-origin on
+  purpose, bearing a bearer key, never our session cookie.
+- Safe methods pass untouched — a cross-site GET is how OAuth returns and how links arrive. So
+  does any caller sending no `Sec-Fetch-Site` at all (curl, the CLI, another agent): those
+  authenticate with a bearer key or a CLI token, and are not CSRF vectors in the first place.
+
+**⚙️ Internal**
+- **Where the lock had to sit was corrected by measurement, mid-flight.** Placed below the
+  `ALWAYS_PROTECTED` branch it would have left `/api/backup`, `/api/shutdown` and
+  `/api/usage/views` — the routes most worth forcing — leaning on SameSite alone. It sits above
+  them now.
+- `dashboardGuard.js` lives at **`src/dashboardGuard.js`**, not under `lib/auth/` — recorded
+  because a chart that misplaces a gate sends the next keeper to the wrong shore.
+
+**🧪 Proof**
+- `auth-error-hygiene` + the standing login queue (`login-limiter-tag3`,
+  `login-route-lockout-tag3`, `login-route-tag3`, `local-request-peer-trust-3294`) →
+  **5 files, 50 cases green**
+- `auth-sessions-audit-migration-016` + `key-acl-migration-013` → **2 files, 8 cases green** —
+  the chain reaches v16 on **sql.js**, the very driver that once caught the `db.prepare`
+  boot-storm
+- `csrf-second-lock` + `dashboard-guard` + `proxy-storm-security-gate` +
+  `local-request-peer-trust-3294` → **4 files, 107 cases green**
+- `eslint` exit **0** across all five touched files
+
+**⚠️ Still owed** — A1's durable limiter store and its twins (blocked by dialect, not effort: a
+store written straight against the adapter would need SQLite's `INSERT … ON CONFLICT` and drown
+on MariaDB under `VELA_DB_MODE=mysql`), A2's `jti` and revocation, A3's session routes, A5's
+audit writer, A7's login rebuild — then Design B across 35 surfaces.
+
+---
+
 # v0.9.75 — The Four Lenses 🔭
 > *"Two rooms held the same water, and neither could see the whole of it. So I took down the wall between them, set four lenses over one current, and taught the glass to say 'unknown' where it could not prove."* 🔭💜
 Two rooms became one. `dashboard/proxy-pools` (1116 lines) and `dashboard/proxy-fitness`

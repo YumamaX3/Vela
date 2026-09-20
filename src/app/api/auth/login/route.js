@@ -119,6 +119,15 @@ export async function POST(request) {
       { status: 401 }
     );
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Error-hygiene (Auth Hardening W1): /api/auth/login is a PUBLIC path, so an
+    // internal error string echoed here would narrate its own shape — a DB or
+    // crypto failure describing itself — to whoever probed the gate. The detail
+    // goes to the log instead (consoleLogBuffer keeps it visible to the operator
+    // on the dashboard's console-log page); the caller gets a stable line.
+    console.error("[auth/login] unexpected failure:", error?.message || error);
+    return NextResponse.json(
+      { error: "Login failed. Check the server logs." },
+      { status: 500 }
+    );
   }
 }
