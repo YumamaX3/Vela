@@ -12,6 +12,8 @@ import {
   getClientIp,
   consumeLoginAttempt,
 } from "@/lib/auth/loginLimiter";
+import { recordSession } from "@/lib/auth/sessionLedger.js";
+import { auditAuthEvent, AUTH_EVENTS } from "@/lib/auth/authAudit.js";
 import { isLocalRequest } from "@/dashboardGuard";
 import { timingSafeEqual } from "@/shared/utils/timingSafeEqual.js";
 import { NO_PASSWORD_REMOTE_MESSAGE } from "@/lib/auth/loginMessages.js";
@@ -30,9 +32,11 @@ function isTunnelRequest(request, settings) {
 // no credential at all. The dashboard must not brick for the operator at the
 // console, so loopback requests pass through frictionless — exactly today's
 // posture, minus the guessable password.
-async function admitPasswordlessLoopback(request) {
+async function admitPasswordlessLoopback(request, ip) {
   const cookieStore = await cookies();
-  await setDashboardAuthCookie(cookieStore, request);
+  const minted = await setDashboardAuthCookie(cookieStore, request);
+  await recordSession(minted, request, { ip });
+  await auditAuthEvent(AUTH_EVENTS.LOGIN_FRICTIONLESS, { request, ip, detail: { method: "frictionless" } });
   return NextResponse.json({ success: true }, { headers: NO_STORE_HEADERS });
 }
 
@@ -41,6 +45,7 @@ export async function POST(request) {
     const ip = getClientIp(request);
     const lock = checkLock(ip);
     if (lock.locked) {
+      await auditAuthEvent(AUTH_EVENTS.LOGIN_LOCKED, { request, ip, detail: { reason: "locked", retryAfter: lock.retryAfter } });
       return NextResponse.json(
         { error: `Too many failed attempts. Try again in ${lock.retryAfter}s. ${RESET_HINT}`, retryAfter: lock.retryAfter, resetHint: RESET_HINT },
         { status: 429, headers: { "Retry-After": String(lock.retryAfter), ...NO_STORE_HEADERS } }
@@ -52,6 +57,7 @@ export async function POST(request) {
     // password compare.
     const gate = consumeLoginAttempt(ip);
     if (!gate.allowed) {
+      await auditAuthEvent(AUTH_EVENTS.LOGIN_RATE_LIMITED, { request, ip, detail: { reason: "rate_limited", retryAfter: gate.retryAfter } });
       return NextResponse.json(
         { error: `Too many login attempts. Try again in ${gate.retryAfter}s.`, retryAfter: gate.retryAfter },
         { status: 429, headers: { "Retry-After": String(gate.retryAfter), ...NO_STORE_HEADERS } }
@@ -63,6 +69,7 @@ export async function POST(request) {
 
     // Block login via tunnel/tailscale if dashboard access is disabled
     if (isTunnelRequest(request, settings) && settings.tunnelDashboardAccess !== true) {
+      await auditAuthEvent(AUTH_EVENTS.LOGIN_BLOCKED, { request, ip, detail: { reason: "tunnel_dashboard_access_disabled" } });
       return NextResponse.json({ error: "Dashboard access via tunnel is disabled" }, { status: 403 });
     }
 
@@ -71,9 +78,11 @@ export async function POST(request) {
     if (settings.authMode === "sso" || settings.authMode === "saml" || settings.authMode === "oidc") {
       const ssoType = settings.ssoType || (settings.authMode === "saml" ? "saml" : "oidc");
       if (ssoType === "saml" && isSamlConfigured(settings)) {
+        await auditAuthEvent(AUTH_EVENTS.LOGIN_BLOCKED, { request, ip, detail: { reason: "password_login_disabled_saml" } });
         return NextResponse.json({ error: "Password login is disabled. Use SAML SSO sign in." }, { status: 403 });
       }
       if (ssoType === "oidc" && isOidcConfigured(settings)) {
+        await auditAuthEvent(AUTH_EVENTS.LOGIN_BLOCKED, { request, ip, detail: { reason: "password_login_disabled_oidc" } });
         return NextResponse.json({ error: "Password login is disabled. Use OIDC sign in." }, { status: 403 });
       }
     }
@@ -82,7 +91,8 @@ export async function POST(request) {
     // INITIAL_PASSWORD env). Loopback keeps the frictionless operator
     // posture; every non-loopback origin is refused — never falls open.
     if (!storedHash && !process.env.INITIAL_PASSWORD) {
-      if (isLocalRequest(request)) return admitPasswordlessLoopback(request);
+      if (isLocalRequest(request)) return admitPasswordlessLoopback(request, ip);
+      await auditAuthEvent(AUTH_EVENTS.LOGIN_BLOCKED, { request, ip, detail: { reason: "no_password_configured_remote" } });
       return NextResponse.json(
         { error: NO_PASSWORD_REMOTE_MESSAGE },
         { status: 403, headers: NO_STORE_HEADERS }
@@ -101,14 +111,22 @@ export async function POST(request) {
       recordSuccess(ip);
 
       const cookieStore = await cookies();
-      await setDashboardAuthCookie(cookieStore, request);
+      const minted = await setDashboardAuthCookie(cookieStore, request);
+      await recordSession(minted, request, { ip });
+      await auditAuthEvent(AUTH_EVENTS.LOGIN_OK, {
+        request,
+        ip,
+        detail: { method: storedHash ? "password" : "initial_password", sessionId: minted?.jti || null },
+      });
 
       return NextResponse.json({ success: true }, { headers: NO_STORE_HEADERS });
     }
 
     const { remainingBeforeLock } = recordFail(ip);
+    await auditAuthEvent(AUTH_EVENTS.LOGIN_FAIL, { request, ip, detail: { reason: "invalid_password", remainingBeforeLock } });
     const postLock = checkLock(ip);
     if (postLock.locked) {
+      await auditAuthEvent(AUTH_EVENTS.LOGIN_LOCKED, { request, ip, detail: { reason: "locked", retryAfter: postLock.retryAfter } });
       return NextResponse.json(
         { error: `Too many failed attempts. Try again in ${postLock.retryAfter}s. ${RESET_HINT}`, retryAfter: postLock.retryAfter, resetHint: RESET_HINT },
         { status: 429, headers: { "Retry-After": String(postLock.retryAfter), ...NO_STORE_HEADERS } }

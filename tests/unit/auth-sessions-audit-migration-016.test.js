@@ -13,10 +13,33 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from "vitest";
 
 let tempDir;
 const originalDataDir = process.env.DATA_DIR;
+
+const NATIVE_ADAPTERS = [
+  "@/lib/db/adapters/betterSqliteAdapter.js",
+  "@/lib/db/adapters/nodeSqliteAdapter.js",
+];
+
+/**
+ * Lift the sql.js case's doMock registrations.
+ *
+ * The first case below mocks BOTH native adapters away to exercise the
+ * production-crash driver — and vitest keeps a doMock registration for the
+ * whole file, not just the case that made it. So every later "native" case fell
+ * through to sql.js and returned early at its own guard, asserting nothing.
+ * MEASURED 2026-09-21: the durability cases passed while the ledger's veto was
+ * deleted from the source, which is what a silently-skipped proof looks like.
+ */
+function liftNativeAdapterMocks() {
+  for (const spec of NATIVE_ADAPTERS) {
+    try {
+      vi.doUnmock(spec);
+    } catch {}
+  }
+}
 
 async function bootSqlJs() {
   delete global._dbAdapter;
@@ -33,6 +56,7 @@ async function bootSqlJs() {
 }
 
 async function bootNative() {
+  liftNativeAdapterMocks();
   delete global._dbAdapter;
   const { getAdapter } = await import("@/lib/db/driver.js");
   return getAdapter();
@@ -131,5 +155,116 @@ describe("Migration 016 — auth sessions, durable failures, audit log", () => {
     expect(row.lockUntil).toBe(until);
     expect(row.fails).toBe(7);
     expect(row.windowCount).toBe(9);
+  });
+});
+
+// ── Durability: the ledger is stone, not memory (Auth Hardening W1) ─────────
+//
+// The revocation consult is memoised in-process for 15s (bounded staleness, and
+// the cost is named in dashboardSession.js). The failure this suite exists to
+// catch is the opposite one: a memo — or a module-local Map, or the adapter
+// object — mistaken for the source of truth. So the proof does not merely clear
+// the memo. It REBUILDS the whole process's module state and rebinds the
+// adapter from cold, then asks the same token whether it may still pass.
+//
+// Mutation check (why the assertions are behavioural rather than structural):
+// delete `if (await isSessionRevoked(payload?.jti)) return false;` from
+// verifyDashboardAuthToken and the first case fails — the token comes back
+// admitted after a kill that supposedly happened.
+const LEDGER_SECRET = "auth-ledger-durability-secret";
+let originalJwtSecret;
+
+describe("Auth Hardening W1 — the ledger survives a restart", () => {
+  beforeAll(() => {
+    originalJwtSecret = process.env.JWT_SECRET;
+    // Pinned so SECRET is stable across a module rebuild (README-equivalent of
+    // dashboard-session-cookie.test.js's own pin) — and so no real DATA_DIR is
+    // ever asked for a secret.
+    process.env.JWT_SECRET = LEDGER_SECRET;
+  });
+
+  afterAll(() => {
+    if (originalJwtSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = originalJwtSecret;
+  });
+
+  /**
+   * Rebuild the process state: fresh modules, cold adapter, same DATA_DIR stone.
+   * The previous adapter is closed first — a graceful restart, WAL flushed.
+   */
+  async function reboot() {
+    try {
+      global._dbAdapter?.instance?.close?.();
+    } catch {}
+    liftNativeAdapterMocks();
+    vi.resetModules();
+    delete global._dbAdapter;
+    const { getAdapter } = await import("@/lib/db/driver.js");
+    const adapter = await getAdapter();
+    const session = await import("@/lib/auth/dashboardSession.js");
+    const store = await import("@/lib/db/repos/authStoreRepo.js");
+    return { adapter, ...session, ...store };
+  }
+
+  /** Read a claim out of a freshly signed token (no verify needed). */
+  function claimsOf(token) {
+    const [, payloadB64] = token.split(".");
+    return JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
+  }
+
+  it("a revoked seat is still refused after the process state is rebuilt from cold", async () => {
+    const first = await reboot();
+    // On-disk stone is the whole point; a heap-bound fallback cannot carry this
+    // proof, and an early return here is how it lied. Fail loudly instead.
+    expect(first.adapter.driver).not.toBe("sql.js");
+
+    const token = await first.createDashboardAuthToken();
+    const { jti, exp } = claimsOf(token);
+    expect(typeof jti).toBe("string");
+
+    const nowIso = new Date().toISOString();
+    await first.insertAuthSession({
+      id: jti,
+      createdAt: nowIso,
+      lastSeenAt: nowIso,
+      expiresAt: new Date(exp * 1000).toISOString(),
+      ip: "127.0.0.1",
+      userAgent: "vitest",
+      label: "this device",
+    });
+
+    // 2. SIGNATURE CONTROL — and the reason this case is worth anything. Rebuild
+    //    the process state BEFORE any revocation and require the same token to
+    //    still be admitted. That proves the signing secret survived the rebuild,
+    //    so the final assertion can only be the ledger's veto and never a broken
+    //    signature. MEASURED: before this step existed, this case stayed green
+    //    with the veto deleted from the source — a run that proved nothing.
+    const second = await reboot();
+    expect(await second.verifyDashboardAuthToken(token)).toBe(true);
+
+    // 3. The kill, stamped in the rebuilt process.
+    expect(await second.revokeAuthSession(jti, { at: nowIso, reason: "logout" })).toBe(true);
+
+    // 4. Rebuild again — fresh modules, cold adapter, and the memo gone with
+    //    them. Nothing in memory survives this; only the stone does.
+    const third = await reboot();
+    expect(await third.verifyDashboardAuthToken(token)).toBe(false);
+
+    // 5. And the stone still carries the record, with the reason the route
+    //    stamped — so the trail's *why* outlives the process too.
+    const row = await third.getAuthSession(jti);
+    expect(row?.revokedAt).toBe(nowIso);
+    expect(row?.revokedReason).toBe("logout");
+  });
+
+  it("a token with no ledger row is admitted — fail-open, never retroactive", async () => {
+    const { adapter, createDashboardAuthToken, verifyDashboardAuthToken } = await reboot();
+    expect(adapter.driver).not.toBe("sql.js");
+
+    // No row was ever written for this jti (the pre-W1 shape, and the pruned-row
+    // case): the signature alone admits it. A store that cannot speak must never
+    // lock the operator out of their own dashboard.
+    const token = await createDashboardAuthToken();
+    expect(await verifyDashboardAuthToken(token)).toBe(true);
   });
 });
