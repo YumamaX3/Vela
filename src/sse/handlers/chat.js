@@ -28,6 +28,15 @@ import { resolvePreferredConnection } from "../services/connectionPreference.js"
 import "../services/freebuffPreference.js"; // registers the freebuff session-affinity resolver
 import { getFallbackRulesRepo } from "@/lib/db/repos/bindFallbackRules.js"; // Seam 2 — operator fallback rules
 import { handleAntigravityQuotaError } from "../services/antigravityQuota.js";
+// W6 · Account hygiene (sibling-harbor-ports §3.1 rows 6, 8)
+import {
+  acquire as acquireAccountSemaphore,
+  resolveAccountSemaphoreKey,
+  resolveAccountSemaphoreMaxConcurrency,
+  deriveProxyBucketHash,
+  isSemaphoreCapacityError,
+} from "open-sse/services/accountSemaphore.js";
+import { cacheClaudeHeaders } from "open-sse/utils/claudeHeaderCache.js";
 
 /**
  * Resolve an advisory connection preference for (provider, model) — e.g. the
@@ -67,6 +76,17 @@ export async function handleChat(request, clientRawRequest = null) {
       headers: Object.fromEntries(request.headers.entries())
     };
   }
+  // W6 · claudeHeaderCache — capture the REAL Claude Code client identity from
+  // the inbound request (before any translation) so the executor can forward it
+  // upstream in place of the fabricated `claude-cli/<ver>` fingerprint. The
+  // cache's allow-list excludes every credential-bearing header, so the API key
+  // and any cookie in `clientRawRequest.headers` are never retained. Fail-open:
+  // a cold start simply keeps the static fingerprint.
+  try {
+    cacheClaudeHeaders(clientRawRequest.headers, {
+      log: { debug: (msg) => log.debug("CLAUDE", msg) },
+    });
+  } catch { /* capture must never break a request */ }
   // Claude Code marks a 1M-context request as `<model>[1m]`; the marker matches
   // no combo, alias or provider/model pair, so it must not reach resolution.
   // The capability travels in the anthropic-beta header, forwarded as-is
@@ -291,52 +311,94 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       }
     }
 
-    // Use shared chatCore
+    // W6 · accountSemaphore — per `provider:account:proxy` FIFO concurrency gate.
+    // Held across the whole `handleChatCore` call and released in the `finally`
+    // below, so a slot is never leaked on a throw. The gate is bounded: when its
+    // queue is full the acquire REJECTS (drop-and-log) rather than growing, and
+    // the account is excluded so the loop falls through to the next one instead
+    // of stalling. Bypass is explicit: `providerSpecificData.maxConcurrency` of
+    // 0 or null, or `semaphoreEnabled: false` in settings.
     const chatSettings = await getSettings();
-    const providerThinking = (chatSettings.providerThinking || {})[provider] || null;
-    const result = await handleChatCore({
-      body: { ...body, model: `${provider}/${model}` },
-      modelInfo: { provider, model },
-      credentials: refreshedCredentials,
-      log,
-      clientRawRequest,
+    const proxyBucketHash = deriveProxyBucketHash(credentials.providerSpecificData);
+    const semaphoreKey = resolveAccountSemaphoreKey({
+      provider,
+      model,
       connectionId: credentials.connectionId,
-      userAgent,
-      apiKey,
-      ccFilterNaming: !!chatSettings.ccFilterNaming,
-      rtkEnabled: !!chatSettings.rtkEnabled,
-      headroomEnabled: !!chatSettings.headroomEnabled,
-      headroomUrl: chatSettings.headroomUrl || DEFAULT_HEADROOM_URL,
-      headroomCompressUserMessages: !!chatSettings.headroomCompressUserMessages,
-      headroomTimeoutMs: Number(chatSettings.headroomTimeoutMs) > 0 ? Number(chatSettings.headroomTimeoutMs) : undefined,
-      cavemanEnabled: !!chatSettings.cavemanEnabled,
-      cavemanLevel: chatSettings.cavemanLevel || "full",
-      ponytailEnabled: !!chatSettings.ponytailEnabled,
-      ponytailLevel: chatSettings.ponytailLevel || "full",
-      userInjectors: chatSettings.userInjectors || null,
-      pxpipeEnabled: !!chatSettings.pxpipeEnabled,
-      pxpipeMinChars: chatSettings.pxpipeMinChars,
-      pxpipeTimeoutMs: chatSettings.pxpipeTimeoutMs,
-      // Lazily warms the in-process module on first use; null when not installed (fail-open)
-      pxpipeTransform: chatSettings.pxpipeEnabled ? await getPxpipeTransform() : null,
-      onPxpipeEvent: appendPxpipeEvent,
-      providerThinking,
-      // Migration 015 — attribute this request's usage to the requesting combo
-      // (slash-bearing name, v0.9.39). NULL for direct provider/model requests.
-      combo: comboName || null,
-      // Detect source format by endpoint + body
-      sourceFormatOverride: request?.url ? detectFormatByEndpoint(new URL(request.url).pathname, body) : null,
-      onCredentialsRefreshed: async (newCreds) => {
-        await updateProviderCredentials(credentials.connectionId, {
-          ...newCreds,
-          existingProviderSpecificData: credentials.providerSpecificData,
-          testStatus: "active"
-        });
-      },
-      onRequestSuccess: async () => {
-        await clearAccountError(credentials.connectionId, credentials, model);
-      }
+      credentials: refreshedCredentials,
+      proxyHash: proxyBucketHash,
     });
+    const semaphoreMax = resolveAccountSemaphoreMaxConcurrency(refreshedCredentials);
+    const semaphoreEnabled = chatSettings.semaphoreEnabled !== false && chatSettings.semaphoreEnabled !== 0;
+    let semaphoreRelease = () => { };
+    if (semaphoreEnabled && semaphoreKey && semaphoreMax != null) {
+      try {
+        semaphoreRelease = await acquireAccountSemaphore(semaphoreKey, {
+          maxConcurrency: semaphoreMax,
+          timeoutMs: 30_000,
+          log: { warn: (msg) => log.warn("AUTH", msg) },
+        });
+      } catch (e) {
+        if (isSemaphoreCapacityError(e)) {
+          log.warn("AUTH", `Account ${credentials.connectionName} at capacity (${e.reason}) → NEXT ACCOUNT`);
+          excludeConnectionIds.add(credentials.connectionId);
+          lastError = `Account at capacity (${e.reason})`;
+          lastStatus = HTTP_STATUS.SERVICE_UNAVAILABLE;
+          continue;
+        }
+        throw e;
+      }
+    }
+    // Use shared chatCore
+    const providerThinking = (chatSettings.providerThinking || {})[provider] || null;
+    let result;
+    try {
+      result = await handleChatCore({
+        body: { ...body, model: `${provider}/${model}` },
+        modelInfo: { provider, model },
+        credentials: refreshedCredentials,
+        log,
+        clientRawRequest,
+        connectionId: credentials.connectionId,
+        userAgent,
+        apiKey,
+        ccFilterNaming: !!chatSettings.ccFilterNaming,
+        rtkEnabled: !!chatSettings.rtkEnabled,
+        headroomEnabled: !!chatSettings.headroomEnabled,
+        headroomUrl: chatSettings.headroomUrl || DEFAULT_HEADROOM_URL,
+        headroomCompressUserMessages: !!chatSettings.headroomCompressUserMessages,
+        headroomTimeoutMs: Number(chatSettings.headroomTimeoutMs) > 0 ? Number(chatSettings.headroomTimeoutMs) : undefined,
+        cavemanEnabled: !!chatSettings.cavemanEnabled,
+        cavemanLevel: chatSettings.cavemanLevel || "full",
+        ponytailEnabled: !!chatSettings.ponytailEnabled,
+        ponytailLevel: chatSettings.ponytailLevel || "full",
+        userInjectors: chatSettings.userInjectors || null,
+        pxpipeEnabled: !!chatSettings.pxpipeEnabled,
+        pxpipeMinChars: chatSettings.pxpipeMinChars,
+        pxpipeTimeoutMs: chatSettings.pxpipeTimeoutMs,
+        // Lazily warms the in-process module on first use; null when not installed (fail-open)
+        pxpipeTransform: chatSettings.pxpipeEnabled ? await getPxpipeTransform() : null,
+        onPxpipeEvent: appendPxpipeEvent,
+        providerThinking,
+        // Migration 015 — attribute this request's usage to the requesting combo
+        // (slash-bearing name, v0.9.39). NULL for direct provider/model requests.
+        combo: comboName || null,
+        // Detect source format by endpoint + body
+        sourceFormatOverride: request?.url ? detectFormatByEndpoint(new URL(request.url).pathname, body) : null,
+        onCredentialsRefreshed: async (newCreds) => {
+          await updateProviderCredentials(credentials.connectionId, {
+            ...newCreds,
+            existingProviderSpecificData: credentials.providerSpecificData,
+            testStatus: "active"
+          });
+        },
+        onRequestSuccess: async () => {
+          await clearAccountError(credentials.connectionId, credentials, model);
+        }
+      });
+    } finally {
+      // Always release the slot — a throw out of handleChatCore must not leak it.
+      semaphoreRelease();
+    }
 
     if (result.success) return result.response;
 

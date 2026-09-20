@@ -25,6 +25,103 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.74 — The Sibling Harbor 🌊
+> *"Four harbors were read to the bedrock. Two were kin, two were strangers — and the strangers held nothing we lacked. What we took, we took from our own blood: nine mechanisms the sibling kept that we had never built, and a catalog of nineteen docks we had never named. Three of the gifts we thought we needed, we already had — and the mirror said so before the forge believed otherwise."* 🌊💜
+
+This tide is a **port** — and the first thing it ported was *doubt*. Four sibling gateways were
+read in full: `Vanszs/VansRouter` and `mhiqrambg/9router-mibp-version` (both forks of our own
+upstream `decolua/9router`) and two independent strangers, `seaavey/SRouter` and
+`ahwanulm/AMRouter`. The strangers turned out to hold **nothing** we lack — thirteen of
+SRouter's fourteen capabilities already live here in a more mature form, and AMRouter's
+distinguishing feature is account-farming automation, refused on covenant grounds rather than
+on effort. So the tide narrowed to the sibling that diverged furthest: VansRouter, 735 commits
+ahead, whose engineering is concentrated in exactly the places our own resilience was thin.
+
+**What we lacked, measured before it was believed.** Nine mechanisms, each verified absent by
+*capability* rather than by filename — and three of the items the reconnaissance proposed were
+**refuted by measurement before they entered the plan**: a circuit breaker (we have
+`src/lib/network/circuitBreaker.js`), a Claude `cache_control` splice (we already splice before
+the last cache block, at `open-sse/rtk/systemInject.js:240` — and our injector carries a
+`position` parameter the sibling's does not), and a `context_window` field on `/v1/models`
+(we already emit `context_length` and `max_completion_tokens`). The refusals are recorded in the
+plan, not buried, because a plan that hides its own corrections will repeat them.
+
+**✨ Features**
+- **Nineteen new provider docks** — `deepinfra` (23 models) · `zenmux` · `heroku` · `volcengine` ·
+  `publicai` · `baseten` · `nscale` · `codestral` · `upstage` · `wandb` · `nanogpt` · `ovhcloud` ·
+  `friendliai` · `gigachat` · `bytez` · `llamagate` · `predibase` · `galadriel` · `a6api`. Every one
+  is a real vendor endpoint with a real model list, wired into `registry/index.js` and reachable
+  through the runtime `PROVIDERS` map (proven by a test that resolves each id, not by file presence).
+  Four icon names the shipped font subset never carried (`handshake`, `lock_person`, `gate`,
+  `deployed_code_history`) were substituted for glyphs the font actually holds, so no badge renders
+  as raw text. **`a6api` ships against the Keeper's counsel** — its catalog contains invented model
+  ids and its source URLs carried affiliate referral parameters, which were stripped; the dissent and
+  the Star's override are both recorded in `plans/2026-09-20-sibling-harbor-ports.md`.
+- **`classify429` — one 429 becomes three truths.** A rate limit (~60s), a quota exhaustion (~1h),
+  and a **daily** quota that locks until the next UTC midnight are now told apart by body and
+  headers. Previously every 429 fell to a single `backoff: true` rule, and a *daily* exhaustion was
+  cooled for seconds because `"daily quota exceeded"` matched the generic `"quota exceeded"` text
+  rule — so a dead-until-tomorrow account was retried all day. Existing behaviour is unchanged:
+  a 2000-combination differential across status × text × backoff level showed **zero** non-429
+  differences.
+- **`cooldownRetry` — no more 503 when every account is merely cooling.** If all candidates are
+  rate-limited and the earliest expiry is within 30 seconds, Vela waits and retries once instead of
+  failing the request.
+- **`loopGuard` + `terminationPrompt` — the agent that will not stop.** Stateless repetition
+  detection (the same tool three times, the same tool *sequence* twice, the same sentence three
+  times) plus an anti-loop system prompt, **gated to the Kimi family** so no other model receives it.
+  Both ride the existing `injectSystemPrompt` seam; the prompt dedups through the seam's own
+  idempotency.
+- **`kimiToolParser` — tool calls rescued from the prose.** Kimi's native `functions.NAME:ID {json}`
+  markup that leaks into message content is now normalized into proper OpenAI `tool_calls`.
+- **`clinepassEnvelope` + `coercedSseHandler`** — Cline's `{success, data}` envelope is unwrapped on
+  its dispatch path (and only that path), and an upstream coerced to non-streaming can still be
+  re-synthesized into a valid SSE stream for a client that asked to stream.
+- **`accountSemaphore` + `providerProfiles`** — a per `provider:account:proxy` FIFO concurrency gate
+  with per-auth-category resilience thresholds. The sibling's queue carried a bound but dropped
+  silently; this port **counts every drop** and warns once per drop.
+- **`claudeHeaderCache`** — the real Claude Code client headers are captured from the inbound request
+  and forwarded, replacing the fabricated `claude-cli/…` user agent Vela had been presenting. An
+  allow-list of 19 identity headers and a hard deny-list (`authorization`, `x-api-key`, `cookie`,
+  `set-cookie`, `proxy-authorization`) keep credentials out of the cache entirely; no header *value*
+  is ever logged.
+
+**🐛 Fixes**
+- **A dead OAuth token is no longer retried forever.** The background sweeper previously swallowed
+  every refresh failure (`Promise.allSettled` + a warn), so an `invalid_grant` connection was retried
+  on every tick, indefinitely. A `refreshBlocked` / `refreshBlockedAt` marker now persists into the
+  connection's existing `providerSpecificData` JSON, and the sweeper skips marked rows. **The guard
+  that makes it safe is the point:** the marker is written *only* for hard auth failures
+  (`invalid_grant`, `refresh_token_reused`, token-endpoint 400/401/403) and **never** for a network
+  blip, timeout, or 5xx — and it is lifted on the next successful refresh. A latent trap was found
+  and closed on the way: `updateProviderCredentials` only writes the `providerSpecificData` column
+  when the refresh result carries one, so a naive lift would have left the stale marker in the
+  database forever.
+- **CodeBuddy Intl's connection test now actually probes the token** (it previously answered
+  "Provider test not supported"), and its OAuth account is **named by identity** from the access
+  token instead of "Account N". Vela lacked both halves.
+
+**🔧 Changes & Improvements**
+- **`DATA_DIR` test isolation** — a shared `tests/setup/isolateDataDir.js` hook boots the real
+  database into a temporary directory, so tests can no longer write the operator's live DB. The
+  token-lifecycle tests exercise persistence and marker-lifting against the **real** database
+  through this seam rather than a mock.
+
+**📖 Documentation**
+- **`plans/2026-09-20-sibling-harbor-ports.md`** — the sealed plan, with its non-goals, its
+  alternatives (including the do-nothing path and the wholesale-merge path), its requirement→task
+  coverage matrix (12/12 = 100%), its risk register, and the full verification record of the four
+  claims that measurement refused. `plans/INDEX.md` carries its row.
+
+**Proof.** 217 new tests across twelve suites, all green **together** in one run. The tide adds
+**zero** failures: `tests/unit` measures 40 failed files / 97 failed cases against a pre-tide
+baseline of the same 40/97 — with passing cases rising 3308 → 3525 and passing files 282 → 294.
+Two pre-existing defects were surfaced and recorded rather than absorbed: `gemini-cli.js` and
+`grok-cli.js` both claim the alias `gcli` (which `fish-audio-tts.test.js` asserts against), and
+`i18n-literals-parity` fails because `scripts/i18n-seed-literals.mjs` is absent at HEAD.
+
+---
+
 # v0.9.73 — The Harbor Manifest 📜
 > *"A fleet is not known by its hulls alone, but by the ledger that names them — how many sail, which harbor each belongs to, and which of them the tide has left idle. Write the manifest once, and every eye on the deck reads the same sea."* 📜💜
 

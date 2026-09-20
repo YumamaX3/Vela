@@ -7,6 +7,7 @@ import { createErrorResult } from "../../utils/error.js";
 import { HTTP_STATUS } from "../../config/runtimeConfig.js";
 import { parseSSEToOpenAIResponse } from "./sseToJsonHandler.js";
 import { unwrapClineEnvelope } from "../../shared/clineEnvelope.js";
+import { normalizeKimiToolCalls } from "../../utils/kimiToolParser.js";
 import { buildRequestDetail, extractRequestConfig, extractUsageFromResponse, saveUsageStats, formatDoneLine } from "./requestDetail.js";
 import { appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
 import { decloakToolNames } from "../../utils/claudeCloaking.js";
@@ -336,6 +337,22 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
   // Responses-format translation produces a `object:"response"` body with no
   // `choices`; skip the Chat-Completions-specific post-processing below for it.
   const isResponsesResponse = sourceFormat === FORMATS.OPENAI_RESPONSES && translatedResponse?.object === "response";
+
+  // Native Kimi tool-call markup sometimes leaks into `content` instead of being
+  // returned as a structured `tool_calls` array (W4 · sibling-harbor-ports §3.1
+  // row 3). Convert it for Kimi-family models before the finish_reason fixup so
+  // the leaked markup does not reach the client as literal text.
+  const isKimiModel = /kimi-k2\./i.test(model || "");
+  if (isKimiModel && Array.isArray(translatedResponse?.choices)) {
+    for (const choice of translatedResponse.choices) {
+      const msg = choice?.message;
+      if (!msg || msg.role !== "assistant") continue;
+      const { message: normalized, hasTools } = normalizeKimiToolCalls(msg);
+      if (hasTools) {
+        choice.message = normalized;
+      }
+    }
+  }
 
   // Fix finish_reason for tool_calls: some providers return non-standard values (e.g. "other")
   if (translatedResponse?.choices?.[0]) {
