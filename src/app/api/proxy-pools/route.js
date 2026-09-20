@@ -21,6 +21,7 @@ import { maskProxyPoolsForRead, maskProxyPoolForRead, findDuplicateProxyPool, du
 // or a non-network scheme. validateProxyPoolUrl is its own function rather than a flag
 // on validateProviderTestUrl — see providerUrlSafety.js for the three measured reasons.
 import { validateProxyPoolUrl } from "@/lib/network/providerUrlSafety.js";
+import { buildUsageMap } from "@/lib/network/poolUsage.js";
 
 function toBoolean(value) {
   if (value === "true") return true;
@@ -47,19 +48,11 @@ function normalizeProxyPoolInput(body = {}) {
   return { name, proxyUrl, noProxy, isActive, strictProxy, type };
 }
 
-function buildUsageMap(connections = []) {
-  const usageMap = new Map();
-
-  for (const connection of connections) {
-    const proxyPoolId = connection?.providerSpecificData?.proxyPoolId;
-    if (!proxyPoolId) continue;
-
-    usageMap.set(proxyPoolId, (usageMap.get(proxyPoolId) || 0) + 1);
-  }
-
-  return usageMap;
-}
-
+// The pool to connection census lives in src/lib/network/poolUsage.js. It was
+// briefly exported from this route file so the stats route could reuse it, but
+// a Next route module may only export HTTP verbs: the extra export failed
+// `next build` with "Property 'buildUsageMap' is incompatible with index
+// signature". The helper moved to the lib instead, and both routes import it.
 // GET /api/proxy-pools - List proxy pools
 export async function GET(request) {
   try {

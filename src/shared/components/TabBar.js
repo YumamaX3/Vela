@@ -1,7 +1,12 @@
 "use client";
-// TabBar — the Endpoint room's navigation. Speaks the house dialect already in
-// SkillsPageClient (role="tablist" + role="tab" + aria-selected) rather than
-// inventing a second vocabulary for the same idea.
+// TabBar — the house tab navigation, shared by every room that has sections.
+//
+// It began life inside the Endpoint room and moved here when the Proxy console
+// became its second consumer. It was MOVED, not copied: the fleet's own history
+// says why (bulk-health carried a second copy of the health loop, the copy
+// drifted, and the repair was to delete the copy rather than fix it). Two
+// tab bars would drift the same way — one would gain arrow keys, the other
+// would not, and the difference would be invisible until a keyboard user met it.
 //
 // R-31, every technique with its reason:
 //   · Roving tabindex — WCAG 2.4.11 (Focus Not Obscured) and the standard tabs
@@ -12,36 +17,32 @@
 //   · The active underline is drawn with --color-brand-500, the one deliberate
 //     accent (Liveliness: one accent). It is a transform, not a width change, so
 //     it composites instead of reflowing (MOTION dial 2 — transitions, no theatre).
-//   · Badges are SEMANTIC: a count of keys, or a count of unmet security
-//     controls. R-22 — no decorative status dot anywhere in this bar.
+//   · Badges are SEMANTIC: a count of keys, a count of unmet security controls,
+//     a count of blocked pools. R-22 — no decorative status dot anywhere here.
 //   · focus-visible:shadow-[var(--shadow-focus)] on every tab, so focus is always
 //     visible (R-35) and never obscured (SC 2.4.11).
 // Contrast: active ink is brand-600 on a brand-500/10 wash over --color-surface;
 // inactive is --color-text-muted. Both measured in the Delivery Gate.
 import { useRef } from "react";
 import { translate } from "@/i18n/runtime";
-
 export default function TabBar({ tabs, active, onChange, ariaLabel }) {
   const refs = useRef({});
-
   const move = (delta) => {
     const i = tabs.findIndex((t) => t.id === active);
     const next = tabs[(i + delta + tabs.length) % tabs.length];
     onChange(next.id);
     refs.current[next.id]?.focus();
   };
-
   const jump = (index) => {
     const next = tabs[index];
     if (!next) return;
     onChange(next.id);
     refs.current[next.id]?.focus();
   };
-
   return (
     <div
       role="tablist"
-      aria-label={ariaLabel || translate("Endpoint sections")}
+      aria-label={ariaLabel || translate("Sections")}
       onKeyDown={(e) => {
         if (e.key === "ArrowRight") { e.preventDefault(); move(1); }
         else if (e.key === "ArrowLeft") { e.preventDefault(); move(-1); }

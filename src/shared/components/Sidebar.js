@@ -20,6 +20,16 @@ const VISIBLE_MEDIA_KINDS = ["embedding", "image", "video", "tts", "stt"];
 const COMBINED_WEB_ITEM = { id: "web", label: "Web Fetch & Search", icon: "travel_explore", href: "/dashboard/media-providers/web" };
 
 const HOME_ITEM = { href: "/dashboard", label: "Home", icon: "home" };
+// The proxy console's four lenses. One subsystem, one nav entry, four doors into
+// it, the same shape Media Providers already uses. Two separate rows for "Proxy
+// Pools" and "Proxy Fitness" said the architecture was two systems; it is one
+// fleet seen four ways, and the nav was the last place still saying otherwise.
+const PROXY_TABS = [
+  { id: "fleet", label: "Fleet", icon: "lan" },
+  { id: "fitness", label: "Fitness", icon: "monitor_heart" },
+  { id: "egress", label: "Egress", icon: "travel_explore" },
+  { id: "relay", label: "Relay", icon: "cloud_upload" },
+];
 
 // Nav groups render in rail order. Labels stay raw English — the i18n runtime
 // resolves them through public/i18n/literals (seeded by i18n-seed-literals.mjs).
@@ -48,8 +58,7 @@ const navGroups = [
     items: [
       { href: "/dashboard/cli-tools", label: "CLI Tools", icon: "terminal" },
       { href: "/dashboard/media-providers", label: "Media Providers", icon: "perm_media", accordion: true },
-      { href: "/dashboard/proxy-pools", label: "Proxy Pools", icon: "lan" },
-      { href: "/dashboard/proxy-fitness", label: "Proxy Fitness", icon: "monitor_heart" },
+      { href: "/dashboard/proxy", label: "Proxy", icon: "lan", proxyAccordion: true },
       { href: "/dashboard/fallback-rules", label: "Fallback Rules", icon: "rule" },
       { href: "/dashboard/prompt-injectors", label: "Prompt Injectors", icon: "edit_note" },
       { href: "/dashboard/skills", label: "Skills", icon: "extension" },
@@ -66,6 +75,11 @@ const debugItems = [
 export default function Sidebar({ onClose }) {
   const pathname = usePathname();
   const [mediaOpen, setMediaOpen] = useState(false);
+  // Opens by itself when the operator is already inside the proxy console, so a
+  // deep link into /dashboard/proxy shows its four lenses instead of a closed
+  // row that hides where they are. Same intent as the media accordion's, applied
+  // to the one nav entry whose children are tabs rather than routes.
+  const [proxyOpen, setProxyOpen] = useState(false);
   const [collapsed, setCollapsed] = useState({});
   const [showRemoteModal, setShowRemoteModal] = useState(false);
   const [isDisconnected, setIsDisconnected] = useState(false);
@@ -115,6 +129,17 @@ export default function Sidebar({ onClose }) {
     setUpdateInfo(null);
   };
 
+  // The proxy accordion opens itself when its route is active, so a deep link into
+  // /dashboard/proxy shows its four lenses instead of a closed accordion. This is
+  // React's documented "adjust state when a prop changes" pattern, not an effect:
+  // it runs during render and re-renders immediately, so there is no committed
+  // frame and no cascading render — which is exactly what
+  // `react-hooks/set-state-in-effect` rightly flags in the effect form.
+  const [proxyRoute, setProxyRoute] = useState(null);
+  if (pathname !== proxyRoute) {
+    setProxyRoute(pathname);
+    if (pathname.startsWith("/dashboard/proxy")) setProxyOpen(true);
+  }
   const isRouteActive = (href) => {
     if (href === "/dashboard") return pathname === "/dashboard";
     return pathname.startsWith(href);
@@ -253,6 +278,15 @@ export default function Sidebar({ onClose }) {
                         pathname={pathname}
                         open={mediaOpen}
                         onToggle={() => setMediaOpen((v) => !v)}
+                        active={pathname.startsWith(item.href)}
+                        onClose={onClose}
+                      />
+                    ) : item.proxyAccordion ? (
+                      <ProxyAccordion
+                        key={item.href}
+                        pathname={pathname}
+                        open={proxyOpen}
+                        onToggle={() => setProxyOpen((v) => !v)}
                         active={pathname.startsWith(item.href)}
                         onClose={onClose}
                       />
@@ -493,6 +527,60 @@ MediaAccordion.propTypes = {
   onClose: PropTypes.func,
 };
 
+function ProxyAccordion({ pathname, open, onToggle, active, onClose }) {
+  return (
+    <div>
+      <button
+        onClick={onToggle}
+        aria-expanded={open}
+        className={cn(
+          "relative w-full flex items-center gap-3 px-3 py-[7px] rounded-[10px] transition-colors group",
+          active
+            ? "bg-primary/10 text-primary"
+            : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+        )}
+      >
+        {active && (
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-brand-500" />
+        )}
+        <span className="material-symbols-outlined text-[18px]">lan</span>
+        <span className="text-[13px] font-medium flex-1 text-left">{translate("Proxy")}</span>
+        <span
+          className="material-symbols-outlined text-[14px] transition-transform"
+          style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
+        >
+          expand_more
+        </span>
+      </button>
+      {open && (
+        <div className="pl-4 mt-0.5 flex flex-col gap-0.5 border-l border-border-subtle ml-6">
+          {PROXY_TABS.map((lens) => (
+            <Link
+              key={lens.id}
+              href={`/dashboard/proxy?tab=${lens.id}`}
+              onClick={onClose}
+              className={cn(
+                "flex items-center gap-3 px-4 py-1 rounded-lg transition-colors group",
+                pathname.startsWith("/dashboard/proxy")
+                  ? "text-text-muted hover:bg-surface-2 hover:text-text-main"
+                  : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+              )}
+            >
+              <span className="material-symbols-outlined text-[16px]">{lens.icon}</span>
+              <span className="text-sm">{translate(lens.label)}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+ProxyAccordion.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onToggle: PropTypes.func.isRequired,
+  active: PropTypes.bool,
+  onClose: PropTypes.func,
+};
 function ManualUpdatePanel({ latestVersion, installCmd, copied, onCopyAndShutdown, onCancel, countdown, isDisconnected }) {
   const isCountingDown = countdown > 0;
   return (

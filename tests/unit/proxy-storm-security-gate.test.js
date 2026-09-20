@@ -15,7 +15,7 @@
 //   • every mutation under /api/proxy-pools needs a real credential — a remote
 //     unauthenticated caller must NOT be able to mint an open forward-proxy via
 //     the three deploy routes, nor flip fleet state via bulk-health's autoDisable
-//   • the three verified dashboard GET reads stay posture-consistent (they pass
+//   • the four verified dashboard GET reads stay posture-consistent (they pass
 //     under requireLogin===false exactly like every other dashboard read)
 //   • an UNLISTED read fail-closes LOUDLY rather than silently leaking — a new
 //     GET route under the prefix 401s visibly until it is added to the list
@@ -133,11 +133,17 @@ beforeEach(() => {
 describe("S1 — the posture-read predicate is method-aware and exact-match", () => {
   const { isProxyPoolsPostureRead, PROXY_POOLS_POSTURE_READS } = __test__;
 
-  it("names exactly the three verified dashboard GET reads", () => {
+  // v0.9.75 added /api/proxy-pools/stats — deliberately, exactly as this
+  // suite's own S1 comment demands ("a NEW read route must be added here
+  // deliberately; it must not inherit the posture by accident"). It is a
+  // count-only census: no pool row, hence no proxyUrl, is ever emitted, so it
+  // widens the list without widening what a posture read can disclose.
+  it("names exactly the four verified dashboard GET reads", () => {
     expect([...PROXY_POOLS_POSTURE_READS].sort()).toEqual([
       "/api/proxy-pools",
       "/api/proxy-pools/export",
       "/api/proxy-pools/fitness",
+      "/api/proxy-pools/stats",
     ]);
   });
 
@@ -204,6 +210,7 @@ describe("S2 — a first-run LOCAL dashboard may still operate the fleet", () =>
     ["/api/proxy-pools", "GET"],
     ["/api/proxy-pools/fitness", "GET"],
     ["/api/proxy-pools/export", "GET"],
+    ["/api/proxy-pools/stats", "GET"],
   ])("admits the posture read %s %s", async (p, m) => {
     expect(passed(await proxy(localBrowser(p, m)))).toBe(true);
   });
