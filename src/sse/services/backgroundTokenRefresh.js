@@ -54,6 +54,10 @@ export function selectConnectionsNeedingRefresh(connections, nowMs = Date.now())
     const authType = String(conn.authType || "").toLowerCase().replace(/_/g, "");
     if (authType !== "oauth") continue;
     if (!conn.refreshToken) continue;
+    // Refresh token known-dead (invalid_grant / token-endpoint 4xx) — stop
+    // retrying every tick; surfaced as "re-login required" instead. The marker
+    // is lifted by checkAndRefreshToken on the next successful refresh.
+    if (conn.providerSpecificData?.refreshBlocked) continue;
 
     const expiresAtMs = getCredentialExpiryMs(conn);
     if (expiresAtMs === null) continue;
@@ -79,7 +83,26 @@ async function loadActiveConnections() {
 
 async function refreshOne(connection) {
   const { checkAndRefreshToken } = await import("./tokenRefresh.js");
-  return checkAndRefreshToken(connection.provider, connection, { force: true });
+  const result = await checkAndRefreshToken(connection.provider, connection, { force: true });
+  // Dead refresh token (revoked/reused/expired): persist the block marker so
+  // future ticks skip it, then surface the re-login requirement. The marker is
+  // lifted by checkAndRefreshToken on the next successful refresh.
+  if (result?.refreshError) {
+    const { updateProviderConnection } = await import("../../lib/db/repos/connectionsRepo.js");
+    await updateProviderConnection(connection.id, {
+      providerSpecificData: {
+        ...(connection.providerSpecificData || {}),
+        refreshBlocked: result.refreshError,
+        refreshBlockedAt: result.refreshErrorAt,
+      },
+    });
+    log.warn("BG_TOKEN_REFRESH", "Refresh token unrecoverable — auto-refresh stopped, re-login required", {
+      id: connection.id,
+      provider: connection.provider,
+      error: result.refreshError,
+    });
+  }
+  return result;
 }
 
 /**

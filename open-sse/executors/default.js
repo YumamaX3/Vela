@@ -4,9 +4,11 @@ import { ANTHROPIC_API_VERSION, OPENAI_COMPAT_BASE, ANTHROPIC_COMPAT_BASE, selec
 import { resolveOpenAICompatibleApiType } from "../services/provider.js";
 import { OAUTH_ENDPOINTS, buildKimiHeaders } from "../config/appConstants.js";
 import { buildClineHeaders } from "../shared/clineAuth.js";
+import { getCachedClaudeHeaders } from "../utils/claudeHeaderCache.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import { injectReasoningContent } from "../utils/reasoningContentInjector.js";
 import { stripUnsupportedParams } from "../translator/concerns/paramSupport.js";
+import { unwrapClinepassEnvelope } from "../utils/clinepassEnvelope.js";
 
 // Auth header descriptors — derived from registry transport.auth, fallback to hardcoded defaults.
 const BEARER = { combined: true, header: "Authorization", scheme: "bearer" };
@@ -43,6 +45,43 @@ const HEADER_HOOKS = {
   clineHeaders: (h, c) => Object.assign(h, buildClineHeaders(c.apiKey || c.accessToken)),
   kilocodeOrg: (h, c) => { if (c.providerSpecificData?.orgId) h["X-Kilocode-OrganizationID"] = c.providerSpecificData.orgId; },
 };
+/**
+ * W6 · claudeHeaderCache — overlay the REAL Claude Code client identity
+ * captured from an inbound request over the fabricated `claude-cli/<ver>`
+ * fingerprint the registry ships. Cold start (no authentic client seen yet)
+ * returns null and the static fingerprint stands unchanged.
+ *
+ * Two laws, both deliberate:
+ *  1. `anthropic-beta` is UNIONed into the existing value rather than replacing
+ *     it. The registry list carries flags Vela's translators require
+ *     (`context-management-2025-06-27`, `prompt-caching-scope-…`) that a client's
+ *     own beta list may omit — a live client may ADD flags, never remove one.
+ *  2. The Title-Case twin of every overlaid lowercase key is deleted, so a
+ *     forwarded request never carries `User-Agent` AND `user-agent`.
+ */
+function applyClaudeIdentityOverlay(headers) {
+  const cached = getCachedClaudeHeaders();
+  if (!cached) return;
+  const { "anthropic-beta": cachedBeta, ...identity } = cached;
+  for (const lcKey of Object.keys(identity)) {
+    const titleKey = lcKey.replace(/(^|-)([a-z])/g, (_, sep, ch) => sep + ch.toUpperCase());
+    if (titleKey !== lcKey) delete headers[titleKey];
+  }
+  Object.assign(headers, identity);
+  if (cachedBeta === undefined) return;
+  const betaKey = headers["Anthropic-Beta"] !== undefined ? "Anthropic-Beta" : "anthropic-beta";
+  const otherKey = betaKey === "Anthropic-Beta" ? "anthropic-beta" : "Anthropic-Beta";
+  const flags = new Set();
+  for (const src of [headers[betaKey], headers[otherKey], cachedBeta]) {
+    if (typeof src !== "string") continue;
+    for (const flag of src.split(",")) {
+      const trimmed = flag.trim();
+      if (trimmed) flags.add(trimmed);
+    }
+  }
+  delete headers[otherKey];
+  headers[betaKey] = Array.from(flags).join(",");
+}
 
 // Config-driven OAuth refresh grants — derived from registry oauth.refresh.
 const REFRESH_GRANTS = Object.fromEntries(
@@ -99,6 +138,29 @@ export class DefaultExecutor extends BaseExecutor {
       messages.unshift({ role: "system", content: prompt });
     }
     return { ...body, messages, response_format: { type: "json_object" } };
+  }
+
+  // Cline / ClinePass non-stream error envelope. The upstream wraps errors in
+  // `{success:false, error}` (and success bodies in `{success:true, data}`), so a
+  // raw `parseError` would hand the client the whole envelope as the message.
+  // W4 · sibling-harbor-ports §3.1 row 7 — Vela has no dedicated clinepass
+  // executor, so clinepass dispatches through DefaultExecutor and the unwrap
+  // lives here. No-op for every provider without the clineEnvelope quirk.
+  parseError(response, bodyText) {
+    const base = super.parseError(response, bodyText);
+    const provider = this.getProvider?.() || this.provider;
+    if (!provider) return base;
+    let parsed;
+    try {
+      parsed = JSON.parse(bodyText);
+    } catch {
+      return base;
+    }
+    const { error } = unwrapClinepassEnvelope(parsed, provider);
+    if (error) {
+      return { ...base, message: error.message, status: error.status || base.status };
+    }
+    return base;
   }
 
   buildUrl(model, stream, urlIndex = 0, credentials = null) {
@@ -203,6 +265,9 @@ export class DefaultExecutor extends BaseExecutor {
     }
 
     if (stream) headers["Accept"] = "text/event-stream";
+    // W6 · claudeHeaderCache — last, so the real client fingerprint overlays
+    // the fabricated one without being clobbered by any earlier step.
+    if (this.provider === "claude") applyClaudeIdentityOverlay(headers);
     return headers;
   }
 
