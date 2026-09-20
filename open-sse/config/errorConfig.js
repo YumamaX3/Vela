@@ -41,6 +41,18 @@ export const TRANSIENT_COOLDOWN_MS = 30 * 1000;
 // Hard cap for provider-reported rate limit cooldown (e.g. codex resets_at can be 5-6h)
 export const MAX_RATE_LIMIT_COOLDOWN_MS = 30 * 60 * 1000;
 
+// --- 429 semantics (W2, v0.9.75) -------------------------------------------
+// A 429 is three different failures behind one status. classify429.js reads the
+// error body and picks one of these horizons; a plain rate-limit 429 keeps the
+// exponential backoff above, so nothing here changes the existing path.
+//
+// Short transient rate limit ("too many requests in the last minute").
+export const RATE_LIMIT_COOLDOWN_MS = 60 * 1000;
+// Long-period cap hit (monthly / billing / credit based): ~1h.
+export const QUOTA_EXHAUSTED_COOLDOWN_MS = 60 * 60 * 1000;
+// A daily cap locks until the next 00:00 UTC — derived, never a fixed window.
+// ---------------------------------------------------------------------------
+
 // Cooldown durations (ms)
 const COOLDOWN = {
   long: 2 * 60 * 1000,

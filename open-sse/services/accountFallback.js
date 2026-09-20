@@ -1,4 +1,5 @@
 import { ERROR_RULES, BACKOFF_CONFIG, TRANSIENT_COOLDOWN_MS } from "../config/errorConfig.js";
+import { classify429 } from "../utils/classify429.js";
 
 /**
  * Calculate exponential backoff cooldown for rate limits (429)
@@ -25,6 +26,19 @@ export function checkFallbackError(status, errorText, backoffLevel = 0) {
     ? (typeof errorText === "string" ? errorText : JSON.stringify(errorText)).toLowerCase()
     : "";
 
+  // A 429 is three failures behind one status, and the text rules below cannot
+  // tell them apart: "daily quota exceeded" matches the `quota exceeded` text
+  // rule (→ seconds of backoff), so a dead daily quota would be retried all day.
+  // Classify first — but ONLY a daily/quota verdict returns here. A plain
+  // rate-limit 429 falls through to the unchanged loop below, which reproduces
+  // today's exponential backoff byte-for-byte, and every non-429 status never
+  // reaches this branch at all.
+  if (status === 429) {
+    const { kind, cooldownMs } = classify429({ status, body: errorText });
+    if (kind !== "rate_limit") {
+      return { shouldFallback: true, cooldownMs };
+    }
+  }
   for (const rule of ERROR_RULES) {
     // Text-based rule: match substring in error message
     if (rule.text && lowerError && lowerError.includes(rule.text)) {

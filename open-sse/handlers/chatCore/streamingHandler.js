@@ -6,6 +6,8 @@ import { PROVIDERS } from "../../config/providers.js";
 import { HTTP_STATUS, STREAM_STALL_TIMEOUT_MS } from "../../config/runtimeConfig.js";
 import { buildAbortedResponsesTerminalBytes } from "../../utils/responsesStreamHelpers.js";
 import { buildStreamErrorBytes } from "../../utils/streamHelpers.js";
+import { buildCoercedSSEResponse } from "./coercedSseHandler.js";
+import { normalizeKimiToolCalls } from "../../utils/kimiToolParser.js";
 import { buildRequestDetail, extractRequestConfig, saveUsageStats, formatDoneLine } from "./requestDetail.js";
 import { saveRequestDetail } from "@/lib/usageDb.js";
 import { SSE_HEADERS_CORS as SSE_HEADERS } from "../../utils/sseConstants.js";
@@ -78,6 +80,36 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
       }),
     };
+  }
+
+  // W4 · Recovery (sibling-harbor-ports §3.1 — coercedSseHandler): the client
+  // asked for SSE but the upstream answered with a single `application/json`
+  // chat.completion body (the upstream was coerced to stream:false, e.g.
+  // NVIDIA NIM-hosted Kimi-k2.6/k2.7). A JSON body cannot be piped through the
+  // SSE transform — synthesize a well-formed SSE sequence from it instead so
+  // the client still receives `data:` chunks ending in `[DONE]`.
+  if (upstreamContentType.includes('application/json')) {
+    let jsonBody;
+    try {
+      jsonBody = await providerResponse.clone().json();
+    } catch {
+      jsonBody = null;
+    }
+    if (jsonBody) {
+      // Kimi-family models can leak native `functions.NAME:ID {json}` markup into
+      // `content` instead of structured `tool_calls` — normalize it before the
+      // synthetic stream is built (mirrors the non-streaming path).
+      if (/kimi-k2\./i.test(model || "") && Array.isArray(jsonBody.choices)) {
+        for (const choice of jsonBody.choices) {
+          const msg = choice?.message;
+          if (!msg || msg.role !== "assistant") continue;
+          const { message: normalized, hasTools } = normalizeKimiToolCalls(msg);
+          if (hasTools) choice.message = normalized;
+        }
+      }
+      streamController?.handleComplete?.();
+      return { success: true, response: buildCoercedSSEResponse(jsonBody) };
+    }
   }
 
   const transformStream = buildTransformStream({ provider, sourceFormat, targetFormat, userAgent, reqLogger, toolNameMap, customToolNames, model, connectionId, body, onStreamComplete, apiKey });
