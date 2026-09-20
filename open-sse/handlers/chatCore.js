@@ -20,8 +20,10 @@ import { handleNonStreamingResponse } from "./chatCore/nonStreamingHandler.js";
 import { handleStreamingResponse, buildOnStreamComplete } from "./chatCore/streamingHandler.js";
 import { detectClientTool, isNativePassthrough } from "../utils/clientDetector.js";
 import { dedupeTools } from "../utils/toolDeduper.js";
+import { detectLoop } from "../utils/loopGuard.js"; // W3 — loop discipline
 import { injectCaveman } from "../rtk/caveman.js";
 import { injectPonytail } from "../rtk/ponytail.js";
+import { injectTerminationPrompt, injectToolProtocolPrompt, needsTerminationPrompt } from "../rtk/terminationPrompt.js"; // W3 — loop discipline
 import { applyUserInjectors } from "../rtk/userInjectors.js"; // v0.9.19 — operator injectors
 import { compressMessages, formatRtkLog } from "../rtk/index.js";
 import { compressWithHeadroom, formatHeadroomLog, formatHeadroomSizeLog, isHeadroomPhantomSavings } from "../rtk/headroom.js";
@@ -31,6 +33,67 @@ import { stripUnsupportedModalities } from "../translator/concerns/modality.js";
 import { defaultClaudeToolType, shouldDefaultClaudeToolType } from "../translator/concerns/toolCall.js";
 import { prefetchRemoteImages } from "../translator/concerns/prefetch.js";
 import { resolveSessionId } from "../utils/sessionManager.js";
+
+// ---------------------------------------------------------------------------
+// W3 · Loop discipline (ported from VansRouter, sibling-harbor-ports §3.1 rows 1-2)
+// `detectLoop` + `injectTerminationPrompt`/`injectToolProtocolPrompt` are wired
+// at the same seam as the RTK injectors below (after compression, before
+// dispatch). Both are pure/additive; `needsTerminationPrompt` keeps the
+// termination prompt Kimi-only so a non-Kimi model receives nothing.
+// ---------------------------------------------------------------------------
+const TOOL_PROTOCOL_PROMPT_PROVIDERS = new Set(["kimchi", "nvidia"]);
+
+function extractToolNames(tools) {
+  if (!Array.isArray(tools)) return [];
+  return tools
+    .map((tool) => tool?.function?.name || tool?.name)
+    .filter((name) => typeof name === "string" && name.trim());
+}
+
+/**
+ * Loop guard: detect repeated tool_call patterns in the translated conversation
+ * history and, when found, append a stop-and-summarize `[ROUTER NOTE: ...]`
+ * hint to the last user/tool message (or the last assistant message for a
+ * text-only loop). Stateless — reads `translatedBody.messages` only. Idempotent:
+ * a hint already present is not re-appended. Returns true when a hint fired.
+ */
+export function applyLoopGuard(translatedBody, finalFormat, provider, model, log) {
+  const loopCheck = detectLoop(translatedBody);
+  if (!loopCheck.detected) return false;
+  injectTerminationPrompt(translatedBody, finalFormat);
+  const msgs = translatedBody?.messages;
+  if (Array.isArray(msgs)) {
+    let target = null;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const m = msgs[i];
+      if (m && (m.role === "user" || m.role === "tool")) {
+        target = m;
+        break;
+      }
+      // Text-only loop: last message is assistant (no user/tool after it).
+      // Append the hint to the last assistant message so the model sees the
+      // correction on its own repeated output.
+      if (m && m.role === "assistant" && i === msgs.length - 1) {
+        target = m;
+        break;
+      }
+    }
+    if (target) {
+      const hint = `\n\n[ROUTER NOTE: ${loopCheck.hint}]`;
+      if (typeof target.content === "string") {
+        if (!target.content.includes("[ROUTER NOTE:")) target.content += hint;
+      } else if (Array.isArray(target.content)) {
+        if (!target.content.some((p) => p.text && p.text.includes("[ROUTER NOTE:"))) {
+          target.content.push({ type: "text", text: hint });
+        }
+      } else {
+        target.content = hint.trimStart();
+      }
+    }
+  }
+  log?.warn?.("LOOPGUARD", `${provider}/${model} | loop detected, hint injected`);
+  return true;
+}
 
 /**
  * Core chat handler - shared between SSE and Worker
@@ -91,7 +154,7 @@ export function maskUrlForLog(raw) {
   }
 }
 
-export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, headroomTimeoutMs, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking, userInjectors = null, combo = null }) {
+export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, headroomTimeoutMs, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking, userInjectors = null, combo = null, loopGuardEnabled = true }) {
   const { provider, model } = modelInfo;
   const requestStartTime = Date.now();
   // Stable per-session color so all lines of one CLI conversation share a tag
@@ -327,6 +390,22 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   if (tokenSaverEnabled && ponytailEnabled && ponytailLevel) {
     injectPonytail(translatedBody, finalFormat, ponytailLevel);
     xf.push(`PONYTAIL:${ponytailLevel}`);
+  }
+  // W3 · Loop discipline — after RTK compression, before dispatch.
+  // Tool-protocol notice for providers that leak tool intent into content.
+  if (TOOL_PROTOCOL_PROMPT_PROVIDERS.has(provider)) {
+    injectToolProtocolPrompt(translatedBody, finalFormat, extractToolNames(translatedBody.tools));
+    xf.push(`TOOLPROTO:${provider}`);
+  }
+  // Repetition guard: a detected loop injects the termination contract and a
+  // `[ROUTER NOTE: ...]` hint on the outgoing messages.
+  if (loopGuardEnabled && applyLoopGuard(translatedBody, finalFormat, provider, model, log)) {
+    xf.push("LOOPGUARD");
+  }
+  // Kimi-gated termination contract — a non-Kimi model receives nothing.
+  if (needsTerminationPrompt(provider, model)) {
+    injectTerminationPrompt(translatedBody, finalFormat);
+    xf.push(`TERMINATION:${provider}`);
   }
 
   // User-defined prompt injectors (v0.9.19 → v0.9.23): operator-configured

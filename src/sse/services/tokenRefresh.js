@@ -20,7 +20,8 @@ import {
   formatProviderCredentials as _formatProviderCredentials,
   getAllAccessTokens as _getAllAccessTokens,
   refreshKiroToken as _refreshKiroToken,
-  getRefreshLeadMs as _getRefreshLeadMs
+  getRefreshLeadMs as _getRefreshLeadMs,
+  isUnrecoverableRefreshError as _isUnrecoverableRefreshError
 } from "open-sse/services/tokenRefresh.js";
 import {
   refreshProviderCredentials as _refreshProviderCredentials,
@@ -101,6 +102,40 @@ function normalizeExpiresAt(expiresAt) {
   const date = new Date(expiresAt);
   if (!Number.isFinite(date.getTime())) return null;
   return date.toISOString();
+}
+// ─── refreshBlocked marker (MIBP fix 10, hard-auth-failure gated) ─────────────
+/**
+ * The marker is written only for a HARD auth failure: the refresh token is dead
+ * (`invalid_grant` / reused / expired / invalidated) or the token endpoint
+ * answered 400/401/403. Transient failures — network errors, timeouts, 5xx —
+ * carry no marker, so a blip can never become a permanent lockout.
+ *
+ * @param {object|null} result  the refresh result from the provider layer
+ * @returns {boolean}
+ */
+export function isHardAuthRefreshFailure(result) {
+  if (!result || typeof result !== "object") return false;
+  if (_isUnrecoverableRefreshError(result)) return true;
+  const code = String(result.error || result.code || "").toLowerCase();
+  if (code.includes("invalid_grant")) return true;
+  return result.status === 400 || result.status === 401 || result.status === 403;
+}
+/**
+ * True when a connection carries the persisted refreshBlocked marker.
+ * Reads the row's own providerSpecificData (the scheduler's selector contract).
+ *
+ * @param {object} connection
+ * @returns {boolean}
+ */
+export function isRefreshBlocked(connection) {
+  return !!connection?.providerSpecificData?.refreshBlocked;
+}
+function withLiftedMarker(psd) {
+  if (!psd?.refreshBlocked) return psd;
+  const next = { ...psd };
+  delete next.refreshBlocked;
+  delete next.refreshBlockedAt;
+  return next;
 }
 
 /**
@@ -238,10 +273,32 @@ export async function checkAndRefreshToken(provider, credentials, options = {}) 
     });
 
     const newCreds = await _refreshProviderCredentials(provider, creds, log);
+    if (isHardAuthRefreshFailure(newCreds)) {
+      // Refresh token is dead (revoked/reused/expired) — retrying forever just
+      // spams the token endpoint every tick. Tag the result so the background
+      // scheduler can stop retrying and surface "re-login required". Only a
+      // HARD auth failure tags; a transient error (network/5xx) returns null
+      // here and stays retryable.
+      log.warn("TOKEN_REFRESH", `Refresh token unrecoverable for ${provider} — re-login required`, {
+        error: newCreds.error || newCreds.code || newCreds.status,
+      });
+      return {
+        ...creds,
+        refreshError: newCreds.error || newCreds.code || "invalid_grant",
+        refreshErrorAt: new Date().toISOString(),
+      };
+    }
     if (newCreds?.accessToken || newCreds?.apiKey || newCreds?.copilotToken) {
+      const liftedExisting = withLiftedMarker(creds.providerSpecificData);
       const mergedCreds = {
         ...newCreds,
-        existingProviderSpecificData: creds.providerSpecificData,
+        existingProviderSpecificData: liftedExisting,
+        // A marker lifted with no psd of the refresh's own must still be
+        // written: updateProviderCredentials skips the column otherwise, and
+        // the stale marker would survive in the DB.
+        ...(creds.providerSpecificData?.refreshBlocked
+          ? { providerSpecificData: liftedExisting }
+          : {}),
       };
 
       // Persist to DB (non-blocking path continues below)
@@ -254,8 +311,8 @@ export async function checkAndRefreshToken(provider, credentials, options = {}) 
           ? toExpiresAt(newCreds.expiresIn)
           : normalizeExpiresAt(newCreds.expiresAt) || newCreds.expiresAt || creds.expiresAt,
         providerSpecificData: newCreds.providerSpecificData
-          ? { ...creds.providerSpecificData, ...newCreds.providerSpecificData }
-          : creds.providerSpecificData,
+          ? withLiftedMarker({ ...creds.providerSpecificData, ...newCreds.providerSpecificData })
+          : withLiftedMarker(creds.providerSpecificData),
       };
 
       // Non-blocking: refresh projectId with the new access token
