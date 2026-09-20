@@ -113,7 +113,8 @@ const ALWAYS_PROTECTED = [
 // regardless of requireLogin); ONLY these exact pathnames, and ONLY on GET, ride the
 // posture-consistent deny-by-default branch below.
 //
-// The three entries carry every verified dashboard GET consumer (7 files):
+// The four entries carry every verified dashboard GET consumer (7 files) plus one
+// deliberate aggregate:
 //   GET /api/proxy-pools          — page.js:83 (?includeUsage), providers/[id]/page.js:303,
 //                                   ConnectionsCard.js:313, ProviderLimits/index.js:457,
 //                                   NoAuthProxyCard.js:26 (all ?isActive) — query strings are
@@ -121,6 +122,12 @@ const ALWAYS_PROTECTED = [
 //   GET /api/proxy-pools/fitness  — page.js:73, FleetStatusPanel.jsx:16
 //   GET /api/proxy-pools/export   — no consumer today (§15.4 lists it dead) but posture-consistent
 //                                   by design, and it leaks the full pool set when wired.
+//   GET /api/proxy-pools/stats    — no consumer today either, and posture-consistent by design:
+//                                   it is a COUNT-ONLY census (total/active/inactive/bound plus
+//                                   per-block tallies), so unlike every other entry here it puts
+//                                   no pool object — and therefore no proxyUrl — on the wire at
+//                                   all. It reuses the same usage-map and fitness-summary helpers
+//                                   the sibling reads already run.
 //
 // Why fail-closed and not "remove from a list": PROTECTED_API_PATHS (the mechanism
 // §5.1 described) is dead code — see its removal note above. The deny-by-default branch
@@ -140,6 +147,7 @@ const PROXY_POOLS_POSTURE_READS = new Set([
   "/api/proxy-pools",
   "/api/proxy-pools/fitness",
   "/api/proxy-pools/export",
+  "/api/proxy-pools/stats",
 ]);
 
 // Routes that spawn child processes or read host secrets — restrict to localhost.

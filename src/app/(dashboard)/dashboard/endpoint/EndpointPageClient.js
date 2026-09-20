@@ -23,7 +23,7 @@ import { useState, useEffect } from "react";
 import { CardSkeleton } from "@/shared/components";
 import { translate } from "@/i18n/runtime";
 import useEndpointController from "./hooks/useEndpointController";
-import TabBar from "./components/TabBar";
+import TabBar from "@/shared/components/TabBar";
 import EndpointCard from "./components/endpoint/EndpointCard";
 import KeysCard from "./components/keys/KeysCard";
 import EndpointModals from "./components/modals/EndpointModals";

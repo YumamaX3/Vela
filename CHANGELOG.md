@@ -25,6 +25,84 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.75 — The Four Lenses 🔭
+> *"Two rooms held the same water, and neither could see the whole of it. So I took down the wall between them, set four lenses over one current, and taught the glass to say 'unknown' where it could not prove."* 🔭💜
+Two rooms became one. `dashboard/proxy-pools` (1116 lines) and `dashboard/proxy-fitness`
+(357 lines) each watched the same fleet through their own slit — one held every pool, the
+other every block — and neither could answer a question that needed both. They are now a
+single console at **`/dashboard/proxy`**: four lenses over one shared current
+(`useProxyFleet`) — **Fleet** (every CRUD, test, toggle, delete, batch-import and bulk action
+the old page had, preserved not rewritten), **Fitness** (the block ledger, clear-one/all,
+filters, the geo toggle), **Egress** (per-pool IP, country, flapping, ipHistory — new), and
+**Relay** (the three edge deploys as first-class rows with their forms — new). Both old
+routes are kept as redirects, so every bookmark and every deep link still lands.
+**✨ Features**
+- **Four lenses over one current** (`dashboard/proxy/**`) — one shell
+  (`ProxyConsoleClient`), one data current (`useProxyFleet`), one fetch seam
+  (`lib/proxyApi.js`), one verdict vocabulary (`lib/proxyFormat.js`). The four tabs are
+  `Fleet · Fitness · Egress · Relay`; the census strip rides above them, and each tab is a
+  real `role="tabpanel"` wired to the shared `TabBar`.
+- **The census, count-only by construction** — `GET /api/proxy-pools/stats` returns exactly
+  `{total, active, inactive, bound, relays, fitness, egress, tested, lastTestedAt}`. It
+  carries **no `proxyUrl`** — masked or otherwise — because the route spreads only counts, so
+  there is no field for a secret to travel in. It reuses `buildUsageMap` and
+  `fleet.getFitnessSummary()` rather than growing a second copy that would drift from the
+  first; a thrown dependency returns **500, never a zeroed census**, so an outage cannot
+  read as "no pools".
+- **One tab bar for both rooms** — the endpoint room's private `TabBar` is promoted to
+  `src/shared/components/TabBar.js` and the endpoint room now imports the shared one. One
+  component, two rooms, no fork.
+- **The sidebar knows the console** — `/dashboard/proxy` gains a proxy accordion whose four
+  lens deep links open the console on the right tab, auto-opened when the route is active;
+  QuickNav points at the console instead of the page it replaced.
+**🐛 Fixes**
+- **The health check that stormed** — `handleHealthCheck` now POSTs
+  `/api/proxy-pools/bulk-health` **once** and reads the result, instead of firing one client
+  `/test` request per pool. On a large fleet the old path was a self-inflicted thundering
+  herd. Pinned by a test that asserts **exactly one bulk POST and zero per-pool `/test`
+  calls**.
+- **The verdict that could not say "unknown"** — a probe now yields **three** states, not
+  two: `ok` / `dead` / `indeterminate`. Only a **proven-dead** pool is offered for disable;
+  an `indeterminate` result reads *"unknown, left active"* and offers nothing, so a probe
+  that merely failed to decide can no longer take a healthy pool out of service. Pinned by a
+  test that asserts the PUT for a dead pool and **none** for an unsure one.
+**🔧 Changes & Improvements**
+- **The helper moved to where helpers live** — `buildUsageMap` was briefly exported from
+  `api/proxy-pools/route.js` so the stats route could reuse it. A Next route module may only
+  export HTTP verbs, and `next build` refused the extra export — *"Property 'buildUsageMap'
+  is incompatible with index signature"*. The helper now lives in
+  `src/lib/network/poolUsage.js` and **both** routes import it: one copy, no drift, and the
+  route modules keep the signature Next requires. The build is the test that caught it.
+- **The golden ledger, brought current** — v0.9.74's nineteen new provider docks were never
+  written into `tests/translator/__snapshots__/golden-url-header.test.js.snap`, so the golden
+  suite stood red on **19 providers × 2 cases**. Regenerated as the versioning covenant
+  requires after every bump: **494 insertions, 0 deletions** — nineteen providers added, not
+  one existing golden altered.
+**⚙️ Internal**
+- **Proof, measured not asserted** — the console's own suite is **20 cases**; the seven proxy
+  suites together are **343**; `eslint` is **0 errors** on every new and changed file; and
+  `next build` **compiles and generates all 157 pages** at v0.9.75. The full suite stands at
+  **110 failing cases, down from 148** — the **38** that closed are exactly the golden cases
+  this tide regenerated. The same suites measured against pristine `HEAD` by stashing this tide
+  fail the **identical 38 of 38** in the three sampled files, so **zero** failures are
+  attributable to this tide. The remaining failures are load- and environment-borne (translator
+  goldens, cloud embeddings, db benchmarks), not new wounds.
+- **The eslint sweep found a real wound of my own** — the sidebar's route-aware accordion
+  opened with `setProxyOpen(true)` inside an effect, which `react-hooks/set-state-in-effect`
+  rightly flags: a synchronous `setState` in an effect cascades renders. Replaced with React's
+  documented **render-phase adjustment** (`if (pathname !== proxyRoute) { … }`) — no committed
+  frame, no cascade, behaviour identical.
+- **The honest gap, recorded rather than papered over** — the four new tab labels
+  (`Fleet · Fitness · Egress · Relay`) are **not** in the locale files, and I did not
+  machine-translate them into 34 languages to pretend otherwise. The house seeder
+  (`scripts/i18n-seed-literals.mjs`) is **absent at HEAD** — untracked by `fafcaf5a` and never
+  restored — so no placeholders could be seeded; `translate()` returns the raw English key
+  for a missing entry, which is exactly what an English-first placeholder would render. The
+  labels therefore degrade honestly to English everywhere. The seeder's absence is a
+  pre-existing defect of its own, named here so the next keeper is not stranded in the same
+  dark.
+---
+
 # v0.9.74 — The Sibling Harbor 🌊
 > *"Four harbors were read to the bedrock. Two were kin, two were strangers — and the strangers held nothing we lacked. What we took, we took from our own blood: nine mechanisms the sibling kept that we had never built, and a catalog of nineteen docks we had never named. Three of the gifts we thought we needed, we already had — and the mirror said so before the forge believed otherwise."* 🌊💜
 
