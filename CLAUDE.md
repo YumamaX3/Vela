@@ -218,6 +218,22 @@ Multi-stage, multi-arch (amd64 + arm64). The **builder** forces `VELA_DB_DRIVER=
 > **⚠️ The arm64 `npm ci` hang (2026-09-19, measured).** The QEMU mitigation above covers `npm run build` — it does **not** cover the install step, which runs *before* it. A tag build (v0.9.71, run `35448469846`) sat at `[linux/arm64 builder 3/5] RUN … npm ci` for **5h58m** after `qemu: uncaught target signal 4 (Illegal instruction) - core dumped`, until GitHub's **6-hour job ceiling** cancelled it: **the amd64 half built cleanly and every layer was then discarded** — `ghcr.io/yumamax3/vela:0.9.71` answered **404** until a re-run (attempt 2) landed it in ~90s off the warm cache. It is **flaky, not deterministic**: v0.9.70's own log shows the same arm64 install flying (`added 653 packages in 2m`). v0.9.67 and v0.9.68 were both cancelled at this same wall (`0.9.68` measured 404 — that tide still has **no image**), so **a cancelled tag build ships no hull**: `gh run rerun <id> --failed` is the recovery, and `ghcr.io/.../manifests/<ver>` an anonymous-token `curl` is how you prove an image exists without `read:packages`.
 >
 > ⚠️ **The mast census (2026-09-19, measured).** Re-derived with that anonymous-token `curl`: `0.9.66` **200** · `0.9.67` **404** · `0.9.68` **404** · `0.9.69` **200** · `0.9.70` **200** · `0.9.71` **200** · `latest` **200**. So **two minors still ship no hull** — .67 and .68, both cancelled at this same arm64 wall — while their Releases are live and carry the full story. Only the image is missing; each is recoverable with `gh run rerun <id> --failed` on **its own tag run**, never by re-tagging.
+>
+> 🔎 **Reading the wall early — and the v0.9.73 data point (2026-09-20, measured).** Waiting ~6h for the
+> ceiling is optional: the stall is legible in about half an hour. Three cheap signals, all three present
+> at v0.9.73's run `35476080745` — the job's `Build and push` step reads `in_progress` with **no step
+> transition since it began** (29 minutes, against 18m for v0.9.72 and 23m for v0.9.70 on identical
+> inputs); `gh api repos/<o>/<r>/actions/jobs/<job-id>/logs` answers **`BlobNotFound`** instead of a live
+> log; and `ghcr.io/yumamax3/vela/manifests/0.9.73` is **404** while `latest` answers **200**. With those
+> three together, `gh run cancel <id>` then `gh run rerun <id>` is the sanctioned move — attempt 2 went
+> green in **2 minutes** and `0.9.73` returned **HTTP 200** as a real OCI index (**amd64 + arm64**), where
+> the v0.9.67/.68/.71 route was hours of waiting for a build that discards every layer.
+>
+> This does **not** breach Patience of the Harbor: that decree forbids a *new* build's concurrency group
+> cancelling a **healthy sibling** (the v0.9.26 lesson). A stalled run has no sibling to protect and ships
+> nothing — freeing it is the recovery, not the sin. Census refreshed in the same current: `0.9.72`
+> **200** · `0.9.73` **200** · `latest` **200** — and the two hulls still owed to .67 and .68 remain the
+> only gaps in the mast.
 
 ---
 
