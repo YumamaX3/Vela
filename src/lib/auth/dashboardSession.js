@@ -6,6 +6,8 @@ import crypto from "node:crypto";
 import { DATA_DIR } from "@/lib/dataDir";
 import { getSettings } from "@/lib/localDb";
 import { timingSafeEqual } from "@/shared/utils/timingSafeEqual.js";
+import { getAdapter } from "@/lib/db/driver.js";
+import { getSessionRow } from "@/lib/db/repos/authStoreRepo.js";
 
 // Tag 3 (M0 security foundation): the "123456" default password is retired.
 // There is no longer any guessable fallback — an unset password cannot
@@ -43,8 +45,13 @@ export function shouldUseSecureCookie(request) {
 }
 
 export async function createDashboardAuthToken(claims = {}) {
-  return new SignJWT({ authenticated: true, ...claims })
+  // Auth Hardening W1: every minted token carries its own `jti`, so the session
+  // ledger has an identity to key its row by and a revocation has a name to use.
+  // A caller-supplied jti wins (the SSO paths pass one they also record).
+  const { jti = crypto.randomUUID(), ...rest } = claims || {};
+  return new SignJWT({ authenticated: true, ...rest })
     .setProtectedHeader({ alg: "HS256" })
+    .setJti(jti)
     .setIssuedAt()
     // A number here would be an ABSOLUTE NumericDate (seconds since epoch), not
     // a relative span — so express the shared window as a Date. Cookie maxAge
@@ -53,10 +60,52 @@ export async function createDashboardAuthToken(claims = {}) {
     .sign(SECRET);
 }
 
+// ── The session ledger's veto (Auth Hardening W1) ──────────────────────────
+//
+// The dashboard JWT stays stateless, but a stateless token cannot be killed
+// once issued. So the verifier consults the ledger — and because that consult
+// sits on the hot path (every guarded request), its answer is memoised
+// in-process for REVOCATION_TTL_MS. THE HONEST COST, NAMED: a revocation lands
+// within the TTL, not instantly. Bounded staleness, never unbounded trust.
+//
+// FAIL-OPEN, deliberately: a store that cannot be read must never lock the
+// operator out of their own dashboard. A token with no `jti` (minted before the
+// ledger existed) or with no row (pruned) is NOT revoked — the ledger only ever
+// ADDS a way to kill a session; it never retroactively invalidates one.
+const REVOCATION_TTL_MS = 15_000;
+const REVOCATION_CACHE_MAX = 5_000;
+const revocationCache = new Map(); // jti -> { revoked, at }
+
+export async function isSessionRevoked(jti) {
+  if (!jti) return false;
+  const now = Date.now();
+  const hit = revocationCache.get(jti);
+  if (hit && now - hit.at < REVOCATION_TTL_MS) return hit.revoked;
+  let revoked = false;
+  try {
+    const db = await getAdapter();
+    const row = getSessionRow(db, jti);
+    revoked = Boolean(row && row.revokedAt);
+  } catch {
+    revoked = false; // fail-open — see the block comment above
+  }
+  if (revocationCache.size >= REVOCATION_CACHE_MAX) revocationCache.clear();
+  revocationCache.set(jti, { revoked, at: now });
+  return revoked;
+}
+
+/** Test hygiene: clears the memo so a test observes a fresh consult. */
+export function resetRevocationCacheForTests() {
+  revocationCache.clear();
+}
+
 export async function verifyDashboardAuthToken(token) {
   if (!token) return false;
   try {
-    await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, SECRET);
+    // The ledger's veto, consulted only after the signature proved the token
+    // is ours — an unsigned guess never reaches the store.
+    if (await isSessionRevoked(payload?.jti)) return false;
     return true;
   } catch {
     return false;
@@ -74,7 +123,10 @@ export async function getDashboardAuthSession(token) {
 }
 
 export async function setDashboardAuthCookie(cookieStore, request, claims = {}) {
-  const token = await createDashboardAuthToken(claims);
+  // The jti is minted HERE as well as in createDashboardAuthToken, so the caller
+  // receives the session's identity without re-verifying what it just signed.
+  const jti = claims?.jti || crypto.randomUUID();
+  const token = await createDashboardAuthToken({ ...claims, jti });
   cookieStore.set(AUTH_COOKIE_NAME, token, {
     httpOnly: true,
     secure: shouldUseSecureCookie(request),
@@ -86,6 +138,10 @@ export async function setDashboardAuthCookie(cookieStore, request, claims = {}) 
     // fails on the next request. Pin the cookie to the token's window.
     maxAge: SESSION_MAX_AGE_SEC,
   });
+  // Additive return (Auth Hardening W1): the login and SSO routes record their
+  // ledger row from this. Every pre-existing caller ignored the void return, so
+  // nothing they do changes.
+  return { jti, expiresAt: new Date(Date.now() + SESSION_MAX_AGE_SEC * 1000).toISOString() };
 }
 
 export function clearDashboardAuthCookie(cookieStore) {

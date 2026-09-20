@@ -85,6 +85,12 @@ const ALWAYS_PROTECTED = [
   // method-agnostic, so the whole prefix (GET list included) requires JWT or
   // CLI token; the Needle UI fails open when the dashboard runs without login.
   "/api/usage/views",
+  // Auth Hardening W1 (migration 016): the session ledger's surface — listing
+  // live sessions is reconnaissance and revoking one is a kill switch, so
+  // neither may ride the deny-by-default branch that passes when
+  // requireLogin===false. The prefix covers /api/auth/sessions,
+  // /api/auth/sessions/[id] and /api/auth/sessions/revoke-all.
+  "/api/auth/sessions",
 ];
 
 // Require auth, but allow through if requireLogin is disabled.

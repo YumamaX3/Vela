@@ -25,6 +25,90 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.77 — The Muster Roll 📜
+> *"A stateless token was a sailor whose name stood on no list — impossible to find, and impossible to dismiss. So I opened a roll, wrote every landed session into it, and gave the ladder a stone floor the tide cannot wash away."* 📜💜
+
+v0.9.76 laid the ledger's keel; this tide brings it to life. Sessions can now be listed and
+killed, a lockout survives a restart, and the gate keeps a trail of what it decided. Three new
+writers, three new routes, and two limits named honestly instead of hidden.
+
+**✨ Features**
+- **One writer per surface** — `sessionLedger.js` records the row for every minted session and is
+  called from all three mint paths (password login, SAML ACS, OIDC callback), so three hands
+  cannot write three dialects; `authAudit.js` is the single writer of the trail;
+  `authStoreRepo.js` (facade + SQLite harbour) is the single store.
+- **The durable ladder** (`loginLimiter.js`, +182) — the escalation ladder and the fixed-window
+  limiter now live in `authFailures`, one row per caller key carrying both, so a lockout survives
+  a restart, a redeploy, and a second process. The module's public contract stays **synchronous**
+  (the login route consults it before it parses a body), so the store exposes a sync core taking
+  the adapter as its first argument, resolved with `getAdapterSync()` — never `getAdapter()`,
+  because opening a harbour as a side effect of an import or a unit test is a wound, not a feature.
+- **Sessions with names, and a way to strike them** — `createDashboardAuthToken` mints a `jti`, and
+  the verifier consults the ledger **after** the signature proves the token is ours, so an
+  unsigned guess never reaches the store. `GET /api/auth/sessions` lists every session with the
+  caller's own flagged, revoked rows shown rather than hidden, and prunes the exhausted on the
+  read path; `DELETE /api/auth/sessions/[id]` kills one and clears the cookie when the caller
+  strikes their own; `POST /api/auth/sessions/revoke-all` is logout-everywhere, with `keepCurrent`
+  sparing the caller's device. All three sit in `ALWAYS_PROTECTED` — a session list is
+  reconnaissance and a revocation is a kill switch, so neither rides the deny-by-default branch
+  that passes when `requireLogin === false`.
+- **The trail** (`authAudit.js`) — `login.ok` · `login.fail` · `login.locked` ·
+  `login.rate_limited` · `login.frictionless` · `login.blocked` · `session.revoked` ·
+  `sessions.revoked_all`. `detail` is metadata-only **by construction**, not by convention: a key
+  that even smells of a credential is dropped, strings truncate at 200 characters, and the encoded
+  detail caps at 1,000. A caller cannot leak a secret through this seam because there is no key
+  that carries one.
+
+**🔧 Changes & Improvements**
+- **The limiter's old header was deleted, not softened.** It called process-memory storage an
+  "accepted residual"; that sentence became false the moment this landed, and a false comment is
+  worse than none.
+- **`setDashboardAuthCookie` returns `{jti, expiresAt}`** — purely additive; every pre-existing
+  caller ignored the void return, so nothing they do changes.
+- **Honest numbers instead of optimistic ones** — `revoke-all` reports the count the store actually
+  changed, so revoking twice shows 0 the second time; `DELETE` on an already-dead session answers
+  `alreadyRevoked: true` rather than counting a second kill; an unknown id is a 404, never a kill
+  conjured out of thin air.
+
+**⚙️ Internal**
+- **The durability proof was lying, and the run's own output said so.** The 016 suite's first case
+  mocks *both* native adapters away to exercise the sql.js crash driver, and vitest keeps those
+  `doMock` registrations for the whole **file** — so every later "native" case fell through to
+  sql.js and returned early at its guard. Three successive wounded runs looked green against a
+  proof that never executed. Mended with `liftNativeAdapterMocks()` in both `bootNative()` and
+  `reboot()`, and the silent guard replaced by a loud `expect(adapter.driver).not.toBe("sql.js")`,
+  because a proof that skips is a proof that lies.
+- **A dialect limit found by reading, and corrected where it was claimed.** The harbour header
+  asserted the durable arm "works under every posture that can open a harbor". It does not:
+  `upsertFailureRow` writes SQLite's `INSERT … ON CONFLICT … excluded.*`, which MariaDB does not
+  parse (it wants `ON DUPLICATE KEY UPDATE`), and the mysql adapter's run/get are **async** while
+  this limiter is synchronous. Under `VELA_DB_MODE=mysql` the arm's fail-open latches one warning
+  and memory serves — exactly as it did before this store landed. The header now says so, and names
+  the mysql twin plus its binder as the owed wave. The session and audit statements are plain
+  `INSERT`/`UPDATE`/`SELECT`/`DELETE` and do run on any engine, and the mysql adapter does report
+  `changes` (`pool.js:82` maps `affectedRows`), so the count-returning methods stay honest there.
+- **Two blind spots named rather than papered over.** A revocation lands within the memo's TTL
+  (15 s, max 5,000 entries), not instantly — bounded staleness, never unbounded trust. And a cold
+  start can misread the ladder on the first login after boot: no adapter is open yet (the route's
+  own `getSettings()` opens it a few lines later), so that single `checkLock` reads memory and may
+  miss a lockout persisted by the previous process. The attacker gains exactly one request against
+  a store that re-locks on the next failure, because `fails` never resets.
+- **`assets-tmp/ms.codepoints` is not a stray** — `scripts/subset-icons.py:125` keeps it as the
+  Material Symbols codepoint cache. Recorded so the next keeper does not sweep it.
+
+**🧪 Proof**
+- Auth and guard sweep → **9 files, 85 cases green**
+- The durability case, mutation-tested both ways: deleting the ledger's veto reddens **exactly
+  one** case — *"a revoked seat is still refused after the process state is rebuilt from cold"*
+  (1 failed | 6 passed) — and restoring it returns **7/7** in
+  `tests/unit/auth-sessions-audit-migration-016.test.js`
+- `npm run build` → green, postbuild ran
+- `eslint` → exit **0**, unpiped, across all twelve touched files
+
+**⚠️ Still owed** — A7's login-page rebuild, then Design B's motion across 35 surfaces.
+
+---
+
 # v0.9.76 — The Second Lock 🔐
 > *"The cookie was the only gate the waves could not forge, and I trusted its silence. So I set a second lock behind it — one the browser writes itself and no page can counterfeit."* 🔐💜
 

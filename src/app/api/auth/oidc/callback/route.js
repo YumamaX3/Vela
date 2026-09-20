@@ -10,6 +10,8 @@ import {
   verifyOidcIdToken,
 } from "@/lib/auth/oidc";
 import { setDashboardAuthCookie } from "@/lib/auth/dashboardSession";
+import { recordSession } from "@/lib/auth/sessionLedger.js";
+import { auditAuthEvent, AUTH_EVENTS } from "@/lib/auth/authAudit.js";
 
 function clearOidcCookies(cookieStore) {
   cookieStore.delete("oidc_state");
@@ -72,15 +74,20 @@ export async function GET(request) {
     });
 
     clearOidcCookies(cookieStore);
-    await setDashboardAuthCookie(cookieStore, request, {
+    const minted = await setDashboardAuthCookie(cookieStore, request, {
       oidc: true,
       oidcSub: payload.sub || null,
       oidcEmail: pickOidcEmail(payload) || null,
       oidcName: pickOidcDisplayName(payload),
     });
+    await recordSession(minted, request, {
+      label: pickOidcEmail(payload) || pickOidcDisplayName(payload) || "OIDC SSO",
+    });
+    await auditAuthEvent(AUTH_EVENTS.LOGIN_OK, { request, detail: { method: "oidc", sessionId: minted?.jti || null } });
 
     return NextResponse.redirect(new URL("/dashboard", getPublicOrigin(request)));
   } catch (error) {
+    await auditAuthEvent(AUTH_EVENTS.LOGIN_FAIL, { request, detail: { reason: "oidc_callback_failed" } });
     clearOidcCookies(cookieStore);
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error.message || "oidc_callback_failed")}`, getPublicOrigin(request)));
   }
