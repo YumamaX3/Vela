@@ -25,6 +25,52 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.79 — The Reading Window 🪟
+> *"A roll that none can read is a roll none can act upon. So I set a window in the wall beside the door: every berth the harbor holds, named, dated, and within reach of a strike."* 🪟💜
+
+v0.9.76 laid the ledger's keel and v0.9.78 gave its rows their names — and still no surface read
+them. `GET /api/auth/sessions` answered into the dark, and the operator had no way to see the
+devices holding a key to their own dashboard, nor to strike one. This tide opens the window.
+
+**✨ Features**
+- **The Sessions card** (`profile/components/SessionsCard.js`, 251 lines) — the ledger's first
+  reading surface, set into the Security card beside the password it guards. It lists every row the
+  ledger holds with its **device label**, ip, a human reading of the user agent (browser · OS, not a
+  raw string), and when it was last seen; strikes a single session through
+  `DELETE /api/auth/sessions/<id>`; and offers **logout-everywhere** through `revoke-all` with the
+  choice made explicit — *keep this device* is a visibly different act from *sign out everywhere*.
+- **Two distinctions the card refuses to collapse.** A **revoked row is shown, not hidden** — its
+  `revokedAt` and reason (`revoke_all`, `self`) are the record of a kill, and a vanished row would
+  read as "never existed"; it is struck through and carries no action, so it cannot be killed twice.
+  And the caller's own session is **marked** ("this device"), because "log out everywhere" that
+  signs you out is a different button from one that spares you.
+- **A label-less device says so.** A session recorded before v0.9.78 (or one whose operator offered
+  no name) renders "Unnamed device" rather than an empty line — the column's own honesty, carried
+  to the surface.
+
+**🔧 Changes & Improvements**
+- **The reading surface closes the note v0.9.78 left open.** That tide's changelog recorded the gap
+  in as many words ("no surface renders the ledger yet… the reading surface is owed"); this is it,
+  and the login page's hint now describes something an operator can actually open.
+
+**⚙️ Internal**
+- `tests/unit/sessions-card.test.jsx` — **6 cases** in happy-dom, driving the real component against
+  a stubbed route: all rows rendered with the caller's own marked, a revoked row shown with its
+  reason and **no second strike offered**, one DELETE carrying the right id followed by a re-read of
+  the ledger (so the card cannot show a stale row), `revoke-all` posting `keepCurrent: true` and
+  reporting the count, the empty ledger said plainly, and the route's own error line surfaced
+  instead of a generic failure.
+- `CLAUDE.md` — the mast census is **amended to measured truth**: the two hulls owed to v0.9.67 and
+  v0.9.68 were recovered by `gh run rerun` on their own tag runs (never a re-tag), both green in
+  ~23 min, and the census now reads **`0.9.67` · `0.9.68` · `0.9.76` · `0.9.77` · `0.9.78` · `latest`
+  — all 200, all `amd64+arm64`**. The last gap in the mast is closed.
+- eslint: **0 errors on the new card and its proof** (the single error in `profile/page.js` is the
+  page's own pre-existing `setIsRemoteHost` effect, carried verbatim from the parent tide — measured
+  against `9feb6f91`, not assumed).
+- `npm run build` green with the card wired in.
+
+---
+
 # v0.9.78 — The Named Berths ⚓
 > *"The roll counted every landing and could not tell one from another. So I set a signboard at the door: the operator writes the name of the device they arrive on, and a row that was only a number becomes a berth I can recognise."* ⚓💜
 

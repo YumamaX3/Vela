@@ -220,6 +220,8 @@ Multi-stage, multi-arch (amd64 + arm64). The **builder** forces `VELA_DB_DRIVER=
 >
 > ⚠️ **The mast census (2026-09-19, measured).** Re-derived with that anonymous-token `curl`: `0.9.66` **200** · `0.9.67` **404** · `0.9.68` **404** · `0.9.69` **200** · `0.9.70` **200** · `0.9.71` **200** · `latest` **200**. So **two minors still ship no hull** — .67 and .68, both cancelled at this same arm64 wall — while their Releases are live and carry the full story. Only the image is missing; each is recoverable with `gh run rerun <id> --failed` on **its own tag run**, never by re-tagging.
 >
+> ✅ **THE MAST IS WHOLE (2026-09-21, measured — this census closes the debt above).** Both owed hulls were recovered exactly as this note prescribes: `gh run rerun 35300229464` (v0.9.67) and `gh run rerun 35345430691` (v0.9.68) — **no re-tag** — and both attempt-2 runs went **success in ~23 min** on the warm cache. Re-sounded with the same anonymous-token `curl`: `0.9.67` **200** · `0.9.68` **200** · `0.9.76` **200** · `0.9.77` **200** · `0.9.78` **200** · `latest` **200**, **every one a real OCI index (`amd64+arm64`)**. Also worth keeping: those two "green" verdicts had been *cache-warm* runs (`Warm Build Cache`) while the actual `Build and Push Docker Image` run was **cancelled** — a green run on the wrong workflow is not a mast, and only the manifest probe can tell the two apart.
+>
 > 🔎 **Reading the wall early — and the v0.9.73 data point (2026-09-20, measured).** Waiting ~6h for the
 > ceiling is optional: the stall is legible in about half an hour. Three cheap signals, all three present
 > at v0.9.73's run `35476080745` — the job's `Build and push` step reads `in_progress` with **no step
