@@ -78,9 +78,9 @@ export default function ComboDetailDrawer({
         type="button"
         aria-label="Close details"
         onClick={onClose}
-        className="absolute inset-0 bg-black/30 motion-safe:transition-opacity motion-safe:duration-200"
+        className="absolute inset-0 bg-black/30 motion-control"
       />
-      <div className="relative flex h-full w-full max-w-lg flex-col overflow-y-auto border-l border-border-subtle bg-surface shadow-[var(--shadow-elev)] motion-safe:transition-transform motion-safe:duration-200">
+      <div className="relative flex h-full w-full max-w-lg flex-col overflow-y-auto border-l border-border-subtle bg-surface shadow-[var(--shadow-elev)] motion-control">
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-start justify-between gap-2 border-b border-border-subtle bg-surface/95 px-4 py-3 backdrop-blur">
           <div className="flex min-w-0 items-start gap-2">
@@ -103,7 +103,7 @@ export default function ComboDetailDrawer({
               onClick={() => onCopy?.(combo.name, `drawer-${combo.id}`)}
               title="Copy name"
               aria-label="Copy name"
-              className={cn("rounded p-1 transition-colors", copied === `drawer-${combo.id}` ? "text-primary" : "text-text-muted hover:text-primary")}
+              className={cn("rounded p-1 motion-control", copied === `drawer-${combo.id}` ? "text-primary" : "text-text-muted hover:text-primary")}
             >
               <span className="material-symbols-outlined text-[17px]">{copied === `drawer-${combo.id}` ? "check" : "content_copy"}</span>
             </button>
@@ -112,7 +112,7 @@ export default function ComboDetailDrawer({
               onClick={onClose}
               title="Close"
               aria-label="Close details"
-              className="rounded p-1 text-text-muted transition-colors hover:text-text-main"
+              className="rounded p-1 text-text-muted motion-control hover:text-text-main"
             >
               <span className="material-symbols-outlined text-[18px]">close</span>
             </button>
@@ -210,7 +210,7 @@ export default function ComboDetailDrawer({
                           <CapacityBadges caps={getCaps?.(model)} />
                         </span>
                       </span>
-                      <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                      <span className="flex shrink-0 items-center gap-0.5 opacity-0 motion-control group-hover:opacity-100 focus-within:opacity-100">
                         <button
                           type="button"
                           onClick={() => move(index, -1)}

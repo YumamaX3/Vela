@@ -38,7 +38,7 @@ function ModelField({ label, value, placeholder, onChange, onSelect, disabled, h
           <button
             type="button"
             onClick={() => onChange("")}
-            className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-red-500 rounded transition-colors"
+            className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-red-500 rounded motion-control"
             title="Clear (inherit main model for subagents)"
           >
             <span className="material-symbols-outlined text-[14px]">close</span>
@@ -49,7 +49,7 @@ function ModelField({ label, value, placeholder, onChange, onSelect, disabled, h
         type="button"
         onClick={onSelect}
         disabled={disabled}
-        className={`w-full sm:w-auto rounded border px-2 py-2 text-xs transition-colors sm:py-1.5 whitespace-nowrap sm:shrink-0 ${
+        className={`w-full sm:w-auto rounded border px-2 py-2 text-xs motion-control sm:py-1.5 whitespace-nowrap sm:shrink-0 ${
           !disabled
             ? "bg-surface border-border text-text-main hover:border-primary cursor-pointer"
             : "opacity-50 cursor-not-allowed border-border"
@@ -273,7 +273,7 @@ export default function GrokBuildToolCard({
             <p className="text-xs text-text-muted truncate">{tool.description}</p>
           </div>
         </div>
-        <span className={`material-symbols-outlined text-text-muted text-[20px] transition-transform ${isExpanded ? "rotate-180" : ""}`}>expand_more</span>
+        <span className={`material-symbols-outlined text-text-muted text-[20px] motion-control ${isExpanded ? "rotate-180" : ""}`}>expand_more</span>
       </div>
 
       {isExpanded && (

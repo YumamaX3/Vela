@@ -654,7 +654,7 @@ export default function ModelSelectModal({
                   className={cn(
                     "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs",
                     "border border-border-subtle bg-surface text-text-main",
-                    "hover:border-primary/50 hover:bg-primary/5 transition-colors",
+                    "hover:border-primary/50 hover:bg-primary/5 motion-control",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                   )}
                   title={`Pick ${r.name}`}
@@ -666,7 +666,7 @@ export default function ModelSelectModal({
             </div>
             <button
               onClick={clearRecents}
-              className="text-[11px] text-text-muted hover:text-text-main transition-colors focus-visible:outline-none focus-visible:underline"
+              className="text-[11px] text-text-muted hover:text-text-main motion-control focus-visible:outline-none focus-visible:underline"
               title="Clear recents"
             >
               Clear
@@ -688,7 +688,7 @@ export default function ModelSelectModal({
                     aria-pressed={active}
                     className={cn(
                       "flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs font-medium whitespace-nowrap shrink-0",
-                      "transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                      "motion-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
                       active
                         ? "bg-primary text-white"
                         : "text-text-main hover:bg-primary/5"
@@ -757,7 +757,7 @@ export default function ModelSelectModal({
                           data-model-value={combo.name}
                           className={cn(
                             "flex items-center gap-2 px-3 py-2 rounded-lg text-left",
-                            "border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                            "border motion-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
                             isSelected
                               ? "bg-primary text-white border-primary"
                               : addedModelValues.includes(combo.name)
@@ -810,7 +810,7 @@ export default function ModelSelectModal({
                           aria-disabled={isDisabled || undefined}
                           className={cn(
                             "flex flex-col gap-1.5 px-3 py-2 rounded-lg text-left",
-                            "border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                            "border motion-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
                             isPlaceholder
                               ? "border-dashed border-border bg-surface-2/30 text-text-muted hover:border-primary/50 hover:text-primary"
                               : isDisabled

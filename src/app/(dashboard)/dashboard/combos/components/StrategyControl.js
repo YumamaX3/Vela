@@ -38,7 +38,7 @@ export default function StrategyControl({
                 onChange(option.value);
               }}
               className={cn(
-                "rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
+                "rounded-md px-2 py-1 text-[11px] font-medium motion-control",
                 active
                   ? "bg-surface text-text-main shadow-[var(--shadow-soft)]"
                   : "text-text-muted hover:text-text-main"
@@ -59,7 +59,7 @@ export default function StrategyControl({
               onOpenJudge?.();
             }}
             title={`Pick the model that fuses panel answers (${meta.hint})`}
-            className="inline-flex min-w-0 max-w-[220px] items-center gap-1 rounded border border-dashed border-violet-400/50 px-1.5 py-1 font-mono text-[11px] text-violet-600 transition-colors hover:border-violet-400 hover:bg-violet-500/5 dark:text-violet-300"
+            className="inline-flex min-w-0 max-w-[220px] items-center gap-1 rounded border border-dashed border-violet-400/50 px-1.5 py-1 font-mono text-[11px] text-violet-600 motion-control hover:border-violet-400 hover:bg-violet-500/5 dark:text-violet-300"
           >
             <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
               gavel
@@ -73,7 +73,7 @@ export default function StrategyControl({
                 e.stopPropagation();
                 onClearJudge?.();
               }}
-              className="rounded p-0.5 text-text-muted transition-colors hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-300"
+              className="rounded p-0.5 text-text-muted motion-control hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-300"
               title="Reset judge to Auto"
               aria-label="Reset judge to Auto"
             >

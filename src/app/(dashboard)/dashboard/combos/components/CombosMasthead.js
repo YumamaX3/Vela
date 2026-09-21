@@ -26,7 +26,7 @@ export default function CombosMasthead({ hasAny, loading, onNew, onReload, onImp
           href="/api/combos/export"
           download
           title="Export every combo, with its strategies, as JSON"
-          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm motion-control ${
             hasAny ? "text-text-muted hover:text-primary" : "pointer-events-none opacity-40 text-text-muted"
           }`}
         >

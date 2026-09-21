@@ -177,7 +177,7 @@ export default function McpMarketplaceModal({ isOpen, onClose, onAdd, addedNames
                     <button
                       onClick={() => added ? null : expandServer(s)}
                       disabled={added}
-                      className={`shrink-0 px-2 py-1 rounded text-[10px] font-medium transition-colors ${
+                      className={`shrink-0 px-2 py-1 rounded text-[10px] font-medium motion-control ${
                         added
                           ? "bg-green-500/10 text-green-600 cursor-default"
                           : expanded

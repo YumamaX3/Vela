@@ -49,7 +49,7 @@ export default function Footer() {
             <div className="flex gap-4">
               <a
                 href="#"
-                className="text-gray-400 hover:text-primary transition-colors"
+                className="text-gray-400 hover:text-primary motion-control"
                 aria-label="Twitter"
               >
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -58,7 +58,7 @@ export default function Footer() {
               </a>
               <a
                 href="#"
-                className="text-gray-400 hover:text-primary transition-colors"
+                className="text-gray-400 hover:text-primary motion-control"
                 aria-label="GitHub"
               >
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -74,7 +74,7 @@ export default function Footer() {
             <ul className="flex flex-col gap-3 text-sm text-text-muted font-light">
               {footerLinks.product.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="hover:text-primary transition-colors">
+                  <Link href={link.href} className="hover:text-primary motion-control">
                     {link.label}
                   </Link>
                 </li>
@@ -88,7 +88,7 @@ export default function Footer() {
             <ul className="flex flex-col gap-3 text-sm text-text-muted font-light">
               {footerLinks.resources.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="hover:text-primary transition-colors">
+                  <Link href={link.href} className="hover:text-primary motion-control">
                     {link.label}
                   </Link>
                 </li>
@@ -102,7 +102,7 @@ export default function Footer() {
             <ul className="flex flex-col gap-3 text-sm text-text-muted font-light">
               {footerLinks.company.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="hover:text-primary transition-colors">
+                  <Link href={link.href} className="hover:text-primary motion-control">
                     {link.label}
                   </Link>
                 </li>
@@ -117,10 +117,10 @@ export default function Footer() {
             © {new Date().getFullYear()} {APP_CONFIG.name} Inc. All rights reserved.
           </p>
           <div className="flex gap-6 text-sm text-text-muted">
-            <Link href="#" className="hover:text-primary transition-colors">
+            <Link href="#" className="hover:text-primary motion-control">
               Privacy Policy
             </Link>
-            <Link href="#" className="hover:text-primary transition-colors">
+            <Link href="#" className="hover:text-primary motion-control">
               Terms of Service
             </Link>
           </div>

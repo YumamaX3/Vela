@@ -358,7 +358,7 @@ export default function ConsoleLogClient() {
                 onClick={() => toggleLevel(level)}
                 aria-pressed={on}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition-colors",
+                  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold motion-control",
                   on ? meta.hudOn : "border-border bg-surface-2 text-text-muted hover:text-text-main"
                 )}
               >
@@ -380,7 +380,7 @@ export default function ConsoleLogClient() {
                   onClick={() => toggleTag(tag)}
                   aria-pressed={tagFilter === tag}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-[8px] border px-2 py-0.5 font-mono text-[11px] transition-colors",
+                    "inline-flex items-center gap-1.5 rounded-[8px] border px-2 py-0.5 font-mono text-[11px] motion-control",
                     tagFilter === tag
                       ? "border-brand-500/60 bg-brand-500/10 text-brand-700 dark:text-brand-300"
                       : "border-border-subtle bg-surface-2 text-text-muted hover:text-text-main"
@@ -464,7 +464,7 @@ export default function ConsoleLogClient() {
           aria-pressed={useRegex}
           title={translate("Treat the filter as a regular expression")}
           className={cn(
-            "h-8 rounded-[8px] border px-2.5 font-mono text-[11px] font-semibold transition-colors",
+            "h-8 rounded-[8px] border px-2.5 font-mono text-[11px] font-semibold motion-control",
             useRegex
               ? "border-brand-500/60 bg-brand-500/10 text-brand-700 dark:text-brand-300"
               : "border-border bg-surface-2 text-text-muted hover:text-text-main"
@@ -484,7 +484,7 @@ export default function ConsoleLogClient() {
               onClick={() => setView(opt.value)}
               aria-pressed={view === opt.value}
               className={cn(
-                "inline-flex h-7 items-center gap-1 rounded-[8px] px-2.5 text-[11px] font-semibold transition-colors",
+                "inline-flex h-7 items-center gap-1 rounded-[8px] px-2.5 text-[11px] font-semibold motion-control",
                 view === opt.value ? "bg-surface text-text-main shadow-sm" : "text-text-muted hover:text-text-main"
               )}
             >

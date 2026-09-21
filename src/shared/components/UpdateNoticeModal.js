@@ -62,7 +62,7 @@ export default function UpdateNoticeModal({ isOpen, onClose, info, onTriggerLega
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-[14px] border border-border-subtle bg-surface shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-[14px] border border-border-subtle bg-surface shadow-2xl motion-enter">
         {/* Header — the coral signature */}
         <div className="relative overflow-hidden bg-gradient-to-br from-brand-600 via-brand-500 to-brand-400 px-6 py-5">
           <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
@@ -83,7 +83,7 @@ export default function UpdateNoticeModal({ isOpen, onClose, info, onTriggerLega
             <button
               onClick={onClose}
               aria-label={translate("Close")}
-              className="rounded-lg p-1.5 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+              className="rounded-lg p-1.5 text-white/80 motion-control hover:bg-white/10 hover:text-white"
             >
               <span className="material-symbols-outlined text-[20px]">close</span>
             </button>
@@ -131,7 +131,7 @@ export default function UpdateNoticeModal({ isOpen, onClose, info, onTriggerLega
             <button
               type="button"
               onClick={() => copy(command)}
-              className="mb-3 block w-full truncate rounded-[10px] border border-border-subtle bg-surface px-3 py-2 text-left font-mono text-[11px] text-text-muted transition-colors hover:border-primary/40"
+              className="mb-3 block w-full truncate rounded-[10px] border border-border-subtle bg-surface px-3 py-2 text-left font-mono text-[11px] text-text-muted motion-control hover:border-primary/40"
               title={translate("Copy update command")}
             >
               {copied ? `${translate("Copied")} ✓` : command}
@@ -146,7 +146,7 @@ export default function UpdateNoticeModal({ isOpen, onClose, info, onTriggerLega
             <button
               type="button"
               onClick={handlePrimary}
-              className="shrink-0 rounded-[10px] bg-brand-500 px-4 py-2 text-[12.5px] font-semibold text-white transition-colors hover:bg-brand-600"
+              className="shrink-0 rounded-[10px] bg-brand-500 px-4 py-2 text-[12.5px] font-semibold text-white motion-control hover:bg-brand-600"
             >
               {isCli ? translate("Update now") : command && copied ? translate("Copied") : translate("Copy update command")}
             </button>

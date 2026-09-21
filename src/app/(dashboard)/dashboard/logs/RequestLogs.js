@@ -119,7 +119,7 @@ export default function RequestLogs() {
                 key={m}
                 type="button"
                 onClick={() => setQuery(m)}
-                className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
+                className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium motion-control ${
                   query === m ? "border-primary/50 bg-primary/10 text-primary" : "border-border bg-surface text-text-muted hover:text-text-main"
                 }`}
               >

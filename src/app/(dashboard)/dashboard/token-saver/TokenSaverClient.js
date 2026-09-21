@@ -579,7 +579,7 @@ export default function TokenSaverClient() {
                 return (
                   <label
                     key={extra}
-                    className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded border cursor-pointer transition-colors ${
+                    className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded border cursor-pointer motion-control ${
                       pending
                         ? "border-primary bg-primary/10 text-primary"
                         : "border-border text-text-muted hover:bg-surface-2"
@@ -656,7 +656,7 @@ export default function TokenSaverClient() {
                     <button
                       key={lvl.id}
                       onClick={() => handleCavemanLevel(lvl.id)}
-                      className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${
+                      className={`px-3 py-1.5 rounded text-xs font-medium border motion-control ${
                         cavemanLevel === lvl.id
                           ? "bg-primary text-white border-primary"
                           : "bg-transparent border-border text-text-muted hover:bg-surface-2"
@@ -707,7 +707,7 @@ export default function TokenSaverClient() {
                     <button
                       key={lvl.id}
                       onClick={() => handlePonytailLevel(lvl.id)}
-                      className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${
+                      className={`px-3 py-1.5 rounded text-xs font-medium border motion-control ${
                         ponytailLevel === lvl.id
                           ? "bg-primary text-white border-primary"
                           : "bg-transparent border-border text-text-muted hover:bg-surface-2"

@@ -39,7 +39,7 @@ export default function ComboGrid({
                 type="button"
                 onClick={() => onToggle?.(harbor)}
                 aria-expanded={!isCollapsed}
-                className="mb-2 flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.03]"
+                className="mb-2 flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left motion-control hover:bg-black/[0.03] dark:hover:bg-white/[0.03]"
               >
                 <span className="material-symbols-outlined text-[16px] text-primary" aria-hidden="true">
                   {isCollapsed ? "chevron_right" : "expand_more"}

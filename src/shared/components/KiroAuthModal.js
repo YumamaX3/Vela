@@ -195,7 +195,7 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }) {
             {/* AWS Builder ID */}
             <button
               onClick={() => onMethodSelect("builder-id")}
-              className="w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar transition-colors"
+              className="w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar motion-control"
             >
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-primary mt-0.5">shield</span>
@@ -211,7 +211,7 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }) {
             {/* AWS IAM Identity Center (IDC) */}
             <button
               onClick={() => handleMethodSelect("idc")}
-              className="w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar transition-colors"
+              className="w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar motion-control"
             >
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-primary mt-0.5">business</span>
@@ -227,7 +227,7 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }) {
             {/* AWS API Key */}
             <button
               onClick={() => handleMethodSelect("api-key")}
-              className="w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar transition-colors"
+              className="w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar motion-control"
             >
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-primary mt-0.5">key</span>
@@ -243,7 +243,7 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }) {
             {/* Google Social Login - HIDDEN */}
             <button
               onClick={() => handleMethodSelect("social-google")}
-              className="hidden w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar transition-colors"
+              className="hidden w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar motion-control"
             >
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-primary mt-0.5">account_circle</span>
@@ -259,7 +259,7 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }) {
             {/* GitHub Social Login - HIDDEN */}
             <button
               onClick={() => handleMethodSelect("social-github")}
-              className="hidden w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar transition-colors"
+              className="hidden w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar motion-control"
             >
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-primary mt-0.5">code</span>
@@ -275,7 +275,7 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }) {
             {/* Import Token */}
             <button
               onClick={() => handleMethodSelect("import")}
-              className="w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar transition-colors"
+              className="w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar motion-control"
             >
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-primary mt-0.5">file_upload</span>
@@ -291,7 +291,7 @@ export default function KiroAuthModal({ isOpen, onMethodSelect, onClose }) {
             {/* Import CLIProxyAPI JSON */}
             <button
               onClick={() => handleMethodSelect("import-cli-proxy")}
-              className="w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar transition-colors"
+              className="w-full p-4 text-left border border-border rounded-lg hover:bg-sidebar motion-control"
             >
               <div className="flex items-start gap-3">
                 <span className="material-symbols-outlined text-primary mt-0.5">data_object</span>

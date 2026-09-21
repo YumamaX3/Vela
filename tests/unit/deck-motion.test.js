@@ -197,9 +197,114 @@ describe("deck motion — the shell", () => {
   });
 });
 
+/**
+ * ── WHY THE LEDGER ASSERTIONS EXIST ─────────────────────────────────────────
+ *
+ * v0.9.83 minted the --motion-* tokens and welded the deck's entrance to them,
+ * but the ledger had no SPENDERS. A `duration-*` class cannot reach a custom
+ * property — Tailwind v4 declares no --duration-* theme namespace, verified
+ * against the installed 4.3.3 theme.css, which carries --ease-* and --animate-*
+ * and nothing else — so 126 components went on speaking Tailwind's OWN ladder:
+ * 150 / 200 / 300 / 500ms, a dialect with no relation to this file's
+ * 120 / 180 / 320. The deck arrived at 320ms while every hover answered at
+ * 150ms, and no single dial could retune both.
+ *
+ * The repair is three utilities bound to the tokens, with every call site
+ * pointed at them. The bug these assertions defend against is the ordinary one:
+ * a new component written `transition-all duration-150` — which is what every
+ * React codebase on earth writes — quietly reintroducing a second dialect that
+ * no dial reaches. A guard on the tokens alone would never notice.
+ */
+describe("deck motion — the ledger, spent", () => {
+  const SRC = join(process.cwd(), "src");
+
+  /** Every .js/.jsx under src/, excluding the token file itself. */
+  function sourceFiles(dir) {
+    const out = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) out.push(...sourceFiles(path));
+      else if (/\.jsx?$/.test(entry.name) && path !== CSS_PATH) out.push(path);
+    }
+    return out;
+  }
+
+  const OFF_LEDGER = [
+    /(^|[\s"'`])duration-\d+(?=[\s"'`])/,
+    /(^|[\s"'`])transition-(?:all|colors|transform|opacity|shadow)(?=[\s"'`])/,
+    /(^|[\s"'`])transition(?=[\s"'`])/,
+  ];
+
+  const rung = (cls) => ruleBodiesFor(CSS, new RegExp(cls.replace(".", "\\."))).join("");
+
+  it("declares all three rungs, each driving its duration from the ledger", () => {
+    for (const cls of [".motion-control", ".motion-enter", ".motion-fill"]) {
+      const body = rung(cls);
+      expect(body, `${cls} is missing from globals.css`).toContain("transition-duration");
+      expect(body).toMatch(/var\(--motion-dur-/);
+      expect(body).toContain("var(--motion-ease-out)");
+      expect(body, `${cls} hard-codes a millisecond literal`).not.toMatch(/\d+ms/);
+    }
+  });
+
+  it("enumerates transition properties — NEVER `all`", () => {
+    // `transition: all` animates the properties nobody chose — height, width,
+    // padding — which turns a one-frame hover into a reflow of the row. The two
+    // control rungs therefore name their properties; only the fill rung adds
+    // geometry, and only because moving geometry IS its purpose.
+    for (const cls of [".motion-control", ".motion-enter"]) {
+      const body = rung(cls);
+      expect(body).toContain("transition-property:");
+      expect(body, `${cls} must not animate every property`).not.toMatch(/transition-property:\s*all/);
+    }
+    const fill = rung(".motion-fill");
+    expect(fill).toContain("width");
+    expect(fill).not.toMatch(/transition-property:\s*all/);
+  });
+
+  it("leaves no component on Tailwind's own timing ladder", () => {
+    const offenders = [];
+    for (const file of sourceFiles(SRC)) {
+      const stripped = stripComments(readFileSync(file, "utf8"));
+      for (const re of OFF_LEDGER) {
+        const match = stripped.match(re);
+        if (match) offenders.push(`${file.replace(process.cwd(), "")}: ${match[0].trim()}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("drives the login gate's stagger and control flips from the same ledger", () => {
+    // The login page carries no Tailwind ladder at all — its motion is bespoke
+    // CSS. That made it invisible to the census above, and it was where the
+    // ledger mattered most: the card's entrance ran on a private 0.5s stagger,
+    // and three control flips on private 0.15s / 0.3s literals, none of which
+    // any dial could reach. Same tokens as the deck, so one edit retunes both.
+    const stagger = ruleBodiesFor(CSS, /\.login-stagger\s*>\s*\*/).join("");
+    expect(stagger).toContain("var(--motion-dur-base)");
+    expect(stagger).toContain("var(--motion-ease-out)");
+    expect(stagger, "login stagger hard-codes a duration").not.toMatch(/\d+\.?\d*s\b/);
+
+    for (const sel of [/\.login-eye/, /\.login-attempts\s+i/, /\.login-status-dot/]) {
+      const body = ruleBodiesFor(CSS, sel).join("");
+      expect(body, `${sel} lost its ledger transition`).toContain("var(--motion-dur-instant)");
+      expect(body).toContain("var(--motion-ease-out)");
+    }
+  });
+});
+
 describe("deck motion — built CSS proof (opt-in)", () => {
   const cssDir = join(process.cwd(), ".next", "static", "css");
   const hasBuild = existsSync(cssDir);
+
+  it.skipIf(!hasBuild)("emits each ledger rung into the compiled stylesheet", () => {
+    const files = readdirSync(cssDir).filter((f) => f.endsWith(".css"));
+    const built = files.map((f) => readFileSync(join(cssDir, f), "utf8")).join("\n");
+    for (const cls of ["motion-control", "motion-enter", "motion-fill"]) {
+      expect(built, `.${cls} never reached the built CSS`).toContain(`.${cls}`);
+    }
+    expect(built).toMatch(/var\(--motion-dur-/);
+  });
 
   it.skipIf(!hasBuild)("emits .deck-enter with backwards fill", () => {
     const files = readdirSync(cssDir).filter((f) => f.endsWith(".css"));

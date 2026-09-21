@@ -46,7 +46,7 @@ export default function KeysCard({ c }) {
                   key={value}
                   onClick={() => setUsagePeriod(value)}
                   title={translate("Usage window")}
-                  className={`text-[11px] px-2 py-1 rounded-lg transition-colors ${
+                  className={`text-[11px] px-2 py-1 rounded-lg motion-control ${
                     usagePeriod === value
                       ? "bg-primary/15 text-primary font-semibold"
                       : "text-text-muted hover:text-text-main"
@@ -86,7 +86,7 @@ export default function KeysCard({ c }) {
           <div className="flex items-center gap-1.5 flex-wrap mb-4">
             <button
               onClick={() => setActiveCategoryFilter("all")}
-              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+              className={`text-xs px-2.5 py-1 rounded-full border motion-control ${
                 activeCategoryFilter === "all"
                   ? "bg-primary/15 text-primary border-primary/40 font-semibold"
                   : "bg-surface-2 text-text-muted border-border-subtle hover:text-text-main"
@@ -101,7 +101,7 @@ export default function KeysCard({ c }) {
                   key={cat}
                   onClick={() => setActiveCategoryFilter(cat)}
                   title={cat}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                  className={`text-xs px-2.5 py-1 rounded-full border motion-control ${
                     activeCategoryFilter === cat
                       ? "bg-primary/15 text-primary border-primary/40 font-semibold"
                       : "bg-surface-2 text-text-muted border-border-subtle hover:text-text-main"
@@ -114,7 +114,7 @@ export default function KeysCard({ c }) {
             {keys.some((k) => !k.category) && (
               <button
                 onClick={() => setActiveCategoryFilter(UNCATEGORIZED)}
-                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                className={`text-xs px-2.5 py-1 rounded-full border motion-control ${
                   activeCategoryFilter === UNCATEGORIZED
                     ? "bg-primary/15 text-primary border-primary/40 font-semibold"
                     : "bg-surface-2 text-text-muted border-border-subtle hover:text-text-main"
@@ -202,7 +202,7 @@ export default function KeysCard({ c }) {
                           <>
                             <button
                               onClick={() => copy(getKey(key.id), key.id)}
-                              className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
+                              className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary motion-control"
                               title={translate("Copy full key (from this browser's vault)")}
                             >
                               <span className="material-symbols-outlined text-[14px]">
@@ -211,7 +211,7 @@ export default function KeysCard({ c }) {
                             </button>
                             <button
                               onClick={() => removeKey(key.id)}
-                              className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-red-500 transition-all"
+                              className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-red-500 motion-control"
                               title={translate("Forget the full key from this browser's vault")}
                             >
                               <span className="material-symbols-outlined text-[14px]">lock_reset</span>
@@ -220,7 +220,7 @@ export default function KeysCard({ c }) {
                         )}
                         <button
                           onClick={() => openEditKey(key)}
-                          className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
+                          className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary motion-control"
                           title={translate("Edit name, description, allowed models")}
                         >
                           <span className="material-symbols-outlined text-[14px]">edit</span>
@@ -282,7 +282,7 @@ export default function KeysCard({ c }) {
                       />
                       <button
                         onClick={() => handleDeleteKey(key.id)}
-                        className="p-2 hover:bg-red-500/10 rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
+                        className="p-2 hover:bg-red-500/10 rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 motion-control"
                         title={translate("Delete (revoke)")}
                       >
                         <span className="material-symbols-outlined text-[18px]">delete</span>

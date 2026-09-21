@@ -37,8 +37,8 @@ function Chip({ active, onClick, children }) {
       onClick={onClick}
       className={
         active
-          ? "px-2.5 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/40 transition-all"
-          : "px-2.5 py-1 rounded-full text-xs font-medium bg-surface-2 text-text-muted border border-border-subtle hover:border-primary/40 hover:text-primary transition-all"
+          ? "px-2.5 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/40 motion-control"
+          : "px-2.5 py-1 rounded-full text-xs font-medium bg-surface-2 text-text-muted border border-border-subtle hover:border-primary/40 hover:text-primary motion-control"
       }
     >
       {children}
@@ -104,7 +104,7 @@ export default function KeyLimitsEditor({ value, onChange }) {
           <button
             type="button"
             onClick={() => set({ rateLimitRpm: null })}
-            className="px-2.5 py-1 rounded-full text-xs font-medium bg-surface-2 text-text-muted border border-border-subtle hover:text-primary hover:border-primary/40 transition-all"
+            className="px-2.5 py-1 rounded-full text-xs font-medium bg-surface-2 text-text-muted border border-border-subtle hover:text-primary hover:border-primary/40 motion-control"
           >
             {translate("Unlimited")}
           </button>
@@ -137,7 +137,7 @@ export default function KeyLimitsEditor({ value, onChange }) {
           <button
             type="button"
             onClick={() => set({ tokenBudget: null })}
-            className="px-2.5 py-1 rounded-full text-xs font-medium bg-surface-2 text-text-muted border border-border-subtle hover:text-primary hover:border-primary/40 transition-all"
+            className="px-2.5 py-1 rounded-full text-xs font-medium bg-surface-2 text-text-muted border border-border-subtle hover:text-primary hover:border-primary/40 motion-control"
           >
             {translate("Unlimited")}
           </button>
@@ -170,7 +170,7 @@ export default function KeyLimitsEditor({ value, onChange }) {
           <button
             type="button"
             onClick={() => set({ spendCapCents: null })}
-            className="px-2.5 py-1 rounded-full text-xs font-medium bg-surface-2 text-text-muted border border-border-subtle hover:text-primary hover:border-primary/40 transition-all"
+            className="px-2.5 py-1 rounded-full text-xs font-medium bg-surface-2 text-text-muted border border-border-subtle hover:text-primary hover:border-primary/40 motion-control"
           >
             {translate("Unlimited")}
           </button>
@@ -241,7 +241,7 @@ export default function KeyLimitsEditor({ value, onChange }) {
           onChange={(e) =>
             set({ ipAllowlist: e.target.value.split("\n").map((l) => l.trim()).filter(Boolean) })
           }
-          className="w-full text-sm font-mono p-3 bg-surface-2 border border-transparent rounded-[10px] focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/40 transition-all"
+          className="w-full text-sm font-mono p-3 bg-surface-2 border border-transparent rounded-[10px] focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/40 motion-control"
         />
       </Section>
     </div>

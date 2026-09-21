@@ -30,7 +30,7 @@ export default function CategoryPicker({ value, existing, onChange, idPrefix }) 
           aria-pressed={!value}
           className={cn(
             "inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium",
-            "border transition-colors",
+            "border motion-control",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
             !value
               ? "bg-primary text-white border-primary"
@@ -50,7 +50,7 @@ export default function CategoryPicker({ value, existing, onChange, idPrefix }) 
               aria-pressed={selected}
               className={cn(
                 "inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium font-mono",
-                "border transition-colors",
+                "border motion-control",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
                 selected
                   ? "bg-primary text-white border-primary"

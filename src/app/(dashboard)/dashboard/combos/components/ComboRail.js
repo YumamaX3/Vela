@@ -14,7 +14,7 @@ function RailButton({ active, icon, label, count, depth = 0, mono, compact, onCl
       onClick={onClick}
       aria-current={active ? "true" : undefined}
       className={cn(
-        "flex items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-left text-xs transition-colors",
+        "flex items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-left text-xs motion-control",
         compact ? "w-auto shrink-0" : "w-full",
         active
           ? "bg-primary/10 font-medium text-primary"

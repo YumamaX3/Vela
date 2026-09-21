@@ -225,7 +225,7 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
         <div className="p-4 border-t border-border flex items-center justify-between gap-2">
           <button
             onClick={handleReset}
-            className="px-4 py-2 text-sm text-red-500 hover:bg-red-500/10 rounded border border-red-500/20 transition-colors"
+            className="px-4 py-2 text-sm text-red-500 hover:bg-red-500/10 rounded border border-red-500/20 motion-control"
             disabled={saving || loading}
           >
             Reset My Overrides
@@ -236,14 +236,14 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
             )}
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm text-text-muted hover:text-text border border-border rounded transition-colors"
+              className="px-4 py-2 text-sm text-text-muted hover:text-text border border-border rounded motion-control"
               disabled={saving}
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="px-4 py-2 text-sm bg-primary text-white rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-sm bg-primary text-white rounded hover:bg-primary/90 motion-control disabled:opacity-50"
               disabled={saving}
             >
               {saving ? "Saving..." : "Save Changes"}

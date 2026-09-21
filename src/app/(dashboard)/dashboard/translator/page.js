@@ -240,7 +240,7 @@ export default function TranslatorPage() {
               {/* Step header */}
               <div className="flex items-center justify-between">
                 <button onClick={() => toggle(step.id)} className="flex items-center gap-2 flex-1 text-left group">
-                  <span className="material-symbols-outlined text-[20px] text-text-muted group-hover:text-primary transition-colors">
+                  <span className="material-symbols-outlined text-[20px] text-text-muted group-hover:text-primary motion-control">
                     {isExpanded ? "expand_more" : "chevron_right"}
                   </span>
                   <span className="text-xs font-mono text-text-muted/60 w-4">{step.id}</span>

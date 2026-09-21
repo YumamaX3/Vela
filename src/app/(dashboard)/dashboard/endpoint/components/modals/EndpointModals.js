@@ -154,7 +154,7 @@ export default function Modals({ c }) {
                           {m}
                           <button
                             onClick={() => setNewKeyScope((prev) => prev.filter((x) => x !== m))}
-                            className="p-0.5 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                            className="p-0.5 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10 motion-control"
                             aria-label={`${translate("Remove")} ${m}`}
                           >
                             <span className="material-symbols-outlined" style={{ fontSize: "12px" }}>close</span>
@@ -352,7 +352,7 @@ export default function Modals({ c }) {
                           {m}
                           <button
                             onClick={() => setEditingKey((prev) => ({ ...prev, allowedModels: prev.allowedModels.filter((x) => x !== m) }))}
-                            className="p-0.5 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                            className="p-0.5 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10 motion-control"
                             aria-label={`${translate("Remove")} ${m}`}
                           >
                             <span className="material-symbols-outlined" style={{ fontSize: "12px" }}>close</span>

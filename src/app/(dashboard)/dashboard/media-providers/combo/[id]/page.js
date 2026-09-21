@@ -352,7 +352,7 @@ export default function ComboDetailPage() {
               {testResult.imageUrl && (
                 <div>
                   <div className="flex items-center justify-end mb-1.5">
-                    <a href={testResult.imageUrl} download="image.png" className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors">
+                    <a href={testResult.imageUrl} download="image.png" className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary motion-control">
                       <span className="material-symbols-outlined text-[14px]">download</span>
                       Download
                     </a>
@@ -363,7 +363,7 @@ export default function ComboDetailPage() {
               {testResult.audioUrl && (
                 <div>
                   <div className="flex items-center justify-end mb-1.5">
-                    <a href={testResult.audioUrl} download="speech.mp3" className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors">
+                    <a href={testResult.audioUrl} download="speech.mp3" className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary motion-control">
                       <span className="material-symbols-outlined text-[14px]">download</span>
                       Download
                     </a>

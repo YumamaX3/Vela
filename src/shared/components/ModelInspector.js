@@ -260,7 +260,7 @@ export default function ModelInspector({
               className={cn(
                 "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md",
                 "bg-primary text-white text-xs font-medium",
-                "hover:bg-primary-hover transition-colors",
+                "hover:bg-primary-hover motion-control",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               )}
             >
@@ -275,7 +275,7 @@ export default function ModelInspector({
               className={cn(
                 "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md",
                 "border border-border-subtle bg-surface text-text-main text-xs font-medium",
-                "hover:border-primary/50 hover:bg-primary/5 transition-colors",
+                "hover:border-primary/50 hover:bg-primary/5 motion-control",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               )}
             >
@@ -290,7 +290,7 @@ export default function ModelInspector({
               className={cn(
                 "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md",
                 "border border-border-subtle bg-surface text-red-500 text-xs font-medium",
-                "hover:bg-red-500/5 hover:border-red-500/30 transition-colors",
+                "hover:bg-red-500/5 hover:border-red-500/30 motion-control",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
               )}
             >

@@ -116,7 +116,7 @@ function PeriodSegmented({ value, onChange }) {
   return (
     <div className="relative inline-flex items-center gap-0.5 rounded-xl border border-border bg-surface-2 p-1">
       <span
-        className="absolute top-1 bottom-1 rounded-lg bg-brand-500 shadow-sm transition-all duration-300 ease-out"
+        className="absolute top-1 bottom-1 rounded-lg bg-brand-500 shadow-sm motion-fill"
         style={{ left: indicator.left, width: indicator.width }}
       />
       {PERIOD_OPTIONS.map((opt) => (
@@ -127,7 +127,7 @@ function PeriodSegmented({ value, onChange }) {
           }}
           type="button"
           onClick={() => onChange(opt.value)}
-          className={`relative z-10 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+          className={`relative z-10 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium motion-control ${
             value === opt.value
               ? "text-white"
               : "text-text-muted hover:text-text-main"
@@ -415,7 +415,7 @@ function RankedList({ period, metric, dimension, title, subtitle, icon, valueFmt
                 </div>
                 <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-brand-500 to-amber-400 transition-all duration-500"
+                    className="h-full rounded-full bg-gradient-to-r from-brand-500 to-amber-400 motion-fill"
                     style={{ width: `${((item.value || 0) / max) * 100}%` }}
                   />
                 </div>

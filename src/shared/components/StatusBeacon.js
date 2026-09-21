@@ -73,7 +73,7 @@ export default function StatusBeacon({ className = "" }) {
   return (
     <Chip
       {...chipProps}
-      className={`hidden md:flex items-center gap-2 h-7 px-2.5 rounded-md border border-border bg-surface/60 text-[11px] font-medium text-text-muted transition-colors hover:border-primary/40 hover:text-text-main ${className}`}
+      className={`hidden md:flex items-center gap-2 h-7 px-2.5 rounded-md border border-border bg-surface/60 text-[11px] font-medium text-text-muted motion-control hover:border-primary/40 hover:text-text-main ${className}`}
     >
       <span className={`relative flex size-2 shrink-0 rounded-full ${dotClass}`} aria-hidden="true" />
       {label && <span className="font-mono tracking-tight">{label}</span>}
