@@ -57,8 +57,8 @@ function DeviceLabelField({ value, onChange }) {
     <Input
       id="deviceLabel"
       label="Device name"
-      hint="Optional — recorded with this session in the ledger so your devices can be told apart."
-      placeholder="e.g. Ryzen NAS — Chrome"
+      hint="Optional. Recorded with this session in the ledger so your devices can be told apart."
+      placeholder="e.g. Ryzen NAS, Chrome"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       maxLength={DEVICE_LABEL_MAX}
@@ -265,8 +265,13 @@ export default function LoginPage() {
 
   return (
     <div className="login-page flex flex-col">
-      {/* Sky layers */}
-      <div className="login-grid" aria-hidden="true" />
+      {/* Sky layers — chart, aurora, horizon, stars, one shooting star.
+          All decorative and aria-hidden; every animation is declared in CSS so
+          the reduced-motion cap reaches it and the inline-animation count
+          stays put (globals-css-tokens.test.js). */}
+      <div className="login-chart" aria-hidden="true" />
+      <div className="login-aurora" aria-hidden="true" />
+      <div className="login-horizon" aria-hidden="true" />
       {STAR_LAYERS.map((layer) => (
         <div key={layer.cls} className={`login-stars ${layer.cls}`} aria-hidden="true">
           {layer.stars.map((s, i) => (
@@ -281,6 +286,7 @@ export default function LoginPage() {
           ))}
         </div>
       ))}
+      <div className="login-shooting-star" aria-hidden="true" />
 
       {/* Theme toggle — top right */}
       <div className="absolute top-4 right-4 z-20">
@@ -298,51 +304,54 @@ export default function LoginPage() {
                 </div>
                 <div>
                   <h1 className="text-4xl font-bold tracking-tight text-text-main">Vela</h1>
-                  <p className="text-sm text-brand-400 font-medium tracking-wide">THE HARBOR GATE</p>
+                  <p className="login-eyebrow text-sm font-medium tracking-wide">THE HARBOR GATE</p>
                 </div>
               </div>
               <p className="text-text-muted max-w-md leading-relaxed">
-                One endpoint for every provider — forty-plus upstreams, routed,
+                One endpoint for every provider: forty-plus upstreams, routed,
                 translated, and governed behind a single OpenAI-compatible gate.
               </p>
             </div>
 
-            {/* The sail of Argo Navis */}
-            <div className="login-constellation relative w-72 h-72" aria-hidden="true">
-              <svg className="sail-lines absolute inset-0 w-full h-full" viewBox="0 0 100 100">
-                <path
-                  pathLength="1"
-                  d="M75,22.5 L37.5,15 L22.5,45 L30,75 L70,82.5 L82.5,55 Z"
-                />
-                <path pathLength="1" style={{ animationDelay: "1.6s" }} d="M37.5,15 L82.5,55" />
-              </svg>
-              {VELA_STARS.map((star) => (
-                <span
-                  key={star.name}
-                  className={`star ${star.bright ? "bright" : ""}`}
-                  style={{
-                    left: `${star.x}%`,
-                    top: `${star.y}%`,
-                    width: star.size,
-                    height: star.size,
-                    animationDelay: `${0.5 + star.y / 90}s`,
-                  }}
-                  title={star.name}
-                />
-              ))}
-              <p className="absolute -bottom-6 left-0 right-0 text-center text-[11px] tracking-[0.25em] text-text-subtle uppercase">
-                Vela · the sails of Argo Navis
-              </p>
+            {/* The sail of Argo Navis — held in its own berth so it never
+                crosses the copy above or the feature list below */}
+            <div className="login-berth" aria-hidden="true">
+              <div className="login-constellation w-72 h-72">
+                <svg className="sail-lines absolute inset-0 w-full h-full" viewBox="0 0 100 100">
+                  <path
+                    pathLength="1"
+                    d="M75,22.5 L37.5,15 L22.5,45 L30,75 L70,82.5 L82.5,55 Z"
+                  />
+                  <path pathLength="1" style={{ animationDelay: "1.6s" }} d="M37.5,15 L82.5,55" />
+                </svg>
+                {VELA_STARS.map((star) => (
+                  <span
+                    key={star.name}
+                    className={`star ${star.bright ? "bright" : ""}`}
+                    style={{
+                      left: `${star.x}%`,
+                      top: `${star.y}%`,
+                      width: star.size,
+                      height: star.size,
+                      animationDelay: `${0.5 + star.y / 90}s`,
+                    }}
+                    title={star.name}
+                  />
+                ))}
+              </div>
             </div>
+            <p className="-mt-4 text-center text-[11px] tracking-[0.25em] login-footer-text uppercase">
+              Vela · the sails of Argo Navis
+            </p>
 
             <div className="flex flex-col gap-3 text-sm">
               {[
-                { icon: "route", text: "One OpenAI-compatible endpoint — /v1" },
+                { icon: "route", text: "One OpenAI-compatible endpoint at /v1" },
                 { icon: "vpn_key", text: "Keys hashed at rest, shown once, governed per-key" },
                 { icon: "monitoring", text: "Live usage, tokens, and spend per key" },
               ].map((f) => (
                 <div key={f.icon} className="flex items-center gap-3 text-text-muted">
-                  <span className="material-symbols-outlined text-[18px] text-brand-400/80">{f.icon}</span>
+                  <span className="material-symbols-outlined login-feature-icon text-[18px]">{f.icon}</span>
                   {f.text}
                 </div>
               ))}
@@ -357,7 +366,7 @@ export default function LoginPage() {
                 <img src="/vela-logo.svg" alt="Vela" className="size-16" width={64} height={64} />
               </div>
               <h1 className="text-3xl font-bold text-text-main">Vela</h1>
-              <p className="text-xs text-brand-400 font-medium tracking-[0.25em] mt-1">THE HARBOR GATE</p>
+              <p className="login-eyebrow text-xs font-medium tracking-[0.25em] mt-1">THE HARBOR GATE</p>
             </div>
 
             <div className="login-card p-7 sm:p-8">
@@ -367,13 +376,13 @@ export default function LoginPage() {
                     <h2 className="text-lg font-semibold text-text-main">Welcome</h2>
                     <p className="text-sm text-text-muted mt-0.5">
                       No dashboard password is set yet. Entry is open on this
-                      machine — set a password under Profile → Security to
+                      machine. Set a password under Profile → Security to
                       enable remote access.
                     </p>
                   </div>
-                  {error && <p className="text-xs text-red-500">{error}</p>}
+                  {error && <p className="login-error-text text-xs">{error}</p>}
                   <DeviceLabelField value={deviceLabel} onChange={setDeviceLabel} />
-                  <Button type="button" variant="primary" className="w-full" icon="login" loading={loading} onClick={handleFrictionlessEntry}>
+                  <Button type="button" variant="primary" className="btn-login w-full" icon="login" loading={loading} onClick={handleFrictionlessEntry}>
                     Enter dashboard
                   </Button>
                 </div>
@@ -397,19 +406,19 @@ export default function LoginPage() {
                   </div>
 
                   {samlAvailable && (
-                    <Button type="button" variant="primary" className="w-full" icon="verified_user" onClick={handleSamlLogin}>
+                    <Button type="button" variant="primary" className="btn-login w-full" icon="verified_user" onClick={handleSamlLogin}>
                       {samlLoginLabel}
                     </Button>
                   )}
 
                   {oidcAvailable && (
-                    <Button type="button" variant="primary" className="w-full" icon="badge" onClick={handleOidcLogin}>
+                    <Button type="button" variant="primary" className="btn-login w-full" icon="badge" onClick={handleOidcLogin}>
                       {oidcLoginLabel}
                     </Button>
                   )}
 
                   {ssoAvailable && passwordAvailable && (
-                    <div className="flex items-center gap-3 text-[11px] text-text-subtle">
+                    <div className="login-footer-text flex items-center gap-3 text-[11px]">
                       <div className="h-px flex-1 bg-border/60" />
                       or with password
                       <div className="h-px flex-1 bg-border/60" />
@@ -419,7 +428,7 @@ export default function LoginPage() {
                   {passwordAvailable ? (
                     <form onSubmit={handleLogin} className="flex flex-col gap-4">
                       {isSsoEnabled && !ssoAvailable && (
-                        <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
+                        <p className="login-warn text-xs text-center">
                           {activeSsoType === "saml" ? "SAML SSO" : "OIDC"} login is enabled, but configuration is incomplete. Password login is still available for recovery.
                         </p>
                       )}
@@ -446,6 +455,7 @@ export default function LoginPage() {
                             onKeyDown={trackCapsLock}
                             error={error || undefined}
                             required
+                            autoComplete="current-password"
                             autoFocus={!oidcAvailable}
                             inputClassName="pr-11"
                           />
@@ -462,14 +472,14 @@ export default function LoginPage() {
                           </button>
                         </div>
                         {capsLockOn && (
-                          <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                          <p className="login-warn text-xs flex items-center gap-1">
                             <span className="material-symbols-outlined text-[14px]">keyboard_capslock</span>
                             Caps Lock is on
                           </p>
                         )}
                         {retryAfter > 0 && (
                           <div className="login-error flex flex-col gap-2 rounded-lg bg-red-500/10 border border-red-500/30 p-3">
-                            <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                            <p className="login-error-text text-xs flex items-center gap-1.5">
                               <span className="material-symbols-outlined text-[14px]">lock_clock</span>
                               Locked. Retry in <span className="font-mono font-semibold">{retryAfter}s</span>.
                             </p>
@@ -496,7 +506,7 @@ export default function LoginPage() {
                       <Button
                         type="submit"
                         variant="primary"
-                        className="w-full"
+                        className="btn-login w-full"
                         icon={retryAfter > 0 ? "lock" : "login"}
                         loading={loading}
                         disabled={retryAfter > 0}
@@ -506,7 +516,7 @@ export default function LoginPage() {
 
                       <div className="flex flex-col gap-1.5 mt-1">
                         {hasPassword === false && (
-                          <p className="text-xs text-center text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1">
+                          <p className="login-warn text-xs text-center flex items-center justify-center gap-1">
                             <span className="material-symbols-outlined text-[14px]">warning</span>
                             Security risk: no password set. Remote access stays locked until one is set (Profile → Security).
                           </p>
@@ -514,7 +524,7 @@ export default function LoginPage() {
                       </div>
                     </form>
                   ) : (
-                    error && <p className="text-xs text-red-500">{error}</p>
+                    error && <p className="login-error-text text-xs">{error}</p>
                   )}
                 </div>
               )}
@@ -525,7 +535,7 @@ export default function LoginPage() {
 
       {/* Footer — gateway status */}
       <footer className="relative z-10 pb-4 px-4">
-        <div className="flex items-center justify-center gap-2 text-[11px] text-text-subtle">
+        <div className="login-footer-text flex items-center justify-center gap-2 text-[11px]">
           <span className={`login-status-dot ${gatewayOk === true ? "ok" : gatewayOk === false ? "bad" : ""}`} />
           <span>
             {gatewayOk === true ? "Gateway online" : gatewayOk === false ? "Gateway unreachable" : "Checking gateway…"}
