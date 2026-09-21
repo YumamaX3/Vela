@@ -95,7 +95,7 @@ export default function ModelAvailabilityBadge() {
     <div className="relative" ref={ref}>
       {/* <button
         onClick={() => setExpanded(!expanded)}
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border motion-control ${
           isHealthy
             ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/15"
             : "bg-amber-500/10 border-amber-500/20 text-amber-500 hover:bg-amber-500/15"
@@ -123,7 +123,7 @@ export default function ModelAvailabilityBadge() {
             </div>
             <button
               onClick={fetchStatus}
-              className="p-1 rounded-lg hover:bg-surface text-text-muted hover:text-text-main transition-colors"
+              className="p-1 rounded-lg hover:bg-surface text-text-muted hover:text-text-main motion-control"
               title="Refresh"
             >
               <span className="material-symbols-outlined text-[14px]">refresh</span>

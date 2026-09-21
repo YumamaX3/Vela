@@ -74,7 +74,7 @@ export default function MediaProviderDetailPage() {
       <div>
         <Link
           href={`/dashboard/media-providers/${kind}`}
-          className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary transition-colors mb-4"
+          className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary motion-control mb-4"
         >
           <span className="material-symbols-outlined text-lg">arrow_back</span>
           {kindConfig.label}
@@ -147,7 +147,7 @@ export default function MediaProviderDetailPage() {
               href={provider.notice.apiKeyUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex justify-center rounded bg-blue-500 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-600 sm:py-0.5"
+              className="inline-flex justify-center rounded bg-blue-500 px-2 py-1 text-xs font-medium text-white motion-control hover:bg-blue-600 sm:py-0.5"
             >
               Get API Key →
             </a>

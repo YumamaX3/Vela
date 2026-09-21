@@ -268,7 +268,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
         {showMenuButton && (
           <button
             onClick={onMenuClick}
-            className="text-text-main hover:text-primary transition-colors"
+            className="text-text-main hover:text-primary motion-control"
             aria-label="Open navigation"
           >
             <span className="material-symbols-outlined">menu</span>
@@ -308,7 +308,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
                   {crumb.href ? (
                     <Link
                       href={crumb.href}
-                      className="text-xs lg:text-sm text-text-muted hover:text-primary transition-colors whitespace-nowrap"
+                      className="text-xs lg:text-sm text-text-muted hover:text-primary motion-control whitespace-nowrap"
                     >
                       {translate(crumb.label)}
                     </Link>
@@ -425,7 +425,7 @@ function HeaderSearch() {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
-        className="w-full h-8 pl-7 pr-7 rounded-lg border border-border bg-surface/60 text-sm focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all"
+        className="w-full h-8 pl-7 pr-7 rounded-lg border border-border bg-surface/60 text-sm focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 motion-control"
       />
       {query ? (
         <button

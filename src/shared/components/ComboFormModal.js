@@ -60,7 +60,7 @@ function ModelItem({ index, model, total, onEdit, onMoveUp, onMoveDown, onRemove
     <li
       className={cn(
         "group flex flex-col gap-2 rounded-lg border border-border-subtle bg-surface",
-        "px-3 py-2 transition-colors",
+        "px-3 py-2 motion-control",
         "hover:border-primary/40 focus-within:border-primary/60"
       )}
     >
@@ -140,7 +140,7 @@ function ModelItem({ index, model, total, onEdit, onMoveUp, onMoveDown, onRemove
             className={cn(
               "p-1 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50",
-              "transition-colors"
+              "motion-control"
             )}
           >
             <span className="material-symbols-outlined" style={{ fontSize: "14px" }} aria-hidden="true">close</span>
@@ -365,7 +365,7 @@ export default function ComboFormModal({
                       className={cn(
                         "mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md",
                         "bg-primary text-white text-xs font-medium",
-                        "hover:bg-primary-hover transition-colors",
+                        "hover:bg-primary-hover motion-control",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                       )}
                     >
@@ -400,7 +400,7 @@ export default function ComboFormModal({
                         "w-full mt-2 py-2 border border-dashed border-border-subtle rounded-lg",
                         "text-xs text-primary font-medium",
                         "hover:text-primary-hover hover:border-primary/50 hover:bg-primary/5",
-                        "transition-colors",
+                        "motion-control",
                         "flex items-center justify-center gap-1.5",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                       )}

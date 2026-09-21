@@ -786,7 +786,7 @@ export default function ProfilePage() {
                   type="button"
                   onClick={() => setTheme(option)}
                   className={cn(
-                    "flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-md font-medium transition-all flex-1 sm:flex-initial",
+                    "flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-md font-medium motion-control flex-1 sm:flex-initial",
                     theme === option
                       ? "bg-white dark:bg-white/10 text-text-main shadow-sm"
                       : "text-text-muted hover:text-text-main"
@@ -852,7 +852,7 @@ export default function ProfilePage() {
           </div>
           <button
             onClick={() => setLangOpen(true)}
-            className="flex items-center justify-between w-full p-3 rounded-lg bg-bg border border-border hover:border-primary/50 transition-colors"
+            className="flex items-center justify-between w-full p-3 rounded-lg bg-bg border border-border hover:border-primary/50 motion-control"
             data-i18n-skip="true"
           >
             <span className="text-sm text-text-muted">Display language</span>
@@ -984,7 +984,7 @@ export default function ProfilePage() {
                     type="button"
                     onClick={() => setSsoTypeTab("saml")}
                     className={cn(
-                      "flex-1 py-1.5 px-3 rounded-md font-medium text-xs sm:text-sm transition-all text-center",
+                      "flex-1 py-1.5 px-3 rounded-md font-medium text-xs sm:text-sm motion-control text-center",
                       ssoTypeTab === "saml"
                         ? "bg-white dark:bg-white/10 text-text-main shadow-sm"
                         : "text-text-muted hover:text-text-main"
@@ -996,7 +996,7 @@ export default function ProfilePage() {
                     type="button"
                     onClick={() => setSsoTypeTab("oidc")}
                     className={cn(
-                      "flex-1 py-1.5 px-3 rounded-md font-medium text-xs sm:text-sm transition-all text-center",
+                      "flex-1 py-1.5 px-3 rounded-md font-medium text-xs sm:text-sm motion-control text-center",
                       ssoTypeTab === "oidc"
                         ? "bg-white dark:bg-white/10 text-text-main shadow-sm"
                         : "text-text-muted hover:text-text-main"
@@ -1041,7 +1041,7 @@ export default function ProfilePage() {
                         type="button"
                         onClick={() => updateOidcForm("authMode", option.value)}
                         className={cn(
-                          "text-left rounded-lg border p-3 transition-colors",
+                          "text-left rounded-lg border p-3 motion-control",
                           active
                             ? "border-primary bg-primary/5"
                             : "border-border bg-bg hover:bg-black/5 dark:hover:bg-white/5"
@@ -1064,7 +1064,7 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => setShowSamlGuide((prev) => !prev)}
-                      className="w-full p-3 flex items-center justify-between gap-2 text-left hover:bg-surface/50 transition-colors"
+                      className="w-full p-3 flex items-center justify-between gap-2 text-left hover:bg-surface/50 motion-control"
                     >
                       <div className="flex items-center gap-2">
                         <span className="material-symbols-outlined text-primary text-lg">menu_book</span>
@@ -1078,7 +1078,7 @@ export default function ProfilePage() {
                         </div>
                       </div>
                       <span
-                        className="material-symbols-outlined text-text-muted transition-transform text-lg"
+                        className="material-symbols-outlined text-text-muted motion-control text-lg"
                         style={{ transform: showSamlGuide ? "rotate(180deg)" : "none" }}
                       >
                         expand_more

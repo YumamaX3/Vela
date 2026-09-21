@@ -268,7 +268,7 @@ export default function FallbackRulesPage() {
             </thead>
             <tbody>
               {rules.map((rule) => (
-                <tr key={rule.id} className="border-b last:border-0 hover:bg-muted/40 transition-colors">
+                <tr key={rule.id} className="border-b last:border-0 hover:bg-muted/40 motion-control">
                   <td className="p-3 font-mono text-xs">{rule.sourceModel}</td>
                   <td className="p-3 font-mono text-xs">{chainFromRule(rule).join(" → ") || "—"}</td>
                   <td className="p-3 font-mono text-xs">
@@ -325,7 +325,7 @@ export default function FallbackRulesPage() {
                   key={t.value}
                   type="button"
                   onClick={() => setFormData({ ...formData, triggerType: t.value })}
-                  className={`w-full text-left px-3 py-2 rounded-md border text-xs transition-colors ${
+                  className={`w-full text-left px-3 py-2 rounded-md border text-xs motion-control ${
                     formData.triggerType === t.value
                       ? "bg-primary/10 border-primary text-primary"
                       : "border-muted text-muted-foreground hover:border-muted-foreground"
@@ -357,7 +357,7 @@ export default function FallbackRulesPage() {
                             const next = active ? list.filter((s) => s !== status) : [...list, status];
                             setFormData({ ...formData, conditionVal: next.join(",") || DEFAULT_STATUSES });
                           }}
-                          className={`px-2 py-1 rounded-md border text-xs font-mono transition-colors ${
+                          className={`px-2 py-1 rounded-md border text-xs font-mono motion-control ${
                             active ? "bg-primary/10 border-primary text-primary" : "border-muted text-muted-foreground hover:border-muted-foreground"
                           }`}
                         >

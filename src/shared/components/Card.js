@@ -27,7 +27,7 @@ export default function Card({
       className={cn(
         "bg-surface border border-border-subtle",
         elev ? "rounded-[14px] shadow-[var(--shadow-elev)]" : "rounded-[14px] shadow-[var(--shadow-soft)]",
-        hover && "hover:shadow-[var(--shadow-warm)] hover:border-brand-500/30 transition-all cursor-pointer",
+        hover && "hover:shadow-[var(--shadow-warm)] hover:border-brand-500/30 motion-control cursor-pointer",
         paddings[padding],
         className
       )}
@@ -77,7 +77,7 @@ Card.Row = function CardRow({ children, className, ...props }) {
   return (
     <div
       className={cn(
-        "p-3 -mx-3 px-3 transition-colors",
+        "p-3 -mx-3 px-3 motion-control",
         "border-b border-border-subtle last:border-b-0",
         "hover:bg-surface-2/50",
         className
@@ -100,14 +100,14 @@ Card.ListItem = function CardListItem({
       className={cn(
         "group flex items-center justify-between p-3 -mx-3 px-3",
         "border-b border-border-subtle last:border-b-0",
-        "hover:bg-surface-2/50 transition-colors",
+        "hover:bg-surface-2/50 motion-control",
         className
       )}
       {...props}
     >
       <div className="flex-1 min-w-0">{children}</div>
       {actions && (
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 motion-control">
           {actions}
         </div>
       )}

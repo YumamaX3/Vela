@@ -96,7 +96,7 @@ export default function Drawer({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main transition-colors"
+            className="p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main motion-control"
           >
             <span className="material-symbols-outlined text-[20px]" aria-hidden="true">close</span>
           </button>

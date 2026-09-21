@@ -104,7 +104,7 @@ export default function RecentRequests({ requests = [] }) {
               {requests.map((r, i) => {
                 const ok = !r.status || r.status === "ok" || r.status === "success";
                 return (
-                  <tr key={i} className="hover:bg-bg-subtle transition-colors">
+                  <tr key={i} className="hover:bg-bg-subtle motion-control">
                     <td className="py-1.5">
                       <span className={`block w-1.5 h-1.5 rounded-full ${ok ? "bg-success" : "bg-error"}`} />
                     </td>

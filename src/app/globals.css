@@ -568,6 +568,69 @@ button:disabled,
    latent trap recorded here rather than left to be discovered.
    ============================================================ */
 
+/* ============================================================
+   The Motion Ledger, spent (Design B, v0.9.84).
+
+   v0.9.83 minted --motion-* and welded the deck's entrance to it,
+   but the ledger had no spenders. A `duration-*` class cannot reach
+   a custom property — Tailwind v4 carries no --duration-* theme
+   namespace (verified against the installed 4.3.3 theme.css, which
+   declares --ease-* and --animate-* and nothing else) — so every
+   control went on speaking Tailwind's OWN ladder: 150ms / 200ms /
+   300ms, a dialect unrelated to this file's 120 / 180 / 320 / 560.
+   The deck arrived at 320ms while every hover answered at 150ms, and
+   no dial could retune both. These utilities are that missing path.
+
+   TWO rungs, not six, because the primitives only ever needed two:
+
+     · .motion-control — the INSTANT rung. A control answering a
+       pointer: hover, press, focus, open/closed. Fast by intent; a
+       hover that lingers reads as lag on a panel opened forty times
+       an hour.
+     · .motion-enter — the QUICK rung. A popover, menu or drawer
+       arriving. Slower than a hover, far faster than the page, so an
+       overlay reads as "here" rather than unfolding.
+
+   Properties are ENUMERATED, never `all`. `transition: all` animates
+   the properties you did not choose — height, width, padding — which
+   turns a one-frame hover into a reflow of the entire row. Everything
+   below is a colour, a shadow, a filter or a composite; not one of
+   them touches layout.
+
+   Every consumer is stilled for free: the global
+   prefers-reduced-motion block clamps transition-duration and
+   transition-delay for `*`, so these two classes need no per-class
+   guard — and no consumer can forget to add one.
+   ============================================================ */
+.motion-control {
+  transition-property:
+    opacity, transform, background-color, border-color, color, fill, box-shadow, filter;
+  transition-duration: var(--motion-dur-instant);
+  transition-timing-function: var(--motion-ease-out);
+}
+
+.motion-enter {
+  transition-property: opacity, transform;
+  transition-duration: var(--motion-dur-quick);
+  transition-timing-function: var(--motion-ease-out);
+}
+
+/* The FILL rung — the one place layout is animated on purpose. A meter, a
+   progress bar, a sliding tab indicator changes `width` or `left` from an
+   inline style, and that IS the animation; refusing it would mean refusing
+   the feature. So this rung deliberately adds the four layout properties —
+   and nothing else: never `all`, or a bar's colour swap would drag its
+   geometry along. Duration is the base rung, because a fill is a value
+   settling, not a pointer answering.
+   Only elements whose PURPOSE is to move geometry belong here. */
+.motion-fill {
+  transition-property:
+    width, height, left, top,
+    opacity, transform, background-color, border-color, color, fill, box-shadow, filter;
+  transition-duration: var(--motion-dur-base);
+  transition-timing-function: var(--motion-ease-out);
+}
+
 /* The page's own arrival: a short rise and a fade. Distance is one
    --motion-rise (6px) — enough to read as "arrived", not enough to
    feel like a lurch on a page opened forty times an hour. */
@@ -1253,7 +1316,10 @@ html:not(.dark) .login-card {
   padding: 0.4rem;
   border-radius: 8px;
   color: var(--color-text-muted);
-  transition: color 0.15s, background-color 0.15s;
+  /* A state flip — the ledger's instant rung, not a private 0.15s. */
+  transition:
+    color var(--motion-dur-instant) var(--motion-ease-out),
+    background-color var(--motion-dur-instant) var(--motion-ease-out);
 }
 .login-eye:hover { color: var(--color-primary); background: rgba(229, 106, 74, 0.08); }
 
@@ -1314,7 +1380,9 @@ html:not(.dark) .login-card {
   height: 4px;
   border-radius: 2px;
   background: var(--color-border);
-  transition: background-color 0.3s;
+  /* A segment filling IS a state flip — the ledger's instant rung. It was a
+     private 0.3s, which is sluggish for a 4px segment answering a keystroke. */
+  transition: background-color var(--motion-dur-instant) var(--motion-ease-out);
 }
 .login-attempts i.spent { background: var(--color-warning); }
 
@@ -1324,11 +1392,29 @@ html:not(.dark) .login-card {
   height: 7px;
   border-radius: 9999px;
   background: var(--color-text-subtle);
-  transition: background-color 0.3s;
+  transition: background-color var(--motion-dur-instant) var(--motion-ease-out);
   display: inline-block;
 }
 .login-status-dot.ok { background: var(--color-success); box-shadow: 0 0 8px rgba(16, 185, 129, 0.6); }
 .login-status-dot.bad { background: var(--color-danger); }
+
+/* The dot is 7px of pure non-text signal, so SC 1.4.11 asks 3:1 against the
+   ground it sits on — and naming that ground is the whole trick, because it is
+   NOT `--color-bg`. The gate's `::before` night-sky gradient is opaque and
+   paints over the page, so the dot rides the gradient's own stops.
+
+   The dark fill is `#22c55e`, NOT the `#10B981` the light theme uses:
+   `--color-success` is declared twice (line 54 light, line 129 dark) and the
+   two greens differ, which is what a single-hex assumption gets wrong. Measured
+   on the gradient: **8.34:1** at the sky's crown (`#101013`), **7.92:1** at the
+   footer (`#16161a`). Clear on either.
+
+   In the light the shared `--color-success` (#10B981) sits on `#FDFAF6` at
+   **2.44:1**, which fails. Rather than darken the global token and repaint
+   every success badge in the dashboard for a login-page finding, the gate
+   scopes its own: #047857 measures **5.27:1** — the floor cleared by nearly
+   double. */
+html:not(.dark) .login-status-dot.ok { background: #047857; }
 
 /* ── The gate's controls, re-skinned onto the login ledger ──────────────
    The shared Input renders a brand-tinted border at 40% alpha — 1.19:1
@@ -1367,15 +1453,18 @@ html:not(.dark) .login-card {
 .login-page .text-red-500 { color: var(--login-error-text); }
 .login-footer-text { color: var(--login-footer); }
 
-/* Stagger the card children in */
-.login-stagger > * { animation: login-fade-up 0.5s ease-out both; }
-.login-stagger > *:nth-child(1) { animation-delay: 0.05s; }
-.login-stagger > *:nth-child(2) { animation-delay: 0.1s; }
-.login-stagger > *:nth-child(3) { animation-delay: 0.15s; }
-.login-stagger > *:nth-child(4) { animation-delay: 0.2s; }
-.login-stagger > *:nth-child(5) { animation-delay: 0.25s; }
-.login-stagger > *:nth-child(6) { animation-delay: 0.3s; }
-.login-stagger > *:nth-child(7) { animation-delay: 0.35s; }
+/* Stagger the card children in — on the ledger, like the deck's own entrance.
+   The cadence is the same --motion-stagger the deck uses, so one dial retunes
+   both sequences; the duration comes from the ledger rather than a private
+   0.5s, which no dial could reach. */
+.login-stagger > * { animation: login-fade-up var(--motion-dur-base) var(--motion-ease-out) both; }
+.login-stagger > *:nth-child(1) { animation-delay: calc(var(--motion-stagger) * 1); }
+.login-stagger > *:nth-child(2) { animation-delay: calc(var(--motion-stagger) * 2); }
+.login-stagger > *:nth-child(3) { animation-delay: calc(var(--motion-stagger) * 3); }
+.login-stagger > *:nth-child(4) { animation-delay: calc(var(--motion-stagger) * 4); }
+.login-stagger > *:nth-child(5) { animation-delay: calc(var(--motion-stagger) * 5); }
+.login-stagger > *:nth-child(6) { animation-delay: calc(var(--motion-stagger) * 6); }
+.login-stagger > *:nth-child(7) { animation-delay: calc(var(--motion-stagger) * 7); }
 @keyframes login-fade-up {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }

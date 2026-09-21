@@ -62,7 +62,7 @@ function TransportRow({ label, icon, url, state, note, copy, copied, copyId }) {
           onClick={() => copy(url, copyId)}
           aria-label={`${translate("Copy")} ${label}`}
           title={translate("Copy")}
-          className="shrink-0 p-2 rounded-[10px] text-text-muted hover:text-brand-600 dark:hover:text-brand-300 hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
+          className="shrink-0 p-2 rounded-[10px] text-text-muted hover:text-brand-600 dark:hover:text-brand-300 hover:bg-black/5 dark:hover:bg-white/5 motion-control cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
         >
           <span className="material-symbols-outlined text-[16px] leading-none" aria-hidden="true">
             {copied === copyId ? "check" : "content_copy"}
@@ -195,7 +195,7 @@ export default function OverviewTab({ c }) {
               role="tab"
               aria-selected={client === cl.id}
               onClick={() => setClient(cl.id)}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px] text-[12px] font-medium motion-control cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] ${
                 client === cl.id
                   ? "bg-brand-500/10 text-brand-700 dark:text-brand-300"
                   : "text-text-muted hover:text-text-main hover:bg-surface-2"

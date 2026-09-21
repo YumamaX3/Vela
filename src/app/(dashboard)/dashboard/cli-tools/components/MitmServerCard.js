@@ -191,7 +191,7 @@ export default function MitmServerCard({ cloudEnabled, onStatusChange }) {
               <button
                 onClick={() => handleAction("trust-cert")}
                 disabled={loading}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-xs font-medium text-yellow-600 transition-colors hover:bg-yellow-500/20 disabled:opacity-50 sm:w-auto sm:py-1.5"
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-xs font-medium text-yellow-600 motion-control hover:bg-yellow-500/20 disabled:opacity-50 sm:w-auto sm:py-1.5"
               >
                 <span className="material-symbols-outlined text-[16px]">verified_user</span>
                 Trust Cert
@@ -201,7 +201,7 @@ export default function MitmServerCard({ cloudEnabled, onStatusChange }) {
               <button
                 onClick={() => handleAction("stop")}
                 disabled={loading}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-medium text-red-500 transition-colors hover:bg-red-500/20 disabled:opacity-50 sm:w-auto sm:py-1.5"
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-medium text-red-500 motion-control hover:bg-red-500/20 disabled:opacity-50 sm:w-auto sm:py-1.5"
               >
                 <span className="material-symbols-outlined text-[16px]">stop_circle</span>
                 Stop Server
@@ -211,7 +211,7 @@ export default function MitmServerCard({ cloudEnabled, onStatusChange }) {
                 onClick={() => handleAction("start")}
                 disabled={loading || !status || (serverIsWindows && !isAdmin)}
                 title={serverIsWindows && !isAdmin ? "Administrator required" : undefined}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50 sm:w-auto sm:py-1.5"
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 text-xs font-medium text-primary motion-control hover:bg-primary/20 disabled:opacity-50 sm:w-auto sm:py-1.5"
               >
                 <span className="material-symbols-outlined text-[16px]">play_circle</span>
                 Start Server

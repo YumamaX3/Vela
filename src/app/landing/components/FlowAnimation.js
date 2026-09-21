@@ -47,9 +47,9 @@ export default function FlowAnimation() {
   }, []);
 
   return (
-    <div className="mt-16 w-full max-w-4xl relative h-[360px] hidden md:flex items-center justify-center animate-[float_6s_ease-in-out_infinite]">
+ <div className="mt-16 w-full max-w-4xl relative h-[360px] hidden md:flex items-center justify-center animate-[float_6s_ease-in-out_infinite]">
       {/* Vela Hub - Center */}
-      <div className="relative z-20 w-32 h-32 rounded-full bg-[#23180f] border-2 border-[#f97815] shadow-[0_0_40px_rgba(249,120,21,0.3)] flex flex-col items-center justify-center gap-1 group cursor-pointer hover:scale-105 transition-transform duration-500">
+ <div className="relative z-20 w-32 h-32 rounded-full bg-[#23180f] border-2 border-[#f97815] shadow-[0_0_40px_rgba(249,120,21,0.3)] flex flex-col items-center justify-center gap-1 group cursor-pointer hover:scale-105 motion-control">
         <span className="material-symbols-outlined text-4xl text-[#f97815]">
           hub
         </span>
@@ -64,9 +64,9 @@ export default function FlowAnimation() {
         {CLI_TOOLS.map((tool) => (
           <div
             key={tool.id}
-            className="flex items-center gap-3 opacity-70 hover:opacity-100 transition-opacity group"
+            className="flex items-center gap-3 opacity-70 hover:opacity-100 motion-control group"
           >
-            <div className="w-16 h-16 rounded-2xl bg-[#23180f] border border-[#3a2f27] flex items-center justify-center overflow-hidden p-2 hover:border-[#f97815]/50 transition-all hover:scale-105">
+            <div className="w-16 h-16 rounded-2xl bg-[#23180f] border border-[#3a2f27] flex items-center justify-center overflow-hidden p-2 hover:border-[#f97815]/50 motion-control hover:scale-105">
               <ProviderIcon
                 src={tool.image}
                 alt={tool.name}
@@ -154,7 +154,7 @@ export default function FlowAnimation() {
         {PROVIDERS.map((provider, idx) => (
           <div
             key={provider.id}
-            className={`px-4 py-2 rounded-lg ${provider.color} ${provider.textColor} flex items-center justify-center font-bold text-xs shadow-lg hover:scale-110 transition-all cursor-help min-w-[140px] ${
+            className={`px-4 py-2 rounded-lg ${provider.color} ${provider.textColor} flex items-center justify-center font-bold text-xs shadow-lg hover:scale-110 motion-control cursor-help min-w-[140px] ${
               activeFlow === idx ? "ring-4 ring-[#f97815]/50 scale-110" : ""
             }`}
             title={provider.name}

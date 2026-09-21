@@ -234,7 +234,7 @@ export default function DroidToolCard({
             <p className="text-xs text-text-muted truncate">{tool.description}</p>
           </div>
         </div>
-        <span className={`material-symbols-outlined text-text-muted text-[20px] transition-transform ${isExpanded ? "rotate-180" : ""}`}>expand_more</span>
+        <span className={`material-symbols-outlined text-text-muted text-[20px] motion-control ${isExpanded ? "rotate-180" : ""}`}>expand_more</span>
       </div>
 
       {isExpanded && (
@@ -331,7 +331,7 @@ export default function DroidToolCard({
                         {modelList.map((id) => (
                           <div key={id} className="flex items-center gap-1.5 px-2 py-1 bg-bg-secondary rounded border border-border">
                             <span className="flex-1 text-xs font-mono truncate">{id}</span>
-                            <button onClick={() => removeModel(id)} className="text-text-muted hover:text-red-500 transition-colors shrink-0" title="Remove">
+                            <button onClick={() => removeModel(id)} className="text-text-muted hover:text-red-500 motion-control shrink-0" title="Remove">
                               <span className="material-symbols-outlined text-[12px]">close</span>
                             </button>
                           </div>

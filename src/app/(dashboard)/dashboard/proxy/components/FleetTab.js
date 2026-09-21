@@ -543,7 +543,7 @@ export default function FleetTab({ c }) {
               value={batchImportText}
               onChange={(e) => setBatchImportText(e.target.value)}
               placeholder={"http://user:pass@127.0.0.1:7897\n127.0.0.1:7897:user:pass"}
-              className="min-h-[180px] w-full rounded-md border border-black/10 bg-white px-3 py-2 text-sm text-text-main transition-all focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30 dark:border-white/10 dark:bg-white/5"
+              className="min-h-[180px] w-full rounded-md border border-black/10 bg-white px-3 py-2 text-sm text-text-main motion-control focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30 dark:border-white/10 dark:bg-white/5"
             />
             <p className="mt-1 text-xs text-text-muted">
               Supported formats: protocol://user:pass@host:port, host:port:user:pass

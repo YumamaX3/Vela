@@ -27,7 +27,7 @@ function SortHeader({ column, label, sortKey, onSort, align = "left" }) {
         type="button"
         onClick={() => onSort?.(column)}
         className={cn(
-          "inline-flex items-center gap-1 rounded transition-colors hover:text-text-main",
+          "inline-flex items-center gap-1 rounded motion-control hover:text-text-main",
           active && "text-text-main"
         )}
         aria-label={`Sort by ${label}`}
@@ -115,7 +115,7 @@ export default function ComboTable({
               <tr
                 key={combo.id}
                 className={cn(
-                  "border-t border-border-subtle transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]",
+                  "border-t border-border-subtle motion-control hover:bg-black/[0.02] dark:hover:bg-white/[0.03]",
                   selected && "bg-primary/[0.04]"
                 )}
               >
@@ -209,7 +209,7 @@ export default function ComboTable({
                       title="Copy name"
                       aria-label={`Copy name ${combo.name}`}
                       className={cn(
-                        "rounded p-1 transition-colors",
+                        "rounded p-1 motion-control",
                         copied === `combo-${combo.id}` ? "text-primary" : "text-text-muted hover:text-primary"
                       )}
                     >
@@ -222,7 +222,7 @@ export default function ComboTable({
                       onClick={() => onEdit?.(combo)}
                       title="Edit"
                       aria-label={`Edit ${combo.name}`}
-                      className="rounded p-1 text-text-muted transition-colors hover:text-primary"
+                      className="rounded p-1 text-text-muted motion-control hover:text-primary"
                     >
                       <span className="material-symbols-outlined text-[15px]">edit</span>
                     </button>
@@ -231,7 +231,7 @@ export default function ComboTable({
                       onClick={() => onDuplicate?.(combo)}
                       title="Duplicate"
                       aria-label={`Duplicate ${combo.name}`}
-                      className="rounded p-1 text-text-muted transition-colors hover:text-primary"
+                      className="rounded p-1 text-text-muted motion-control hover:text-primary"
                     >
                       <span className="material-symbols-outlined text-[15px]">copy_all</span>
                     </button>
@@ -240,7 +240,7 @@ export default function ComboTable({
                       onClick={() => onDelete?.(combo)}
                       title="Delete"
                       aria-label={`Delete ${combo.name}`}
-                      className="rounded p-1 text-text-muted transition-colors hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-300"
+                      className="rounded p-1 text-text-muted motion-control hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-300"
                     >
                       <span className="material-symbols-outlined text-[15px]">delete</span>
                     </button>

@@ -97,14 +97,14 @@ export default function QuickNav({ className = "" }) {
         className={cn(
           "flex items-center justify-center size-9 rounded-lg",
           "text-text-muted hover:text-text-main",
-          "hover:bg-surface-2 transition-colors",
+          "hover:bg-surface-2 motion-control",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
           open && "text-primary bg-primary/10 hover:bg-primary/10"
         )}
       >
         <span
           className={cn(
-            "material-symbols-outlined text-[22px] transition-transform duration-300",
+            "material-symbols-outlined text-[22px] motion-control",
             open && "rotate-90"
           )}
           aria-hidden="true"
@@ -153,7 +153,7 @@ export default function QuickNav({ className = "" }) {
                       aria-current={current ? "page" : undefined}
                       className={cn(
                         "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[13px]",
-                        "text-text-main hover:bg-surface-2 transition-colors",
+                        "text-text-main hover:bg-surface-2 motion-control",
                         current && "text-primary bg-primary/5 font-medium"
                       )}
                     >

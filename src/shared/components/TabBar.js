@@ -64,7 +64,7 @@ export default function TabBar({ tabs, active, onChange, ariaLabel }) {
             aria-controls={`panel-${t.id}`}
             tabIndex={on ? 0 : -1}
             onClick={() => onChange(t.id)}
-            className={`relative shrink-0 inline-flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium rounded-t-[10px] transition-colors cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] ${
+            className={`relative shrink-0 inline-flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium rounded-t-[10px] motion-control cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] ${
               on
                 ? "text-brand-700 dark:text-brand-300"
                 : "text-text-muted hover:text-text-main hover:bg-surface-2/60"
@@ -89,7 +89,7 @@ export default function TabBar({ tabs, active, onChange, ariaLabel }) {
             {/* The one accent, drawn as a composited transform */}
             <span
               aria-hidden="true"
-              className={`absolute left-2 right-2 bottom-0 h-0.5 rounded-full bg-brand-500 origin-center transition-transform duration-200 ease-out ${
+              className={`absolute left-2 right-2 bottom-0 h-0.5 rounded-full bg-brand-500 origin-center motion-control ${
                 on ? "scale-x-100" : "scale-x-0"
               }`}
             />

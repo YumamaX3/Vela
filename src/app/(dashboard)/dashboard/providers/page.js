@@ -438,7 +438,7 @@ export default function ProvidersPage() {
             <button
               onClick={() => handleBatchTest("oauth")}
               disabled={!!testingMode}
-              className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
+              className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium motion-control sm:w-auto sm:py-1.5 ${
                 testingMode === "oauth"
                   ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
                   : "bg-bg border-border text-text-muted hover:text-text-main hover:border-primary/40"
@@ -483,7 +483,7 @@ export default function ProvidersPage() {
           <button
             onClick={() => handleBatchTest("free")}
             disabled={!!testingMode}
-            className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
+            className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium motion-control sm:w-auto sm:py-1.5 ${
               testingMode === "free"
                 ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
                 : "bg-bg border-border text-text-muted hover:text-text-main hover:border-primary/40"
@@ -544,7 +544,7 @@ export default function ProvidersPage() {
           <button
             onClick={() => handleBatchTest("apikey")}
             disabled={!!testingMode}
-            className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
+            className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium motion-control sm:w-auto sm:py-1.5 ${
               testingMode === "apikey"
                 ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
                 : "bg-bg border-border text-text-muted hover:text-text-main hover:border-primary/40"
@@ -575,7 +575,7 @@ export default function ProvidersPage() {
         {!isApikeySearching && !showAllApikey && hiddenApikeyCount > 0 && (
           <button
             onClick={() => setShowAllApikey(true)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/40 px-3 py-2.5 text-sm font-medium text-primary transition-colors hover:border-primary hover:bg-primary/5"
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/40 px-3 py-2.5 text-sm font-medium text-primary motion-control hover:border-primary hover:bg-primary/5"
           >
             <span className="material-symbols-outlined text-[16px]">expand_more</span>
             Show all {apikeyEntries.length} providers
@@ -639,7 +639,7 @@ export default function ProvidersPage() {
               <h3 className="font-semibold">Test Results</h3>
               <button
                 onClick={() => setTestResults(null)}
-                className="p-1 rounded-lg hover:bg-bg text-text-muted hover:text-text-main transition-colors"
+                className="p-1 rounded-lg hover:bg-bg text-text-muted hover:text-text-main motion-control"
                 aria-label="Close test results"
               >
                 <span className="material-symbols-outlined text-lg">close</span>
@@ -676,7 +676,7 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }) {
     <Link href={`/dashboard/providers/${providerId}`} className="group min-w-0">
       <Card
         padding="xs"
-        className={`h-full hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors cursor-pointer ${allDisabled ? "opacity-50" : ""}`}
+        className={`h-full hover:bg-black/[0.01] dark:hover:bg-white/[0.01] motion-control cursor-pointer ${allDisabled ? "opacity-50" : ""}`}
       >
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -725,7 +725,7 @@ function ProviderCard({ providerId, provider, stats, authType, onToggle }) {
           <div className="flex shrink-0 items-center gap-2">
             {stats.total > 0 && (
               <div
-                className="opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+                className="opacity-100 motion-control sm:opacity-0 sm:group-hover:opacity-100"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -804,7 +804,7 @@ function ApiKeyProviderCard({
     <Link href={`/dashboard/providers/${providerId}`} className="group min-w-0">
       <Card
         padding="xs"
-        className={`h-full hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors cursor-pointer ${allDisabled ? "opacity-50" : ""}`}
+        className={`h-full hover:bg-black/[0.01] dark:hover:bg-white/[0.01] motion-control cursor-pointer ${allDisabled ? "opacity-50" : ""}`}
       >
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -863,7 +863,7 @@ function ApiKeyProviderCard({
           <div className="flex shrink-0 items-center gap-2">
             {stats.total > 0 && (
               <div
-                className="opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+                className="opacity-100 motion-control sm:opacity-0 sm:group-hover:opacity-100"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();

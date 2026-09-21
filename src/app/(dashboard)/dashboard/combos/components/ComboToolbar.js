@@ -91,7 +91,7 @@ export default function ComboToolbar({
               onClick={() => onView(option.value)}
               title={option.label}
               className={cn(
-                "flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors",
+                "flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium motion-control",
                 view === option.value ? "bg-surface text-text-main shadow-[var(--shadow-soft)]" : "text-text-muted hover:text-text-main"
               )}
             >
@@ -109,7 +109,7 @@ export default function ComboToolbar({
             onClick={onCollapseAll}
             title="Collapse all harbors"
             aria-label="Collapse all harbors"
-            className="rounded-lg border border-border-subtle p-1.5 text-text-muted transition-colors hover:text-text-main"
+            className="rounded-lg border border-border-subtle p-1.5 text-text-muted motion-control hover:text-text-main"
           >
             <span className="material-symbols-outlined text-[16px]">unfold_less</span>
           </button>
@@ -118,7 +118,7 @@ export default function ComboToolbar({
             onClick={onExpandAll}
             title="Expand all harbors"
             aria-label="Expand all harbors"
-            className="rounded-lg border border-border-subtle p-1.5 text-text-muted transition-colors hover:text-text-main"
+            className="rounded-lg border border-border-subtle p-1.5 text-text-muted motion-control hover:text-text-main"
           >
             <span className="material-symbols-outlined text-[16px]">unfold_more</span>
           </button>
@@ -127,7 +127,7 @@ export default function ComboToolbar({
             onClick={onReload}
             title="Reload the fleet"
             aria-label="Reload the fleet"
-            className="rounded-lg border border-border-subtle p-1.5 text-text-muted transition-colors hover:text-text-main"
+            className="rounded-lg border border-border-subtle p-1.5 text-text-muted motion-control hover:text-text-main"
           >
             <span className="material-symbols-outlined text-[16px]">refresh</span>
           </button>

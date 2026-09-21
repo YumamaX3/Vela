@@ -254,7 +254,7 @@ export default function AntigravityToolCard({
             <p className="text-xs text-text-muted truncate">{tool.description}</p>
           </div>
         </div>
-        <span className={`material-symbols-outlined text-text-muted text-[20px] transition-transform ${isExpanded ? "rotate-180" : ""}`}>expand_more</span>
+        <span className={`material-symbols-outlined text-text-muted text-[20px] motion-control ${isExpanded ? "rotate-180" : ""}`}>expand_more</span>
       </div>
 
       {isExpanded && (
@@ -293,7 +293,7 @@ export default function AntigravityToolCard({
               <button
                 onClick={handleStop}
                 disabled={loading}
-                className="px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 font-medium text-sm flex items-center gap-2 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                className="px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 font-medium text-sm flex items-center gap-2 hover:bg-red-500/20 motion-control disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-[18px]">stop_circle</span>
                 Stop MITM
@@ -302,7 +302,7 @@ export default function AntigravityToolCard({
               <button
                 onClick={handleStart}
                 disabled={loading || !hasActiveProviders}
-                className="px-4 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary font-medium text-sm flex items-center gap-2 hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary font-medium text-sm flex items-center gap-2 hover:bg-primary/20 motion-control disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="material-symbols-outlined text-[18px]">play_circle</span>
                 Start MITM
@@ -353,7 +353,7 @@ export default function AntigravityToolCard({
                     {modelMappings[model.alias] && (
                       <button
                         onClick={() => handleModelMappingChange(model.alias, "")}
-                        className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-red-500 rounded transition-colors"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-red-500 rounded motion-control"
                         title="Clear"
                       >
                         <span className="material-symbols-outlined text-[14px]">close</span>
@@ -363,7 +363,7 @@ export default function AntigravityToolCard({
                   <button
                     onClick={() => openModelSelector(model.alias)}
                     disabled={!hasActiveProviders}
-                    className={`w-full sm:w-auto rounded border px-2 py-2 text-xs transition-colors sm:py-1.5 whitespace-nowrap sm:shrink-0 ${hasActiveProviders ? "bg-surface border-border text-text-main hover:border-primary cursor-pointer" : "opacity-50 cursor-not-allowed border-border"}`}
+                    className={`w-full sm:w-auto rounded border px-2 py-2 text-xs motion-control sm:py-1.5 whitespace-nowrap sm:shrink-0 ${hasActiveProviders ? "bg-surface border-border text-text-main hover:border-primary cursor-pointer" : "opacity-50 cursor-not-allowed border-border"}`}
                   >
                     Select
                   </button>

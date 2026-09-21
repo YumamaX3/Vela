@@ -48,7 +48,7 @@ export default function TopModels({ period }) {
               </div>
               <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-brand-500 to-orange-400 rounded-full transition-all duration-500"
+                  className="h-full bg-gradient-to-r from-brand-500 to-orange-400 rounded-full motion-fill"
                   style={{ width: `${percent}%` }}
                 />
               </div>

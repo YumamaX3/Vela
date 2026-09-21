@@ -223,7 +223,7 @@ export default function HomePageClient() {
             <button
               type="button"
               onClick={() => router.push("/dashboard/providers")}
-              className="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-surface px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:border-primary/40 hover:text-text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              className="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-surface px-3 py-1.5 text-xs font-medium text-text-muted motion-control hover:border-primary/40 hover:text-text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
             >
               <span className="material-symbols-outlined text-[14px] text-primary">monitor_heart</span>
               {fleetOk}/{fleet.length} {translate("providers ok")}
@@ -323,7 +323,7 @@ export default function HomePageClient() {
             <button
               type="button"
               onClick={() => router.push("/dashboard/usage")}
-              className="inline-flex items-center gap-1 rounded-md text-[11.5px] font-semibold text-primary transition-colors hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              className="inline-flex items-center gap-1 rounded-md text-[11.5px] font-semibold text-primary motion-control hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
             >
               {translate("View all")}
               <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
@@ -375,7 +375,7 @@ export default function HomePageClient() {
               <button
                 type="button"
                 onClick={() => router.push("/dashboard/providers")}
-                className="inline-flex items-center gap-1 rounded-md text-[11.5px] font-semibold text-primary transition-colors hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                className="inline-flex items-center gap-1 rounded-md text-[11.5px] font-semibold text-primary motion-control hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               >
                 {translate("All providers")}
                 <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
@@ -412,7 +412,7 @@ export default function HomePageClient() {
               <button
                 type="button"
                 onClick={() => router.push("/dashboard/providers")}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface px-3 py-1.5 text-xs font-semibold text-text-main transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface px-3 py-1.5 text-xs font-semibold text-text-main motion-control hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               >
                 <span className="material-symbols-outlined text-[14px]">add</span>
                 {translate("Connect a provider")}
@@ -427,7 +427,7 @@ export default function HomePageClient() {
 
 function StatTile({ icon, label, value, sub }) {
   return (
-    <div className="rounded-[14px] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-soft)] transition-shadow hover:shadow-[var(--shadow-warm)]">
+    <div className="rounded-[14px] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-soft)] motion-control hover:shadow-[var(--shadow-warm)]">
       <div className="flex items-center gap-2 text-text-muted">
         <span className="material-symbols-outlined text-[16px] text-primary">{icon}</span>
         <span className="text-[11px] font-medium uppercase tracking-wide">{label}</span>

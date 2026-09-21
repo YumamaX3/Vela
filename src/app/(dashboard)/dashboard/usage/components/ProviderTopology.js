@@ -48,7 +48,7 @@ function ProviderNode({ data }) {
 
   return (
     <div
-      className={`flex items-center gap-2.5 px-4 py-2.5 rounded-lg border-2 transition-all duration-300 bg-bg ${onClick ? "cursor-pointer hover:brightness-110" : ""}`}
+ className={`flex items-center gap-2.5 px-4 py-2.5 rounded-lg border-2 motion-control bg-bg ${onClick ? "cursor-pointer hover:brightness-110" : ""}`}
       style={{
         borderColor: active ? color : haloBorder,
         boxShadow: haloStyle,

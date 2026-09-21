@@ -22,7 +22,7 @@ function IconBtn({ icon, label, active, danger, onClick }) {
       title={label}
       aria-label={label}
       className={cn(
-        "rounded p-1 transition-colors",
+        "rounded p-1 motion-control",
         active
           ? "text-primary"
           : danger
@@ -61,7 +61,7 @@ export default function ComboCard({
     <Card
       padding="sm"
       className={cn(
-        "group flex min-w-0 flex-col gap-3 transition-colors",
+        "group flex min-w-0 flex-col gap-3 motion-control",
         selected ? "border-primary/50 ring-1 ring-primary/30" : "hover:border-brand-500/30"
       )}
     >
@@ -74,7 +74,7 @@ export default function ComboCard({
             onChange={() => onToggleSelect?.(combo.id)}
             aria-label={`Select ${combo.name}`}
             className={cn(
-              "mt-1.5 size-3.5 shrink-0 cursor-pointer accent-[var(--color-brand-500)] transition-opacity",
+              "mt-1.5 size-3.5 shrink-0 cursor-pointer accent-[var(--color-brand-500)] motion-control",
               selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
             )}
           />

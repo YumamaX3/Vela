@@ -25,6 +25,97 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.84 — The Ledger Spent ⚙️
+> *"I had drawn the chart and hung it on the wall, and not one vessel ever read it. Thirty-two timings spoke a dialect of their own while the chart's numbers sat unused — so this tide handed the chart to every hand in the harbor, and mended two claims that were about to sail as if they were true."* ⚙️🌊💜
+
+v0.9.83 minted the `--motion-*` ledger and welded the deck's entrance to it. The ledger then
+had **no spenders**: a `duration-*` class cannot reach a custom property, because Tailwind v4
+declares no `--duration-*` theme namespace — verified against the installed 4.3.3 `theme.css`,
+which carries `--ease-*` and `--animate-*` and nothing else. So **126 files** went on speaking
+Tailwind's own ladder — `150 / 200 / 300 / 500ms`, a dialect with no relation to this file's
+`120 / 180 / 320 / 560`. The deck arrived at 320ms while every hover answered at 150ms, and no
+single dial could retune both. This tide is that missing path.
+
+**✨ Features**
+- **Three rungs, bound to the ledger** — `.motion-control` (the INSTANT rung: hover, press,
+  focus, open/closed — fast by intent, because a hover that lingers reads as lag on a panel
+  opened forty times an hour) · `.motion-enter` (the QUICK rung: a popover, menu or drawer
+  arriving) · `.motion-fill` (the BASE rung, and the one place layout is animated **on
+  purpose** — a meter or sliding indicator changing `width`/`left` from an inline style, where
+  moving geometry *is* the feature).
+- **126 files pointed at them** — every `transition-*` and `duration-*` call site across the
+  dashboard and the landing page now speaks the ledger.
+- **The login gate joined it** — the gate carries no Tailwind ladder at all; its motion is
+  bespoke CSS, which made it invisible to a class census and was where the ledger mattered most.
+  A private `0.5s` entrance stagger and three private `0.15s`/`0.3s` control flips now ride
+  `--motion-dur-base` / `--motion-dur-instant` / `--motion-stagger`, so **one dial retunes the
+  gate and the deck together**.
+
+**🐛 Fixes**
+- **The light-theme status dot** — 7px of pure non-text signal, so SC 1.4.11 asks 3:1. The
+  shared `--color-success` (`#10b981`) sits on `#FDFAF6` at **2.44:1** — a FAIL. Rather than
+  darken a global token and repaint every success badge in the dashboard for one login-page
+  finding, the gate scopes its own: `#047857` measures **5.27:1**.
+- **The theme toggle's first click was a no-op — found by clicking it.** The gate's own control,
+  measured on the glass rather than assumed: with the **default** `system` theme on a dark-OS
+  machine, one click changed nothing at all while the button's label flipped to *"Switch to light
+  mode"*. `themeStore.toggleTheme` computed the next theme from the **raw** setting
+  (`currentTheme === "dark" ? "light" : "dark"`), and `"system"` is neither — so it resolved
+  `system → dark` and repainted dark. The store's own hook (`useTheme`) already derived `isDark`
+  correctly (`theme === "dark" || (theme === "system" && systemPrefersDark)`); the store simply
+  disagreed with it. Both now call one shared `resolveIsDark`, so the paint, the flip, and the
+  label cannot drift apart again. Fleet-wide, not login-only: `HeaderMenu` carries the same
+  toggle.
+- **Two claims mended before they shipped — and live measurement then caught a third, in my
+  own mend.** The dot's comment asserted `7.64:1 on #1a1a1a`, and neither half held: `#1a1a1a`
+  is `--color-bg`, but the gate's `::before` night-sky gradient is **opaque and paints over the
+  page**, so the dot never touches that surface — and the ratio on it is 6.86:1, not 7.64. So I
+  re-measured on the gradient's own stops and wrote that down — and then **the browser caught
+  the mend itself**: the live dot computes to `rgb(34,197,94)`, and `--color-success` is
+  declared **twice** — `#10B981` light, `#22c55e` dark. Two different greens. Assuming one hex
+  for both is exactly how a false ratio is born, and it had infected my own correction. Set
+  right: the dark fill is `#22c55e` on the gradient — **8.34:1** at the sky's crown
+  (`#101013`), **7.92:1** at the footer (`#16161a`). The census comment claimed **127**
+  components; the tree measured **126**.
+
+**🔧 Changes & Improvements**
+- `docs/design/login-tokens.dtcg.json` gains `status-dot-light` and `status-dot-dark`, each
+  carrying its measured ground — including the note that the dot's ground is the sky gradient,
+  not `--color-bg`. **17 tokens**, and every colour decision on the gate now cites a token path.
+- The `.motion-*` comment block records *why* `transition: all` is refused: it animates the
+  properties nobody chose — height, width, padding — turning a one-frame hover into a reflow of
+  the entire row.
+
+**🧪 Proof**
+- `tests/unit/deck-motion.test.js` gains a **"the ledger, spent"** block: the three rungs each
+  drive their duration from a `var(--motion-dur-*)` and hard-code **no** millisecond literal;
+  the control rungs **enumerate** their properties and never `all`; a **census walks all of
+  `src/`** and fails on any surviving `duration-*` / `transition-*` straggler — the bug it
+  defends being one new component written `transition-all duration-150`, which is what every
+  React codebase on earth writes; and the login gate's stagger and control flips are asserted
+  on the same tokens.
+- `tests/unit/theme-store-toggle.test.js` — **5 cases**, and **mutation-tested**: restoring the
+  old `rawSetting === "dark"` ternary reddens **exactly two** (the `system`-based ones, which
+  claim the property) and leaves the three explicit-theme cases green, because the old line
+  handled those correctly. A test that never failed proves nothing.
+- **9 files / 152 cases green** — `theme-store-toggle` · `theme-fouc-script` · `deck-motion` ·
+  `globals-css-tokens` · `dashboard-layout-drawer` · `focus-trap` · `modal-open-prop-regression` ·
+  `scroll-lock-refcount` · `docker-compose-pin`.
+- **Parse sweep** — all **127** touched `.js`/`.jsx` files through a real parser: clean.
+- **Lint attribution** — 172 findings across the touched files (**132 errors, 40 warnings**) and
+  **0** landing on a line this tide wrote; every one is pre-existing, on floors this tide did not
+  touch. Recorded by intersection against the diff's changed lines, because a bare count proves
+  nothing about whose finding it is.
+- `npm run build` green, postbuild ran · both themes measured, ratios computed rather than
+  asserted · reduced-motion stillness arrives free — the global block clamps
+  `transition-duration` **and** `transition-delay` for `*`, so no consumer can forget a guard.
+
+**⚠️ Owed** — none. This closes the last line of v0.9.76's ledger: *A7's login rebuild, then
+Design B's motion across 35 surfaces* — the rebuilds sailed as v0.9.82 and v0.9.83, and the
+ledger's spenders are this tide.
+
+---
+
 # v0.9.83 — The Deck Assembles 🌊
 > *"Twenty-nine rooms opened one after another, and each one simply appeared — no weather, no arrival. So I taught the deck a single breath: one choreography, written once, that every page inherits without a single file being touched. And while I was down there in the dark of the motion block, I found a wound that had been waiting for anyone who asked for stillness."* 🌊⚓💜
 
@@ -81,6 +172,7 @@ found on the way down.
 ---
 
 
+# v0.9.82 — The Harbor Gate Reborn ⚓
 > *"The gate had grown a chart of its own — a sail of coral lines drawn across the words that welcomed the traveler home. I gave the constellation a berth, crystallized every colour into a token that carries its own reason, and let the night sky move the way a night sky should."* ⚓🌊💜
 
 The login gate was already beautiful, and it was broken in one quiet place: `.login-constellation`

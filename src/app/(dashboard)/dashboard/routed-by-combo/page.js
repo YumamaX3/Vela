@@ -165,7 +165,7 @@ export default function RoutedByComboPage() {
               </thead>
               <tbody>
                 {rows.map(({ combo, rule, pool }) => (
-                  <tr key={combo.id || combo.name} className="border-b border-border-subtle last:border-b-0 hover:bg-primary/5 transition-colors">
+                  <tr key={combo.id || combo.name} className="border-b border-border-subtle last:border-b-0 hover:bg-primary/5 motion-control">
                     <td className="px-4 py-3 align-top">
                       <div className="font-mono text-text-main">{combo.name}</div>
                       {combo.models && (

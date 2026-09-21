@@ -77,7 +77,7 @@ function CopyIconButton({ value, label = "Copy link", className = "" }) {
       }}
       aria-label={label}
       title={label}
-      className={`shrink-0 inline-flex items-center justify-center size-8 rounded-[10px] border border-border-subtle text-text-muted hover:text-primary hover:border-brand-500/40 hover:bg-brand-500/5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] ${className}`}
+      className={`shrink-0 inline-flex items-center justify-center size-8 rounded-[10px] border border-border-subtle text-text-muted hover:text-primary hover:border-brand-500/40 hover:bg-brand-500/5 motion-control cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] ${className}`}
     >
       <span className="material-symbols-outlined text-[16px] leading-none">
         {copied ? "check" : "content_copy"}
@@ -184,7 +184,7 @@ function CommandDeck({ base, onProbe }) {
 
         {/* Gateway URL + probe */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2 flex-1 min-w-[260px] rounded-[10px] border border-border-subtle bg-bg-alt px-3 py-2 focus-within:shadow-[var(--shadow-focus)] transition-shadow">
+          <div className="flex items-center gap-2 flex-1 min-w-[260px] rounded-[10px] border border-border-subtle bg-bg-alt px-3 py-2 focus-within:shadow-[var(--shadow-focus)] motion-control">
             <span className="material-symbols-outlined text-[16px] leading-none text-text-muted">dns</span>
             <input
               type="text"
@@ -200,7 +200,7 @@ function CommandDeck({ base, onProbe }) {
             type="button"
             onClick={connect}
             disabled={probing || !draft.trim()}
-            className="px-3.5 py-2 rounded-[10px] bg-brand-500 text-white text-[13px] font-semibold hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
+            className="px-3.5 py-2 rounded-[10px] bg-brand-500 text-white text-[13px] font-semibold hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed motion-control cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
           >
             {probing ? "Probing…" : probe.status === "up" || probe.status === "down" ? "Re-probe" : "Connect"}
           </button>
@@ -216,7 +216,7 @@ function CommandDeck({ base, onProbe }) {
                 role="tab"
                 aria-selected={agent === a.id}
                 onClick={() => setAgent(a.id)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px] text-[12px] font-medium motion-control cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] ${
                   agent === a.id
                     ? "bg-brand-500/10 text-brand-600 dark:text-brand-300"
                     : "text-text-muted hover:text-text-main hover:bg-surface-2"
@@ -253,7 +253,7 @@ function CommandDeck({ base, onProbe }) {
           <button
             type="button"
             onClick={() => copy(fullSetup, "setup")}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] border border-border-subtle text-[12px] font-medium text-text-main hover:border-brand-500/40 hover:bg-brand-500/5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] border border-border-subtle text-[12px] font-medium text-text-main hover:border-brand-500/40 hover:bg-brand-500/5 motion-control cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
           >
             <span className="material-symbols-outlined text-[15px] leading-none">
               {copied === "setup" ? "check" : "terminal"}
@@ -263,7 +263,7 @@ function CommandDeck({ base, onProbe }) {
           <button
             type="button"
             onClick={() => copy(bulkLinks, "links")}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] border border-border-subtle text-[12px] font-medium text-text-main hover:border-brand-500/40 hover:bg-brand-500/5 transition-colors cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] border border-border-subtle text-[12px] font-medium text-text-main hover:border-brand-500/40 hover:bg-brand-500/5 motion-control cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
           >
             <span className="material-symbols-outlined text-[15px] leading-none">
               {copied === "links" ? "check" : "inventory_2"}
@@ -299,7 +299,7 @@ function SkillCard({ skill, onOpen }) {
           onOpen(skill);
         }
       }}
-      className="group text-left rounded-[14px] border border-border-subtle bg-surface shadow-[var(--shadow-soft)] p-4 transition-all hover:shadow-[var(--shadow-warm)] hover:border-brand-500/30 cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
+      className="group text-left rounded-[14px] border border-border-subtle bg-surface shadow-[var(--shadow-soft)] p-4 motion-control hover:shadow-[var(--shadow-warm)] hover:border-brand-500/30 cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
     >
       <div className="flex items-start gap-3">
         <div className="size-9 rounded-[10px] bg-brand-500/10 text-brand-600 dark:text-brand-300 flex items-center justify-center shrink-0">
@@ -318,7 +318,7 @@ function SkillCard({ skill, onOpen }) {
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <CopyIconButton value={getSkillRawUrl(skill.id)} />
-          <span className="material-symbols-outlined text-[16px] leading-none text-text-muted/40 group-hover:text-primary transition-colors">
+          <span className="material-symbols-outlined text-[16px] leading-none text-text-muted/40 group-hover:text-primary motion-control">
             chevron_right
           </span>
         </div>
@@ -339,7 +339,7 @@ function EntryCard({ skill, onOpen }) {
           onOpen(skill);
         }
       }}
-      className="group rounded-[14px] border border-brand-500/40 bg-brand-500/5 p-5 transition-all hover:shadow-[var(--shadow-warm)] hover:border-brand-500/60 cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
+      className="group rounded-[14px] border border-brand-500/40 bg-brand-500/5 p-5 motion-control hover:shadow-[var(--shadow-warm)] hover:border-brand-500/60 cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
     >
       <div className="flex items-center gap-4 flex-wrap">
         <div className="size-11 rounded-[12px] bg-brand-500 text-white flex items-center justify-center shrink-0 shadow-[var(--shadow-warm)]">
@@ -353,7 +353,7 @@ function EntryCard({ skill, onOpen }) {
           <p className="text-xs text-text-muted mt-0.5">{skill.description}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[11px] font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+          <span className="text-[11px] font-medium text-primary opacity-0 group-hover:opacity-100 motion-control">
             Read the skill
           </span>
           <CopyIconButton value={getSkillRawUrl(skill.id)} />
@@ -412,7 +412,7 @@ function SkillPreviewDrawer({ skill, onClose }) {
               rel="noreferrer"
               aria-label="Open on GitHub"
               title="Open on GitHub"
-              className="shrink-0 inline-flex items-center justify-center size-8 rounded-[10px] border border-border-subtle text-text-muted hover:text-primary hover:border-brand-500/40 hover:bg-brand-500/5 transition-colors"
+              className="shrink-0 inline-flex items-center justify-center size-8 rounded-[10px] border border-border-subtle text-text-muted hover:text-primary hover:border-brand-500/40 hover:bg-brand-500/5 motion-control"
             >
               <span className="material-symbols-outlined text-[16px] leading-none">open_in_new</span>
             </a>
@@ -480,7 +480,7 @@ export default function SkillsPageClient() {
               · {filtered.length} skill{filtered.length === 1 ? "" : "s"}
             </span>
           </h2>
-          <div className="flex items-center gap-2 rounded-[10px] border border-border-subtle bg-surface px-3 py-1.5 focus-within:shadow-[var(--shadow-focus)] transition-shadow">
+          <div className="flex items-center gap-2 rounded-[10px] border border-border-subtle bg-surface px-3 py-1.5 focus-within:shadow-[var(--shadow-focus)] motion-control">
             <span className="material-symbols-outlined text-[15px] leading-none text-text-muted">search</span>
             <input
               type="text"
@@ -517,7 +517,7 @@ export default function SkillsPageClient() {
             <button
               type="button"
               onClick={() => setQuery("")}
-              className="mt-3 px-3 py-1.5 rounded-[10px] border border-border-subtle text-[12px] font-medium text-text-main hover:border-brand-500/40 hover:bg-brand-500/5 transition-colors cursor-pointer"
+              className="mt-3 px-3 py-1.5 rounded-[10px] border border-border-subtle text-[12px] font-medium text-text-main hover:border-brand-500/40 hover:bg-brand-500/5 motion-control cursor-pointer"
             >
               Clear search
             </button>

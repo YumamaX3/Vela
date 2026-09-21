@@ -262,7 +262,7 @@ export function TtsExampleCard({ providerId }) {
                 <button
                   onClick={() => setUseTunnel((v) => !v)}
                   title={useTunnel ? "Using tunnel" : "Using local"}
-                  className={`flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg border shrink-0 transition-colors ${
+                  className={`flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg border shrink-0 motion-control ${
                     useTunnel ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-text-muted hover:text-primary"
                   }`}
                 >
@@ -324,7 +324,7 @@ export function TtsExampleCard({ providerId }) {
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                 <button
                   onClick={openModal}
-                  className="w-full min-w-0 flex-1 px-3 py-1.5 text-sm border border-border rounded-lg bg-background font-mono truncate text-left hover:border-primary/40 transition-colors"
+                  className="w-full min-w-0 flex-1 px-3 py-1.5 text-sm border border-border rounded-lg bg-background font-mono truncate text-left hover:border-primary/40 motion-control"
                 >
                   {selectedLang
                     ? <span className="text-text-main">{languages.find((l) => l.code === selectedLang)?.name || selectedLang}</span>
@@ -332,7 +332,7 @@ export function TtsExampleCard({ providerId }) {
                 </button>
                 <button
                   onClick={openModal}
-                  className="flex w-full items-center justify-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-border text-text-muted hover:text-primary hover:border-primary/40 transition-colors sm:w-auto sm:shrink-0"
+                  className="flex w-full items-center justify-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-border text-text-muted hover:text-primary hover:border-primary/40 motion-control sm:w-auto sm:shrink-0"
                 >
                   <span className="material-symbols-outlined text-[14px]">language</span>
                   Select language
@@ -353,7 +353,7 @@ export function TtsExampleCard({ providerId }) {
                       setSelectedVoiceName(v.name);
                       if (config.hasVoiceIdInput) setVoiceId(v.id);
                     }}
-                    className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                    className={`px-2.5 py-1 rounded-full text-xs border motion-control ${
                       selectedVoice === v.id
                         ? "bg-primary/15 border-primary/40 text-primary font-medium"
                         : "border-border text-text-muted hover:text-primary hover:border-primary/40"
@@ -392,7 +392,7 @@ export function TtsExampleCard({ providerId }) {
                     <button
                       type="button"
                       onClick={() => { setVoiceId(""); setSelectedVoice(""); }}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary transition-colors"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary motion-control"
                     >
                       <span className="material-symbols-outlined text-[14px]">close</span>
                     </button>
@@ -433,7 +433,7 @@ export function TtsExampleCard({ providerId }) {
                 <button
                   type="button"
                   onClick={() => setInput("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary transition-colors"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary motion-control"
                 >
                   <span className="material-symbols-outlined text-[14px]">close</span>
                 </button>
@@ -456,7 +456,7 @@ export function TtsExampleCard({ providerId }) {
                   <button
                     type="button"
                     onClick={() => setStyle("")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary motion-control"
                   >
                     <span className="material-symbols-outlined text-[14px]">close</span>
                   </button>
@@ -484,7 +484,7 @@ export function TtsExampleCard({ providerId }) {
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                 <button
                   onClick={() => copyCurl(curlSnippet)}
-                  className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors"
+                  className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary motion-control"
                 >
                   <span className="material-symbols-outlined text-[14px]">{copiedCurl ? "check" : "content_copy"}</span>
                   {copiedCurl ? "Copied" : "Copy"}
@@ -492,7 +492,7 @@ export function TtsExampleCard({ providerId }) {
                 <button
                   onClick={handleRun}
                   disabled={running || !input.trim() || !modelFull}
-                  className="flex w-full sm:w-auto items-center justify-center gap-1.5 px-3 py-1 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex w-full sm:w-auto items-center justify-center gap-1.5 px-3 py-1 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 motion-control disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span className="material-symbols-outlined text-[14px]" style={running ? { animation: "spin 1s linear infinite" } : undefined}>
                     play_arrow
@@ -513,7 +513,7 @@ export function TtsExampleCard({ providerId }) {
                 <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
                   Response {latency && <span className="font-normal normal-case">&#9889; {latency}ms</span>}
                 </span>
-                <a href={audioUrl} download="speech.mp3" className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors">
+                <a href={audioUrl} download="speech.mp3" className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary motion-control">
                   <span className="material-symbols-outlined text-[14px]">download</span>
                   Download
                 </a>
@@ -559,7 +559,7 @@ export function TtsExampleCard({ providerId }) {
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0 rounded-t-xl">
               <h3 className="text-sm font-semibold">Select Language</h3>
-              <button onClick={() => setModalOpen(false)} className="text-text-muted hover:text-primary transition-colors">
+              <button onClick={() => setModalOpen(false)} className="text-text-muted hover:text-primary motion-control">
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
@@ -586,7 +586,7 @@ export function TtsExampleCard({ providerId }) {
                     <button
                       key={c.code}
                       onClick={() => handlePickLanguage(c)}
-                      className={`flex items-center justify-between w-full px-3 py-2 rounded-lg text-left hover:bg-sidebar transition-colors ${
+                      className={`flex items-center justify-between w-full px-3 py-2 rounded-lg text-left hover:bg-sidebar motion-control ${
                         selectedLang === c.code ? "bg-primary/10 text-primary" : ""
                       }`}
                     >

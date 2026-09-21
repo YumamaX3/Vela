@@ -345,7 +345,7 @@ export default function PromptInjectorsPage() {
               key={p.name}
               type="button"
               onClick={() => applyPreset(p)}
-              className="w-full text-left rounded-md border border-muted p-3 hover:border-primary transition-colors"
+              className="w-full text-left rounded-md border border-muted p-3 hover:border-primary motion-control"
             >
               <span className="text-sm font-medium">{p.name}</span>
               <span className="block text-xs text-muted-foreground mt-0.5">{p.prompt.slice(0, 80)}{p.prompt.length > 80 ? "…" : ""}</span>

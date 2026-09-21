@@ -208,7 +208,7 @@ export default function BulkImportGrokCliModal({ isOpen, onClose, onSuccess }) {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`relative rounded border transition-colors ${
+          className={`relative rounded border motion-control ${
             isDragging
               ? "border-primary bg-primary/10 ring-2 ring-primary/30"
               : "border-accent/30 bg-sidebar"

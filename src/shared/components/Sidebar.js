@@ -178,11 +178,11 @@ export default function Sidebar({ onClose }) {
 
   return (
     <>
-      <aside className="flex w-72 flex-col border-r border-border-subtle bg-vibrancy backdrop-blur-xl transition-colors duration-300 min-h-full">
+      <aside className="flex w-72 flex-col border-r border-border-subtle bg-vibrancy backdrop-blur-xl motion-control min-h-full">
         {/* Brand — Vela, the harbor */}
         <div className="px-6 pt-6 pb-3 flex flex-col gap-2">
           <Link href="/dashboard" onClick={onClose} className="flex items-center gap-3 group" aria-label="Vela home">
-            <div className="flex items-center justify-center size-10 transition-transform group-hover:scale-[1.04]">
+            <div className="flex items-center justify-center size-10 motion-control group-hover:scale-[1.04]">
               <img
                 src="/vela-logo.svg"
                 alt="Vela"
@@ -221,7 +221,7 @@ export default function Sidebar({ onClose }) {
                   onClick={handleDismissUpdate}
                   aria-label={translate("Dismiss update notice")}
                   title={translate("Dismiss until a newer tide")}
-                  className="shrink-0 rounded p-0.5 text-text-subtle transition-colors hover:bg-black/5 hover:text-text-muted dark:hover:bg-white/10 cursor-pointer"
+                  className="shrink-0 rounded p-0.5 text-text-subtle motion-control hover:bg-black/5 hover:text-text-muted dark:hover:bg-white/10 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[14px]">close</span>
                 </button>
@@ -229,7 +229,7 @@ export default function Sidebar({ onClose }) {
               <div className="relative mt-1.5 flex items-center gap-2">
                 <button
                   onClick={() => setShowNoticeModal(true)}
-                  className="flex items-center gap-1 rounded-lg bg-brand-500 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-brand-600 cursor-pointer"
+                  className="flex items-center gap-1 rounded-lg bg-brand-500 px-2.5 py-1 text-[11px] font-semibold text-white motion-control hover:bg-brand-600 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[13px]">sailing</span>
                   {translate("View details")}
@@ -237,7 +237,7 @@ export default function Sidebar({ onClose }) {
                 <button
                   onClick={() => copy(INSTALL_CMD)}
                   title={INSTALL_CMD}
-                  className="min-w-0 flex-1 cursor-pointer text-left transition-opacity hover:opacity-80"
+                  className="min-w-0 flex-1 cursor-pointer text-left motion-control hover:opacity-80"
                 >
                   <code className="block truncate font-mono text-[10px] text-text-muted">
                     {copied ? "✓ copied!" : INSTALL_CMD}
@@ -265,7 +265,7 @@ export default function Sidebar({ onClose }) {
                 <span className="text-[9px] font-mono font-semibold text-text-subtle/70 bg-surface-2 rounded-full px-1.5 py-px">
                   {group.items.length}
                 </span>
-                <span className={`material-symbols-outlined text-[13px] text-text-subtle transition-transform duration-200 ${collapsed[group.title] ? "-rotate-90" : ""}`}>
+                <span className={`material-symbols-outlined text-[13px] text-text-subtle motion-control ${collapsed[group.title] ? "-rotate-90" : ""}`}>
                   expand_more
                 </span>
               </button>
@@ -316,11 +316,11 @@ export default function Sidebar({ onClose }) {
               <button
                 onClick={() => setShowRemoteModal(true)}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-[7px] rounded-[10px] transition-colors group w-full",
+                  "flex items-center gap-3 px-3 py-[7px] rounded-[10px] motion-control group w-full",
                   "text-text-muted hover:bg-surface-2 hover:text-text-main"
                 )}
               >
-                <span className="material-symbols-outlined text-[18px] group-hover:text-primary transition-colors">
+                <span className="material-symbols-outlined text-[18px] group-hover:text-primary motion-control">
                   computer
                 </span>
                 <span className="text-[13px] font-medium">9Remote</span>
@@ -333,11 +333,11 @@ export default function Sidebar({ onClose }) {
                 rel="noreferrer"
                 onClick={onClose}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-[7px] rounded-[10px] transition-colors group w-full",
+                  "flex items-center gap-3 px-3 py-[7px] rounded-[10px] motion-control group w-full",
                   "text-text-muted hover:bg-surface-2 hover:text-text-main"
                 )}
               >
-                <span className="material-symbols-outlined text-[18px] group-hover:text-primary transition-colors">
+                <span className="material-symbols-outlined text-[18px] group-hover:text-primary motion-control">
                   translate
                 </span>
                 <span className="text-[13px] font-medium">9English</span>
@@ -421,7 +421,7 @@ function NavItem({ href, label, icon, active, onClick, badge }) {
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "relative flex items-center gap-3 px-3 py-[7px] rounded-[10px] transition-colors group",
+        "relative flex items-center gap-3 px-3 py-[7px] rounded-[10px] motion-control group",
         active
           ? "bg-primary/10 text-primary"
           : "text-text-muted hover:bg-surface-2 hover:text-text-main"
@@ -433,7 +433,7 @@ function NavItem({ href, label, icon, active, onClick, badge }) {
       <span
         className={cn(
           "material-symbols-outlined text-[18px]",
-          active ? "fill-1" : "group-hover:text-primary transition-colors"
+          active ? "fill-1" : "group-hover:text-primary motion-control"
         )}
       >
         {icon}
@@ -464,7 +464,7 @@ function MediaAccordion({ pathname, open, onToggle, active, onClose }) {
         onClick={onToggle}
         aria-expanded={open}
         className={cn(
-          "relative w-full flex items-center gap-3 px-3 py-[7px] rounded-[10px] transition-colors group",
+          "relative w-full flex items-center gap-3 px-3 py-[7px] rounded-[10px] motion-control group",
           active
             ? "bg-primary/10 text-primary"
             : "text-text-muted hover:bg-surface-2 hover:text-text-main"
@@ -476,7 +476,7 @@ function MediaAccordion({ pathname, open, onToggle, active, onClose }) {
         <span className="material-symbols-outlined text-[18px]">perm_media</span>
         <span className="text-[13px] font-medium flex-1 text-left">{translate("Media Providers")}</span>
         <span
-          className="material-symbols-outlined text-[14px] transition-transform"
+          className="material-symbols-outlined text-[14px] motion-control"
           style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
         >
           expand_more
@@ -490,7 +490,7 @@ function MediaAccordion({ pathname, open, onToggle, active, onClose }) {
               href={`/dashboard/media-providers/${kind.id}`}
               onClick={onClose}
               className={cn(
-                "flex items-center gap-3 px-4 py-1 rounded-lg transition-colors group",
+                "flex items-center gap-3 px-4 py-1 rounded-lg motion-control group",
                 pathname.startsWith(`/dashboard/media-providers/${kind.id}`)
                   ? "bg-primary/10 text-primary"
                   : "text-text-muted hover:bg-surface-2 hover:text-text-main"
@@ -505,7 +505,7 @@ function MediaAccordion({ pathname, open, onToggle, active, onClose }) {
             href={COMBINED_WEB_ITEM.href}
             onClick={onClose}
             className={cn(
-              "flex items-center gap-3 px-4 py-1 rounded-lg transition-colors group",
+              "flex items-center gap-3 px-4 py-1 rounded-lg motion-control group",
               pathname.startsWith(COMBINED_WEB_ITEM.href)
                 ? "bg-primary/10 text-primary"
                 : "text-text-muted hover:bg-surface-2 hover:text-text-main"
@@ -534,7 +534,7 @@ function ProxyAccordion({ pathname, open, onToggle, active, onClose }) {
         onClick={onToggle}
         aria-expanded={open}
         className={cn(
-          "relative w-full flex items-center gap-3 px-3 py-[7px] rounded-[10px] transition-colors group",
+          "relative w-full flex items-center gap-3 px-3 py-[7px] rounded-[10px] motion-control group",
           active
             ? "bg-primary/10 text-primary"
             : "text-text-muted hover:bg-surface-2 hover:text-text-main"
@@ -546,7 +546,7 @@ function ProxyAccordion({ pathname, open, onToggle, active, onClose }) {
         <span className="material-symbols-outlined text-[18px]">lan</span>
         <span className="text-[13px] font-medium flex-1 text-left">{translate("Proxy")}</span>
         <span
-          className="material-symbols-outlined text-[14px] transition-transform"
+          className="material-symbols-outlined text-[14px] motion-control"
           style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
         >
           expand_more
@@ -560,7 +560,7 @@ function ProxyAccordion({ pathname, open, onToggle, active, onClose }) {
               href={`/dashboard/proxy?tab=${lens.id}`}
               onClick={onClose}
               className={cn(
-                "flex items-center gap-3 px-4 py-1 rounded-lg transition-colors group",
+                "flex items-center gap-3 px-4 py-1 rounded-lg motion-control group",
                 pathname.startsWith("/dashboard/proxy")
                   ? "text-text-muted hover:bg-surface-2 hover:text-text-main"
                   : "text-text-muted hover:bg-surface-2 hover:text-text-main"

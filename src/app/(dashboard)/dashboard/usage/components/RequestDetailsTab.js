@@ -59,14 +59,14 @@ function CollapsibleSection({ title, children, defaultOpen = false, icon = null 
       <button 
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-3 bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors"
+        className="w-full flex items-center justify-between p-3 bg-black/[0.02] dark:bg-white/[0.02] hover:bg-black/[0.04] dark:hover:bg-white/[0.04] motion-control"
       >
         <div className="flex items-center gap-2">
           {icon && <span className="material-symbols-outlined text-[18px] text-text-muted">{icon}</span>}
           <span className="font-semibold text-sm text-text-main">{title}</span>
         </div>
         <span className={cn(
-          "material-symbols-outlined text-[20px] text-text-muted transition-transform duration-200",
+ "material-symbols-outlined text-[20px] text-text-muted motion-control",
           isOpen ? "rotate-90" : ""
         )}>
           chevron_right
@@ -296,7 +296,7 @@ export default function RequestDetailsTab({ provider: controlledProvider = "" })
                 details.map((detail, index) => (
                   <tr
                     key={`${detail.id}-${index}`}
-                    className="border-b border-black/5 dark:border-white/5 last:border-b-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors"
+                    className="border-b border-black/5 dark:border-white/5 last:border-b-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] motion-control"
                   >
                     <td className="whitespace-nowrap p-4 text-sm text-text-main">
                       {new Date(detail.timestamp).toLocaleString()}
