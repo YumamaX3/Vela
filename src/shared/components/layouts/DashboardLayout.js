@@ -202,7 +202,25 @@ export default function DashboardLayout({ children }) {
             the Single Mast) — the model picker, recents strip and Add button
             now live in the mast itself. One bar, one border. */}
         <div className={`flex-1 overflow-y-auto custom-scrollbar ${pathname === "/dashboard/basic-chat" ? "" : "p-6 lg:p-10"} ${pathname === "/dashboard/basic-chat" ? "flex flex-col overflow-hidden" : ""}`}>
-          <div className={`${pathname === "/dashboard/basic-chat" ? "flex-1 w-full h-full flex flex-col" : "max-w-7xl mx-auto"}`}>{children}</div>
+          {/*
+            The deck's entrance (v0.9.83) — one wrapper, all 29 pages.
+
+            `key={pathname}` is load-bearing, not decoration. A CSS animation
+            runs on MOUNT, and React otherwise reuses this element across a
+            route change (only the children differ), so the choreography would
+            play once per browser session rather than once per navigation.
+            Re-keying remounts it and replays the move.
+
+            The class itself is deliberately inert here beyond the sequence:
+            `.deck-enter`'s children selectors in globals.css adapt to the shape
+            a page returns, so no page had to be touched to receive this.
+          */}
+          <div
+            key={pathname}
+            className={`deck-enter ${pathname === "/dashboard/basic-chat" ? "flex-1 w-full h-full flex flex-col" : "max-w-7xl mx-auto"}`}
+          >
+            {children}
+          </div>
         </div>
       </main>
     </div>

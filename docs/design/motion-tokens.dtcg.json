@@ -1,0 +1,58 @@
+{
+  "$description": "Motion ledger — the deck's choreography in the Design Tokens Community Group format. Every token here is a CSS custom property declared on :root in src/app/globals.css, so any reason written about timing cites a token path rather than a bare millisecond. The global prefers-reduced-motion block neutralises all of them (duration AND delay clamped, iteration 1), so no consumer needs its own guard. Durations are short by intent: this is an instrument panel visited dozens of times a day, not a stage.",
+  "motion": {
+    "duration": {
+      "instant": {
+        "$type": "duration",
+        "$value": { "value": 120, "unit": "ms" },
+        "$description": "State flips only — hover, toggle, focus ring. Short enough that the control feels wired directly to the pointer."
+      },
+      "quick": {
+        "$type": "duration",
+        "$value": { "value": 180, "unit": "ms" },
+        "$description": "Popover and menu entrance. Matches the pre-existing .mast-panel measurement (0.18s), so the header's instrument cover and the deck's own surfaces move at one tempo."
+      },
+      "base": {
+        "$type": "duration",
+        "$value": { "value": 320, "unit": "ms" },
+        "$description": "Page entrance — the deck's heartbeat, used by every .deck-enter child. Long enough to read as an arrival, short enough that a page opened forty times an hour never feels gated."
+      },
+      "slow": {
+        "$type": "duration",
+        "$value": { "value": 560, "unit": "ms" },
+        "$description": "The single hero reveal per screen. Reserved: one slow element per page is a focal point, two is a queue."
+      }
+    },
+    "stagger": {
+      "step": {
+        "$type": "duration",
+        "$value": { "value": 45, "unit": "ms" },
+        "$description": "Gap between siblings in a sequence. Eight steps consume 315ms — still inside one --motion-dur-base, so the last block lands before the first is done being read. Delays are capped at the eighth child; past that the stagger is latency with better manners."
+      }
+    },
+    "distance": {
+      "rise": {
+        "$type": "dimension",
+        "$value": { "value": 6, "unit": "px" },
+        "$description": "Travel distance for every entrance. Small on purpose: the move should register as 'arrived', not as a lurch. Measured against the pre-existing mast-rise (6px), so the header and the deck share one amplitude."
+      }
+    },
+    "easing": {
+      "out": {
+        "$type": "cubicBezier",
+        "$value": [0.22, 1, 0.36, 1],
+        "$description": "Decelerate — the surface arrives and settles. Used by every entrance. Matches .slide-in-top and .mast-rise, which already carried this curve."
+      },
+      "inout": {
+        "$type": "cubicBezier",
+        "$value": [0.4, 0, 0.2, 1],
+        "$description": "Symmetric — for loops that must not read as arriving or leaving."
+      },
+      "spring": {
+        "$type": "cubicBezier",
+        "$value": [0.34, 1.3, 0.64, 1],
+        "$description": "Slight overshoot, for instruments that snap into a detent. Already proven by .mast-compass-tile:hover; carried here so the deck can borrow the same feel without restating the curve."
+      }
+    }
+  }
+}
