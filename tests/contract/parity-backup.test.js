@@ -31,6 +31,12 @@ import os from "node:os";
 import path from "node:path";
 import zlib from "node:zlib";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+// The schema pin follows the harbor's own constant rather than a frozen number:
+// this suite was pinned to 10 and silently drifted when migrations 011-016
+// landed. A pin that must be re-typed on every migration is a pin that will be
+// forgotten; reading SCHEMA_VERSION keeps the assertion about BEHAVIOR (the
+// manifest reports the live schema) instead of about a number.
+import { SCHEMA_VERSION } from "../../src/lib/db/schema.js";
 
 const KEY = "backup-exit-gate-key-0123456789"; // ≥16 chars → passes min-entropy
 
@@ -170,7 +176,7 @@ describe("Wave B2 — the backup engine round-trip", () => {
     const result = await db.runBackup({ trigger: "test" });
     expect(result.ok).toBe(true);
     expect(fs.existsSync(result.file)).toBe(true);
-    expect(result.manifest.schemaVersion).toBe(10);
+    expect(result.manifest.schemaVersion).toBe(SCHEMA_VERSION);
     expect(result.manifest.secretBundle.length).toBeGreaterThan(0);
 
     // Mutate the live DB, then restore — the payload comes back.
@@ -291,7 +297,7 @@ describe("Wave B2 — S2 redaction + S3 exclusions", () => {
     expect(payload.settings.requireLogin).toBe(true);
     expect(payload.kvScopes.b2scope).toEqual({ k1: "v1" });
     expect(payload.combos.some((c) => c.name === "b2-combo")).toBe(true);
-    expect(payload._meta.schemaVersion).toBe(10);
+    expect(payload._meta.schemaVersion).toBe(SCHEMA_VERSION);
   });
 
   it("exportSettings redacts at the source", async () => {
@@ -389,11 +395,11 @@ describe("Wave B2 — retention + purge", () => {
 });
 
 describe("Wave B2 — migration 005 + posture refusals", () => {
-  it("a fresh DB migrates to schemaVersion 10 with backupLedger", async () => {
+  it("a fresh DB migrates to the current schemaVersion with backupLedger", async () => {
     await freshDb();
     const { getAdapter } = await import("@/lib/db/driver.js");
     const adapter = await getAdapter();
-    expect(adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`).value).toBe("10");
+    expect(adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`).value).toBe(String(SCHEMA_VERSION));
     const tables = adapter.all(`SELECT name FROM sqlite_master WHERE type='table'`).map((r) => r.name);
     expect(tables).toContain("backupLedger");
   });
@@ -410,9 +416,17 @@ describe("Wave B2 — migration 005 + posture refusals", () => {
     await expect(db.restoreBackup()).rejects.toThrow(/artifact not found/i);
   }, 30000);
 
-  it("mirror posture refuses LOUD", async () => {
+  it("mirror posture: the PRIMARY serves the backup contract (Wave C5), and the manifest records the posture honestly", async () => {
     process.env.VELA_DB_MODE = "mirror";
     const db = await import("@/lib/db/index.js");
-    await expect(db.runBackup()).rejects.toThrow(/Wave C|refusal/i);
+    // Wave C5 design (backupRepo.js's own header): under mirror the PRIMARY
+    // (sqlite) serves export/import/ledger/purge — "the primary is the truth;
+    // the twin follows through the pump/sweep/resync, never by backups". So a
+    // backup under mirror RESOLVES; it does not refuse. What it must never do
+    // is claim the twin: sourceMode records the CONFIGURED posture as it is.
+    const result = await db.runBackup({ trigger: "test" });
+    expect(result.ok).toBe(true);
+    expect(fs.existsSync(result.file)).toBe(true);
+    expect(result.manifest.sourceMode).toBe("mirror");
   });
 });

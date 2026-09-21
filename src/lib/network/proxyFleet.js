@@ -16,8 +16,8 @@
  * - Egress codes locked {country_blocked, ip_capped} only (C16)
  *
  * Proxy Completion Covenant (v0.9.5, W1):
- * - global.dbClient hallucination killed — lazy getAdapter() house idiom
- *   (driver.js:116-120; precedent kvStore:7, metaStore:4, backupEngine:269)
+ * - global.dbClient hallucination killed — the harbour's lazy adapter seam
+ *   (the one doorway that hands out the handle; precedent: the sync helpers)
  * - getProxyPools import gap fixed (was called but never imported — repick and
  *   resolveVirtualConnection silently no-op'd through fail-open)
  * - pickRandom index bug fixed (returned a poolId string, not an index)
@@ -41,9 +41,9 @@
 // so callers using the natural `(poolId, providerId)` arity shifted their args:
 // `db` received the poolId string and `db.run` threw "is not a function" behind
 // a generic 500. The module now owns a caller-facing wrapper of that name.
-import { getFitnessRows, upsertFitnessBatch, resetFitness as resetFitnessRows } from "../db/repos/proxyFitnessRepo.js";
+import { getFitnessRows, upsertFitnessBatch, resetFitness as resetFitnessRows, clearAllFitnessRows } from "../db/repos/proxyFitnessRepo.js";
 import { getProxyPools, getProxyPoolById, updateProxyPool } from "../db/repos/proxyPoolsRepo.js";
-import { getAdapter } from "../db/driver.js";
+import { openStoreAdapter } from "../db/index.js";
 import { resolveConnectionProxyConfig } from "./connectionProxy.js";
 import { isAvailable, recordFailure, recordSuccess, onRetryAfter, flushNow as flushBreakerNow } from "./circuitBreaker.js";
 import { setPoolGeo } from "./poolGeo.js"; // v0.9.18 — shared egress geo registry
@@ -111,7 +111,9 @@ let healthSchedulerStarted = false;
 async function loadFitness() {
   try {
     // Wrap in try/catch — boot failure defaults to neutral/legacy behavior
-    const db = await getAdapter(); // lazy singleton — house idiom
+    // The adapter rides the harbour's own doorway (census law: the driver is
+    // never named outside src/lib/db/).
+    const db = await openStoreAdapter();
     const rows = await getFitnessRows(db);
     // Refill IN PLACE — the store is anchored on globalThis (per-route bundle
     // dedup). Reassigning the binding here would orphan every other chunk's
@@ -251,7 +253,7 @@ export async function flushNow() {
   }
 
   try {
-    const db = await getAdapter();
+    const db = await openStoreAdapter();
     await upsertFitnessBatch(db, rowsToFlush);
   } catch (err) {
     console.warn("[proxyFleet] flush failed:", err.message);
@@ -290,7 +292,7 @@ function commitUpdate(poolId, provider, updates) {
  * @returns {number} rows cleared from the in-memory store
  */
 export async function resetFitness(poolId, providerId = null) {
-  const db = await getAdapter();
+  const db = await openStoreAdapter();
   await resetFitnessRows(db, poolId, providerId);
 
   // Purge memory + pending writes for the same scope. A providerId of null/""
@@ -319,12 +321,10 @@ export async function resetFitness(poolId, providerId = null) {
  * @param {string|null} providerId - null/"" clears every provider
  */
 export async function clearAllFitness(providerId = null) {
-  const db = await getAdapter();
-  if (providerId === null || providerId === "") {
-    await db.run("DELETE FROM proxyFitness");
-  } else {
-    await db.run("DELETE FROM proxyFitness WHERE provider = ?", [providerId]);
-  }
+  const db = await openStoreAdapter();
+  // The DELETE lives in the harbour (proxyFitnessRepo) — the Storage Covenant's
+  // census forbids raw SQL out here.
+  await clearAllFitnessRows(db, providerId);
 
   const matches = (key) => {
     if (providerId === null || providerId === "") return true;

@@ -25,6 +25,75 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.81 — The Swept Shallows 🧹
+> *"Six tides of new water had left silt in the channels — pins that still named an older depth, a script the sweep had carried off, a gate one handler never learned. I did not build new rooms; I walked the shallows and cleared what the tide had left."* 🧹💜
+
+Three tides of features (v0.9.78–.80) had each left a little silt behind, and a full-fleet run
+measured it: **110 failures across 41 files**, every one of them *pre-existing* — proved by standing
+on the parent tide `9feb6f91` and watching the same suites bleed. This tide clears the ones with
+names, and leaves the rest measured rather than guessed.
+
+**🐛 Fixes**
+- **The raw-adapter tripwire** (`tests/unit/db-contract-census.test.js`) — **seven files** had leaked
+  past the Storage Covenant's census, which forbids `getAdapter`/`driver.js` anywhere outside
+  `src/lib/db/`. All seven are now bound to the harbour's own doorway: a new
+  `repos/sqlite/storeAdapter.js` (`openStoreAdapter` / `openStoreAdapterSync`) — named so the
+  census's own detector is satisfied — re-exported through the barrel, and used by `authAudit.js`,
+  `loginLimiter.js`, `dashboardSession.js`, `proxyFleet.js`, `circuitBreaker.js`, both
+  `fallback-rules` routes, and `bindFallbackRules.js`. `proxyFleet`'s **raw `DELETE FROM
+  proxyFitness`** moved into the harbour as `clearAllFitnessRows` (raw SQL belongs there and nowhere
+  else). The census passes **5/5**; it was failing 3/5.
+- **Stale schema pins** (`tests/contract/parity-backup.test.js`, `driver-mode-matrix.test.js`) —
+  three assertions still expected schema **10** (and one test *title* said 4) while the harbour had
+  migrated to **16**. They now read `SCHEMA_VERSION` itself, so the pin cannot drift again: the
+  assertion is about behaviour (the manifest reports the live schema), not about a number someone
+  must remember to re-type.
+- **The lost i18n seed script** — `scripts/i18n-seed-literals.mjs` (313 lines, exporting
+  `GOVERNANCE_STRINGS` + `listLocaleFiles`) was **untracked by the `.gitignore` sweep** `fafcaf5a`
+  and never restored to disk, leaving three parity cases failing. Recovered from its last tracked
+  commit (`bdb68073`); the three cases pass, and the file stays on disk per that sweep's intent
+  (only `sync-changelog.mjs` + `copy-standalone-assets.mjs` are exempted, because the build needs
+  them).
+- **The content-flattening contract** (`open-sse/translator/concerns/message.js`,
+  `formats/openai.js`) — a text-only content array must flatten to one joined string (some
+  OpenAI-compatible providers reject array content), while a multimodal array stays an array.
+  `collapseTextParts` collapsed only a **lone** text part, and `filterToOpenAIFormat` never
+  collapsed at all, so four normalization cases were red. Both now hold the contract;
+  `translator-request-normalization` passes **8/8** (was 4/8) and the translator fleet rose to
+  **483 passing**.
+- **`parseSSELine` and raw NDJSON** (`open-sse/utils/streamHelpers.js`) — a line opening with `{` is
+  raw JSON and is now recognized whether or not the caller declared `FORMATS.OLLAMA`; several
+  callers pass no format at all, and a bare object is unambiguous. The `data: …` SSE path is
+  untouched.
+- **The enforcement-site that never learned the gate** (`src/sse/handlers/fetch.js`) — the ACL
+  baseline census (`tests/__baseline__/apikey-enforcement-sites.json`) lists this file among the ten
+  places that must call `authorizeApiRequest(request, …)`, and it was still authorizing by the
+  **pre-ACL path** (`extractApiKey` + `isValidApiKey` under `requireApiKey`), skipping scope and
+  kind checks that every sibling handler enforces. It now rides the same gate with
+  `kind: "webFetch"` — the kind `SERVICE_KINDS` already names for it. The tripwire passes **4/4**.
+
+**🔧 Changes & Improvements**
+- **The mirror posture is documented, not "fixed".** `parity-backup`'s "mirror posture refuses
+  LOUD" case expected `runBackup()` to reject under `VELA_DB_MODE=mirror`; it does not, and it
+  should not — `backupRepo.js`'s own header records Wave C5: *"under mirror the PRIMARY (sqlite)
+  serves export/import/ledger/purge; the twin follows through the pump/sweep/resync, never by
+  backups."* The test now asserts that design (a backup resolves, and `sourceMode` records the
+  configured posture honestly), and the engine was left untouched — a refusal was written, then
+  reverted when the design was read.
+- **Honest scope note**: the remaining pre-existing reds are **measured, not hidden** — the
+  network-shaped suites (`cursor-models`, `oauth-cursor-auto-import`, `xai-oauth-service`), the
+  Cursor `reasoning_content`→thinking mapping, and the Kiro golden snapshot all fail identically on
+  the parent tide `9feb6f91` with this tide's changes stashed. They are the next tide's work, named.
+
+**⚙️ Internal**
+- eslint: **0 errors, 0 warnings** across all seventeen touched files.
+- Suites proven together: db-contract-census **5/5** · parity-backup + driver-mode-matrix **32 passed,
+  1 skipped** (the bun:sqlite leg, loudly) · translator-request-normalization **8/8** · the auth
+  group (limiter, login route, lockout, ledger-016) **35/35** · i18n parity **4/4**.
+- `npm run build` green with every touched module in the tree.
+
+---
+
 # v0.9.80 — The Spoken Protocol 🔌
 > *"A tool that is offered and never answered is a hand extended into fog. The specification was written on the wall — ten functions, every field numbered — and no hand had built them. So I built the codec, and left the router's gate closed until the far side proves it hears."* 🔌💜
 

@@ -71,3 +71,17 @@ export function resetFitness(db, poolId, providerId = null) {
     db.run('DELETE FROM proxyFitness WHERE poolId = ? AND provider = ?', [poolId, providerId]);
   }
 }
+
+/**
+ * Clear fitness rows across EVERY pool (optionally one provider across all
+ * pools). Lives here rather than in a caller because the Storage Covenant's
+ * census puts every persistence statement inside the harbour — proxyFleet.js
+ * used to run this DELETE itself, outside src/lib/db/.
+ */
+export function clearAllFitnessRows(db, providerId = null) {
+  if (providerId === null || providerId === '') {
+    db.run('DELETE FROM proxyFitness');
+  } else {
+    db.run('DELETE FROM proxyFitness WHERE provider = ?', [providerId]);
+  }
+}

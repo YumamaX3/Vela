@@ -229,3 +229,19 @@ export async function listAuthAuditRows(limit) {
 export async function clearAllAuthFailures() {
   return deleteAllFailureRows(await getAdapter());
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// Sync adapter access — for the modules whose public contract is SYNCHRONOUS.
+//
+// The login limiter is consulted BEFORE the login route parses a body, so it
+// needs the adapter NOW, not as a promise; and the audit writer must not open a
+// harbour as a side effect of logging. Both used to import getAdapterSync()
+// from driver.js directly — which the Storage Covenant's census forbids
+// (raw-adapter access belongs to src/lib/db/ alone). This is the seam: the
+// harbour resolves the adapter, the caller never names the driver, and a cold
+// process (no adapter live yet) throws exactly as getAdapterSync() always did,
+// so callers keep their try/catch doorstep unchanged.
+import { getAdapterSync } from "../../driver.js";
+
+export function getAuthStoreAdapterSync() {
+  return getAdapterSync();
+}

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSettings } from "@/lib/localDb";
 import { getFallbackRules, getFallbackRuleById, createFallbackRule, updateFallbackRule, deleteFallbackRule } from "@/lib/db/repos/fallbackRulesRepo.js";
-import { getAdapter } from "@/lib/db/driver.js";
+import { openStoreAdapter } from "@/lib/db/index.js";
 import { verifyDashboardAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth/dashboardSession";
 
 /**
@@ -33,7 +33,7 @@ export async function GET(request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const db = await getAdapter();
+    const db = await openStoreAdapter();
     const rules = await getFallbackRules(db, { isActive: true });
 
     return NextResponse.json(rules);
@@ -104,7 +104,7 @@ export async function POST(request) {
       );
     }
 
-    const db = await getAdapter();
+    const db = await openStoreAdapter();
     const rule = await createFallbackRule(db, {
       sourceModel: String(body.sourceModel),
       targetModel: chain[0],

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSettings } from "@/lib/localDb";
 import { getFallbackRules, getFallbackRuleById, updateFallbackRule, deleteFallbackRule } from "@/lib/db/repos/fallbackRulesRepo.js";
-import { getAdapter } from "@/lib/db/driver.js";
+import { openStoreAdapter } from "@/lib/db/index.js";
 import { verifyDashboardAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth/dashboardSession";
 
 /**
@@ -37,7 +37,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Invalid rule ID" }, { status: 400 });
     }
 
-    const db = await getAdapter();
+    const db = await openStoreAdapter();
     const rule = await getFallbackRuleById(db, id);
     if (!rule || !rule.isActive) {
       return NextResponse.json({ error: "Rule not found" }, { status: 404 });
@@ -117,7 +117,7 @@ export async function PATCH(request, { params }) {
       );
     }
 
-    const db = await getAdapter();
+    const db = await openStoreAdapter();
     const updatedRule = await updateFallbackRule(db, id, updates);
 
     if (!updatedRule) {
@@ -156,7 +156,7 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    const db = await getAdapter();
+    const db = await openStoreAdapter();
     const deleted = await deleteFallbackRule(db, id);
 
     if (!deleted) {

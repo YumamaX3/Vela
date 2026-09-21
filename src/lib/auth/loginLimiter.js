@@ -9,11 +9,12 @@
 // redeploy, and a second process — which is the entire point of a ladder.
 //
 // THE DURABLE ARM ENGAGES WHEN THE HARBOR IS OPEN
-// Reads/writes go through the adapter the moment one exists, resolved with
-// getAdapterSync() — never getAdapter(), because this module's public contract
-// is SYNCHRONOUS (the login route consults the ladder before it parses a body)
-// and because opening a harbor as a side effect of an import or a unit test
-// would be a wound, not a feature. When no adapter is open yet, the in-memory
+// Reads/writes go through the adapter the moment one exists, resolved with the
+// harbour's SYNCHRONOUS seam — never an async one, because this module's public
+// contract is SYNCHRONOUS (the login route consults the ladder before it parses
+// a body) and because opening a harbor as a side effect of an import or a unit
+// test would be a wound, not a feature. When no adapter is open yet, the
+// in-memory
 // maps serve, exactly as they did before.
 //
 // THE ONE HONEST GAP — the cold-start blind spot: on the first login request
@@ -27,8 +28,8 @@
 // FAIL-OPEN: an adapter error disarms the durable arm (one latched warning) and
 // falls back to memory. A store that cannot be read must never brick the gate.
 import { hasTrustedPeerHeaders } from "./trustedPeer.js";
-import { getAdapterSync } from "@/lib/db/driver.js";
 import {
+  getAuthStoreAdapterSync,
   readFailureRow,
   upsertFailureRow,
   deleteFailureRow,
@@ -73,10 +74,12 @@ function warnOnce(err) {
   console.warn("[loginLimiter] durable store unavailable — in-memory only (fail-open):", err?.message || err);
 }
 
-/** The open harbor, or null. Never opens one — see the header. */
+/** The open harbor, or null. Never opens one — see the header. The adapter
+ *  comes through the harbour's sync seam, so this module never names the driver
+ *  (the Storage Covenant's census law). */
 function store() {
   try {
-    return getAdapterSync();
+    return getAuthStoreAdapterSync();
   } catch {
     return null;
   }

@@ -16,8 +16,7 @@
  * own errors (one latched warning, so a broken harbor logs once rather than
  * once per request) and resolves to null. The caller never awaits an exception.
  */
-import { insertAuditRow } from "@/lib/db/repos/authStoreRepo.js";
-import { getAdapterSync } from "@/lib/db/driver.js";
+import { getAuthStoreAdapterSync, insertAuditRow } from "@/lib/db/repos/authStoreRepo.js";
 import { getClientIp } from "./loginLimiter.js";
 
 /** The event vocabulary — the column is `eventType` (a MySQL reserved word
@@ -83,7 +82,7 @@ export function resetAuthAuditForTests() {
  * @param {{request?: Request, ip?: string, userAgent?: string, detail?: object}} ctx
  */
 export async function auditAuthEvent(eventType, ctx = {}) {
-  // The harbor is CONSULTED, never opened. getAdapter() here would initialize a
+  // The harbor is CONSULTED, never opened. Opening one here would initialize a
   // database as a side effect of logging — and a mocked unit test that mocks
   // everything else would then write real rows into the operator's own DATA_DIR.
   // A cold process (no adapter live yet) has nowhere to write, and says so by
@@ -94,17 +93,14 @@ export async function auditAuthEvent(eventType, ctx = {}) {
   // harbor. The one honest gap is a cold process whose FIRST request is already
   // locked or rate-limited — the same single-request doorstep the limiter's own
   // header names. Every lockout the ladder actually trips is audited.
-  let db;
-  try {
-    db = getAdapterSync();
-  } catch {
-    return false;
-  }
   try {
     const { request } = ctx;
     const ip = ctx.ip ?? (request ? safeClientIp(request) : null);
     const userAgent = ctx.userAgent ?? request?.headers?.get?.("user-agent") ?? null;
-    insertAuditRow(db, {
+    // The adapter comes through the harbour's sync seam (the Storage Covenant's
+    // census forbids this module from touching the driver); a cold process throws
+    // the same doorstep it always did, and warnOnce swallows it.
+    insertAuditRow(getAuthStoreAdapterSync(), {
       ts: new Date().toISOString(),
       eventType,
       ip: ip ? truncate(String(ip)) : null,

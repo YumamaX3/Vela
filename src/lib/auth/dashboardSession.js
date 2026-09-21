@@ -6,8 +6,7 @@ import crypto from "node:crypto";
 import { DATA_DIR } from "@/lib/dataDir";
 import { getSettings } from "@/lib/localDb";
 import { timingSafeEqual } from "@/shared/utils/timingSafeEqual.js";
-import { getAdapter } from "@/lib/db/driver.js";
-import { getSessionRow } from "@/lib/db/repos/authStoreRepo.js";
+import { getAuthStoreAdapterSync, getSessionRow } from "@/lib/db/repos/authStoreRepo.js";
 
 // Tag 3 (M0 security foundation): the "123456" default password is retired.
 // There is no longer any guessable fallback — an unset password cannot
@@ -83,8 +82,7 @@ export async function isSessionRevoked(jti) {
   if (hit && now - hit.at < REVOCATION_TTL_MS) return hit.revoked;
   let revoked = false;
   try {
-    const db = await getAdapter();
-    const row = getSessionRow(db, jti);
+    const row = getSessionRow(getAuthStoreAdapterSync(), jti);
     revoked = Boolean(row && row.revokedAt);
   } catch {
     revoked = false; // fail-open — see the block comment above

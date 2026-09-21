@@ -16,6 +16,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it, expect, afterEach, vi } from "vitest";
+// The schema pin reads the harbor's own constant, so it cannot drift again.
+import { SCHEMA_VERSION } from "../../src/lib/db/schema.js";
 
 let tempDirs = [];
 const saved = {};
@@ -70,7 +72,7 @@ describe("Storage Covenant A10 — boot matrix", () => {
         console.warn(`[A10 SKIP LOUD] driver "${driver}" unavailable in this runtime — its matrix leg skips (no silent coverage)`);
       }
       const t = runnable ? it : it.skip;
-      t(`${driver} boots, migrates to schema 4, and round-trips the seam`, async () => {
+      t(`${driver} boots, migrates to the current schema, and round-trips the seam`, async () => {
         setSqliteBoot(driver);
         const { getAdapter } = await import("@/lib/db/driver.js");
         const adapter = await getAdapter();
@@ -94,9 +96,10 @@ describe("Storage Covenant A10 — boot matrix", () => {
         })).toThrow(/intentional rollback probe/);
         expect(adapter.get(`SELECT value FROM kv WHERE scope = 'matrix' AND key = 'doomed'`)).toBeFalsy();
 
-        // schemaVersion pinned by migration 010 (usage request tags)
+        // schemaVersion follows the harbor's own constant — this was pinned to
+        // "10" and drifted silently when migrations 011-016 landed.
         const sv = adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`);
-        expect(sv.value).toBe("10");
+        expect(sv.value).toBe(String(SCHEMA_VERSION));
         adapter.exec(`DELETE FROM kv WHERE scope = 'matrix'`);
       }, 30000);
     }

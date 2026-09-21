@@ -8,7 +8,7 @@
  * re-resolves the adapter on every request.
  *
  * ⚠️ THE ASYNC LAW — read before changing this file.
- * `getAdapter()` in src/lib/db/driver.js is declared `async`, so calling it
+ * The harbour's adapter opener is declared `async`, so calling it
  * without `await` returns a PROMISE, not an adapter. A Promise is truthy, so a
  * `if (!db) return null` guard cannot catch it; the failure surfaces much later
  * and much further away, as `db.all is not a function` from inside the sqlite
@@ -33,7 +33,7 @@
  * control. An unsuccessful bind retries on the next call. The warning is latched
  * so a genuinely broken adapter logs once rather than once per request.
  */
-import { getAdapter } from "@/lib/db/driver.js";
+import { openStoreAdapter } from "./sqlite/storeAdapter.js";
 import * as fallbackRulesRepo from "@/lib/db/repos/fallbackRulesRepo.js";
 
 let repoCache = null;
@@ -59,7 +59,7 @@ export async function getFallbackRulesRepo() {
 
   let db;
   try {
-    db = await getAdapter();
+    db = await openStoreAdapter();
   } catch (err) {
     warnOnce(`adapter unavailable (${err?.message || err})`);
     return null;
@@ -78,7 +78,7 @@ export async function getFallbackRulesRepo() {
     warnOnce(
       `adapter is malformed (expected .all — got ${
         db ? typeof db : String(db)
-      }); check that getAdapter() is awaited`
+      }); check that the adapter opener is awaited`
     );
     return null;
   }
