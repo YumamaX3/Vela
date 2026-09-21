@@ -8,6 +8,7 @@ import {
 import { getSettings, getCombos } from "@/lib/localDb";
 import { AI_PROVIDERS, resolveProviderId } from "@/shared/constants/providers.js";
 import { handleFetchCore } from "open-sse/handlers/fetch/index.js";
+import { authorizeApiRequest } from "../services/keyGate.js";
 import { errorResponse, unavailableResponse } from "open-sse/utils/error.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
 import * as log from "../utils/logger.js";
@@ -47,18 +48,14 @@ export async function handleFetch(request) {
     log.debug("AUTH", "No API key provided (local mode)");
   }
 
-  // Enforce API key if enabled in settings
+  // Enforce API key + per-key ACL (v0.9.17) — the same gate every sibling
+  // handler rides. The baseline census (tests/__baseline__/apikey-enforcement-
+  // sites.json) records this file as an enforcement site; the old requireApiKey
+  // block below it predated the ACL wave and skipped scope/kind checks.
   const settings = await getSettings();
-  if (settings.requireApiKey) {
-    if (!apiKey) {
-      log.warn("AUTH", "Missing API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
-    }
-    const valid = await isValidApiKey(apiKey);
-    if (!valid) {
-      log.warn("AUTH", "Invalid API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
-    }
+  {
+    const gate = await authorizeApiRequest(request, { requestModel: providerInput, settings, kind: "webFetch" });
+    if (!gate.ok) return gate.response;
   }
 
   if (!providerInput || typeof providerInput !== "string") {

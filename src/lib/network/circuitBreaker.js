@@ -130,7 +130,10 @@ export async function flushNow() {
   if (rowsToFlush.length === 0) return;
   
   try {
-    const db = await import('../db/driver.js').then(m => m.getAdapter());
+    // The adapter comes through the harbour's own doorway (the Storage
+    // Covenant's census forbids naming driver.js outside src/lib/db/).
+    const { openStoreAdapter } = await import('../db/index.js');
+    const db = await openStoreAdapter();
     const { upsertFitnessBatch } = await import('../db/repos/proxyFitnessRepo.js');
     await upsertFitnessBatch(db, rowsToFlush);
   } catch (err) {

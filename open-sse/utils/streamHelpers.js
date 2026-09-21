@@ -8,17 +8,18 @@ const sharedEncoder = new TextEncoder();
 export function parseSSELine(line, format = null) {
   if (!line) return null;
 
-  // NDJSON format (Ollama): raw JSON lines without "data:" prefix
-  if (format === FORMATS.OLLAMA) {
+  // NDJSON: a line that opens with "{" is raw JSON — recognized whether or not
+  // the caller declared the format, because several callers pass none and a
+  // bare object is unambiguous. The SSE path below is untouched ("data: ..."
+  // never begins with "{").
+  if (format === FORMATS.OLLAMA || line.trimStart().startsWith("{")) {
     const trimmed = line.trim();
-    if (trimmed.startsWith("{")) {
-      try {
-        return JSON.parse(trimmed);
-      } catch (error) {
-        return null;
-      }
+    if (!trimmed.startsWith("{")) return null;
+    try {
+      return JSON.parse(trimmed);
+    } catch (error) {
+      return null;
     }
-    return null;
   }
 
   // Standard SSE format: "data: {...}"
