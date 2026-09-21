@@ -69,6 +69,23 @@
     0 12px 36px -8px rgba(15,23,42,0.10);
   --shadow-focus: 0 0 0 3px rgba(229,106,74,0.18);
 
+  /* Motion tokens — the deck's choreography, so every reason can cite a path.
+     Durations are short by intent: this is an instrument panel, not a stage.
+     A dashboard is visited dozens of times a day, and a 600ms entrance that
+     delights once is an obstacle on the thirtieth visit. */
+  --motion-dur-instant: 120ms;  /* state flips: hover, toggle, focus ring */
+  --motion-dur-quick: 180ms;    /* popover and menu entrance */
+  --motion-dur-base: 320ms;     /* page entrance — the deck's own heartbeat */
+  --motion-dur-slow: 560ms;     /* the one hero reveal per screen */
+  --motion-stagger: 45ms;       /* gap between siblings in a sequence */
+  --motion-rise: 6px;           /* travel distance — small, so nothing lurches */
+  /* Decelerate: the surface arrives and settles. Used for every entrance. */
+  --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Symmetric: for loops that must not read as arriving or leaving. */
+  --motion-ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
+  /* Slight overshoot: for instruments that snap into a detent. */
+  --motion-ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
+
   /* Command-deck terminal — warm ink panel, cream text */
   --color-terminal: #2a211c;
   --color-terminal-text: #f2e9e1;
@@ -516,6 +533,94 @@ button:disabled,
   50% { opacity: 0.7; transform: scale(1.05); }
 }
 .animate-pulse-glow { animation: pulseGlow 3s ease-in-out infinite; }
+
+/* ============================================================
+   The Deck Enters (v0.9.83) — one choreography, every page.
+
+   All 29 routes in the `(dashboard)` group render through a single
+   shell (shared/components/layouts/DashboardLayout.js), whose content
+   wrapper is keyed on `pathname`. (Measured 2026-09-21: 29 `page.js`
+   files under `src/app/(dashboard)/`; a 30th dashboard page —
+   `src/app/dashboard/settings/pricing/page.js` — sits OUTSIDE that
+   group, imports no shell, and so never receives this class. Name the
+   boundary whenever this count is quoted.)
+   That key is load-bearing: a CSS
+   animation runs on MOUNT, and React would otherwise reuse the same
+   <div> across a route change — replacing only its children — so the
+   entrance would play once per browser session instead of once per
+   navigation. Re-keying remounts the element and replays the move.
+   One wrapper, and the whole deck breathes without touching a page.
+
+   ⚠️ `backwards`, NEVER `forwards` or `both`. This is the part that
+   matters. A filled animation leaves `transform: translateY(0)` on
+   the element for the rest of its life, and a non-none transform
+   makes the element a containing block for `position: fixed`
+   descendants — at which point every overlay inside the page
+   positions against the wrapper instead of the viewport. Measured:
+   29 `<Modal` mounts across the dashboard, and Modal.js / Drawer.js
+   render `fixed inset-0` INLINE with no portal to escape through.
+   `backwards` applies the from-state during the delay, plays, then
+   releases the element to its natural style — so the transform
+   exists only while it is moving, and is gone by the time any
+   surface could be opened. The pre-existing `.mast-rise` uses
+   `forwards` and does keep a live containing block; it is harmless
+   today only because Header's popover is `absolute`, and that is a
+   latent trap recorded here rather than left to be discovered.
+   ============================================================ */
+
+/* The page's own arrival: a short rise and a fade. Distance is one
+   --motion-rise (6px) — enough to read as "arrived", not enough to
+   feel like a lurch on a page opened forty times an hour. */
+@keyframes deckEnter {
+  from { opacity: 0; transform: translateY(var(--motion-rise)); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* One class carries the whole choreography, and it adapts to the shape
+   the page actually returns — because the 29 routes do not agree on one:
+
+     · 12 pages return a single root element (`<div className="flex
+       min-w-0 flex-col gap-6">`), so `> *` would match exactly one node
+       and there would be no sequence at all — just the page fading as a
+       whole. `> :only-child > *` reaches one level deeper in exactly
+       that case, so the sections inside the root assemble in order.
+     · the rest return siblings directly, and `> *` is already right.
+
+   The two selectors are mutually exclusive by construction — `:not(:only-child)`
+   cannot match a lone root, and `:only-child` cannot match a node with
+   siblings — so no element is ever animated twice into a muddied double
+   fade. All 29 routes carry it; a full-height surface like
+   `/dashboard/basic-chat` simply has few children to sequence, and its
+   first arrives with no delay, which is the right reading for a chat deck. */
+.deck-enter > *:not(:only-child),
+.deck-enter > :only-child > * {
+  animation: deckEnter var(--motion-dur-base) var(--motion-ease-out) backwards;
+}
+
+/* Each section follows the one above it by --motion-stagger, so a page
+   assembles top-down instead of appearing whole. The first child carries
+   no rung at all: the entrance shorthand above already leaves it at delay
+   zero, so a `nth-child(1)` rule would be the only literal time in the
+   whole choreography — declaring what the default already says, and the
+   one value here that a token could not retune.
+   Delays are capped at the eighth child: past that, the last block would
+   still be arriving while the operator is already reading it, and a
+   stagger you can outrun by scrolling is just latency with better
+   manners. */
+.deck-enter > *:not(:only-child):nth-child(2),
+.deck-enter > :only-child > *:nth-child(2) { animation-delay: calc(var(--motion-stagger) * 1); }
+.deck-enter > *:not(:only-child):nth-child(3),
+.deck-enter > :only-child > *:nth-child(3) { animation-delay: calc(var(--motion-stagger) * 2); }
+.deck-enter > *:not(:only-child):nth-child(4),
+.deck-enter > :only-child > *:nth-child(4) { animation-delay: calc(var(--motion-stagger) * 3); }
+.deck-enter > *:not(:only-child):nth-child(5),
+.deck-enter > :only-child > *:nth-child(5) { animation-delay: calc(var(--motion-stagger) * 4); }
+.deck-enter > *:not(:only-child):nth-child(6),
+.deck-enter > :only-child > *:nth-child(6) { animation-delay: calc(var(--motion-stagger) * 5); }
+.deck-enter > *:not(:only-child):nth-child(7),
+.deck-enter > :only-child > *:nth-child(7) { animation-delay: calc(var(--motion-stagger) * 6); }
+.deck-enter > *:not(:only-child):nth-child(n+8),
+.deck-enter > :only-child > *:nth-child(n+8) { animation-delay: calc(var(--motion-stagger) * 7); }
 
 /* ============================================================
    The Crowned Mast (v0.9.59) — header instrument-panel motion.
@@ -1322,8 +1427,19 @@ html:not(.dark) .login-card {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    /* ⚠️ delay and duration are independent, and a duration clamp does NOT
+       neutralise a delay. Every staggered entrance here pairs a `backwards`
+       fill with a delay (`.login-stagger` up to 0.35s, `.deck-enter` up to
+       0.315s) — and `backwards` holds the from-state for the whole delay. So
+       without this line a user who asked for stillness watches each block sit
+       invisible at `opacity: 0` for its full delay before snapping into view:
+       the animation is gone, but the WAITING is not, and a stagger you cannot
+       see is indistinguishable from content that arrives late. Clamping the
+       delay to zero is what actually delivers stillness. */
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
     scroll-behavior: auto !important;
   }
 }

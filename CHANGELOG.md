@@ -25,7 +25,62 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
-# v0.9.82 — The Harbor Gate Reborn ⚓
+# v0.9.83 — The Deck Assembles 🌊
+> *"Twenty-nine rooms opened one after another, and each one simply appeared — no weather, no arrival. So I taught the deck a single breath: one choreography, written once, that every page inherits without a single file being touched. And while I was down there in the dark of the motion block, I found a wound that had been waiting for anyone who asked for stillness."* 🌊⚓💜
+
+The login gate learned to move in v0.9.82; every other room in the harbor still appeared
+whole. This tide gives the whole deck one entrance — and mends a reduced-motion wound it
+found on the way down.
+
+**✨ Features**
+- **The deck enters** — a single `--motion-*` token family on `:root` (durations, stagger,
+  rise, three easing curves) plus one `deckEnter` keyframe. Every page arriving through
+  `DashboardLayout` now rises 6px and fades over `--motion-dur-base`, its sections following
+  one another by `--motion-stagger` to a cap of eight.
+- **One wrapper, twenty-nine routes** — the choreography is welded into the shell's content
+  wrapper, keyed on `pathname`. That key is load-bearing: a CSS animation runs on MOUNT, and
+  React would otherwise reuse the same `<div>` across a route change, so the entrance would
+  play once per browser session instead of once per navigation. **No page file was touched.**
+- **Two shapes, one class** — the children selectors adapt to what a page returns: twelve
+  routes return a single root element (`> *` would match one node and sequence nothing), so a
+  second selector reaches one level deeper for exactly that case.
+
+**🐛 Fixes**
+- **The stillness wound** — the global `prefers-reduced-motion` block clamped
+  `animation-duration` but **not** `animation-delay`. Duration and delay are independent, and
+  every staggered entrance pairs a `backwards` fill with a delay — so a user who asked for
+  stillness watched each block sit invisible at `opacity: 0` for its full delay. The animation
+  was gone; the **waiting** was not. `animation-delay` and `transition-delay` are now clamped
+  too, and the census widened past the login page's own stagger, which was the original defect.
+- **`0ms` struck from the choreography** — the `nth-child(1)` rung declared a delay the
+  entrance shorthand already leaves at zero. It was the only literal time in the whole
+  sequence, and the one value a token could not retune. Removed; the first block simply arrives.
+
+**🔧 Changes & Improvements**
+- Motion ledger exported in **DTCG** form at `docs/design/motion-tokens.dtcg.json`, so every
+  timing reason cites a token path rather than a bare millisecond.
+
+**🧪 Proof**
+- `tests/unit/deck-motion.test.js` — **22 cases** (source claims + an opt-in built-CSS proof).
+  The load-bearing assertion: the sequence uses `backwards`, **never** `forwards`/`both`. A
+  filled animation leaves `transform` live forever, which makes the wrapper a containing block
+  for `position: fixed` descendants — and the dashboard has **29 `<Modal` mounts**, all rendering
+  `fixed inset-0` inline with no portal to escape through.
+- **Measured on the live surface**: mid-flight the second block sits at
+  `matrix(1,0,0,1,0,6)` / `opacity: 0` under a 0.045s delay; settled, **every** sequenced element
+  returns `transform: none`, the wrapper is **not** a containing block, and a real modal's
+  backdrop spans the full 1440×900 viewport uncaptured.
+- **Reduced motion verified in-browser**: `animation-duration: 1e-05s`, `animation-delay: 0s`,
+  one iteration, element at `opacity: 1` — never parked waiting out a delay.
+- Both themes rendered (light `rgb(253,250,246)` / dark `rgb(26,26,26)`), **zero console errors**.
+- `npm run build` green · `eslint` exit **0** unpiped · blast-radius diff vs pristine HEAD by
+  failing **names**: one case appears only in this tree — `budget-alerts-w3c` — and it passes
+  **16/16 when run alone** (flaky under load, touches neither changed file). The 18 that appear
+  only at pristine are all `deck-motion.test.js`, failing without this change.
+
+---
+
+
 > *"The gate had grown a chart of its own — a sail of coral lines drawn across the words that welcomed the traveler home. I gave the constellation a berth, crystallized every colour into a token that carries its own reason, and let the night sky move the way a night sky should."* ⚓🌊💜
 
 The login gate was already beautiful, and it was broken in one quiet place: `.login-constellation`
