@@ -25,6 +25,54 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.80 — The Spoken Protocol 🔌
+> *"A tool that is offered and never answered is a hand extended into fog. The specification was written on the wall — ten functions, every field numbered — and no hand had built them. So I built the codec, and left the router's gate closed until the far side proves it hears."* 🔌💜
+
+A 282-line suite had been red since before the last tide: it named ten functions of Cursor's `agent.v1`
+AgentService codec in field numbers verified against the real `agent.proto` — and **not one of them
+existed**. `encodeAgentValue` · `decodeAgentValue` · `encodeMcpToolDefinition` · `encodeMcpTools` ·
+`decodeMcpArgs` · `encodeMcpResultSuccess/Error/ToolNotFound` were absent everywhere;
+`isAgentCapableRequest` was absent everywhere; `buildAgentRunFrame` existed but was never exported.
+This tide implements the specification. **35 reds → 35 green.**
+
+**✨ Features**
+- **The AgentService codec** (`open-sse/utils/cursorProtobuf.js`, +180) — the ten functions the
+  protocol needs: **`encodeAgentValue`/`decodeAgentValue`** carry `google.protobuf.Value`
+  (null · bool · number · string · Struct · ListValue) so tool schemas and typed tool args survive
+  the wire; **`encodeMcpToolDefinition`** writes name · description · input_schema · provider ·
+  tool_name (accepting both the OpenAI `{function:{…}}` shape and a flat one);
+  **`encodeMcpTools`** wraps them as a repeated field 1 and returns **empty bytes** for no tools;
+  **`decodeMcpArgs`** reads name · toolName · toolCallId and the typed args map;
+  **`encodeMcpResultSuccess`** builds the success variant with text and image content items plus
+  `is_error`; **`encodeMcpResultError`** (field 2) and **`encodeMcpResultToolNotFound`** (field 5)
+  complete the three faces of a result.
+- **`mcp_tools` in the run frame** (`open-sse/executors/cursor.js`) — `buildAgentRunFrame` now takes
+  the turn's tools and emits `AgentRunRequest.mcp_tools` (field 4). **Omitted entirely** when the
+  turn declares none, so a plain text run stays byte-identical to before.
+- **The gate, exported and honest** — `isAgentCapableRequest` is the capability predicate the suite
+  names (text-only turns and real tool-call/result conversations qualify; images do not).
+
+**🔧 Changes & Improvements**
+- **The live router deliberately keeps its old gate, and says so in the code.** Tool conversations
+  still ride the legacy chat path, because the agent-side tool-result protocol — though now
+  implemented and built into the frame — has **not** been proven against Cursor's real AgentService,
+  while the legacy path demonstrably works (it parses tool calls and results today). The gate is
+  exported so that switch is a **one-line change** the moment that proof exists; flipping it earlier
+  would move working traffic onto an unproven path with no fallback. Both comments in the executor
+  were corrected to state this exactly, rather than claim a switch that had not been made.
+
+**⚙️ Internal**
+- `tests/unit/cursor-agent-proto.test.js` — **35/35 green** (was 35 red), the same suite the Star's
+  tide left behind, now met in full.
+- Wider cursor guard together (agent-proto + agent-exec-request + models + composer-thinking +
+  gemini/cursor/commandcode translator): **45 pass**; the single `cursor-models` red is a
+  network-shaped fetch that **fails identically on the parent tide `9feb6f91`** with the codec
+  stashed — measured, not assumed.
+- eslint: **0 errors** on both touched files (the one warning is the module's own pre-existing
+  anonymous default export).
+
+---
+
 # v0.9.79 — The Reading Window 🪟
 > *"A roll that none can read is a roll none can act upon. So I set a window in the wall beside the door: every berth the harbor holds, named, dated, and within reach of a strike."* 🪟💜
 

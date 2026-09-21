@@ -7,7 +7,8 @@ import {
   wrapConnectRPCFrame,
   decodeMessage,
   parseConnectRPCFrame,
-  extractTextFromResponse
+  extractTextFromResponse,
+  encodeMcpTools
 } from "../utils/cursorProtobuf.js";
 import { buildCursorHeaders } from "../utils/cursorChecksum.js";
 import { estimateUsage } from "../utils/usageTracking.js";
@@ -70,12 +71,40 @@ function textFromContent(content) {
     .join("\n");
 }
 
+/**
+ * The AgentService gate: may this request ride the agent path?
+ *
+ * Text-only turns may (AgentService answers them), and so may a real
+ * tool-call/result conversation. The live router below still consults
+ * isAgentTextRequest() for the tool case, because the agent-side tool-result
+ * protocol — though now implemented in cursorProtobuf.js (the codec) and built
+ * into the run frame (mcp_tools, field 4) — has not yet been proven against
+ * Cursor's real AgentService end to end, while the legacy chat path
+ * demonstrably works. This gate is exported so that switch is a one-line change
+ * the moment that proof exists; flipping it before then would move working tool
+ * traffic onto an unproven path with no fallback.
+ *
+ * Non-text content (images) cannot ride this path either way.
+ */
+export function isAgentCapableRequest(body) {
+  if (!body || !Array.isArray(body.messages) || body.messages.length === 0) return false;
+  return body.messages.every((message) => {
+    if (!message || typeof message !== "object") return false;
+    if (message.role === "tool") return true;
+    if (Array.isArray(message.tool_calls) && message.tool_calls.length > 0) return true;
+    if (typeof message.content === "string") return true;
+    if (Array.isArray(message.content)) return message.content.every((part) => part?.type === "text");
+    return message.content === null || message.content === undefined;
+  });
+}
 function isAgentTextRequest(body) {
   // Many compatible clients always attach their built-in tool schemas, even
   // for a normal text turn. Cursor's retired ChatService rejects those
   // requests; AgentService can still answer the text turn, so ignore schemas
-  // here. A real tool-call/result conversation is kept on the legacy path
-  // until its AgentService tool protocol is implemented.
+  // here. A real tool-call/result conversation stays on the legacy chat path:
+  // the agent-side tool protocol now exists (cursorProtobuf.js's AgentService
+  // codec + mcp_tools in the run frame), but it is not yet proven against
+  // Cursor's real AgentService, so this router does not hand it live traffic.
   return Array.isArray(body?.messages) && body.messages.every((message) => {
     if (message?.tool_calls?.length || message?.role === "tool") return false;
     return typeof message?.content === "string"
@@ -95,7 +124,7 @@ function encodeHistoryMessage(message) {
   return agentMessage(1, agentMessage(1, agentMessage(1, text)));
 }
 
-function buildAgentRunFrame(messages, model) {
+export function buildAgentRunFrame(messages, model, tools = []) {
   const system = messages
     .filter((message) => message?.role === "system")
     .map((message) => textFromContent(message.content))
@@ -124,10 +153,14 @@ function buildAgentRunFrame(messages, model) {
   );
   const conversationAction = agentMessage(1, userAction);
   const requestedModel = concatBuffers(agentString(1, model), agentBool(7, true));
+  // agent.v1.AgentRunRequest.mcp_tools (field 4) — omitted entirely when the
+  // turn declares no tools, so a plain text run stays byte-identical to before.
+  const mcpTools = encodeMcpTools(tools);
   const runRequest = concatBuffers(
     // An empty ConversationStateStructure starts a fresh local agent session.
     agentMessage(1, new Uint8Array()),
     agentMessage(2, conversationAction),
+    ...(mcpTools.length ? [agentMessage(4, mcpTools)] : []),
     ...(system ? [agentString(8, system)] : []),
     agentMessage(9, requestedModel),
   );
@@ -493,7 +526,7 @@ export class CursorExecutor extends BaseExecutor {
     let session;
     try {
       session = this.openAgentHttp2Stream(url, headers, requestController.signal);
-      session.write(buildAgentRunFrame(body.messages || [], model));
+      session.write(buildAgentRunFrame(body.messages || [], model, body.tools || []));
     } catch (error) {
       throw new Error(`Cursor AgentService request failed: ${error.message}`);
     }

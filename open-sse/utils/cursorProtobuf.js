@@ -887,6 +887,198 @@ export function extractTextFromResponse(payload) {
   }
 }
 
+// ==================== AGENT SERVICE CODEC (agent.v1) ====================
+// The AgentService surface (Run, and its tool results) speaks a different
+// message family from the chat path above: MCP tool definitions, MCP args and
+// results, and google.protobuf.Value for arbitrary JSON. Field numbers verified
+// against Cursor's agent.proto.
+const AGENT_VALUE = { NULL: 1, NUMBER: 2, STRING: 3, BOOL: 4, STRUCT: 5, LIST: 6 };
+const AGENT_MCP_TOOL = { NAME: 1, DESCRIPTION: 2, INPUT_SCHEMA: 3, PROVIDER: 4, TOOL_NAME: 5 };
+const AGENT_MCP_RESULT = { SUCCESS: 1, ERROR: 2, TOOL_NOT_FOUND: 5 };
+const AGENT_MCP_SUCCESS = { CONTENT: 1, IS_ERROR: 2 };
+const AGENT_MCP_CONTENT = { TEXT: 1, IMAGE: 2 };
+const AGENT_MCP_IMAGE = { DATA: 1, MIME_TYPE: 2 };
+const AGENT_MCP_ARGS = { NAME: 1, ARGS: 2, TOOL_CALL_ID: 3, TOOL_NAME: 5 };
+const AGENT_MAP_ENTRY = { KEY: 1, VALUE: 2 };
+
+/** A protobuf double: little-endian float64 on the wire (encodeField handles only VARINT/LEN). */
+function encodeFixed64(fieldNum, number) {
+  const tag = encodeVarint((fieldNum << 3) | WIRE_TYPE.FIXED64);
+  const bytes = new Uint8Array(8);
+  new DataView(bytes.buffer).setFloat64(0, number, true);
+  return concatArrays(tag, bytes);
+}
+
+/** Read a float64 back out. byteOffset matters: Node's Buffer.slice() is a VIEW. */
+function decodeFixed64(bytes) {
+  return new DataView(bytes.buffer, bytes.byteOffset, 8).getFloat64(0, true);
+}
+
+/**
+ * google.protobuf.Value — the any-JSON carrier the agent protocol uses for tool
+ * schemas and tool args. null · bool · number · string · Struct · ListValue.
+ */
+export function encodeAgentValue(value) {
+  if (value === null || value === undefined) return encodeField(AGENT_VALUE.NULL, WIRE_TYPE.VARINT, 0);
+  if (typeof value === "boolean") return encodeField(AGENT_VALUE.BOOL, WIRE_TYPE.VARINT, value ? 1 : 0);
+  if (typeof value === "number") return encodeFixed64(AGENT_VALUE.NUMBER, value);
+  if (typeof value === "string") return encodeField(AGENT_VALUE.STRING, WIRE_TYPE.LEN, value);
+  if (Array.isArray(value)) {
+    const items = concatArrays(
+      ...value.map((item) => encodeField(1, WIRE_TYPE.LEN, encodeAgentValue(item)))
+    );
+    return encodeField(AGENT_VALUE.LIST, WIRE_TYPE.LEN, items);
+  }
+  if (typeof value === "object") {
+    const entries = concatArrays(
+      ...Object.entries(value).map(([key, val]) =>
+        encodeField(
+          1,
+          WIRE_TYPE.LEN,
+          concatArrays(
+            encodeField(AGENT_MAP_ENTRY.KEY, WIRE_TYPE.LEN, key),
+            encodeField(AGENT_MAP_ENTRY.VALUE, WIRE_TYPE.LEN, encodeAgentValue(val))
+          )
+        )
+      )
+    );
+    return encodeField(AGENT_VALUE.STRUCT, WIRE_TYPE.LEN, entries);
+  }
+  return encodeField(AGENT_VALUE.NULL, WIRE_TYPE.VARINT, 0);
+}
+
+/** The inverse of encodeAgentValue — a Value back to plain JS. */
+export function decodeAgentValue(bytes) {
+  const fields = decodeMessage(bytes);
+  if (fields.has(AGENT_VALUE.NULL)) return null;
+  if (fields.has(AGENT_VALUE.NUMBER)) return decodeFixed64(fields.get(AGENT_VALUE.NUMBER)[0].value);
+  if (fields.has(AGENT_VALUE.STRING)) return textDecoder.decode(fields.get(AGENT_VALUE.STRING)[0].value);
+  if (fields.has(AGENT_VALUE.BOOL)) return fields.get(AGENT_VALUE.BOOL)[0].value !== 0;
+  if (fields.has(AGENT_VALUE.STRUCT)) {
+    const out = {};
+    const struct = decodeMessage(fields.get(AGENT_VALUE.STRUCT)[0].value);
+    for (const entry of struct.get(1) || []) {
+      const mapEntry = decodeMessage(entry.value);
+      const key = textDecoder.decode(mapEntry.get(AGENT_MAP_ENTRY.KEY)[0].value);
+      out[key] = decodeAgentValue(mapEntry.get(AGENT_MAP_ENTRY.VALUE)[0].value);
+    }
+    return out;
+  }
+  if (fields.has(AGENT_VALUE.LIST)) {
+    const list = decodeMessage(fields.get(AGENT_VALUE.LIST)[0].value);
+    return (list.get(1) || []).map((item) => decodeAgentValue(item.value));
+  }
+  return null;
+}
+
+/**
+ * McpToolDefinition — one tool as the agent protocol declares it. Accepts both
+ * the OpenAI shape ({ function: { name, description, parameters } }) and a flat
+ * one ({ name, description, inputSchema }), because both reach this seam.
+ */
+export function encodeMcpToolDefinition(tool) {
+  const fn = tool?.function || tool || {};
+  const name = fn.name || "";
+  const description = fn.description || "";
+  const schema = fn.parameters || fn.input_schema || fn.inputSchema || {};
+  const provider = tool?.provider || "Vela";
+  return concatArrays(
+    ...(name ? [encodeField(AGENT_MCP_TOOL.NAME, WIRE_TYPE.LEN, name)] : []),
+    ...(description ? [encodeField(AGENT_MCP_TOOL.DESCRIPTION, WIRE_TYPE.LEN, description)] : []),
+    encodeField(AGENT_MCP_TOOL.INPUT_SCHEMA, WIRE_TYPE.LEN, encodeAgentValue(schema)),
+    encodeField(AGENT_MCP_TOOL.PROVIDER, WIRE_TYPE.LEN, provider),
+    ...(name ? [encodeField(AGENT_MCP_TOOL.TOOL_NAME, WIRE_TYPE.LEN, name)] : [])
+  );
+}
+
+/** The tool list as a repeated field 1 — empty bytes when there are no tools. */
+export function encodeMcpTools(tools) {
+  if (!Array.isArray(tools) || tools.length === 0) return new Uint8Array(0);
+  return concatArrays(
+    ...tools.map((tool) => encodeField(1, WIRE_TYPE.LEN, encodeMcpToolDefinition(tool)))
+  );
+}
+
+/** Decode an McpArgs message: the tool's name, ids, and its typed args map. */
+export function decodeMcpArgs(bytes) {
+  const fields = decodeMessage(bytes);
+  const args = {};
+  for (const entry of fields.get(AGENT_MCP_ARGS.ARGS) || []) {
+    const mapEntry = decodeMessage(entry.value);
+    const keyField = mapEntry.get(AGENT_MAP_ENTRY.KEY);
+    const valueField = mapEntry.get(AGENT_MAP_ENTRY.VALUE);
+    if (!keyField || !valueField) continue;
+    args[textDecoder.decode(keyField[0].value)] = decodeAgentValue(valueField[0].value);
+  }
+  const pick = (num) => {
+    const field = fields.get(num);
+    return field && field[0] ? textDecoder.decode(field[0].value) : null;
+  };
+  return {
+    name: pick(AGENT_MCP_ARGS.NAME),
+    toolName: pick(AGENT_MCP_ARGS.TOOL_NAME),
+    toolCallId: pick(AGENT_MCP_ARGS.TOOL_CALL_ID),
+    args,
+  };
+}
+
+/** One content item: the text variant (field 1) or the image variant (field 2). */
+function encodeMcpContent(textItems, imageItems) {
+  return concatArrays(
+    ...textItems.map((text) =>
+      // Each item is an entry of the repeated content list (field 1) whose body
+      // carries the oneof — text (1) or image (2). The item wrapper is NOT the
+      // same field as the variant.
+      encodeField(
+        AGENT_MCP_SUCCESS.CONTENT,
+        WIRE_TYPE.LEN,
+        encodeField(AGENT_MCP_CONTENT.TEXT, WIRE_TYPE.LEN, encodeField(1, WIRE_TYPE.LEN, String(text)))
+      )
+    ),
+    ...imageItems.map((image) =>
+      encodeField(
+        AGENT_MCP_SUCCESS.CONTENT,
+        WIRE_TYPE.LEN,
+        encodeField(
+          AGENT_MCP_CONTENT.IMAGE,
+          WIRE_TYPE.LEN,
+          concatArrays(
+            encodeField(AGENT_MCP_IMAGE.DATA, WIRE_TYPE.LEN, image.data),
+            ...(image.mimeType ? [encodeField(AGENT_MCP_IMAGE.MIME_TYPE, WIRE_TYPE.LEN, image.mimeType)] : [])
+          )
+        )
+      )
+    )
+  );
+}
+
+/** McpResult.success (field 1) — the tool answered, with content and is_error. */
+export function encodeMcpResultSuccess({ textItems = [], imageItems = [], isError = false } = {}) {
+  const success = concatArrays(
+    encodeMcpContent(textItems, imageItems),
+    encodeField(AGENT_MCP_SUCCESS.IS_ERROR, WIRE_TYPE.VARINT, isError ? 1 : 0)
+  );
+  return encodeField(AGENT_MCP_RESULT.SUCCESS, WIRE_TYPE.LEN, success);
+}
+
+/** McpResult.error (field 2) — the tool ran and failed. */
+export function encodeMcpResultError(message) {
+  return encodeField(
+    AGENT_MCP_RESULT.ERROR,
+    WIRE_TYPE.LEN,
+    encodeField(1, WIRE_TYPE.LEN, String(message ?? ""))
+  );
+}
+
+/** McpResult.tool_not_found (field 5) — the tool was never there. */
+export function encodeMcpResultToolNotFound(toolName) {
+  return encodeField(
+    AGENT_MCP_RESULT.TOOL_NOT_FOUND,
+    WIRE_TYPE.LEN,
+    encodeField(1, WIRE_TYPE.LEN, String(toolName ?? ""))
+  );
+}
+
 // ==================== EXPORTS ====================
 
 export default {
@@ -900,5 +1092,13 @@ export default {
   decodeField,
   decodeMessage,
   parseConnectRPCFrame,
-  extractTextFromResponse
+  extractTextFromResponse,
+  encodeAgentValue,
+  decodeAgentValue,
+  encodeMcpToolDefinition,
+  encodeMcpTools,
+  decodeMcpArgs,
+  encodeMcpResultSuccess,
+  encodeMcpResultError,
+  encodeMcpResultToolNotFound
 };
