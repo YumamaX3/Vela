@@ -1,0 +1,82 @@
+{
+  "$description": "Login gate token ledger — the colours the login surface ships, in the Design Tokens Community Group format. Every token here is a CSS custom property declared on .login-page / .dark .login-page in src/app/globals.css. Each $description carries its measured WCAG ratio so the reason travels with the token. Ratios are computed, never rounded up; APCA Lc is advisory and reported alongside.",
+  "color": {
+    "login": {
+      "cta": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.7529, 0.3059, 0.1882], "alpha": 1, "hex": "#c04e30" },
+        "$description": "Primary CTA fill, both themes. White label text = 4.80:1 (SC 1.4.3 pass). Replaces brand-500 (#E56A4A), which gave white text only 3.23:1 — a FAIL. APCA Lc -78."
+      },
+      "cta-hover": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.6510, 0.2510, 0.1529], "alpha": 1, "hex": "#a64027" },
+        "$description": "CTA hover fill. White label text = 6.21:1. Deepens on hover, so the accent stays singular while the pressed state reads."
+      },
+      "field-border": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.5451, 0.5059, 0.4706], "alpha": 1, "hex": "#8b8178" },
+        "$description": "Input boundary, both themes. 3.47:1 against the field fill (SC 1.4.11 floor 3:1). The shared Input's brand-tinted 40% border measured 1.19:1 — no perceptible edge."
+      },
+      "focus-ring-light": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.7216, 0.2902, 0.1725], "alpha": 1, "hex": "#b84a2c" },
+        "$description": "Light-theme focus indicator. 4.71:1 vs field fill, 4.98:1 vs page (SC 1.4.11 floor 3:1, SC 2.4.13 appearance). 2px outline, 2px offset."
+      },
+      "focus-ring-dark": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9333, 0.5529, 0.4157], "alpha": 1, "hex": "#ee8d6a" },
+        "$description": "Dark-theme focus indicator. 5.44:1 vs field fill, 7.17:1 vs page. APCA Lc -53."
+      },
+      "placeholder-light": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.4078, 0.4353, 0.4824], "alpha": 1, "hex": "#686f7b" },
+        "$description": "Light-theme placeholder. 4.61:1 vs field fill (SC 1.4.3 floor 4.5, placeholder text included)."
+      },
+      "placeholder-dark": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.6118, 0.6392, 0.6863], "alpha": 1, "hex": "#9ca3af" },
+        "$description": "Dark-theme placeholder. 5.20:1 vs field fill. APCA Lc -47."
+      },
+      "eyebrow-light": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.6510, 0.2510, 0.1529], "alpha": 1, "hex": "#a64027" },
+        "$description": "Light-theme 'THE HARBOR GATE' eyebrow and feature icons. 6.16:1 on the card (icons are meaningful, floor 3:1)."
+      },
+      "eyebrow-dark": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9176, 0.4706, 0.3333], "alpha": 1, "hex": "#ea7855" },
+        "$description": "Dark-theme eyebrow. 5.48:1 on the card."
+      },
+      "feature-icon-dark": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9333, 0.5529, 0.4157], "alpha": 1, "hex": "#ee8d6a" },
+        "$description": "Dark-theme feature-list icons. 6.48:1 on the card. Replaces the brand-400/80 alpha form, whose 80% opacity dropped the icons toward the icon-contrast floor."
+      },
+      "warn-light": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.7059, 0.3255, 0.0353], "alpha": 1, "hex": "#b45309" },
+        "$description": "Light-theme warning copy (caps-lock, SSO incomplete, no-password risk). 4.98:1 on the card (SC 1.4.3 pass at 12px)."
+      },
+      "warn-dark": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9843, 0.7490, 0.1412], "alpha": 1, "hex": "#fbbf24" },
+        "$description": "Dark-theme warning copy. 9.76:1 on the card. APCA Lc -72."
+      },
+      "error-light": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.7255, 0.1098, 0.1098], "alpha": 1, "hex": "#b91c1c" },
+        "$description": "Light-theme error copy, including the shared Input's own error slot. 6.41:1 on the card. The shared component's text-red-500 measured 3.73:1 — a FAIL at 12px."
+      },
+      "error-dark": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.9725, 0.4431, 0.4431], "alpha": 1, "hex": "#f87171" },
+        "$description": "Dark-theme error copy. 6.03:1 on the card. APCA Lc -47."
+      },
+      "footer": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.4196, 0.4471, 0.5020], "alpha": 1, "hex": "#6b7280" },
+        "$description": "Footer status line and constellation caption, 11px. Resolves to --color-text-muted: light 4.65:1 on the page, dark 6.86:1. Replaces --color-text-subtle, which gave 2.52:1 (light) and 3.37:1 (dark) — both FAIL at 11px."
+      }
+    }
+  }
+}

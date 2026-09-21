@@ -25,6 +25,51 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.82 — The Harbor Gate Reborn ⚓
+> *"The gate had grown a chart of its own — a sail of coral lines drawn across the words that welcomed the traveler home. I gave the constellation a berth, crystallized every colour into a token that carries its own reason, and let the night sky move the way a night sky should."* ⚓🌊💜
+
+The login gate was already beautiful, and it was broken in one quiet place: `.login-constellation`
+was `position: absolute` with **no offsets**, so it never left the flow — the header and the feature
+list collapsed up underneath its static origin, and the coral sail-lines were drawn straight across
+"forty-plus upstreams" and the feature rows. A panel with no berth. This tide gives it one, and
+rebuilds the surface around a token ledger that carries every contrast decision in its own name.
+
+**🔧 Changes & Improvements**
+- **The berth** — `.login-berth` (relative, 288px tall) anchors the constellation; the absolute chart
+  is centred inside it. Measured: header ends at 275, chart begins at 307, features begin at 659 —
+  no overlap, both themes.
+- **A cinematic sky** — the square graph-paper grid is gone. In its place a **celestial chart**
+  (concentric orbits + radial spokes), an **aurora** current, a **horizon** arc, and one rare
+  **shooting star**. All motion is declared in CSS, never inline, so the pinned reduced-motion block
+  and the 16-site inline-animation census stay intact.
+- **The login token ledger** — every login colour is now a `--login-*` custom property on
+  `.login-page` (overridden in `.dark .login-page`), so each contrast reason cites a token path, not
+  a hex. Exported in **DTCG** form at `docs/design/login-tokens.dtcg.json`.
+
+**🐛 Fixes** (contrast, measured on both ledgers)
+- CTA white-on-`brand-500` **3.23:1 FAIL → `#c04e30` 4.80:1** (hover `#a64027` 6.21:1)
+- Field border **1.19:1 FAIL → `#8b8178` 3.47:1**; focus ring 4.71:1 light / 5.44:1 dark
+- 11px footer/caption on `text-subtle` **2.52:1 light · 3.37:1 dark FAIL → `text-muted` 4.65:1 / 6.86:1**
+- The shared `Input`'s own error slot (`text-red-500`, **3.73:1 FAIL**) — overridden **login-scoped**
+  (`#f87171` dark 6.03:1 / `#b91c1c` light 6.41:1) rather than editing the shared component
+- Placeholder 4.61:1 light / 5.20:1 dark; footer 4.65:1 / 6.86:1
+- Five em dashes swept from rendered UI text (R-02; code comments exempt)
+
+**🧪 Proof**
+- `npm run build` green; `globals-css-tokens.test.js` + `login-device-label.test.js` → **44/44 passed**
+  (the CSS suite proves the built artefact, including the reduced-motion block and the keyframe count)
+- console clean across every state · every control clicked with its result recorded ·
+  375px `docW = winW` (no horizontal scroll) · reduced-motion verified
+- the suite failures this surface touches proved **pre-existing** by stash-diff at pristine HEAD
+
+**⏳ Owed / recorded (not hidden)**
+- the shared `Input` destructures `required` and never spreads it onto the `<input>` — native
+  validation and `:invalid` never engage on **any** form in the app (pre-existing)
+- the app-wide white-on-`brand-500` CTA ratio (3.23:1) still stands on every primary button outside
+  the login gate; this tide fixes the login CTA locally rather than silently re-theming the fleet
+
+---
+
 # v0.9.81 — The Swept Shallows 🧹
 > *"Six tides of new water had left silt in the channels — pins that still named an older depth, a script the sweep had carried off, a gate one handler never learned. I did not build new rooms; I walked the shallows and cleared what the tide had left."* 🧹💜
 

@@ -884,18 +884,41 @@ button:disabled,
   background-color: var(--color-bg);
   overflow: hidden;
   isolation: isolate;
+  /* The login token ledger. Every colour decision below cites one of these
+     paths, never a hex, so a rebrand is a one-line edit and the contrast
+     reasons survive it. */
+  --login-cta: #c04e30;           /* white CTA text 4.80:1 (brand-500 was 3.23:1, FAIL) */
+  --login-cta-hover: #a64027;     /* white CTA text 6.21:1 */
+  --login-field-border: #8b8178;  /* 3.47:1 vs field fill (SC 1.4.11 floor 3:1) */
+  --login-footer: var(--color-text-muted); /* light 4.65:1, dark 6.86:1 on the page */
+  --login-focus-ring: #b84a2c;    /* light: 4.71:1 vs field fill, 4.98:1 vs page */
+  --login-placeholder: #686f7b;   /* light: 4.61:1 vs field fill (SC 1.4.3 floor 4.5) */
+  --login-eyebrow: #a64027;       /* light: 6.16:1 on the card */
+  --login-feature-icon: #a64027;  /* light: 6.16:1 on the card (icon floor 3:1) */
+  --login-warn: #b45309;          /* light: amber-700, 4.98:1 on the card */
+  --login-error-text: #b91c1c;    /* light: red-700, 6.41:1 on the card */
 }
-
-/* Night-sky tint over the theme background */
+.dark .login-page {
+  --login-focus-ring: #ee8d6a;    /* dark: 5.44:1 vs field fill, 7.17:1 vs page */
+  --login-placeholder: #9ca3af;   /* dark: 5.20:1 vs field fill */
+  --login-eyebrow: #ea7855;       /* dark: 5.48:1 on the card */
+  --login-feature-icon: #ee8d6a;  /* dark: 6.48:1 on the card */
+  --login-warn: #fbbf24;          /* dark: 9.76:1 on the card */
+  --login-error-text: #f87171;    /* dark: 6.03:1 on the card */
+}
+/* Night-sky tint over the theme background. The cool radial is desaturated
+   slate — the sky itself, not a second brand hue — and replaces an earlier
+   purple radial that read as the default blue-purple night (R-01). The warm
+   radial is the single coral accent, deepened toward the horizon. */
 .login-page::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: 0;
   background:
-    radial-gradient(ellipse 90% 60% at 70% -10%, rgba(229, 106, 74, 0.14), transparent 60%),
-    radial-gradient(ellipse 70% 50% at 10% 110%, rgba(120, 90, 220, 0.10), transparent 60%),
-    radial-gradient(ellipse 50% 40% at 90% 90%, rgba(229, 106, 74, 0.06), transparent 55%),
+    radial-gradient(ellipse 90% 60% at 70% -10%, rgba(229, 106, 74, 0.16), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 10% 110%, rgba(120, 140, 180, 0.12), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 90% 90%, rgba(229, 106, 74, 0.07), transparent 55%),
     linear-gradient(180deg, #101013 0%, #16161a 100%);
 }
 html:not(.dark) .login-page::before {
@@ -905,18 +928,84 @@ html:not(.dark) .login-page::before {
     linear-gradient(180deg, #fdfaf6 0%, #f7f0e8 100%);
 }
 
-/* Fine navigational grid, masked toward the center */
-.login-grid {
-  position: absolute;
+/* Celestial chart — concentric orbit rings and radial spokes, masked toward
+   the constellation. This replaces an earlier square graph-paper grid: the
+   motif is cartography of the sky, so the ruling curves and radiates from a
+   pole rather than ruling a page. (R-07: texture serves the product's own
+   visual identity, not a default pattern.) */
+.login-chart {
+  position: fixed;
   inset: 0;
   z-index: 0;
+  pointer-events: none;
   background-image:
-    linear-gradient(to right, rgba(229, 106, 74, 0.5) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(229, 106, 74, 0.5) 1px, transparent 1px);
-  background-size: 44px 44px;
-  opacity: 0.045;
-  mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, black 30%, transparent 75%);
-  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, black 30%, transparent 75%);
+    repeating-radial-gradient(circle at 50% 42%, rgba(229, 106, 74, 0.6) 0 1px, transparent 1px 82px),
+    repeating-conic-gradient(from 0deg at 50% 42%, rgba(229, 106, 74, 0.5) 0 0.1deg, transparent 0.1deg 15deg);
+  opacity: 0.05;
+  mask-image: radial-gradient(ellipse 78% 66% at 50% 42%, black 22%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 78% 66% at 50% 42%, black 22%, transparent 78%);
+}
+/* Aurora — two soft currents of light drifting across the sky. Cinematic
+   atmosphere, and the only large-scale colour movement on the page. */
+.login-aurora {
+  position: fixed;
+  inset: -20% -10%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 42% 32% at 22% 26%, rgba(229, 106, 74, 0.17), transparent 70%),
+    radial-gradient(ellipse 40% 30% at 80% 72%, rgba(120, 140, 180, 0.15), transparent 70%);
+  animation: login-aurora-drift 26s ease-in-out infinite alternate;
+}
+@keyframes login-aurora-drift {
+  from { transform: translate3d(-2%, 1%, 0) scale(1); }
+  to   { transform: translate3d(3%, -2%, 0) scale(1.08); }
+}
+/* Horizon — a warm arc rising from the foot of the gate, so the sky has a
+   sea beneath it. */
+.login-horizon {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 240px;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 68% 100% at 50% 128%, rgba(229, 106, 74, 0.22), transparent 70%);
+  mask-image: linear-gradient(to top, black, transparent);
+  -webkit-mask-image: linear-gradient(to top, black, transparent);
+}
+/* A single shooting star — the one flourish. It crosses rarely and slowly, so
+   the sky reads alive without demanding attention. */
+.login-shooting-star {
+  position: fixed;
+  top: 14%;
+  left: -12%;
+  width: 2px;
+  height: 2px;
+  border-radius: 9999px;
+  background: #ffffff;
+  box-shadow: 0 0 8px 2px rgba(255, 255, 255, 0.55);
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  animation: login-shoot 11s ease-in 5s infinite;
+}
+.login-shooting-star::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  width: 140px;
+  height: 1px;
+  transform: translateY(-50%);
+  background: linear-gradient(to left, rgba(255, 255, 255, 0.7), transparent);
+}
+@keyframes login-shoot {
+  0%   { opacity: 0; transform: translate3d(0, 0, 0); }
+  3%   { opacity: 0.9; }
+  14%  { opacity: 0; transform: translate3d(72vw, 26vh, 0); }
+  100% { opacity: 0; transform: translate3d(72vw, 26vh, 0); }
 }
 
 /* Starfield — three drifting layers, twinkling at different rhythms */
@@ -947,8 +1036,29 @@ html:not(.dark) .login-stars i {
   50%      { opacity: 0.9; }
 }
 
-/* Vela constellation — the sail of Argo, drawn once on arrival */
-.login-constellation { position: absolute; z-index: 0; pointer-events: none; }
+/* Vela constellation — the sail of Argo, drawn once on arrival.
+   POSITIONED, not merely absolute: it previously carried `position: absolute`
+   with no offsets, so it stayed at its static-flow origin while leaving the
+   layout — the header and feature list then collapsed UP underneath it and the
+   coral sail-lines were drawn straight across the words (the "Two-State Layout"
+   defect: a panel with no berth). It now sits centred in its own reserved box,
+   clear of the copy above and below. */
+.login-constellation {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  pointer-events: none;
+}
+/* The constellation's berth — the panel that reserves its space in the flow so
+   the header above and the feature list below keep their distance. */
+.login-berth {
+  position: relative;
+  width: 100%;
+  height: 288px;
+  min-height: 288px;
+}
 .login-constellation .sail-lines { overflow: visible; }
 .login-constellation .sail-lines path {
   fill: none;
@@ -1114,6 +1224,43 @@ html:not(.dark) .login-card {
 }
 .login-status-dot.ok { background: var(--color-success); box-shadow: 0 0 8px rgba(16, 185, 129, 0.6); }
 .login-status-dot.bad { background: var(--color-danger); }
+
+/* ── The gate's controls, re-skinned onto the login ledger ──────────────
+   The shared Input renders a brand-tinted border at 40% alpha — 1.19:1
+   against the field fill, so the field had no perceptible boundary
+   (SC 1.4.11 needs 3:1). These login-scoped rules give the field a real
+   edge, a compliant placeholder, and a per-theme focus ring whose 2px
+   outline replaces the low-alpha ring (SC 2.4.13). */
+.login-page input,
+.login-page textarea {
+  border-color: var(--login-field-border) !important;
+}
+.login-page input::placeholder,
+.login-page textarea::placeholder {
+  color: var(--login-placeholder);
+  opacity: 1;
+}
+.login-page input:focus-visible,
+.login-page textarea:focus-visible {
+  outline: 2px solid var(--login-focus-ring);
+  outline-offset: 2px;
+}
+.login-page .btn-login {
+  background: var(--login-cta);
+  color: #ffffff;
+}
+.login-page .btn-login:hover:not(:disabled) {
+  background: var(--login-cta-hover);
+}
+.login-eyebrow { color: var(--login-eyebrow); }
+.login-feature-icon { color: var(--login-feature-icon); }
+.login-warn { color: var(--login-warn); }
+.login-error-text { color: var(--login-error-text); }
+/* The shared Input renders its own error text as text-red-500 — 3.73:1 on the
+   light card and 4.33:1 on the dark one, both under the 4.5:1 floor for 12px.
+   Login-scoped, so the shared component is untouched. */
+.login-page .text-red-500 { color: var(--login-error-text); }
+.login-footer-text { color: var(--login-footer); }
 
 /* Stagger the card children in */
 .login-stagger > * { animation: login-fade-up 0.5s ease-out both; }
