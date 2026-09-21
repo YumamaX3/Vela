@@ -5,6 +5,7 @@ import { Card, Button, Toggle, Input } from "@/shared/components";
 import Modal, { ConfirmModal } from "@/shared/components/Modal";
 import LanguageSwitcher from "@/shared/components/LanguageSwitcher";
 import BackupCard from "./components/BackupCard";
+import SessionsCard from "./components/SessionsCard";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { cn } from "@/shared/utils/cn";
 import { APP_CONFIG } from "@/shared/constants/config";
@@ -942,6 +943,8 @@ export default function ProfilePage() {
             )}
           </div>
         </Card>
+        {/* Sessions — the ledger's reading surface (Auth Hardening W1) */}
+        <SessionsCard />
 
         {/* Single Sign-On (SSO) */}
         <Card>
