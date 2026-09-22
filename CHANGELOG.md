@@ -25,6 +25,105 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.87 — The Closing Gate 🔒
+> *"Five gates stood open and every one of them was a name somebody forgot to add. So I stopped naming, and started closing: a class matched instead of a list, a roster derived instead of transcribed, and every refusal given a shape that cannot be mistaken for death. Nothing in that cargo left the harbor — because nothing asked to leave it."* 🔒💜
+
+**Security Closure M2.** Five surfaces took caller-shaped input where the request path had
+already learned better, and one instrument was found unplugged. Every fix below is
+measured in this tree, not described from memory.
+
+**🔒 Security**
+- **The probe was its own SSRF** — `src/lib/network/proxyTest.js`. `testProxyUrl` dialed a
+  `proxyUrl` straight from the request body and then fetched `testUrl` wherever it pointed;
+  `testRelayUrl` dialed `relayUrl` the same way. Both now cross the paths' own gates
+  (`validateProxyPoolUrl` / `validateProviderTestUrl`) through one `refuseGate`, and a
+  refusal answers **422 — never 400**. That number is the whole point: 400 sits inside
+  `DETERMINISTIC_FAILURE_STATUSES`, so a refused URL would have classified **DEAD** and
+  handed the fleet sweep a reason to disable the very pool whose config was refused (the
+  v0.9.42 self-liquidation class, with a new trigger). 422 → `indeterminate`: the pool
+  stays active, and no request ever leaves the process.
+- **The local-only wall now matches the CLASS, not a list of names** —
+  `src/dashboardGuard.js`. Thirteen `/api/cli-tools/<tool>-settings` routes write files in
+  the operator's own home (`~/.claude/settings.json`, `~/.codex/config.toml`, …) with
+  caller-shaped content, and only `cowork-settings` had ever been named — so a caller
+  arriving through a tunnel or a tailnet could edit the box's own agent configuration.
+  `CLI_TOOL_WRITER_RE = /^\/api\/cli-tools\/[a-z0-9-]+-settings$/` closes all thirteen
+  (and the fourteenth, when it is written). Added alongside it: `/api/pxpipe/install`,
+  `start`, `stop`, `restart` (each spawns or kills a host child), and the two headroom
+  entries that were missed while their siblings were named — `/api/headroom/restart`
+  (spawns exactly as `/start` does) and `/api/headroom/extras` (writes the sidecar's own
+  files). Reads stay reachable: `all-statuses`, `cowork-mcp-tools`, `cowork-mcp-registry`,
+  `/api/pxpipe/status|health`, `/api/headroom/status`.
+- **`PATCH /api/settings` no longer mass-assigns** — `src/app/api/settings/route.js` +
+  `src/lib/db/repos/settingsDefaults.js`. The route stripped exactly two secrets
+  (`password`, `mitmSudoEncrypted`) and handed the *rest* of the caller's JSON to
+  `updateSettings` — so any key could be planted (CWE-915). What made it worth closing is
+  not what it stores but what **reads** it: settings is a trusted store, and a planted
+  `outboundProxyUrl` silently re-routes every upstream call. The roster is **derived**,
+  not transcribed — `WRITABLE_SETTING_KEYS = [...Object.keys(DEFAULT_SETTINGS), …]` plus
+  the nine keys the dashboard genuinely persists without a default (`ccFilterNaming`,
+  `providerThinking`, `poolGeoProbeEnabled`, `fallbackStrategy`, `userInjectors`,
+  `claudeAutoPing`, `codexAutoPing`, `headroomCodeAware`, `headroomKompress`), each one
+  located in source rather than guessed. Undeclared keys are dropped **loudly**, so a real
+  setting that drifts out of the list announces itself once instead of vanishing.
+- **The login gate stopped answering with the operator's addresses** —
+  `src/app/api/settings/require-login/route.js`. This path is public by design (the login
+  screen must learn the posture before anyone holds a session), but it was also returning
+  `tunnelUrl` and `tailscaleUrl` — the gateway's own public names — to any anonymous
+  caller who could reach it. The postures stay; the addresses go. Measured before the cut:
+  nothing in-repo read them here, and the authenticated `GET /api/settings` still carries
+  both for the UI that needs them.
+
+**🔧 Refit**
+- **The instrument was unplugged.** `docker-compose-pin.test.js` guards the Star's decree
+  that the image pin follows the release — and at v0.9.86's HEAD it was **red**:
+  `package.json` said `0.9.86` while `docker-compose.example.yml`, the live
+  `docker-compose.yml`, and **both** `package-lock.json` version lines still said `0.9.85`.
+  The v0.9.86 tide skipped the lockfile step *and* both charts. All four now read
+  `0.9.87`, and the guard is green — the decree was never wrong, only unwatched.
+
+**⚠️ Recorded, not hidden**
+- **`.env.example` still carries a lie I could not correct.** Line 20 documents
+  `REQUIRE_API_KEY=false` under "Recommended security and ops variables" and asserts it
+  applies a Bearer key to `/v1/*`. **Nothing reads it** — measured this tide across
+  `src/`, `open-sse/`, `custom-server.js` and `cli/`: the only live hits are inside
+  `.git` pack objects, from before the rebrand. The real switch is the stored
+  `requireApiKey` **setting**, flipped from the dashboard (default `true`). An operator who
+  sets the env var to `true` believes their endpoint is protected and has changed nothing.
+  The correction was **refused by the deployment's protected-paths ward** (env files are
+  read-only to the agent by covenant) — recorded here verbatim instead of routed around.
+  It waits for the Star's own hand.
+- **v0.9.86's `requireLogin` trim** was already in this tree (uncommitted) and sails with
+  this tide: the public posture endpoint no longer leaks the tunnel and tailnet addresses.
+
+**🧪 Proof**
+- `tests/unit/security-closure-m2.test.js` — **11 new cases**, each pinned against its own
+  module rather than a description of it: five probe refusals (metadata proxy, metadata
+  target, `file://` scheme, metadata relay, and a **positive control** on a closed local
+  port proving acceptance is not refusal), three on the local-only class (the thirteen
+  writers held, the pxpipe lifecycle + headroom pair held, the read routes *not*
+  swallowed), and three on the settings write surface (the plant dropped while a declared
+  key survives in the same body, every key the dashboard genuinely persists accepted, and
+  the two stripped secrets still re-shaped internally).
+- Focused sweep across the storm and the four suites it touches — `security-closure-m2` +
+  `dashboard-guard` + `proxy-storm-socks5-construction` + `proxy-storm-relay-auth` +
+  `proxy-storm-indeterminate-auto-disable`: **5 files / 141 cases, all green**.
+- The whole `tests/unit` harbor, swept twice (before and after the chart repair) —
+  **350 files: 305 passed · 40 failed · 5 skipped · 3,671 of 3,769 cases green**. Not one
+  failing name is a file this tide touched: the storm, the guard suite, the three
+  `proxy-storm-*` suites and the pin guard are all green in the same run. The single
+  `guard` grep hit, `executor-const-guard.test.js`, is the pre-existing failure the
+  v0.9.72 chart already records as reproducing identically at pristine HEAD.
+- Parse sweep: all six touched files through a real parser, clean — and `npm run build`
+  **green at v0.9.87** (157 pages, standalone assets copied).
+
+**⚓ What sailed**: `src/lib/network/proxyTest.js` · `src/dashboardGuard.js` ·
+`src/app/api/settings/route.js` · `src/lib/db/repos/settingsDefaults.js` ·
+`src/app/api/settings/require-login/route.js` · `tests/unit/security-closure-m2.test.js` ·
+`package.json` · `package-lock.json` · both charts' pins.
+
+---
+
 # v0.9.86 — The Fleet Console 🌊
 > *"Fifty upstreams behind one gate, and to learn whether any of them was unwell you scrolled a page four times. So the tiles lay down and became a line: health first, then every provider on one scan, each row carrying the signal it was hiding. And the rail learned to move, because a column that folds should also arrive."* 🌊💜
 
