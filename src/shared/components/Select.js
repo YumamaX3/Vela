@@ -21,7 +21,9 @@ export default function Select({
       {label && (
         <label className="text-sm font-medium text-text-main">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {/* Decorative only — the select below carries the real `required`
+              attribute, so the requirement is announced once, by the control. */}
+          {required && <span aria-hidden="true" className="text-red-500 ml-1">*</span>}
         </label>
       )}
       <div className="relative">
@@ -29,6 +31,7 @@ export default function Select({
           value={value}
           onChange={onChange}
           disabled={disabled}
+          required={required}
           className={cn(
             "w-full py-2.5 px-3 pr-10 text-sm text-text-main",
             "bg-surface-2 border border-transparent rounded-[10px] appearance-none",

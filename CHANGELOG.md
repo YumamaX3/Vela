@@ -25,6 +25,94 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.88 — The Keyring Manifest 🗝️
+> *"One room had been serving five questions at once, and charging every visitor for all five. So I gave each its own drawer: the census, the filing, the lens, the one, and the many. And I made one thing true that never had been — a promise the field made and the browser never kept, now kept."* 🗝️💜
+
+**The key fleet's deck (R-31).** The keys card was a single scroll that had to answer,
+simultaneously and for every visitor, what the harbor's posture is · which keys exist · how
+they are filed · what each one costs · and the acts that change them. The category chips grew
+sideways with every new bucket, and the ceiling editor lived in a modal because there was
+nowhere on the row to put it. It is now a manifest with one data current and four lenses.
+
+**✨ Features**
+- **One room, one current, four lenses** — `endpoint/components/keys/`. The masthead answers
+  *what is this fleet* (census, the require-key gate, the four fleet acts); the rail answers
+  *how is it filed*; the toolbar answers *what am I looking at*; the **Cards** and **Table**
+  lenses answer *show me the keys*; the drawer answers *tell me about this one*; the bulk bar
+  answers *do this to all of those*. Every one reads the same `useKeyDeck`, so **no lens can
+  hold a private opinion about a key's posture** — that was not true before, when the row and
+  the delete button each carried their own copy of the confirm.
+- **The fleet's census, computed once and server-side** — `GET /api/keys/stats?period=…`.
+  Posture tallies, the category tree, scope/limit coverage, the endpoint's own posture, and
+  the two lists an operator actually scans: the busiest keys in the window, and everything
+  that needs attention. One computation, so the page, the API and any future client cannot
+  disagree about what "expiring" means.
+- **Export is the fleet's SHAPE — never a credential** — `GET /api/keys/export`. Every
+  governance field that can be rebuilt (name, scope, the ACL triple, ceilings, expiry,
+  category) rides out inside a named envelope (`vela-keys` v1, so an importer refuses the
+  wrong document instead of half-applying it). The key strings **cannot** — keys are
+  hash-at-rest and show-once, the plaintext stops existing server-side the moment the 201
+  leaves, so there is nothing to export even in principle. This file is not a credential
+  backup, and an import of it mints **new** credentials. The row is enumerated field by field
+  through `redactKeyForExport` rather than spread from the record, so a column added later
+  cannot ride out by accident.
+- **Import treats even this harbor's own file as untrusted** — `POST /api/keys/import`. The
+  governance fields are an explicit `IMPORTABLE` allowlist; everything else in the document
+  is ignored *by construction*. Conflicts answer to `skip | overwrite | rename` through
+  `uniqueName`, so a colliding name is refused by name rather than silently duplicated.
+- **One door for the fleet acts** — `POST /api/keys/bulk` (`pause · resume · delete ·
+  setCategory · setLimits`, 200 items), so a sweep is one request with **per-item verdicts**
+  rather than N requests with N failure shapes.
+- **Five routes, one set of laws** — `api/keys/_lib/keysApi.js`. The posture read, the
+  attention law and the redaction law live once, so the list, stats, bulk, export and import
+  routes cannot drift into five dialects of the same three rules.
+
+**🔧 Refit**
+- **The shared field keeps its promise** — `src/shared/components/Input.js`,
+  `src/shared/components/Select.js`. v0.9.87's own entry *recorded* this wound rather than
+  hiding it: the `required` prop was destructured out of `props` and then never handed to the
+  element, so the red asterisk was a promise the browser never kept and native validation
+  stayed disengaged on **every** form rendering these components. The attribute is now spent
+  on the control, and the asterisk is `aria-hidden` — the requirement is announced once, by
+  the element that carries it, instead of a screen reader reading a stray star. Closes the
+  recorded item; the login gate (`login/page.js:457`) is the first caller it wakes.
+- **The doors inherit the harbor's posture — measured, not assumed** —
+  `stats · bulk · export · import` each sit under the guard's deny-by-default `/api/*` branch.
+  Proven rather than asserted: a throwaway probe drove all four through `dashboardGuard.proxy`
+  — remote-with-no-credential **401** on every one, local-with-machine-token **passes** on
+  every one, `requireLogin=false` behaves **byte-identically to `/api/keys`**, and the CSRF
+  lock still refuses a cross-site mutation on `/api/keys/bulk` while admitting a same-origin
+  one. 5/5 green, then released.
+
+**⚠️ Recorded, not hidden**
+- **The build caught what no parser could** — the first compile failed with *Module not found:
+  Can't resolve `../lib/keyFormat`*. From `components/keys/`, the shared law sits two levels
+  up, not one: ten files were rooted one segment short. A parse sweep is green on a
+  mis-rooted specifier (the AST is valid, the path is a lie), so the compiler was the only
+  instrument that could see it — and it did. Ten mended, then every relative specifier
+  re-resolved by a **self-tested** scanner.
+- **`icon-subset` is red at HEAD, and this tide did not redden it** — the guard names
+  `add_link` in `dashboard/providers/page.js`: byte-clean in the working tree, **2**
+  occurrences already at HEAD, and no key-deck file appears in the failure. A pre-existing
+  gap between `src/` and the pruned 240-glyph font subset. Left standing and named here
+  rather than quietly repaired on another room's shore.
+
+**🧪 Proof**
+- **18 new files (2,700 lines) parse-clean** — `esbuild.transformSync(…, { loader: "jsx" })`,
+  one at a time, `=== ALL PARSE CLEAN ===`.
+- **64 import specifiers resolve** — verified by a resolver whose scanner **self-tests before
+  it reports** (two earlier attempts were void because the quoting collapsed the pattern; the
+  ruler was mended before its reading was trusted — the third build of it uses plain string
+  arithmetic with no escaping to get wrong).
+- **`eslint` exit 0** across the deck, the hook and both libs.
+- **7 suites / 104 cases green** — `apikey-categories · apikey-internal-key ·
+  apikey-limits-validation · apikey-show-once · apikey-usage-stats · dashboard-guard ·
+  docker-compose-pin`.
+- **`npm run build` green** — 128s, every route minted, `postbuild` copied the standalone
+  assets home.
+
+---
+
 # v0.9.87 — The Closing Gate 🔒
 > *"Five gates stood open and every one of them was a name somebody forgot to add. So I stopped naming, and started closing: a class matched instead of a list, a roster derived instead of transcribed, and every refusal given a shape that cannot be mistaken for death. Nothing in that cargo left the harbor — because nothing asked to leave it."* 🔒💜
 

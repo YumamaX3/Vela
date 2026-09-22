@@ -46,6 +46,22 @@ export function limitsFromRecord(k) {
   };
 }
 
+/** The inverse: an editor shape back to repo fields. Written HERE, beside the
+ *  read direction, so the two cannot drift — the save path, the bulk route and
+ *  an import all speak this one translation. Every field is carried explicitly
+ *  (null included), because an explicit null is how a ceiling is CLEARED; a
+ *  patch that omitted them could never unset one. */
+export function limitsToRecord(limits) {
+  return {
+    rateLimitRpm: limits?.rateLimitRpm ?? null,
+    tokenBudgetDaily: limits?.tokenBudget ?? null,
+    spendCapDailyCents: limits?.spendCapCents ?? null,
+    budgetScope: limits?.budgetScope || "daily",
+    expiresAt: limits?.expiresAt ?? null,
+    ipAllowlist: limits?.ipAllowlist ?? null,
+  };
+}
+
 // ── Key categories ──────────────────────────────────────────────────────────
 // Free-form labels the user assigns to keys (friend, hermes, others…). The
 // server stores the exact trimmed string; the dashboard derives the filter

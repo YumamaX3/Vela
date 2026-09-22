@@ -2,6 +2,15 @@
 
 import { cn } from "@/shared/utils/cn";
 
+// The shared text field.
+//
+// `required` reaches the element, and it is worth naming why that line exists:
+// the prop used to be destructured out of `props` and then never handed to the
+// <input>, so the red asterisk was a promise the browser never kept — native
+// validation stayed disengaged on EVERY form that renders this component, for
+// as long as no caller passed the prop (which is why it survived unnoticed).
+// Spending the attribute again is the whole mending; the asterisk is now
+// decorative (`aria-hidden`) because the control itself carries the semantics.
 export default function Input({
   label,
   type = "text",
@@ -22,7 +31,10 @@ export default function Input({
       {label && (
         <label className="text-sm font-medium text-text-main">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {/* Decorative only — the input below carries the real `required`
+              attribute, so a screen reader announces the requirement once
+              instead of reading a stray "star". */}
+          {required && <span aria-hidden="true" className="text-red-500 ml-1">*</span>}
         </label>
       )}
       <div className="relative">
@@ -37,6 +49,7 @@ export default function Input({
           value={value}
           onChange={onChange}
           disabled={disabled}
+          required={required}
           className={cn(
             "w-full py-2.5 px-3 text-sm text-text-main bg-surface-2 rounded-[10px]",
             "border border-transparent placeholder-text-muted/70",
