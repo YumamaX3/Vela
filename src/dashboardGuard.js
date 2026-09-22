@@ -170,10 +170,44 @@ const LOCAL_ONLY_PATHS = [
   "/api/oauth/cursor/auto-import",
   "/api/oauth/kiro/auto-import",
   "/api/auth/reset-password",
+  // Security Closure M2 — the headroom pair that was missed: `/restart` spawns a
+  // child process exactly as `/start` does, and `/extras` writes the sidecar's own
+  // files. The three entries above were named; these two are the same class.
   "/api/headroom/start",
   "/api/headroom/stop",
   "/api/headroom/proxy",
+  "/api/headroom/restart",
+  "/api/headroom/extras",
+  // The pxpipe sidecar's lifecycle — install/start/stop/restart all spawn or kill a
+  // child process on the host. (health/logs/stats/status stay reachable: they read
+  // the sidecar's state and change nothing.)
+  "/api/pxpipe/install",
+  "/api/pxpipe/start",
+  "/api/pxpipe/stop",
+  "/api/pxpipe/restart",
 ];
+
+// The cli-tools WRITERS, matched by SHAPE rather than by name.
+//
+// Every `/api/cli-tools/<tool>-settings` route writes a file in the OPERATOR'S OWN
+// HOME — `~/.claude/settings.json`, `~/.codex/config.toml`, `~/.cline/…` — with
+// content shaped by the caller. That is precisely the class the single
+// `cowork-settings` entry above already treated as local-only, and the thirteen
+// sibling tools (claude, codex, cline, copilot, deepseek-tui, devin, droid,
+// grok-build, hermes, jcode, kilo, openclaw, opencode) were never added to the list.
+// A list of names guarantees the fourteenth is forgotten; the class is matched
+// instead. This closes the remote-write path: a caller reaching the dashboard through
+// a tunnel or tailnet could edit the box's own agent configuration.
+//
+// Consumed through `canAccessLocalOnlyRoute`, so the box's own browser keeps working
+// (loopback Host + Origin, plus a JWT or requireLogin=false) and only remote callers
+// are refused. `all-statuses`, `cowork-mcp-tools` and `cowork-mcp-registry` do not end
+// in `-settings` and are untouched.
+const CLI_TOOL_WRITER_RE = /^\/api\/cli-tools\/[a-z0-9-]+-settings$/;
+
+function isLocalOnlyRoute(pathname) {
+  return LOCAL_ONLY_PATHS.some((p) => pathname.startsWith(p)) || CLI_TOOL_WRITER_RE.test(pathname);
+}
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
@@ -353,6 +387,11 @@ export const __test__ = {
   extractApiKey,
   canAccessPublicLlmApi,
   canAccessLocalOnlyRoute,
+  // §5.5c-adjacent (M2) — the local-only wall's predicate, exposed so a storm can
+  // assert the class rule (every `<tool>-settings` writer is local-only) without a
+  // live request.
+  isLocalOnlyRoute,
+  CLI_TOOL_WRITER_RE,
   // §5.1 — the fail-closed gate's read/method predicate, exposed so the storm can
   // assert the matrix without a live request.
   isProxyPoolsPostureRead,
@@ -370,7 +409,7 @@ export async function proxy(request) {
   }
 
   // Local-only gate for spawn-capable / host-secret routes.
-  if (LOCAL_ONLY_PATHS.some((p) => pathname.startsWith(p))) {
+  if (isLocalOnlyRoute(pathname)) {
     if (!(await canAccessLocalOnlyRoute(request))) {
       return NextResponse.json({ error: "Local only: CLI token required" }, { status: 403 });
     }

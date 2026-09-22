@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSettings, updateSettings } from "@/lib/localDb";
+import { WRITABLE_SETTING_KEYS } from "@/lib/db/repos/settingsDefaults.js";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 import { resetComboRotation } from "open-sse/services/combo.js";
 import bcrypt from "bcryptjs";
@@ -13,6 +14,10 @@ const SETTINGS_RESPONSE_HEADERS = {
 
 // Secrets must never be mass-assigned from request body (CWE-915)
 const PROTECTED_SETTING_KEYS = ["password", "mitmSudoEncrypted"];
+
+// The allow-list half of the same defence: a key that is not declared (see
+// settingsDefaults.js) is not a setting. A Set for O(1) lookup on every PATCH.
+const ALLOWED_SETTING_KEYS = new Set(WRITABLE_SETTING_KEYS);
 
 export async function GET() {
   try {
@@ -111,6 +116,17 @@ export async function PATCH(request) {
             ? patch.n8nWebhookUrl.trim()
             : (typeof current.n8nWebhookUrl === "string" ? current.n8nWebhookUrl : ""),
       };
+    }
+
+    // CWE-915 — only declared settings keys may be persisted. Placed AFTER the
+    // branches that legitimately shape a key (`password` from `newPassword`,
+    // `budgetAlerts` deep-merged, `oidcClientSecret` normalized) so their work is not
+    // undone, and BEFORE the write so nothing unnamed reaches the store. An unknown
+    // key is not a setting — it is a caller planting one for a future reader to trust.
+    const droppedKeys = Object.keys(body).filter((k) => !ALLOWED_SETTING_KEYS.has(k));
+    if (droppedKeys.length) {
+      console.warn(`[settings] ignoring non-settings keys: ${droppedKeys.join(", ")}`);
+      for (const key of droppedKeys) delete body[key];
     }
 
     const settings = await updateSettings(body);

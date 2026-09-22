@@ -79,6 +79,48 @@ export const DEFAULT_SETTINGS = {
   },
 };
 
+// ── the WRITE surface (Security Closure M2) ──────────────────────────────────
+//
+// `PATCH /api/settings` persisted whatever JSON object the caller sent. It stripped
+// exactly two secrets (`password`, `mitmSudoEncrypted`) and handed the remainder to
+// `updateSettings` — so an authenticated caller could plant ANY key into the settings
+// blob (CWE-915, mass assignment). What makes that worth closing is not what it
+// stores but what READS it: settings is a trusted store, so a planted
+// `outboundProxyUrl` silently re-routes every upstream call, and any unknown key
+// becomes the next reader's inheritance.
+//
+// The roster is DERIVED, not transcribed: `Object.keys(DEFAULT_SETTINGS)` is the
+// canonical list (a new setting is declared there, or it drifts between the twins).
+// The extras are the keys the dashboard genuinely persists with no default — each one
+// measured in source, not guessed:
+//   password            — set by the PATCH handler itself, from `newPassword`
+//   ccFilterNaming      — ClaudeToolCard.js reads and writes it
+//   providerThinking    — dashboard/providers/[id]/page.js writes it
+//   poolGeoProbeEnabled — proxyApi.js writes it; useProxyFleet.js reads it
+//   fallbackStrategy    — dashboard/profile/page.js writes it (account fallback order)
+//   userInjectors       — dashboard/prompt-injectors/page.js writes it
+//   claudeAutoPing      — ProviderLimits/index.js + providers/[id]/page.js
+//   codexAutoPing       — the same pair
+//   headroomCodeAware   — TokenSaverClient.js writes it; headroom/start reads it
+//   headroomKompress    — the same pair
+//
+// A key missing from this roster is DROPPED LOUDLY by the route, never silently: a
+// real setting that drifts out of the list surfaces once, in the log, instead of
+// disappearing without a trace.
+export const WRITABLE_SETTING_KEYS = [
+  ...Object.keys(DEFAULT_SETTINGS),
+  "password",
+  "ccFilterNaming",
+  "providerThinking",
+  "poolGeoProbeEnabled",
+  "fallbackStrategy",
+  "userInjectors",
+  "claudeAutoPing",
+  "codexAutoPing",
+  "headroomCodeAware",
+  "headroomKompress",
+];
+
 // Merge raw settings with defaults; backward-compat for missing keys
 export function mergeWithDefaults(raw) {
   const merged = { ...DEFAULT_SETTINGS, ...(raw || {}) };

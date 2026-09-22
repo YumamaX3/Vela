@@ -3,9 +3,32 @@ import { ProxyAgent, fetch as undiciFetch } from "undici";
 // authenticated by one and refused by the other. relayTemplate.js imports nothing of
 // its own, so this adds no cycle.
 import { relayAuthHeaders } from "./relayTemplate.js";
+// §5.5c (Security Closure M2) — the probe surface's own URL gate. Until this tide
+// `testUrl` and `proxyUrl` arrived RAW from the request body (`POST /api/settings/
+// proxy-test`): a HEAD to any host the caller named, THROUGH any proxy the caller named
+// — including one that dials the metadata endpoint. Two laws already exist for exactly
+// these values, so this reuses them rather than writing a third:
+//   validateProxyPoolUrl    — a proxy/relay URL (http/https/socks5; literal loopback
+//                             exempt, because the operator's own 127.0.0.1:7890 proxy
+//                             is configuration, not SSRF).
+//   validateProviderTestUrl — a fetch TARGET (http/https only; loopback, metadata,
+//                             link-local and unspecified refused as literals).
+import { validateProxyPoolUrl, validateProviderTestUrl } from "./providerUrlSafety.js";
 
 const DEFAULT_TEST_URL = "https://google.com/";
 const DEFAULT_TIMEOUT_MS = 8000;
+
+// A refused URL must never read as a DEAD POOL. classifyProbeVerdict() maps
+// {400, 404, 410} to "dead", and the fleet sweep disables a pool on a dead verdict —
+// so returning 400 here would let a refused URL liquidate its own pool: the v0.9.42
+// self-liquidation class, with a new trigger. 422 is honest ("unprocessable
+// configuration") and falls outside that set, so the pool stays ACTIVE while no
+// request ever leaves the process. The SSRF is refused with zero collateral.
+const REFUSAL_STATUS = 422;
+
+function refuseGate(gate, field) {
+  return { ok: false, status: REFUSAL_STATUS, error: `${field} rejected: ${gate.message}` };
+}
 
 // Relay reachability probe — a cheap public GET the relay forwards. httpbin.org
 // is what the route already used; it is a third-party dependency, so a failure
@@ -37,12 +60,27 @@ function normalizeString(value) {
 }
 
 export async function testProxyUrl({ proxyUrl, testUrl, timeoutMs } = {}) {
-  const normalizedProxyUrl = normalizeString(proxyUrl);
-  if (!normalizedProxyUrl) {
+  const rawProxyUrl = normalizeString(proxyUrl);
+  if (!rawProxyUrl) {
     return { ok: false, status: 400, error: "proxyUrl is required" };
   }
 
-  const normalizedTestUrl = normalizeString(testUrl) || DEFAULT_TEST_URL;
+  // §5.5c — the proxy URL is caller-supplied and dialed, so it crosses the same law a
+  // pool crosses at create/update. Gated HERE rather than only in the route: this
+  // function is the thing that dials, and it has three callers on three trust paths
+  // (`/api/settings/proxy-test` from a body, the provider-test path from a stored
+  // `connectionProxyUrl`, the fleet sweep from a stored pool row). A per-caller gate
+  // would leave the other two unjudged.
+  const proxyGate = validateProxyPoolUrl(rawProxyUrl);
+  if (!proxyGate.ok) return refuseGate(proxyGate, "proxyUrl");
+  const normalizedProxyUrl = proxyGate.url;
+
+  // The TARGET too. This HEAD used to go wherever the body said — the probe was a
+  // general-purpose fetch primitive reachable from an authenticated request.
+  const targetGate = validateProviderTestUrl(normalizeString(testUrl) || DEFAULT_TEST_URL);
+  if (!targetGate.ok) return refuseGate(targetGate, "testUrl");
+  const normalizedTestUrl = targetGate.url;
+
   const timeoutMsRaw = Number(timeoutMs);
   const normalizedTimeoutMs =
     Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 0
@@ -52,13 +90,11 @@ export async function testProxyUrl({ proxyUrl, testUrl, timeoutMs } = {}) {
   let dispatcher;
 
   try {
-    // Proxy protocol detection: http(s)/socks5
-    const normalized = normalizeString(proxyUrl);
-    if (!normalized) return { ok: false, status: 400, error: "proxyUrl required" };
-
-    const protocol = (() => {
-      try { return new URL(normalized).protocol; } catch { return null; }
-    })();
+    // The gate at the top of this function already normalized and judged this URL —
+    // the raw body value is never dialed. (The inner re-normalization and its
+    // `protocol` local were both dead: nothing read `protocol`, and the emptiness
+    // guard repeated the check already made above.)
+    const normalized = normalizedProxyUrl;
 
     try {
       // Bind the dynamic imports to DECLARED locals — destructuring-assigning
@@ -161,10 +197,17 @@ export async function testProxyUrl({ proxyUrl, testUrl, timeoutMs } = {}) {
  * @param {number} [args.relayVersion] 2 sends the secret; anything else sends none
  */
 export async function testRelayUrl({ relayUrl, timeoutMs, relayAuth, relayVersion } = {}) {
-  const normalizedRelayUrl = normalizeString(relayUrl);
-  if (!normalizedRelayUrl) {
+  const rawRelayUrl = normalizeString(relayUrl);
+  if (!rawRelayUrl) {
     return { ok: false, status: 400, error: "relayUrl is required" };
   }
+
+  // §5.5c — a relay URL is a dialed URL from the same request body, so it crosses the
+  // same gate. A refusal is 422 → INDETERMINATE: an unjudged relay must never read as
+  // a dead one and hand the sweep a reason to disable it.
+  const relayGate = validateProxyPoolUrl(rawRelayUrl);
+  if (!relayGate.ok) return refuseGate(relayGate, "relayUrl");
+  const normalizedRelayUrl = relayGate.url;
 
   const timeoutMsRaw = Number(timeoutMs);
   const normalizedTimeoutMs =
