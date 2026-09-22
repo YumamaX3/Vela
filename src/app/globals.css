@@ -99,6 +99,10 @@
      while the rail is closed, so the open rail keeps the sidebar's own
      flex layout — the badge pushed to the row's end and all. */
   --rail-label-max: 260px;
+  /* The label rise cadence when the rail opens: each label follows the one
+     above it, so the nav assembles instead of appearing. Twelve rather than
+     the deck's 45ms because a nav is a list to scan, not sections to read. */
+  --rail-stagger: 12ms;
 
   /* Command-deck terminal — warm ink panel, cream text */
   --color-terminal: #2a211c;
@@ -1584,6 +1588,7 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
    ============================================================ */
 .nav-rail {
   width: var(--rail-width-expanded);
+  position: relative;
 }
 
 @media (min-width: 64rem) {
@@ -1618,6 +1623,141 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
   .nav-rail:focus-within .nav-label {
     max-width: var(--rail-label-max);
     opacity: 1;
+  }
+
+  /* The rise, on TEXT labels only. `:not(.material-symbols-outlined)`
+     keeps the chevrons out: they carry a rotation of their own (the group
+     header through Tailwind's `rotate` property, the accordion through an
+     inline `transform`), and a translate would either be overridden by
+     that inline style or overwrite the rotation. Text rises; glyphs do
+     not. The travel is 4px — the move registers as "arrived", not as a
+     slide. */
+  .nav-label:not(.material-symbols-outlined) {
+    transform: translateX(-4px);
+    transition:
+      max-width var(--motion-dur-quick) var(--motion-ease-out),
+      opacity var(--motion-dur-instant) var(--motion-ease-out),
+      transform var(--motion-dur-quick) var(--motion-ease-out);
+  }
+  .nav-rail:hover .nav-label:not(.material-symbols-outlined),
+  .nav-rail:focus-within .nav-label:not(.material-symbols-outlined) {
+    transform: translateX(0);
+  }
+
+  /* The chevrons settle rather than snap when their accordion flips.
+     BOTH properties are transitioned because the two chevrons disagree
+     about which one they use — Tailwind v4 emits `-rotate-90` as the
+     `rotate` PROPERTY, while the accordions set `transform` inline. A
+     transition naming only one would animate half the chevrons. */
+  .nav-label.material-symbols-outlined {
+    transition:
+      transform var(--motion-dur-quick) var(--motion-ease-spring),
+      rotate var(--motion-dur-quick) var(--motion-ease-spring),
+      opacity var(--motion-dur-instant) var(--motion-ease-out);
+  }
+
+  /* Each label follows the one above it. The delays live in the OPEN rule,
+     not the base one, because a transition reads its timing from the state
+     it is moving TO: this way the nav assembles on the way out and closes
+     all at once on the way back, which is the right asymmetry — arriving is
+     the ceremony, leaving is not. Capped at the eighth row: past that the
+     last label would still be arriving while the operator is reading it. */
+  .nav-rail:hover nav a:nth-of-type(1) .nav-label,
+  .nav-rail:focus-within nav a:nth-of-type(1) .nav-label { transition-delay: 0ms; }
+  .nav-rail:hover nav a:nth-of-type(2) .nav-label,
+  .nav-rail:focus-within nav a:nth-of-type(2) .nav-label { transition-delay: calc(var(--rail-stagger) * 1); }
+  .nav-rail:hover nav a:nth-of-type(3) .nav-label,
+  .nav-rail:focus-within nav a:nth-of-type(3) .nav-label { transition-delay: calc(var(--rail-stagger) * 2); }
+  .nav-rail:hover nav a:nth-of-type(4) .nav-label,
+  .nav-rail:focus-within nav a:nth-of-type(4) .nav-label { transition-delay: calc(var(--rail-stagger) * 3); }
+  .nav-rail:hover nav a:nth-of-type(5) .nav-label,
+  .nav-rail:focus-within nav a:nth-of-type(5) .nav-label { transition-delay: calc(var(--rail-stagger) * 4); }
+  .nav-rail:hover nav a:nth-of-type(6) .nav-label,
+  .nav-rail:focus-within nav a:nth-of-type(6) .nav-label { transition-delay: calc(var(--rail-stagger) * 5); }
+  .nav-rail:hover nav a:nth-of-type(7) .nav-label,
+  .nav-rail:focus-within nav a:nth-of-type(7) .nav-label { transition-delay: calc(var(--rail-stagger) * 6); }
+  .nav-rail:hover nav a:nth-of-type(n+8) .nav-label,
+  .nav-rail:focus-within nav a:nth-of-type(n+8) .nav-label { transition-delay: calc(var(--rail-stagger) * 7); }
+
+  /* The icon leans 1px toward the label it is about to name. One pixel:
+     enough to read as the row answering the pointer, not enough to move
+     anything else. `:not(.nav-label)` keeps the chevrons out — their own
+     transform is a rotation, and a translate would overwrite it. */
+  .nav-rail nav a .material-symbols-outlined:not(.nav-label),
+  .nav-rail nav button .material-symbols-outlined:not(.nav-label) {
+    transition:
+      transform var(--motion-dur-instant) var(--motion-ease-out),
+      color var(--motion-dur-instant) var(--motion-ease-out);
+  }
+  .nav-rail nav a:hover .material-symbols-outlined:not(.nav-label),
+  .nav-rail nav button:hover .material-symbols-outlined:not(.nav-label) {
+    transform: translateX(1px);
+  }
+
+  /* The active marker: it grows in from a point on the row it marks, then
+     breathes — a slow 3.2s swell of the coral glow, which is the rail's one
+     ambient heartbeat. It marks where you are, and it is the only thing in
+     the rail that moves while your hand is still.
+
+     The keyframe scales ONLY; it must not re-express the centring. Tailwind
+     v4 emits `-translate-y-1/2` as the `translate` property, and individual
+     transform properties compose with `transform` rather than being
+     replaced by it — so a `translateY(-50%)` here would stack a second
+     half-height shift and drop the bar out of its row. */
+  @keyframes railBarIn {
+    from { transform: scaleY(0); opacity: 0; }
+    to   { transform: scaleY(1); opacity: 1; }
+  }
+  @keyframes railBarBreathe {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(229, 106, 74, 0); opacity: 1; }
+    50%      { box-shadow: 0 0 0 3px rgba(229, 106, 74, 0.16); opacity: 0.82; }
+  }
+  .nav-active-bar {
+    animation:
+      railBarIn var(--motion-dur-quick) var(--motion-ease-spring) backwards,
+      railBarBreathe 3.2s ease-in-out 0.4s infinite;
+  }
+
+  /* Sub-rows ease in when their accordion opens, so the disclosure reads
+     as unfolding rather than as a block appearing. */
+  @keyframes navSubIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .nav-sub a {
+    animation: navSubIn var(--motion-dur-quick) var(--motion-ease-out) backwards;
+  }
+  .nav-sub a:nth-child(2) { animation-delay: calc(var(--rail-stagger) * 1); }
+  .nav-sub a:nth-child(3) { animation-delay: calc(var(--rail-stagger) * 2); }
+  .nav-sub a:nth-child(4) { animation-delay: calc(var(--rail-stagger) * 3); }
+  .nav-sub a:nth-child(5) { animation-delay: calc(var(--rail-stagger) * 4); }
+  .nav-sub a:nth-child(6) { animation-delay: calc(var(--rail-stagger) * 5); }
+
+  /* The rail's edge current — a slow coral light travelling down the
+     border, the vertical echo of the header's own `.mast-tide` line. Same
+     gesture, same colour, turned ninety degrees: the rail belongs to the
+     same instrument as the mast. */
+  @keyframes railCurrent {
+    0%   { background-position: 0 -240px; }
+    100% { background-position: 0 340px; }
+  }
+  .nav-rail::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 1px;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      var(--color-primary) 50%,
+      transparent 100%
+    );
+    background-size: 100% 240px;
+    background-repeat: no-repeat;
+    animation: railCurrent 7s linear infinite;
   }
 
   /* The brand block keeps the logo visible at rest and centres it on the
@@ -1708,4 +1848,206 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
     max-height: 200px;
     opacity: 1;
   }
+}
+
+/* ============================================================
+   The Providers Console (v0.9.86) — the fleet, on one scan line.
+
+   Before: five stacked sections, fifty disconnected tiles, and a
+   page you scrolled four times to learn one thing. After: a health
+   strip that answers "is anything broken" before you read a row,
+   then a single dense list where every column is a real signal.
+
+   Colour reasons cite token paths, never hexes, so a rebrand moves
+   this block with the rest of the deck:
+   · healthy/degraded/cooling/down resolve to color.success /
+     color.warning / color.info / color.danger — the same four the
+     rest of the dashboard already uses for state.
+   · the active marker reuses color.brand.500, the rail's own accent,
+     so the page reads as the same instrument as the sidebar.
+   ============================================================ */
+
+/* The health strip is the page's one focal point, so it gets the
+   only elevated shadow on the surface. Grid with 1px gaps over a
+   border-coloured background: the dividers are the gaps, which keeps
+   five cells on one hairline system instead of five nested borders. */
+.fleet-health {
+  display: grid;
+  grid-template-columns: 1.35fr repeat(4, 1fr);
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-brand-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+}
+.fleet-health-cell {
+  background: var(--color-surface);
+  padding: 0.9rem 1.05rem;
+}
+.fleet-health-k {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.fleet-health-v {
+  font-size: 1.625rem;
+  font-weight: 680;
+  line-height: 1;
+  margin-top: 0.45rem;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-main);
+}
+.fleet-health-sub {
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+  margin-top: 0.3rem;
+}
+/* The ratio bar: one flex row, each segment flex-grow set to its count,
+   so the proportions are the data rather than a hand-tuned width. */
+.fleet-ratio {
+  display: flex;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 0.7rem;
+  background: var(--color-surface-3);
+}
+.fleet-ratio > i { display: block; height: 100%; }
+
+/* One pulse in the whole console, on the down state only. A console
+   opened dozens of times a day must not perform; this marks the thing
+   that is actually wrong and nothing else. */
+@keyframes fleetPulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-danger) 35%, transparent); }
+  50%      { box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-danger) 0%, transparent); }
+}
+.fleet-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.fleet-dot.is-pulsing { animation: fleetPulse 2.4s var(--motion-ease-out) infinite; }
+
+/* The list: a table by structure, links by semantics. Grid columns
+   rather than <table>, because each row is a single navigable target
+   and a table would put the toggle inside a row that must not be
+   swallowed by it. */
+.fleet-table {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-brand-lg);
+  background: var(--color-surface);
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+}
+.fleet-row, .fleet-head-row {
+  display: grid;
+  grid-template-columns:
+    22px minmax(150px, 1.6fr) 92px 62px 74px 116px minmax(110px, 1fr) 54px 46px;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0 0.95rem;
+}
+.fleet-head-row {
+  height: 34px;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  background: var(--color-bg-alt);
+  border-bottom: 1px solid var(--color-border);
+}
+.fleet-row {
+  min-height: 52px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  cursor: pointer;
+  position: relative;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color var(--motion-dur-instant) var(--motion-ease-out);
+}
+.fleet-row:last-child { border-bottom: 0; }
+.fleet-row:hover { background: var(--color-bg-alt); }
+.fleet-row:focus-visible { outline: 2px solid var(--color-brand-500); outline-offset: -2px; z-index: 1; }
+.fleet-row.is-dim { opacity: 0.62; }
+/* The active provider wears the rail's own gesture: a coral bar on the
+   leading edge. Same shape, same token, so the marker means one thing
+   across the whole deck. */
+.fleet-row.is-current::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 22px;
+  border-radius: 0 3px 3px 0;
+  background: var(--color-brand-500);
+}
+.fleet-cell {
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fleet-cell.is-strong { color: var(--color-text-main); font-weight: 550; }
+.fleet-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+}
+/* The activity meter: five segments, filled from the live 60s window.
+   Empty segments are surface.3, not a fainter green — an idle provider
+   should read as idle, not as a slightly worse healthy one. */
+.fleet-meter { display: flex; gap: 2px; }
+.fleet-meter > i {
+  width: 13px;
+  height: 5px;
+  border-radius: 2px;
+  background: var(--color-surface-3);
+  display: block;
+}
+
+@media (max-width: 1100px) {
+  /* Below this width the nine columns cannot all earn their space, so
+     the row reflows to three: identity, then status and error beneath
+     it. The columns that are dropped (auth, models, latency, priority)
+     are all still on the provider's own detail page. */
+  .fleet-health { grid-template-columns: repeat(2, 1fr); }
+  .fleet-head-row { display: none; }
+  .fleet-row {
+    grid-template-columns: 22px 1fr auto;
+    grid-template-areas:
+      "dot name toggle"
+      ".   meter meter"
+      ".   err   err";
+    gap: 0.375rem 0.625rem;
+    padding: 0.7rem 0.875rem;
+  }
+  .fleet-row > .fleet-col-dot { grid-area: dot; }
+  .fleet-row > .fleet-col-name { grid-area: name; }
+  .fleet-row > .fleet-col-toggle { grid-area: toggle; }
+  .fleet-row > .fleet-col-meter { grid-area: meter; }
+  .fleet-row > .fleet-col-err { grid-area: err; }
+  .fleet-row > .fleet-col-auth,
+  .fleet-row > .fleet-col-models,
+  .fleet-row > .fleet-col-latency,
+  .fleet-row > .fleet-col-priority { display: none; }
 }
