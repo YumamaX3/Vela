@@ -48,8 +48,8 @@ export function CategoryPill({ category }) {
 }
 
 /** Model scope — or the honest absence of one, which is the more important fact. */
-export function ScopePill({ key }) {
-  const count = Array.isArray(key.allowedModels) ? key.allowedModels.length : 0;
+export function ScopePill({ k }) {
+  const count = Array.isArray(k.allowedModels) ? k.allowedModels.length : 0;
   if (count === 0) {
     return (
       <Pill tone="muted" icon="shield_lock" title={translate("Reaches every provider this harbor can dial")}>
@@ -65,8 +65,8 @@ export function ScopePill({ key }) {
 }
 
 /** Ceilings the operator actually set — the repo's own badge list, verbatim. */
-export function LimitPills({ key }) {
-  const badges = keyLimitBadges(key);
+export function LimitPills({ k }) {
+  const badges = keyLimitBadges(k);
   if (badges.length === 0) return null;
   return (
     <>

@@ -3,6 +3,7 @@
     "account_circle",
     "account_tree",
     "add",
+    "add_link",
     "air",
     "all_inclusive",
     "alternate_email",
@@ -241,9 +242,9 @@
     "wifi_tethering",
     "wrap_text"
   ],
-  "count": 240,
-  "sha256": "2407283d3ee727184e341d1fd4a54ce7e05a0d3b2e25700c446c22e99cbb9070",
-  "identity": "5e3897820e1737e7",
-  "file": "vela-icons.5e3897820e1737e7.woff2",
+  "count": 241,
+  "sha256": "131535b966b7776669bdd096801a23cf3ec2a8a82b23d37e58064828e1552039",
+  "identity": "05aae2a6573832c1",
+  "file": "vela-icons.05aae2a6573832c1.woff2",
   "source": "node_modules/material-symbols/material-symbols-outlined.woff2"
 }

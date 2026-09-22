@@ -30,8 +30,8 @@ function Row({ active, onClick, icon, label, count, title }) {
 }
 
 export default function KeyRail({ c, deck }) {
-  const { categories } = c;
-  const { railCounts, activeCategoryFilter, setActiveCategoryFilter, keys } = deck;
+  const { categories, keys } = c;
+  const { railCounts, activeCategoryFilter, setActiveCategoryFilter } = deck;
 
   const hasUncategorized = keys.some((k) => !k.category);
 
