@@ -864,7 +864,17 @@ export default function useEndpointController() {
     });
   };
 
-  const handleToggleKey = async (id, isActive) => {
+  // ── The pause gate, hoisted from a view ─────────────────────────────────
+  // Softening (resume) is harmless and immediate; TIGHTENING (pause) is not,
+  // so it earns a confirm. That confirm used to live inside KeysCard's
+  // onChange — which meant the gate existed exactly once, in one view. Every
+  // other view that pauses a key (the table lens, the detail drawer, the bulk
+  // action bar) would have shipped the pause unconfirmed with nothing to
+  // notice, because a missing confirm looks identical to a working button.
+  // The gate now sits at the mutation itself, where the delete gate already
+  // sat, so no future view can forget it. `skipConfirm` exists for the batch
+  // flows that own exactly one confirm for N keys.
+  const applyKeyActive = async (id, isActive) => {
     try {
       const res = await fetch(`/api/keys/${id}`, {
         method: "PUT",
@@ -877,6 +887,26 @@ export default function useEndpointController() {
     } catch (error) {
       console.log("Error toggling key:", error);
     }
+  };
+
+  const handleToggleKey = async (id, isActive, { skipConfirm = false } = {}) => {
+    const key = keys.find((k) => k.id === id);
+    // Only a transition INTO the disabled state is a tightening, and only a
+    // key we can see to be currently active may be tightened — a stale row
+    // cannot be paused twice. Resuming is never gated.
+    const tightening = !isActive && key?.isActive !== false;
+    if (tightening && !skipConfirm) {
+      setConfirmState({
+        title: "Pause API Key",
+        message: `Pause API key "${key?.name || "this key"}"?\n\nIt stops working immediately — every request carrying it is refused — but it can be resumed later. The key string itself is unchanged.`,
+        onConfirm: async () => {
+          setConfirmState(null);
+          await applyKeyActive(id, false);
+        },
+      });
+      return;
+    }
+    await applyKeyActive(id, isActive);
   };
 
   // The absolute /v1 address every tab prints. Declared here rather than in the
