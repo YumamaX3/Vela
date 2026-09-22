@@ -327,6 +327,22 @@ gh api "repos/YumamaX3/Vela/releases/tags/v0.9.x" --jq '.html_url'
 > comm -23 .rel-tags.txt .rel-rel.txt; rm -f .rel-tags.txt .rel-rel.txt
 > ```
 
+> ⚠️ **A third gap, found and closed 2026-09-23 — and the audit procedure itself
+> was the fault.** After v0.9.88 sailed, the census was re-derived and **v0.9.86**
+> was missing its Release: its tag body is **42 characters** (the same too-thin
+> case as `v0.9.69` above), so the **commit body** carried the Release instead —
+> 2,645 characters, published retroactively with the title
+> `v0.9.86 — The Fleet Console 🌊`. What makes this one worth recording is why it
+> had gone unseen: the first pass *filtered* the gap list with
+> `grep -E '^v0\.9\.(3[8-9]|[4-9][0-9])\.'` — a pattern whose **trailing `\.`
+> demands a dot that no real tag has**, so it could never match anything, and it
+> answered "none" while `v0.9.86` sat in plain sight in the list it had just
+> built. **Print the entire gap; never filter it with a pattern you have not
+> proven can match a real entry.** A filter that cannot match is not a negative
+> result — it is a broken instrument, and it is indistinguishable from good news.
+> Census now: **89 tags, 58 Releases, 31 unreleased**, every one of the 31 still
+> pre-decree — the composition unchanged from the entry above, which is the point.
+
 ### 📜 The Description Decree (Star's decree, 2026-08-29)
 
 Every version from v0.9.31 onward carries a **themed, emoji-rich, deep
