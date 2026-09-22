@@ -25,6 +25,68 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.86 — The Fleet Console 🌊
+> *"Fifty upstreams behind one gate, and to learn whether any of them was unwell you scrolled a page four times. So the tiles lay down and became a line: health first, then every provider on one scan, each row carrying the signal it was hiding. And the rail learned to move, because a column that folds should also arrive."* 🌊💜
+
+The providers page was five stacked sections of fifty disconnected tiles. It is now a
+**console**: a health strip that answers "is anything broken" before you read a row, then
+one dense list where every column is a real signal. The rail, meanwhile, gained the motion
+its compaction was missing.
+
+**✨ Features**
+- **The health strip** — healthy / degraded / cooling / down, derived from `isActive`,
+  `testStatus`, `lastErrorType` and the model cooldown locks. The ratio bar's segments are
+  the counts themselves (`flex-grow` from the data), so the shape of the bar is the truth,
+  not a drawn guess.
+- **One scan line** — provider, auth, model count, live activity, status, last error and
+  routing priority in a single row, replacing five sections and four scrolls.
+- **Live activity meter** — requests in the last 60s per provider, five segments. Funded by
+  the already-memoized `getPerProviderFrame()` (<=30s TTL, fail-open) through a new
+  `GET /api/usage/providers/activity`. One request for the whole fleet; a per-row fan-out
+  would have been fifty requests and a throttle risk on the metrics rail.
+- **Model counts without a fan-out** — one `/api/models` call, grouped client-side.
+- **Filters and sorts** — by state (configured / needs attention / healthy / disabled / not
+  connected) and by auth type; sorted by health, **priority**, name, model count or recent
+  activity. Priority is the routing order (lower runs first), which the page this replaces
+  sorted by, so displaying it without offering the sort would keep the column and lose its
+  reason.
+- **One test sweep** — the old page's three per-section "Test All" buttons became a single
+  **Test all**, with the same results modal.
+- **The rail's choreography** — labels rise 4px as the rail opens (the nav assembles rather
+  than appears), each following the one above it on the `--rail-stagger` cadence; chevrons
+  settle on a spring; the active marker grows in from a point and breathes a slow coral
+  glow, the rail's one ambient heartbeat. The delays live in the open rule, not the base
+  one, so arriving is the ceremony and leaving is not.
+
+**🐛 Fixes**
+- **"Disabled" was a lie for unconnected providers.** A provider with no connections has
+  never been enabled, so it now reads **"Not connected"** — a distinct state. On a fresh
+  install the old label would have counted 99 providers as "Disabled".
+- **The catalogue buried the fleet.** With ~99 catalogued providers and a handful connected,
+  listing all of them hid the thing the console is for. The default lens is now the fleet
+  that exists, with an honest reveal naming the number ("Show 94 providers not yet
+  connected").
+- **Contradictory empty states.** An empty list showed "No providers match" *and* the reveal
+  button at once. Three distinct truths now get three distinct sentences, chosen by whether
+  a lens (search or filter) is actually active.
+- **A dual-auth provider could show the wrong credential.** xAI held an API key while its
+  registry bucket said OAuth. The badge now reads the connection's own `authType`, falling
+  back to the registry only when nothing is connected.
+- **Keyless providers were mislabelled.** Local Ollama and the keyless free providers read
+  "not connected" when they need no key at all; they now read **"no key needed"** and carry
+  the state the old grid called "Ready".
+- **Provider logos restored.** The first draft rendered text initials only, dropping the
+  recognition the old grid had.
+
+**⚙️ Internal**
+- `getConnectionErrorTag`, the state vocabulary (`FLEET_STATES` / `STATE_RANK` /
+  `STATE_LABEL` / `STATE_TOKEN`) and the test-results view are carried over rather than
+  re-invented; every colour resolves to a token path, never a hex.
+- The provider registry is deduped by id — a dual-auth provider catalogued in two registries
+  would otherwise render twice under one React key and be double-counted in every total.
+- `.vela-dev-data/` joins the gitignore's local-only working dirs.
+
+---
 # v0.9.85 — The Compact Rail 🌊
 > *"Twenty-nine rooms, and every one of them paid a fifth of its width to a column read once per navigation. So the column learned to fold: seventy-six pixels of icons at rest, the full berth when a hand or a keystroke asks for it, and the two hundred and twelve pixels it gave back went to the work."* 🌊💜
 

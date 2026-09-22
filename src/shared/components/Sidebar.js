@@ -428,7 +428,7 @@ function NavItem({ href, label, icon, active, onClick, badge }) {
       )}
     >
       {active && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-brand-500" />
+        <span className="nav-active-bar absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-brand-500" />
       )}
       <span
         className={cn(
@@ -471,7 +471,7 @@ function MediaAccordion({ pathname, open, onToggle, active, onClose }) {
         )}
       >
         {active && (
-          <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-brand-500" />
+          <span className="nav-active-bar absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-brand-500" />
         )}
         <span className="material-symbols-outlined text-[18px]">perm_media</span>
         <span className="nav-label text-[13px] font-medium flex-1 text-left">{translate("Media Providers")}</span>
@@ -541,7 +541,7 @@ function ProxyAccordion({ pathname, open, onToggle, active, onClose }) {
         )}
       >
         {active && (
-          <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-brand-500" />
+          <span className="nav-active-bar absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-brand-500" />
         )}
         <span className="material-symbols-outlined text-[18px]">lan</span>
         <span className="nav-label text-[13px] font-medium flex-1 text-left">{translate("Proxy")}</span>
