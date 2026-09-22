@@ -178,11 +178,11 @@ export default function Sidebar({ onClose }) {
 
   return (
     <>
-      <aside className="flex w-72 flex-col border-r border-border-subtle bg-vibrancy backdrop-blur-xl motion-control min-h-full">
+      <aside className="nav-rail flex flex-col border-r border-border-subtle bg-vibrancy backdrop-blur-xl motion-control min-h-full">
         {/* Brand — Vela, the harbor */}
-        <div className="px-6 pt-6 pb-3 flex flex-col gap-2">
-          <Link href="/dashboard" onClick={onClose} className="flex items-center gap-3 group" aria-label="Vela home">
-            <div className="flex items-center justify-center size-10 motion-control group-hover:scale-[1.04]">
+        <div className="nav-brand px-6 pt-6 pb-3 flex flex-col gap-2">
+          <Link href="/dashboard" onClick={onClose} className="nav-brand-link flex items-center gap-3 group" aria-label="Vela home">
+            <div className="shrink-0 flex items-center justify-center size-10 motion-control group-hover:scale-[1.04]">
               <img
                 src="/vela-logo.svg"
                 alt="Vela"
@@ -191,7 +191,7 @@ export default function Sidebar({ onClose }) {
                 height={40}
               />
             </div>
-            <div className="flex flex-col min-w-0">
+            <div className="nav-label flex flex-col min-w-0">
               <div className="flex items-center gap-2">
                 <h1 className="text-[17px] font-semibold tracking-tight text-text-main leading-none">
                   {APP_CONFIG.name}
@@ -204,7 +204,7 @@ export default function Sidebar({ onClose }) {
             </div>
           </Link>
           {updateInfo && (
-            <div className="relative overflow-hidden rounded-[10px] border border-brand-500/25 bg-brand-500/10 p-2.5">
+            <div className="nav-notice relative overflow-hidden rounded-[10px] border border-brand-500/25 bg-brand-500/10 p-2.5">
               {/* The ember glow — the notice's identity motif */}
               <div className="pointer-events-none absolute -right-8 -top-8 h-20 w-20 rounded-full bg-brand-500/20 blur-xl" />
               <div className="relative flex items-start justify-between gap-2">
@@ -257,15 +257,15 @@ export default function Sidebar({ onClose }) {
               <button
                 type="button"
                 onClick={() => setCollapsed((c) => ({ ...c, [group.title]: !c[group.title] }))}
-                className="flex w-full items-center gap-1 px-3 pb-1.5 text-left group-head-btn"
+                className="nav-group-head relative flex w-full items-center gap-1 px-3 pb-1.5 text-left group-head-btn"
               >
-                <p className="flex-1 text-[10px] font-semibold text-text-muted/60 uppercase tracking-[0.14em]">
+                <p className="nav-label flex-1 text-[10px] font-semibold text-text-muted/60 uppercase tracking-[0.14em]">
                   {translate(group.title)}
                 </p>
-                <span className="text-[9px] font-mono font-semibold text-text-subtle/70 bg-surface-2 rounded-full px-1.5 py-px">
+                <span className="nav-label text-[9px] font-mono font-semibold text-text-subtle/70 bg-surface-2 rounded-full px-1.5 py-px">
                   {group.items.length}
                 </span>
-                <span className={`material-symbols-outlined text-[13px] text-text-subtle motion-control ${collapsed[group.title] ? "-rotate-90" : ""}`}>
+                <span className={`nav-label material-symbols-outlined text-[13px] text-text-subtle motion-control ${collapsed[group.title] ? "-rotate-90" : ""}`}>
                   expand_more
                 </span>
               </button>
@@ -301,8 +301,8 @@ export default function Sidebar({ onClose }) {
 
           {/* System */}
           <div className="pt-3">
-            <p className="px-3 pb-1.5 text-[10px] font-semibold text-text-muted/60 uppercase tracking-[0.14em]">
-              {translate("System")}
+            <p className="nav-group-head relative px-3 pb-1.5 text-[10px] font-semibold text-text-muted/60 uppercase tracking-[0.14em]">
+              <span className="nav-label">{translate("System")}</span>
             </p>
             <div className="flex flex-col gap-0.5">
               {debugItems.map((item) => {
@@ -323,7 +323,7 @@ export default function Sidebar({ onClose }) {
                 <span className="material-symbols-outlined text-[18px] group-hover:text-primary motion-control">
                   computer
                 </span>
-                <span className="text-[13px] font-medium">9Remote</span>
+                <span className="nav-label text-[13px] font-medium">9Remote</span>
               </button>
 
               {/* 9English */}
@@ -340,7 +340,7 @@ export default function Sidebar({ onClose }) {
                 <span className="material-symbols-outlined text-[18px] group-hover:text-primary motion-control">
                   translate
                 </span>
-                <span className="text-[13px] font-medium">9English</span>
+                <span className="nav-label text-[13px] font-medium">9English</span>
               </a>
 
               {/* Settings */}
@@ -438,9 +438,9 @@ function NavItem({ href, label, icon, active, onClick, badge }) {
       >
         {icon}
       </span>
-      <span className="text-[13px] font-medium truncate flex-1">{translate(label)}</span>
+      <span className="nav-label text-[13px] font-medium truncate flex-1">{translate(label)}</span>
       {badge && (
-        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-brand-500/15 text-primary font-mono leading-none">
+        <span className="nav-label text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-brand-500/15 text-primary font-mono leading-none">
           {badge}
         </span>
       )}
@@ -474,16 +474,16 @@ function MediaAccordion({ pathname, open, onToggle, active, onClose }) {
           <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-brand-500" />
         )}
         <span className="material-symbols-outlined text-[18px]">perm_media</span>
-        <span className="text-[13px] font-medium flex-1 text-left">{translate("Media Providers")}</span>
+        <span className="nav-label text-[13px] font-medium flex-1 text-left">{translate("Media Providers")}</span>
         <span
-          className="material-symbols-outlined text-[14px] motion-control"
+          className="nav-label material-symbols-outlined text-[14px] motion-control"
           style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
         >
           expand_more
         </span>
       </button>
       {open && (
-        <div className="pl-4 mt-0.5 flex flex-col gap-0.5 border-l border-border-subtle ml-6">
+        <div className="nav-sub mt-0.5 flex flex-col gap-0.5 border-l border-border-subtle">
           {MEDIA_PROVIDER_KINDS.filter((k) => VISIBLE_MEDIA_KINDS.includes(k.id)).map((kind) => (
             <Link
               key={kind.id}
@@ -497,7 +497,7 @@ function MediaAccordion({ pathname, open, onToggle, active, onClose }) {
               )}
             >
               <span className="material-symbols-outlined text-[16px]">{kind.icon}</span>
-              <span className="text-sm">{kind.label}</span>
+              <span className="nav-label text-sm">{translate(kind.label)}</span>
             </Link>
           ))}
           <Link
@@ -512,7 +512,7 @@ function MediaAccordion({ pathname, open, onToggle, active, onClose }) {
             )}
           >
             <span className="material-symbols-outlined text-[16px]">{COMBINED_WEB_ITEM.icon}</span>
-            <span className="text-sm">{COMBINED_WEB_ITEM.label}</span>
+            <span className="nav-label text-sm">{translate(COMBINED_WEB_ITEM.label)}</span>
           </Link>
         </div>
       )}
@@ -544,16 +544,16 @@ function ProxyAccordion({ pathname, open, onToggle, active, onClose }) {
           <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[3px] rounded-full bg-brand-500" />
         )}
         <span className="material-symbols-outlined text-[18px]">lan</span>
-        <span className="text-[13px] font-medium flex-1 text-left">{translate("Proxy")}</span>
+        <span className="nav-label text-[13px] font-medium flex-1 text-left">{translate("Proxy")}</span>
         <span
-          className="material-symbols-outlined text-[14px] motion-control"
+          className="nav-label material-symbols-outlined text-[14px] motion-control"
           style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)" }}
         >
           expand_more
         </span>
       </button>
       {open && (
-        <div className="pl-4 mt-0.5 flex flex-col gap-0.5 border-l border-border-subtle ml-6">
+        <div className="nav-sub mt-0.5 flex flex-col gap-0.5 border-l border-border-subtle">
           {PROXY_TABS.map((lens) => (
             <Link
               key={lens.id}
@@ -567,7 +567,7 @@ function ProxyAccordion({ pathname, open, onToggle, active, onClose }) {
               )}
             >
               <span className="material-symbols-outlined text-[16px]">{lens.icon}</span>
-              <span className="text-sm">{translate(lens.label)}</span>
+              <span className="nav-label text-sm">{translate(lens.label)}</span>
             </Link>
           ))}
         </div>

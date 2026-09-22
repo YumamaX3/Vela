@@ -86,6 +86,20 @@
   /* Slight overshoot: for instruments that snap into a detent. */
   --motion-ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
 
+  /* The Nav Rail (v0.9.85) — the sidebar's compaction, in two widths.
+     The expanded width IS the sidebar's own w-72 (18rem), so the open
+     state is the surface the app already had and only the resting width
+     is new. 76px is set by the glyph's own geometry: an 18px icon behind
+     12px of row padding and 16px of nav padding, on both sides, lands the
+     icon within a pixel of the rail's centre, so the rail needs no
+     centring rule of its own. */
+  --rail-width: 76px;
+  --rail-width-expanded: 18rem;
+  /* Wider than any label's expanded width on purpose: the cap binds only
+     while the rail is closed, so the open rail keeps the sidebar's own
+     flex layout — the badge pushed to the row's end and all. */
+  --rail-label-max: 260px;
+
   /* Command-deck terminal — warm ink panel, cream text */
   --color-terminal: #2a211c;
   --color-terminal-text: #f2e9e1;
@@ -1530,5 +1544,168 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
     transition-duration: 0.01ms !important;
     transition-delay: 0ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   The Nav Rail (v0.9.85) — the sidebar, compacted.
+
+   The desktop sidebar is now a rail: 76px of icons at rest, the full
+   288px sidebar on hover or keyboard focus. Why a rail at all: the
+   dashboard's content is the point, and a permanent 288px column spent
+   a fifth of a 1440px deck on chrome that is read once per navigation.
+   Compacting it returns ~212px to every page.
+
+   DESKTOP ONLY, and that is load-bearing. The expansion is driven by
+   hover, and a touch device has no hover — so on mobile the rail would
+   open as 76px of unlabelled glyphs with no gesture that could ever
+   reveal them. The base rule below therefore sets the FULL sidebar
+   width, and every compaction lives inside the same 64rem breakpoint
+   the shell already uses to choose between the desktop sidebar and the
+   mobile drawer (`hidden lg:flex`). Below 64rem nothing here applies.
+
+   THE RAIL IS VISUAL COMPACTION, NOT DISCLOSURE. Labels stay in the DOM
+   at every width and are hidden with `opacity` + a clipped max-width,
+   never `display: none` and never `visibility: hidden`. So a screen
+   reader reads the full nav with no pointer and no focus, and there is
+   no `aria-expanded` to claim, because nothing is disclosed — the markup
+   is identical at both widths and only its presentation moves. Hiding
+   the labels from AT instead would be the slop this design avoids.
+
+   The width is a TRANSITION on the rail only. Every child keeps its own
+   geometry and simply stops being clipped as the rail grows, which is
+   why no row needs a second layout for the open state.
+
+   prefers-reduced-motion: the width transition belongs to `.nav-rail`
+   itself, not to `.motion-control`, because that class deliberately
+   enumerates non-layout properties and never `all`. The global rule
+   already clamps this transition's duration, so the rail still reaches
+   its expanded width — it simply arrives without the slide.
+   ============================================================ */
+.nav-rail {
+  width: var(--rail-width-expanded);
+}
+
+@media (min-width: 64rem) {
+  .nav-rail {
+    width: var(--rail-width);
+    transition: width var(--motion-dur-quick) var(--motion-ease-out);
+  }
+  .nav-rail:hover,
+  .nav-rail:focus-within {
+    width: var(--rail-width-expanded);
+  }
+
+  /* Every text label — a nav row, a sub-row, a section header, the count
+     chip, the chevron, the badge — is clipped to zero width at rest and
+     grows back on hover or focus. Clipping, never `display: none` and
+     never `visibility: hidden`: the text stays in the DOM and in the
+     accessible tree at every width, which is what keeps the rail readable
+     to a screen reader with no pointer and no focus. `max-width` rather
+     than `width`, so each label returns to its OWN natural size and a
+     longer one simply takes the room it needs; `white-space: nowrap` so
+     nothing wraps while it is being clipped. */
+  .nav-label {
+    max-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    opacity: 0;
+    transition:
+      max-width var(--motion-dur-quick) var(--motion-ease-out),
+      opacity var(--motion-dur-instant) var(--motion-ease-out);
+  }
+  .nav-rail:hover .nav-label,
+  .nav-rail:focus-within .nav-label {
+    max-width: var(--rail-label-max);
+    opacity: 1;
+  }
+
+  /* The brand block keeps the logo visible at rest and centres it on the
+     rail's own axis. The arithmetic, because a comment claiming "centred"
+     without the numbers is how an offset ships unnoticed — and every
+     number below is MEASURED, not derived:
+       · the nav's `px-4` (16) plus a row's `px-3` (12) puts each icon box
+         at left 28; the box is 24px, so the column's axis is 40;
+       · the logo is 40px, so its left edge must be 40 - 20 = 20px.
+     Two things had to be true for that. The Link's `gap-3` must stop
+     adding 12px toward a label that is 0px wide at rest, and the logo
+     must not FLEX-SHRINK: the brand box is 75px inside the border, so
+     `20 + 40 + 20` overruns it and flex was quietly shrinking the mark
+     to 35px — which is why its centre measured 37.5 rather than 40. The
+     wrapper carries `shrink-0` for exactly that. Both return to the
+     sidebar's own `px-6`/`gap-3` on hover or focus. */
+  .nav-brand {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .nav-brand-link {
+    gap: 0;
+  }
+  .nav-rail:hover .nav-brand,
+  .nav-rail:focus-within .nav-brand {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+  .nav-rail:hover .nav-brand-link,
+  .nav-rail:focus-within .nav-brand-link {
+    gap: 12px;
+  }
+
+  /* A section header cannot shrink to an icon, so at rest it becomes the
+     group's own divider: a short centred hairline stands in for the label
+     it just clipped away, which is what keeps the rail reading as grouped
+     sections rather than one undifferentiated column of glyphs. The rule
+     fades out as the label fades in. */
+  .nav-group-head::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 20px;
+    height: 1px;
+    transform: translate(-50%, -50%);
+    background: var(--color-border);
+    transition: opacity var(--motion-dur-instant) var(--motion-ease-out);
+  }
+  .nav-rail:hover .nav-group-head::after,
+  .nav-rail:focus-within .nav-group-head::after {
+    opacity: 0;
+  }
+
+  /* Sub-rows (a media kind, a proxy lens) hang off a border-left rail.
+     Collapsed, that indent and its hairline would push their icons out of
+     line with every other icon in the rail, so they are dropped at rest
+     and restored on open. */
+  .nav-sub {
+    margin-left: 0;
+    padding-left: 0;
+    border-left-width: 0;
+    transition:
+      margin-left var(--motion-dur-quick) var(--motion-ease-out),
+      padding-left var(--motion-dur-quick) var(--motion-ease-out),
+      border-left-width var(--motion-dur-quick) var(--motion-ease-out);
+  }
+  .nav-rail:hover .nav-sub,
+  .nav-rail:focus-within .nav-sub {
+    margin-left: 1.5rem;
+    padding-left: 1rem;
+    border-left-width: 1px;
+  }
+
+  /* The update notice is a card, not a row: it cannot compact. It is
+     hidden at rest and returns whole on hover or focus, because a notice
+     squeezed into 76px would be unreadable rather than merely small. */
+  .nav-notice {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition:
+      max-height var(--motion-dur-quick) var(--motion-ease-out),
+      opacity var(--motion-dur-instant) var(--motion-ease-out);
+  }
+  .nav-rail:hover .nav-notice,
+  .nav-rail:focus-within .nav-notice {
+    max-height: 200px;
+    opacity: 1;
   }
 }

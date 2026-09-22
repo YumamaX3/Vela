@@ -25,6 +25,54 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.85 — The Compact Rail 🌊
+> *"Twenty-nine rooms, and every one of them paid a fifth of its width to a column read once per navigation. So the column learned to fold: seventy-six pixels of icons at rest, the full berth when a hand or a keystroke asks for it, and the two hundred and twelve pixels it gave back went to the work."* 🌊💜
+
+The desktop sidebar was a fixed 288px — a fifth of a 1440px deck spent on chrome read
+once per navigation. It is now a **rail**: 76px of icons at rest, expanding to the full
+288px on hover **or** keyboard focus. Nothing about the expanded rail is new; it is the
+sidebar the app already had. Only the resting width is.
+
+**✨ Features**
+- **The rail** — `.nav-rail` (76px → 288px on `:hover` / `:focus-within`), with
+  `--rail-width` · `--rail-width-expanded` · `--rail-label-max` minted on `:root`. The
+  width transitions; every child keeps its own geometry and simply stops being clipped as
+  the rail grows, so no row needed a second layout for the open state.
+- **Compaction, not disclosure** — every label stays in the DOM at every width, hidden with
+  `max-width: 0` + `opacity`, never `display: none` and never `visibility: hidden`. A screen
+  reader reads the full nav with no pointer and no focus, which is why the rail claims **no
+  `aria-expanded`**: nothing is disclosed, the markup is identical at both widths and only
+  its presentation moves.
+- **The keyboard path** — `:focus-within` opens the rail, so the labels cost a pointer
+  nothing and are never withheld from a keyboard. Measured live: focus `76 → 288`, blur
+  `→ 76`, with no pointer anywhere near it.
+
+**🔧 Changes & Improvements**
+- **Desktop only, and that is load-bearing.** Hover does not exist on touch, so below `64rem`
+  the rail IS the full sidebar — the same breakpoint the shell already uses to choose between
+  the desktop sidebar and the mobile drawer. A phone gets labelled rows exactly as before;
+  measured `docW = winW` at 375px, no overflow, and the drawer opens 288px with its labels
+  visible.
+- **The section headers become hairlines.** "Gateway", "Analytics", "Tools", "System" cannot
+  shrink to an icon, so at rest each draws a short centred rule in its place — which is what
+  keeps the rail reading as grouped sections rather than one undifferentiated column of glyphs.
+- **The logo holds the axis.** The brand block drops to 20px padding and its Link's gap to 0
+  while closed, landing the 40px mark at left 20 so its centre sits on the icon column's own
+  axis (both measured at **40**). The wrapper carries `shrink-0` because flex was quietly
+  shrinking the mark to 35px inside the 75px brand box — the difference between a centred logo
+  and a 2.5px lie.
+
+**⚙️ Internal**
+- Lint clean on the changed files (0 errors); `npm run build` green; the shell/drawer/focus/token
+  guard suites **79/79**. The repo's pre-existing reds (translator, proxy, OAuth, mirror,
+  pricing) are **unchanged** — measured `26 failed / 110 passed` both with the rail stashed and
+  with it restored.
+- Verified live in both themes and at 375px: every nav route lands on its own href, both
+  accordions expand (Media `0 → 6`, Proxy `6 → 10`), a group header collapses its rows, and
+  `prefers-reduced-motion` still reaches the expanded width — it simply arrives without the slide.
+
+---
+
 # v0.9.84 — The Ledger Spent ⚙️
 > *"I had drawn the chart and hung it on the wall, and not one vessel ever read it. Thirty-two timings spoke a dialect of their own while the chart's numbers sat unused — so this tide handed the chart to every hand in the harbor, and mended two claims that were about to sail as if they were true."* ⚙️🌊💜
 
