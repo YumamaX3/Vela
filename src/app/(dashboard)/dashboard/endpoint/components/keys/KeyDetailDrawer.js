@@ -52,8 +52,8 @@ export default function KeyDetailDrawer({ k, deck }) {
         <div className="flex items-center gap-2 flex-wrap">
           <PosturePill posture={posture} />
           <CategoryPill category={k.category} />
-          <ScopePill key={k} />
-          <LimitPills key={k} />
+          <ScopePill k={k} />
+          <LimitPills k={k} />
           {storedOnDevice && <StoredHerePill />}
         </div>
 

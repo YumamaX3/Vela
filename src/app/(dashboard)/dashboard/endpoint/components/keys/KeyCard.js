@@ -65,8 +65,8 @@ export default function KeyCard({ k, deck }) {
             </button>
             <PosturePill posture={posture} />
             <CategoryPill category={k.category} />
-            <ScopePill key={k} />
-            <LimitPills key={k} />
+            <ScopePill k={k} />
+            <LimitPills k={k} />
             {storedOnDevice && <StoredHerePill />}
           </div>
 

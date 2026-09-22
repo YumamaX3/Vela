@@ -25,7 +25,64 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
-# v0.9.88 — The Keyring Manifest 🗝️
+# v0.9.89 — The Unspoken Names 🐛
+> *"Three times in one tide I found the same wound. A door declared and never opened. A word the framework had already claimed for its own. A glyph the font had never been taught. Not one of them broke the build — every one of them broke the shore."* 🌊💜
+
+**The class, and the instrument that sees it.** v0.9.88's keyring manifest was proven by a
+green build and a green suite, and it shipped a key room that answered **500 on every door**.
+Neither instrument could have caught it: the wound was a named import whose target module
+never exported it, and **webpack tolerates that while Turbopack refuses it** — so the build
+stayed green, the tests stayed green, and only a real browser walking a real server found the
+room dark. This tide mends the class, not the incident, and leaves behind the sweeps that
+found it.
+
+**🐛 Fixes**
+- **The door that was never opened** — `endpoint/lib/keyFormat.js:17`. The re-export block
+  carried `limitsFromRecord` and not `limitsToRecord`, though `keyLimits.js:54` exports both
+  as a pair. Four files in the graph imported the missing name (`KeyDetailDrawer.js:18`,
+  `KeysCard.js`, `EndpointPageClient.js`, `page.js`), which is why the whole room 500'd — and
+  why `stats`, `export`, `bulk` and `import` 500'd with it: one broken module graph, five
+  apparent failures. One line mended them all.
+- **The word React had already claimed** — `endpoint/components/keys/KeyBits.js`.
+  `ScopePill` and `LimitPills` each took a prop named literally `key`, and **React reserves
+  that name**: it is stripped before the component is ever called, so the prop arrived
+  `undefined` and `key.allowedModels` threw the card lens down. Renamed to `k` — the room's
+  own convention, already spoken by `<KeyCard key={k.id} k={k} />` — across the two
+  signatures and their four call sites. The same reservation was painting
+  `Encountered two children with the same key, [object Object]` twice per render, a warning
+  that had been read as noise for a whole release.
+- **The list source that was never there** — `endpoint/components/keys/KeyRail.js:34`. The
+  rail read `keys` off `deck`; `useKeyDeck` returns fifty-two names and `keys` is not among
+  them — it belongs to the controller (`c`), exactly as `KeyFleetPulse` already read it.
+  A crash on the first paint of the keys room, mended by reading from the hand that holds it.
+- **The glyph the font never learned** — `scripts/icon-ligatures.txt`. v0.9.88 *recorded* this
+  gap rather than quietly repairing another room's shore; this tide pays it. `add_link` — two
+  literals in `dashboard/providers/page.js` since v0.9.86 — was absent from the pruned subset,
+  so the ligature never formed and the raw word `add_link` painted itself beside the real
+  glyphs. Added (240 → 241) and the GSUB-pruned subset **re-minted**, content-hashed as
+  always, with `globals.css`'s `@font-face` rewritten to the new identity.
+
+**🔧 Refit**
+- **Three sweeps, left standing** — the instruments that found these wounds are kept, not
+  spent. A **link sweep** (esbuild applies Turbopack's rule — every named import must exist —
+  where webpack does not) over all 31 files of the room: **4 findings → 0**. A **deck-drift
+  sweep** that extracts `useKeyDeck`'s return block, then reads every `deck.X` and
+  `const { … } = deck` in the room: **1 finding → 0**. And a whole-harbour pass over every
+  `page.js` / `route.js` / `layout.js`, so the class cannot hide in a room nobody walked.
+
+**🧪 Proof**
+- **Live, in a real browser** — the keys room renders its rail (`All keys 1 · Uncategorized 1`),
+  its card pills (`Active · All models · stored here`) and its detail drawer; **0 page errors**
+  and **0 reserved-prop warnings**, where before the mend it was a 500 and a crash.
+- **The doors answer again** — `/api/keys/stats` **200** · `/api/keys/export` **200** ·
+  `/api/keys/bulk` **405** · `/api/keys/import` **405** (POST-only, as they should be) ·
+  `/api/keys/usage` **200**.
+- **The guards** — the icon-subset guard that named `add_link` is green once the font is
+  re-minted; the pin guard, the key-format, usage, limits, categories and ACL suites stay
+  green. The mint itself refused to run until the codepoints map was gathered, and refused any
+  name absent from it — so the inventory grew by a name the font could actually teach.
+
+
 > *"One room had been serving five questions at once, and charging every visitor for all five. So I gave each its own drawer: the census, the filing, the lens, the one, and the many. And I made one thing true that never had been — a promise the field made and the browser never kept, now kept."* 🗝️💜
 
 **The key fleet's deck (R-31).** The keys card was a single scroll that had to answer,

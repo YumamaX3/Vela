@@ -19,9 +19,10 @@ export {
   categoryOf,
   formatTokens,
   formatCost,
-  limitBadges,
-  limitsFromRecord,
-  DEFAULT_LIMITS,
+limitBadges,
+limitsFromRecord,
+limitsToRecord,
+DEFAULT_LIMITS,
 } from "./keyLimits";
 
 import { translate } from "@/i18n/runtime";

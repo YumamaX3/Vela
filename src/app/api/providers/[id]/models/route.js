@@ -12,7 +12,7 @@ import { resolveGrokCliModels } from "open-sse/services/grokCliModels.js";
 import { resolveConnectionProxyConfig, buildProxyOptionsPayload } from "@/lib/network/connectionProxy";
 import { resolveCursorModels } from "open-sse/services/cursorModels.js";
 import { resolveZedModels } from "open-sse/shared/zedAuth.js";
-import { resolveClineModels, resolveClinepassModels } from "open-sse/services/clinepassModels.js";
+import { resolveClinepassModels } from "open-sse/services/clinepassModels.js";
 
 const GEMINI_CLI_MODELS_URL = "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels";
 
