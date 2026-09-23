@@ -11,11 +11,17 @@ import { Button, Input } from "@/shared/components";
 import { translate } from "@/i18n/runtime";
 
 export default function BulkActionBar({ deck }) {
-  const { selected, clearSelection, setActive, revoke, setCategory, openImport, exportFleet, busy } = deck;
+  const { selected, clearSelection, setActive, revoke, setCategory, openImport, exportFleet, busy, bulkVerdicts, clearBulkVerdicts } = deck;
   const [draftCategory, setDraftCategory] = useState("");
 
   const ids = [...selected];
   if (ids.length === 0) return null;
+  // The last bulk run's refusals, BY NAME. The route has always answered one
+  // verdict per key; the bar used to show only a count, so an operator running
+  // a 40-key pause learned "38 applied, 2 refused" and never which two. A
+  // partial success is shown as exactly that — the count and the reasons.
+  const refusals = (bulkVerdicts || []).filter((r) => !r.ok);
+  const applied = (bulkVerdicts || []).filter((r) => r.ok).length;
 
   const file = () => {
     const name = draftCategory.trim();
@@ -26,6 +32,34 @@ export default function BulkActionBar({ deck }) {
 
   return (
     <div className="sticky bottom-4 z-30 mt-4">
+      {bulkVerdicts && (
+        <div className="mb-2 rounded-[12px] border border-border-subtle bg-surface/95 backdrop-blur px-3 py-2 shadow-lg">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold">
+              {applied} {translate("applied")}
+              {refusals.length > 0 && ` \u00b7 ${refusals.length} ${translate("refused")}`}
+            </span>
+            <span className="flex-1" />
+            <button
+              onClick={clearBulkVerdicts}
+              className="motion-control text-text-muted hover:text-text-main"
+              title={translate("Dismiss")}
+            >
+              <span className="material-symbols-outlined text-[14px]">close</span>
+            </button>
+          </div>
+          {refusals.length > 0 && (
+            <ul className="mt-1 space-y-0.5">
+              {refusals.map((r) => (
+                <li key={r.id || r.name} className="text-[11px] text-red-600 dark:text-red-400">
+                  <span className="font-medium">{r.name}</span>
+                  <span className="text-text-muted"> \u2014 {r.error || translate("refused")}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       <div className="flex items-center gap-2 flex-wrap rounded-[14px] border border-primary/30 bg-surface/95 backdrop-blur px-3 py-2.5 shadow-lg">
         <span className="text-xs font-semibold text-primary whitespace-nowrap">
           {ids.length} {ids.length === 1 ? translate("key selected") : translate("keys selected")}

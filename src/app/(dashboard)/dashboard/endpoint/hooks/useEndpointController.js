@@ -18,7 +18,9 @@ import {
   REACHABLE_MISS_THRESHOLD,
   CLIENT_PING_FAST_MS,
 } from "../lib/constants";
-import { clientPingUrl, clientPingAny } from "../lib/ping";
+import { clientPingAny } from "../lib/ping";
+import { fetchAllKeys, createKey, updateKey, deleteKey, setKeyActive } from "../lib/keyApi";
+import useTailscale from "./useTailscale";
 import { DEFAULT_LIMITS, limitsFromRecord, categoryOf } from "../lib/keyLimits";
 
 // Dedup guard for auto-provisioning the first "Default Key". Module scope so it
@@ -32,6 +34,11 @@ import { DEFAULT_LIMITS, limitsFromRecord, categoryOf } from "../lib/keyLimits";
 let provisioningDefaultKey = false;
 
 export default function useEndpointController() {
+  // The Tailscale/Funnel domain, lifted whole into its own hook and composed
+  // back here. The result is spread into this hook's return below, so every
+  // view still reads the same flat names it always did (`tsEnabled`,
+  // `handleConnectTailscale`, …) — composition, not fragmentation.
+  const tailscale = useTailscale();
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -74,37 +81,16 @@ export default function useEndpointController() {
   const [showEnableTunnelModal, setShowEnableTunnelModal] = useState(false);
   const [showDisableTunnelModal, setShowDisableTunnelModal] = useState(false);
 
-  // Tailscale state
-  const [tsEnabled, setTsEnabled] = useState(false);
-  const [tsReachable, setTsReachable] = useState(false);
-  const [tsUrl, setTsUrl] = useState("");
-  const [tsLoading, setTsLoading] = useState(false);
-  const [tsProgress, setTsProgress] = useState("");
-  const [tsStatus, setTsStatus] = useState(null);
-  const [tsAuthUrl, setTsAuthUrl] = useState("");
-  const [tsAuthLabel, setTsAuthLabel] = useState("");
-  const [tsInstalled, setTsInstalled] = useState(null); // null=checking, true/false
-  const [tsInstalling, setTsInstalling] = useState(false);
-  const [tsInstallLog, setTsInstallLog] = useState([]);
-  const [tsSudoPassword, setTsSudoPassword] = useState("");
-  const [tsConnecting, setTsConnecting] = useState(false);
-  const [showTsModal, setShowTsModal] = useState(false);
-  const [showDisableTsModal, setShowDisableTsModal] = useState(false);
-  const tsLogRef = useRef(null);
 
   // Debounce reachable=false: server may briefly return false during background refresh.
   // Only flip UI to "reconnecting" after N consecutive misses to avoid spinner flicker.
   const tunnelMissRef = useRef(0);
-  const tsMissRef = useRef(0);
   // Browser-side reachable cache (independent of backend DNS quirks)
   const tunnelClientReachableRef = useRef(false);
-  const tsClientReachableRef = useRef(false);
   // Track whether reachable=true was ever observed in this session.
   // Distinguishes "Checking..." (initial cold cache) from "Reconnecting..." (lost connection).
   const tunnelEverReachableRef = useRef(false);
-  const tsEverReachableRef = useRef(false);
   const [tunnelEverReachable, setTunnelEverReachable] = useState(false);
-  const [tsEverReachable, setTsEverReachable] = useState(false);
 
 
   // Client-side local/remote detection (UI hint only, not a security gate)
@@ -122,10 +108,6 @@ export default function useEndpointController() {
     ? "Enable \"Require login\" and set a custom password before activating the tunnel."
     : "Change the default dashboard password before activating the tunnel.";
 
-  // Auto-scroll install log
-  useEffect(() => {
-    if (tsLogRef.current) tsLogRef.current.scrollTop = tsLogRef.current.scrollHeight;
-  }, [tsInstallLog]);
 
   useEffect(() => {
     fetchData();
@@ -135,10 +117,10 @@ export default function useEndpointController() {
   // Status poll: only while degraded (not yet reachable). Stop once healthy to avoid spam.
   // Visibility re-check: refresh once when tab becomes visible.
   useEffect(() => {
-    const anyEnabled = tunnelEnabled || tsEnabled;
+    const anyEnabled = tunnelEnabled || tailscale.tsEnabled;
     if (!anyEnabled) return;
     const tunnelHealthy = !tunnelEnabled || tunnelReachable;
-    const tsHealthy = !tsEnabled || tsReachable;
+    const tsHealthy = !tailscale.tsEnabled || tailscale.tsReachable;
     const allHealthy = tunnelHealthy && tsHealthy;
     const onVisible = () => { if (!document.hidden) syncTunnelStatus(); };
     document.addEventListener("visibilitychange", onVisible);
@@ -148,7 +130,7 @@ export default function useEndpointController() {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [tunnelEnabled, tsEnabled, tunnelReachable, tsReachable]);
+  }, [tunnelEnabled, tailscale.tsEnabled, tunnelReachable, tailscale.tsReachable]);
 
   // Browser-side periodic ping: probes tunnel/tailscale URLs directly so UI stays
   // "reachable" even when backend DNS (1.1.1.1) hiccups on *.ts.net or *.trycloudflare.com.
@@ -164,24 +146,17 @@ export default function useEndpointController() {
       } else {
         tunnelClientReachableRef.current = false;
       }
-      if (tsEnabled && tsUrl) {
-        const ok = await clientPingUrl(tsUrl);
-        tsClientReachableRef.current = ok;
-        if (ok) { tsMissRef.current = 0; setTsReachable(true); if (!tsEverReachableRef.current) { tsEverReachableRef.current = true; setTsEverReachable(true); } }
-        else { tsMissRef.current += 1; if (tsMissRef.current >= REACHABLE_MISS_THRESHOLD) setTsReachable(false); }
-      } else {
-        tsClientReachableRef.current = false;
-      }
+      await tailscale.probeClient();
     };
-    const anyEnabled = (tunnelEnabled && (tunnelUrl || tunnelPublicUrl)) || (tsEnabled && tsUrl);
+    const anyEnabled = (tunnelEnabled && (tunnelUrl || tunnelPublicUrl)) || (tailscale.tsEnabled && tailscale.tsUrl);
     if (!anyEnabled) return;
     probeBoth();
     const tunnelHealthy = !tunnelEnabled || tunnelReachable;
-    const tsHealthy = !tsEnabled || tsReachable;
+    const tsHealthy = !tailscale.tsEnabled || tailscale.tsReachable;
     if (tunnelHealthy && tsHealthy) return;
     const id = setInterval(probeBoth, CLIENT_PING_FAST_MS);
     return () => clearInterval(id);
-  }, [tunnelEnabled, tunnelUrl, tunnelPublicUrl, tsEnabled, tsUrl, tunnelReachable, tsReachable]);
+  }, [tunnelEnabled, tunnelUrl, tunnelPublicUrl, tailscale.tsEnabled, tailscale.tsUrl, tunnelReachable, tailscale.tsReachable]);
 
   // Client-side reachable only (server no longer probes; watchdog handles backend health).
   // Miss-debounce: only flip to false after N consecutive misses.
@@ -213,11 +188,7 @@ export default function useEndpointController() {
       setTunnelEnabled(tEnabled);
       updateReachable(null, tunnelClientReachableRef, tunnelMissRef, setTunnelReachable, tunnelEverReachableRef, setTunnelEverReachable);
 
-      const tsEn = data.tailscale?.settingsEnabled ?? data.tailscale?.enabled ?? false;
-      const tsUrlVal = data.tailscale?.tunnelUrl || "";
-      setTsUrl(tsUrlVal);
-      setTsEnabled(tsEn);
-      updateReachable(null, tsClientReachableRef, tsMissRef, setTsReachable, tsEverReachableRef, setTsEverReachable);
+      tailscale.applyTailscaleStatus(data.tailscale);
     } catch { /* ignore poll errors */ }
   };
 
@@ -244,11 +215,7 @@ export default function useEndpointController() {
         setTunnelEnabled(tEnabled);
         updateReachable(null, tunnelClientReachableRef, tunnelMissRef, setTunnelReachable, tunnelEverReachableRef, setTunnelEverReachable);
 
-        const tsEn = data.tailscale?.settingsEnabled ?? data.tailscale?.enabled ?? false;
-        const tsUrlVal = data.tailscale?.tunnelUrl || "";
-        setTsUrl(tsUrlVal);
-        setTsEnabled(tsEn);
-        updateReachable(null, tsClientReachableRef, tsMissRef, setTsReachable, tsEverReachableRef, setTsEverReachable);
+        tailscale.applyTailscaleStatus(data.tailscale);
       }
     } catch (error) {
       console.log("Error loading settings:", error);
@@ -285,11 +252,18 @@ export default function useEndpointController() {
 
   const fetchData = async () => {
     try {
+      // Read the WHOLE fleet through the seam, not the route's first page. A
+      // bare `fetch("/api/keys")` returns `limit=100` and silently drops every
+      // key past the hundredth — the truncation this page's own keyApi.fetchKeys
+      // was written to prevent, ignored here. fetchAllKeys pages to the server's
+      // reported total, so the room shows every key it claims to show.
       const fetchKeys = async () => {
-        const res = await fetch("/api/keys");
-        if (!res.ok) return [];
-        const data = await res.json();
-        return data.keys || [];
+        try {
+          const { keys: rows } = await fetchAllKeys();
+          return rows;
+        } catch {
+          return [];
+        }
       };
 
       let existing = await fetchKeys();
@@ -372,14 +346,6 @@ export default function useEndpointController() {
     return [...seen];
   }, [keys]);
 
-  // Keys under the active filter. Deleting the last key of a filtered category
-  // would leave a chip with no rows — fall back to "all" so the list never
-  // renders a confusing empty state for an existing chip.
-  const filteredKeys = useMemo(() => {
-    if (activeCategoryFilter === "all") return keys;
-    const matched = keys.filter((k) => categoryOf(k) === activeCategoryFilter);
-    return matched.length ? matched : keys;
-  }, [keys, activeCategoryFilter]);
 
   const openCreateModal = () => {
     resetCreateForm();
@@ -434,30 +400,21 @@ export default function useEndpointController() {
     setEditingKey((prev) => ({ ...prev, saving: true, error: "" }));
     try {
       const L = editingKey.limits;
-      const res = await fetch(`/api/keys/${editingKey.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: editingKey.name.trim(),
-          description: editingKey.description,
-          category: editingKey.category?.trim() || null,
-          allowedModels: editingKey.scopeOn ? editingKey.allowedModels : null,
-          // W3 limits — always sent in full so the record matches the form.
-          rateLimitRpm: L.rateLimitRpm,
-          tokenBudgetDaily: L.tokenBudget,
-          spendCapDailyCents: L.spendCapCents,
-          budgetScope: (L.tokenBudget != null || L.spendCapCents != null) ? (L.budgetScope || "daily") : null,
-          expiresAt: L.expiresAt,
-          ipAllowlist: L.ipAllowlist?.length ? L.ipAllowlist : null,
-        }),
+      await updateKey(editingKey.id, {
+        name: editingKey.name.trim(),
+        description: editingKey.description,
+        category: editingKey.category?.trim() || null,
+        allowedModels: editingKey.scopeOn ? editingKey.allowedModels : null,
+        // W3 limits — always sent in full so the record matches the form.
+        rateLimitRpm: L.rateLimitRpm,
+        tokenBudgetDaily: L.tokenBudget,
+        spendCapDailyCents: L.spendCapCents,
+        budgetScope: (L.tokenBudget != null || L.spendCapCents != null) ? (L.budgetScope || "daily") : null,
+        expiresAt: L.expiresAt,
+        ipAllowlist: L.ipAllowlist?.length ? L.ipAllowlist : null,
       });
-      const data = await res.json();
-      if (res.ok) {
-        setEditingKey(null);
-        await fetchData();
-      } else {
-        setEditingKey((prev) => ({ ...prev, saving: false, error: data.error || "Failed to save key" }));
-      }
+      setEditingKey(null);
+      await fetchData();
     } catch (error) {
       setEditingKey((prev) => ({ ...prev, saving: false, error: error.message }));
     }
@@ -579,267 +536,34 @@ export default function useEndpointController() {
     }
   };
 
-  // u2500u2500u2500 Tailscale handlers
-  const checkTailscaleInstalled = async () => {
-    setTsInstalled(null);
-    try {
-      const res = await fetch("/api/tunnel/tailscale-check");
-      if (res.ok) {
-        const data = await res.json();
-        setTsInstalled(data.installed);
-        return data;
-      }
-    } catch { /* ignore */ }
-    setTsInstalled(false);
-    return { installed: false };
-  };
-
-  const handleInstallTailscale = async () => {
-    setTsInstalling(true);
-    setTsStatus(null);
-    setTsInstallLog([]);
-    try {
-      const res = await fetch("/api/tunnel/tailscale-install", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sudoPassword: tsSudoPassword }),
-      });
-      setTsSudoPassword("");
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split("\n\n");
-        buffer = parts.pop() || "";
-        for (const part of parts) {
-          const lines = part.split("\n");
-          let event = "progress";
-          let data = null;
-          for (const line of lines) {
-            if (line.startsWith("event: ")) event = line.slice(7).trim();
-            if (line.startsWith("data: ")) {
-              try { data = JSON.parse(line.slice(6)); } catch { /* skip */ }
-            }
-          }
-          if (!data) continue;
-          if (event === "progress") {
-            setTsInstallLog((prev) => [...prev.slice(-50), data.message]);
-          } else if (event === "done") {
-            setTsInstalled(true);
-            setTsInstalling(false);
-            setShowTsModal(false);
-            handleConnectTailscale();
-            return;
-          } else if (event === "error") {
-            setTsStatus({ type: "error", message: data.error || "Install failed" });
-          }
-        }
-      }
-    } catch (e) {
-      setTsStatus({ type: "error", message: e.message });
-    } finally {
-      setTsInstalling(false);
-    }
-  };
-
-  // Ping Tailscale health until reachable
-  const pingTsHealth = async (url) => {
-    setTsProgress("Waiting for Tailscale ready...");
-    const healthUrl = `${url}/api/health`;
-    const start = Date.now();
-    while (Date.now() - start < TUNNEL_PING_MAX_MS) {
-      await new Promise((r) => setTimeout(r, TUNNEL_PING_INTERVAL_MS));
-      try {
-        const ping = await fetch(healthUrl, { mode: "no-cors", cache: "no-store" });
-        if (ping.ok || ping.type === "opaque") return true;
-      } catch { /* not ready yet */ }
-    }
-    return false;
-  };
-
-  // Show inline login button instead of auto-opening popup (browsers block popups
-  // opened after async work because the user gesture is lost).
-  const requestUserAuth = (url, label) => {
-    setTsAuthUrl(url);
-    setTsAuthLabel(label);
-  };
-
-  const clearUserAuth = () => {
-    setTsAuthUrl("");
-    setTsAuthLabel("");
-  };
-
-  const handleConnectTailscale = async () => {
-    setShowTsModal(false);
-    setTsConnecting(true);
-    setTsLoading(true);
-    setTsStatus(null);
-    setTsProgress("Connecting...");
-    clearUserAuth();
-    try {
-      const res = await fetch("/api/tunnel/tailscale-enable", { method: "POST" });
-      const data = await res.json();
-
-      if (res.ok && data.success) {
-        setTsUrl(data.tunnelUrl || "");
-        const reachable = await pingTsHealth(data.tunnelUrl);
-        setTsEnabled(true);
-        setTsStatus(reachable ? null : { type: "warning", message: "Connected but not reachable yet." });
-        return;
-      }
-
-      if (data.needsLogin && data.authUrl) {
-        requestUserAuth(data.authUrl, "Open Login Page");
-        setTsProgress("Login required — click \"Open Login Page\" to continue");
-        for (let i = 0; i < 40; i++) {
-          await new Promise((r) => setTimeout(r, 3000));
-          try {
-            const r2 = await fetch("/api/tunnel/tailscale-check");
-            if (r2.ok) {
-              const check = await r2.json();
-              if (check.loggedIn) {
-                clearUserAuth();
-                setTsProgress("Starting funnel...");
-                const res2 = await fetch("/api/tunnel/tailscale-enable", { method: "POST" });
-                const data2 = await res2.json();
-                if (res2.ok && data2.success) {
-                  setTsUrl(data2.tunnelUrl || "");
-                  const ok2 = await pingTsHealth(data2.tunnelUrl);
-                  setTsEnabled(true);
-                  setTsStatus(ok2 ? null : { type: "warning", message: "Connected but not reachable yet." });
-                } else if (data2.funnelNotEnabled && data2.enableUrl) {
-                  await pollFunnelEnable(data2.enableUrl);
-                } else {
-                  setTsStatus({ type: "error", message: data2.error || "Failed to start funnel" });
-                }
-                return;
-              }
-            }
-          } catch { /* retry */ }
-        }
-        clearUserAuth();
-        setTsStatus({ type: "error", message: "Login timed out. Please try again." });
-        return;
-      }
-
-      if (data.funnelNotEnabled && data.enableUrl) {
-        await pollFunnelEnable(data.enableUrl);
-        return;
-      }
-
-      setTsStatus({ type: "error", message: data.error || "Failed to connect" });
-    } catch (error) {
-      setTsStatus({ type: "error", message: error.message });
-    } finally {
-      setTsLoading(false);
-      setTsConnecting(false);
-      setTsProgress("");
-      clearUserAuth();
-    }
-  };
-
-  const pollFunnelEnable = async (enableUrl) => {
-    requestUserAuth(enableUrl, "Open Funnel Settings");
-    setTsProgress("Click \"Open Funnel Settings\" to enable Funnel...");
-    for (let i = 0; i < 40; i++) {
-      await new Promise((r) => setTimeout(r, 3000));
-      try {
-        const res = await fetch("/api/tunnel/tailscale-enable", { method: "POST" });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          clearUserAuth();
-          setTsUrl(data.tunnelUrl || "");
-          const ok3 = await pingTsHealth(data.tunnelUrl);
-          setTsEnabled(true);
-          setTsStatus(ok3 ? null : { type: "warning", message: "Connected but not reachable yet." });
-          return;
-        }
-        if (data.funnelNotEnabled) continue;
-        if (data.error) {
-          clearUserAuth();
-          setTsStatus({ type: "error", message: data.error });
-          return;
-        }
-      } catch { /* retry */ }
-    }
-    clearUserAuth();
-    setTsStatus({ type: "error", message: "Timed out waiting for Funnel to be enabled." });
-  };
-
-  const handleDisableTailscale = async () => {
-    setTsLoading(true);
-    setTsStatus(null);
-    try {
-      const res = await fetch("/api/tunnel/tailscale-disable", { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        setTsEnabled(false);
-        setTsUrl("");
-        setShowDisableTsModal(false);
-        setTsStatus({ type: "success", message: "Tailscale disabled" });
-      } else {
-        setTsStatus({ type: "error", message: data.error || "Failed to disable Tailscale" });
-      }
-    } catch (e) {
-      setTsStatus({ type: "error", message: e.message });
-    } finally {
-      setTsLoading(false);
-    }
-  };
-
-  const handleOpenTsModal = async () => {
-    setTsStatus(null);
-    setTsInstallLog([]);
-    const data = await checkTailscaleInstalled();
-    if (data?.installed && data?.hasCachedPassword) {
-      handleConnectTailscale();
-    } else {
-      setShowTsModal(true);
-    }
-  };
-
   const handleCreateKey = async () => {
     if (!newKeyName.trim()) return;
     setCreateError("");
 
     try {
-      const res = await fetch("/api/keys", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newKeyName,
-          description: newKeyDescription || undefined,
-          category: newKeyCategory.trim() || undefined,
-          allowedModels: newKeyScopeOn ? newKeyScope : undefined,
-          // W3 limits — null fields stay null (unlimited / unrestricted).
-          rateLimitRpm: createLimits.rateLimitRpm,
-          tokenBudgetDaily: createLimits.tokenBudget,
-          spendCapDailyCents: createLimits.spendCapCents,
-          budgetScope: (createLimits.tokenBudget != null || createLimits.spendCapCents != null)
-            ? (createLimits.budgetScope || "daily")
-            : undefined,
-          expiresAt: createLimits.expiresAt,
-          ipAllowlist: createLimits.ipAllowlist?.length ? createLimits.ipAllowlist : undefined,
-        }),
+      // One seam. keyApi.createKey captures the show-once plaintext into the
+      // browser vault itself, so this handler keeps no second copy of the
+      // ceremony — or of the request shape — beside the API's own.
+      const data = await createKey({
+        name: newKeyName,
+        description: newKeyDescription || undefined,
+        category: newKeyCategory.trim() || undefined,
+        allowedModels: newKeyScopeOn ? newKeyScope : undefined,
+        // W3 limits — null fields stay null (unlimited / unrestricted).
+        rateLimitRpm: createLimits.rateLimitRpm,
+        tokenBudgetDaily: createLimits.tokenBudget,
+        spendCapDailyCents: createLimits.spendCapCents,
+        budgetScope: (createLimits.tokenBudget != null || createLimits.spendCapCents != null)
+          ? (createLimits.budgetScope || "daily")
+          : undefined,
+        expiresAt: createLimits.expiresAt,
+        ipAllowlist: createLimits.ipAllowlist?.length ? createLimits.ipAllowlist : undefined,
       });
-      const data = await res.json();
-
-      if (res.status === 201) {
-        // Capture-at-create: this 201 is the only plaintext copy the server ever yields.
-        if (data.key && data.keyId) storeKey(data.keyId, data.key);
-        setCreatedKey(data);
-        setCreatedKeyAck(false);
-        setShowAddModal(false);
-        resetCreateForm();
-        await fetchData();
-      } else {
-        setCreateError(data.error || "Failed to create key");
-      }
+      setCreatedKey(data);
+      setCreatedKeyAck(false);
+      setShowAddModal(false);
+      resetCreateForm();
+      await fetchData();
     } catch (error) {
       setCreateError(error.message);
     }
@@ -852,11 +576,9 @@ export default function useEndpointController() {
       onConfirm: async () => {
         setConfirmState(null);
         try {
-          const res = await fetch(`/api/keys/${id}`, { method: "DELETE" });
-          if (res.ok) {
-            removeKey(id); // purge the captured copy alongside the server-side revoke
-            setKeys(keys.filter((k) => k.id !== id));
-          }
+          await deleteKey(id);
+          removeKey(id); // purge the captured copy alongside the server-side revoke
+          setKeys(keys.filter((k) => k.id !== id));
         } catch (error) {
           console.log("Error deleting key:", error);
         }
@@ -876,14 +598,8 @@ export default function useEndpointController() {
   // flows that own exactly one confirm for N keys.
   const applyKeyActive = async (id, isActive) => {
     try {
-      const res = await fetch(`/api/keys/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive }),
-      });
-      if (res.ok) {
-        setKeys(prev => prev.map(k => k.id === id ? { ...k, isActive } : k));
-      }
+      await setKeyActive(id, isActive);
+      setKeys(prev => prev.map(k => k.id === id ? { ...k, isActive } : k));
     } catch (error) {
       console.log("Error toggling key:", error);
     }
@@ -922,6 +638,7 @@ export default function useEndpointController() {
     }
   }, []);
   return {
+    ...tailscale,
     baseUrl,
     keys,
     setKeys,
@@ -991,40 +708,8 @@ export default function useEndpointController() {
     setShowEnableTunnelModal,
     showDisableTunnelModal,
     setShowDisableTunnelModal,
-    tsEnabled,
-    setTsEnabled,
-    tsReachable,
-    setTsReachable,
-    tsUrl,
-    setTsUrl,
-    tsLoading,
-    setTsLoading,
-    tsProgress,
-    setTsProgress,
-    tsStatus,
-    setTsStatus,
-    tsAuthUrl,
-    setTsAuthUrl,
-    tsAuthLabel,
-    setTsAuthLabel,
-    tsInstalled,
-    setTsInstalled,
-    tsInstalling,
-    setTsInstalling,
-    tsInstallLog,
-    setTsInstallLog,
-    tsSudoPassword,
-    setTsSudoPassword,
-    tsConnecting,
-    setTsConnecting,
-    showTsModal,
-    setShowTsModal,
-    showDisableTsModal,
-    setShowDisableTsModal,
     tunnelEverReachable,
     setTunnelEverReachable,
-    tsEverReachable,
-    setTsEverReachable,
     isRemoteHost,
     setIsRemoteHost,
     copied,
@@ -1032,7 +717,6 @@ export default function useEndpointController() {
     isLoginUnsafe,
     unsafeReason,
     categories,
-    filteredKeys,
     loadSettings,
     handleTunnelDashboardAccess,
     handleRequireApiKey,
@@ -1046,15 +730,9 @@ export default function useEndpointController() {
     handleSaveKey,
     handleEnableTunnel,
     handleDisableTunnel,
-    handleInstallTailscale,
-    handleConnectTailscale,
-    handleDisableTailscale,
-    handleOpenTsModal,
     handleCreateKey,
     handleDeleteKey,
     handleToggleKey,
     updateReachable,
-    clearUserAuth,
-    tsLogRef,
   };
 }

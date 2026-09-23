@@ -22,7 +22,6 @@
 // the delete button each carried their own copy of the confirm.
 import { Button, Card } from "@/shared/components";
 import { translate } from "@/i18n/runtime";
-import useKeyDeck from "../../hooks/useKeyDeck";
 import BulkActionBar from "./BulkActionBar";
 import KeyCard from "./KeyCard";
 import KeyDetailDrawer from "./KeyDetailDrawer";
@@ -38,8 +37,7 @@ const NOTICE_TONE = {
   red: "border-red-500/30 bg-red-500/5 text-red-600 dark:text-red-400",
 };
 
-export default function KeysCard({ c }) {
-  const deck = useKeyDeck(c);
+export default function KeysCard({ c, deck }) {
   const { keys, openCreateModal } = c;
 
   const filtersActive = Boolean(deck.query) || deck.activeCategoryFilter !== "all" || Boolean(deck.posture);

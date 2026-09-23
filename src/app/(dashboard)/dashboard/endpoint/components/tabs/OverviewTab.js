@@ -18,7 +18,7 @@
 // Contrast: address text is --color-terminal-text on --color-terminal (12.9:1);
 // body text is --color-text-main / --color-text-muted on --color-surface.
 import { useState } from "react";
-import { Card, Button } from "@/shared/components";
+import { Card } from "@/shared/components";
 import { translate } from "@/i18n/runtime";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { CLIENTS, snippetFor } from "../../lib/clients";

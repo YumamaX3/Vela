@@ -63,14 +63,14 @@ export default function EndpointCard({ c }) {
           <Card>
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <span className="material-symbols-outlined text-primary">api</span>
-          API Endpoint
+          {translate("API Endpoint")}
         </h2>
 
         {/* Endpoint rows */}
         <div className="flex flex-col gap-2">
           {/* Local */}
           <EndpointRow
-            label="Local"
+            label={translate("Local")}
             url={currentEndpoint}
             copyId="local_url"
             copied={copied}
@@ -80,7 +80,7 @@ export default function EndpointCard({ c }) {
           <div className="flex items-center gap-2">
             <span className={`text-xs font-mono px-1.5 py-0.5 rounded shrink-0 min-w-[88px] text-center ${
               tunnelEnabled ? "bg-primary/10 text-primary" : "bg-surface-2 text-text-muted"
-            }`}>Tunnel</span>
+            }`}>{translate("Tunnel")}</span>
             {tunnelEnabled && !tunnelLoading && tunnelReachable ? (
               <>
                 <Input value={`${tunnelPublicUrl || tunnelUrl}/v1`} readOnly className="flex-1 font-mono text-sm" />
@@ -93,7 +93,7 @@ export default function EndpointCard({ c }) {
                 <button
                   onClick={() => setShowDisableTunnelModal(true)}
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 motion-control shrink-0"
-                  title="Disable Tunnel"
+                  title={translate("Disable Tunnel")}
                 >
                   <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
                 </button>
@@ -102,12 +102,12 @@ export default function EndpointCard({ c }) {
               <>
                 <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
                   <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                  {tunnelEverReachable ? "Tunnel reconnecting..." : "Tunnel checking..."}
+                  {tunnelEverReachable ? translate("Tunnel reconnecting...") : translate("Tunnel checking...")}
                 </div>
                 <button
                   onClick={() => setShowDisableTunnelModal(true)}
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 motion-control shrink-0"
-                  title="Disable Tunnel"
+                  title={translate("Disable Tunnel")}
                 >
                   <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
                 </button>
@@ -116,12 +116,12 @@ export default function EndpointCard({ c }) {
               <>
                 <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-border bg-input text-sm text-text-muted">
                   <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                  {tunnelProgress || "Creating tunnel..."}
+                  {tunnelProgress || translate("Creating tunnel...")}
                 </div>
                 <button
                   onClick={() => { setTunnelLoading(false); setTunnelProgress(""); }}
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 motion-control shrink-0"
-                  title="Stop"
+                  title={translate("Stop")}
                 >
                   <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
                 </button>
@@ -132,18 +132,18 @@ export default function EndpointCard({ c }) {
                   <span className="material-symbols-outlined text-sm">error</span>
                   {tunnelStatus.message}
                 </div>
-                <Button size="sm" icon="cloud_upload" onClick={() => setShowEnableTunnelModal(true)}>Enable</Button>
+                <Button size="sm" icon="cloud_upload" onClick={() => setShowEnableTunnelModal(true)}>{translate("Enable")}</Button>
               </>
             ) : tunnelChecking ? (
               <>
                 <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-border bg-input text-sm text-text-muted">
                   <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                  Checking...
+                  {translate("Checking...")}
                 </div>
                 <button
                   onClick={() => setTunnelChecking(false)}
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 motion-control shrink-0"
-                  title="Stop"
+                  title={translate("Stop")}
                 >
                   <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
                 </button>
@@ -154,17 +154,17 @@ export default function EndpointCard({ c }) {
                 icon="cloud_upload"
                 onClick={() => {
                   if (isLoginUnsafe) {
-                    setTunnelStatus({ type: "error", message: `Security required: ${unsafeReason}` });
+                    setTunnelStatus({ type: "error", message: `${translate("Security required:")} ${unsafeReason}` });
                     return;
                   }
                   if (!requireApiKey) {
-                    setTunnelStatus({ type: "error", message: "Security required: Enable \"Require API key\" before activating the tunnel." });
+                    setTunnelStatus({ type: "error", message: translate("Security required: Enable \"Require API key\" before activating the tunnel.") });
                     return;
                   }
                   setShowEnableTunnelModal(true);
                 }}
               >
-                Enable
+                {translate("Enable")}
               </Button>
             )}
           </div>
@@ -172,7 +172,7 @@ export default function EndpointCard({ c }) {
           <div className="flex items-center gap-2">
             <span className={`text-xs font-mono px-1.5 py-0.5 rounded shrink-0 min-w-[88px] text-center ${
               tsEnabled ? "bg-primary/10 text-primary" : "bg-surface-2 text-text-muted"
-            }`}>Tailscale</span>
+            }`}>{translate("Tailscale")}</span>
             {tsEnabled && !tsLoading && tsReachable ? (
               <>
                 <Input value={`${tsUrl}/v1`} readOnly className="flex-1 font-mono text-sm" />
@@ -185,7 +185,7 @@ export default function EndpointCard({ c }) {
                 <button
                   onClick={() => setShowDisableTsModal(true)}
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 motion-control shrink-0"
-                  title="Disable Tailscale"
+                  title={translate("Disable Tailscale")}
                 >
                   <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
                 </button>
@@ -194,12 +194,12 @@ export default function EndpointCard({ c }) {
               <>
                 <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
                   <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                  {tsEverReachable ? "Tailscale reconnecting..." : "Tailscale checking..."}
+                  {tsEverReachable ? translate("Tailscale reconnecting...") : translate("Tailscale checking...")}
                 </div>
                 <button
                   onClick={() => setShowDisableTsModal(true)}
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 motion-control shrink-0"
-                  title="Disable Tailscale"
+                  title={translate("Disable Tailscale")}
                 >
                   <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
                 </button>
@@ -222,7 +222,7 @@ export default function EndpointCard({ c }) {
                 <button
                   onClick={() => { setTsLoading(false); setTsConnecting(false); setTsProgress(""); clearUserAuth(); }}
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 motion-control shrink-0"
-                  title="Stop"
+                  title={translate("Stop")}
                 >
                   <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
                 </button>
@@ -233,7 +233,7 @@ export default function EndpointCard({ c }) {
                   <span className="material-symbols-outlined text-sm">error</span>
                   {tsStatus.message}
                 </div>
-                <Button size="sm" icon="vpn_lock" onClick={handleOpenTsModal}>Enable</Button>
+                <Button size="sm" icon="vpn_lock" onClick={handleOpenTsModal}>{translate("Enable")}</Button>
               </>
             ) : (
               <Button
@@ -241,14 +241,14 @@ export default function EndpointCard({ c }) {
                 icon="vpn_lock"
                 onClick={() => {
                   if (isLoginUnsafe) {
-                    setTsStatus({ type: "error", message: `Security required: ${unsafeReason}` });
+                    setTsStatus({ type: "error", message: `${translate("Security required:")} ${unsafeReason}` });
                     return;
                   }
                   handleOpenTsModal();
                 }}
                 className="bg-linear-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white!"
               >
-                Enable
+                {translate("Enable")}
               </Button>
             )}
           </div>

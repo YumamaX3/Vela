@@ -15,7 +15,7 @@
 // Contrast: readouts are --color-terminal-text on --color-terminal; the
 // sparkline's idle bars use --color-border (3.4:1 against --color-surface,
 // clearing SC 1.4.11's 3:1 for non-text), and active bars use brand-500.
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Card, Button } from "@/shared/components";
 import { translate } from "@/i18n/runtime";
 
@@ -27,11 +27,9 @@ export default function DiagnosticsTab({ c }) {
   const [probe, setProbe] = useState({ state: "idle", ms: null, at: null, error: null });
   const [samples, setSamples] = useState([]);
   const [probing, setProbing] = useState(false);
-  const aliveRef = useRef(true);
 
   async function runProbe() {
     setProbing(true);
-    aliveRef.current = true;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
     const started = performance.now();
@@ -39,11 +37,9 @@ export default function DiagnosticsTab({ c }) {
       const res = await fetch("/api/health", { signal: controller.signal, cache: "no-store" });
       const ms = Math.round(performance.now() - started);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      if (!aliveRef.current) return;
       setProbe({ state: "up", ms, at: new Date(), error: null });
       setSamples((prev) => [...prev, ms].slice(-MAX_SAMPLES));
     } catch (err) {
-      if (!aliveRef.current) return;
       const ms = Math.round(performance.now() - started);
       setProbe({
         state: "down",
@@ -54,7 +50,7 @@ export default function DiagnosticsTab({ c }) {
       setSamples((prev) => [...prev, ms].slice(-MAX_SAMPLES));
     } finally {
       clearTimeout(timer);
-      if (aliveRef.current) setProbing(false);
+      setProbing(false);
     }
   }
 
