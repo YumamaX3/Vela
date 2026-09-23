@@ -6,6 +6,14 @@ import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import ApiKeySelect from "./ApiKeySelect";
 import { matchKnownEndpoint } from "./cliEndpointMatch";
+// The vault's three names — capture-at-create (`parseKeyId`/`storeKey`) and
+// resolve-at-apply (`resolveKeyRef`). The v0.9.71 port carried this import out
+// with the upstream diff and left all four call sites behind, so the card threw
+// `parseKeyId is not defined` on mount and `resolveKeyRef is not defined` on
+// every render (getManualConfigs runs in the JSX, not behind the button) — the
+// whole /dashboard/cli-tools/claude room was dark. Re-bound in the exact shape
+// its siblings (Jcode, OpenClaw) already carry.
+import { resolveKeyRef, parseKeyId, storeKey } from "@/shared/utils/keyVault";
 import { stripModelContextMarker } from "open-sse/utils/modelMarkers.js";
 
 const CLOUD_URL = process.env.NEXT_PUBLIC_CLOUD_URL;

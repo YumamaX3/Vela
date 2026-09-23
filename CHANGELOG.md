@@ -25,6 +25,66 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.91 — The Unbound Names 🐛
+> *"Three times in one tide I found the same wound: a name called and never bound. Two of them had darkened whole rooms — one a keys room, one a Claude card — and every instrument I owned swore the shore was whole. The build compiled. The suite passed. Only the walk found them, and only because I went looking."* 🌊💜
+
+**The class, and where it hid.** A name declared and never resolvable is a *parse* success and a
+*runtime* failure — the bundler has nothing to refuse, and a suite that never imports the file
+never sees it. This is the fifth instance across four releases (v0.9.88, v0.9.89 and v0.9.90 each
+named it), and this tide found two more still sailing, plus the half-finished first one from the
+previous tide.
+
+**🐛 Fixes**
+- **The Claude card's vault seam** — `cli-tools/components/ClaudeToolCard.js:16`. The v0.9.71 Far
+  Current port deleted `import { resolveKeyRef, parseKeyId, storeKey } from "@/shared/utils/keyVault"`
+  while keeping all four calls. `parseKeyId`/`storeKey` fire in the init effect, and `resolveKeyRef`
+  fires **in the JSX** — `configs={getManualConfigs()}` evaluates on every render, not behind a
+  button — so `/dashboard/cli-tools/claude` died on mount with
+  `Runtime ReferenceError: resolveKeyRef is not defined` and could never open. Restored in the
+  exact shape its siblings (`JcodeToolCard`, `OpenClawToolCard`) already carry.
+- **The single-model combo's fallback rules** — `sse/handlers/chat.js:219`. `handleSingleModelChat`'s
+  nested-combo branch passed `fallbackRulesRepo` to `handleComboChat`, but the name was bound only in
+  the *outer* `handleChat` — a scope it never crosses. Every request reaching that branch (a combo
+  name arriving through the single-model path) died with a `ReferenceError`. The repo is now bound in
+  its own scope; the binder memoizes a successful bind, so it costs nothing.
+- **The keys room's filter law** — `endpoint/lib/keyFormat.js:13`. The module re-exported `categoryOf`
+  from `./keyLimits` without binding it locally, while `filterKeys`'s body called it — a re-export
+  declares no local name, so the room died with `Uncaught ReferenceError: categoryOf is not defined`.
+  Bound locally *and* re-exported, the two-step shape the posture law three lines up already used.
+
+**🔧 The guard that would have caught all three**
+- **`no-undef` adopted** — `eslint.config.mjs`. The rule was simply never lit: the config spread
+  `eslint-config-next/core-web-vitals` alone, whose ruleset has no `no-undef`. Measured across
+  `src` + `open-sse` (1,210 modules) it surfaces **6 findings, all six the two wounds above**, against
+  149 errors from the other rules — so it costs nothing and covers the exact class the build and the
+  suite are both blind to. The globals it needs were already present (the next config's first block
+  declares 1,174), so it adds **no dependency**. Honest scope: there is no CI lint gate in this repo,
+  so this is a hand-run instrument; the render suites below are the executed guards.
+
+**🧪 Proof**
+- **`tests/unit/claude-card-vault-seam.test.jsx`** (new) — the Claude card rendered in happy-dom
+  exactly as the room renders it, asserting the manual config an operator receives: the captured full
+  key round-trips (not the bare keyId), and an uncaptured id yields the honest
+  `<API_KEY_FROM_DASHBOARD>` placeholder. **Mutation-proven**: stripping the import reddens all three
+  cases with the browser's own `ReferenceError: resolveKeyRef is not defined`; restoring returns **3/3**.
+- **`tests/unit/key-format-filters.test.js`** (new) — the keys room's filter law
+  (`categoryOf`/`filterKeys`/`matchesQuery`/`sortKeys`) driven by its real contract, not the barrel.
+- **The suites that must hold**: 4 files / 27 cases green. `no-undef` across the whole repo: **0**
+  (was 6 in `src` + `open-sse`), and verified to bite against a planted bare name.
+
+**⚓ What sailed**: `cli-tools/components/ClaudeToolCard.js` · `sse/handlers/chat.js` ·
+`endpoint/lib/keyFormat.js` · `eslint.config.mjs` · `tests/unit/claude-card-vault-seam.test.jsx` (new) ·
+`tests/unit/key-format-filters.test.js` (new) · `CHANGELOG.md` · `package.json` · `package-lock.json` ·
+`docker-compose.example.yml` · `docker-compose.yml`
+
+**🌊 Recorded, not repeated** — the class has now been named in four consecutive tides, and each
+time the instrument was *absent*, not wrong. This tide adds the static one: a rule that refuses the
+bare name before it can ever reach a room. It will not replace the walk — no static rule sees a word
+React claimed for itself, or a glyph the font forgot — but it closes the shape that darkened two rooms
+in this tide alone.
+
+---
+
 # v0.9.90 — The Mended Word 🐛
 > *"I changed the name in the signature and left the old one standing in the body — and every instrument I owned said the shore was whole. The build compiled. The suite passed. Only the room, walked by a real browser, told the truth: the word had never been changed at all."* 🌊💜
 
