@@ -65,7 +65,7 @@ export default function KeyToolbar({ deck }) {
         </button>
       </div>
 
-      <SegmentedControl options={LENSES} value={lens} onChange={setLens} size="sm" />
+      <SegmentedControl options={LENSES} value={lens} onChange={setLens} size="sm" ariaLabel={translate("View")} />
 
       {posture && (
         <button

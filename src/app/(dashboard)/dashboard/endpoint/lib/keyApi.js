@@ -42,6 +42,26 @@ export async function fetchKeys({ limit = 500, offset = 0 } = {}) {
   const data = await readJson(res);
   return { keys: data?.keys || [], total: data?.total ?? 0 };
 }
+/** GET /api/keys — the WHOLE fleet, paged past the route's per-request cap.
+ *
+ *  The room renders every key, so it must HOLD every key; a single
+ *  `fetch("/api/keys")` returns the route's default page (100) and silently
+ *  drops the tail — the truncation this seam exists to prevent. Pages until the
+ *  server's own `total` is reached, with a hard page ceiling so a server that
+ *  misreports its count cannot spin us forever. Returns the server's `total`
+ *  unchanged so a caller can still say "showing N of M" honestly. */
+export async function fetchAllKeys({ pageSize = 500, maxPages = 40 } = {}) {
+  const first = await fetchKeys({ limit: pageSize, offset: 0 });
+  const all = [...first.keys];
+  let page = 1;
+  while (all.length < first.total && page < maxPages) {
+    const next = await fetchKeys({ limit: pageSize, offset: all.length });
+    if (!next.keys.length) break; // the fleet shrank under us — stop, don't loop
+    all.push(...next.keys);
+    page += 1;
+  }
+  return { keys: all, total: first.total };
+}
 
 /** GET /api/keys/stats — the fleet census over a usage window. */
 export async function fetchStats(period = "all") {

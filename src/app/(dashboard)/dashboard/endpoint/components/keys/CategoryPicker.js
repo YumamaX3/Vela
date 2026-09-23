@@ -8,7 +8,7 @@
 // any shape-valid string, and empty clears back to uncategorized).
 // R-22: chips here are semantic (they ARE the value set), not decoration.
 import { useState } from "react";
-import { Button, Input } from "@/shared/components";
+import { Button } from "@/shared/components";
 import { cn } from "@/shared/utils/cn";
 import { translate } from "@/i18n/runtime";
 

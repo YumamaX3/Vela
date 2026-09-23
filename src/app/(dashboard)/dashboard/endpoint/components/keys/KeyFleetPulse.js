@@ -38,9 +38,13 @@ export default function KeyFleetPulse({ c, deck }) {
   // flight. The label says which, so the number is never ambiguous.
   const byPosture = stats?.byPosture || postureCounts;
   const total = stats?.totals?.keys ?? keys.length;
-  const scoped = stats?.coverage?.scoped;
-  const limited = stats?.coverage?.limited;
-  const idle = stats?.coverage?.idle;
+  // The census reports coverage under `totals.*` (see api/keys/stats/route.js);
+  // reading `stats.coverage.*` — as this line once did — yielded `undefined`
+  // forever, so the coverage line below never rendered at all. Read the shape
+  // the route actually sends.
+  const scoped = stats?.totals?.scoped;
+  const limited = stats?.totals?.limited;
+  const idle = stats?.totals?.idleInWindow;
 
   const attention = stats?.attention || [];
   const busiest = stats?.top || [];

@@ -1,5 +1,12 @@
 "use client";
 
+// SegmentedControl — a small set of mutually exclusive options, one chosen.
+//
+// ACCESSIBILITY (WCAG 4.1.2 / APG): a group of toggle buttons carries
+// `role="group"`, and each option exposes `aria-pressed` — the same contract the
+// keys room's chips use. Before this it was a bare div of <button>s with no role
+// and no pressed state, so a screen reader announced identical buttons with no
+// indication of which view was active.
 import { cn } from "@/shared/utils/cn";
 
 export default function SegmentedControl({
@@ -8,6 +15,7 @@ export default function SegmentedControl({
   onChange,
   size = "md",
   className,
+  ariaLabel,
 }) {
   const sizes = {
     sm: "h-7 text-xs",
@@ -17,6 +25,8 @@ export default function SegmentedControl({
 
   return (
     <div
+      role="group"
+      aria-label={ariaLabel}
       className={cn(
         "inline-flex items-center p-1 rounded-[10px] overflow-x-auto",
         "bg-surface-2",
@@ -26,6 +36,8 @@ export default function SegmentedControl({
       {options.map((option) => (
         <button
           key={option.value}
+          type="button"
+          aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
           className={cn(
             "shrink-0 px-4 rounded-[8px] font-medium motion-control",

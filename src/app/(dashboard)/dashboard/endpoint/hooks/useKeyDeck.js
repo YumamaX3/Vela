@@ -72,6 +72,12 @@ export default function useKeyDeck(c) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
   const [importState, setImportState] = useState(null);
+  // The last bulk operation's per-item verdicts. The route has always answered
+  // one verdict PER KEY (`{ results: [{ name, ok, error }] }`), and the deck
+  // collapsed them to a summary sentence — so an operator running a 40-key
+  // pause saw "38 applied, 2 refused" and could not learn WHICH two, or why.
+  // The full list is kept here so the bar can show every refusal by name.
+  const [bulkVerdicts, setBulkVerdicts] = useState(null);
 
   const reloadStats = useCallback(async () => {
     try {
@@ -194,12 +200,16 @@ export default function useKeyDeck(c) {
       const execute = async () => {
         setBusy(true);
         setNotice(null);
+        setBulkVerdicts(null);
         try {
           const result = await bulkKeys(action, { ...payload, ids });
           await refresh();
           if (typeof after === "function") await after(result);
           const failed = result?.failed || 0;
           const changed = result?.changed || 0;
+          // Keep the route's own per-item verdicts, so the bar can name every
+          // refusal instead of only counting them.
+          setBulkVerdicts(Array.isArray(result?.results) ? result.results : null);
           if (failed > 0) {
             const first = result.results.find((r) => !r.ok);
             announce("warn", `${changed} applied, ${failed} refused — ${first?.name || "one key"}: ${first?.error || "see the results"}`);
@@ -433,6 +443,9 @@ export default function useKeyDeck(c) {
     copied,
     notice,
     setNotice,
+    // the last bulk operation's per-item verdicts (null when none / on a new run)
+    bulkVerdicts,
+    clearBulkVerdicts: () => setBulkVerdicts(null),
     refresh,
   };
 }
