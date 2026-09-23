@@ -25,6 +25,49 @@ edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
 
 ---
 
+# v0.9.90 — The Mended Word 🐛
+> *"I changed the name in the signature and left the old one standing in the body — and every instrument I owned said the shore was whole. The build compiled. The suite passed. Only the room, walked by a real browser, told the truth: the word had never been changed at all."* 🌊💜
+
+**The half-mended rename.** v0.9.89 named this exact class — a name declared and never
+resolvable — and closed three of its four instances. The fourth it closed *partly*:
+`ScopePill` and `LimitPills` took the new prop in their signatures, but `ScopePill`'s
+`<Pill title>` still read `key.allowedModels`, so the card lens and the detail drawer died
+on first render:
+
+```
+Runtime ReferenceError: key is not defined
+src/app/(dashboard)/dashboard/endpoint/components/keys/KeyBits.js:61
+```
+
+**Why no instrument saw it.** The build compiled — a bare identifier is a *parse* success
+and a *runtime* failure, so a bundler has nothing to refuse. And the suite passed, which is
+the more honest wound: **no test had ever rendered these components.** The room was covered
+by nothing at all.
+
+**🐛 Fixes**
+- **The last old word** — `endpoint/components/keys/KeyBits.js:61`. `key.allowedModels`
+  becomes `k.allowedModels`, so the scope pill's tooltip renders and the card lens and the
+  detail drawer paint. All four call sites (`KeyCard.js:68-69`, `KeyDetailDrawer.js:55-56`)
+  already passed `k={k}` — the signature was never the problem, only its body.
+
+**🔧 The instrument that keeps it**
+- **`tests/unit/key-pills-render.test.jsx`** (new) — the key fleet's smallest marks rendered
+  in happy-dom exactly as the room renders them, asserting the words an operator reads:
+  `3 models` against `1 model`, the scope pill's tooltip spelling the model ids, `All models`
+  for an honest absent scope, `60 RPM` / `100K tok` / `$5` for the ceilings actually set, and
+  nothing at all when none are. **Mutation-proven**: putting the old name back reddens the
+  four `ScopePill` cases with the identical `ReferenceError` while the two `LimitPills` cases
+  stay green; restoring returns **6/6**.
+
+**⚓ What sailed**: `endpoint/components/keys/KeyBits.js` · `tests/unit/key-pills-render.test.jsx` (new) · `CHANGELOG.md` · `package.json` · `docker-compose.example.yml` (pin)
+**🧪 Proof**: the pill suite **6 cases green**, red-then-green under mutation · `npm run build` green at v0.9.90
+**🌊 Recorded, not repeated** — this is the *second* defect in two tides that a green build and
+a green suite both tolerated: a name the bundler forgave, and now a name the runtime refused
+while the compiler slept. Both were found by walking the room. The instrument was never wrong;
+it was absent. Now it is not.
+
+---
+
 # v0.9.89 — The Unspoken Names 🐛
 > *"Three times in one tide I found the same wound. A door declared and never opened. A word the framework had already claimed for its own. A glyph the font had never been taught. Not one of them broke the build — every one of them broke the shore."* 🌊💜
 

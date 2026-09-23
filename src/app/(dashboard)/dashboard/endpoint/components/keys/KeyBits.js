@@ -58,7 +58,7 @@ export function ScopePill({ k }) {
     );
   }
   return (
-    <Pill tone="primary" icon="security" title={(key.allowedModels || []).join(", ")}>
+    <Pill tone="primary" icon="security" title={(k.allowedModels || []).join(", ")}>
       {count} {count === 1 ? translate("model") : translate("models")}
     </Pill>
   );
