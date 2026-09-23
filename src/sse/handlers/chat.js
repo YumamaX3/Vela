@@ -211,6 +211,12 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
     const comboModels = await getComboModels(modelStr);
     if (comboModels) {
       const chatSettings = await getSettings();
+      // Seam 2 — bound here because this nested-combo branch lives inside
+      // handleSingleModelChat, a scope the outer binding in handleChat never
+      // crosses: `fallbackRulesRepo` was a bare name on this path and every
+      // request that reached it died with a ReferenceError. The binder memoizes
+      // a successful bind, so re-binding per call costs nothing.
+      const fallbackRulesRepo = await getFallbackRulesRepo();
       // Check for combo-specific strategy first, fallback to global
       const comboStrategies = chatSettings.comboStrategies || {};
       const comboSpecificStrategy = comboStrategies[modelStr]?.fallbackStrategy;

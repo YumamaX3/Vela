@@ -14,16 +14,36 @@ import { attentionFor, isLimited, isScoped, postureOf } from "@/app/api/keys/_li
 export { attentionFor, isLimited, isScoped, postureOf };
 
 // The formatting and ceiling helpers were always the client's own.
+//
+// BOUND LOCALLY *and* re-exported — the two lines are not redundant. A bare
+// `export { X } from "./y"` declares no local name, so a body that CALLS X
+// reaches for an identifier this module never bound: `filterKeys` below calls
+// `categoryOf`, and that call killed the keys room in a real browser with
+//   `Uncaught ReferenceError: categoryOf is not defined`
+// while the build compiled and the suite passed (v0.9.91). Bind what you call;
+// `export … from` serves the CALLERS, never the body. This mirrors the posture
+// law three lines up, which has always imported and re-exported in two steps.
+import {
+  UNCATEGORIZED,
+  categoryOf,
+  formatTokens,
+  formatCost,
+  limitBadges,
+  limitsFromRecord,
+  limitsToRecord,
+  DEFAULT_LIMITS,
+} from "./keyLimits";
+
 export {
   UNCATEGORIZED,
   categoryOf,
   formatTokens,
   formatCost,
-limitBadges,
-limitsFromRecord,
-limitsToRecord,
-DEFAULT_LIMITS,
-} from "./keyLimits";
+  limitBadges,
+  limitsFromRecord,
+  limitsToRecord,
+  DEFAULT_LIMITS,
+};
 
 import { translate } from "@/i18n/runtime";
 
