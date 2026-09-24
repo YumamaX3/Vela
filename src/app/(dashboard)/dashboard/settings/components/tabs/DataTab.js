@@ -12,14 +12,14 @@
 // file is the whole database, so it is never moved on a single click.
 import { useRef, useState } from "react";
 import { Button, Card, Input, Modal } from "@/shared/components";
-import { exportDatabase, importDatabase, downloadBackup } from "../../lib/settingsApi";
+import { exportDatabase, downloadBackup } from "../../lib/settingsApi";
 import StatusLine from "../StatusLine";
 import BackupCard from "../BackupCard";
+import ImportBackupModal from "../ImportBackupModal";
 
 export default function DataTab({ deck }) {
   const { reload } = deck;
   const fileRef = useRef(null);
-  const pendingFileRef = useRef(null);
 
   const [busy, setBusy] = useState(false);
   // Which leg is running, held separately from `busy`. The modal clears its own
@@ -46,40 +46,43 @@ export default function DataTab({ deck }) {
     }
   };
 
-  const runImport = async (password) => {
-    const file = pendingFileRef.current;
-    if (!file) return;
-    setBusy(true);
-    setRunning("import");
-    try {
-      const raw = await file.text();
-      const payload = JSON.parse(raw);
-      await importDatabase(payload, password);
-      await reload();
-      setStatus({ type: "success", message: "Database imported successfully" });
-    } catch (err) {
-      setStatus({ type: "error", message: err.message || "Invalid backup file" });
-    } finally {
-      pendingFileRef.current = null;
-      setBusy(false);
-      setRunning("");
-    }
-  };
-
+  // The import ceremony lives in ImportBackupModal now; this tab holds only
+  // the picked file (name + parsed payload) and hands it over. Parsing here
+  // means a malformed file is refused BEFORE any modal opens.
+  const [importFile, setImportFile] = useState(null); // { name, payload }
   const onPickFile = (event) => {
     const file = event.target.files?.[0];
     if (fileRef.current) fileRef.current.value = "";
     if (!file) return;
-    pendingFileRef.current = file;
     setStatus({ type: "", message: "" });
-    setAuth({ open: true, mode: "import", password: "" });
+    file.text().then(
+      (raw) => {
+        try {
+          const payload = JSON.parse(raw);
+          setImportFile({ name: file.name, payload });
+        } catch {
+          setStatus({ type: "error", message: "That file is not valid JSON — not a Vela backup" });
+        }
+      },
+      () => setStatus({ type: "error", message: "Could not read that file" })
+    );
+  };
+
+  const closeImport = () => setImportFile(null);
+  const finishImport = async (message) => {
+    setImportFile(null);
+    setStatus({ type: "success", message });
+    try {
+      await reload();
+    } catch {
+      /* the deck's own reload error path owns this */
+    }
   };
 
   const confirmAuth = async () => {
     const { mode, password } = auth;
     setAuth({ open: false, mode: "", password: "" });
     if (mode === "export") await runExport(password);
-    else if (mode === "import") await runImport(password);
   };
 
   return (
@@ -136,7 +139,14 @@ export default function DataTab({ deck }) {
       </Card>
 
       <BackupCard />
-
+      {importFile && (
+        <ImportBackupModal
+          fileName={importFile.name}
+          payload={importFile.payload}
+          onClose={closeImport}
+          onDone={finishImport}
+        />
+      )}
       <Modal
         isOpen={auth.open}
         onClose={() => setAuth({ open: false, mode: "", password: "" })}
@@ -158,7 +168,7 @@ export default function DataTab({ deck }) {
         }
       >
         <p className="text-text-muted mb-3 text-sm">
-          Enter your current password to {auth.mode === "export" ? "export" : "import"} the database.
+          Enter your current password to export the database.
         </p>
         <Input
           type="password"

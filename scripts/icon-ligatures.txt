@@ -27,6 +27,7 @@ bolt
 brush
 business
 cancel
+call_merge
 cast
 change_history
 chat
@@ -57,6 +58,7 @@ database
 deck
 delete
 deployed_code
+description
 developer_board
 devices
 diamond

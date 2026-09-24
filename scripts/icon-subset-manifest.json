@@ -28,6 +28,7 @@
     "bolt",
     "brush",
     "business",
+    "call_merge",
     "cancel",
     "cast",
     "change_history",
@@ -59,6 +60,7 @@
     "deck",
     "delete",
     "deployed_code",
+    "description",
     "developer_board",
     "devices",
     "diamond",
@@ -247,9 +249,9 @@
     "wifi_tethering",
     "wrap_text"
   ],
-  "count": 246,
-  "sha256": "2eb084aed7d24e56babef2859abde3062dec431030499d4a7e0ef7e8ec03be40",
-  "identity": "26efa6b2db6c02c0",
-  "file": "vela-icons.26efa6b2db6c02c0.woff2",
+  "count": 248,
+  "sha256": "76da6d513ca8e8115b74a75135ec7f5f8fc74f447dd2a8241ba0f017acebe102",
+  "identity": "36033b69e1e180d2",
+  "file": "vela-icons.36033b69e1e180d2.woff2",
   "source": "node_modules/material-symbols/material-symbols-outlined.woff2"
 }

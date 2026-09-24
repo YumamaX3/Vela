@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { exportDb, getSettings, importDb } from "@/lib/localDb";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 import { verifyDashboardPassword } from "@/lib/auth/dashboardSession";
+import { IMPORT_SECTIONS } from "@/lib/db/repos/backupSecurity.js";
 
 const CLI_TOKEN_HEADER = "x-vela-cli-token";
 const PASSWORD_HEADER = "x-9r-password";
@@ -33,7 +34,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { password, adoptSecrets, ...payload } = await request.json();
+    const { password, adoptSecrets, sections, dryRun, ...payload } = await request.json();
     if (!isCliRequest(request) && !(await verifyDashboardPassword(password))) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
     }
@@ -45,7 +46,38 @@ export async function POST(request) {
     if (typeof adoptSecrets !== "undefined" && typeof adoptSecrets !== "boolean") {
       return NextResponse.json({ error: "adoptSecrets must be a boolean" }, { status: 400 });
     }
-    await importDb(payload, { adoptSecrets: adoptSecrets === true });
+    // Selective restore (the sections law). Unknown names are refused BY NAME,
+    // never silently dropped — a typo'd section name that silently narrowed the
+    // wipe would be a lie told at the moment trust is extended. An absent
+    // selection is the historical whole-restore, byte-identical to before.
+    let sectionSelection = null;
+    if (typeof sections !== "undefined" && sections !== null) {
+      if (!Array.isArray(sections) || sections.some((s) => typeof s !== "string")) {
+        return NextResponse.json({ error: "sections must be an array of section names" }, { status: 400 });
+      }
+      const unknown = [...new Set(sections)].filter((s) => !IMPORT_SECTIONS.includes(s));
+      if (unknown.length > 0) {
+        return NextResponse.json(
+          { error: `Unknown section(s): ${unknown.join(", ")} — valid sections: ${IMPORT_SECTIONS.join(", ")}` },
+          { status: 400 }
+        );
+      }
+      sectionSelection = sections;
+    }
+    if (typeof dryRun !== "undefined" && typeof dryRun !== "boolean") {
+      return NextResponse.json({ error: "dryRun must be a boolean" }, { status: 400 });
+    }
+    const wantsDryRun = dryRun === true;
+    const result = await importDb(payload, {
+      adoptSecrets: adoptSecrets === true,
+      sections: sectionSelection,
+      dryRun: wantsDryRun,
+    });
+    // The dry run writes NOTHING — proxy env re-application and the applied
+    // report below are restore-only concerns.
+    if (wantsDryRun) {
+      return NextResponse.json({ success: true, dryRun: true, plan: result.plan, _meta: result._meta });
+    }
 
     // Ensure proxy settings take effect immediately after a DB import.
     try {
@@ -55,7 +87,11 @@ export async function POST(request) {
       console.warn("[Settings][DatabaseImport] Failed to re-apply outbound proxy env:", err);
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      appliedSections: result.appliedSections ?? null,
+      appliedRows: result.appliedRows ?? null,
+    });
   } catch (error) {
     console.log("Error importing database:", error);
     const overBound = String(error?.message || "").includes("restore bound");
