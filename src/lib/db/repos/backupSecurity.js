@@ -189,3 +189,73 @@ export function quarantineKeyRow(key) {
   for (const f of RESTORE_QUARANTINED_KEY_FIELDS) delete out[f];
   return out;
 }
+
+// ── Selective import (the sections law) ──────────────────────────────────
+// A backup file is the whole database, but an operator should not have to
+// restore the whole database to move one part of it. The file's payload is
+// partitioned into seven SECTIONS; a selective restore wipes and refills only
+// the sections the operator names, and only what the file actually carries.
+// This map is the single source of truth — both posture twins (sqlite +
+// mysql) and the /api/settings/database route read it from HERE, so the UI's
+// checkbox list can never drift from what the engine actually restores.
+//
+// Partition rules, load-bearing:
+//   • every payload field belongs to EXACTLY ONE section (an unknown field in
+//     the UI is therefore an unknown field to the engine too — honest by
+//     construction);
+//   • `kvScopes` and its legacy named views (modelAliases/customModels/…) are
+//     ONE section — the import path treats them as alternatives for the same
+//     kv table, so splitting them would let an operator half-restore a scope
+//     through the door the other half came in;
+//   • `usage` covers usageHistory + usageDaily + requestDetails: the
+//     Observatory ledgers rise and fall together (the live-data exporters
+//     already treat them as one pool of data);
+//   • `settings` (the id=1 row) is its own section and stays the default in
+//     every UI — the whole-restore path (no `sections` given) keeps its
+//     EXACT current behaviour, so existing callers (the backup engine, the
+//     mirror resync) change nothing.
+/** The seven import sections, in UI display order. */
+export const IMPORT_SECTIONS = [
+  "settings",
+  "connections",
+  "pools",
+  "keys",
+  "combos",
+  "kv",
+  "usage",
+];
+/** Which payload fields each section covers. `kv` covers both the A3
+ *  generic kvScopes envelope and every legacy named view of it. */
+export const IMPORT_SECTION_FIELDS = {
+  settings: ["settings"],
+  connections: ["providerConnections", "providerNodes"],
+  pools: ["proxyPools"],
+  keys: ["apiKeys"],
+  combos: ["combos"],
+  kv: [
+    "kvScopes", "modelAliases", "customModels", "mitmAlias",
+    "pricing", "pricingSync", "disabledModels",
+  ],
+  usage: ["usageHistory", "usageDaily", "requestDetails"],
+};
+/** Flatten IMPORT_SECTION_FIELDS — which payload field a section covers. */
+const FIELD_TO_SECTION = new Map(
+  Object.entries(IMPORT_SECTION_FIELDS).flatMap(([section, fields]) =>
+    fields.map((f) => [f, section])
+  )
+);
+/** Validate + normalize a caller's `sections` option. Returns null when no
+ *  valid selection was given (→ whole restore, byte-identical behaviour).
+ *  Unknown names are dropped loudly at the route; here they are simply not
+ *  selectable, so a typo can never silently widen the wipe. */
+export function normalizeImportSections(sections) {
+  if (!Array.isArray(sections)) return null;
+  const valid = [...new Set(sections)].filter((s) => IMPORT_SECTIONS.includes(s));
+  if (valid.length === 0) return null;
+  if (valid.length === IMPORT_SECTIONS.length) return null; // all seven == whole restore
+  return valid;
+}
+/** Which section a payload field belongs to (or null for an unknown field). */
+export function sectionOfField(field) {
+  return FIELD_TO_SECTION.get(field) ?? null;
+}

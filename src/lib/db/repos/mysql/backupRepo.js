@@ -17,6 +17,10 @@ import {
   quarantineKeyRow,
   RESTORE_QUARANTINED_SETTING_KEYS,
   redactSecretConnectionData,
+  IMPORT_SECTIONS,
+  IMPORT_SECTION_FIELDS,
+  normalizeImportSections,
+  sectionOfField,
 } from "../backupSecurity.js";
 
 // S1 bounds + S3 exclusions — identical law to the sqlite twin.
@@ -147,7 +151,7 @@ function tombstoneLegacyKeysMysql(tx) {
  *  adoptKeys — Wave C4 mirror full-resync: adopt the payload's KEY identity
  *  (keyHash/isInternal/deletedAt) while settings still ride the safe
  *  quarantine path. See the sqlite twin's header for the trust model. */
-export async function importDb(payload, { adoptSecrets = false, adoptKeys = false } = {}) {
+export async function importDb(payload, { adoptSecrets = false, adoptKeys = false, sections = null, dryRun = false } = {}) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new Error("Invalid database payload");
   }
@@ -167,7 +171,48 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
   if (payload.settings !== undefined && (typeof payload.settings !== "object" || Array.isArray(payload.settings))) {
     throw new Error("[backup] payload field \"settings\" must be an object (S1 shape bound)");
   }
-
+  // Selective restore — the SAME sections law as the sqlite twin (one source
+  // of truth in backupSecurity.js, no drift between postures). Null selection
+  // == the historical whole-restore; the carried-guard refuses a selection the
+  // file cannot satisfy. The dry run never opens a connection: it answers the
+  // plan from the payload alone.
+  const selected = normalizeImportSections(sections);
+  const want = (section) => !selected || selected.includes(section);
+  if (selected) {
+    const carried = [];
+    for (const f of TABLE_FIELDS) {
+      if (Array.isArray(payload[f]) && payload[f].length > 0 && want(sectionOfField(f))) carried.push(f);
+    }
+    if (payload.settings !== undefined && payload.settings !== null && want("settings")) carried.push("settings");
+    const hasKv = want("kv") && (
+      (payload.kvScopes && typeof payload.kvScopes === "object" && Object.keys(payload.kvScopes).length > 0) ||
+      ["modelAliases", "customModels", "mitmAlias", "pricing", "pricingSync", "disabledModels"].some(
+        (f) => payload[f] && typeof payload[f] === "object" && Object.keys(payload[f]).length > 0
+      )
+    );
+    if (hasKv) carried.push("kv");
+    if (carried.length === 0) {
+      throw new Error("No selected sections are present in this backup file — nothing would change");
+    }
+  }
+  if (dryRun) {
+    const countFor = (section) => {
+      const fields = IMPORT_SECTION_FIELDS[section] || [];
+      let count = 0;
+      for (const f of fields) {
+        const v = payload[f];
+        if (Array.isArray(v)) count += v.length;
+        else if (v && typeof v === "object") count += Object.keys(v).length;
+      }
+      return count;
+    };
+    const plan = (selected || [...IMPORT_SECTIONS]).map((section) => ({
+      section,
+      items: countFor(section),
+      inFile: countFor(section) > 0,
+    }));
+    return { dryRun: true, plan, _meta: payload._meta ?? null };
+  }
   const db = await getMysqlAdapter();
 
   // S1 default path — capture CURRENT quarantined values before the wipe.
@@ -194,47 +239,85 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
     adoptSecrets || adoptKeys ? k : quarantineKeyRow(k)
   );
 
+  // The counters the route's per-section verdict reads — same report shape as
+  // the sqlite twin, so the UI cannot tell which posture served it.
+  const appliedSections = [];
+  let appliedRows = 0;
+  const countSectionItems = (section) => {
+    let count = 0;
+    for (const f of IMPORT_SECTION_FIELDS[section] || []) {
+      const v = payload[f];
+      if (Array.isArray(v)) count += v.length;
+      else if (v && typeof v === "object") count += Object.keys(v).length;
+    }
+    return count;
+  };
+  const beginSection = (section) => {
+    appliedSections.push(section);
+    appliedRows += countSectionItems(section);
+  };
   await db.transaction(async (tx) => {
-    await tx.run(`DELETE FROM settings`);
-    await tx.run(`DELETE FROM providerConnections`);
-    await tx.run(`DELETE FROM providerNodes`);
-    await tx.run(`DELETE FROM proxyPools`);
-    await tx.run(`DELETE FROM apiKeys`);
-    await tx.run(`DELETE FROM combos`);
-    await tx.run(`DELETE FROM kv`);
-    await tx.run(`DELETE FROM usageHistory`);
-    await tx.run(`DELETE FROM usageDaily`);
-    await tx.run(`DELETE FROM requestDetails`);
+    if (want("settings")) {
+      await tx.run(`DELETE FROM settings`);
+      beginSection("settings");
+    }
+    if (want("connections")) {
+      await tx.run(`DELETE FROM providerConnections`);
+      await tx.run(`DELETE FROM providerNodes`);
+      beginSection("connections");
+    }
+    if (want("pools")) {
+      await tx.run(`DELETE FROM proxyPools`);
+      beginSection("pools");
+    }
+    if (want("keys")) {
+      await tx.run(`DELETE FROM apiKeys`);
+      beginSection("keys");
+    }
+    if (want("combos")) {
+      await tx.run(`DELETE FROM combos`);
+      beginSection("combos");
+    }
+    if (want("kv")) {
+      await tx.run(`DELETE FROM kv`);
+      beginSection("kv");
+    }
+    if (want("usage")) {
+      await tx.run(`DELETE FROM usageHistory`);
+      await tx.run(`DELETE FROM usageDaily`);
+      await tx.run(`DELETE FROM requestDetails`);
+      beginSection("usage");
+    }
 
-    if (settingsToRestore) {
+    if (settingsToRestore && want("settings")) {
       const merged = adoptSecrets
         ? settingsToRestore
         : { ...settingsToRestore, ...currentQuarantined.settings };
       await tx.run(`INSERT INTO settings(id, data) VALUES(1, ?) ON DUPLICATE KEY UPDATE data = VALUES(data)`, [stringifyJson(merged)]);
     }
 
-    for (const c of payload.providerConnections || []) {
+    if (want("connections")) for (const c of payload.providerConnections || []) {
       const { id, provider, authType, name, email, priority, isActive, createdAt, updatedAt, ...rest } = c;
       await tx.run(
         `INSERT INTO providerConnections(id, provider, authType, name, email, priority, isActive, data, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data)`,
         [id, provider, authType || "oauth", name || null, email || null, priority || null, isActive === false ? 0 : 1, stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString()]
       );
     }
-    for (const n of payload.providerNodes || []) {
+    if (want("connections")) for (const n of payload.providerNodes || []) {
       const { id, type, name, createdAt, updatedAt, ...rest } = n;
       await tx.run(
         `INSERT INTO providerNodes(id, type, name, data, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data)`,
         [id, type || null, name || null, stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString()]
       );
     }
-    for (const p of payload.proxyPools || []) {
+    if (want("pools")) for (const p of payload.proxyPools || []) {
       const { id, isActive, testStatus, createdAt, updatedAt, ...rest } = p;
       await tx.run(
         `INSERT INTO proxyPools(id, isActive, testStatus, data, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data)`,
         [id, isActive === false ? 0 : 1, testStatus || "unknown", stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString()]
       );
     }
-    for (const k of keysToRestore) {
+    if (want("keys")) for (const k of keysToRestore) {
       const cur = adoptSecrets || adoptKeys ? null : currentQuarantined.keys.get(k.id);
       const keyHash = adoptSecrets || adoptKeys ? (k.keyHash ?? null) : (cur?.keyHash ?? null);
       const isInternal = adoptSecrets || adoptKeys ? (k.isInternal === true || k.isInternal === 1) : (cur?.isInternal ?? false);
@@ -260,8 +343,8 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
         ]
       );
     }
-    await tombstoneLegacyKeysMysql(tx);
-    for (const c of payload.combos || []) {
+    if (want("keys")) await tombstoneLegacyKeysMysql(tx);
+    if (want("combos")) for (const c of payload.combos || []) {
       await tx.run(
         `INSERT INTO combos(id, name, kind, models, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE models = VALUES(models)`,
         [c.id, c.name, c.kind || null, stringifyJson(c.models || []), c.createdAt || new Date().toISOString(), c.updatedAt || new Date().toISOString()]
@@ -284,11 +367,13 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
       for (const [provider, models] of Object.entries(payload.pricingSync || {})) kvRows.push(["pricing_sync", provider, models]);
       for (const [providerAlias, models] of Object.entries(payload.disabledModels || {})) kvRows.push(["disabledModels", providerAlias, models]);
     }
-    for (const [scope, key, value] of kvRows) {
-      await tx.run(`INSERT INTO kv(scope, \`key\`, value) VALUES(?, ?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)`, [scope, key, stringifyJson(value)]);
+    if (want("kv")) {
+      for (const [scope, key, value] of kvRows) {
+        await tx.run(`INSERT INTO kv(scope, \`key\`, value) VALUES(?, ?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)`, [scope, key, stringifyJson(value)]);
+      }
     }
 
-    for (const h of payload.usageHistory || []) {
+    if (want("usage")) for (const h of payload.usageHistory || []) {
       // v0.9.44 (milestone 0.6, LIVE-C): 15 → 20 bound columns, in lockstep with
       // the sqlite twin of this loop and with the export above. `apiKey` remains
       // a literal NULL (plaintext banned from artifacts), so 20 columns / 19
@@ -305,10 +390,10 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
         [h.id, h.timestamp, h.provider || "", h.model || "", h.connectionId || "", h.keyId || "", h.keyPrefix ?? null, h.endpoint ?? null, h.promptTokens ?? 0, h.completionTokens ?? 0, h.cost ?? 0, h.status ?? null, stringifyJson(h.tokens ?? null), stringifyJson(h.meta ?? null), h.latencyMs ?? null, h.ttftMs ?? null, h.httpStatus ?? null, h.statusClass ?? "", h.combo ?? null]
       );
     }
-    for (const d of payload.usageDaily || []) {
+    if (want("usage")) for (const d of payload.usageDaily || []) {
       await tx.run(`INSERT INTO usageDaily(dateKey, data) VALUES(?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data)`, [d.dateKey, stringifyJson(d.data ?? {})]);
     }
-    if (Array.isArray(payload.requestDetails)) {
+    if (want("usage") && Array.isArray(payload.requestDetails)) {
       for (const rd of payload.requestDetails) {
         // v0.9.44 (milestone 0.6, LIVE-D): 7 → 8 columns. The
         // `ON DUPLICATE KEY UPDATE data = VALUES(data)` clause is unchanged —
@@ -324,7 +409,13 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
     }
   });
 
-  return await exportDb({ includeRequestDetails: Array.isArray(payload.requestDetails) });
+  // The selective report — the same shape the sqlite twin returns, so the
+  // route and UI cannot tell which posture served the restore.
+  return {
+    appliedSections,
+    appliedRows,
+    ...(await exportDb({ includeRequestDetails: Array.isArray(payload.requestDetails) })),
+  };
 }
 
 export async function initDb() {

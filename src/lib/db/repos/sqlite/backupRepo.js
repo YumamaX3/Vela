@@ -29,6 +29,10 @@ import {
   quarantineKeyRow,
   RESTORE_QUARANTINED_SETTING_KEYS,
   redactSecretConnectionData,
+  IMPORT_SECTIONS,
+  IMPORT_SECTION_FIELDS,
+  normalizeImportSections,
+  sectionOfField,
 } from "../backupSecurity.js";
 
 // The engine — re-exported for backward-compatible imports.
@@ -181,7 +185,7 @@ export async function exportDb({ includeRequestDetails = false, redact = false }
 //                 identity must land verbatim or key-gated traffic breaks. The
 //                 twin's mirror-minted rows use `mirror:${keyHash}` ids, so the
 //                 by-id quarantine re-stitch would otherwise null the keyHash.
-export async function importDb(payload, { adoptSecrets = false, adoptKeys = false } = {}) {
+export async function importDb(payload, { adoptSecrets = false, adoptKeys = false, sections = null, dryRun = false } = {}) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new Error("Invalid database payload");
   }
@@ -201,7 +205,52 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
   if (payload.settings !== undefined && (typeof payload.settings !== "object" || Array.isArray(payload.settings))) {
     throw new Error("[backup] payload field \"settings\" must be an object (S1 shape bound)");
   }
-
+  // Selective restore (the sections law, backupSecurity.js): `sections` names
+  // the ONLY partitions this restore touches. When null — no selection, or all
+  // seven named — every guard below falls through open and the wipe is the
+  // historical whole-restore: byte-identical behaviour for the backup engine,
+  // the mirror resync, and every caller that has never heard of sections.
+  // A selected section still refuses to move when the file carries nothing for
+  // it: an empty selection must read as a mistake, not as success.
+  const selected = normalizeImportSections(sections);
+  const want = (section) => !selected || selected.includes(section);
+  if (selected) {
+    const carried = [];
+    for (const f of TABLE_FIELDS) {
+      if (Array.isArray(payload[f]) && payload[f].length > 0 && want(sectionOfField(f))) carried.push(f);
+    }
+    if (payload.settings !== undefined && payload.settings !== null && want("settings")) carried.push("settings");
+    const hasKv = want("kv") && (
+      (payload.kvScopes && typeof payload.kvScopes === "object" && Object.keys(payload.kvScopes).length > 0) ||
+      ["modelAliases", "customModels", "mitmAlias", "pricing", "pricingSync", "disabledModels"].some(
+        (f) => payload[f] && typeof payload[f] === "object" && Object.keys(payload[f]).length > 0
+      )
+    );
+    if (hasKv) carried.push("kv");
+    if (carried.length === 0) {
+      throw new Error("No selected sections are present in this backup file — nothing would change");
+    }
+  }
+  // The plan a dry run answers. Built BEFORE any adapter is touched: analysis
+  // only — no connection, no transaction, no wipe, no writes.
+  if (dryRun) {
+    const countFor = (section) => {
+      const fields = IMPORT_SECTION_FIELDS[section] || [];
+      let count = 0;
+      for (const f of fields) {
+        const v = payload[f];
+        if (Array.isArray(v)) count += v.length;
+        else if (v && typeof v === "object") count += Object.keys(v).length;
+      }
+      return count;
+    };
+    const plan = (selected || [...IMPORT_SECTIONS]).map((section) => ({
+      section,
+      items: countFor(section),
+      inFile: countFor(section) > 0,
+    }));
+    return { dryRun: true, plan, _meta: payload._meta ?? null };
+  }
   const db = await getAdapter();
 
   let currentQuarantined = { settings: {}, keys: new Map() };
@@ -227,47 +276,86 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
     adoptSecrets || adoptKeys ? k : quarantineKeyRow(k)
   );
 
+  // The counters the route's per-section verdict reads: which sections this
+  // restore actually touched, and how many payload items each carried. A whole
+  // restore reports all seven — same writes as before, richer report only.
+  const appliedSections = [];
+  let appliedRows = 0;
+  const countSectionItems = (section) => {
+    let count = 0;
+    for (const f of IMPORT_SECTION_FIELDS[section] || []) {
+      const v = payload[f];
+      if (Array.isArray(v)) count += v.length;
+      else if (v && typeof v === "object") count += Object.keys(v).length;
+    }
+    return count;
+  };
+  const beginSection = (section) => {
+    appliedSections.push(section);
+    appliedRows += countSectionItems(section);
+  };
   db.transaction(() => {
-    db.run(`DELETE FROM settings`);
-    db.run(`DELETE FROM providerConnections`);
-    db.run(`DELETE FROM providerNodes`);
-    db.run(`DELETE FROM proxyPools`);
-    db.run(`DELETE FROM apiKeys`);
-    db.run(`DELETE FROM combos`);
-    db.run(`DELETE FROM kv`);
-    db.run(`DELETE FROM usageHistory`);
-    db.run(`DELETE FROM usageDaily`);
-    db.run(`DELETE FROM requestDetails`);
+    if (want("settings")) {
+      db.run(`DELETE FROM settings`);
+      beginSection("settings");
+    }
+    if (want("connections")) {
+      db.run(`DELETE FROM providerConnections`);
+      db.run(`DELETE FROM providerNodes`);
+      beginSection("connections");
+    }
+    if (want("pools")) {
+      db.run(`DELETE FROM proxyPools`);
+      beginSection("pools");
+    }
+    if (want("keys")) {
+      db.run(`DELETE FROM apiKeys`);
+      beginSection("keys");
+    }
+    if (want("combos")) {
+      db.run(`DELETE FROM combos`);
+      beginSection("combos");
+    }
+    if (want("kv")) {
+      db.run(`DELETE FROM kv`);
+      beginSection("kv");
+    }
+    if (want("usage")) {
+      db.run(`DELETE FROM usageHistory`);
+      db.run(`DELETE FROM usageDaily`);
+      db.run(`DELETE FROM requestDetails`);
+      beginSection("usage");
+    }
 
-    if (settingsToRestore) {
+    if (settingsToRestore && want("settings")) {
       const merged = adoptSecrets
         ? settingsToRestore
         : { ...settingsToRestore, ...currentQuarantined.settings };
       db.run(`INSERT INTO settings(id, data) VALUES(1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data`, [stringifyJson(merged)]);
     }
 
-    for (const c of payload.providerConnections || []) {
+    if (want("connections")) for (const c of payload.providerConnections || []) {
       const { id, provider, authType, name, email, priority, isActive, createdAt, updatedAt, ...rest } = c;
       db.run(
         `INSERT OR REPLACE INTO providerConnections(id, provider, authType, name, email, priority, isActive, data, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [id, provider, authType || "oauth", name || null, email || null, priority || null, isActive === false ? 0 : 1, stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString()]
       );
     }
-    for (const n of payload.providerNodes || []) {
+    if (want("connections")) for (const n of payload.providerNodes || []) {
       const { id, type, name, createdAt, updatedAt, ...rest } = n;
       db.run(
         `INSERT OR REPLACE INTO providerNodes(id, type, name, data, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?)`,
         [id, type || null, name || null, stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString()]
       );
     }
-    for (const p of payload.proxyPools || []) {
+    if (want("pools")) for (const p of payload.proxyPools || []) {
       const { id, isActive, testStatus, createdAt, updatedAt, ...rest } = p;
       db.run(
         `INSERT OR REPLACE INTO proxyPools(id, isActive, testStatus, data, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?)`,
         [id, isActive === false ? 0 : 1, testStatus || "unknown", stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString()]
       );
     }
-    for (const k of keysToRestore) {
+    if (want("keys")) for (const k of keysToRestore) {
       const cur = adoptSecrets || adoptKeys ? null : currentQuarantined.keys.get(k.id);
       const keyHash = adoptSecrets || adoptKeys ? (k.keyHash ?? null) : (cur?.keyHash ?? null);
       const isInternal = adoptSecrets || adoptKeys ? (k.isInternal === true || k.isInternal === 1) : (cur?.isInternal ?? false);
@@ -292,8 +380,8 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
         ]
       );
     }
-    tombstoneLegacyKeys(db);
-    for (const c of payload.combos || []) {
+    if (want("keys")) tombstoneLegacyKeys(db);
+    if (want("combos")) for (const c of payload.combos || []) {
       db.run(
         `INSERT OR REPLACE INTO combos(id, name, kind, models, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?)`,
         [c.id, c.name, c.kind || null, stringifyJson(c.models || []), c.createdAt || new Date().toISOString(), c.updatedAt || new Date().toISOString()]
@@ -316,11 +404,13 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
       for (const [provider, models] of Object.entries(payload.pricingSync || {})) kvRows.push(["pricing_sync", provider, models]);
       for (const [providerAlias, models] of Object.entries(payload.disabledModels || {})) kvRows.push(["disabledModels", providerAlias, models]);
     }
-    for (const [scope, key, value] of kvRows) {
-      db.run(`INSERT OR REPLACE INTO kv(scope, key, value) VALUES(?, ?, ?)`, [scope, key, stringifyJson(value)]);
+    if (want("kv")) {
+      for (const [scope, key, value] of kvRows) {
+        db.run(`INSERT OR REPLACE INTO kv(scope, key, value) VALUES(?, ?, ?)`, [scope, key, stringifyJson(value)]);
+      }
     }
 
-    for (const h of payload.usageHistory || []) {
+    if (want("usage")) for (const h of payload.usageHistory || []) {
       // v0.9.44 (milestone 0.6, LIVE-C): 15 → 20 bound columns, matching the
       // export above. Without these the RESTORE silently dropped the Observatory
       // telemetry and combo attribution even from an artifact that carried them
@@ -341,10 +431,10 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
         [h.id, h.timestamp, h.provider || "", h.model || "", h.connectionId || "", h.keyId || "", h.keyPrefix ?? null, h.endpoint ?? null, h.promptTokens ?? 0, h.completionTokens ?? 0, h.cost ?? 0, h.status ?? null, stringifyJson(h.tokens ?? null), stringifyJson(h.meta ?? null), h.latencyMs ?? null, h.ttftMs ?? null, h.httpStatus ?? null, h.statusClass ?? "", h.combo ?? null]
       );
     }
-    for (const d of payload.usageDaily || []) {
+    if (want("usage")) for (const d of payload.usageDaily || []) {
       db.run(`INSERT OR REPLACE INTO usageDaily(dateKey, data) VALUES(?, ?)`, [d.dateKey, stringifyJson(d.data ?? {})]);
     }
-    if (Array.isArray(payload.requestDetails)) {
+    if (want("usage") && Array.isArray(payload.requestDetails)) {
       for (const rd of payload.requestDetails) {
         // v0.9.44 (milestone 0.6, LIVE-D): 7 → 8 columns, matching the export
         // above. `combo` is NULL for a direct (non-combo) request per migration
@@ -358,7 +448,15 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
     }
   });
 
-  return await exportDb({ includeRequestDetails: Array.isArray(payload.requestDetails) });
+  // The selective report: which sections this restore actually touched and
+  // how many payload items each carried, riding ahead of the whole-database
+  // read-back. The export stays whole — it is the read, not the write, and
+  // its shape is pinned by the A3 completeness suite.
+  return {
+    appliedSections,
+    appliedRows,
+    ...(await exportDb({ includeRequestDetails: Array.isArray(payload.requestDetails) })),
+  };
 }
 
 export async function initDb() {

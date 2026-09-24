@@ -87,6 +87,19 @@ export async function importDatabase(payload, password) {
   if (!res.ok) throw new Error(data.error || "Failed to import database");
   return data;
 }
+// The selective-import ceremony: the same door, with the operator's chosen
+// sections and a dry-run flag riding the body. `sections: null` is the
+// historical whole-restore; a dry run writes nothing and answers the plan.
+export async function importDatabaseWithOptions(payload, password, { sections = null, dryRun = false } = {}) {
+  const res = await fetch("/api/settings/database", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...payload, password, sections, dryRun }),
+  });
+  const data = await readJson(res);
+  if (!res.ok) throw new Error(data.error || (dryRun ? "Could not analyze backup file" : "Failed to import database"));
+  return data;
+}
 
 // Expected to fail as the server closes the socket under us; both outcomes mean
 // the shutdown began, so the throw is swallowed here rather than at every call.
