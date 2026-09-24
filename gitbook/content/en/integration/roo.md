@@ -5,7 +5,7 @@ Integrate Vela with Roo AI Assistant to access multiple AI models through a unif
 ## Prerequisites
 
 - Roo AI Assistant installed
-- Vela API key from [dashboard](https://vela.ai/dashboard)
+- Vela API key from [dashboard](https://vela.my.id/dashboard)
 - Vela running (local or cloud)
 
 ## Configuration Steps
@@ -28,7 +28,7 @@ API Key: your-api-key-from-dashboard
 
 **For Cloud Vela:**
 ```
-Base URL: https://vela.ai/v1
+Base URL: https://vela.my.id/v1
 API Key: your-api-key-from-dashboard
 ```
 

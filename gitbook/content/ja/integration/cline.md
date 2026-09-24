@@ -34,7 +34,7 @@ http://localhost:32060/v1
 
 **クラウドVela用:**
 ```
-https://vela.ai
+https://vela.my.id
 ```
 
 **手順:**
@@ -150,7 +150,7 @@ Velaダッシュボードで設定されたモデルを使用できます。一�
 
 localhostの代わりにVelaクラウドエンドポイントを使用:
 
-1. Cline設定で、Base URLを設定: `https://vela.ai`
+1. Cline設定で、Base URLを設定: `https://vela.my.id`
 2. VelaクラウドダッシュボードでAPIキーが設定されていることを確認
 3. クラウドエンドポイントがアクティブでアクセス可能か確認
 

@@ -23,7 +23,7 @@ npm install -g vela
 Start Vela with a single command:
 
 ```bash
-Vela
+vela
 ```
 
 The dashboard will automatically open in your browser at `http://localhost:3000`
@@ -31,7 +31,7 @@ The dashboard will automatically open in your browser at `http://localhost:3000`
 **Default Configuration:**
 - **Dashboard**: `http://localhost:3000`
 - **API Endpoint**: `http://localhost:32060/v1`
-- **Data Directory**: `~/.Vela`
+- **Data Directory**: `~/.vela`
 
 ---
 
@@ -69,7 +69,7 @@ The server will gracefully shut down and save all data.
 Simply run the start command again:
 
 ```bash
-Vela
+vela
 ```
 
 All your configurations, API keys, and combos are preserved in the data directory.
@@ -81,13 +81,13 @@ All your configurations, API keys, and combos are preserved in the data director
 Update to the latest version:
 
 ```bash
-npm update -g Vela
+npm update -g vela
 ```
 
 Check your current version:
 
 ```bash
-npm list -g Vela
+npm list -g vela
 ```
 
 ---
@@ -128,10 +128,10 @@ If the data directory is not accessible:
 
 ```bash
 # Check permissions
-ls -la ~/.Vela
+ls -la ~/.vela
 
 # Fix permissions
-chmod 755 ~/.Vela
+chmod 755 ~/.vela
 ```
 
 ---
@@ -139,8 +139,9 @@ chmod 755 ~/.Vela
 ## 📁 Data Directory Structure
 
 ```
-~/.Vela/
-├── db.json           # Main database (providers, combos, settings)
+~/.vela/
+├── db/
+│   └── data.sqlite   # Main database (providers, combos, settings)
 ├── logs/             # Application logs
 └── cache/            # Temporary cache files
 ```
@@ -149,10 +150,10 @@ chmod 755 ~/.Vela
 
 ```bash
 # Backup
-cp -r ~/.Vela ~/.Vela.backup
+cp -r ~/.vela ~/.vela.backup
 
 # Restore
-cp -r ~/.Vela.backup ~/.Vela
+cp -r ~/.vela.backup ~/.vela
 ```
 
 ---

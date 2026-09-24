@@ -108,7 +108,7 @@ Bắt đầu trong 2 phút:
 npm install -g vela
 
 # Start (dashboard opens automatically)
-Vela
+vela
 ```
 
 🎉 **Dashboard mở** → Kết nối provider → Bắt đầu code!
@@ -143,7 +143,7 @@ Model: cc/claude-opus-4-5-20251101
 
 ### Cho Mobile/Remote Coding
 
-- Dùng cloud deployment (https://vela.ai)
+- Dùng cloud deployment (https://vela.my.id)
 - Truy cập từ iPad, điện thoại, mọi nơi
 - Không bị giới hạn localhost
 - Mạng Cloudflare edge (300+ vị trí)

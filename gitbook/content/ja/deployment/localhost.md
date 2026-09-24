@@ -23,7 +23,7 @@ npm install -g vela
 一つのコマンドでVelaを起動:
 
 ```bash
-Vela
+vela
 ```
 
 ダッシュボードが自動的にブラウザで `http://localhost:3000` に開きます。
@@ -31,7 +31,7 @@ Vela
 **デフォルト設定:**
 - **ダッシュボード**: `http://localhost:3000`
 - **APIエンドポイント**: `http://localhost:32060/v1`
-- **データディレクトリ**: `~/.Vela`
+- **データディレクトリ**: `~/.vela`
 
 ---
 
@@ -69,7 +69,7 @@ Velaが実行されているターミナルで `Ctrl+C` を押します。
 起動コマンドを再度実行するだけです:
 
 ```bash
-Vela
+vela
 ```
 
 すべての設定、APIキー、コンボはデータディレクトリに保持されます。
@@ -81,13 +81,13 @@ Vela
 最新バージョンに更新:
 
 ```bash
-npm update -g Vela
+npm update -g vela
 ```
 
 現在のバージョンを確認:
 
 ```bash
-npm list -g Vela
+npm list -g vela
 ```
 
 ---
@@ -128,10 +128,10 @@ source ~/.bashrc
 
 ```bash
 # 権限を確認
-ls -la ~/.Vela
+ls -la ~/.vela
 
 # 権限を修正
-chmod 755 ~/.Vela
+chmod 755 ~/.vela
 ```
 
 ---
@@ -139,8 +139,9 @@ chmod 755 ~/.Vela
 ## 📁 データディレクトリ構造
 
 ```
-~/.Vela/
-├── db.json           # メインデータベース (プロバイダー、コンボ、設定)
+~/.vela/
+├── db/
+│   └── data.sqlite   # メインデータベース (プロバイダー、コンボ、設定)
 ├── logs/             # アプリケーションログ
 └── cache/            # 一時キャッシュファイル
 ```
@@ -149,10 +150,10 @@ chmod 755 ~/.Vela
 
 ```bash
 # バックアップ
-cp -r ~/.Vela ~/.Vela.backup
+cp -r ~/.vela ~/.vela.backup
 
 # 復元
-cp -r ~/.Vela.backup ~/.Vela
+cp -r ~/.vela.backup ~/.vela
 ```
 
 ---

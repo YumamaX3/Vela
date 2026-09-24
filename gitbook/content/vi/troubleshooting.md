@@ -143,7 +143,7 @@ Các vấn đề và giải pháp phổ biến khi dùng Vela.
 
 1. **Khởi động Vela:**
    ```bash
-   Vela
+   vela
    ```
    Dashboard sẽ mở tại http://localhost:3000
 
@@ -164,7 +164,7 @@ Các vấn đề và giải pháp phổ biến khi dùng Vela.
 4. **Dùng cloud endpoint:**
    Nếu localhost không hoạt động (ví dụ: Cursor IDE):
    ```
-   Endpoint: https://vela.ai/v1
+   Endpoint: https://vela.my.id/v1
    ```
 
 ---
@@ -205,7 +205,7 @@ Các vấn đề và giải pháp phổ biến khi dùng Vela.
    pkill -f Vela
    
    # Start
-   Vela
+   vela
    ```
 
 4. **Xóa cache browser:**
@@ -347,5 +347,5 @@ Các vấn đề và giải pháp phổ biến khi dùng Vela.
 ## Cần trợ giúp thêm?
 
 - **GitHub Issues:** [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
-- **Documentation:** [vela.ai/docs](https://vela.ai/docs)
+- **Documentation:** [vela.my.id/docs](https://vela.my.id/docs)
 - **FAQ:** [faq.md](faq.md)

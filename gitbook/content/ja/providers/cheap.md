@@ -48,7 +48,7 @@ Dashboard → API Keys → Create New
 **ステップ3: Velaに追加**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Add API Key
 
 Provider: glm
@@ -120,7 +120,7 @@ Dashboard → API Management → Create Key
 **ステップ3: Velaに追加**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Add API Key
 
 Provider: minimax
@@ -193,7 +193,7 @@ Dashboard → API Keys → Create New
 **ステップ3: Velaに追加**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Add API Key
 
 Provider: kimi

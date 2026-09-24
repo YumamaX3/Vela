@@ -40,13 +40,13 @@ npm install -g vela
 **Iniciar Vela:**
 
 ```bash
-Vela
+vela
 ```
 
 **Beneficios:**
 - ✅ Ejecuta desde cualquier directorio
 - ✅ Comando simple: `Vela`
-- ✅ Auto-actualizaciones con `npm update -g Vela`
+- ✅ Auto-actualizaciones con `npm update -g vela`
 
 ### Método 2: Instalación local
 
@@ -93,13 +93,13 @@ npm start
 ### Iniciar el servidor
 
 ```bash
-Vela
+vela
 ```
 
 **Qué sucede:**
 1. El servidor inicia en `http://localhost:32060`
 2. El dashboard se abre automáticamente en el navegador
-3. Se crea el directorio de datos en `~/.Vela`
+3. Se crea el directorio de datos en `~/.vela`
 4. API key generada automáticamente
 
 ### Login del dashboard
@@ -193,7 +193,7 @@ export JWT_SECRET="your-secure-secret-change-this"
 export INITIAL_PASSWORD="your-password"
 
 # Storage
-export DATA_DIR="~/.Vela"
+export DATA_DIR="~/.vela"
 
 # Server
 export PORT="32060"
@@ -205,13 +205,13 @@ export ENABLE_REQUEST_LOGS="false"
 
 ### Directorio de datos
 
-**Ubicación por defecto:** `~/.Vela`
+**Ubicación por defecto:** `~/.vela`
 
 **Contenido:**
 ```
-~/.Vela/
-  ├── db.json           # Database (providers, combos, usage)
-  ├── api-keys.json     # API keys
+~/.vela/
+  ├── db/
+  │   └── data.sqlite   # Database (providers, combos, usage)
   └── logs/             # Request logs (if enabled)
 ```
 
@@ -219,7 +219,7 @@ export ENABLE_REQUEST_LOGS="false"
 
 ```bash
 export DATA_DIR="/custom/path"
-Vela
+vela
 ```
 
 ### Configuración de puerto
@@ -230,7 +230,7 @@ Vela
 
 ```bash
 export PORT="3000"
-Vela
+vela
 ```
 
 **O usa la línea de comandos:**
@@ -354,7 +354,7 @@ Dashboard → Provider → Disconnect → Reconnect
 pkill -f Vela
 
 # Iniciar
-Vela
+vela
 ```
 
 **O usa PM2 para auto-reinicio:**
@@ -373,7 +373,7 @@ pm2 save
 
 ```bash
 npm install -g vela
-Vela
+vela
 ```
 
 **Caso de uso:** Codificación personal, pruebas
@@ -444,13 +444,13 @@ server {
 ### Eliminar instalación global
 
 ```bash
-npm uninstall -g Vela
+npm uninstall -g vela
 ```
 
 ### Eliminar el directorio de datos
 
 ```bash
-rm -rf ~/.Vela
+rm -rf ~/.vela
 ```
 
 ### Eliminar la configuración
@@ -473,6 +473,6 @@ nano ~/.bashrc  # o ~/.zshrc
 
 ## ¿Necesitas ayuda?
 
-- **Sitio web**: [vela.ai](https://vela.ai)
+- **Sitio web**: [vela.my.id](https://vela.my.id)
 - **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues**: [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)

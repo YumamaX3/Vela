@@ -108,7 +108,7 @@ Vela 是一款智能代理,位于你的编码工具(Cursor、Cline、Claude Desk
 npm install -g vela
 
 # 启动(仪表盘自动打开)
-Vela
+vela
 ```
 
 🎉 **仪表盘自动打开** → 连接提供商 → 开始编码!
@@ -143,7 +143,7 @@ Model: cc/claude-opus-4-5-20251101
 
 ### 移动/远程编码
 
-- 使用云端部署(https://vela.ai)
+- 使用云端部署(https://vela.my.id)
 - 从 iPad、手机、任何地方访问
 - 没有 localhost 限制
 - Cloudflare 边缘网络(300+ 节点)

@@ -34,7 +34,7 @@ http://localhost:32060/v1
 
 **云端 Vela:**
 ```
-https://vela.ai
+https://vela.my.id
 ```
 
 **步骤:**
@@ -150,7 +150,7 @@ Model: gpt-4
 
 使用 Vela 云端 endpoint 而非 localhost:
 
-1. 在 Cline 设置中将 Base URL 设为:`https://vela.ai`
+1. 在 Cline 设置中将 Base URL 设为:`https://vela.my.id`
 2. 确保已在 Vela 云端仪表盘中配置 API key
 3. 确保云端 endpoint 已激活且可访问
 

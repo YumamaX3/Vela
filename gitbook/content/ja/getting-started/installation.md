@@ -40,13 +40,13 @@ npm install -g vela
 **Velaを起動:**
 
 ```bash
-Vela
+vela
 ```
 
 **利点:**
 - ✅ どのディレクトリからでも実行
 - ✅ シンプルなコマンド: `Vela`
-- ✅ `npm update -g Vela` で自動更新
+- ✅ `npm update -g vela` で自動更新
 
 ### 方法2: ローカルインストール
 
@@ -93,13 +93,13 @@ npm start
 ### サーバーを起動
 
 ```bash
-Vela
+vela
 ```
 
 **何が起こるか:**
 1. サーバーが `http://localhost:32060` で起動
 2. ダッシュボードが自動的にブラウザで開く
-3. `~/.Vela` にデータディレクトリが作成される
+3. `~/.vela` にデータディレクトリが作成される
 4. APIキーが自動生成される
 
 ### ダッシュボードログイン
@@ -193,7 +193,7 @@ export JWT_SECRET="your-secure-secret-change-this"
 export INITIAL_PASSWORD="your-password"
 
 # ストレージ
-export DATA_DIR="~/.Vela"
+export DATA_DIR="~/.vela"
 
 # サーバー
 export PORT="32060"
@@ -205,13 +205,13 @@ export ENABLE_REQUEST_LOGS="false"
 
 ### データディレクトリ
 
-**デフォルトの場所:** `~/.Vela`
+**デフォルトの場所:** `~/.vela`
 
 **内容:**
 ```
-~/.Vela/
-  ├── db.json           # データベース (プロバイダー、コンボ、使用量)
-  ├── api-keys.json     # APIキー
+~/.vela/
+  ├── db/
+  │   └── data.sqlite   # データベース (プロバイダー、コンボ、使用量)
   └── logs/             # リクエストログ (有効化されている場合)
 ```
 
@@ -219,7 +219,7 @@ export ENABLE_REQUEST_LOGS="false"
 
 ```bash
 export DATA_DIR="/custom/path"
-Vela
+vela
 ```
 
 ### ポート設定
@@ -230,7 +230,7 @@ Vela
 
 ```bash
 export PORT="3000"
-Vela
+vela
 ```
 
 **またはコマンドラインで:**
@@ -354,7 +354,7 @@ Dashboard → Provider → Disconnect → Reconnect
 pkill -f Vela
 
 # 起動
-Vela
+vela
 ```
 
 **または自動再起動にPM2を使用:**
@@ -373,7 +373,7 @@ pm2 save
 
 ```bash
 npm install -g vela
-Vela
+vela
 ```
 
 **ユースケース:** 個人コーディング、テスト
@@ -444,13 +444,13 @@ server {
 ### グローバルインストールを削除
 
 ```bash
-npm uninstall -g Vela
+npm uninstall -g vela
 ```
 
 ### データディレクトリを削除
 
 ```bash
-rm -rf ~/.Vela
+rm -rf ~/.vela
 ```
 
 ### 設定を削除
@@ -473,6 +473,6 @@ nano ~/.bashrc  # または ~/.zshrc
 
 ## ヘルプが必要?
 
-- **ウェブサイト**: [vela.ai](https://vela.ai)
+- **ウェブサイト**: [vela.my.id](https://vela.my.id)
 - **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues**: [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)

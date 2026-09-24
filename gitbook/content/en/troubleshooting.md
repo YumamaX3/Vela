@@ -143,7 +143,7 @@ Common issues and solutions when using Vela.
 
 1. **Start Vela:**
    ```bash
-   Vela
+   vela
    ```
    Dashboard should open at http://localhost:3000
 
@@ -164,7 +164,7 @@ Common issues and solutions when using Vela.
 4. **Use cloud endpoint:**
    If localhost doesn't work (e.g., Cursor IDE):
    ```
-   Endpoint: https://vela.ai/v1
+   Endpoint: https://vela.my.id/v1
    ```
 
 ---
@@ -205,7 +205,7 @@ Common issues and solutions when using Vela.
    pkill -f Vela
    
    # Start
-   Vela
+   vela
    ```
 
 4. **Clear browser cache:**
@@ -347,5 +347,5 @@ Common issues and solutions when using Vela.
 ## Need More Help?
 
 - **GitHub Issues:** [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
-- **Documentation:** [vela.ai/docs](https://vela.ai/docs)
+- **Documentation:** [vela.my.id/docs](https://vela.my.id/docs)
 - **FAQ:** [faq.md](faq.md)

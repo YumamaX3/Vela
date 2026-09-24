@@ -6,7 +6,7 @@ Integra Vela con la extensión Continue para llevar la asistencia de IA directam
 
 - Visual Studio Code instalado
 - Extensión Continue instalada desde el marketplace de VSCode
-- API key de Vela desde el [dashboard](https://vela.ai/dashboard)
+- API key de Vela desde el [dashboard](https://vela.my.id/dashboard)
 - Vela ejecutándose (local o en la nube)
 
 ## Pasos de configuración
@@ -76,7 +76,7 @@ Agrega la siguiente configuración a tu `config.json`:
 **Para Vela en la nube:**
 Reemplaza `apiBase` con:
 ```json
-"apiBase": "https://vela.ai/v1"
+"apiBase": "https://vela.my.id/v1"
 ```
 
 ### 3. Guardar y recargar

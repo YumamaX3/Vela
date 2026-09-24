@@ -35,7 +35,7 @@ IDs end in `/fetch` (e.g. `firecrawl/fetch`, `jina/fetch`). `fetch-combo` chains
 curl -X POST $VELA_URL/v1/web/fetch \
   -H "Authorization: Bearer $VELA_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model":"jina-reader","url":"https://vela.ai","format":"markdown"}'
+  -d '{"model":"jina-reader","url":"https://vela.my.id","format":"markdown"}'
 ```
 
 ### Exa

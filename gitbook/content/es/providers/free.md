@@ -31,7 +31,7 @@ Los proveedores del nivel gratis son tu **fallback** cuando se agota la cuota de
 **Paso 1: Conectar vía Dashboard**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Connect iFlow
 ```
 
@@ -91,7 +91,7 @@ Model: if/kimi-k2-thinking
 **Paso 1: Conectar vía Dashboard**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Connect Qwen
 ```
 
@@ -144,7 +144,7 @@ Model: qw/qwen3-coder-plus
 **Paso 1: Conectar vía Dashboard**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Connect Kiro
 ```
 

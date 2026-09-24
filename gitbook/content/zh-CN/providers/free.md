@@ -31,7 +31,7 @@
 **步骤 1:通过仪表盘连接**
 
 ```bash
-Vela
+vela
 # 仪表盘 → 提供商 → 连接 iFlow
 ```
 
@@ -91,7 +91,7 @@ Model: if/kimi-k2-thinking
 **步骤 1:通过仪表盘连接**
 
 ```bash
-Vela
+vela
 # 仪表盘 → 提供商 → 连接 Qwen
 ```
 
@@ -144,7 +144,7 @@ Model: qw/qwen3-coder-plus
 **步骤 1:通过仪表盘连接**
 
 ```bash
-Vela
+vela
 # 仪表盘 → 提供商 → 连接 Kiro
 ```
 

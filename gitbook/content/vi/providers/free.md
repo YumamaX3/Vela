@@ -31,7 +31,7 @@ Provider free tier là **fallback** khi hết quota subscription và cheap:
 **Bước 1: Kết nối qua Dashboard**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Connect iFlow
 ```
 
@@ -91,7 +91,7 @@ Model: if/kimi-k2-thinking
 **Bước 1: Kết nối qua Dashboard**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Connect Qwen
 ```
 
@@ -144,7 +144,7 @@ Model: qw/qwen3-coder-plus
 **Bước 1: Kết nối qua Dashboard**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Connect Kiro
 ```
 

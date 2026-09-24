@@ -23,7 +23,7 @@ npm install -g vela
 Inicia Vela con un solo comando:
 
 ```bash
-Vela
+vela
 ```
 
 El dashboard se abrirá automáticamente en tu navegador en `http://localhost:3000`
@@ -31,7 +31,7 @@ El dashboard se abrirá automáticamente en tu navegador en `http://localhost:30
 **Configuración por defecto:**
 - **Dashboard**: `http://localhost:3000`
 - **API Endpoint**: `http://localhost:32060/v1`
-- **Directorio de datos**: `~/.Vela`
+- **Directorio de datos**: `~/.vela`
 
 ---
 
@@ -69,7 +69,7 @@ El servidor se apagará correctamente y guardará todos los datos.
 Simplemente ejecuta el comando de inicio nuevamente:
 
 ```bash
-Vela
+vela
 ```
 
 Todas tus configuraciones, API keys y combos se preservan en el directorio de datos.
@@ -81,13 +81,13 @@ Todas tus configuraciones, API keys y combos se preservan en el directorio de da
 Actualiza a la última versión:
 
 ```bash
-npm update -g Vela
+npm update -g vela
 ```
 
 Verifica tu versión actual:
 
 ```bash
-npm list -g Vela
+npm list -g vela
 ```
 
 ---
@@ -128,10 +128,10 @@ Si el directorio de datos no es accesible:
 
 ```bash
 # Verificar permisos
-ls -la ~/.Vela
+ls -la ~/.vela
 
 # Corregir permisos
-chmod 755 ~/.Vela
+chmod 755 ~/.vela
 ```
 
 ---
@@ -139,8 +139,9 @@ chmod 755 ~/.Vela
 ## 📁 Estructura del directorio de datos
 
 ```
-~/.Vela/
-├── db.json           # Main database (providers, combos, settings)
+~/.vela/
+├── db/
+│   └── data.sqlite   # Main database (providers, combos, settings)
 ├── logs/             # Application logs
 └── cache/            # Temporary cache files
 ```
@@ -149,10 +150,10 @@ chmod 755 ~/.Vela
 
 ```bash
 # Respaldo
-cp -r ~/.Vela ~/.Vela.backup
+cp -r ~/.vela ~/.vela.backup
 
 # Restaurar
-cp -r ~/.Vela.backup ~/.Vela
+cp -r ~/.vela.backup ~/.vela
 ```
 
 ---

@@ -5,7 +5,7 @@
 ## 前置要求
 
 - 已安装 Roo AI 助手
-- 来自 [仪表盘](https://vela.ai/dashboard) 的 Vela API key
+- 来自 [仪表盘](https://vela.my.id/dashboard) 的 Vela API key
 - Vela 正在运行(本地或云端)
 
 ## 配置步骤
@@ -28,7 +28,7 @@ API Key: your-api-key-from-dashboard
 
 **云端 Vela:**
 ```
-Base URL: https://vela.ai/v1
+Base URL: https://vela.my.id/v1
 API Key: your-api-key-from-dashboard
 ```
 

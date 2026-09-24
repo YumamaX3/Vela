@@ -17,7 +17,7 @@ npm install -g vela
 ### 2. 起動
 
 ```bash
-Vela
+vela
 ```
 
 🎉 **ダッシュボードが自動的に開きます** (`http://localhost:32060`)
@@ -242,6 +242,6 @@ CLIで使用: premium-coding
 
 ## ヘルプが必要?
 
-- **ウェブサイト**: [vela.ai](https://vela.ai)
+- **ウェブサイト**: [vela.my.id](https://vela.my.id)
 - **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues**: [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)

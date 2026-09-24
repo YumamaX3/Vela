@@ -113,7 +113,7 @@ codex --model cx/gpt-5.1-codex-max "Explain what this code does: $(cat myfile.js
 使用 Vela 云端 endpoint 而非 localhost:
 
 ```bash
-export OPENAI_BASE_URL="https://vela.ai"
+export OPENAI_BASE_URL="https://vela.my.id"
 ```
 
 确保已在 Vela 云端仪表盘中配置 API key。

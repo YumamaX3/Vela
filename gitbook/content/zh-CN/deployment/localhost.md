@@ -23,7 +23,7 @@ npm install -g vela
 一条命令启动 Vela:
 
 ```bash
-Vela
+vela
 ```
 
 仪表盘会自动在浏览器中打开,地址为 `http://localhost:3000`
@@ -31,7 +31,7 @@ Vela
 **默认配置:**
 - **仪表盘**: `http://localhost:3000`
 - **API Endpoint**: `http://localhost:32060/v1`
-- **数据目录**: `~/.Vela`
+- **数据目录**: `~/.vela`
 
 ---
 
@@ -69,7 +69,7 @@ API 端口(32060)和仪表盘端口(3000)在应用中配置。如需修改,你�
 再次运行启动命令即可:
 
 ```bash
-Vela
+vela
 ```
 
 所有配置、API keys 和组合都保存在数据目录中。
@@ -81,13 +81,13 @@ Vela
 更新到最新版本:
 
 ```bash
-npm update -g Vela
+npm update -g vela
 ```
 
 查看当前版本:
 
 ```bash
-npm list -g Vela
+npm list -g vela
 ```
 
 ---
@@ -128,10 +128,10 @@ source ~/.bashrc
 
 ```bash
 # 检查权限
-ls -la ~/.Vela
+ls -la ~/.vela
 
 # 修复权限
-chmod 755 ~/.Vela
+chmod 755 ~/.vela
 ```
 
 ---
@@ -139,8 +139,9 @@ chmod 755 ~/.Vela
 ## 📁 数据目录结构
 
 ```
-~/.Vela/
-├── db.json           # 主数据库(提供商、组合、设置)
+~/.vela/
+├── db/
+│   └── data.sqlite   # 主数据库(提供商、组合、设置)
 ├── logs/             # 应用日志
 └── cache/            # 临时缓存文件
 ```
@@ -149,10 +150,10 @@ chmod 755 ~/.Vela
 
 ```bash
 # 备份
-cp -r ~/.Vela ~/.Vela.backup
+cp -r ~/.vela ~/.vela.backup
 
 # 恢复
-cp -r ~/.Vela.backup ~/.Vela
+cp -r ~/.vela.backup ~/.vela
 ```
 
 ---

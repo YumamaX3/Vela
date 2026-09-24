@@ -6,7 +6,7 @@ VelaをContinue拡張機能と統合し、Visual Studio Codeに直接AIアシス
 
 - Visual Studio Codeがインストール済み
 - VSCodeマーケットプレイスからContinue拡張機能がインストール済み
-- [ダッシュボード](https://vela.ai/dashboard)からのVela APIキー
+- [ダッシュボード](https://vela.my.id/dashboard)からのVela APIキー
 - Velaが動作中 (ローカルまたはクラウド)
 
 ## 設定手順
@@ -76,7 +76,7 @@ VelaをContinue拡張機能と統合し、Visual Studio Codeに直接AIアシス
 **クラウドVela用:**
 `apiBase` を以下に置き換え:
 ```json
-"apiBase": "https://vela.ai/v1"
+"apiBase": "https://vela.my.id/v1"
 ```
 
 ### 3. 保存してリロード

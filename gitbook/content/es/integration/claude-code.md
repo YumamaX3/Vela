@@ -103,7 +103,7 @@ Si obtienes errores de "modelo no encontrado":
 Para usar el endpoint en la nube de Vela en lugar de localhost:
 
 ```bash
-export ANTHROPIC_BASE_URL="https://vela.ai"
+export ANTHROPIC_BASE_URL="https://vela.my.id"
 ```
 
 Asegúrate de haber configurado tu API key en el dashboard en la nube de Vela.

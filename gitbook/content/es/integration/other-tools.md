@@ -24,7 +24,7 @@ Model: cualquier modelo de Vela (cc/*, cx/*, glm/*, etc.)
 
 **Vela en la nube:**
 ```
-Base URL: https://vela.ai/v1
+Base URL: https://vela.my.id/v1
 API Key: your-api-key-from-dashboard
 Model: cualquier modelo de Vela (cc/*, cx/*, glm/*, etc.)
 ```

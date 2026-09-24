@@ -48,7 +48,7 @@
 **步骤 3:添加到 Vela**
 
 ```bash
-Vela
+vela
 # 仪表盘 → 提供商 → 添加 API Key
 
 Provider: glm
@@ -120,7 +120,7 @@ Model: glm/glm-4.7
 **步骤 3:添加到 Vela**
 
 ```bash
-Vela
+vela
 # 仪表盘 → 提供商 → 添加 API Key
 
 Provider: minimax
@@ -193,7 +193,7 @@ Model: minimax/MiniMax-M2.1
 **步骤 3:添加到 Vela**
 
 ```bash
-Vela
+vela
 # 仪表盘 → 提供商 → 添加 API Key
 
 Provider: kimi

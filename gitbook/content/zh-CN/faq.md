@@ -164,7 +164,7 @@
 
 ```
 Cursor Settings → Models → Advanced:
-  OpenAI API Base URL: https://vela.ai/v1
+  OpenAI API Base URL: https://vela.my.id/v1
   OpenAI API Key: [从仪表盘获取]
   Model: cc/claude-opus-4-5-20251101
 ```
@@ -199,7 +199,7 @@ npm start
 ### Localhost(默认)
 ```bash
 npm install -g vela
-Vela
+vela
 → 仪表盘: http://localhost:3000
 → API: http://localhost:32060/v1
 ```
@@ -224,7 +224,7 @@ docker run -d \
   -p 3000:3000 \
   -e JWT_SECRET="your-secret" \
   -v Vela-data:/app/data \
-  Vela
+  vela
 ```
 
 ### Cloudflare Workers
@@ -235,7 +235,7 @@ npm run deploy:cloudflare
 
 **环境变量:**
 - `JWT_SECRET` - **生产环境必须修改!**
-- `DATA_DIR` - 数据库存储路径(默认:`~/.Vela`)
+- `DATA_DIR` - 数据库存储路径(默认:`~/.vela`)
 - `INITIAL_PASSWORD` - 仪表盘登录(默认:`123456`)
 - `NODE_ENV` - 部署时设为 `production`
 
@@ -248,7 +248,7 @@ npm run deploy:cloudflare
 **是的,Vela 优先考虑安全和隐私:**
 
 **本地存储:**
-- 所有数据存储在本地 `~/.Vela`(或自定义 `DATA_DIR`)
+- 所有数据存储在本地 `~/.vela`(或自定义 `DATA_DIR`)
 - 不会发送数据到 Vela 服务器
 - OAuth tokens 使用 JWT 加密
 
@@ -287,7 +287,7 @@ npm run deploy:cloudflare
 
 ### 全局 NPM 安装
 ```bash
-npm update -g Vela
+npm update -g vela
 ```
 
 ### 本地安装
@@ -317,7 +317,7 @@ Vela --version
 
 **破坏性变更:**
 - 查看 [CHANGELOG.md](https://github.com/YumamaX3/Vela/blob/main/CHANGELOG.md)
-- 大版本更新前备份 `~/.Vela`
+- 大版本更新前备份 `~/.vela`
 - 阅读大版本的迁移指南
 
 ---
@@ -381,7 +381,7 @@ Vela --version
 
 ## 需要更多帮助?
 
-- **文档:** [vela.ai/docs](https://vela.ai/docs)
+- **文档:** [vela.my.id/docs](https://vela.my.id/docs)
 - **GitHub:** [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues:** [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
 - **故障排除:** [troubleshooting.md](troubleshooting.md)

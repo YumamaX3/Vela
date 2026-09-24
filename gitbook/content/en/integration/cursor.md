@@ -11,7 +11,7 @@ Integrate Vela with Cursor IDE to route your AI requests through Vela's intellig
 
 ## ⚠️ Important Notes
 
-> **Cloud Endpoint Required**: Cursor routes requests through its own server and does not support localhost endpoints. You must use the Vela cloud endpoint: `https://vela.ai`
+> **Cloud Endpoint Required**: Cursor routes requests through its own server and does not support localhost endpoints. You must use the Vela cloud endpoint: `https://vela.my.id`
 
 > **Cursor Pro Required**: This feature requires a Cursor Pro account to use custom API endpoints.
 
@@ -33,12 +33,12 @@ Integrate Vela with Cursor IDE to route your AI requests through Vela's intellig
 Set the base URL to Vela cloud endpoint:
 
 ```
-https://vela.ai
+https://vela.my.id
 ```
 
 **Steps:**
 1. In the Models settings, locate the **Base URL** field
-2. Enter: `https://vela.ai`
+2. Enter: `https://vela.my.id`
 3. Click **Save**
 
 ### 4. Add API Key
@@ -66,7 +66,7 @@ Your Cursor settings should look like this:
 
 ```
 OpenAI API: ✓ Enabled
-Base URL: https://vela.ai
+Base URL: https://vela.my.id
 API Key: sk-Vela-xxxxxxxxxxxxx
 Custom Models: gpt-4, claude-opus-4-5, gemini-2.0-flash
 ```
@@ -123,14 +123,14 @@ You can use any model configured in your Vela dashboard. Common examples:
 
 ### Connection Issues
 
-1. Verify you are using the cloud endpoint: `https://vela.ai`
+1. Verify you are using the cloud endpoint: `https://vela.my.id`
 2. Check your internet connection
 3. Ensure Vela cloud service is operational
 4. Try disabling VPN or proxy if enabled
 
 ### Localhost Not Working
 
-> **Remember**: Cursor does not support localhost endpoints. You must use the cloud endpoint `https://vela.ai`. If you need to use a local Vela instance, consider using a tunneling service like ngrok to expose your local endpoint.
+> **Remember**: Cursor does not support localhost endpoints. You must use the cloud endpoint `https://vela.my.id`. If you need to use a local Vela instance, consider using a tunneling service like ngrok to expose your local endpoint.
 
 ## Cloud Endpoint Setup
 

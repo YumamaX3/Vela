@@ -40,13 +40,13 @@ npm install -g vela
 **Start Vela:**
 
 ```bash
-Vela
+vela
 ```
 
 **Benefits:**
 - ✅ Run from any directory
 - ✅ Simple command: `Vela`
-- ✅ Auto-updates with `npm update -g Vela`
+- ✅ Auto-updates with `npm update -g vela`
 
 ### Method 2: Local Installation
 
@@ -93,13 +93,13 @@ npm start
 ### Start the Server
 
 ```bash
-Vela
+vela
 ```
 
 **What happens:**
 1. Server starts on `http://localhost:32060`
 2. Dashboard opens automatically in browser
-3. Data directory created at `~/.Vela`
+3. Data directory created at `~/.vela`
 4. API key generated automatically
 
 ### Dashboard Login
@@ -193,7 +193,7 @@ export JWT_SECRET="your-secure-secret-change-this"
 export INITIAL_PASSWORD="your-password"
 
 # Storage
-export DATA_DIR="~/.Vela"
+export DATA_DIR="~/.vela"
 
 # Server
 export PORT="32060"
@@ -205,13 +205,13 @@ export ENABLE_REQUEST_LOGS="false"
 
 ### Data Directory
 
-**Default location:** `~/.Vela`
+**Default location:** `~/.vela`
 
 **Contents:**
 ```
-~/.Vela/
-  ├── db.json           # Database (providers, combos, usage)
-  ├── api-keys.json     # API keys
+~/.vela/
+  ├── db/
+  │   └── data.sqlite   # Database (providers, combos, usage)
   └── logs/             # Request logs (if enabled)
 ```
 
@@ -219,7 +219,7 @@ export ENABLE_REQUEST_LOGS="false"
 
 ```bash
 export DATA_DIR="/custom/path"
-Vela
+vela
 ```
 
 ### Port Configuration
@@ -230,7 +230,7 @@ Vela
 
 ```bash
 export PORT="3000"
-Vela
+vela
 ```
 
 **Or use command line:**
@@ -354,7 +354,7 @@ Dashboard → Provider → Disconnect → Reconnect
 pkill -f Vela
 
 # Start
-Vela
+vela
 ```
 
 **Or use PM2 for auto-restart:**
@@ -373,7 +373,7 @@ pm2 save
 
 ```bash
 npm install -g vela
-Vela
+vela
 ```
 
 **Use case:** Personal coding, testing
@@ -444,13 +444,13 @@ server {
 ### Remove Global Installation
 
 ```bash
-npm uninstall -g Vela
+npm uninstall -g vela
 ```
 
 ### Remove Data Directory
 
 ```bash
-rm -rf ~/.Vela
+rm -rf ~/.vela
 ```
 
 ### Remove Configuration
@@ -473,6 +473,6 @@ nano ~/.bashrc  # or ~/.zshrc
 
 ## Need Help?
 
-- **Website**: [vela.ai](https://vela.ai)
+- **Website**: [vela.my.id](https://vela.my.id)
 - **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues**: [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)

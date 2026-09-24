@@ -113,7 +113,7 @@ Si obtienes errores de "modelo no disponible":
 Para usar el endpoint en la nube de Vela en lugar de localhost:
 
 ```bash
-export OPENAI_BASE_URL="https://vela.ai"
+export OPENAI_BASE_URL="https://vela.my.id"
 ```
 
 Asegúrate de haber configurado tu API key en el dashboard en la nube de Vela.

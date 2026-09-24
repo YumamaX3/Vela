@@ -108,7 +108,7 @@ Comienza en 2 minutos:
 npm install -g vela
 
 # Inicia (el dashboard se abre automáticamente)
-Vela
+vela
 ```
 
 🎉 **Se abre el dashboard** → Conecta proveedores → ¡Empieza a codificar!
@@ -143,7 +143,7 @@ Model: cc/claude-opus-4-5-20251101
 
 ### Para codificación móvil/remota
 
-- Usa el despliegue en la nube (https://vela.ai)
+- Usa el despliegue en la nube (https://vela.my.id)
 - Accede desde iPad, teléfono, donde sea
 - Sin limitaciones de localhost
 - Red edge de Cloudflare (300+ ubicaciones)

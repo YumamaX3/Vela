@@ -11,7 +11,7 @@ Integra Vela con Cursor IDE para enrutar tus solicitudes de IA a través del sis
 
 ## ⚠️ Notas importantes
 
-> **Endpoint en la nube requerido**: Cursor enruta solicitudes a través de su propio servidor y no soporta endpoints localhost. Debes usar el endpoint en la nube de Vela: `https://vela.ai`
+> **Endpoint en la nube requerido**: Cursor enruta solicitudes a través de su propio servidor y no soporta endpoints localhost. Debes usar el endpoint en la nube de Vela: `https://vela.my.id`
 
 > **Cursor Pro requerido**: Esta característica requiere una cuenta Cursor Pro para usar endpoints de API personalizados.
 
@@ -33,12 +33,12 @@ Integra Vela con Cursor IDE para enrutar tus solicitudes de IA a través del sis
 Establece la URL base al endpoint en la nube de Vela:
 
 ```
-https://vela.ai
+https://vela.my.id
 ```
 
 **Pasos:**
 1. En la configuración de Models, localiza el campo **Base URL**
-2. Ingresa: `https://vela.ai`
+2. Ingresa: `https://vela.my.id`
 3. Clic en **Save**
 
 ### 4. Agregar API Key
@@ -66,7 +66,7 @@ Tu configuración de Cursor debería verse así:
 
 ```
 OpenAI API: ✓ Enabled
-Base URL: https://vela.ai
+Base URL: https://vela.my.id
 API Key: sk-Vela-xxxxxxxxxxxxx
 Custom Models: gpt-4, claude-opus-4-5, gemini-2.0-flash
 ```
@@ -123,14 +123,14 @@ Puedes usar cualquier modelo configurado en tu dashboard de Vela. Ejemplos comun
 
 ### Problemas de conexión
 
-1. Verifica que estés usando el endpoint en la nube: `https://vela.ai`
+1. Verifica que estés usando el endpoint en la nube: `https://vela.my.id`
 2. Verifica tu conexión a internet
 3. Asegúrate de que el servicio en la nube de Vela esté operativo
 4. Intenta deshabilitar VPN o proxy si está habilitado
 
 ### Localhost no funciona
 
-> **Recuerda**: Cursor no soporta endpoints localhost. Debes usar el endpoint en la nube `https://vela.ai`. Si necesitas usar una instancia local de Vela, considera usar un servicio de tunneling como ngrok para exponer tu endpoint local.
+> **Recuerda**: Cursor no soporta endpoints localhost. Debes usar el endpoint en la nube `https://vela.my.id`. Si necesitas usar una instancia local de Vela, considera usar un servicio de tunneling como ngrok para exponer tu endpoint local.
 
 ## Configuración del endpoint en la nube
 

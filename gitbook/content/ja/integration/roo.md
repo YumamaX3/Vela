@@ -5,7 +5,7 @@ VelaをRoo AIアシスタントと統合し、統一インターフェイスか�
 ## 前提条件
 
 - Roo AIアシスタントがインストール済み
-- [ダッシュボード](https://vela.ai/dashboard)からのVela APIキー
+- [ダッシュボード](https://vela.my.id/dashboard)からのVela APIキー
 - Velaが動作中 (ローカルまたはクラウド)
 
 ## 設定手順
@@ -28,7 +28,7 @@ API Key: your-api-key-from-dashboard
 
 **クラウドVela用:**
 ```
-Base URL: https://vela.ai/v1
+Base URL: https://vela.my.id/v1
 API Key: your-api-key-from-dashboard
 ```
 

@@ -40,13 +40,13 @@ npm install -g vela
 **Khởi động Vela:**
 
 ```bash
-Vela
+vela
 ```
 
 **Lợi ích:**
 - ✅ Chạy từ mọi thư mục
 - ✅ Lệnh đơn giản: `Vela`
-- ✅ Auto-update với `npm update -g Vela`
+- ✅ Auto-update với `npm update -g vela`
 
 ### Cách 2: Cài Local
 
@@ -93,13 +93,13 @@ npm start
 ### Khởi động Server
 
 ```bash
-Vela
+vela
 ```
 
 **Điều gì xảy ra:**
 1. Server khởi động tại `http://localhost:32060`
 2. Dashboard tự động mở trong browser
-3. Data directory được tạo tại `~/.Vela`
+3. Data directory được tạo tại `~/.vela`
 4. API key được tạo tự động
 
 ### Đăng nhập Dashboard
@@ -193,7 +193,7 @@ export JWT_SECRET="your-secure-secret-change-this"
 export INITIAL_PASSWORD="your-password"
 
 # Storage
-export DATA_DIR="~/.Vela"
+export DATA_DIR="~/.vela"
 
 # Server
 export PORT="32060"
@@ -205,13 +205,13 @@ export ENABLE_REQUEST_LOGS="false"
 
 ### Data Directory
 
-**Vị trí mặc định:** `~/.Vela`
+**Vị trí mặc định:** `~/.vela`
 
 **Nội dung:**
 ```
-~/.Vela/
-  ├── db.json           # Database (providers, combos, usage)
-  ├── api-keys.json     # API keys
+~/.vela/
+  ├── db/
+  │   └── data.sqlite   # Database (providers, combos, usage)
   └── logs/             # Request logs (if enabled)
 ```
 
@@ -219,7 +219,7 @@ export ENABLE_REQUEST_LOGS="false"
 
 ```bash
 export DATA_DIR="/custom/path"
-Vela
+vela
 ```
 
 ### Cấu hình Port
@@ -230,7 +230,7 @@ Vela
 
 ```bash
 export PORT="3000"
-Vela
+vela
 ```
 
 **Hoặc dùng command line:**
@@ -354,7 +354,7 @@ Dashboard → Provider → Disconnect → Reconnect
 pkill -f Vela
 
 # Start
-Vela
+vela
 ```
 
 **Hoặc dùng PM2 để auto-restart:**
@@ -373,7 +373,7 @@ pm2 save
 
 ```bash
 npm install -g vela
-Vela
+vela
 ```
 
 **Use case:** Code cá nhân, testing
@@ -444,13 +444,13 @@ server {
 ### Gỡ Global Installation
 
 ```bash
-npm uninstall -g Vela
+npm uninstall -g vela
 ```
 
 ### Xóa Data Directory
 
 ```bash
-rm -rf ~/.Vela
+rm -rf ~/.vela
 ```
 
 ### Xóa Cấu hình
@@ -473,6 +473,6 @@ nano ~/.bashrc  # or ~/.zshrc
 
 ## Cần trợ giúp?
 
-- **Website**: [vela.ai](https://vela.ai)
+- **Website**: [vela.my.id](https://vela.my.id)
 - **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues**: [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)

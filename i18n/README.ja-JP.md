@@ -1,12 +1,12 @@
 <div align="center">
   <img src="../public/vela-wordmark.svg" alt="Vela — 船の帆" width="520"/>
 
-  **OpenAI互換エンドポイントはひとつだけ。上流プロバイダーは40以上。サブスクリプションも、APIキーも、無料枠も — 港はひとつ、帆もひとつ。**
+  **OpenAI互換エンドポイントはひとつだけ。上流トランスポートは111接続可能。サブスクリプションも、APIキーも、無料枠も — 港はひとつ、帆もひとつ。**
 
   VelaはあなたのAIコーディングツール(Claude Code、Codex、Cursor、Cline、OpenCode…)を単一のローカルゲートウェイへ接続します。フォーマット変換、モデルコンボフォールバック、マルチアカウントローテーション、クォータ管理、そして出港前にツール出力トークンを20~40%削減するRTKトークンセーバーを備えています。
 
-  [![Version](https://img.shields.io/badge/version-0.6.70-blue?style=flat-square)](../CHANGELOG.md)
-  [![Providers](https://img.shields.io/badge/providers-129-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
+  [![Version](https://img.shields.io/badge/version-0.9.93-blue?style=flat-square)](../CHANGELOG.md)
+  [![Providers](https://img.shields.io/badge/providers-111%20dialable-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
   [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
   [![License](https://img.shields.io/badge/license-see%20LICENSE-gray?style=flat-square)](../LICENSE)
@@ -97,7 +97,7 @@ Velaは**ローカルAIルーティングゲートウェイ + ダッシュボー
 
 ```bash
 docker login ghcr.io          # PAT with read:packages — the image is private
-docker pull ghcr.io/yumamax3/vela:0.6.70
+docker pull ghcr.io/yumamax3/vela:0.9.93
 
 docker run -d --name vela \
   -p 32060:32060 \
@@ -105,7 +105,7 @@ docker run -d --name vela \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:0.6.70
+  ghcr.io/yumamax3/vela:0.9.93
 ```
 
 完全な海図 — MariaDBの双子、mirror姿勢、バックアップエンジン、Headroomサイドカー — は[DOCKER.md](../DOCKER.md)と[`docker-compose.example.yml`](../docker-compose.example.yml)テンプレートを参照してください。

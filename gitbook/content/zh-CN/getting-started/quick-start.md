@@ -17,7 +17,7 @@ npm install -g vela
 ### 2. 启动
 
 ```bash
-Vela
+vela
 ```
 
 🎉 **仪表盘自动打开** 地址为 `http://localhost:32060`
@@ -242,6 +242,6 @@ CLI 中使用: premium-coding
 
 ## 需要帮助?
 
-- **网站**: [vela.ai](https://vela.ai)
+- **网站**: [vela.my.id](https://vela.my.id)
 - **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues**: [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)

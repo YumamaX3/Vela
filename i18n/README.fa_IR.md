@@ -1,19 +1,19 @@
 <div align="center">
   <img src="../public/vela-wordmark.svg" alt="Vela — بادبان کشتی" width="520"/>
 
-  **یک نقطه پایانی سازگار با OpenAI. بیش از ۴۰ ارائه‌دهنده بالادست. اشتراک‌های شما، کلیدهای شما، لایه‌های رایگان شما — یک بندر، یک بادبان.**
+  **یک نقطه پایانی سازگار با OpenAI. ۱۱۱ ترابری بالادست قابل اتصال. اشتراک‌های شما، کلیدهای شما، لایه‌های رایگان شما — یک بندر، یک بادبان.**
 
   Vela ابزارهای کدنویسی هوش مصنوعی شما (Claude Code، Codex، Cursor، Cline، OpenCode و…) را از طریق یک دروازه محلی واحد هدایت می‌کند؛ با ترجمه فرمت، بازگشت بر اساس ترکیب مدل‌ها، چرخش چندحسابی، ردیابی سهمیه و صرفه‌جوی توکن RTK که ۲۰ تا ۴۰٪ از توکن‌های خروجی ابزارها را پیش از ترک بندر می‌کاهد.
 
-  [![Version](https://img.shields.io/badge/version-0.6.70-blue?style=flat-square)](../CHANGELOG.md)
-  [![Providers](https://img.shields.io/badge/providers-129-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
+  [![Version](https://img.shields.io/badge/version-0.9.93-blue?style=flat-square)](../CHANGELOG.md)
+  [![Providers](https://img.shields.io/badge/providers-111%20dialable-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
   [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
   [![License](https://img.shields.io/badge/license-see%20LICENSE-gray?style=flat-square)](../LICENSE)
 
   [🚀 شروع سریع](#-شروع-سریع) · [✨ ویژگی‌های کلیدی](#-ویژگی‌های-کلیدی) · [📚 مستندات](#-مستندات) · [🌐 زبان‌ها](#-زبان‌ها)
 
-  🇺🇸 [English](./README.md) · 🇨🇳 [中文](./README.zh-CN.md) · 🇮🇩 [Indonesia](./README.id-ID.md) · 🇯🇵 [日本語](./README.ja-JP.md) · 🇻🇳 [Tiếng Việt](./README.vi.md) · 🇧🇷 [Português](./README.pt-BR.md) · 🇪🇸 [Español](./README.es.md) · 🇫🇷 [Français](./README.fr.md) · 🇷🇺 [Русский](./README.ru.md) · 🇹🇭 [ไทย](./README.th.md) · 🇮🇷 [فارسی](./README.fa_IR.md)
+  🇺🇸 [English](../README.md) · 🇨🇳 [中文](./README.zh-CN.md) · 🇮🇩 [Indonesia](./README.id-ID.md) · 🇯🇵 [日本語](./README.ja-JP.md) · 🇻🇳 [Tiếng Việt](./README.vi.md) · 🇧🇷 [Português](./README.pt-BR.md) · 🇪🇸 [Español](./README.es.md) · 🇫🇷 [Français](./README.fr.md) · 🇷🇺 [Русский](./README.ru.md) · 🇹🇭 [ไทย](./README.th.md) · 🇮🇷 [فارسی](./README.fa_IR.md)
 </div>
 
 > 🇬🇧 این ترجمه فارسی است. نسخه اصلی انگلیسی در اینجاست: [README.md](../README.md)
@@ -97,7 +97,7 @@ Vela یک **دروازه مسیریابی هوش مصنوعی محلی + داش�
 
 ```bash
 docker login ghcr.io          # PAT with read:packages — the image is private
-docker pull ghcr.io/yumamax3/vela:0.6.70
+docker pull ghcr.io/yumamax3/vela:0.9.93
 
 docker run -d --name vela \
   -p 32060:32060 \
@@ -105,7 +105,7 @@ docker run -d --name vela \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:0.6.70
+  ghcr.io/yumamax3/vela:0.9.93
 ```
 
 برای نقشه کامل — دوقلوی MariaDB، حالت mirror، موتور پشتیبان‌گیری، سایدکار Headroom — به [DOCKER.md](../DOCKER.md) و قالب [`docker-compose.example.yml`](../docker-compose.example.yml) مراجعه کنید.

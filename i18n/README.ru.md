@@ -1,19 +1,19 @@
 <div align="center">
   <img src="../public/vela-wordmark.svg" alt="Vela — парус корабля" width="520"/>
 
-  **Одна OpenAI-совместимая конечная точка. 40+ вышестоящих провайдеров. Ваши подписки, ваши ключи, ваши бесплатные тарифы — одна гавань, один парус.**
+  **Одна OpenAI-совместимая конечная точка. 111 доступных вышестоящих транспортов. Ваши подписки, ваши ключи, ваши бесплатные тарифы — одна гавань, один парус.**
 
   Vela направляет ваши AI-инструменты для разработки (Claude Code, Codex, Cursor, Cline, OpenCode…) через единый локальный шлюз с трансляцией форматов, резервированием по комбинациям моделей, ротацией между несколькими аккаунтами, отслеживанием квот и RTK-экономителем токенов, который срезает 20–40% токенов в выводах инструментов ещё до того, как они покинут гавань.
 
-  [![Version](https://img.shields.io/badge/version-0.6.70-blue?style=flat-square)](../CHANGELOG.md)
-  [![Providers](https://img.shields.io/badge/providers-129-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
+  [![Version](https://img.shields.io/badge/version-0.9.93-blue?style=flat-square)](../CHANGELOG.md)
+  [![Providers](https://img.shields.io/badge/providers-111%20dialable-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
   [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
   [![License](https://img.shields.io/badge/license-see%20LICENSE-gray?style=flat-square)](../LICENSE)
 
   [🚀 Быстрый старт](#-быстрый-старт) · [✨ Возможности](#-ключевые-возможности) · [📚 Документация](#-документация) · [🌐 Языки](#-языки)
 
-  🇺🇸 [English](./README.md) · 🇨🇳 [中文](./README.zh-CN.md) · 🇮🇩 [Indonesia](./README.id-ID.md) · 🇯🇵 [日本語](./README.ja-JP.md) · 🇻🇳 [Tiếng Việt](./README.vi.md) · 🇧🇷 [Português](./README.pt-BR.md) · 🇪🇸 [Español](./README.es.md) · 🇫🇷 [Français](./README.fr.md) · 🇷🇺 [Русский](./README.ru.md) · 🇹🇭 [ไทย](./README.th.md) · 🇮🇷 [فارسی](./README.fa_IR.md)
+  🇺🇸 [English](../README.md) · 🇨🇳 [中文](./README.zh-CN.md) · 🇮🇩 [Indonesia](./README.id-ID.md) · 🇯🇵 [日本語](./README.ja-JP.md) · 🇻🇳 [Tiếng Việt](./README.vi.md) · 🇧🇷 [Português](./README.pt-BR.md) · 🇪🇸 [Español](./README.es.md) · 🇫🇷 [Français](./README.fr.md) · 🇷🇺 [Русский](./README.ru.md) · 🇹🇭 [ไทย](./README.th.md) · 🇮🇷 [فارسی](./README.fa_IR.md)
 </div>
 
 > 🇬🇧 Это перевод на русский язык. Английский оригинал находится здесь: [README.md](../README.md)
@@ -97,7 +97,7 @@ Vela — это **локальный шлюз маршрутизации AI + п
 
 ```bash
 docker login ghcr.io          # PAT with read:packages — the image is private
-docker pull ghcr.io/yumamax3/vela:0.6.70
+docker pull ghcr.io/yumamax3/vela:0.9.93
 
 docker run -d --name vela \
   -p 32060:32060 \
@@ -105,7 +105,7 @@ docker run -d --name vela \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:0.6.70
+  ghcr.io/yumamax3/vela:0.9.93
 ```
 
 Полная карта — близнец MariaDB, режим mirror, движок резервного копирования, сайдкар Headroom — смотрите в [DOCKER.md](../DOCKER.md) и шаблоне [`docker-compose.example.yml`](../docker-compose.example.yml).
