@@ -4,6 +4,7 @@ add
 add_link
 air
 all_inclusive
+alt_route
 alternate_email
 anchor
 antigravity
@@ -41,6 +42,7 @@ cloud_queue
 cloud_sync
 cloud_upload
 code
+compress
 computer
 content_copy
 contrast
@@ -138,6 +140,7 @@ north_east
 open_in_new
 output
 paid
+palette
 park
 password
 pause
@@ -199,10 +202,12 @@ speed
 star
 stop
 stop_circle
+storage
 storefront
 stream
 surfing
 swap_calls
+swap_horiz
 swap_vert
 sync
 sync_alt

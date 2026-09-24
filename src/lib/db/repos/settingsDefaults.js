@@ -97,7 +97,7 @@ export const DEFAULT_SETTINGS = {
 //   ccFilterNaming      — ClaudeToolCard.js reads and writes it
 //   providerThinking    — dashboard/providers/[id]/page.js writes it
 //   poolGeoProbeEnabled — proxyApi.js writes it; useProxyFleet.js reads it
-//   fallbackStrategy    — dashboard/profile/page.js writes it (account fallback order)
+//   fallbackStrategy    — dashboard/settings/ (the Routing lens) writes it (account fallback order)
 //   userInjectors       — dashboard/prompt-injectors/page.js writes it
 //   claudeAutoPing      — ProviderLimits/index.js + providers/[id]/page.js
 //   codexAutoPing       — the same pair

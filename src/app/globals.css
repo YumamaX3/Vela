@@ -445,7 +445,7 @@ input, textarea {
 .traffic-light.green { background: #27C93F; }
 
 /* Material Symbols — Vela subset (perf audit V4 + cache-bust V5).
-   The npm package's full variable font is 3.96MB; Vela uses 240 icons.
+   The npm package's full variable font is 3.96MB; Vela uses 246 icons.
    public/fonts/vela-icons.<identity>.woff2 is a GSUB-pruned subset
    (~180KB, 21x smaller), named by the sha256 of its sorted icon inventory —
    the URL changes only when the glyph set changes, so a browser cache can
@@ -460,7 +460,7 @@ input, textarea {
   font-style: normal;
   font-weight: 100 700;
   font-display: swap;
-  src: url('/fonts/vela-icons.05aae2a6573832c1.woff2') format('woff2');
+  src: url('/fonts/vela-icons.26efa6b2db6c02c0.woff2') format('woff2');
 }
 .material-symbols-outlined {
   font-family: 'Material Symbols Outlined', sans-serif;

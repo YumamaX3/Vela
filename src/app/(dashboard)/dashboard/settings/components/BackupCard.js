@@ -74,7 +74,7 @@ export default function BackupCard() {
   return (
     <Card>
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-500 shrink-0">
+        <div className="p-2 rounded-lg bg-brand-500/10 text-brand-500 shrink-0">
           <span className="material-symbols-outlined text-[20px]">backup</span>
         </div>
         <h3 className="text-base sm:text-lg font-semibold">Backup</h3>

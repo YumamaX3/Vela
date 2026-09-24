@@ -15,7 +15,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import SessionsCard from "@/app/(dashboard)/dashboard/profile/components/SessionsCard";
+import SessionsCard from "@/app/(dashboard)/dashboard/settings/components/SessionsCard";
 
 function render(node) {
   const container = document.createElement("div");

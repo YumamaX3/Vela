@@ -259,7 +259,7 @@ export default function EndpointCard({ c }) {
           <div className="mt-4">
             <SecurityWarning
               message={unsafeReason}
-              action={{ label: "Open settings", href: "/dashboard/profile" }}
+              action={{ label: "Open settings", href: "/dashboard/settings" }}
             />
           </div>
         )}
@@ -278,11 +278,11 @@ export default function EndpointCard({ c }) {
                 message={
                   !requireLogin
                     ? "Require login is disabled — anyone can access your dashboard via tunnel."
-                    : "Dashboard uses the default password — change it in Profile settings."
+                    : "Dashboard uses the default password — change it in Settings."
                 }
                 action={{
                   label: !requireLogin ? "Enable" : "Change password",
-                  href: "/dashboard/profile",
+                  href: "/dashboard/settings",
                 }}
               />
             )}

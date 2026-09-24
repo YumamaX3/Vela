@@ -345,10 +345,10 @@ export default function Sidebar({ onClose }) {
 
               {/* Settings */}
               <NavItem
-                href="/dashboard/profile"
+                href="/dashboard/settings"
                 label="Settings"
                 icon="settings"
-                active={isRouteActive("/dashboard/profile")}
+                active={isRouteActive("/dashboard/settings")}
                 onClick={onClose}
               />
             </div>
