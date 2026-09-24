@@ -93,7 +93,7 @@ export default function SecurityTab({ c }) {
       {isLoginUnsafe && (
         <SecurityWarning
           message={unsafeReason}
-          action={{ label: translate("Open settings"), href: "/dashboard/profile" }}
+          action={{ label: translate("Open settings"), href: "/dashboard/settings" }}
         />
       )}
 
@@ -137,16 +137,16 @@ export default function SecurityTab({ c }) {
               <p className="text-xs text-text-muted mt-0.5">
                 {hasPassword
                   ? translate("The dashboard is protected by your own password.")
-                  : translate("The dashboard still uses the default password — change it in Profile.")}
+                  : translate("The dashboard still uses the default password — change it in Settings.")}
               </p>
             </div>
           </div>
           <a
-            href="/dashboard/profile"
+            href="/dashboard/settings"
             className="shrink-0 inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-700 dark:text-brand-300 hover:underline focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] rounded"
           >
             <span className="material-symbols-outlined text-[15px] leading-none" aria-hidden="true">settings</span>
-            {translate("Profile")}
+            {translate("Settings")}
           </a>
         </div>
 
