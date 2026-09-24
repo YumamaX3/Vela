@@ -49,7 +49,7 @@ export NODE_ENV="production"
 |----------|---------|-------------|
 | `JWT_SECRET` | Auto-generated | **PHẢI đổi trong production!** Dùng để ký JWT token |
 | `INITIAL_PASSWORD` | `123456` | Mật khẩu đăng nhập Dashboard |
-| `DATA_DIR` | `~/.Vela` | Đường dẫn lưu database và data |
+| `DATA_DIR` | `~/.vela` | Đường dẫn lưu database và data |
 | `NODE_ENV` | `development` | Đặt `production` cho deployment |
 | `ENABLE_REQUEST_LOGS` | `false` | Bật debug request/response logs |
 
@@ -157,7 +157,7 @@ docker run -d \
   -e JWT_SECRET="your-secure-secret-change-this" \
   -e INITIAL_PASSWORD="your-secure-password" \
   -v Vela-data:/app/data \
-  Vela
+  vela
 ```
 
 ### Cách 2: Docker Compose

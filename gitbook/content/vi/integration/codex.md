@@ -113,7 +113,7 @@ Nếu gặp lỗi "model not available":
 Để dùng Vela cloud endpoint thay vì localhost:
 
 ```bash
-export OPENAI_BASE_URL="https://vela.ai"
+export OPENAI_BASE_URL="https://vela.my.id"
 ```
 
 Đảm bảo bạn đã cấu hình API key trong Vela cloud dashboard.

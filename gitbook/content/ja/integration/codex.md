@@ -113,7 +113,7 @@ codex --model cx/gpt-5.1-codex-max "Explain what this code does: $(cat myfile.js
 localhostの代わりにVelaクラウドエンドポイントを使用するには:
 
 ```bash
-export OPENAI_BASE_URL="https://vela.ai"
+export OPENAI_BASE_URL="https://vela.my.id"
 ```
 
 VelaクラウドダッシュボードでAPIキーが設定されていることを確認してください。

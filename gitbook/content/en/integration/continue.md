@@ -6,7 +6,7 @@ Integrate Vela with Continue extension to bring AI assistance directly into Visu
 
 - Visual Studio Code installed
 - Continue extension installed from VSCode marketplace
-- Vela API key from [dashboard](https://vela.ai/dashboard)
+- Vela API key from [dashboard](https://vela.my.id/dashboard)
 - Vela running (local or cloud)
 
 ## Configuration Steps
@@ -76,7 +76,7 @@ Add the following configuration to your `config.json`:
 **For Cloud Vela:**
 Replace `apiBase` with:
 ```json
-"apiBase": "https://vela.ai/v1"
+"apiBase": "https://vela.my.id/v1"
 ```
 
 ### 3. Save and Reload

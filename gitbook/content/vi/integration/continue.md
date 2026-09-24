@@ -6,7 +6,7 @@ Tích hợp Vela với extension Continue để mang trợ lý AI trực tiếp 
 
 - Visual Studio Code đã cài đặt
 - Extension Continue đã cài đặt từ VSCode marketplace
-- Vela API key từ [dashboard](https://vela.ai/dashboard)
+- Vela API key từ [dashboard](https://vela.my.id/dashboard)
 - Vela đang chạy (cục bộ hoặc cloud)
 
 ## Các bước Cấu hình
@@ -76,7 +76,7 @@ Thêm cấu hình sau vào `config.json`:
 **Cho Cloud Vela:**
 Thay `apiBase` bằng:
 ```json
-"apiBase": "https://vela.ai/v1"
+"apiBase": "https://vela.my.id/v1"
 ```
 
 ### 3. Lưu và Reload

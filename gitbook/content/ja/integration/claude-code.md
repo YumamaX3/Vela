@@ -103,7 +103,7 @@ Claude Codeは設定を `~/.claude/settings.json` に保存します。必要に
 localhostの代わりにVelaクラウドエンドポイントを使用するには:
 
 ```bash
-export ANTHROPIC_BASE_URL="https://vela.ai"
+export ANTHROPIC_BASE_URL="https://vela.my.id"
 ```
 
 VelaクラウドダッシュボードでAPIキーが設定されていることを確認してください。

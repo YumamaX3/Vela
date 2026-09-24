@@ -32,7 +32,7 @@ Subscription tier providers are your **primary** choice - you're already paying 
 **Step 1: Connect via Dashboard**
 
 ```bash
-Vela
+vela
 # Dashboard opens → Providers → Connect Claude Code
 ```
 
@@ -82,7 +82,7 @@ Model: cc/claude-opus-4-5-20251101
 **Step 1: Connect via Dashboard**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Connect Codex
 ```
 
@@ -134,7 +134,7 @@ Model: cx/gpt-5.2-codex
 **Step 1: Connect via Dashboard**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Connect Gemini CLI
 ```
 
@@ -186,7 +186,7 @@ Model: gc/gemini-3-flash-preview
 **Step 1: Connect via Dashboard**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Connect GitHub
 ```
 
@@ -236,7 +236,7 @@ Model: gh/gpt-5
 **Step 1: Connect via Dashboard**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Connect Antigravity
 ```
 

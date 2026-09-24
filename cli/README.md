@@ -1,8 +1,8 @@
 # ⛵ Vela — The AI Gateway CLI
 
-**One OpenAI-compatible endpoint across 143+ providers. Never stop coding.**
+**One OpenAI-compatible endpoint across 111 dialable provider transports. Never stop coding.**
 
-**Connect All AI Code Tools (Claude Code, Cursor, Antigravity, Copilot, Codex, Gemini, OpenCode, Cline, OpenClaw...) to 143 AI Providers & 1000+ Models — with RTK token savings, quota tracking, and auto-fallback.**
+**Connect All AI Code Tools (Claude Code, Cursor, Antigravity, Copilot, Codex, Gemini, OpenCode, Cline, OpenClaw...) to Vela's provider fleet — with RTK token savings, quota tracking, and auto-fallback.**
 
 [![npm](https://img.shields.io/npm/v/vela.svg)](https://www.npmjs.com/package/vela)
 [![License](https://img.shields.io/npm/l/vela.svg)](https://github.com/YumamaX3/Vela/blob/main/LICENSE)

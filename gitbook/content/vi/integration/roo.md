@@ -5,7 +5,7 @@ Tích hợp Vela với Roo AI Assistant để truy cập nhiều model AI qua m�
 ## Yêu cầu
 
 - Roo AI Assistant đã cài đặt
-- Vela API key từ [dashboard](https://vela.ai/dashboard)
+- Vela API key từ [dashboard](https://vela.my.id/dashboard)
 - Vela đang chạy (cục bộ hoặc cloud)
 
 ## Các bước Cấu hình
@@ -28,7 +28,7 @@ API Key: your-api-key-from-dashboard
 
 **Cho Vela cloud:**
 ```
-Base URL: https://vela.ai/v1
+Base URL: https://vela.my.id/v1
 API Key: your-api-key-from-dashboard
 ```
 

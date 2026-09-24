@@ -40,13 +40,13 @@ npm install -g vela
 **启动 Vela:**
 
 ```bash
-Vela
+vela
 ```
 
 **优势:**
 - ✅ 任意目录均可运行
 - ✅ 命令简单:`Vela`
-- ✅ 通过 `npm update -g Vela` 自动更新
+- ✅ 通过 `npm update -g vela` 自动更新
 
 ### 方式 2:本地安装
 
@@ -93,13 +93,13 @@ npm start
 ### 启动服务器
 
 ```bash
-Vela
+vela
 ```
 
 **发生了什么:**
 1. 服务器启动在 `http://localhost:32060`
 2. 仪表盘在浏览器中自动打开
-3. 数据目录创建在 `~/.Vela`
+3. 数据目录创建在 `~/.vela`
 4. API key 自动生成
 
 ### 仪表盘登录
@@ -193,7 +193,7 @@ export JWT_SECRET="your-secure-secret-change-this"
 export INITIAL_PASSWORD="your-password"
 
 # Storage
-export DATA_DIR="~/.Vela"
+export DATA_DIR="~/.vela"
 
 # Server
 export PORT="32060"
@@ -205,13 +205,13 @@ export ENABLE_REQUEST_LOGS="false"
 
 ### 数据目录
 
-**默认位置:** `~/.Vela`
+**默认位置:** `~/.vela`
 
 **内容:**
 ```
-~/.Vela/
-  ├── db.json           # 数据库(提供商、组合、使用)
-  ├── api-keys.json     # API keys
+~/.vela/
+  ├── db/
+  │   └── data.sqlite   # 数据库(提供商、组合、使用)
   └── logs/             # 请求日志(若启用)
 ```
 
@@ -219,7 +219,7 @@ export ENABLE_REQUEST_LOGS="false"
 
 ```bash
 export DATA_DIR="/custom/path"
-Vela
+vela
 ```
 
 ### 端口配置
@@ -230,7 +230,7 @@ Vela
 
 ```bash
 export PORT="3000"
-Vela
+vela
 ```
 
 **或用命令行:**
@@ -354,7 +354,7 @@ ping google.com
 pkill -f Vela
 
 # 启动
-Vela
+vela
 ```
 
 **或用 PM2 自动重启:**
@@ -373,7 +373,7 @@ pm2 save
 
 ```bash
 npm install -g vela
-Vela
+vela
 ```
 
 **适用场景:** 个人编码、测试
@@ -444,13 +444,13 @@ server {
 ### 移除全局安装
 
 ```bash
-npm uninstall -g Vela
+npm uninstall -g vela
 ```
 
 ### 移除数据目录
 
 ```bash
-rm -rf ~/.Vela
+rm -rf ~/.vela
 ```
 
 ### 移除配置
@@ -473,6 +473,6 @@ nano ~/.bashrc  # 或 ~/.zshrc
 
 ## 需要帮助?
 
-- **网站**: [vela.ai](https://vela.ai)
+- **网站**: [vela.my.id](https://vela.my.id)
 - **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues**: [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)

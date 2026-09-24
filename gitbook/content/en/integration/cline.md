@@ -34,7 +34,7 @@ http://localhost:32060/v1
 
 **For Cloud Vela:**
 ```
-https://vela.ai
+https://vela.my.id
 ```
 
 **Steps:**
@@ -150,7 +150,7 @@ You can use any model configured in your Vela dashboard. Common examples:
 
 To use Vela cloud endpoint instead of localhost:
 
-1. In Cline settings, set Base URL to: `https://vela.ai`
+1. In Cline settings, set Base URL to: `https://vela.my.id`
 2. Make sure you have configured your API key in the Vela cloud dashboard
 3. Ensure your cloud endpoint is active and accessible
 

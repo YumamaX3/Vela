@@ -24,7 +24,7 @@ Model: 任意のVelaモデル (cc/*, cx/*, glm/*など)
 
 **クラウドVela:**
 ```
-Base URL: https://vela.ai/v1
+Base URL: https://vela.my.id/v1
 API Key: your-api-key-from-dashboard
 Model: 任意のVelaモデル (cc/*, cx/*, glm/*など)
 ```

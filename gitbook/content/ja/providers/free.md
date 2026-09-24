@@ -31,7 +31,7 @@
 **ステップ1: ダッシュボード経由で接続**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Connect iFlow
 ```
 
@@ -91,7 +91,7 @@ Model: if/kimi-k2-thinking
 **ステップ1: ダッシュボード経由で接続**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Connect Qwen
 ```
 
@@ -144,7 +144,7 @@ Model: qw/qwen3-coder-plus
 **ステップ1: ダッシュボード経由で接続**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Connect Kiro
 ```
 

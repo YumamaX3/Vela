@@ -5,7 +5,7 @@ Integra Vela con Roo AI Assistant para acceder a múltiples modelos de IA a trav
 ## Requisitos previos
 
 - Roo AI Assistant instalado
-- API key de Vela desde el [dashboard](https://vela.ai/dashboard)
+- API key de Vela desde el [dashboard](https://vela.my.id/dashboard)
 - Vela ejecutándose (local o en la nube)
 
 ## Pasos de configuración
@@ -28,7 +28,7 @@ API Key: your-api-key-from-dashboard
 
 **Para Vela en la nube:**
 ```
-Base URL: https://vela.ai/v1
+Base URL: https://vela.my.id/v1
 API Key: your-api-key-from-dashboard
 ```
 

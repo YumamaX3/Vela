@@ -17,7 +17,7 @@ npm install -g vela
 ### 2. Start
 
 ```bash
-Vela
+vela
 ```
 
 🎉 **Dashboard opens automatically** at `http://localhost:32060`
@@ -242,6 +242,6 @@ Daily routine:
 
 ## Need Help?
 
-- **Website**: [vela.ai](https://vela.ai)
+- **Website**: [vela.my.id](https://vela.my.id)
 - **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues**: [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)

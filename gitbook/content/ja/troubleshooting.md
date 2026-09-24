@@ -143,7 +143,7 @@ Vela利用時の一般的な問題と解決策。
 
 1. **Velaを起動:**
    ```bash
-   Vela
+   vela
    ```
    ダッシュボードがhttp://localhost:3000で開くはず
 
@@ -164,7 +164,7 @@ Vela利用時の一般的な問題と解決策。
 4. **クラウドエンドポイントを使用:**
    localhostが動作しない場合(例: Cursor IDE):
    ```
-   Endpoint: https://vela.ai/v1
+   Endpoint: https://vela.my.id/v1
    ```
 
 ---
@@ -205,7 +205,7 @@ Vela利用時の一般的な問題と解決策。
    pkill -f Vela
    
    # 起動
-   Vela
+   vela
    ```
 
 4. **ブラウザキャッシュをクリア:**
@@ -347,5 +347,5 @@ Vela利用時の一般的な問題と解決策。
 ## さらにヘルプが必要?
 
 - **GitHub Issues:** [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
-- **ドキュメント:** [vela.ai/docs](https://vela.ai/docs)
+- **ドキュメント:** [vela.my.id/docs](https://vela.my.id/docs)
 - **FAQ:** [faq.md](faq.md)

@@ -1,12 +1,12 @@
 <div align="center">
   <img src="../public/vela-wordmark.svg" alt="Vela — la vela del barco" width="520"/>
 
-  **Un endpoint compatible con OpenAI. Más de 40 proveedores upstream. Tus suscripciones, tus claves, tus planes gratuitos — un puerto, una vela.**
+  **Un endpoint compatible con OpenAI. 111 transportes upstream conectables. Tus suscripciones, tus claves, tus planes gratuitos — un puerto, una vela.**
 
   Vela enruta tus herramientas de código con IA (Claude Code, Codex, Cursor, Cline, OpenCode…) a través de un único gateway local con traducción de formatos, respaldo por combo de modelos, rotación entre múltiples cuentas, seguimiento de cuota y un ahorrador de tokens RTK que recorta un 20–40% de los tokens de salida de las herramientas antes de que salgan del puerto.
 
-  [![Versión](https://img.shields.io/badge/version-0.6.70-blue?style=flat-square)](../CHANGELOG.md)
-  [![Proveedores](https://img.shields.io/badge/providers-129-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
+  [![Versión](https://img.shields.io/badge/version-0.9.93-blue?style=flat-square)](../CHANGELOG.md)
+  [![Proveedores](https://img.shields.io/badge/providers-111%20dialable-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
   [![Imagen](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
   [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
   [![Licencia](https://img.shields.io/badge/license-see%20LICENSE-gray?style=flat-square)](../LICENSE)
@@ -97,7 +97,7 @@ Bajo cubierta: un servidor Next.js (panel + API) en el puerto **32060**, un moto
 
 ```bash
 docker login ghcr.io          # PAT with read:packages — the image is private
-docker pull ghcr.io/yumamax3/vela:0.6.70
+docker pull ghcr.io/yumamax3/vela:0.9.93
 
 docker run -d --name vela \
   -p 32060:32060 \
@@ -105,7 +105,7 @@ docker run -d --name vela \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:0.6.70
+  ghcr.io/yumamax3/vela:0.9.93
 ```
 
 Para la carta completa — gemelo MariaDB, postura mirror, motor de respaldo, sidecar Headroom — consulta [DOCKER.md](../DOCKER.md) y la plantilla [`docker-compose.example.yml`](../docker-compose.example.yml).

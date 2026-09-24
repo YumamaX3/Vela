@@ -164,7 +164,7 @@ Dashboard → Providers → Quota Tracking
 
 ```
 Cursor Settings → Models → Advanced:
-  OpenAI API Base URL: https://vela.ai/v1
+  OpenAI API Base URL: https://vela.my.id/v1
   OpenAI API Key: [ダッシュボードから取得]
   Model: cc/claude-opus-4-5-20251101
 ```
@@ -199,7 +199,7 @@ npm start
 ### Localhost(デフォルト)
 ```bash
 npm install -g vela
-Vela
+vela
 → Dashboard: http://localhost:3000
 → API: http://localhost:32060/v1
 ```
@@ -224,7 +224,7 @@ docker run -d \
   -p 3000:3000 \
   -e JWT_SECRET="your-secret" \
   -v Vela-data:/app/data \
-  Vela
+  vela
 ```
 
 ### Cloudflare Workers
@@ -235,7 +235,7 @@ npm run deploy:cloudflare
 
 **環境変数:**
 - `JWT_SECRET` - **本番環境で必ず変更!**
-- `DATA_DIR` - データベース保存パス(デフォルト: `~/.Vela`)
+- `DATA_DIR` - データベース保存パス(デフォルト: `~/.vela`)
 - `INITIAL_PASSWORD` - ダッシュボードログイン(デフォルト: `123456`)
 - `NODE_ENV` - デプロイ時は`production`に設定
 
@@ -248,7 +248,7 @@ npm run deploy:cloudflare
 **はい、Velaはセキュリティとプライバシーを優先します:**
 
 **ローカルストレージ:**
-- すべてのデータは`~/.Vela`(またはカスタム`DATA_DIR`)にローカル保存
+- すべてのデータは`~/.vela`(またはカスタム`DATA_DIR`)にローカル保存
 - Velaサーバーへのデータ送信なし
 - OAuthトークンはJWTで暗号化
 
@@ -287,7 +287,7 @@ npm run deploy:cloudflare
 
 ### グローバルNPMインストール
 ```bash
-npm update -g Vela
+npm update -g vela
 ```
 
 ### ローカルインストール
@@ -317,7 +317,7 @@ Vela --version
 
 **破壊的変更:**
 - [CHANGELOG.md](https://github.com/YumamaX3/Vela/blob/main/CHANGELOG.md)を確認
-- メジャー更新前に`~/.Vela`をバックアップ
+- メジャー更新前に`~/.vela`をバックアップ
 - メジャーバージョンの移行ガイドを確認
 
 ---
@@ -381,7 +381,7 @@ Vela --version
 
 ## さらにヘルプが必要?
 
-- **ドキュメント:** [vela.ai/docs](https://vela.ai/docs)
+- **ドキュメント:** [vela.my.id/docs](https://vela.my.id/docs)
 - **GitHub:** [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues:** [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
 - **トラブルシューティング:** [troubleshooting.md](troubleshooting.md)

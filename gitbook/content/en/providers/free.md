@@ -31,7 +31,7 @@ Free tier providers are your **fallback** when subscription and cheap quota exha
 **Step 1: Connect via Dashboard**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Connect iFlow
 ```
 
@@ -91,7 +91,7 @@ Model: if/kimi-k2-thinking
 **Step 1: Connect via Dashboard**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Connect Qwen
 ```
 
@@ -144,7 +144,7 @@ Model: qw/qwen3-coder-plus
 **Step 1: Connect via Dashboard**
 
 ```bash
-Vela
+vela
 # Dashboard → Providers → Connect Kiro
 ```
 

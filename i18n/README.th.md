@@ -1,19 +1,19 @@
 <div align="center">
   <img src="../public/vela-wordmark.svg" alt="Vela — ใบเรือของเรือ" width="520"/>
 
-  **ปลายทางที่เข้ากันได้กับ OpenAI เพียงหนึ่งเดียว ผู้ให้บริการ upstream มากกว่า 40 ราย ซับสคริปชันของคุณ คีย์ของคุณ แพลนฟรีของคุณ — ท่าเรือเดียว ใบเรือเดียว**
+  **ปลายทางที่เข้ากันได้กับ OpenAI เพียงหนึ่งเดียว การขนส่ง upstream 111 รายการที่เชื่อมต่อได้ ซับสคริปชันของคุณ คีย์ของคุณ แพลนฟรีของคุณ — ท่าเรือเดียว ใบเรือเดียว**
 
   Vela กำหนดเส้นทางให้เครื่องมือเขียนโค้ด AI ของคุณ (Claude Code, Codex, Cursor, Cline, OpenCode…) ผ่านเกตเวย์ในเครื่องเพียงจุดเดียว พร้อมการแปลงฟอร์แมต, การสำรองผ่านชุดโมเดล (model-combo fallback), การสลับหลายบัญชี, การติดตามโควตา และ RTK token saver ที่ช่วยตัดโทเค็นจากผลลัพธ์ของเครื่องมือ 20–40% ก่อนที่มันจะออกจากท่าเรือ
 
-  [![Version](https://img.shields.io/badge/version-0.6.70-blue?style=flat-square)](../CHANGELOG.md)
-  [![Providers](https://img.shields.io/badge/providers-129-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
+  [![Version](https://img.shields.io/badge/version-0.9.93-blue?style=flat-square)](../CHANGELOG.md)
+  [![Providers](https://img.shields.io/badge/providers-111%20dialable-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
   [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
   [![License](https://img.shields.io/badge/license-see%20LICENSE-gray?style=flat-square)](../LICENSE)
 
   [🚀 เริ่มต้นอย่างรวดเร็ว](#-เริ่มต้นอย่างรวดเร็ว) · [✨ ฟีเจอร์หลัก](#-ฟีเจอร์หลัก) · [📚 เอกสาร](#-เอกสาร) · [🌐 ภาษา](#-ภาษา)
 
-  🇺🇸 [English](./README.md) · 🇨🇳 [中文](./README.zh-CN.md) · 🇮🇩 [Indonesia](./README.id-ID.md) · 🇯🇵 [日本語](./README.ja-JP.md) · 🇻🇳 [Tiếng Việt](./README.vi.md) · 🇧🇷 [Português](./README.pt-BR.md) · 🇪🇸 [Español](./README.es.md) · 🇫🇷 [Français](./README.fr.md) · 🇷🇺 [Русский](./README.ru.md) · 🇹🇭 [ไทย](./README.th.md) · 🇮🇷 [فارسی](./README.fa_IR.md)
+  🇺🇸 [English](../README.md) · 🇨🇳 [中文](./README.zh-CN.md) · 🇮🇩 [Indonesia](./README.id-ID.md) · 🇯🇵 [日本語](./README.ja-JP.md) · 🇻🇳 [Tiếng Việt](./README.vi.md) · 🇧🇷 [Português](./README.pt-BR.md) · 🇪🇸 [Español](./README.es.md) · 🇫🇷 [Français](./README.fr.md) · 🇷🇺 [Русский](./README.ru.md) · 🇹🇭 [ไทย](./README.th.md) · 🇮🇷 [فارسی](./README.fa_IR.md)
 </div>
 
 > 🇬🇧 นี่คือการแปลเป็นภาษาไทย ต้นฉบับภาษาอังกฤษอยู่ที่ [README.md](../README.md)
@@ -97,7 +97,7 @@ Vela คือ **เกตเวย์กำหนดเส้นทาง AI �
 
 ```bash
 docker login ghcr.io          # PAT with read:packages — the image is private
-docker pull ghcr.io/yumamax3/vela:0.6.70
+docker pull ghcr.io/yumamax3/vela:0.9.93
 
 docker run -d --name vela \
   -p 32060:32060 \
@@ -105,7 +105,7 @@ docker run -d --name vela \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:0.6.70
+  ghcr.io/yumamax3/vela:0.9.93
 ```
 
 สำหรับแผนที่ฉบับเต็ม — แฝด MariaDB, รูปแบบ mirror, เอนจินสำรองข้อมูล, sidecar Headroom — ดูที่ [DOCKER.md](../DOCKER.md) และเทมเพลต [`docker-compose.example.yml`](../docker-compose.example.yml)

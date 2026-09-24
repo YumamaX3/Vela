@@ -11,7 +11,7 @@ Tích hợp Vela với Cursor IDE để định tuyến request AI qua hệ th�
 
 ## ⚠️ Lưu ý Quan trọng
 
-> **Yêu cầu Cloud Endpoint**: Cursor định tuyến request qua server của chính nó và không hỗ trợ endpoint localhost. Bạn phải dùng Vela cloud endpoint: `https://vela.ai`
+> **Yêu cầu Cloud Endpoint**: Cursor định tuyến request qua server của chính nó và không hỗ trợ endpoint localhost. Bạn phải dùng Vela cloud endpoint: `https://vela.my.id`
 
 > **Yêu cầu Cursor Pro**: Tính năng này yêu cầu tài khoản Cursor Pro để dùng custom API endpoint.
 
@@ -33,12 +33,12 @@ Tích hợp Vela với Cursor IDE để định tuyến request AI qua hệ th�
 Đặt base URL tới Vela cloud endpoint:
 
 ```
-https://vela.ai
+https://vela.my.id
 ```
 
 **Các bước:**
 1. Trong cài đặt Models, tìm field **Base URL**
-2. Nhập: `https://vela.ai`
+2. Nhập: `https://vela.my.id`
 3. Click **Save**
 
 ### 4. Thêm API Key
@@ -66,7 +66,7 @@ Cursor settings của bạn nên trông như sau:
 
 ```
 OpenAI API: ✓ Enabled
-Base URL: https://vela.ai
+Base URL: https://vela.my.id
 API Key: sk-Vela-xxxxxxxxxxxxx
 Custom Models: gpt-4, claude-opus-4-5, gemini-2.0-flash
 ```
@@ -123,14 +123,14 @@ Bạn có thể dùng bất kỳ model nào đã cấu hình trong Vela dashboar
 
 ### Lỗi Connection
 
-1. Xác minh bạn đang dùng cloud endpoint: `https://vela.ai`
+1. Xác minh bạn đang dùng cloud endpoint: `https://vela.my.id`
 2. Kiểm tra kết nối internet
 3. Đảm bảo dịch vụ Vela cloud đang hoạt động
 4. Thử tắt VPN hoặc proxy nếu đang bật
 
 ### Localhost không hoạt động
 
-> **Nhớ**: Cursor không hỗ trợ endpoint localhost. Bạn phải dùng cloud endpoint `https://vela.ai`. Nếu cần dùng Vela cục bộ, hãy cân nhắc dùng dịch vụ tunneling như ngrok để expose endpoint cục bộ.
+> **Nhớ**: Cursor không hỗ trợ endpoint localhost. Bạn phải dùng cloud endpoint `https://vela.my.id`. Nếu cần dùng Vela cục bộ, hãy cân nhắc dùng dịch vụ tunneling như ngrok để expose endpoint cục bộ.
 
 ## Setup Cloud Endpoint
 

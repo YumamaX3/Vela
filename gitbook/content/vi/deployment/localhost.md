@@ -23,7 +23,7 @@ npm install -g vela
 Khởi động Vela với một lệnh duy nhất:
 
 ```bash
-Vela
+vela
 ```
 
 Dashboard sẽ tự động mở trong trình duyệt tại `http://localhost:3000`
@@ -31,7 +31,7 @@ Dashboard sẽ tự động mở trong trình duyệt tại `http://localhost:30
 **Cấu hình mặc định:**
 - **Dashboard**: `http://localhost:3000`
 - **API Endpoint**: `http://localhost:32060/v1`
-- **Data Directory**: `~/.Vela`
+- **Data Directory**: `~/.vela`
 
 ---
 
@@ -69,7 +69,7 @@ Server sẽ shutdown an toàn và lưu mọi dữ liệu.
 Chỉ cần chạy lệnh start lại:
 
 ```bash
-Vela
+vela
 ```
 
 Mọi cấu hình, API keys và combos được giữ lại trong thư mục data.
@@ -81,13 +81,13 @@ Mọi cấu hình, API keys và combos được giữ lại trong thư mục dat
 Cập nhật phiên bản mới nhất:
 
 ```bash
-npm update -g Vela
+npm update -g vela
 ```
 
 Kiểm tra version hiện tại:
 
 ```bash
-npm list -g Vela
+npm list -g vela
 ```
 
 ---
@@ -128,10 +128,10 @@ Nếu thư mục data không truy cập được:
 
 ```bash
 # Check permissions
-ls -la ~/.Vela
+ls -la ~/.vela
 
 # Fix permissions
-chmod 755 ~/.Vela
+chmod 755 ~/.vela
 ```
 
 ---
@@ -139,8 +139,9 @@ chmod 755 ~/.Vela
 ## 📁 Cấu trúc Data Directory
 
 ```
-~/.Vela/
-├── db.json           # Main database (providers, combos, settings)
+~/.vela/
+├── db/
+│   └── data.sqlite   # Main database (providers, combos, settings)
 ├── logs/             # Application logs
 └── cache/            # Temporary cache files
 ```
@@ -149,10 +150,10 @@ chmod 755 ~/.Vela
 
 ```bash
 # Backup
-cp -r ~/.Vela ~/.Vela.backup
+cp -r ~/.vela ~/.vela.backup
 
 # Restore
-cp -r ~/.Vela.backup ~/.Vela
+cp -r ~/.vela.backup ~/.vela
 ```
 
 ---

@@ -1,12 +1,12 @@
 <div align="center">
   <img src="./public/vela-wordmark.svg" alt="Vela —— 船之帆" width="520"/>
 
-  **一个 OpenAI 兼容端点。40+ 上游供应商。你的订阅、你的密钥、你的免费额度 —— 同一个港湾,同一张帆。**
+  **一个 OpenAI 兼容端点。111 个可连接的上游传输。你的订阅、你的密钥、你的免费额度 —— 同一个港湾,同一张帆。**
 
   Vela(薇拉)将你的 AI 编程工具(Claude Code、Codex、Cursor、Cline、OpenCode……)统一接入一个本地网关,提供格式转换、模型组合回退、多账号轮换、配额追踪,还有一个 RTK token 节省器 —— 在请求出港之前,先削减 20–40% 的工具输出 token。
 
-  [![Version](https://img.shields.io/badge/version-0.6.70-blue?style=flat-square)](./CHANGELOG.md)
-  [![Providers](https://img.shields.io/badge/providers-129-0ea5e9?style=flat-square)](./docs/PROVIDERS.md)
+  [![Version](https://img.shields.io/badge/version-0.9.93-blue?style=flat-square)](./CHANGELOG.md)
+  [![Providers](https://img.shields.io/badge/providers-111%20dialable-0ea5e9?style=flat-square)](./docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
   [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
   [![License](https://img.shields.io/badge/license-see%20LICENSE-gray?style=flat-square)](./LICENSE)
@@ -95,7 +95,7 @@ Vela 是一个**本地 AI 路由网关 + 仪表盘**。你把所有 AI 工具指
 
 ```bash
 docker login ghcr.io          # PAT with read:packages — the image is private
-docker pull ghcr.io/yumamax3/vela:0.6.70
+docker pull ghcr.io/yumamax3/vela:0.9.93
 
 docker run -d --name vela \
   -p 32060:32060 \
@@ -103,7 +103,7 @@ docker run -d --name vela \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:0.6.70
+  ghcr.io/yumamax3/vela:0.9.93
 ```
 
 完整海图 —— MariaDB 孪生库、mirror 姿态、备份引擎、Headroom 边车 —— 见 [DOCKER.md](./DOCKER.md) 与 [`docker-compose.example.yml`](./docker-compose.example.yml) 模板。

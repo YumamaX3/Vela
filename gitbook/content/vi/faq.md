@@ -164,7 +164,7 @@ Xem [tài liệu quota tracking](features/quota-tracking.md) để biết chi ti
 
 ```
 Cursor Settings → Models → Advanced:
-  OpenAI API Base URL: https://vela.ai/v1
+  OpenAI API Base URL: https://vela.my.id/v1
   OpenAI API Key: [from dashboard]
   Model: cc/claude-opus-4-5-20251101
 ```
@@ -199,7 +199,7 @@ Xem [hướng dẫn tích hợp Cursor](integration/cursor.md) để biết chi 
 ### Localhost (Mặc định)
 ```bash
 npm install -g vela
-Vela
+vela
 → Dashboard: http://localhost:3000
 → API: http://localhost:32060/v1
 ```
@@ -224,7 +224,7 @@ docker run -d \
   -p 3000:3000 \
   -e JWT_SECRET="your-secret" \
   -v Vela-data:/app/data \
-  Vela
+  vela
 ```
 
 ### Cloudflare Workers
@@ -235,7 +235,7 @@ npm run deploy:cloudflare
 
 **Biến môi trường:**
 - `JWT_SECRET` - **PHẢI đổi trong production!**
-- `DATA_DIR` - Đường dẫn lưu database (mặc định: `~/.Vela`)
+- `DATA_DIR` - Đường dẫn lưu database (mặc định: `~/.vela`)
 - `INITIAL_PASSWORD` - Đăng nhập Dashboard (mặc định: `123456`)
 - `NODE_ENV` - Đặt `production` để deploy
 
@@ -248,7 +248,7 @@ Xem [hướng dẫn deployment](getting-started/installation.md#deployment) đ�
 **Có, Vela ưu tiên bảo mật và quyền riêng tư:**
 
 **Local storage:**
-- Mọi dữ liệu lưu cục bộ tại `~/.Vela` (hoặc `DATA_DIR` tùy chỉnh)
+- Mọi dữ liệu lưu cục bộ tại `~/.vela` (hoặc `DATA_DIR` tùy chỉnh)
 - Không gửi data đến server Vela
 - OAuth tokens mã hóa bằng JWT
 
@@ -287,7 +287,7 @@ Xem [hướng dẫn deployment](getting-started/installation.md#deployment) đ�
 
 ### Global NPM Install
 ```bash
-npm update -g Vela
+npm update -g vela
 ```
 
 ### Local Install
@@ -317,7 +317,7 @@ Vela --version
 
 **Breaking changes:**
 - Xem [CHANGELOG.md](https://github.com/YumamaX3/Vela/blob/main/CHANGELOG.md)
-- Backup `~/.Vela` trước khi update lớn
+- Backup `~/.vela` trước khi update lớn
 - Xem hướng dẫn migration cho major version
 
 ---
@@ -381,7 +381,7 @@ Xem [CONTRIBUTING.md](https://github.com/YumamaX3/Vela/blob/main/CONTRIBUTING.md
 
 ## Cần trợ giúp thêm?
 
-- **Documentation:** [vela.ai/docs](https://vela.ai/docs)
+- **Documentation:** [vela.my.id/docs](https://vela.my.id/docs)
 - **GitHub:** [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues:** [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
 - **Troubleshooting:** [troubleshooting.md](troubleshooting.md)

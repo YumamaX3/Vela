@@ -25,6 +25,7 @@ postures · backup engine · pricing covenant · security boundaries.
 - [The Backup Engine](#-the-backup-engine)
 - [The Pricing Covenant](#-the-pricing-covenant)
 - [Authentication & Security](#-authentication--security)
+- [The Systems Around the Ship](#-the-systems-around-the-ship)
 - [Directory Map](#-directory-map)
 
 ---
@@ -115,7 +116,10 @@ Three laws govern the engine:
 
 ## 🌐 The Provider Registry
 
-`open-sse/providers/registry/` — **one file per provider, 129 files**.
+`open-sse/providers/registry/` — **one file per provider, 166 files on disk**
+(→ 149 imported by the generated index → **111 dialable chat transports**; the
+other 38 are media/search/embedding providers that legitimately carry no chat
+transport — see [PROVIDERS.md](./PROVIDERS.md) for the count discipline).
 
 - `registry/index.js` is an **auto-generated** static import list.
   Regenerate with `scripts/migrate-registry.mjs` /
@@ -138,7 +142,7 @@ Three laws govern the engine:
 - **Specialized executors** exist where the upstream speaks a non-OpenAI
   protocol: `azure.js`, `vertex.js`, `codex.js`, `cursor.js`, `kiro.js`,
   `gemini-cli.js`, `grok-web.js`, `perplexity-web.js`, `ollama-local.js`,
-  and more (~29 total).
+  and more (**30 files** total = 27 specialized + `base.js` + `default.js` + `index.js`).
 - ⚠️ Binary/protobuf upstreams (Kiro EventStream, Cursor protobuf,
   CommandCode NDJSON) **do not round-trip through the translator** — they are
   handled inside their own executor.
@@ -196,10 +200,14 @@ facade binds by posture: sqlite re-exports its harbor verbatim; mysql binds
 the `repos/mysql/` twin. `src/lib/localDb.js` is a backward-compat shim —
 new code imports `@/lib/db/index.js`.
 
-**Schema** — `src/lib/db/migrations/` runs seven migrations
-(`001-initial` → `007-mirror-seq`); `SCHEMA_VERSION = 7`. Usage/logs
-(`src/lib/usageDb.js`) still live under `~/.vela` and do **not** follow
-`DATA_DIR`.
+**Schema** — `src/lib/db/migrations/` runs sixteen migrations
+(`001-initial` → `016`); `SCHEMA_VERSION = 16`. `src/lib/usageDb.js` is a
+**shim** re-exporting the DB layer — usage and request logs live in the SQLite
+harbor, and the whole tree resolves from `DATA_DIR`.
+> ⚠️ **Not every table is in `TABLES`.** `fallbackRules` is born of migration
+> `012` (its v2 columns from `014`) and is **absent** from the `TABLES` source
+> of truth — so the additive sync CANNOT supply its columns and the versioned
+> chain **must** run. Check before assuming `TABLES` covers a table.
 
 **DB file location** — `src/lib/db/paths.js`: `DATA_DIR` if set, else
 `~/.vela/`.
@@ -268,7 +276,9 @@ rate or a pattern to fix.
 
 - **Session** — JWT cookie (`JWT_SECRET`). The Vela session cookie name is
   separate from upstream (pre-Vela).
-- **First login** — `INITIAL_PASSWORD` (default `123456`; change it).
+- **First login** — there is **no default password**. The old `123456` was
+  retired: with `INITIAL_PASSWORD` unset, the local console admits a loopback
+  request without one but **refuses remote logins** until a password is set.
   SSO paths exist: OIDC and SAML routes under `/api/auth/*`.
 - **API keys** — per-endpoint keys hashed with `API_KEY_SECRET`; machine id
   salted with `MACHINE_ID_SALT`.
@@ -278,6 +288,50 @@ rate or a pattern to fix.
   proxy. Preserve this when touching request/IP/rate-limit code.
 - **Backup routes** are always auth-protected; settings redaction masks
   secret keys in API responses (see STORAGE.md).
+
+---
+
+## 🛟 The Systems Around the Ship
+Four smaller machines keep the harbor running. None of them is on the request
+path, and all of them have bitten someone who assumed they were automatic.
+
+### The icon subset
+Material Symbols ships as a 3.96MB variable font covering 4,277 icons. Vela
+uses a **GSUB-pruned subset** — currently **246 icons**, ~188KB — committed at
+`public/fonts/vela-icons.<sha16>.woff2` and named by the hash of its sorted
+inventory, so the URL changes only when the glyph set changes (a browser cache
+can never serve an old subset as new). `src/app/globals.css` carries the
+`@font-face` pointing at it.
+- **The failure mode is silent.** An icon name outside the inventory does not
+  error — the ligature simply never forms and the raw word (`table_rows`)
+  renders as text beside the real glyphs. `tests/unit/icon-subset.test.js`
+  scans every named literal in `src/` against `scripts/icon-ligatures.txt`.
+- **Adding an icon** means adding the name to `scripts/icon-ligatures.txt` and
+  re-running `python3 scripts/subset-icons.py` (needs `fonttools` + `brotli`;
+  it fetches the codepoint map once into `assets-tmp/ms.codepoints`). The forge
+  prunes GSUB, subsets, renames by content hash, repoints `globals.css`, and
+  prunes the previous font — all in one pass.
+
+### The served changelog
+The dashboard's Changelog modal reads the log from the gateway itself
+(`public/CHANGELOG.md`), not from GitHub's raw endpoint — no rate limit, no
+network, and it survives a visibility change. The root `CHANGELOG.md` stays the
+source of truth; `scripts/sync-changelog.mjs` copies it to `public/` on every
+dev startup and before every build, and `postbuild` carries `public/` into the
+standalone output.
+
+### The updater
+`src/lib/updater*` checks for a newer release and, on the npm/CLI berth, offers
+an in-place update (`Sidebar`'s update modal, confirmed through the shared
+`ConfirmModal`). The Docker berth updates by pulling a new tag — see
+[DEPLOYMENT.md](./DEPLOYMENT.md).
+
+### The MITM proxy
+`src/mitm/` is a **child process**, not part of the request path: it exists for
+the tools that insist on speaking to a real host over TLS (the Antigravity and
+Kiro-class transports). It is opt-in per tool and carries its own lifecycle.
+`mitmSudoEncrypted` is one of the two keys the settings PATCH **refuses**
+(see [API.md](./API.md)) — the proxy's privileged bits are not dashboard-writable.
 
 ---
 
@@ -293,13 +347,13 @@ src/
 └── lib/
     ├── db/              driver chain, adapters, migrations, mirror
     │   └── repos/       facades + sqlite/mysql implementations
-    └── usageDb.js       usage + request logs (~/.vela)
+    └── usageDb.js       shim → re-exports the DB layer's usage surface
 
 open-sse/
 ├── handlers/            chatCore, embeddingsCore, ttsCore, imageCore, …
-├── executors/           per-provider upstream calls (~29)
+├── executors/           per-provider upstream calls (30 files = 27 + base/default/index)
 ├── translator/          format translation (OpenAI pivot + direct routes)
-├── providers/           registry (129) + pricing.js + REGISTRY_TEMPLATE.js
+├── providers/           registry (166 files) + pricing.js + REGISTRY_TEMPLATE.js
 ├── rtk/                 token saver hooks
 ├── config/              providerModels + shared constants
 └── AGENTS.md            ← engine contributor guide

@@ -164,7 +164,7 @@ Consulta la [documentación de seguimiento de cuota](features/quota-tracking.md)
 
 ```
 Cursor Settings → Models → Advanced:
-  OpenAI API Base URL: https://vela.ai/v1
+  OpenAI API Base URL: https://vela.my.id/v1
   OpenAI API Key: [desde el dashboard]
   Model: cc/claude-opus-4-5-20251101
 ```
@@ -199,7 +199,7 @@ Consulta la [guía de integración de Cursor](integration/cursor.md) para detall
 ### Localhost (Por defecto)
 ```bash
 npm install -g vela
-Vela
+vela
 → Dashboard: http://localhost:3000
 → API: http://localhost:32060/v1
 ```
@@ -224,7 +224,7 @@ docker run -d \
   -p 3000:3000 \
   -e JWT_SECRET="your-secret" \
   -v Vela-data:/app/data \
-  Vela
+  vela
 ```
 
 ### Cloudflare Workers
@@ -235,7 +235,7 @@ npm run deploy:cloudflare
 
 **Variables de entorno:**
 - `JWT_SECRET` - **¡DEBE cambiarse en producción!**
-- `DATA_DIR` - Ruta de almacenamiento de la base de datos (por defecto: `~/.Vela`)
+- `DATA_DIR` - Ruta de almacenamiento de la base de datos (por defecto: `~/.vela`)
 - `INITIAL_PASSWORD` - Login del dashboard (por defecto: `123456`)
 - `NODE_ENV` - Establece en `production` para desplegar
 
@@ -248,7 +248,7 @@ Consulta la [guía de despliegue](getting-started/installation.md#deployment) pa
 **Sí, Vela prioriza la seguridad y privacidad:**
 
 **Almacenamiento local:**
-- Todos los datos se almacenan localmente en `~/.Vela` (o `DATA_DIR` personalizado)
+- Todos los datos se almacenan localmente en `~/.vela` (o `DATA_DIR` personalizado)
 - No se envían datos a los servidores de Vela
 - Tokens OAuth cifrados con JWT
 
@@ -287,7 +287,7 @@ Consulta la [guía de despliegue](getting-started/installation.md#deployment) pa
 
 ### Instalación global NPM
 ```bash
-npm update -g Vela
+npm update -g vela
 ```
 
 ### Instalación local
@@ -317,7 +317,7 @@ Vela --version
 
 **Cambios disruptivos:**
 - Revisa [CHANGELOG.md](https://github.com/YumamaX3/Vela/blob/main/CHANGELOG.md)
-- Respalda `~/.Vela` antes de actualizaciones mayores
+- Respalda `~/.vela` antes de actualizaciones mayores
 - Revisa las guías de migración para versiones mayores
 
 ---
@@ -381,7 +381,7 @@ Consulta [CONTRIBUTING.md](https://github.com/YumamaX3/Vela/blob/main/CONTRIBUTI
 
 ## ¿Necesitas más ayuda?
 
-- **Documentación:** [vela.ai/docs](https://vela.ai/docs)
+- **Documentación:** [vela.my.id/docs](https://vela.my.id/docs)
 - **GitHub:** [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues:** [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
 - **Troubleshooting:** [troubleshooting.md](troubleshooting.md)

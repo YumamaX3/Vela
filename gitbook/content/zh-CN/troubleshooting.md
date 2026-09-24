@@ -143,7 +143,7 @@
 
 1. **启动 Vela:**
    ```bash
-   Vela
+   vela
    ```
    仪表盘应该在 http://localhost:3000 打开。
 
@@ -164,7 +164,7 @@
 4. **使用云端 endpoint:**
    如果 localhost 不行(例如 Cursor IDE):
    ```
-   Endpoint: https://vela.ai/v1
+   Endpoint: https://vela.my.id/v1
    ```
 
 ---
@@ -205,7 +205,7 @@
    pkill -f Vela
    
    # 启动
-   Vela
+   vela
    ```
 
 4. **清除浏览器缓存:**
@@ -347,5 +347,5 @@
 ## 需要更多帮助?
 
 - **GitHub Issues:** [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
-- **文档:** [vela.ai/docs](https://vela.ai/docs)
+- **文档:** [vela.my.id/docs](https://vela.my.id/docs)
 - **常见问题:** [faq.md](faq.md)

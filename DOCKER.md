@@ -37,7 +37,7 @@ docker run -d --name vela \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:0.9.21
+  ghcr.io/yumamax3/vela:0.9.93
 ```
 
 Then open **http://localhost:32060/dashboard**.
@@ -63,7 +63,7 @@ docker rm -f vela          # remove
 - **Registry:** `ghcr.io/yumamax3/vela:<tag>` — built by
   `.github/workflows/docker-publish.yml` on every `v*` git tag
   (multi-arch `linux/amd64` + `linux/arm64`).
-- **Pin a tag, not `latest`.** Tags map 1:1 to releases (`:0.9.21`);
+- **Pin a tag, not `latest`.** Tags map 1:1 to releases (`:0.9.93`);
   `latest` follows the newest build and can surprise you.
 - **What ships inside:** the Next.js standalone server, `open-sse/`, the
   `cli/` launcher bits, and — deliberately — the full runtime closure of
@@ -98,8 +98,12 @@ $DATA_DIR/
 └── …                     # certs, logs, runtime configs
 ```
 
-> 📌 **Note:** usage logs (`usage.json`, `log.txt`) live under `~/.vela`
-> inside the app and do **not** follow `DATA_DIR` — treat them as ephemeral.
+> 📌 **Note:** the whole data tree — the SQLite harbor, backups, and the MITM
+> request dumps — resolves from `DATA_DIR` (`src/lib/db/paths.js` and
+> `src/mitm/logger.js`). `usageDb.js` is a **shim** re-exporting the DB layer, so
+> usage and request logs live in the SQLite harbor too, not in loose JSON files.
+> The old `db.json` / `usage.json` names survive only as `LEGACY_FILES`, read
+> once for migration. **Mount the volume and the whole tree travels with it.**
 
 ---
 
@@ -180,7 +184,7 @@ URL → enable. If Headroom runs on the Docker *host* instead, use
 
 ```bash
 # 1. Bump the pinned tag in docker-compose.yml
-#    image: ghcr.io/yumamax3/vela:0.9.20  →  ghcr.io/yumamax3/vela:0.9.21
+#    image: ghcr.io/yumamax3/vela:0.9.92  →  ghcr.io/yumamax3/vela:0.9.93
 # 2. Pull and recreate
 docker compose pull
 docker compose up -d
@@ -215,12 +219,28 @@ docker run --rm -p 32060:32060 \
 
 ### Docker smoke test (MariaDB posture)
 
-`scripts/docker-smoke-mysql.sh` builds the image, spins up a throwaway
-MariaDB, boots Vela with `VELA_DB_MODE=mysql`, waits for healthy, and tears
-everything down:
+> ⚠️ **The old `scripts/docker-smoke-mysql.sh` is gone.** `scripts/` is
+> gitignored except two build-critical files (`.gitignore:100-102`), so that
+> harness was local-only and was untracked in `fafcaf5a` — it is **not** in the
+> repo and will not run on a fresh clone. The recipe below is the manual
+> equivalent, and it is what the removed script did.
+
+Boot the MariaDB posture by hand: spin up a throwaway MariaDB, point
+`VELA_MYSQL_URL` at it, and start Vela with `VELA_DB_MODE=mysql` (see
+[docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) for the full contract — `mysql` mode
+**refuses to boot** without a reachable `VELA_MYSQL_URL`):
 
 ```bash
-bash scripts/docker-smoke-mysql.sh
+docker run -d --name vela-smoke-db -e MARIADB_ROOT_PASSWORD=dev \
+  -e MARIADB_DATABASE=vela -p 3306:3306 mariadb:11
+# wait for it to accept connections, then:
+docker run --rm --network host \
+  -e VELA_DB_MODE=mysql \
+  -e VELA_MYSQL_URL="mysql://root:dev@127.0.0.1:3306/vela" \
+  -e DATA_DIR=/app/data \
+  vela:local
+# tear down:
+docker rm -f vela-smoke-db
 ```
 
 ### Publishing (automatic via CI)
