@@ -91,6 +91,12 @@ const ALWAYS_PROTECTED = [
   // requireLogin===false. The prefix covers /api/auth/sessions,
   // /api/auth/sessions/[id] and /api/auth/sessions/revoke-all.
   "/api/auth/sessions",
+  // Network Cockpit (v0.9.96): the Network lens's diagnostics surface. The
+  // Doctor dials operator-typed targets and the status read exposes live
+  // enforcement state (rate windows, IP allowlists, breaker states) — neither
+  // may ride the deny-by-default branch that passes when requireLogin===false.
+  // The prefix covers /api/network/diagnose and /api/network/status.
+  "/api/network",
 ];
 
 // Require auth, but allow through if requireLogin is disabled.

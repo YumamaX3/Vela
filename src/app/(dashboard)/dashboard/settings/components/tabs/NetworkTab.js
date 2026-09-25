@@ -15,6 +15,10 @@ import { Button, Card, Input, Toggle } from "@/shared/components";
 import { testProxy } from "../../lib/settingsApi";
 import StatusLine from "../StatusLine";
 import SettingRow from "../SettingRow";
+import DoctorCard from "../DoctorCard";
+import NetworkStatusCard from "../NetworkStatusCard";
+import TimeoutsCard from "../TimeoutsCard";
+import ObservabilityCard from "../ObservabilityCard";
 
 export default function NetworkTab({ deck }) {
   const { settings, loading, pending, patch } = deck;
@@ -87,6 +91,7 @@ export default function NetworkTab({ deck }) {
   };
 
   return (
+    <>
     <Card>
       <div className="flex items-start gap-3 mb-4">
         <div className="p-2 rounded-[10px] bg-brand-500/10 text-brand-500 shrink-0">
@@ -167,5 +172,10 @@ export default function NetworkTab({ deck }) {
         </div>
       </div>
     </Card>
+      <DoctorCard />
+      <NetworkStatusCard />
+      <TimeoutsCard deck={deck} />
+      <ObservabilityCard deck={deck} />
+    </>
   );
 }

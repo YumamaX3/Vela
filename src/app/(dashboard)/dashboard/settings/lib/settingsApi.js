@@ -44,6 +44,24 @@ export async function testProxy(proxyUrl) {
   if (!res.ok || !data?.ok) throw new Error(data?.error || "Proxy test failed");
   return data;
 }
+/** The Network lens's one read — rate windows, upstream health, egress, timeouts. */
+export async function fetchNetworkStatus() {
+  const res = await fetch("/api/network/status", { cache: "no-store" });
+  const data = await readJson(res);
+  if (!res.ok) throw new Error(data.error || "Failed to load network status");
+  return data;
+}
+/** The Network Doctor — the phase sweep (DNS → TCP → TLS → HTTP) + egress identity. */
+export async function runNetworkDiagnose({ urls = [], proxyUrl } = {}) {
+  const res = await fetch("/api/network/diagnose", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ urls, ...(proxyUrl === undefined ? {} : { proxyUrl }) }),
+  });
+  const data = await readJson(res);
+  if (!res.ok) throw new Error(data.error || "Diagnostics failed");
+  return data;
+}
 
 export async function testOidc(body) {
   const res = await fetch("/api/auth/oidc/test", {

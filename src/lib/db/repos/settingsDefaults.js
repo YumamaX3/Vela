@@ -50,6 +50,15 @@ export const DEFAULT_SETTINGS = {
   outboundProxyEnabled: false,
   outboundProxyUrl: "",
   outboundNoProxy: "",
+  // Network timeout policy (the Network lens's Timeouts card). `null` means
+  // "inherit the env/default floor" — the historical behavior — so a harbor
+  // that never opens the card behaves exactly as before. A positive number
+  // overrides it live (see open-sse/config/runtimeConfig.js
+  // applyNetworkTimeoutOverrides). The env vars STREAM_STALL_TIMEOUT_MS /
+  // STREAM_FIRST_CHUNK_TIMEOUT_MS / FETCH_CONNECT_TIMEOUT_MS stay the floor.
+  streamStallTimeoutMs: null,
+  streamFirstChunkTimeoutMs: null,
+  fetchConnectTimeoutMs: null,
   mitmRouterBaseUrl: DEFAULT_MITM_ROUTER_BASE,
   dnsToolEnabled: {},
   rtkEnabled: true,

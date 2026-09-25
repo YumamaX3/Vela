@@ -9,6 +9,10 @@ export async function ensureOutboundProxyInitialized() {
   try {
     const settings = await getSettings();
     applyOutboundProxyEnv(settings);
+    // The timeout policy rides the same boot read — a harbor whose operator set
+    // it in the Network lens gets it applied before the first request.
+    const { applyNetworkTimeoutOverrides } = await import("open-sse/config/runtimeConfig.js");
+    applyNetworkTimeoutOverrides(settings);
     initialized = true;
   } catch (error) {
     console.error("[ServerInit] Error initializing outbound proxy:", error);

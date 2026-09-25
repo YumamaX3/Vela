@@ -18,7 +18,7 @@ export async function GET() {
 }
 
 /**
- * POST /api/proxy-pools/fitness/reset
+ * POST /api/proxy-pools/fitness
  * Reset fitness for specific pool/provider
  */
 export async function POST(request) {

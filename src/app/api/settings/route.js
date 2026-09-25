@@ -139,6 +139,17 @@ export async function PATCH(request) {
     ) {
       applyOutboundProxyEnv(settings);
     }
+    // Network timeout policy — live-applied (no restart). The runtimeConfig
+    // bindings are `export let`, so this reassignment reaches every consumer
+    // that reads them at call time.
+    if (
+      Object.prototype.hasOwnProperty.call(body, "streamStallTimeoutMs") ||
+      Object.prototype.hasOwnProperty.call(body, "streamFirstChunkTimeoutMs") ||
+      Object.prototype.hasOwnProperty.call(body, "fetchConnectTimeoutMs")
+    ) {
+      const { applyNetworkTimeoutOverrides } = await import("open-sse/config/runtimeConfig.js");
+      applyNetworkTimeoutOverrides(settings);
+    }
 
     // W3-D: the weekly digest scheduler is settings-driven (budgetAlerts
     // .weeklyDigestEnabled) — arm/disarm it on any budgetAlerts change.
