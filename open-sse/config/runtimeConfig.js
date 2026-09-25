@@ -50,13 +50,55 @@ export const SEARXNG_URL = envUrl("SEARXNG_URL", "http://localhost:8888/search")
 
 // Inter-chunk stall timeout (once tokens are flowing). Generous headroom so
 // slow reasoning models aren't aborted mid-stream. Env: STREAM_STALL_TIMEOUT_MS.
-export const STREAM_STALL_TIMEOUT_MS = envMs("STREAM_STALL_TIMEOUT_MS", 360 * 1000);
+// Settable live from the Network lens (settings.streamStallTimeoutMs) — see
+// applyNetworkTimeoutOverrides below; the env value stays the fallback.
+const STREAM_STALL_TIMEOUT_DEFAULT = envMs("STREAM_STALL_TIMEOUT_MS", 360 * 1000);
+export let STREAM_STALL_TIMEOUT_MS = STREAM_STALL_TIMEOUT_DEFAULT;
 
 // Time-to-first-token timeout (prompt prefill). Env: STREAM_FIRST_CHUNK_TIMEOUT_MS.
-export const STREAM_FIRST_CHUNK_TIMEOUT_MS = envMs("STREAM_FIRST_CHUNK_TIMEOUT_MS", 200 * 1000);
+const STREAM_FIRST_CHUNK_TIMEOUT_DEFAULT = envMs("STREAM_FIRST_CHUNK_TIMEOUT_MS", 200 * 1000);
+export let STREAM_FIRST_CHUNK_TIMEOUT_MS = STREAM_FIRST_CHUNK_TIMEOUT_DEFAULT;
 
 // Fetch connect timeout: abort if upstream doesn't return response headers within this duration
-export const FETCH_CONNECT_TIMEOUT_MS = envMs("FETCH_CONNECT_TIMEOUT_MS", 60 * 1000);
+const FETCH_CONNECT_TIMEOUT_DEFAULT = envMs("FETCH_CONNECT_TIMEOUT_MS", 60 * 1000);
+export let FETCH_CONNECT_TIMEOUT_MS = FETCH_CONNECT_TIMEOUT_DEFAULT;
+
+// The env/default values, frozen — the lens shows these as the "inherit" floor.
+export const NETWORK_TIMEOUT_DEFAULTS = Object.freeze({
+  streamStallTimeoutMs: STREAM_STALL_TIMEOUT_DEFAULT,
+  streamFirstChunkTimeoutMs: STREAM_FIRST_CHUNK_TIMEOUT_DEFAULT,
+  fetchConnectTimeoutMs: FETCH_CONNECT_TIMEOUT_DEFAULT,
+});
+
+// Accept a positive finite integer, else null (meaning "inherit the default").
+function positiveIntOrNull(v) {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+}
+
+/**
+ * Apply the operator's timeout policy over the env/default floor.
+ *
+ * These are `export let` bindings rather than consts so a settings change takes
+ * effect WITHOUT a restart: every consumer (`streamingHandler`, `pipeWithDisconnect`,
+ * the executors) reads the binding at call time, and ESM live bindings carry the
+ * reassignment across modules. A null/blank setting restores the env/default —
+ * which is exactly the historical behavior, so an operator who never touches the
+ * card sees no change at all.
+ */
+export function applyNetworkTimeoutOverrides(settings = {}) {
+  const stall = positiveIntOrNull(settings?.streamStallTimeoutMs);
+  const firstChunk = positiveIntOrNull(settings?.streamFirstChunkTimeoutMs);
+  const connect = positiveIntOrNull(settings?.fetchConnectTimeoutMs);
+  STREAM_STALL_TIMEOUT_MS = stall ?? STREAM_STALL_TIMEOUT_DEFAULT;
+  STREAM_FIRST_CHUNK_TIMEOUT_MS = firstChunk ?? STREAM_FIRST_CHUNK_TIMEOUT_DEFAULT;
+  FETCH_CONNECT_TIMEOUT_MS = connect ?? FETCH_CONNECT_TIMEOUT_DEFAULT;
+  return {
+    streamStallTimeoutMs: STREAM_STALL_TIMEOUT_MS,
+    streamFirstChunkTimeoutMs: STREAM_FIRST_CHUNK_TIMEOUT_MS,
+    fetchConnectTimeoutMs: FETCH_CONNECT_TIMEOUT_MS,
+  };
+}
 
 // Gemini native TTS fetch timeout: abort if Google does not return response headers in time.
 export const GEMINI_NATIVE_TTS_FETCH_TIMEOUT_MS = envMs("GEMINI_NATIVE_TTS_FETCH_TIMEOUT_MS", 45 * 1000);

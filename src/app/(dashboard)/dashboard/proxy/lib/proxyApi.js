@@ -97,7 +97,7 @@ export async function runBulkHealth({ autoDisable = false, concurrency = null } 
 }
 
 export async function resetFitness(poolId, providerId = null) {
-  const res = await fetch("/api/proxy-pools/fitness/reset", {
+  const res = await fetch("/api/proxy-pools/fitness", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ poolId, providerId }),

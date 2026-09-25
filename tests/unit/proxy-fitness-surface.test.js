@@ -21,6 +21,20 @@ const fitnessRepo = vi.hoisted(() => ({
   getFitnessRows: vi.fn(),
   upsertFitnessBatch: vi.fn(),
   resetFitness: vi.fn(),
+  // The engine's clear-all reaches the harbour through this DELETE
+  // (`proxyFleet.clearAllFitness` → `clearAllFitnessRows`). The mock was written
+  // before that seam existed, so the export was missing and the whole clear-all
+  // suite failed on the import — a stale mock, not a source wound. Mirrored
+  // faithfully here so the route's DB-failure case (below) still exercises a
+  // real `db.run` rejection.
+  clearAllFitnessRows: vi.fn(async (db, providerId = null) => {
+    // AWAIT the run — the real adapter's `run` returns a promise, and a
+    // rejection must propagate to `clearAllFitness`'s caller (the route's
+    // catch turns it into a 500). A fire-and-forget call here would turn a
+    // DB failure into an unhandled rejection and a false 200.
+    if (providerId === null || providerId === "") return db.run("DELETE FROM proxyFitness");
+    return db.run("DELETE FROM proxyFitness WHERE provider = ?", [providerId]);
+  }),
 }));
 
 const poolsRepo = vi.hoisted(() => ({
