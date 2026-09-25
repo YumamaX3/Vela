@@ -226,6 +226,87 @@ export function findLatestArtifact() {
   return entries[0] || null;
 }
 
+// ─── Artifact inventory + verification (the Data cockpit, v0.9.95) ───────
+// The header is the UNENCRYPTED metadata block (magic | headerLen | header
+// JSON | ciphertext | tag). Reading it needs no key — so an inventory can list
+// every artifact's manifest without touching key material. It is NOT proof of
+// integrity: only openArtifact's GCM tag check is, which is exactly why
+// verifyBackupArtifact exists as a separate, deliberate act.
+/** Parse one artifact's plaintext header. Returns null when unreadable. */
+export function readArtifactHeader(buffer) {
+  try {
+    if (!Buffer.isBuffer(buffer) || buffer.length < 12 + 16) return null;
+    if (buffer.subarray(0, 8).toString("ascii") !== ARTIFACT_MAGIC) return null;
+    const headerLen = buffer.readUInt32BE(8);
+    if (headerLen <= 0 || 12 + headerLen + 16 > buffer.length) return null;
+    return JSON.parse(buffer.subarray(12, 12 + headerLen).toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+/** Every sealed artifact on disk, newest first — manifest metadata + size.
+ *  Metadata only (S4): never the ciphertext, never key material. */
+export function listBackupArtifacts() {
+  const dir = artifactsDir();
+  const entries = fs.readdirSync(dir)
+    .filter((n) => n.endsWith(".velabak"))
+    .map((n) => {
+      const full = path.join(dir, n);
+      const st = fs.statSync(full);
+      let header = null;
+      try {
+        header = readArtifactHeader(fs.readFileSync(full));
+      } catch {
+        header = null;
+      }
+      return {
+        id: n.replace(/\.velabak$/, ""),
+        bytes: st.size,
+        modifiedAt: new Date(st.mtimeMs).toISOString(),
+        created: header?.manifest?.created ?? null,
+        trigger: header?.manifest?.trigger ?? null,
+        schemaVersion: header?.manifest?.schemaVersion ?? null,
+        sourceMode: header?.manifest?.sourceMode ?? null,
+        includeRequestDetails: header?.manifest?.includeRequestDetails ?? null,
+        secretBundle: header?.manifest?.secretBundle ?? [],
+        // A header that will not parse is a fact worth surfacing, not hiding.
+        headerOk: header !== null,
+      };
+    })
+    .sort((a, b) => (a.modifiedAt < b.modifiedAt ? 1 : -1));
+  return entries;
+}
+/** Prove one artifact still decrypts AND decompresses — without touching the
+ *  live database. Returns the manifest and the section census the artifact
+ *  carries, so "does this backup still restore?" gets a real answer. */
+export function verifyBackupArtifact(artifactId) {
+  const passphrase = getBackupEncryptionKey();
+  const dir = artifactsDir();
+  const file = path.join(dir, `${artifactId}.velabak`);
+  if (!fs.existsSync(file)) throw new Error("[backup] artifact not found");
+  const { plain, header } = openArtifact(fs.readFileSync(file), passphrase);
+  const parsed = JSON.parse(zlib.gunzipSync(plain).toString("utf8"));
+  const payload = parsed?.payload ?? {};
+  const count = (v) => (Array.isArray(v) ? v.length : v && typeof v === "object" ? Object.keys(v).length : 0);
+  return {
+    ok: true,
+    artifactId,
+    manifest: header?.manifest ?? null,
+    secretBundleFiles: Object.keys(parsed?.secretBundle?.files ?? {}),
+    sections: {
+      settings: count(payload.settings),
+      connections: count(payload.providerConnections) + count(payload.providerNodes),
+      pools: count(payload.proxyPools),
+      keys: count(payload.apiKeys),
+      combos: count(payload.combos),
+      kv: count(payload.kvScopes),
+      usage: count(payload.usageHistory) + count(payload.usageDaily) + count(payload.requestDetails),
+    },
+    schemaVersion: payload._meta?.schemaVersion ?? null,
+    exportedAt: payload._meta?.exportedAt ?? null,
+  };
+}
+
 /** Restore one artifact into the LIVE posture (plan line 290):
  *  decrypt+verify tag → gunzip → schema compat → pre-restore safety backup →
  *  importDb into the target posture → ledger. adoptSecrets rides opts. */
@@ -356,9 +437,11 @@ export async function runRestoreDrill() {
   }
 }
 
-/** Retention pruning (plan line 288): newest per day for retainDaily days +
- *  newest per ISO-week for retainWeekly weeks; prune the rest by mtime. */
-export function pruneBackupArtifacts({ retainDaily = 7, retainWeekly = 4 } = {}) {
+/** The retention keep-set, computed WITHOUT deleting anything. ONE home for
+ *  the law — the real prune and the dry-run plan both read it, so a plan that
+ *  promised one list and a prune that removed another (the keys-room lie told
+ *  at the moment trust is extended) cannot happen here. Newest first. */
+export function planPruneArtifacts({ retainDaily = 7, retainWeekly = 4 } = {}) {
   const dir = artifactsDir();
   const entries = fs.readdirSync(dir)
     .filter((n) => n.endsWith(".velabak"))
@@ -368,7 +451,6 @@ export function pruneBackupArtifacts({ retainDaily = 7, retainWeekly = 4 } = {})
       return { name: n, full, mtime: st.mtimeMs, day: new Date(st.mtimeMs).toISOString().slice(0, 10) };
     })
     .sort((a, b) => b.mtime - a.mtime);
-
   const keep = new Set();
   const daysSeen = new Set();
   const weeksSeen = new Set();
@@ -380,12 +462,22 @@ export function pruneBackupArtifacts({ retainDaily = 7, retainWeekly = 4 } = {})
     if (weeksSeen.size < retainWeekly && !weeksSeen.has(week)) weeksSeen.add(week);
     if (daysSeen.has(e.day) || weeksSeen.has(week)) keep.add(e.name);
   }
-
+  const remove = entries.filter((e) => !keep.has(e.name));
+  return {
+    total: entries.length,
+    kept: entries.length - remove.length,
+    keepNames: [...keep],
+    removeNames: remove.map((e) => e.name),
+    removeEntries: remove,
+  };
+}
+/** Retention pruning (plan line 288): newest per day for retainDaily days +
+ *  newest per ISO-week for retainWeekly weeks; prune the rest by mtime. */
+export function pruneBackupArtifacts({ retainDaily = 7, retainWeekly = 4 } = {}) {
+  const plan = planPruneArtifacts({ retainDaily, retainWeekly });
   const removed = [];
-  for (const e of entries) {
-    if (!keep.has(e.name)) {
-      try { fs.rmSync(e.full, { force: true }); removed.push(e.name); } catch {}
-    }
+  for (const e of plan.removeEntries) {
+    try { fs.rmSync(e.full, { force: true }); removed.push(e.name); } catch {}
   }
-  return { kept: entries.length - removed.length, removed };
+  return { kept: plan.total - removed.length, removed };
 }

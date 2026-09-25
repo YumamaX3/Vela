@@ -16,7 +16,7 @@ function fmtBytes(n) {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function BackupCard() {
+export default function BackupCard({ onChanged }) {
   const [status, setStatus] = useState(null);
   const [ledger, setLedger] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -62,6 +62,11 @@ export default function BackupCard() {
       setPassword("");
       setAdoptSecrets(false);
       await refresh();
+      // A run creates an artifact, a restore/prune changes the set — tell the
+      // room so the Artifacts and Storage cards re-read instead of going stale
+      // (the browser walk caught exactly this: a fresh backup that the artifact
+      // card never learned about).
+      onChanged?.();
     } catch (e) {
       setMsg({ type: "error", message: e?.message || "Operation failed" });
     } finally {

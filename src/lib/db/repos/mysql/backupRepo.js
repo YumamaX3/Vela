@@ -10,7 +10,7 @@
 // surface; connection-bound transactions; the purge DELETE rides native LIMIT.
 import { getMysqlAdapter } from "../../mysql/adapter.js";
 import { stringifyJson, parseJson } from "../../helpers/jsonCol.js";
-import { SCHEMA_VERSION } from "../../schema.js";
+import { SCHEMA_VERSION, TABLES } from "../../schema.js";
 import { getDbMode } from "../bind.js";
 import {
   quarantineSettingsPayload,
@@ -490,4 +490,43 @@ export async function purgeOldUsage({ retentionDays = Number(process.env.VELA_US
     meta: { retentionDays: days, cutoff, usageHistory: usageRemoved, requestDetails: detailsRemoved },
   });
   return { purged: true, usageHistory: usageRemoved, requestDetails: detailsRemoved };
+}
+
+// ─── Storage footprint (the Data cockpit, v0.9.95) ───────────────────────
+// The mysql twin of sqlite's getStorageInventory — same report shape, so the
+// cockpit cannot tell which posture served it. Counts are exact (COUNT(*)),
+// never a MariaDB information_schema estimate; the file-size trio is null in
+// this posture because the bytes live in the server's own datadir, which is
+// not ours to read.
+export async function getStorageInventory({ retentionDays } = {}) {
+  const db = await getMysqlAdapter();
+  const tables = [];
+  for (const name of Object.keys(TABLES)) {
+    try {
+      const row = await db.get(`SELECT COUNT(*) AS n FROM \`${name}\``);
+      tables.push({ name, rows: Number(row?.n ?? 0) });
+    } catch {
+      tables.push({ name, rows: null });
+    }
+  }
+  const days = Number(retentionDays ?? process.env.VELA_USAGE_RETENTION_DAYS ?? 90);
+  const retention = Number.isFinite(days) && days > 0 ? days : 0;
+  let usageRows = null;
+  let cutoffRows = null;
+  if (retention > 0) {
+    const cutoff = new Date(Date.now() - retention * 86400000).toISOString();
+    usageRows = Number((await db.get(`SELECT COUNT(*) AS n FROM usageHistory`))?.n ?? 0);
+    cutoffRows = Number((await db.get(`SELECT COUNT(*) AS n FROM usageHistory WHERE timestamp < ?`, [cutoff]))?.n ?? 0);
+  }
+  return {
+    driver: "mysql",
+    mode: getDbMode(),
+    schemaVersion: SCHEMA_VERSION,
+    tables,
+    totalRows: tables.reduce((sum, t) => sum + (t.rows ?? 0), 0),
+    dbFileBytes: null,
+    walBytes: null,
+    shmBytes: null,
+    retention: { days: retention, usageRows, purgeableRows: cutoffRows },
+  };
 }
