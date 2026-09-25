@@ -164,10 +164,10 @@ export default function ImportBackupModal({ fileName, payload, busy, onClose, on
                 {carriedSections.length} of {IMPORT_SECTIONS.length} sections present in this file
               </span>
               <div className="flex gap-1">
-                <Button variant="ghost" className="!px-2 !py-1 text-xs" onClick={() => setSelected(new Set(IMPORT_SECTIONS))}>
+                <Button variant="ghost" size="sm" onClick={() => setSelected(new Set(IMPORT_SECTIONS))}>
                   All
                 </Button>
-                <Button variant="ghost" className="!px-2 !py-1 text-xs" onClick={() => setSelected(new Set())}>
+                <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
                   None
                 </Button>
               </div>

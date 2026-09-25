@@ -38,6 +38,7 @@ chevron_left
 chevron_right
 close
 cloud
+cloud_done
 cloud_off
 cloud_queue
 cloud_sync
@@ -57,6 +58,7 @@ data_usage
 database
 deck
 delete
+delete_sweep
 deployed_code
 description
 developer_board

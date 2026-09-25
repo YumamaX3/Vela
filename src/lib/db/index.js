@@ -105,6 +105,10 @@ export {
   runBackup, restoreBackup, runRestoreDrill,
   writeLedger, listBackupLedger,
   pruneBackupArtifacts, purgeOldUsage,
+  // The Data cockpit (v0.9.95): the storage census + the artifact inventory /
+  // verification readers. The census dispatches by posture; the artifact
+  // readers live in the engine (they read sealed files, not the DB).
+  getStorageInventory, listBackupArtifacts, verifyBackupArtifact, planPruneArtifacts,
 } from "./repos/backupRepo.js";
 // The adapter seam — for the few callers whose repo functions take an adapter as
 // their first argument (the Storage Covenant's own contract). It lives in the

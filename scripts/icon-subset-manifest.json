@@ -40,6 +40,7 @@
     "chevron_right",
     "close",
     "cloud",
+    "cloud_done",
     "cloud_off",
     "cloud_queue",
     "cloud_sync",
@@ -59,6 +60,7 @@
     "database",
     "deck",
     "delete",
+    "delete_sweep",
     "deployed_code",
     "description",
     "developer_board",
@@ -249,9 +251,9 @@
     "wifi_tethering",
     "wrap_text"
   ],
-  "count": 248,
-  "sha256": "76da6d513ca8e8115b74a75135ec7f5f8fc74f447dd2a8241ba0f017acebe102",
-  "identity": "36033b69e1e180d2",
-  "file": "vela-icons.36033b69e1e180d2.woff2",
+  "count": 250,
+  "sha256": "ba974128e20f9aadfc337598aa0fcc1fc05dfd15dcfcf99455288aa55046fb2c",
+  "identity": "706e4f7332945cb8",
+  "file": "vela-icons.706e4f7332945cb8.woff2",
   "source": "node_modules/material-symbols/material-symbols-outlined.woff2"
 }

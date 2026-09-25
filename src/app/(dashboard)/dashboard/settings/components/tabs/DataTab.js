@@ -10,12 +10,16 @@
 // the `x-9r-password` header, the import leg still posts the parsed backup with
 // the password in the body, and the confirm modal still gates both — a backup
 // file is the whole database, so it is never moved on a single click.
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Card, Input, Modal } from "@/shared/components";
 import { exportDatabase, downloadBackup } from "../../lib/settingsApi";
 import StatusLine from "../StatusLine";
 import BackupCard from "../BackupCard";
 import ImportBackupModal from "../ImportBackupModal";
+import StorageCard from "../StorageCard";
+import ArtifactsCard from "../ArtifactsCard";
+import OffsiteCard from "../OffsiteCard";
+import ExportCard from "../ExportCard";
 
 export default function DataTab({ deck }) {
   const { reload } = deck;
@@ -29,6 +33,26 @@ export default function DataTab({ deck }) {
   const [running, setRunning] = useState("");
   const [status, setStatus] = useState({ type: "", message: "" });
   const [auth, setAuth] = useState({ open: false, mode: "", password: "" });
+  // A bump the cockpit cards share: a purge or a prune changes what the OTHER
+  // cards should show, so one counter nudges them all to re-read.
+  const [roomKey, setRoomKey] = useState(0);
+  const refreshRoom = () => setRoomKey((k) => k + 1);
+  // ONE census for the whole room: the off-site card reads this block rather
+  // than asking the same endpoint a second time (two fetches, one truth).
+  const [offsite, setOffsite] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/backup/inventory", { cache: "no-store" });
+        const body = await res.json().catch(() => ({}));
+        if (alive && res.ok && body.offsite) setOffsite(body.offsite);
+      } catch {
+        /* fail-open — the card falls back to its own read */
+      }
+    })();
+    return () => { alive = false; };
+  }, [roomKey]);
 
   const runExport = async (password) => {
     setBusy(true);
@@ -138,7 +162,11 @@ export default function DataTab({ deck }) {
         </div>
       </Card>
 
-      <BackupCard />
+      <ExportCard />
+      <BackupCard onChanged={refreshRoom} />
+      <StorageCard onChanged={refreshRoom} refreshKey={roomKey} />
+      <ArtifactsCard onChanged={refreshRoom} refreshKey={roomKey} />
+      <OffsiteCard data={offsite} refreshKey={roomKey} />
       {importFile && (
         <ImportBackupModal
           fileName={importFile.name}

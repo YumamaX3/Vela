@@ -69,10 +69,25 @@ export async function purgeOldUsage(opts) {
   return mod.purgeOldUsage(opts);
 }
 
+// ─── The Data cockpit surface (v0.9.95) ──────────────────────────────────
+// getStorageInventory dispatches to the posture twin; the artifact readers
+// live in the ENGINE (posture-independent — they read sealed files, not the
+// DB). Both ride THIS facade because it dispatches without the bindFacade
+// allowlist, so a new name here cannot be refused by the mysql posture gate.
+export async function getStorageInventory(opts) {
+  const mod = await dispatchData();
+  return mod.getStorageInventory(opts);
+}
+
 // ─── The ENGINE surface (posture-independent, re-exported) ───────────────
 export {
   runBackup,
   restoreBackup,
   runRestoreDrill,
   pruneBackupArtifacts,
+  planPruneArtifacts,
+  findLatestArtifact,
+  listBackupArtifacts,
+  readArtifactHeader,
+  verifyBackupArtifact,
 } from "./backupEngine.js";

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { exportDb, getSettings, importDb } from "@/lib/localDb";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 import { verifyDashboardPassword } from "@/lib/auth/dashboardSession";
-import { IMPORT_SECTIONS } from "@/lib/db/repos/backupSecurity.js";
+import { IMPORT_SECTIONS, projectPayloadToSections } from "@/lib/db/repos/backupSecurity.js";
 
 const CLI_TOKEN_HEADER = "x-vela-cli-token";
 const PASSWORD_HEADER = "x-9r-password";
@@ -24,7 +24,31 @@ export async function GET(request) {
     // still holds for every non-secret field. The encrypted backup artifact
     // path (runBackup) and mirror resync stay full-fidelity — they are NOT
     // plaintext surfaces.
+    //
+    // The selective export (the Data cockpit's export studio): `?sections=a,b`
+    // narrows the file to the SAME seven partitions the import understands —
+    // one vocabulary, so a file exported here is a file importable there. An
+    // absent/empty selection is the whole-database export, byte-identical to
+    // the historical surface.
+    const { searchParams } = new URL(request.url);
+    const raw = searchParams.get("sections");
+    let selected = null;
+    if (raw) {
+      const wanted = [...new Set(raw.split(",").map((s) => s.trim()).filter(Boolean))];
+      const unknown = wanted.filter((s) => !IMPORT_SECTIONS.includes(s));
+      if (unknown.length > 0) {
+        return NextResponse.json(
+          { error: `Unknown section(s): ${unknown.join(", ")} — valid sections: ${IMPORT_SECTIONS.join(", ")}` },
+          { status: 400 }
+        );
+      }
+      if (wanted.length > 0) selected = wanted;
+    }
     const payload = await exportDb({ redact: true });
+    if (selected) {
+      const filtered = await projectPayloadToSections(payload, selected);
+      return NextResponse.json(filtered);
+    }
     return NextResponse.json(payload);
   } catch (error) {
     console.log("Error exporting database:", error);

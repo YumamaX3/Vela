@@ -76,6 +76,18 @@ export async function exportDatabase(password) {
   if (!res.ok) throw new Error((await readJson(res)).error || "Failed to export database");
   return res.json();
 }
+// The export studio's selective leg: the same door, narrowed to the sections
+// the operator picked. `sections: null` is the whole database (byte-identical
+// to the surface above). The section vocabulary is the import's own — a file
+// exported with a selection re-imports with the same selection.
+export async function exportDatabaseSections(password, sections = null) {
+  const qs = Array.isArray(sections) && sections.length > 0 ? `?sections=${encodeURIComponent(sections.join(","))}` : "";
+  const res = await fetch(`/api/settings/database${qs}`, {
+    headers: { "x-9r-password": password },
+  });
+  if (!res.ok) throw new Error((await readJson(res)).error || "Failed to export database");
+  return res.json();
+}
 
 export async function importDatabase(payload, password) {
   const res = await fetch("/api/settings/database", {

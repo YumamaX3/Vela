@@ -19,10 +19,12 @@
 // The engine surface is re-exported so callers that import this module keep
 // working unchanged.
 import crypto from "node:crypto";
+import fs from "node:fs";
 import { getAdapter } from "../../driver.js";
 import { stringifyJson, parseJson } from "../../helpers/jsonCol.js";
 import { tombstoneLegacyKeys } from "../../migrations/002-apikey-governance.js";
-import { SCHEMA_VERSION } from "../../schema.js";
+import { SCHEMA_VERSION, TABLES } from "../../schema.js";
+import { DATA_FILE } from "../../paths.js";
 import { getDbMode } from "../bind.js";
 import {
   quarantineSettingsPayload,
@@ -461,6 +463,54 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
 
 export async function initDb() {
   await getAdapter();
+}
+
+// ─── Storage footprint (the Data cockpit, v0.9.95) ───────────────────────
+// What this instance actually occupies, per table, plus the DB file size and
+// the usage retention posture. Counts are exact (COUNT(*) per table, never a
+// sqlite_stat1 estimate — an estimate is a guess wearing a number's clothes).
+// The DB file size is the on-disk truth; WAL/SHM ride alongside because a
+// busy harbor keeps them.
+export async function getStorageInventory({ retentionDays } = {}) {
+  const db = await getAdapter();
+  const tables = [];
+  for (const name of Object.keys(TABLES)) {
+    try {
+      const row = db.get(`SELECT COUNT(*) AS n FROM ${name}`);
+      tables.push({ name, rows: Number(row?.n ?? 0) });
+    } catch {
+      // A table the schema declares but this DB has not migrated yet is a real
+      // state during an upgrade — report it, never crash the census.
+      tables.push({ name, rows: null });
+    }
+  }
+  const bytes = (p) => {
+    try {
+      return fs.statSync(p).size;
+    } catch {
+      return null;
+    }
+  };
+  const days = Number(retentionDays ?? process.env.VELA_USAGE_RETENTION_DAYS ?? 90);
+  const retention = Number.isFinite(days) && days > 0 ? days : 0;
+  let usageRows = null;
+  let cutoffRows = null;
+  if (retention > 0) {
+    const cutoff = new Date(Date.now() - retention * 86400000).toISOString();
+    usageRows = Number(db.get(`SELECT COUNT(*) AS n FROM usageHistory`)?.n ?? 0);
+    cutoffRows = Number(db.get(`SELECT COUNT(*) AS n FROM usageHistory WHERE timestamp < ?`, [cutoff])?.n ?? 0);
+  }
+  return {
+    driver: db.driver ?? "sqlite",
+    mode: getDbMode(),
+    schemaVersion: SCHEMA_VERSION,
+    tables,
+    totalRows: tables.reduce((sum, t) => sum + (t.rows ?? 0), 0),
+    dbFileBytes: bytes(DATA_FILE),
+    walBytes: bytes(`${DATA_FILE}-wal`),
+    shmBytes: bytes(`${DATA_FILE}-shm`),
+    retention: { days: retention, usageRows, purgeableRows: cutoffRows },
+  };
 }
 
 export async function writeLedger(kind, fields = {}) {

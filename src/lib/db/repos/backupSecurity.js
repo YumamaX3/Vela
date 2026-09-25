@@ -259,3 +259,22 @@ export function normalizeImportSections(sections) {
 export function sectionOfField(field) {
   return FIELD_TO_SECTION.get(field) ?? null;
 }
+/** Project a whole export payload down to the selected sections — the export
+ *  studio's law. Pure (returns a NEW object, never mutates), and the mirror of
+ *  IMPORT_SECTION_FIELDS: a file exported with `sections` is, by construction,
+ *  a file the selective import can restore with the same `sections`. `_meta`
+ *  is always kept (provenance), annotated with what was projected, and every
+ *  field the payload does not carry is simply absent — never an empty stand-in
+ *  that would read as "this section was empty" when the truth is "not asked
+ *  for". */
+export function projectPayloadToSections(payload, sections) {
+  const selected = normalizeImportSections(sections);
+  const out = { _meta: { ...(payload?._meta ?? {}), sections: selected ?? [...IMPORT_SECTIONS] } };
+  if (!selected) return { ...payload, _meta: out._meta };
+  for (const section of selected) {
+    for (const field of IMPORT_SECTION_FIELDS[section] || []) {
+      if (payload?.[field] !== undefined) out[field] = payload[field];
+    }
+  }
+  return out;
+}
