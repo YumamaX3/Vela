@@ -244,11 +244,11 @@ Multi-stage, multi-arch (amd64 + arm64). The **builder** forces `VELA_DB_DRIVER=
 
 ## 📡 The Release Covenant — How Versions Sail
 
-Every change ships as a versioned minor (`0.9.x`) with:
+Every change ships as a versioned release (`x.y.z`) with:
 1. `CHANGELOG.md` entry (the covenant's voice)
-2. `package.json` version bump (+ `npm install --package-lock-only` so the lockfile's two version lines follow — verify the diff is version-only)
-3. Annotated git tag (`v0.9.x`) — with a **deep, themed description** (the decree below)
-4. `git push origin main && git push origin v0.9.x`
+2. `package.json` version bump (+ `npm install --package-lock-only` so the lockfile's two version lines follow — verify the diff is version-only). The minor and patch places each carry **two digits** (`1.10.0`, `1.99.0`), and a place that would begin with a **leading zero drops it** — npm's semver refuses `1.00.00`, so `1.0.0` is the compliant form of the same number. **The middle digit never passes `9`**: `0.9.99` carries to `1.0.0`, and `1.9.99` to `2.0.0`.
+3. Annotated git tag (`v1.0.0`) — with a **deep, themed description** (the decree below)
+4. `git push origin main && git push origin v1.0.0`
 5. **Publish the GitHub Release** — `https://github.com/YumamaX3/Vela/releases` (the decree below)
 
 The tag triggers `.github/workflows/docker-publish.yml` → GHCR `ghcr.io/yumamax3/vela:<tag>` + `:latest`.
@@ -283,14 +283,14 @@ release.** The tag is the git object; the Release is what the world sees at
 ```bash
 # Reuse the tag's own deep description verbatim — never write a thinner note.
 # ⚠️ Project-local scratch only: /tmp/ resolves to C:\tmp\ on Windows and ENOENTs.
-git tag -l --format='%(contents)' v0.9.x > .release-notes.md
-gh release create v0.9.x --repo YumamaX3/Vela \
-  --title "$(git tag -l --format='%(subject)' v0.9.x | sed 's/^⛵ *//')" \
+git tag -l --format='%(contents)' v1.0.0 > .release-notes.md
+gh release create v1.0.0 --repo YumamaX3/Vela \
+  --title "$(git tag -l --format='%(subject)' v1.0.0 | sed 's/^⛵ *//')" \
   --notes-file .release-notes.md
 rm .release-notes.md
 
 # Verify it landed:
-gh api "repos/YumamaX3/Vela/releases/tags/v0.9.x" --jq '.html_url'
+gh api "repos/YumamaX3/Vela/releases/tags/v1.0.0" --jq '.html_url'
 ```
 
 > 🔧 **Git Bash gotcha:** `gh api "/repos/..."` fails with
@@ -299,10 +299,10 @@ gh api "repos/YumamaX3/Vela/releases/tags/v0.9.x" --jq '.html_url'
 
 | Rule | The Law |
 |-|-|
-| **Name convention** 🏷️ | `v0.9.x — The Themed Name <emoji>` — strip a leading `⛵` so it matches the existing list (`v0.9.40 — The Combo Harbor ✨`) |
+| **Name convention** 🏷️ | `v1.0.0 — The Themed Name <emoji>` — strip a leading `⛵` so it matches the existing list (`v0.9.40 — The Combo Harbor ✨`) |
 | **Body** 📜 | The tag's deep description, verbatim via `--notes-file`. The Description Decree already put the full story there; a Release that paraphrases it loses the proof |
 | **Never draft** | Publish it — a draft Release is invisible |
-| **Audit the gap** 🔍 | Compare **unique annotated tags** against Releases — never raw `ls-remote` lines: `git ls-remote --tags origin \| grep -v '\^{}' \| sed 's#.*refs/tags/##' \| grep '^v0\.9\.' \| LC_ALL=C sort` vs `gh api 'repos/YumamaX3/Vela/releases?per_page=100' --jq '.[].tag_name' \| LC_ALL=C sort`, then `comm -23` for the gap. Two traps, both measured 2026-09-19: the peeled `^{}` refs **double** the raw count (136 lines for 70 tags), and `sort -V` silently breaks `comm` ("not in sorted order") — version order is not byte order. Measured census: **70 tags · 43 Releases**; every tag from **v0.9.38 through v0.9.73** has one, and the 27 without (v0.9.1 · v0.9.4–.23 · v0.9.25–.29 · v0.9.37) all **predate this decree**. Recorded rather than back-filled: those tags carry no deep description to reuse verbatim, and inventing one would put words in an older tide's mouth |
+| **Audit the gap** 🔍 | Compare **unique annotated tags** against Releases — never raw `ls-remote` lines: `git ls-remote --tags origin \| grep -v '\^{}' \| sed 's#.*refs/tags/##' \| grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \| LC_ALL=C sort` vs `gh api 'repos/YumamaX3/Vela/releases?per_page=100' --jq '.[].tag_name' \| LC_ALL=C sort`, then `comm -23` for the gap. Two traps, both measured 2026-09-19: the peeled `^{}` refs **double** the raw count (136 lines for 70 tags), and `sort -V` silently breaks `comm` ("not in sorted order") — version order is not byte order. Measured census: **70 tags · 43 Releases**; every tag from **v0.9.38 through v0.9.73** has one, and the 27 without (v0.9.1 · v0.9.4–.23 · v0.9.25–.29 · v0.9.37) all **predate this decree**. Recorded rather than back-filled: those tags carry no deep description to reuse verbatim, and inventing one would put words in an older tide's mouth |
 
 > ⚠️ **This decree exists because of a six-version gap.** Releases stopped at
 > v0.9.40 while tags continued through v0.9.46 — so v0.9.41, .42, .43, .44, .45
@@ -501,7 +501,7 @@ node custom-server.js   # production server (IP stamp + h2c + drain)
 3. Bump `SCHEMA_VERSION` in `migrate.js` and update this chart's migration table.
 4. If the twin needs the column, `bootstrap.js`'s additive diff picks it up from `TABLES` automatically.
 
-### Release a minor
+### Release a version
 ```bash
 # 1. edit CHANGELOG.md + bump package.json
 #    ⚠️ ALSO bump the image pin in BOTH docker-compose.example.yml (tracked)
@@ -520,13 +520,13 @@ git add <this tide's files, explicitly>
 git commit -F msg.txt                    # deep themed body — see the Description Decree
 git push origin main
 
-git tag -a v0.9.x -F tag.txt             # deep themed tag message
-git push origin v0.9.x
+git tag -a v1.0.0 -F tag.txt             # deep themed tag message
+git push origin v1.0.0
 
 # 2. PUBLISH THE RELEASE — a tag alone is NOT a release (Releases Decree, 2026-09-04)
-git tag -l --format='%(contents)' v0.9.x > .release-notes.md
-gh release create v0.9.x --repo YumamaX3/Vela \
-  --title "$(git tag -l --format='%(subject)' v0.9.x | sed 's/^⛵ *//')" \
+git tag -l --format='%(contents)' v1.0.0 > .release-notes.md
+gh release create v1.0.0 --repo YumamaX3/Vela \
+  --title "$(git tag -l --format='%(subject)' v1.0.0 | sed 's/^⛵ *//')" \
   --notes-file .release-notes.md
 rm .release-notes.md
 
@@ -534,8 +534,8 @@ rm .release-notes.md
 gh run list --repo YumamaX3/Vela --workflow "Build and Push Docker Image"
 
 # 4. verify alignment: HEAD = origin/main = tag commit = remote tag object
-git rev-parse HEAD; git rev-parse origin/main; git rev-list -n1 v0.9.x
-git ls-remote --tags origin v0.9.x
+git rev-parse HEAD; git rev-parse origin/main; git rev-list -n1 v1.0.0
+git ls-remote --tags origin v1.0.0
 ```
 
 > ⚠️ **`public/CHANGELOG.md` is gitignored** and regenerated by
@@ -559,6 +559,9 @@ not a list of tags that happen to exist.
 
 | Version | Tide | What it sealed |
 |-|-|-|
+| **v1.0.0** | **The First Harbor** ⛵ | The versioning covenant corrected — **the middle digit never passes `9`**; the minor and patch places carry two digits (`1.10.0`), and a place that would begin with a leading zero drops it, because npm's semver refuses `1.00.00` (`1.0.0` is the compliant form of the same number). `0.9.100` was a **breach** of the shore's own law — three digits in the last place — now recorded and superseded. `docs/VERSIONING.md`, `CHANGELOG.md` and `CLAUDE.md` all re-inked; the five version sites struck to `1.0.0`. The frontend tide (v0.9.99's ground + v0.9.100's mast mend) sealed under the harbor's first major. |
+| **v0.9.100** | **The Restored Mast** ⛵ | ⚠️ **A breach of the versioning law, recorded rather than deleted** — three digits in the last place. The mending underneath: `PageShell`'s header dropped `.mast-rise`, because `.deck-enter > :only-child > *` (specificity 0,2,0) outbid it (0,1,0) and substituted `deckEnter … backwards`, so the base `opacity: 0` showed forever and **all ten adopted rooms rendered no masthead at all**. No parser and no guard could see it; only a browser walking a real room, and a browser proving the mend. |
+| **v0.9.99** | **The Showcase** ⛵ | The ground-up frontend refit — a **new visual language** (surfaces, ink, borders, radius, shadows; the coral brand scale untouched because the contrast ledger hangs off it) and a **two-species motion system** (a response ladder plus an ambient ladder with a visibility budget that stills every loop when an overlay is open or the tab hidden). **`PageShell` born** — one masthead over the deck — with ten rooms adopted and the rest named as owed. |
 | **v0.9.93** | **The Eight Lenses** 🌊 | The Settings room — one scroll of eleven sections for thirty minors — is re-cut as **one console of eight lenses** (`general, access, sso, routing, network, data, billing, advanced`), built inside the `(dashboard)` group so the shell is inherited rather than re-added. `/dashboard/profile` and the pricing orphan `/dashboard/settings/pricing` are both kept as **redirects**, because bookmarks and history deserve to land. **No backend change** — `PATCH /api/settings` stays the one write door. Two wounds mended: **four mis-rooted `../lib/` specifiers** (the same class as v0.9.88's ten — a parser never complains, the build does), and the **proxy form that hydrated empty** and would have written that emptiness over a stored URL (now guarded by a `hydrated` ref, proven in the browser). Deliberate departures, named: limits commit on **blur or Enter** (the old room PATCHed every keystroke, so typing "10" over "3" wrote `1` first), five invented card hues collapse to one accent, no double-padding, the SSO accordion removed with its notices relocated, the pricing fold asking through `ConfirmModal`. The glyph subset re-minted **240 → 246**. **Proof**: build green · browser walk dev+prod (zero console faults in the production hull) · both redirects live · contrast 12/12 on both ledgers · 5 suites / 89 cases green · `no-undef` zero across `src/`. |
 | **v0.9.92** | **The Honest Count** 🐛 | One wound in five places, and every one a **silent** lie — a read that was paged but asked for one page, a census read under a key the route never wrote, a panel unmounted by the tab it lived in, an anchor pointed at a room with no such id, and a per-item answer thrown away in favour of its sum. None throws, which is why the build, the suite and the eye all passed over them. The endpoint room now reports what is actually there: `useEndpointController` reads the fleet through `keyApi.fetchAllKeys` (walks the route's own paging, reports `{items, total, truncated}`), the pulse reads `totals.coverage` where it was read as `stats.coverage`, `useKeyDeck` is hoisted above the tab switch so the room outlives its tab, and the `#require-api-key` hash maps to `keys` instead of a room with no such id. Plus: one mutation surface for key writes, `useTailscale` lifted out of the god-hook, `?tab=` made shareable, and per-item bulk verdicts rendered by name. |
 | **v0.9.91** | **The Unbound Names** 🐛 | The same class a fifth time - a name called and never bound - now closed by an instrument instead of a walk. Two whole rooms were dark: `/dashboard/cli-tools/claude` died on mount (`resolveKeyRef is not defined`, evaluated in the JSX at `configs={getManualConfigs()}`, its vault import carried out by the v0.9.71 port while all four calls stayed), and the single-model combo path threw `fallbackRulesRepo is not defined` (bound in the outer `handleChat`, read inside `handleSingleModelChat` - a scope the name never crosses). The third was the keys room's `categoryOf`, re-exported from `keyLimits` without a local binding while `filterKeys`'s body called it. The build and the suite were green for all three. **The guard that would have caught them**: `no-undef` adopted in `eslint.config.mjs` - never lit before (the config spread `core-web-vitals` alone, whose ruleset has no `no-undef`) - it surfaces exactly these six findings across 1,210 modules against 149 errors from the other rules, adds no dependency (next's own block already declares 1,174 globals), and is verified to bite on a planted bare name. Honest scope: a hand-run instrument (this repo has no CI lint gate); the executed guard is `tests/unit/claude-card-vault-seam.test.jsx` (new, mutation-proven) and `tests/unit/key-format-filters.test.js` (new). |
@@ -634,3 +637,13 @@ not a list of tags that happen to exist.
 ---
 
 *The Shores sail on — one harbor, one voice, every tide sealed. If the waters run strange, read the chart again before you touch the helm. And when you change something, write down why — the next keeper will thank you.* 🪞⛵
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
