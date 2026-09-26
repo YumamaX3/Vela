@@ -6,6 +6,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Card from "@/shared/components/Card";
 import { CardSkeleton } from "@/shared/components";
+import PageShell from "@/shared/components/layouts/PageShell";
 import { translate } from "@/i18n/runtime";
 
 function parseLog(line) {
@@ -75,13 +76,13 @@ export default function RequestLogs() {
   if (loading) return <CardSkeleton />;
 
   return (
-    <div className="flex min-w-0 flex-col gap-4 px-1 sm:px-0">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-text-main">{translate("Request Logs")}</h1>
-          <p className="text-sm text-text-muted mt-1">{translate("Every request that crossed the gateway, in one ledger")}</p>
-        </div>
+    <PageShell
+      title={translate("Request Logs")}
+      subtitle={translate("Every request that crossed the gateway, in one ledger")}
+      icon="receipt_long"
+      bodyClassName="flex flex-col gap-4"
+      className="min-w-0 px-1 sm:px-0"
+      actions={
         <div className="flex items-center gap-2">
           <select
             value={level}
@@ -99,7 +100,8 @@ export default function RequestLogs() {
             {translate("Refresh")}
           </button>
         </div>
-      </div>
+      }
+    >
 
       {/* Search + model chips */}
       <div className="flex flex-col gap-2">
@@ -183,6 +185,6 @@ export default function RequestLogs() {
           </select>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

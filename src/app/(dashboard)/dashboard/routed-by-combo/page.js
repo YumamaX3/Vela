@@ -24,6 +24,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { Card } from "@/shared/components";
+import PageShell from "@/shared/components/layouts/PageShell";
 import { cn } from "@/shared/utils/cn";
 
 function StatusPill({ testStatus }) {
@@ -117,14 +118,12 @@ export default function RoutedByComboPage() {
   const isLoading = combos === null || rules === null || pools === null;
 
   return (
-    <div className="flex flex-col gap-4">
-      <header className="flex items-end justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-main">Routed by Combo</h1>
-          <p className="text-sm text-text-muted mt-1">
-            The loop between Combos, Fallback Rules, and Proxy Pools. One row per combo.
-          </p>
-        </div>
+    <PageShell
+      title="Routed by Combo"
+      subtitle="The loop between Combos, Fallback Rules, and Proxy Pools. One row per combo."
+      icon="call_merge"
+      bodyClassName="flex flex-col gap-4"
+      actions={
         <div className="flex items-center gap-2 text-[10px] text-text-muted">
           <span className="font-mono">/api/combos</span>
           <span>·</span>
@@ -132,7 +131,8 @@ export default function RoutedByComboPage() {
           <span>·</span>
           <span className="font-mono">/api/proxy-pools</span>
         </div>
-      </header>
+      }
+    >
 
       {loadError && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
@@ -235,6 +235,6 @@ export default function RoutedByComboPage() {
           </ul>
         </Card>
       )}
-    </div>
+    </PageShell>
   );
 }

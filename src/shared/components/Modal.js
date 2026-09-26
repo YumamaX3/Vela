@@ -3,6 +3,7 @@
 import { useEffect, useId } from "react";
 import { cn } from "@/shared/utils/cn";
 import { useScrollLock } from "@/shared/hooks/useScrollLock";
+import { useAmbientPause } from "@/shared/hooks/useAmbient";
 import { useFocusTrap } from "@/shared/hooks/useFocusTrap";
 import Button from "./Button";
 import Tooltip from "./Tooltip";
@@ -32,6 +33,13 @@ export default function Modal({
   // NineRemotePromoModal is mounted from Sidebar.js:324 and so sits on every
   // dashboard page. Now ref-counted across all three overlays.
   useScrollLock(isOpen);
+
+  // The motion budget's half of the same contract: the ambient loops behind this
+  // dialog must not repaint for a screen nobody can see. Registered here rather
+  // than in the shell so the count follows what is actually mounted, and it is a
+  // counter for exactly the reason useScrollLock is one — a ConfirmModal opening
+  // on top of this Modal must not restart the tide when the confirm closes.
+  useAmbientPause(isOpen);
 
   // Modal had no focus handling at all, so a keyboard user could Tab out of an
   // open dialog into the page behind it and activate controls they could not see.

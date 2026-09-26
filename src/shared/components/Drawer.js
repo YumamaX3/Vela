@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useId } from "react";
 import { cn } from "@/shared/utils/cn";
 import { useScrollLock } from "@/shared/hooks/useScrollLock";
+import { useAmbientPause } from "@/shared/hooks/useAmbient";
 import { useFocusTrap } from "@/shared/hooks/useFocusTrap";
 
 export default function Drawer({
@@ -30,6 +31,11 @@ export default function Drawer({
   // the unlock-while-open bug this replaces. This effect was byte-for-byte
   // identical to Modal.js:26-34.
   useScrollLock(isOpen);
+
+  // Paired with the lock above, on the same counter: a drawer covering the deck
+  // means the deck's ambient loops are invisible, so they pause rather than
+  // repaint behind it. Same reason it is ref-counted as useScrollLock.
+  useAmbientPause(isOpen);
 
   // Drawer had no focus handling at all: keyboard users could tab out into the
   // page behind it, and focus was never restored to the trigger on close.

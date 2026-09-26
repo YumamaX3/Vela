@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card, Button, Input, Select, Toggle } from "@/shared/components";
+import PageShell from "@/shared/components/layouts/PageShell";
 import { AI_PROVIDERS, AUTH_METHODS } from "@/shared/constants/config";
 
 const providerOptions = Object.values(AI_PROVIDERS).map((p) => ({
@@ -73,21 +74,21 @@ export default function NewProviderPage() {
   const selectedProvider = AI_PROVIDERS[formData.provider];
 
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
+    <PageShell
+      title="Add New Provider"
+      subtitle="Configure a new AI provider to use with your applications."
+      icon="add_box"
+      maxWidth="max-w-2xl mx-auto"
+      actions={
         <Link
           href="/dashboard/providers"
-          className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary motion-control mb-4"
+          className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary motion-control"
         >
           <span className="material-symbols-outlined text-lg">arrow_back</span>
           Back to Providers
         </Link>
-        <h1 className="text-3xl font-semibold tracking-tight">Add New Provider</h1>
-        <p className="text-text-muted mt-2">
-          Configure a new AI provider to use with your applications.
-        </p>
-      </div>
+      }
+    >
 
       {/* Form */}
       <Card>
@@ -214,7 +215,7 @@ export default function NewProviderPage() {
           </div>
         </form>
       </Card>
-    </div>
+    </PageShell>
   );
 }
 

@@ -28,6 +28,7 @@
 // are both honoured, URL winning.
 import { useCallback, useEffect, useState } from "react";
 import { CardSkeleton } from "@/shared/components";
+import PageShell from "@/shared/components/layouts/PageShell";
 import TabBar from "@/shared/components/TabBar";
 import { useProxyFleet } from "./hooks/useProxyFleet";
 import { ProxyCensus, FleetTab, FitnessTab, EgressTab, RelayTab } from "./components";
@@ -104,15 +105,13 @@ export default function ProxyConsoleClient() {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-4 px-1 sm:px-0">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-xl font-semibold sm:text-2xl">Proxy</h1>
-          <p className="mt-0.5 text-sm text-text-muted">
-            One fleet, four lenses: pools, fitness blocks, egress, and edge relays.
-          </p>
-        </div>
-      </div>
+    <PageShell
+      title="Proxy"
+      subtitle="One fleet, four lenses: pools, fitness blocks, egress, and edge relays."
+      icon="lan"
+      bodyClassName="flex flex-col gap-4"
+      className="min-w-0 px-1 sm:px-0"
+    >
 
       {c.error && (
         <div className="flex flex-wrap items-center gap-2 rounded-[12px] border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">
@@ -139,6 +138,6 @@ export default function ProxyConsoleClient() {
         {tab === "egress" && <EgressTab c={c} />}
         {tab === "relay" && <RelayTab c={c} />}
       </div>
-    </div>
+    </PageShell>
   );
 }

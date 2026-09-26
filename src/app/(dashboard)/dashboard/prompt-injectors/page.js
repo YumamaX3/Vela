@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Card, Button, Modal, Input, CardSkeleton, ConfirmModal, Toggle } from "@/shared/components";
+import PageShell from "@/shared/components/layouts/PageShell";
 import { useNotificationStore } from "@/store/notificationStore";
 
 const BUILTIN_VARS = [
@@ -195,29 +196,29 @@ export default function PromptInjectorsPage() {
   if (loading) return <CardSkeleton rows={5} />;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">Prompt Injectors</h1>
-          <p className="text-sm text-muted-foreground">
-            {/* {"{{model}}"} not {{model}} — in JSX text, {{model}} parses as an
-                expression container holding the object shorthand {model}, which
-                dereferences an undefined identifier and throws ReferenceError on
-                EVERY render. The page could not paint at all. The em dash here is
-                an R-02 violation and is deliberately left for the redesign tide,
-                so this commit stays one logical change. */}
-            Operator-defined prompts injected into the system message of every matching chat request — with live variables ({"{{model}}"}, {"{{date}}"}…) and per-request overrides.
-          </p>
-        </div>
+    <PageShell
+      title="Prompt Injectors"
+      // The subtitle is a plain string ATTRIBUTE, not a JSX text child, and that
+      // is the fix rather than a style choice: as text, `{{model}}` parsed as an
+      // expression container holding the object shorthand and threw
+      // ReferenceError on every render, so this page could not paint at all. An
+      // attribute value is a string, so those braces are literal and the hazard
+      // is gone. The em dash the old comment deferred to "the redesign tide" is
+      // settled here, in that tide, as a comma.
+      subtitle="Operator-defined prompts injected into the system message of every matching chat request, with live variables ({{model}}, {{date}}…) and per-request overrides."
+      icon="auto_awesome"
+      bodyClassName="space-y-4"
+      actions={
         <div className="flex gap-2">
           <Button variant="ghost" onClick={() => setShowPresets(true)}>Presets</Button>
           <Button onClick={openCreate}>Add Injector</Button>
         </div>
-      </div>
+      }
+    >
 
       <Card>
         {injectors.length === 0 ? (
-          <div className="p-6 text-center text-sm text-muted-foreground">
+          <div className="p-6 text-center text-sm text-text-muted">
             No prompt injectors yet. Add one to layer a custom instruction into every chat completion — or start from a preset.
           </div>
         ) : (
@@ -226,16 +227,16 @@ export default function PromptInjectorsPage() {
               <div key={index} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-muted-foreground font-mono">#{index + 1}</span>
+                    <span className="text-xs text-text-muted font-mono">#{index + 1}</span>
                     <p className="text-sm font-medium">{inj.name}</p>
-                    <span className="rounded-md border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">{inj.position}</span>
-                    <span className="rounded-md border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">{inj.applyTo}</span>
+                    <span className="rounded-md border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-text-muted">{inj.position}</span>
+                    <span className="rounded-md border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-text-muted">{inj.applyTo}</span>
                     {Object.keys(inj.variables || {}).length > 0 && (
                       <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-1.5 py-0.5 text-[10px] text-blue-400">vars</span>
                     )}
-                    {!inj.enabled && <span className="text-xs text-muted-foreground">(disabled)</span>}
+                    {!inj.enabled && <span className="text-xs text-text-muted">(disabled)</span>}
                   </div>
-                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{inj.prompt}</p>
+                  <p className="mt-1 line-clamp-2 text-xs text-text-muted">{inj.prompt}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="sm" onClick={() => move(index, -1)} disabled={index === 0}>↑</Button>
@@ -253,11 +254,11 @@ export default function PromptInjectorsPage() {
       <Modal isOpen={showFormModal} onClose={() => setShowFormModal(false)} title={editingIndex === null ? "Add Injector" : "Edit Injector"}>
         <div className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Name</label>
+            <label className="text-xs text-text-muted">Name</label>
             <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Always respond in Indonesian" />
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Prompt</label>
+            <label className="text-xs text-text-muted">Prompt</label>
             <textarea
               value={formData.prompt}
               onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
@@ -265,10 +266,10 @@ export default function PromptInjectorsPage() {
               className="w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:border-primary"
               placeholder="The instruction injected into the system message… ({{date}}, {{model}} and friends expand live)"
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-text-muted">
               Variables:{" "}
               {BUILTIN_VARS.map((v) => (
-                <code key={v.name} title={v.desc} className="mr-1 cursor-help rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
+                <code key={v.name} title={v.desc} className="mr-1 cursor-help rounded bg-surface-2 px-1 py-0.5 font-mono text-[10px]">
                   {`{{${v.name}}}`}
                 </code>
               ))}
@@ -276,7 +277,7 @@ export default function PromptInjectorsPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Custom variables (overridable via x-vela-inject-var-&lt;name&gt; headers)</label>
+            <label className="text-xs text-text-muted">Custom variables (overridable via x-vela-inject-var-&lt;name&gt; headers)</label>
             <div className="space-y-2">
               {Object.entries(formData.variables || {}).map(([k, v]) => (
                 <div key={k} className="flex items-center gap-2">
@@ -297,7 +298,7 @@ export default function PromptInjectorsPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Position</label>
+              <label className="text-xs text-text-muted">Position</label>
               <select
                 value={formData.position}
                 onChange={(e) => setFormData({ ...formData, position: e.target.value })}
@@ -308,7 +309,7 @@ export default function PromptInjectorsPage() {
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Applies to</label>
+              <label className="text-xs text-text-muted">Applies to</label>
               <select
                 value={formData.applyTo}
                 onChange={(e) => setFormData({ ...formData, applyTo: e.target.value })}
@@ -321,14 +322,14 @@ export default function PromptInjectorsPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Preview</label>
-            <div className="rounded-md bg-muted/40 p-3 text-xs whitespace-pre-wrap">
+            <label className="text-xs text-text-muted">Preview</label>
+            <div className="rounded-md bg-surface-2/40 p-3 text-xs whitespace-pre-wrap">
               {previewPrompt(formData.prompt, formData.variables)}
             </div>
           </div>
 
           <div className="flex items-center justify-between">
-            <label className="text-xs text-muted-foreground">Enabled</label>
+            <label className="text-xs text-text-muted">Enabled</label>
             <Toggle checked={formData.enabled !== false} onChange={(v) => setFormData({ ...formData, enabled: v })} />
           </div>
           <div className="flex justify-end gap-2">
@@ -345,10 +346,10 @@ export default function PromptInjectorsPage() {
               key={p.name}
               type="button"
               onClick={() => applyPreset(p)}
-              className="w-full text-left rounded-md border border-muted p-3 hover:border-primary motion-control"
+              className="w-full text-left rounded-md border border-border p-3 hover:border-primary motion-control"
             >
               <span className="text-sm font-medium">{p.name}</span>
-              <span className="block text-xs text-muted-foreground mt-0.5">{p.prompt.slice(0, 80)}{p.prompt.length > 80 ? "…" : ""}</span>
+              <span className="block text-xs text-text-muted mt-0.5">{p.prompt.slice(0, 80)}{p.prompt.length > 80 ? "…" : ""}</span>
             </button>
           ))}
         </div>
@@ -364,6 +365,6 @@ export default function PromptInjectorsPage() {
         }}
         onClose={() => setConfirmState(null)}
       />
-    </div>
+    </PageShell>
   );
 }

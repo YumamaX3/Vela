@@ -21,6 +21,16 @@
         "$type": "duration",
         "$value": { "value": 560, "unit": "ms" },
         "$description": "The single hero reveal per screen. Reserved: one slow element per page is a focal point, two is a queue."
+      },
+      "ambient": {
+        "$type": "duration",
+        "$value": { "value": 2400, "unit": "ms" },
+        "$description": "A self-running loop's period — the deck's weather, and a different species from the ladder above. The four durations preceding it are all RESPONSES: something was triggered, so someone is waiting, and long reads as lag. Nobody triggered this one, so nobody waits on it, and a breath at --motion-dur-base (320ms) would read as a stutter rather than a tide. Every infinite animation cites this token or drift, never a hand-picked millisecond — measured before this token existed, the deck ran thirty-one concurrent loops at periods as short as 0.18s, which on a 60Hz display is a repaint every eleventh frame, forever."
+      },
+      "drift": {
+        "$type": "duration",
+        "$value": { "value": 18000, "unit": "ms" },
+        "$description": "The slowest ambient weather — decorative fields only. Long enough that it is felt rather than watched, which is why it is reserved for surfaces carrying no informational content: a figure that must be read should never sit on top of a drift."
       }
     },
     "stagger": {
@@ -52,6 +62,11 @@
         "$type": "cubicBezier",
         "$value": [0.34, 1.3, 0.64, 1],
         "$description": "Slight overshoot, for instruments that snap into a detent. Already proven by .mast-compass-tile:hover; carried here so the deck can borrow the same feel without restating the curve."
+      },
+      "phase": {
+        "$type": "cubicBezier",
+        "$value": [0.45, 0.05, 0.55, 0.95],
+        "$description": "Perfectly symmetric and flat at both ends — for a loop whose direction reverses mid-cycle, where --motion-ease-inout's asymmetry (0.4, 0, 0.2, 1) would read as a hitch at the turn. Belongs to the ambient ladder; every entrance keeps --motion-ease-out."
       }
     }
   }

@@ -117,11 +117,11 @@ export default function AdvancedTab({ deck }) {
               href={room.href}
               className={`flex items-center gap-3 py-3 group ${i > 0 ? "border-t border-border-subtle" : ""}`}
             >
-              <span className="material-symbols-outlined text-[20px] leading-none text-text-muted group-hover:text-brand-500 transition-colors">
+              <span className="material-symbols-outlined text-[20px] leading-none text-text-muted group-hover:text-brand-500 motion-control">
                 {room.icon}
               </span>
               <span className="flex-1 min-w-0">
-                <span className="block text-sm font-medium text-text-main group-hover:text-brand-500 transition-colors">
+                <span className="block text-sm font-medium text-text-main group-hover:text-brand-500 motion-control">
                   {room.label}
                 </span>
                 <span className="block text-sm text-text-muted truncate">{room.owns}</span>
