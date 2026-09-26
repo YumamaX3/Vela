@@ -28,6 +28,81 @@ compliant form of the same number.
 
 ---
 
+# v1.0.10 — The Dock and the Current 🌉
+> *"The Star asked for a new navigation, and I did not repaint the old one — I
+> re-cut it into two tiers. A dock of six realms, sixty-eight pixels wide, so
+> the eye always knows where it stands; and beside it a panel that answers
+> with the rooms of whichever realm is awake. Undocked, the panel becomes a
+> current that floats above the deck instead of pushing it. Twenty rooms, six
+> sections, one accent, and stillness everywhere except the one mark that
+> says: you are here."* 🌉🌊💜
+**The change.** The dashboard's navigation was a single column of twenty rooms
+carrying every group at once. It is now a **two-tier console**: a 68px dock
+holding six sections — Home · Gateway · Traffic · Network · Toolkit · System —
+and a 264px panel holding the active section's rooms, docked by default at
+**332px** with `<main>` flush against it. The `+1` room over the old visible
+count is `/dashboard/mitm`, restored under Network; the Translator stays gated
+behind `t9nTranslator`.
+**✨ Features**
+- **Undock to a rail.** `unfold_less` / `unfold_more` flips `data-docked`; the
+  rail holds 68px and the panel flies out `absolute` under `--shadow-elev`, so
+  the deck keeps every pixel it had — measured rail at 0…68, deck at
+  68…1440, `scrollWidth == clientWidth == 1440`, and a hit-test at x=98 that
+  returns `panel` (the float truly paints above the deck).
+- **Search every room** — `⌘/Ctrl+K` lands the caret, results group by
+  section, `--nav-search-clear` empties it, and a query that matches nothing
+  answers honestly: *"No rooms match that current."*
+- **Keyboard** — `⌘/Ctrl+B` toggles the dock from any focus; `Escape` clears
+  the query, then blurs; `Escape` closes the mobile drawer.
+- **Two inline disclosures** — Proxy (4 leaves: `fleet` · `fitness` · `egress`
+  · `relay`) and Media Providers (6 kinds), each on its own `?tab=` href, with
+  chevrons rotated by CSS off `aria-expanded` — measured `180deg`.
+- **A mobile drawer at 288px** (`--nav-drawer-w`) with **three exits**, each
+  proven: a room click navigates *and* slides it away, the backdrop closes it
+  without navigating, `Escape` closes it. It is `inert` while closed, so it
+  leaves the tab order entirely instead of hiding invisibly in it.
+**🐛 Fixes**
+- **The contrast ledger, four mends, content-anchored.** White on
+  `--color-brand-500` measured **3.23:1** and a 15% coral tint **2.75 / 4.48**;
+  the dock count, the badge, the notice line and the notice CTA now ride a
+  solid `--color-brand-700` ground at **6.21:1 on both ledgers** (hover
+  `--color-brand-800`, 9.33:1; the dark-shore notice line stays `brand-400`,
+  5.42:1). No token was minted beyond `--nav-on-brand: #ffffff`, because white
+  is right in *both* ledgers when the ground is dark coral.
+- **The ligature leak.** Every `material-symbols-outlined` span announced its
+  own ligature text as part of a link's accessible name — measured
+  `link "home Dashboard"`. All **13** decorative glyphs now carry
+  `aria-hidden="true"`; re-measured `link "Dashboard"`.
+- **Two em dashes swept** from rendered update-panel strings (R-02).
+**🔧 Changes & Improvements**
+- `src/app/globals.css` — the nav law spliced in whole: **2,711 lines**,
+  braces **472/472**, CRLF throughout, motion riding the existing `--motion-*`
+  ledger (only the marker's breath is ambient, at 3.2s; every other state flip
+  is 120ms).
+- `DashboardLayout.js` — `variant="drawer"` on the mobile `<Sidebar/>`, with
+  the reason recorded: the desktop dock is mounted at the same time and would
+  otherwise answer every chord twice.
+**🧪 Proof**
+- `npm run build` **green** at 123.73s; the guard suites **7 files / 116 cases
+  green** (12 skipped).
+- **23 of 23** room hrefs land on their declared target — after a first sweep
+  at a fixed 900ms glance produced false misses, because `next dev` compiles a
+  route on its first visit.
+- **Ladder**: ≥1024 the dock shell (332px), below it the drawer (288px); no
+  horizontal overflow at **320 · 390 · 1024 · 1440**, and on the narrow shore
+  rooms, chips and the search field are all **44px**.
+- **Reduced motion**, under a truly emulated preference: every duration
+  `1e-05s`, iteration `1`, delay `0s`.
+- **Focus** visible at `2px solid` coral (3.04 / 5.94 against its surface).
+**Recorded, not papered over.** The new labels are raw English keys — the
+`scripts/i18n-seed-literals.mjs` seeder is absent at HEAD, so nothing was
+machine-translated into the 34 locales (the same gap v0.9.75 recorded). The
+search field's resting border is `--color-border-subtle` (1.17 / 1.08, below
+SC 1.4.11's 3:1) and is left so deliberately: the house identifies a field by
+its fill (`Input.js` wears `border-transparent`), and the field's focus ring
+measures 3.04 / 5.94.
+---
+
 # v1.0.0 — The First Harbor ⛵
 
 > *"The Star read the number on my hull and named the error I had sailed past:
