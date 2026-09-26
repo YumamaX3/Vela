@@ -64,7 +64,7 @@ services:
     # breaker, fallback-rules DB, per-key ACL, pool egress geo, prompt
     # injectors. v0.9.12+ carries the redesigned sidebar, single-page
     # usage, /quota.
-    image: ghcr.io/yumamax3/vela:0.9.97   # bump to the release you want
+    image: ghcr.io/yumamax3/vela:0.9.98   # bump to the release you want
     container_name: vela-gateway
     hostname: vela-gateway
     restart: unless-stopped
@@ -85,6 +85,15 @@ services:
       PORT: "32060"
       HOSTNAME: "0.0.0.0"
       NODE_ENV: production
+      # Heap ceiling — the image already sets --max-old-space-size=1024 (V8
+      # otherwise sizes its old space from the HOST, not this container's
+      # limit). Uncomment to raise or lower it for this deployment; keep it
+      # comfortably under the memory limit set in `deploy` below.
+      # NODE_OPTIONS: "--max-old-space-size=1024"
+      # Per-request body ceiling for /v1 and /api (default 32mb). Next buffers
+      # the whole body in RAM before the handler runs, so this is the dominant
+      # per-request memory cost. Raise it only if a workload truly needs it.
+      # VELA_PROXY_CLIENT_MAX_BODY_SIZE: "32mb"
       # The berth this Vela sleeps in — the update notice hands the right
       # command for it (docker → compose pull; npm → install cmd; k8s → image tag).
       VELA_DEPLOYMENT: docker

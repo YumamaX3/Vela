@@ -248,7 +248,7 @@ describe("POST /api/auth/login — Tag 3 (default password retired)", () => {
   });
 });
 
-describe("POST /api/auth/login — the seat outranks the mirror (username, migration 017)", () => {
+describe("POST /api/auth/login — the seat is the authority, the name is not a door (migration 017)", () => {
   const seatHash = bcrypt.hashSync("seat-pass", 4);
   const seat = {
     id: "u-op",
@@ -260,15 +260,19 @@ describe("POST /api/auth/login — the seat outranks the mirror (username, migra
     updatedAt: "2026-01-01T00:00:00.000Z",
   };
 
-  /** A remote caller carrying a username and a password — the post-017 shape. */
-  function credentialRequest(username, password) {
+  /**
+   * A remote caller — the password-only shape. `extra` is spread into the JSON
+   * payload so a case can prove that a field the door no longer reads (a
+   * `username`, say) can neither open it nor bar it.
+   */
+  function credentialRequest(password, extra = null) {
     return {
       headers: new Headers({
         host: "203.0.113.9:32060",
         "x-9r-real-ip": "203.0.113.9",
         "content-type": "application/json",
       }),
-      json: async () => ({ username, password }),
+      json: async () => (extra ? { ...extra, password } : { password }),
     };
   }
 
@@ -298,14 +302,26 @@ describe("POST /api/auth/login — the seat outranks the mirror (username, migra
     delete process.env.TRUST_PROXY;
   });
 
-  it("the seat's own username + password opens, and the login is stamped", async () => {
+  it("the seat's password opens, and the login is stamped", async () => {
     mocks.getSettings.mockResolvedValue({});
 
-    const ok = await POST(credentialRequest("operator", "seat-pass"));
+    const ok = await POST(credentialRequest("seat-pass"));
     expect(ok.status).toBe(200);
     expect(ok.body.success).toBe(true);
     expect(mocks.setDashboardAuthCookie).toHaveBeenCalledTimes(1);
     expect(mocks.touchUserLogin).toHaveBeenCalledWith("u-op", expect.any(String));
+  });
+
+  it("a posted username can neither open the door nor bar it", async () => {
+    // The Star's decree: the name is off the wire. These three calls are the
+    // proof — the correct name opens, a wrong name ALSO opens (it is ignored,
+    // not checked), and a wrong NAME with a wrong PASSWORD still refuses. A
+    // door that read the name would fail the middle case.
+    mocks.getSettings.mockResolvedValue({});
+
+    expect((await POST(credentialRequest("seat-pass", { username: "operator" }))).status).toBe(200);
+    expect((await POST(credentialRequest("seat-pass", { username: "intruder" }))).status).toBe(200);
+    expect((await POST(credentialRequest("not-the-pass", { username: "operator" }))).status).toBe(401);
   });
 
   it("the seat's hash wins over a different stored mirror", async () => {
@@ -313,28 +329,32 @@ describe("POST /api/auth/login — the seat outranks the mirror (username, migra
     // authority: its password opens, the mirror's does not.
     mocks.getSettings.mockResolvedValue({ password: bcrypt.hashSync("mirror-pass", 4) });
 
-    expect((await POST(credentialRequest("operator", "seat-pass"))).status).toBe(200);
-    expect((await POST(credentialRequest("operator", "mirror-pass"))).status).toBe(401);
+    expect((await POST(credentialRequest("seat-pass"))).status).toBe(200);
+    expect((await POST(credentialRequest("mirror-pass"))).status).toBe(401);
   });
 
-  it("an unknown username against a readable, non-empty store is refused — the mirror never rescues it", async () => {
-    // The whole point of the wave: a store that READ and matched no seat means
-    // the NAME is wrong. Letting the mirror rescue it would authenticate any
-    // username against one hash.
-    mocks.getSettings.mockResolvedValue({ password: bcrypt.hashSync("mirror-pass", 4) });
+  it("an empty store with no mirror refuses a remote caller at the no-credential gate", async () => {
+    // Nothing to seed and nothing to read: the honest answer is a refusal, not
+    // a synthesized seat that would authenticate anyone. A remote caller never
+    // reaches the password compare at all — no credential is configured, so the
+    // door answers the no-password gate (403), and only a loopback caller would
+    // be admitted frictionlessly.
+    const { NO_PASSWORD_REMOTE_MESSAGE } = await import("@/lib/auth/loginMessages.js");
+    mocks.listUsers.mockResolvedValue([]);
+    mocks.countUsers.mockResolvedValue(0);
+    mocks.createUser.mockResolvedValue(null);
+    mocks.getSettings.mockResolvedValue({});
 
-    const wrongName = await POST(credentialRequest("intruder", "mirror-pass"));
-    expect(wrongName.status).toBe(401);
-
-    const alsoWrong = await POST(credentialRequest("intruder", "seat-pass"));
-    expect(alsoWrong.status).toBe(401);
+    const empty = await POST(credentialRequest("anything"));
+    expect(empty.status).toBe(403);
+    expect(empty.body.error).toBe(NO_PASSWORD_REMOTE_MESSAGE);
     expect(mocks.setDashboardAuthCookie).not.toHaveBeenCalled();
   });
 
-  it("a wrong password for the right username is refused without a stamp", async () => {
+  it("a wrong password is refused without a stamp", async () => {
     mocks.getSettings.mockResolvedValue({});
 
-    const bad = await POST(credentialRequest("operator", "not-the-pass"));
+    const bad = await POST(credentialRequest("not-the-pass"));
     expect(bad.status).toBe(401);
     expect(mocks.touchUserLogin).not.toHaveBeenCalled();
   });

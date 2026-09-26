@@ -79,7 +79,7 @@ export async function POST(request) {
       );
     }
 
-    const { username, password, label } = await request.json();
+    const { password, label } = await request.json();
     const deviceLabel = sanitizeDeviceLabel(label);
     const settings = await getSettings();
 
@@ -93,15 +93,16 @@ export async function POST(request) {
     // authority; `settings.password` is a compatibility mirror the seed adopts
     // once. Lazy + idempotent, so the door never depends on boot ordering.
     //
-    // The two are NOT interchangeable, and the difference is a security
-    // property: a store that READ and matched no seat means the submitted
-    // username does not belong here. Letting the mirror rescue that attempt
-    // would authenticate ANY username against one stored hash — so the mirror
-    // stands alone only when the store could not be read at all.
+    // The door is PASSWORD-ONLY by the Star's decree of 2026-09-26: the seat is
+    // named in the store (README, ledger, and the tooling still speak of it) but
+    // the name is NOT a credential and never crosses the wire. There is exactly
+    // one occupant, so the store resolves it directly — with no submitted name
+    // there is nothing to mismatch, and the mirror is the safety net only when
+    // the store could not be read at all.
     let userRow = null;
     let storeReadable = true;
     try {
-      userRow = await loadLoginTarget(settings, username);
+      userRow = await loadLoginTarget(settings);
     } catch (err) {
       storeReadable = false;
       // A harbor that cannot be read must not lock the operator out of their own
@@ -202,11 +203,8 @@ export async function POST(request) {
         { status: 429, headers: { "Retry-After": String(postLock.retryAfter), ...NO_STORE_HEADERS } }
       );
     }
-    // A bare password (no username) is the transition's shape; a named attempt
-    // gets the honest, non-enumerating line.
-    const failLabel = username ? "Invalid username or password." : "Invalid password.";
     return NextResponse.json(
-      { error: `${failLabel} ${remainingBeforeLock} attempt(s) left before lockout.`, remainingBeforeLock },
+      { error: `Invalid password. ${remainingBeforeLock} attempt(s) left before lockout.`, remainingBeforeLock },
       { status: 401 }
     );
   } catch (error) {

@@ -23,16 +23,6 @@ const ALLOWED_SETTING_KEYS = new Set(WRITABLE_SETTING_KEYS);
 export async function GET() {
   try {
     const settings = await getSettings();
-    // The occupant's name (migration 017). The login door seeds the seat
-    // lazily, so this is null until a credential exists — honest, not empty.
-    let username = null;
-    try {
-      const { listUsers } = await import("@/lib/db/repos/usersRepo.js");
-      const users = await listUsers();
-      username = users[0]?.username || null;
-    } catch {
-      username = null;
-    }
     const { password, oidcClientSecret, ...safeSettings } = settings;
     safeSettings.oidcConfigured = !!(safeSettings.oidcIssuerUrl && safeSettings.oidcClientId && oidcClientSecret);
     // W3-C: budget webhook URLs are secret-bearing (a Discord webhook URL
@@ -56,8 +46,7 @@ export async function GET() {
       ...safeSettings, 
       enableRequestLogs,
       enableTranslator,
-      hasPassword: !!password,
-      username
+      hasPassword: !!password
     }, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {
     console.log("Error getting settings:", error);
@@ -68,34 +57,6 @@ export async function GET() {
 export async function PATCH(request) {
   try {
     const body = await request.json();
-
-    // ── Username change (migration 017) ─────────────────────────────────────
-    // The seat's name is NOT a setting: it lives in authUsers and is absent from
-    // ALLOWED_SETTING_KEYS, so it is consumed here, before the allow-list could
-    // drop it. Re-verified against the CURRENT row (a live session alone is not
-    // enough to rename the seat), and uniqueness is enforced by the row's own
-    // UNIQUE index — checked first so a collision is a clean 409, not a 500.
-    if (typeof body.newUsername === "string" && body.newUsername.trim()) {
-      const { normalizeUsername, verifyUserPassword } = await import("@/lib/auth/users.js");
-      const { listUsers, getUserByUsername, updateUser } = await import("@/lib/db/repos/usersRepo.js");
-      const norm = normalizeUsername(body.newUsername);
-      if (!norm.ok) return NextResponse.json({ error: norm.error }, { status: 400 });
-      const users = await listUsers();
-      const occupant = users[0];
-      if (!occupant) {
-        return NextResponse.json({ error: "No username is set to change" }, { status: 400 });
-      }
-      const provided = typeof body.currentPassword === "string" ? body.currentPassword : "";
-      if (!(await verifyUserPassword(occupant, provided))) {
-        return NextResponse.json({ error: "Current password required to change the username" }, { status: 401 });
-      }
-      const taken = await getUserByUsername(norm.value);
-      if (taken && taken.id !== occupant.id) {
-        return NextResponse.json({ error: "That username is already taken" }, { status: 409 });
-      }
-      await updateUser(occupant.id, { username: norm.value });
-    }
-    delete body.newUsername;
 
     // Strip protected secrets before any internal handling sets them
     for (const key of PROTECTED_SETTING_KEYS) delete body[key];
@@ -241,15 +202,6 @@ export async function PATCH(request) {
 
     const { password, oidcClientSecret, ...safeSettings } = settings;
     safeSettings.oidcConfigured = !!(safeSettings.oidcIssuerUrl && safeSettings.oidcClientId && oidcClientSecret);
-    // Migration 017 — echo the occupant's name so the room shows what landed
-    // rather than what it asked for. Absent seat reports null, not a guess.
-    try {
-      const { listUsers } = await import("@/lib/db/repos/usersRepo.js");
-      const users = await listUsers();
-      safeSettings.username = users[0]?.username || null;
-    } catch {
-      safeSettings.username = null;
-    }
     return NextResponse.json(safeSettings, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {
     console.log("Error updating settings:", error);

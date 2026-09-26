@@ -99,6 +99,13 @@ function markDirty(poolId, providerId, model) {
  * Upserts into unfit/unfitUntil columns (no schema change)
  */
 export async function flushNow() {
+  // Release the debounce latch FIRST, so every path out of this function — the
+  // empty early-return, the healthy-only early-return, the catch — leaves the
+  // timer able to re-arm. Its sibling proxyFleet releases the same latch in a
+  // `finally`; this twin set it true in scheduleFlush() and never let it go, so
+  // after the first flush in the process's life only the ≥32 dirty-key burst
+  // path could persist again — fitness state silently stopped reaching the DB.
+  flushArmed = false;
   if (dirtyKeys.size === 0) return;
   
   const rowsToFlush = [];

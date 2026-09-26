@@ -23,7 +23,6 @@ export default function AccessTab({ deck }) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [name, setName] = useState(settings.username || "");
   const [status, setStatus] = useState({ type: "", message: "" });
 
   const toggleLogin = async (value) => {
@@ -37,26 +36,18 @@ export default function AccessTab({ deck }) {
       setStatus({ type: "error", message: "Passwords do not match" });
       return;
     }
-    const desired = name.trim();
-    const renaming = !!desired && desired !== (settings.username || "");
-    if (!next && !renaming) {
-      setStatus({ type: "error", message: "Enter a new password or a new username" });
+    const desired = next;
+    if (!desired) {
+      setStatus({ type: "error", message: "Enter a new password" });
       return;
     }
     setStatus({ type: "", message: "" });
-    const body = { currentPassword: current, newPassword: next };
-    const keys = ["password"];
-    if (renaming) {
-      body.newUsername = desired;
-      keys.push("username");
-    }
-    const r = await patch(body, keys);
+    const r = await patch({ currentPassword: current, newPassword: next }, ["password"]);
     if (r.ok) {
-      setStatus({ type: "success", message: renaming ? "Credential updated successfully" : "Password updated successfully" });
+      setStatus({ type: "success", message: "Password updated successfully" });
       setCurrent("");
       setNext("");
       setConfirm("");
-      if (r.data?.username) setName(r.data.username);
     } else {
       setStatus({ type: "error", message: r.error });
     }
@@ -92,24 +83,6 @@ export default function AccessTab({ deck }) {
 
           {requireLogin && (
             <form onSubmit={submitPassword} className="flex flex-col gap-4 pt-4 border-t border-border-subtle">
-              <div>
-                <label className="text-sm font-medium text-text-main" htmlFor="access-username">Username</label>
-                <Input
-                  id="access-username"
-                  type="text"
-                  placeholder="Enter username"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoComplete="username"
-                  className="mt-2"
-                />
-                {hasPassword && (
-                  <p className="text-xs text-text-muted mt-1.5">
-                    Renaming the seat requires the current password below.
-                  </p>
-                )}
-              </div>
-
               {hasPassword ? (
                 <div>
                   <label className="text-sm font-medium text-text-main">Current password</label>
