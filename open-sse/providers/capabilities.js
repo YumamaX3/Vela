@@ -269,25 +269,37 @@ export const PROVIDER_CAPABILITIES = {
     "laguna-s-2.1":  { reasoning: true, thinkingFormat: "openai", contextWindow: 1000000, maxOutput: 32000 },
     "laguna-xs-2.1": { reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 32000 },
   },
-  // Jerouter (alias je) — the 2026-09-18 V2 catalog annotates each model as
-  // vision or text; these nine are the ones whose global pattern disagreed.
-  // Declared as deltas over DEFAULT_CAPABILITIES, like every other entry here.
-  // Both directions are represented and both are deliberate:
-  //  · vision → the pattern said text (step-3.7-flash, nemotron-3-nano-omni,
-  //    free, deepseek-v4.1-flash, dots-3-note-preview), so vision is turned ON.
-  //  · text → the pattern said vision (llama-4-maverick, mimo-v2.5,
-  //    gpt-5.6-luna, glm-5.3-flash), so vision and its input modalities are
-  //    turned OFF — the catalog is the authority for THIS router's lanes.
+  // Jerouter (alias je) — the 2026-09-26 catalog (25 general + 4 unrestricted
+  // lanes) annotates every model as vision or text. Twelve of the twenty-nine
+  // disagreed with the fallback chain, every one in the same direction — the
+  // pattern said text, the catalog says vision — so the catalog wins and vision
+  // is turned ON. Three more rows (step-3.7-flash, deepseek-v4.1-flash,
+  // dots-3-note-preview) were already correct on the earlier tide and keep their
+  // measured facts; the remaining fourteen lanes resolve correctly with no entry.
+  //
+  // A provider entry REPLACES the chain rather than layering over it
+  // (`{ ...DEFAULT_CAPABILITIES, ...entry }` below), so every row restates the
+  // reasoning / thinkingFormat / window facts the chain would otherwise have
+  // supplied — measured against the live resolver, never guessed. Pinned on both
+  // the id lane and the "je" alias lane by tests/unit/jerouter-catalog.test.js.
   "jerouter": {
-    "step-3.7-flash":       { vision: true, reasoning: true, thinkingFormat: "step", contextWindow: 128000 },
-    "nemotron-3-nano-omni": { vision: true, reasoning: true, contextWindow: 128000 },
-    "free":                 { vision: true },
-    "deepseek-v4.1-flash":  { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 384000 },
-    "dots-3-note-preview":  { vision: true },
-    "glm-5.3-flash":        { reasoning: true, thinkingFormat: "zai", thinkingEffortSupported: true, contextWindow: 1000000, maxOutput: 131072 },
-    "llama-4-maverick-17b-128e-instruct": { contextWindow: 1000000 },
-    "mimo-v2.5":            { contextWindow: 1048576, maxOutput: 131072 },
-    "gpt-5.6-luna":         { search: true, reasoning: true, thinkingFormat: "openai", contextWindow: 400000, maxOutput: 128000 },
+    "step-3.7-flash":          { vision: true, reasoning: true, thinkingFormat: "step", contextWindow: 128000 },
+    "glm-5.3-flash":           { vision: true, reasoning: true, thinkingFormat: "zai", thinkingEffortSupported: true, contextWindow: 1000000, maxOutput: 131072 },
+    "deepseek-v4.1-flash":     { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 384000 },
+    "dots-3-note-preview":     { vision: true },
+    "mimo-v2.5":               { vision: true, contextWindow: 1048576, maxOutput: 131072 },
+    // — the 2026-09-26 arrivals (general lanes) —
+    "hy3":                     { vision: true, reasoning: true, thinkingFormat: "hunyuan", contextWindow: 262144, maxOutput: 262144 },
+    "hy4-preview":             { vision: true },
+    "big-pickle":              { vision: true },
+    "qwen3.8-27b":             { vision: true, reasoning: true, thinkingFormat: "qwen", contextWindow: 262144 },
+    "step-5-preview":          { vision: true, reasoning: true, thinkingFormat: "step", contextWindow: 128000 },
+    "space-bunny":             { vision: true },
+    "qwen3.8-flash":           { vision: true, reasoning: true, thinkingFormat: "qwen", contextWindow: 262144 },
+    // — the 2026-09-26 arrivals (unrestricted / JB lanes) —
+    "qwen3.8-27b-unsencored":  { vision: true, reasoning: true, thinkingFormat: "qwen", contextWindow: 262144 },
+    "unrestricted":            { vision: true },
+    "deepseek-unrestricted":   { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 128000 },
   },
   // OpenCode Zen (keyless free lane) and OpenCode Go (paid) — Meta's muse-spark,
   // served by the Responses API. Upstream's caps table declares vision +

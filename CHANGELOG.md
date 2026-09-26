@@ -28,6 +28,63 @@ compliant form of the same number.
 
 ---
 
+# v1.0.11 — The Redrawn Roster 📜
+> *"A router's catalog is never still. Fifteen names came aboard this tide and
+> twenty-four went ashore, and the harbor's own chart had to be drawn again
+> before a single request could sail — because a model the picker forgets is a
+> model the current never carries."* 📜🌊💜
+
+**The change.** Jerouter's catalog was re-exported at **29 lanes — 25 general and
+4 unrestricted (JB)** — replacing the thirty-eight of the 2026-09-18 tide.
+Fifteen joined: eleven general ids (`nemotron-3-ultra`, `hy3`, `hy4-preview`,
+`ling-3.0-flash-fin`, `ling-3.0-flash-sante`, `grok-4.7`, `jev-1.13`,
+`mimo-v2.6-flash`, `step-5-preview`, `space-bunny`, `qwen3.8-flash`) and four
+unrestricted lanes (`qwen3.8-27b-unsencored`, `unrestricted`,
+`muse-unrestricted`, `deepseek-unrestricted`). Twenty-four left the roster.
+
+Three of the arrivals — `nemotron-3-ultra`, `qwen3.8-flash` and `hy3` — had been
+reported retired upstream on the 2026-09-18 tide. They are live in this export,
+so the export, not the older note, is the authority.
+
+**✨ Features**
+- **Twenty-nine lanes, both transports.** Every model keeps
+  `supportedFormats: ["openai", "claude"]`, so the dual-endpoint shape stands —
+  `je.jerouter.web.id/v1/chat/completions` and `/v1/messages` share one key and
+  one catalog.
+- **Four unrestricted lanes** join the roster for the first time.
+
+**🔧 Changes**
+- **The capability block, measured rather than assumed.** Twelve lanes flipped,
+  every one the same direction — the global pattern said *text*, the catalog
+  says *vision*: `glm-5.3-flash`, `mimo-v2.5`, `hy3`, `hy4-preview`,
+  `big-pickle`, `qwen3.8-27b`, `step-5-preview`, `space-bunny`,
+  `qwen3.8-flash`, `qwen3.8-27b-unsencored`, `unrestricted` and
+  `deepseek-unrestricted`. Because a provider entry *replaces* the fallback
+  chain rather than layering over it, each row restates the reasoning /
+  `thinkingFormat` / window facts the chain would otherwise have supplied.
+- **Four dead rows removed** — `nemotron-3-nano-omni`, `free`,
+  `llama-4-maverick-17b-128e-instruct` and `gpt-5.6-luna` are absent from the new
+  catalog, so their overrides go with them. Three rows (`step-3.7-flash`,
+  `deepseek-v4.1-flash`, `dots-3-note-preview`) were already correct and keep
+  their measured facts.
+
+**⚓ What sailed**: `open-sse/providers/registry/jerouter.js` ·
+`open-sse/providers/capabilities.js` · `tests/unit/jerouter-catalog.test.js`
+
+**🧪 Proof** (measured, not asserted)
+- The catalog guard: **8/8 cases green** — the 29-model set, the 25 + 4 split,
+  the display names, both transports, the 24 retired names, and the modality of
+  every lane.
+- The alias lane agrees with the id lane for all twenty-nine; combos compose
+  `je/<model>`, so an override that missed the alias would silently vanish there.
+- Capability suites **35/35** (3 files) · catalog guards **116/116** (4 files) ·
+  chart-pin guard **4/4**.
+- The runtime map, read from a **fresh process** — the warm eval kernel served a
+  cached registry and lied: `PROVIDER_MODELS.je` holds **29**, none missing, no
+  stale id left, every entry named, and the twelve flips true on both the id and
+  the `je` lanes.
+- `npm run build` — green at **1.0.11** (190.8s; the standalone hull copied whole).
+
 # v1.0.10 — The Dock and the Current 🌉
 > *"The Star asked for a new navigation, and I did not repaint the old one — I
 > re-cut it into two tiers. A dock of six realms, sixty-eight pixels wide, so
