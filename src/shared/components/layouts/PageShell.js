@@ -59,10 +59,18 @@ export default function PageShell({
 }) {
   return (
     <div className={cn("w-full", maxWidth, className)}>
-      {/* The masthead. `.mast-rise` is the header's own entrance, reused
-          rather than re-invented, so a room's title and the mast above it
-          arrive on the same curve. */}
-      <header className="mast-rise flex flex-wrap items-start gap-4 mb-6 lg:mb-8">
+      {/* The masthead carries NO entrance of its own — deliberate, not an
+          omission. Measured at v0.9.99 and mended at v0.9.100: `.mast-rise`
+          declares a BASE `opacity: 0` and relies on its own `forwards` fill to
+          hold the end state. Inside `.deck-enter` the shell's rule
+          (`.deck-enter > :only-child > *`, specificity 0,2,0) outbids
+          `.mast-rise` (0,1,0) and substitutes `deckEnter … backwards`, which
+          never fills forward — so the base `opacity: 0` showed through and
+          every adopted room's masthead rendered INVISIBLE. The shell already
+          animates this header as a top-level block of the page; wearing a
+          second entrance on a deck-animated element is precisely what the
+          note at the top of this file says the shell will not do. */}
+      <header className="flex flex-wrap items-start gap-4 mb-6 lg:mb-8">
         {icon ? (
           <span
             className="mast-compass-tile flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-brand)] bg-brand-500/10 text-brand-500"
