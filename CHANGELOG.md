@@ -9,19 +9,92 @@ sealed together in the same commit:
 
 | Tide | Rule | Example |
 |-|-|-|
-| **Small change** 🐚 | the last number ticks up by one | `0.6.03 → 0.6.04` |
-| **Big change** 🌊 | the last number rounds up to the next milestone of ten | `0.6.03 → 0.6.10` · `0.6.93 → 0.7.0` |
+| **Small change** 🐚 | the last number ticks up by one | `1.0.0 → 1.0.1` |
+| **Big change** 🌊 | the last number rounds up to the next milestone of ten | `1.0.3 → 1.0.10` |
 
-When a big change rounds past `.99`, the carry flows into the middle digit
-(`0.6.93 → 0.7.0`). The first digit carries the same way at the harbor's
-edge (`0.9.x → 1.0`). Versions carry two digits in the last place —
-`0.6.01`, `0.6.02` — npm accepts this for a private package.
+The middle digit never passes `9`: when the last number ends `.99` the carry
+flows into the middle digit and the last number drops to `0`
+(`1.9.99 → 2.0.0`). At the harbor's edge the first digit takes the same carry
+(`0.9.99 → 1.0.0`). The minor and patch places each carry two digits
+(`1.10.0`, `1.99.0`); a place that would begin with a leading zero drops it,
+because npm's semver refuses one — `1.00.00` is invalid, and `1.0.0` is the
+compliant form of the same number.
 
 **Legend**: ✨ Features · 🐛 Fixes · 🔧 Changes & Improvements · 📖 Documentation · ⚠️ Breaking · ⚙️ Internal
 
 > *Releases below v0.6.0 were sealed under the upstream name **9Router** —
 > this harbor is a pristine clone, rebranded Vela on 2026-08-13. The log
 > keeps their names as they were.*
+
+---
+
+# v1.0.0 — The First Harbor ⛵
+
+> *"The Star read the number on my hull and named the error I had sailed past:
+> a version that had grown a third digit in its last place, though my own law
+> says the last place carries two. So I did not simply relabel the ship — I
+> re-cut the law that let it happen, and carried the harbor to its first
+> major. Everything the last two tides built — the relaid ground, the
+> showcase motion, the one masthead over ten rooms — is here, sealed under a
+> number that finally holds."* ⛵🌊💜
+
+**The change.** A **versioning covenant correction**, and the release that
+carries the frontend tide under the harbor's first major. `v0.9.100` was a
+**breach of the shore's own law**, not a milestone: `docs/VERSIONING.md` §1
+has always said *"Versions carry two digits in the last place"*, and its carry
+table already read *"Middle digit carries past `.9` → carry into the first
+digit → `0.9.x → 1.0`."* The tide that sealed `0.9.100` conflated this with
+the **Milestone Tide** — the separate mechanism that rounds a *big* change up
+to the next ten. **The middle digit never passes `9`.** When the last number
+ends `.99`, the carry flows into the middle digit and the last number drops to
+`0` (`1.9.99 → 2.0.0`). At the harbor's edge the first digit takes the same
+carry: **`0.9.99 → 1.0.0`**, which is precisely what this release is.
+
+**🔧 Changes & Improvements**
+- **The law, re-cut in all three shores it lives in.** `docs/VERSIONING.md` §1
+  now states the two-digit minor/patch rule (`1.10.0`, `1.99.0`), the
+  **leading-zero drop** (`1.00.00` is invalid semver — `1.0.0` is the
+  compliant form of the same number), and the corrected carry table
+  (`1.9.99 → 2.0.0`, `0.9.99 → 1.0.0`). `CHANGELOG.md`'s header table carries
+  the same rule and **the false npm claim is gone** — the old sentence
+  *"Versions carry two digits in the last place … npm accepts this for a
+  private package"* was **wrong at its root**: three digits (`0.9.100`) is not
+  two-digit form, and npm's semver accepts no leading zero anywhere.
+  `CLAUDE.md`'s Release Covenant states the same law and its command rites now
+  speak `v1.0.0` rather than `v0.9.x`.
+- **The five version sites struck together** — `package.json`, both lockfile
+  lines, `docker-compose.example.yml` (tracked) and `docker-compose.yml` (the
+  live chart, on disk only, never staged).
+
+**🧪 Proof**
+- **The instruments agree with the number.** `src/lib/updateInfo.js`'s
+  `parseTagVersion` matches **strict `x.y.z` only** — `1.0.0` parses, and a
+  three-digit `0.9.100` was only ever tolerated because `.100` is *numeric*,
+  which is exactly the drift this covenant closes. `cli/cli.js`'s
+  `compareVersions` splits three parts. `tests/unit/docker-compose-pin.test.js`
+  compares the chart pin to `package.json` verbatim.
+- **Ledger guards green** — `deck-motion`, `globals-css-tokens`,
+  `docker-compose-pin` invoked as `npx vitest run --config tests/vitest.config.js …`.
+- **Golden snapshots regenerated** — the gateway stamps `pkg.version` into
+  `X-CLIENT-VERSION`/`X-CORE-VERSION`; the translator golden set follows the bump.
+- **`npm run build` green**, and the hull verified whole at
+  `ghcr.io/yumamax3/vela/manifests/1.0.0`.
+
+**🌊 Recorded, not hidden**
+- **`v0.9.100` is left in place as a recorded breach.** The precedent is
+  `v0.9.24` — an orphan tag kept and named in `CLAUDE.md`'s tide table rather
+  than deleted. Deleting or re-tagging is the riskier act; this entry is the
+  correction, and this number is the one that holds.
+- **The frontend tide is now sealed under the first major, and its own debts
+  stand unchanged** — ~14 rooms still unadopted onto `PageShell`, one
+  breakpoint (`64rem`) in the whole codebase, **39** bespoke `animation:`
+  declarations and **12** inline `style={{animation}}` sites off the ambient
+  tokens, and no instrument yet defending *"only one thing animates this
+  element"*. v1.0.0 is a **milestone of number and law**, not of surface
+  coverage; saying otherwise would be the same error in a louder dress.
+- **The full suite is not claimed green** — the repo has none to claim; the
+  baseline stands at `tests/unit` **40 files / 97 cases** failing at
+  `e4e013ad`.
 
 ---
 

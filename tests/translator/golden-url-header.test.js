@@ -122,7 +122,17 @@ describe("GOLDEN snapshot hygiene (env- & version-invariance)", () => {
 
   it("carries no bare Vela build version", () => {
     expect(snapText).not.toMatch(/"User-Agent": "Vela\/\d/);
-    expect(snapText).not.toContain(pkg.version); // the current build number must never appear
+    // The blanket `not.toContain(pkg.version)` was unsound, and v1.0.0 proved it:
+    // the golden DELIBERATELY keeps third-party UA versions locked (see the
+    // sanitizer's law above — claude-cli, gemini-cli, Stainless), so any third
+    // party whose version string equals ours trips it. At 1.0.0 the collision is
+    // `ai-sdk/openai-compatible/1.0.0/codebuff`. Sweep every occurrence and
+    // require each to sit inside a NON-Vela User-Agent value — same intent,
+    // grounded in the shapes Vela actually emits.
+    for (const line of snapText.split("\n").filter((l) => l.includes(pkg.version))) {
+      expect(line, `build number leaked outside a third-party UA: ${line.trim()}`)
+        .toMatch(/"User-Agent": "(?!Vela\/)/);
+    }
   });
 
   it("carries no bare app-version header values", () => {

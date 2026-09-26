@@ -30,13 +30,13 @@ git commit -F msg.txt                  # deep themed body
 git push origin main
 
 # 3. tag with the same depth
-git tag -a v0.9.x -F tag.txt
-git push origin v0.9.x
+git tag -a v1.0.0 -F tag.txt
+git push origin v1.0.0
 
 # 4. PUBLISH THE RELEASE — a tag alone is NOT a release
-git tag -l --format='%(contents)' v0.9.x > .release-notes.md
-gh release create v0.9.x --repo YumamaX3/Vela \
-  --title "v0.9.x — The Themed Name <emoji>" \
+git tag -l --format='%(contents)' v1.0.0 > .release-notes.md
+gh release create v1.0.0 --repo YumamaX3/Vela \
+  --title "v1.0.0 — The Themed Name <emoji>" \
   --notes-file .release-notes.md
 rm -f .release-notes.md
 
@@ -47,24 +47,27 @@ gh run list --repo YumamaX3/Vela --workflow "Build and Push Docker Image"
 TOKEN=$(curl -sS "https://ghcr.io/token?scope=repository:yumamax3/vela:pull&service=ghcr.io" | jq -r '.token')
 curl -sS -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer $TOKEN" \
   -H "Accept: application/vnd.oci.image.index.v1+json" \
-  "https://ghcr.io/v2/yumamax3/vela/manifests/0.9.x"     # expect 200
+  "https://ghcr.io/v2/yumamax3/vela/manifests/1.0.0"     # expect 200
 ```
 ---
 ## 1 · Bump the Version — The Milestone Tide
-Bump `version` in the root `package.json`. Versions carry **two digits in the
-last place** (`0.9.01`, `0.9.93`) — npm accepts this for a private package.
+Bump `version` in the root `package.json`. The minor and patch places each
+carry **two digits** (`1.10.0`, `1.99.0`) — but a place that would begin with a
+**leading zero drops it**, because npm's semver refuses one: `1.00.00` is
+invalid, and `1.0.0` is the compliant form of the same number. The two-digit
+form is how a value is *written*; the value itself is `1.0.0`.
 
 | Tide | Rule | Example |
 |-|-|-|
-| **Small change** 🐚 | the last number ticks up by one | `0.9.92 → 0.9.93` |
-| **Big change** 🌊 | the last number rounds up to the next milestone of ten | `0.9.93 → 0.10.0` |
+| **Small change** 🐚 | the last number ticks up by one | `1.0.0 → 1.0.1` |
+| **Big change** 🌊 | the last number rounds up to the next milestone of ten | `1.0.3 → 1.0.10` |
 
 The carry rules, when rounding crosses a boundary:
 
 | Where the ship sails | Rule | Example |
 |-|-|-|
-| Last number rounds past `.99` | carry into the middle digit, last number drops to `0` | `0.6.93 → 0.7.0` |
-| Middle digit carries past `.9` | carry into the first digit | `0.9.x → 1.0` |
+| Last number rounds past `.99` | carry into the middle digit, last number drops to `0` | `1.9.99 → 2.0.0` |
+| The middle digit never passes `.9` | it takes the carry into the first digit | `0.9.99 → 1.0.0` |
 
 > *"A big change rounds the voyage up to the next milestone of ten; the number
 > keeps its value and rounds — 0.6.03 becomes 0.6.10, 0.6.93 carries to 0.7.0."*
@@ -134,18 +137,18 @@ one.
 ```bash
 # Reuse the tag's own deep description verbatim — never write a thinner note.
 # ⚠️ Project-local scratch only: /tmp/ resolves to C:\tmp\ on Windows and ENOENTs.
-git tag -l --format='%(contents)' v0.9.x > .release-notes.md
-gh release create v0.9.x --repo YumamaX3/Vela \
-  --title "v0.9.x — The Themed Name <emoji>" \
+git tag -l --format='%(contents)' v1.0.0 > .release-notes.md
+gh release create v1.0.0 --repo YumamaX3/Vela \
+  --title "v1.0.0 — The Themed Name <emoji>" \
   --notes-file .release-notes.md
 rm -f .release-notes.md
 # Verify it landed:
-gh api "repos/YumamaX3/Vela/releases/tags/v0.9.x" --jq '.html_url'
+gh api "repos/YumamaX3/Vela/releases/tags/v1.0.0" --jq '.html_url'
 ```
 
 | Rule | The Law |
 |-|-|
-| **Name convention** 🏷️ | `v0.9.x — The Themed Name <emoji>`. Strip a leading `⛵` from the tag subject so it matches the existing list (`v0.9.40 — The Combo Harbor ✨`) |
+| **Name convention** 🏷️ | `v1.0.0 — The Themed Name <emoji>`. Strip a leading `⛵` from the tag subject so it matches the existing list (`v0.9.40 — The Combo Harbor ✨`) |
 | **Body** 📜 | The tag's deep description, **verbatim** via `--notes-file`. A Release that paraphrases the tag loses the proof |
 | **Never draft** | Publish it — a draft Release is invisible |
 | **Both places** 📝 | The deep description goes in **both** the commit body and the annotated tag, because a thin tag body is a thin Release |
@@ -203,15 +206,15 @@ The tag triggers `.github/workflows/docker-publish.yml` → GHCR
 gh run list --repo YumamaX3/Vela --workflow "Build and Push Docker Image" -L 4
 
 # Alignment: HEAD = origin/main = the tag's commit = the remote tag object
-git rev-parse HEAD; git rev-parse origin/main; git rev-list -n1 v0.9.x
-git ls-remote --tags origin v0.9.x
+git rev-parse HEAD; git rev-parse origin/main; git rev-list -n1 v1.0.0
+git ls-remote --tags origin v1.0.0
 
 # The hull itself — an anonymous token, expecting 200 and a real OCI index
 TOKEN=$(curl -sS "https://ghcr.io/token?scope=repository:yumamax3/vela:pull&service=ghcr.io" | jq -r '.token')
 curl -sS -o .man.json -w "http=%{http_code} type=%{content_type}\n" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Accept: application/vnd.oci.image.index.v1+json" \
-  "https://ghcr.io/v2/yumamax3/vela/manifests/0.9.x"
+  "https://ghcr.io/v2/yumamax3/vela/manifests/1.0.0"
 jq -r '.mediaType, (.manifests[]? | "\(.platform.os)/\(.platform.architecture)")' .man.json
 rm -f .man.json
 ```
