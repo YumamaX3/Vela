@@ -13,6 +13,7 @@ import { Button, Drawer } from "@/shared/components";
 import { CONSOLE_LOG_CONFIG } from "@/shared/constants/config";
 import { translate } from "@/i18n/runtime";
 import { cn } from "@/shared/utils/cn";
+import PageShell from "@/shared/components/layouts/PageShell";
 
 const LEVELS = ["LOG", "INFO", "WARN", "ERROR", "DEBUG"];
 
@@ -313,15 +314,13 @@ export default function ConsoleLogClient() {
   }));
 
   return (
-    <div className="flex min-w-0 flex-col gap-4 px-1 sm:px-0">
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-text-main">{translate("Console Log")}</h1>
-          <p className="mt-1 text-sm text-text-muted">
-            {translate("Live gateway output, level by level")}
-          </p>
-        </div>
+    <PageShell
+      title={translate("Console Log")}
+      subtitle={translate("Live gateway output, level by level")}
+      icon="terminal"
+      bodyClassName="flex flex-col gap-4"
+      className="min-w-0 px-1 sm:px-0"
+      actions={
         <div className="flex items-center gap-2">
           <span
             className={cn(
@@ -342,7 +341,8 @@ export default function ConsoleLogClient() {
             {translate("Tail")}
           </Button>
         </div>
-      </div>
+      }
+    >
 
       {/* ── Telemetry HUD ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
@@ -725,6 +725,6 @@ export default function ConsoleLogClient() {
           </div>
         )}
       </Drawer>
-    </div>
+    </PageShell>
   );
 }

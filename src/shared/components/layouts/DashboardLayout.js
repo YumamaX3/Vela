@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useNotificationStore } from "@/store/notificationStore";
 import { useFocusTrap } from "@/shared/hooks/useFocusTrap";
+import { useAmbientController, useAmbientPause } from "@/shared/hooks/useAmbient";
+import { useReveal } from "@/shared/hooks/useReveal";
 import Sidebar from "../Sidebar";
 import Header from "../Header";
 
@@ -48,6 +50,23 @@ export default function DashboardLayout({ children }) {
   // (hidden via lg:flex) and must NOT be trapped, which is why this is gated on
   // the state rather than on the element's mere presence.
   const { ref: drawerRef } = useFocusTrap(sidebarOpen);
+
+  // ── The deck's motion budget (v0.9.99) ────────────────────────────────
+  // useAmbientController owns `data-ambient` on <html>: it writes "off" while a
+  // background tab or an open overlay would mean nobody can see the ambient
+  // loops, and the stylesheet pauses every one of them. useAmbientPause is this
+  // layout registering the one overlay it owns — the mobile drawer. Modal,
+  // Drawer and NineRemotePromoModal register their own, so the count is shared
+  // rather than duplicated.
+  useAmbientController();
+  useAmbientPause(sidebarOpen);
+
+  // Arms `.reveal` for the lower half of long rooms. Keyed on the path so each
+  // navigation re-scans: the shell persists across routes while its content
+  // wrapper does not, so without the key a newly mounted room's markers would
+  // never be observed. The hook adds the hiding class itself and reveals
+  // anything already on screen within the same tick — see its header.
+  useReveal({ routeKey: pathname });
 
   useEffect(() => {
     if (!sidebarOpen) return;

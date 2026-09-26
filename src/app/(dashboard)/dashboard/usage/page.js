@@ -19,6 +19,7 @@
 
 import { Suspense, useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
+import PageShell from "@/shared/components/layouts/PageShell";
 import {
   AreaChart,
   Area,
@@ -513,26 +514,28 @@ function UsagePageInner() {
   };
 
   return (
-    <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="flex items-center gap-2.5 text-xl font-semibold text-text-main">
-            Usage
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-0.5 text-[11px] font-semibold text-success">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
-              </span>
-              LIVE
+    <PageShell
+      title="Usage"
+      subtitle="Gateway metrics, live traffic and spend across time periods"
+      icon="insights"
+      bodyClassName="flex flex-col gap-6"
+      className="min-w-0 px-1 sm:px-0"
+      actions={
+        <div className="flex flex-wrap items-center gap-3">
+          {/* The live pulse rides the action row rather than the heading: a masthead
+              title is a string, and a status that outlives its own page belongs
+              beside the period control it describes. */}
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-0.5 text-[11px] font-semibold text-success">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />
             </span>
-          </h1>
-          <p className="mt-1 text-sm text-text-muted">
-            Gateway metrics, live traffic and spend across time periods
-          </p>
+            LIVE
+          </span>
+          <PeriodSegmented value={period} onChange={setPeriod} />
         </div>
-        <PeriodSegmented value={period} onChange={setPeriod} />
-      </div>
+      }
+    >
 
       {/* KPI hero */}
       <KpiBand period={period} />
@@ -592,6 +595,6 @@ function UsagePageInner() {
           valueFmt={formatCost}
         />
       </div>
-    </div>
+    </PageShell>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useScrollLock } from "@/shared/hooks/useScrollLock";
+import { useAmbientPause } from "@/shared/hooks/useAmbient";
 
 const FEATURES = [
   { icon: "terminal", label: "Terminal", desc: "Full shell access" },
@@ -24,6 +25,12 @@ export default function NineRemotePromoModal({ isOpen, onClose }) {
   // DashboardLayout.js:81/90. Closing it used to blind-write overflow = "" and
   // unlock the page behind a Modal that was still open.
   useScrollLock(isOpen);
+
+  // Silence the deck's ambient loops while this layer covers them — the same
+  // pairing the other two overlays carry. This one matters most: it is mounted
+  // from Sidebar.js on every dashboard page, so it is the layer most likely to
+  // sit over the deck while the deck is still animating.
+  useAmbientPause(isOpen);
 
   // Escape semantics preserved exactly: the listener is attached only while open,
   // matching this component's original early-return shape (Modal and Drawer attach

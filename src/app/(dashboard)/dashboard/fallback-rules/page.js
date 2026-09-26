@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Card, Button, Modal, Input, CardSkeleton, ConfirmModal, Toggle } from "@/shared/components";
+import PageShell from "@/shared/components/layouts/PageShell";
 import { useNotificationStore } from "@/store/notificationStore";
 
 const DEFAULT_STATUSES = "429,503";
@@ -237,27 +238,24 @@ export default function FallbackRulesPage() {
   if (loading) return <CardSkeleton rows={6} />;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">Fallback Rules</h1>
-          <p className="text-sm text-muted-foreground">
-            When a combo model fails — or a request is about to exceed its context window — the configured chain is appended to the fallback rotation. No code edits needed.
-          </p>
-        </div>
-        <Button onClick={openCreate}>Add Rule</Button>
-      </div>
+    <PageShell
+      title="Fallback Rules"
+      subtitle="When a combo model fails — or a request is about to exceed its context window — the configured chain is appended to the fallback rotation. No code edits needed."
+      icon="route"
+      bodyClassName="space-y-4"
+      actions={<Button onClick={openCreate}>Add Rule</Button>}
+    >
 
       <Card>
         {rules.length === 0 ? (
-          <div className="p-6 text-center text-sm text-muted-foreground">
+          <div className="p-6 text-center text-sm text-text-muted">
             No fallback rules yet. Add one to define what happens when a model fails or a request overflows its context window.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
             <thead>
-              <tr className="border-b text-left text-muted-foreground">
+              <tr className="border-b text-left text-text-muted">
                 <th className="p-3">Source</th>
                 <th className="p-3">Chain</th>
                 <th className="p-3">Trigger</th>
@@ -268,7 +266,7 @@ export default function FallbackRulesPage() {
             </thead>
             <tbody>
               {rules.map((rule) => (
-                <tr key={rule.id} className="border-b last:border-0 hover:bg-muted/40 motion-control">
+                <tr key={rule.id} className="border-b last:border-0 hover:bg-surface-2/40 motion-control">
                   <td className="p-3 font-mono text-xs">{rule.sourceModel}</td>
                   <td className="p-3 font-mono text-xs">{chainFromRule(rule).join(" → ") || "—"}</td>
                   <td className="p-3 font-mono text-xs">
@@ -282,7 +280,7 @@ export default function FallbackRulesPage() {
                       }`}>
                         {rule.triggerType || "status"}
                       </span>
-                      {rule.conditionVal ? <span className="text-muted-foreground">{rule.conditionVal}</span> : null}
+                      {rule.conditionVal ? <span className="text-text-muted">{rule.conditionVal}</span> : null}
                     </span>
                   </td>
                   <td className="p-3 text-right">{rule.priority}</td>
@@ -305,20 +303,20 @@ export default function FallbackRulesPage() {
       <Modal isOpen={showFormModal} onClose={() => setShowFormModal(false)} title={editingRule ? "Edit Fallback Rule" : "Add Fallback Rule"}>
         <div className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Source model</label>
+            <label className="text-xs text-text-muted">Source model</label>
             <Input
               value={formData.sourceModel}
               onChange={(e) => setFormData({ ...formData, sourceModel: e.target.value })}
               placeholder="e.g. combo/flagship or provider/model (glob * allowed)"
               disabled={!!editingRule}
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-text-muted">
               The model that failed. Glob patterns are supported (e.g. <code className="font-mono">freebuff/*</code>).
             </p>
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Trigger type</label>
+            <label className="text-xs text-text-muted">Trigger type</label>
             <div className="space-y-1">
               {TRIGGER_TYPES.map((t) => (
                 <button
@@ -328,11 +326,11 @@ export default function FallbackRulesPage() {
                   className={`w-full text-left px-3 py-2 rounded-md border text-xs motion-control ${
                     formData.triggerType === t.value
                       ? "bg-primary/10 border-primary text-primary"
-                      : "border-muted text-muted-foreground hover:border-muted-foreground"
+                      : "border-border text-text-muted hover:border-border"
                   }`}
                 >
                   <span className="font-medium">{t.label}</span>
-                  <span className="block text-[11px] text-muted-foreground">{t.hint}</span>
+                  <span className="block text-[11px] text-text-muted">{t.hint}</span>
                 </button>
               ))}
             </div>
@@ -340,7 +338,7 @@ export default function FallbackRulesPage() {
 
           {(formData.triggerType === "status" || formData.triggerType === "contextWindow") && (
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">
+              <label className="text-xs text-text-muted">
                 {formData.triggerType === "status" ? "Trigger statuses (comma-separated)" : "Context ratio threshold"}
               </label>
               {formData.triggerType === "status" ? (
@@ -358,7 +356,7 @@ export default function FallbackRulesPage() {
                             setFormData({ ...formData, conditionVal: next.join(",") || DEFAULT_STATUSES });
                           }}
                           className={`px-2 py-1 rounded-md border text-xs font-mono motion-control ${
-                            active ? "bg-primary/10 border-primary text-primary" : "border-muted text-muted-foreground hover:border-muted-foreground"
+                            active ? "bg-primary/10 border-primary text-primary" : "border-border text-text-muted hover:border-border"
                           }`}
                         >
                           {status}
@@ -388,18 +386,18 @@ export default function FallbackRulesPage() {
                     <option value="gte">ratio ≥</option>
                     <option value="lte">ratio ≤</option>
                   </select>
-                  <span className="text-xs text-muted-foreground">of the model's context window</span>
+                  <span className="text-xs text-text-muted">of the model's context window</span>
                 </div>
               )}
             </div>
           )}
 
           <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Fallback chain (ordered — first tried first)</label>
+            <label className="text-xs text-text-muted">Fallback chain (ordered — first tried first)</label>
             <div className="space-y-2">
               {formData.targetModels.map((m, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground font-mono">{i + 1}.</span>
+                  <span className="text-xs text-text-muted font-mono">{i + 1}.</span>
                   <Input
                     value={m}
                     onChange={(e) => updateChainModel(i, e.target.value)}
@@ -414,7 +412,7 @@ export default function FallbackRulesPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Priority (lower runs first)</label>
+              <label className="text-xs text-text-muted">Priority (lower runs first)</label>
               <Input
                 type="number"
                 value={formData.priority}
@@ -422,7 +420,7 @@ export default function FallbackRulesPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Max retries</label>
+              <label className="text-xs text-text-muted">Max retries</label>
               <Input
                 type="number"
                 value={formData.maxRetries}
@@ -433,7 +431,7 @@ export default function FallbackRulesPage() {
 
           {editingRule && (
             <div className="flex items-center justify-between">
-              <label className="text-xs text-muted-foreground">Active</label>
+              <label className="text-xs text-text-muted">Active</label>
               <Toggle checked={formData.isActive} onChange={(v) => setFormData({ ...formData, isActive: v })} />
             </div>
           )}
@@ -449,20 +447,20 @@ export default function FallbackRulesPage() {
 
       <Modal isOpen={!!testState} onClose={() => setTestState(null)} title={`Test rule — ${testState?.rule?.sourceModel || ""}`}>
         <div className="space-y-4">
-          <div className="rounded-md bg-muted/40 p-3 text-xs font-mono">
+          <div className="rounded-md bg-surface-2/40 p-3 text-xs font-mono">
             {testState?.rule?.sourceModel} → {(testState?.targets || []).join(" → ") || "—"}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">HTTP status</label>
+              <label className="text-xs text-text-muted">HTTP status</label>
               <Input value={testState?.status || ""} onChange={(e) => setTestState({ ...testState, status: e.target.value })} />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Input tokens</label>
+              <label className="text-xs text-text-muted">Input tokens</label>
               <Input value={testState?.inputTokens || ""} onChange={(e) => setTestState({ ...testState, inputTokens: e.target.value })} />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Context limit</label>
+              <label className="text-xs text-text-muted">Context limit</label>
               <Input value={testState?.contextLimit || ""} onChange={(e) => setTestState({ ...testState, contextLimit: e.target.value })} />
             </div>
           </div>
@@ -470,7 +468,7 @@ export default function FallbackRulesPage() {
             <Button onClick={runTest}>Run dry-run</Button>
           </div>
           {testState?.result && (
-            <div className={`rounded-md p-3 text-xs ${testState.result === "fires" ? "bg-emerald-500/10 text-emerald-400" : "bg-muted/40 text-muted-foreground"}`}>
+            <div className={`rounded-md p-3 text-xs ${testState.result === "fires" ? "bg-emerald-500/10 text-emerald-400" : "bg-surface-2/40 text-text-muted"}`}>
               {testState.result === "fires"
                 ? `✓ This rule FIRES — the chain ${(testState.targets || []).join(" → ")} would be appended.`
                 : "✕ This rule does NOT fire under those conditions."}
@@ -489,6 +487,6 @@ export default function FallbackRulesPage() {
         }}
         onClose={() => setConfirmState(null)}
       />
-    </div>
+    </PageShell>
   );
 }
