@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 16;
+export const SCHEMA_VERSION = 17;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -366,6 +366,38 @@ export const TABLES = {
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_aal_ts ON authAuditLog(ts DESC)",
       "CREATE INDEX IF NOT EXISTS idx_aal_event ON authAuditLog(eventType, ts DESC)",
+    ],
+  },
+  // The credential store (migration 017) — one row per dashboard operator.
+  //
+  // WHY A TABLE AND NOT settings.password: the settings blob is a single JSON
+  // document with no unique constraint and no per-field identity, so a username
+  // has nowhere to live and nothing stops a second operator colliding with the
+  // first. More to the point, the v0.9.87 hardening made settings a
+  // trust-on-write surface; a credential belongs in a row with its own column,
+  // its own UNIQUE index, and its own created/updated/lastLogin stamps.
+  //
+  // ONE USER BY DESIGN. The Star's decree is a single operator — no roles, no
+  // permission tiers, no second seat. `username` is UNIQUE so the table CANNOT
+  // silently grow a second row through a racing insert, but there is no role
+  // column and no admin flag: the door has one occupant, and the schema says so.
+  //
+  // `username` is UNIQUE via a NAMED INDEX rather than inline UNIQUE, matching
+  // apiKeys.keyHash: the additive auto-sync strips inline UNIQUE, so the index
+  // is the self-healing declaration and the versioned chain + the twin's
+  // bootstrap diff both read it from here.
+  authUsers: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      username: "TEXT NOT NULL",
+      passwordHash: "TEXT NOT NULL",
+      disabledAt: "TEXT",
+      lastLoginAt: "TEXT",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE UNIQUE INDEX IF NOT EXISTS uq_auth_users_username ON authUsers(username)",
     ],
   },
 };

@@ -68,6 +68,7 @@ function DeviceLabelField({ value, onChange }) {
 }
 
 export default function LoginPage() {
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
@@ -195,7 +196,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password, label: deviceLabel }),
+        body: JSON.stringify({ username: username.trim() || undefined, password, label: deviceLabel }),
       });
 
       if (res.ok) {
@@ -433,6 +434,21 @@ export default function LoginPage() {
                         </p>
                       )}
 
+                      <div>
+                        <label className="text-sm font-medium" htmlFor="username">Username</label>
+                        <Input
+                          id="username"
+                          type="text"
+                          placeholder="Enter username"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          required
+                          autoComplete="username"
+                          autoFocus={!oidcAvailable}
+                          className="mt-2"
+                        />
+                      </div>
+
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center justify-between">
                           <label className="text-sm font-medium" htmlFor="password">Password</label>
@@ -456,7 +472,6 @@ export default function LoginPage() {
                             error={error || undefined}
                             required
                             autoComplete="current-password"
-                            autoFocus={!oidcAvailable}
                             inputClassName="pr-11"
                           />
                           <button

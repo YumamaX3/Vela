@@ -17,8 +17,9 @@ import m013 from "./013-key-acl.js";
 import m014 from "./014-fallback-rules-v2-triggers.js";
 import m015 from "./015-combo-usage.js";
 import m016 from "./016-auth-sessions-audit.js";
+import m017 from "./017-auth-users.js";
 
-export const MIGRATIONS = [m001, m002, m003, m004, m005, m006, m007, m008, m009, m010, m011.default || m011, m012.default || m012, m013.default || m013, m014.default || m014, m015.default || m015, m016.default || m016].sort((a, b) => a.version - b.version);
+export const MIGRATIONS = [m001, m002, m003, m004, m005, m006, m007, m008, m009, m010, m011.default || m011, m012.default || m012, m013.default || m013, m014.default || m014, m015.default || m015, m016.default || m016, m017.default || m017].sort((a, b) => a.version - b.version);
 
 export function latestVersion() {
   return MIGRATIONS.length ? MIGRATIONS[MIGRATIONS.length - 1].version : 0;

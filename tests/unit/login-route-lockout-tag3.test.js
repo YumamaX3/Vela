@@ -17,6 +17,18 @@ const mocks = vi.hoisted(() => ({
   setDashboardAuthCookie: vi.fn(),
   isOidcConfigured: vi.fn(),
   isSamlConfigured: vi.fn(),
+  // The credential store (migration 017) — mocked so this suite can never open
+  // the operator's REAL harbour. Without it, every case here reads (and the seed
+  // WRITES) into the machine's own DATA_DIR, and vitest runs these files in
+  // PARALLEL — three suites racing for one real database. The store's own
+  // persistence is proven against a real migrated harbour in
+  // auth-users-repo-017.test.js; this file is about the ladder's arithmetic.
+  listUsers: vi.fn(),
+  countUsers: vi.fn(),
+  createUser: vi.fn(),
+  setUserPassword: vi.fn(),
+  touchUserLogin: vi.fn(),
+  deleteAllUsers: vi.fn(),
 }));
 
 vi.mock("next/server", () => ({
@@ -46,6 +58,37 @@ vi.mock("@/lib/auth/dashboardSession", () => ({
 
 vi.mock("@/lib/auth/oidc", () => ({ isOidcConfigured: mocks.isOidcConfigured }));
 vi.mock("@/lib/auth/saml.js", () => ({ isSamlConfigured: mocks.isSamlConfigured }));
+
+// Every name @/lib/auth/users.js imports must exist on the factory, or the
+// static import fails before a case runs.
+vi.mock("@/lib/db/repos/usersRepo.js", () => ({
+  listUsers: mocks.listUsers,
+  countUsers: mocks.countUsers,
+  createUser: mocks.createUser,
+  setUserPassword: mocks.setUserPassword,
+  touchUserLogin: mocks.touchUserLogin,
+  deleteAllUsers: mocks.deleteAllUsers,
+}));
+
+/** An empty, readable store — the pre-017 posture, where a legacy mirror or
+ *  INITIAL_PASSWORD still stands alone. (A readable store that MATCHED no seat
+ *  must NOT be rescued by the mirror; that contract is pinned in the
+ *  credential-store suite.) Called from BOTH describes' beforeEach, because the
+ *  lockout ladder and the rate window each reset their own mocks. */
+function primeEmptyStore() {
+  mocks.listUsers.mockResolvedValue([]);
+  mocks.countUsers.mockResolvedValue(0);
+  mocks.createUser.mockImplementation(async (u) => ({
+    ...u,
+    disabledAt: null,
+    lastLoginAt: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  }));
+  mocks.setUserPassword.mockResolvedValue(true);
+  mocks.touchUserLogin.mockResolvedValue(true);
+  mocks.deleteAllUsers.mockResolvedValue(0);
+}
 
 const { POST } = await import("../../src/app/api/auth/login/route.js");
 const { resetForTests, setNow } = await import("../../src/lib/auth/loginLimiter.js");
@@ -81,6 +124,7 @@ describe("POST /api/auth/login — lockout ladder wiring", () => {
     mocks.cookies.mockResolvedValue({ set: vi.fn(), get: vi.fn(() => undefined) });
     mocks.isOidcConfigured.mockReturnValue(false);
     mocks.isSamlConfigured.mockReturnValue(false);
+    primeEmptyStore();
   });
 
   afterEach(() => {
@@ -148,6 +192,7 @@ describe("POST /api/auth/login — fixed-window rate limit wiring", () => {
     mocks.cookies.mockResolvedValue({ set: vi.fn(), get: vi.fn(() => undefined) });
     mocks.isOidcConfigured.mockReturnValue(false);
     mocks.isSamlConfigured.mockReturnValue(false);
+    primeEmptyStore();
   });
 
   afterEach(() => {

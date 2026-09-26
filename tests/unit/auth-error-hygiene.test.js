@@ -27,6 +27,17 @@ const mocks = vi.hoisted(() => ({
   setDashboardAuthCookie: vi.fn(),
   isOidcConfigured: vi.fn(),
   isSamlConfigured: vi.fn(),
+  // The credential store (migration 017). Mocked for isolation: the login route
+  // reads the store on its happy path, and reset-password now calls
+  // deleteAllUsers() BEFORE updateSettings — so with the real repo bound, this
+  // suite would open (and the reset case would WIPE) the operator's real
+  // harbour. The store's persistence is proven in auth-users-repo-017.test.js.
+  listUsers: vi.fn(),
+  countUsers: vi.fn(),
+  createUser: vi.fn(),
+  setUserPassword: vi.fn(),
+  touchUserLogin: vi.fn(),
+  deleteAllUsers: vi.fn(),
 }));
 
 vi.mock("next/server", () => ({
@@ -57,6 +68,17 @@ vi.mock("@/lib/auth/dashboardSession", () => ({
 
 vi.mock("@/lib/auth/oidc", () => ({ isOidcConfigured: mocks.isOidcConfigured }));
 vi.mock("@/lib/auth/saml.js", () => ({ isSamlConfigured: mocks.isSamlConfigured }));
+
+// Every name @/lib/auth/users.js imports must exist on the factory, or the
+// static import fails before a case runs.
+vi.mock("@/lib/db/repos/usersRepo.js", () => ({
+  listUsers: mocks.listUsers,
+  countUsers: mocks.countUsers,
+  createUser: mocks.createUser,
+  setUserPassword: mocks.setUserPassword,
+  touchUserLogin: mocks.touchUserLogin,
+  deleteAllUsers: mocks.deleteAllUsers,
+}));
 
 const { POST: login } = await import("../../src/app/api/auth/login/route.js");
 const { POST: resetPassword } = await import(
@@ -91,6 +113,16 @@ describe("auth error hygiene — an internal failure never narrates itself", () 
     mocks.cookies.mockResolvedValue({ set: vi.fn(), get: vi.fn(() => undefined) });
     mocks.isOidcConfigured.mockReturnValue(false);
     mocks.isSamlConfigured.mockReturnValue(false);
+    // An empty, readable store: the reset case's deleteAllUsers resolves (its
+    // job is to be the FIRST call, and the suite's failing dependency is
+    // updateSettings, not the store), and the login case's store read is
+    // never reached — getSettings rejects first.
+    mocks.listUsers.mockResolvedValue([]);
+    mocks.countUsers.mockResolvedValue(0);
+    mocks.createUser.mockResolvedValue(null);
+    mocks.setUserPassword.mockResolvedValue(true);
+    mocks.touchUserLogin.mockResolvedValue(true);
+    mocks.deleteAllUsers.mockResolvedValue(0);
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
   });
 

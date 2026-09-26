@@ -138,6 +138,16 @@ const OBSERVATORY_W4_NAMES = new Set([
   "getTagsForUsageIds", "getUsageTags", "setUsageTags",
 ]);
 
+// The credential store (migration 017) — the dashboard operator's row.
+// authUsers is a plain row table with a named UNIQUE index, so both twins are
+// thin SQL plumbing and the posture binds cleanly; bootstrap.js brings the
+// MariaDB table via the additive TABLES diff.
+const AUTH_WAVE_NAMES = new Set([
+  "getUserByUsername", "getUserById", "createUser", "updateUser",
+  "setUserPassword", "touchUserLogin", "listUsers", "countUsers",
+  "deleteAllUsers",
+]);
+
 /** Bind a facade barrel to its posture's harbor.
  *  @param sqliteRepo the sqlite harbor module (verbatim binding under sqlite)
  *  @param mysqlLoader `() => import("../mysql/<repo>.js")` — static call site */
@@ -156,7 +166,7 @@ export function bindFacade(sqliteRepo, mysqlLoader) {
   const bound = {};
   for (const [name, fn] of Object.entries(sqliteRepo)) {
     if (typeof fn !== "function") { bound[name] = fn; continue; }
-    if (!CONFIG_WAVE_NAMES.has(name) && !SECURITY_WAVE_NAMES.has(name) && !USAGE_WAVE_NAMES.has(name) && !OBSERVATORY_W3_NAMES.has(name) && !OBSERVATORY_W4_NAMES.has(name)) {
+    if (!CONFIG_WAVE_NAMES.has(name) && !SECURITY_WAVE_NAMES.has(name) && !USAGE_WAVE_NAMES.has(name) && !OBSERVATORY_W3_NAMES.has(name) && !OBSERVATORY_W4_NAMES.has(name) && !AUTH_WAVE_NAMES.has(name)) {
       bound[name] = () => {
         throw new Error(`[DB] VELA_DB_MODE=mysql — repo fn "${name}" lands in a later Storage Covenant wave (Wave C mirror). Boot refusal (fail loud, never silent downgrade).`);
       };

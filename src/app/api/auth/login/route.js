@@ -13,6 +13,7 @@ import {
   consumeLoginAttempt,
 } from "@/lib/auth/loginLimiter";
 import { recordSession } from "@/lib/auth/sessionLedger.js";
+import { loadLoginTarget, verifyUserPassword, touchUserLogin, countUsers } from "@/lib/auth/users.js";
 import { auditAuthEvent, AUTH_EVENTS } from "@/lib/auth/authAudit.js";
 import { isLocalRequest } from "@/dashboardGuard";
 import { timingSafeEqual } from "@/shared/utils/timingSafeEqual.js";
@@ -78,7 +79,7 @@ export async function POST(request) {
       );
     }
 
-    const { password, label } = await request.json();
+    const { username, password, label } = await request.json();
     const deviceLabel = sanitizeDeviceLabel(label);
     const settings = await getSettings();
 
@@ -88,7 +89,27 @@ export async function POST(request) {
       return NextResponse.json({ error: "Dashboard access via tunnel is disabled" }, { status: 403 });
     }
 
-    const storedHash = settings.password;
+    // The occupant's credential (migration 017). The authUsers ROW is the
+    // authority; `settings.password` is a compatibility mirror the seed adopts
+    // once. Lazy + idempotent, so the door never depends on boot ordering.
+    //
+    // The two are NOT interchangeable, and the difference is a security
+    // property: a store that READ and matched no seat means the submitted
+    // username does not belong here. Letting the mirror rescue that attempt
+    // would authenticate ANY username against one stored hash — so the mirror
+    // stands alone only when the store could not be read at all.
+    let userRow = null;
+    let storeReadable = true;
+    try {
+      userRow = await loadLoginTarget(settings, username);
+    } catch (err) {
+      storeReadable = false;
+      // A harbor that cannot be read must not lock the operator out of their own
+      // console: the legacy mirror admits, exactly as it did before this wave.
+      console.error("[auth/login] credential store unavailable (falling back to stored settings):", err?.message || err);
+    }
+    const mirrorHash = storeReadable ? null : settings.password;
+    const storedHash = userRow?.passwordHash || mirrorHash;
 
     if (settings.authMode === "sso" || settings.authMode === "saml" || settings.authMode === "oidc") {
       const ssoType = settings.ssoType || (settings.authMode === "saml" ? "saml" : "oidc");
@@ -103,9 +124,21 @@ export async function POST(request) {
     }
 
     // Tag 3: NO password is configured anywhere (no stored hash, no
-    // INITIAL_PASSWORD env). Loopback keeps the frictionless operator
-    // posture; every non-loopback origin is refused — never falls open.
-    if (!storedHash && !process.env.INITIAL_PASSWORD) {
+    // INITIAL_PASSWORD env). Migration 017 adds an authoritative signal the
+    // mirror cannot carry: a LIVE SEAT. A readable store that holds a row means
+    // this install is configured even when the submitted name did not match —
+    // an empty table is the only shape that may fall through to the
+    // frictionless loopback posture. Loopback keeps that posture; every
+    // non-loopback origin is refused — never falls open.
+    let anySeat = !!userRow;
+    if (!anySeat) {
+      try {
+        anySeat = (await countUsers()) > 0;
+      } catch {
+        anySeat = false;
+      }
+    }
+    if (!storedHash && !process.env.INITIAL_PASSWORD && !anySeat) {
       if (isLocalRequest(request)) return admitPasswordlessLoopback(request, ip, deviceLabel);
       await auditAuthEvent(AUTH_EVENTS.LOGIN_BLOCKED, { request, ip, detail: { reason: "no_password_configured_remote" } });
       return NextResponse.json(
@@ -115,9 +148,13 @@ export async function POST(request) {
     }
 
     let isValid = false;
-    if (storedHash) {
-      isValid = await bcrypt.compare(password, storedHash);
-    } else {
+    if (userRow) {
+      // The row is authoritative: its bcrypt hash is the one credential.
+      isValid = await verifyUserPassword(userRow, password);
+    } else if (mirrorHash) {
+      // The store was unreadable — the legacy mirror is all this harbor has.
+      isValid = await bcrypt.compare(password, mirrorHash);
+    } else if (process.env.INITIAL_PASSWORD) {
       // INITIAL_PASSWORD env fallback — constant-time compare (house pattern).
       isValid = timingSafeEqual(password, process.env.INITIAL_PASSWORD);
     }
@@ -125,20 +162,38 @@ export async function POST(request) {
     if (isValid) {
       recordSuccess(ip);
 
+      // Stamp the login (best-effort): a missed stamp never fails a login the
+      // operator already earned.
+      if (userRow) {
+        try {
+          await touchUserLogin(userRow.id, new Date().toISOString());
+        } catch (err) {
+          console.error("[auth/login] lastLoginAt stamp failed (fail-open):", err?.message || err);
+        }
+      }
+
       const cookieStore = await cookies();
-      const minted = await setDashboardAuthCookie(cookieStore, request);
+      const minted = await setDashboardAuthCookie(
+        cookieStore,
+        request,
+        userRow?.username ? { username: userRow.username } : {}
+      );
       await recordSession(minted, request, { ip, label: deviceLabel });
       await auditAuthEvent(AUTH_EVENTS.LOGIN_OK, {
         request,
         ip,
-        detail: { method: storedHash ? "password" : "initial_password", sessionId: minted?.jti || null },
+        detail: {
+          method: userRow || storedHash ? "password" : "initial_password",
+          username: userRow?.username || null,
+          sessionId: minted?.jti || null,
+        },
       });
 
       return NextResponse.json({ success: true }, { headers: NO_STORE_HEADERS });
     }
 
     const { remainingBeforeLock } = recordFail(ip);
-    await auditAuthEvent(AUTH_EVENTS.LOGIN_FAIL, { request, ip, detail: { reason: "invalid_password", remainingBeforeLock } });
+    await auditAuthEvent(AUTH_EVENTS.LOGIN_FAIL, { request, ip, detail: { reason: "invalid_credentials", remainingBeforeLock } });
     const postLock = checkLock(ip);
     if (postLock.locked) {
       await auditAuthEvent(AUTH_EVENTS.LOGIN_LOCKED, { request, ip, detail: { reason: "locked", retryAfter: postLock.retryAfter } });
@@ -147,8 +202,11 @@ export async function POST(request) {
         { status: 429, headers: { "Retry-After": String(postLock.retryAfter), ...NO_STORE_HEADERS } }
       );
     }
+    // A bare password (no username) is the transition's shape; a named attempt
+    // gets the honest, non-enumerating line.
+    const failLabel = username ? "Invalid username or password." : "Invalid password.";
     return NextResponse.json(
-      { error: `Invalid password. ${remainingBeforeLock} attempt(s) left before lockout.`, remainingBeforeLock },
+      { error: `${failLabel} ${remainingBeforeLock} attempt(s) left before lockout.`, remainingBeforeLock },
       { status: 401 }
     );
   } catch (error) {
