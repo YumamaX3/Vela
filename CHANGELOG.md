@@ -94,7 +94,8 @@ behind `t9nTranslator`.
 - **Reduced motion**, under a truly emulated preference: every duration
   `1e-05s`, iteration `1`, delay `0s`.
 - **Focus** visible at `2px solid` coral (3.04 / 5.94 against its surface).
-**Recorded, not papered over.** The new labels are raw English keys — the
+**⚓ What sailed**: `src/app/globals.css` · `src/shared/components/Sidebar.js` · `src/shared/components/layouts/DashboardLayout.js` · `CHANGELOG.md` · `package.json` · `package-lock.json` · `docker-compose.example.yml` (tracked) · `docker-compose.yml` (the live chart — bumped on disk, never staged).
+**🌊 Recorded, not repeated** — the new labels are raw English keys — the
 `scripts/i18n-seed-literals.mjs` seeder is absent at HEAD, so nothing was
 machine-translated into the 34 locales (the same gap v0.9.75 recorded). The
 search field's resting border is `--color-border-subtle` (1.17 / 1.08, below
