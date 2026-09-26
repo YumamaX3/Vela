@@ -1,5 +1,5 @@
-// Test covenant: the credential store (migration 017) — one operator,
-// username + password.
+// Test covenant: the credential store (migration 017) — one operator, and a
+// password-only door.
 //
 // WHY THIS SUITE EXISTS: migration 016's lesson was that a migration's real risk
 // is the DRIVER, not the SQL; the same holds here one step further — the
@@ -13,9 +13,9 @@
 //   · setUserPassword moves the credential the door verifies;
 //   · ensureSeedUser adopts the legacy mirror hash VERBATIM, once, and never
 //     re-hashes or re-seeds;
-//   · a submitted username that matches no seat resolves to null — never to the
-//     single seat (the difference between "wrong name" and "no name at all" is
-//     the whole point of the claim).
+//   · the door resolves the ONE seat with no name consulted at all — a posted
+//     name is not a gate, so it can neither open nor bar the door, and an empty
+//     store honestly resolves to null rather than minting a phantom occupant.
 //
 // ADAPTER CONTRACT under test: portable surface only — run/get/all/exec, never
 // db.prepare (the 0.9.19/0.9.22 boot storms). The migration calls db.exec alone.
@@ -256,46 +256,27 @@ describe("The seed seam — the transition, not a cutover", () => {
     const { seam } = await harborAndSeam();
     const legacy = await bcrypt.hash("legacy-secret", 4);
 
-    const seat = await seam.loadLoginTarget({ password: legacy }, undefined);
+    const seat = await seam.loadLoginTarget({ password: legacy });
     expect(seat.username).toBe(seam.DEFAULT_USERNAME);
     expect(await seam.verifyUserPassword(seat, "legacy-secret")).toBe(true);
   });
 
-  it("a submitted username matching no seat resolves to null — never to the single seat", async () => {
+  it("the door resolves the single seat and consults no name at all", async () => {
     const { seam } = await harborAndSeam();
-    await seam.loadLoginTarget({ password: await bcrypt.hash("legacy-secret", 4) }, undefined);
+    await seam.loadLoginTarget({ password: await bcrypt.hash("legacy-secret", 4) });
 
-    expect(await seam.loadLoginTarget({}, "someone-else")).toBeNull();
-    expect(await seam.loadLoginTarget({}, seam.DEFAULT_USERNAME)).not.toBeNull();
-  });
-
-  it("no username resolves the single seat — the transition's compatibility path", async () => {
-    const { seam } = await harborAndSeam();
-    await seam.loadLoginTarget({ password: await bcrypt.hash("legacy-secret", 4) }, undefined);
-
-    const seat = await seam.loadLoginTarget({}, undefined);
+    // No argument names the seat — there is nothing to pass and nothing to
+    // mismatch, which is the whole shape of the password-only door.
+    const seat = await seam.loadLoginTarget({});
     expect(seat.username).toBe(seam.DEFAULT_USERNAME);
   });
 
-  it("the seat resolves case-insensitively, keyed by usernameKey", async () => {
+  it("resolveLoginUser returns the seat from the store, and null when it is empty", async () => {
     const { usersRepo, seam } = await harborAndSeam();
     await usersRepo.createUser({ id: "u-1", username: "Operator", passwordHash: await bcrypt.hash("s3cret", 4) });
 
-    expect((await seam.resolveLoginUser("OPERATOR"))?.username).toBe("Operator");
-    expect(await seam.resolveLoginUser("nobody")).toBeNull();
-  });
-});
-
-describe("normalizeUsername — the shape one seat may carry", () => {
-  it("trims a plain name and reports honestly on every refusal", async () => {
-    const { normalizeUsername } = await import("@/lib/auth/users.js");
-
-    expect(normalizeUsername("  operator ").value).toBe("operator");
-    expect(normalizeUsername("a.b_c-d").ok).toBe(true);
-    expect(normalizeUsername("ab").ok).toBe(false); // below USERNAME_MIN
-    expect(normalizeUsername("bad name").ok).toBe(false); // space
-    expect(normalizeUsername("-leading").ok).toBe(false); // must start alphanumeric
-    expect(normalizeUsername("a".repeat(65)).ok).toBe(false); // beyond USERNAME_MAX
-    expect(normalizeUsername(123).ok).toBe(false); // not a string
+    expect((await seam.resolveLoginUser())?.id).toBe("u-1");
+    // The honest empty case: no seat means no target, never a synthesized one.
+    expect(await seam.resolveLoginUser([])).toBeNull();
   });
 });

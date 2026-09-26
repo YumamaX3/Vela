@@ -1,10 +1,17 @@
-// The credential store's seam (migration 017) — one operator, username + password.
+// The credential store's seam (migration 017) — one operator, password-only.
 //
-// The Star's decree of 2026-09-26: the dashboard's single shared password
-// becomes a real username + password login, still for one occupant. This module
-// is the one place that owns the occupant's identity, so the login door, the
-// status read, and the credential-change route all speak the same law instead
-// of each inventing their own.
+// The Star's decree of 2026-09-26: the dashboard's single shared password stays
+// a real bcrypt credential in its own row, and the door takes ONLY that
+// password. An earlier cut of this wave admitted a username; the Star withdrew
+// it the same day — one occupant needs no name to be found, and a name on the
+// wire is a second thing to guess and a second thing to leak.
+//
+// The `username` COLUMN remains in the store (it is UNIQUE, migration-pinned,
+// and names the seat in the ledger's display), but it is an identity label, not
+// a credential: nothing verifies against it, and the door never reads it from
+// the request. This module owns the occupant's credential, so the login door,
+// the status read, and the credential-change route all speak the same law
+// instead of each inventing their own.
 //
 // ── THE TRANSITION, NAMED HONESTLY ─────────────────────────────────────────
 // Before this wave the credential lived in `settings.password` (a bcrypt hash in
@@ -37,27 +44,6 @@ import {
 } from "@/lib/db/repos/usersRepo.js";
 
 export const DEFAULT_USERNAME = "admin";
-export const USERNAME_MIN = 3;
-export const USERNAME_MAX = 64;
-// A username is one line of printable identity: starts alphanumeric, then
-// allows dot/dash/underscore. Deliberately narrow — it lands in a UNIQUE column
-// and a JWT claim, and there is exactly one of them, so ambiguity buys nothing.
-const USERNAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
-
-/** Validate + trim a caller-supplied username. @returns {{ok, value?, error?}} */
-export function normalizeUsername(raw) {
-  if (typeof raw !== "string") return { ok: false, error: "Username is required" };
-  const value = raw.trim();
-  if (value.length < USERNAME_MIN) return { ok: false, error: `Username must be at least ${USERNAME_MIN} characters` };
-  if (value.length > USERNAME_MAX) return { ok: false, error: `Username must be at most ${USERNAME_MAX} characters` };
-  if (!USERNAME_RE.test(value)) return { ok: false, error: "Username may use letters, digits, dot, dash and underscore" };
-  return { ok: true, value };
-}
-
-/** Case-insensitive match key — the door compares on this, never on raw case. */
-export function usernameKey(value) {
-  return String(value || "").trim().toLowerCase();
-}
 
 /**
  * Seed the single seat from the credential that already exists, once.
@@ -87,16 +73,14 @@ export async function ensureSeedUser(settings) {
 }
 
 /**
- * Resolve the login target. With a username, an exact (case-insensitive) match.
- * Without one, the single seat — so a client that still posts only
- * `{ password }` keeps opening the door through the transition.
+ * Resolve the login target — the single seat. There is exactly one occupant,
+ * so `listUsers()[0]` IS the target and no name is consulted. Kept as a
+ * function (rather than reading `[0]` at the call site) so the day a second
+ * seat ever exists, this is the one place that grows a lookup.
  */
-export async function resolveLoginUser(username, users = null) {
+export async function resolveLoginUser(users = null) {
   const all = users || (await listUsers());
-  if (!all.length) return null;
-  if (!username) return all[0];
-  const key = usernameKey(username);
-  return all.find((u) => usernameKey(u.username) === key) || null;
+  return all[0] || null;
 }
 
 /** Constant-behaviour verify against the stored hash. Never throws on bad input. */
@@ -117,13 +101,13 @@ export async function adoptLegacyHash(userId, bcryptHash) {
  * never has to know whether the seed has run yet — the seed is lazy, idempotent
  * and count-guarded, so a second call in the same boot is a no-op.
  */
-export async function loadLoginTarget(settings, username) {
+export async function loadLoginTarget(settings) {
   let users = await listUsers();
   if (!users.length) {
     const seeded = await ensureSeedUser(settings);
     if (seeded) users = [seeded];
   }
-  return resolveLoginUser(username, users);
+  return resolveLoginUser(users);
 }
 
 export { setUserPassword, deleteAllUsers, touchUserLogin, countUsers };

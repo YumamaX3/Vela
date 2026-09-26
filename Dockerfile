@@ -45,6 +45,15 @@ ENV HOSTNAME=0.0.0.0
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATA_DIR=/app/data
 ENV VELA_DEPLOYMENT=docker
+# ─── The heap ceiling (stability) ────────────────────────────────────────
+# V8 sizes its old space from the HOST's memory, not from the container's
+# cgroup limit, so on a large host inside a 2G container the GC happily grows
+# past the limit and the kernel SIGKILLs the process mid-request — an abrupt
+# death with no heap trace. A cap makes the GC work harder and, in the worst
+# case, throw an ordinary JS heap error the process can log and survive. 1024
+# leaves room under the chart's 2G for the 32mb body copies and native buffers.
+# Override per deployment with `NODE_OPTIONS` in the compose chart.
+ENV NODE_OPTIONS=--max-old-space-size=1024
 
 # ─── Runtime hardening ───────────────────────────────────────────────────
 # ca-certificates: the gateway makes TLS calls to upstream providers, the

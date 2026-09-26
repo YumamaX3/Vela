@@ -7,7 +7,14 @@ const projectRoot = dirname(fileURLToPath(import.meta.url));
 const tracingRoot = process.env.NEXT_TRACING_ROOT_MODE === "workspace"
   ? join(projectRoot, "..")
   : projectRoot;
-const proxyClientMaxBodySize = process.env.VELA_PROXY_CLIENT_MAX_BODY_SIZE || "128mb";
+// The per-request body ceiling for /v1 and /api. Next buffers every non-GET
+// request body into RAM up to this size BEFORE the handler runs (and the proxy
+// that matches this path reads no body at all), so this number is the dominant
+// per-request memory cost, multiplied by concurrency. 128mb let two concurrent
+// requests hold a quarter of a gigabyte for nothing; 32mb still clears a
+// million-token context with room for base64 images. Raise it per deployment
+// with VELA_PROXY_CLIENT_MAX_BODY_SIZE if a workload genuinely needs more.
+const proxyClientMaxBodySize = process.env.VELA_PROXY_CLIENT_MAX_BODY_SIZE || "32mb";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

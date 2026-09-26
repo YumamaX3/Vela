@@ -4,7 +4,6 @@ import { getSettings } from "@/lib/localDb";
 import { isOidcConfigured } from "@/lib/auth/oidc";
 import { isSamlConfigured } from "@/lib/auth/saml.js";
 import { getDashboardAuthSession, AUTH_COOKIE_NAME } from "@/lib/auth/dashboardSession";
-import { listUsers } from "@/lib/db/repos/usersRepo.js";
 
 export async function GET() {
   try {
@@ -19,23 +18,11 @@ export async function GET() {
     const samlName = String(session?.samlName || "").trim();
     const samlEmail = String(session?.samlEmail || "").trim();
 
-    // The occupant's name (migration 017). The seat is seeded lazily by the
-    // login door, so `users[0]` is absent until the first boot that has a
-    // credential — the login page then shows no name, which is honest.
-    let username = null;
-    try {
-      const users = await listUsers();
-      username = users[0]?.username || null;
-    } catch {
-      username = null;
-    }
-
     const displayName =
       samlName ||
       samlEmail ||
       oidcName ||
       oidcEmail ||
-      username ||
       (session?.saml ? "SAML user" : session?.oidc ? "OIDC user" : "Password user");
 
     const loginMethod = session?.saml ? "SAML" : session?.oidc ? "OIDC" : "Password";
@@ -53,7 +40,6 @@ export async function GET() {
       // nothing configured anywhere) and "no password configured" guidance.
       // Exposing presence flags only — never the credential itself.
       hasInitialPassword: !!process.env.INITIAL_PASSWORD,
-      username,
       displayName,
       loginMethod,
       authenticated: !!session,
@@ -75,7 +61,6 @@ export async function GET() {
       samlLoginLabel: "Sign in with SAML SSO",
       hasPassword: false,
       hasInitialPassword: false,
-      username: null,
       displayName: "Password user",
       loginMethod: "Password",
       authenticated: false,

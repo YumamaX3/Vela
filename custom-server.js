@@ -7,10 +7,13 @@ const { pathToFileURL } = require("url");
 const origCreate = http.createServer.bind(http);
 
 // ─── Ship constants ─────────────────────────────────────────────────────────
-// Hard ceiling for an h2c-upgraded request body (replay path buffers it in
-// memory). The dashboard /v1 proxy is already capped at 128mb; this guard
-// exists so a malicious h2c upgrade cannot force unbounded buffering.
-const MAX_H2C_BODY_BYTES = 512 * 1024 * 1024;
+// Hard ceiling for an h2c-upgraded request body (the replay path buffers it in
+// memory). Reconciled with the dashboard's own /v1 cap (32mb in next.config.mjs)
+// — this guard is not a second, larger door but the same one, since an h2c
+// upgrade replays into the identical handler. It was 512mb, four times the old
+// /v1 ceiling and a quarter of the chart's 2G memory limit, which meant a single
+// upgrade could exhaust the container before the proxy's own cap ever ran.
+const MAX_H2C_BODY_BYTES = 16 * 1024 * 1024;
 // Drain window for in-flight requests before the process exits on SIGTERM.
 const DRAIN_TIMEOUT_MS = 10_000;
 // Hop-by-hop headers (RFC 7230 §6.1) must never be forwarded by a proxy.
