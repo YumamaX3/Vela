@@ -115,23 +115,28 @@
      a loop on this curve never syncs with the breath beside it. */
   --motion-ease-phase: cubic-bezier(0.45, 0.05, 0.55, 0.95);
 
-  /* The Nav Rail (v0.9.85) — the sidebar's compaction, in two widths.
-     The expanded width IS the sidebar's own w-72 (18rem), so the open
-     state is the surface the app already had and only the resting width
-     is new. 76px is set by the glyph's own geometry: an 18px icon behind
-     12px of row padding and 16px of nav padding, on both sides, lands the
-     icon within a pixel of the rail's centre, so the rail needs no
-     centring rule of its own. */
-  --rail-width: 76px;
-  --rail-width-expanded: 18rem;
-  /* Wider than any label's expanded width on purpose: the cap binds only
-     while the rail is closed, so the open rail keeps the sidebar's own
-     flex layout — the badge pushed to the row's end and all. */
-  --rail-label-max: 260px;
-  /* The label rise cadence when the rail opens: each label follows the one
-     above it, so the nav assembles instead of appearing. Twelve rather than
-     the deck's 45ms because a nav is a list to scan, not sections to read. */
-  --rail-stagger: 12ms;
+  /* The Nav (v1.0.1) — two tiers, where the rail was one.
+     Tier 1 is a DOCK of section glyphs that never moves; tier 2 is a
+     PANEL of rooms that either docks in flow or flies out over the
+     content. 68px is set by the glyph's own geometry: a 20px glyph inside
+     a 44px button inside 12px of dock padding, on both sides, lands the
+     glyph on the dock's axis — so the dock needs no centring rule. */
+  /* Text on a brand ground is white on BOTH ledgers, because brand-700 is dark coral on
+     both; an inverse token that flipped would break the 6.21:1 it was minted for. */
+  --nav-on-brand: #ffffff;
+  --nav-dock-w: 68px;
+  /* The docked panel. 264px holds the longest room label the nav carries
+     ("Web Fetch & Search") beside its glyph and badge without truncating,
+     which is the whole reason the old rail's label-clipping is gone. */
+  --nav-panel-w: 264px;
+  /* Below 64rem the tiers stack and the nav IS the drawer, keeping the
+     sidebar's own 18rem. */
+  --nav-drawer-w: 18rem;
+  /* The room-rise cadence when a panel opens: each row follows the one
+     above it, so the panel assembles instead of appearing. Twelve rather
+     than the deck's 45ms because a nav is a list to scan, not sections to
+     read. */
+  --nav-stagger: 12ms;
 
   /* Command-deck terminal — obsidian ink panel, sea-glass text */
   --color-terminal: #0C1117;
@@ -1754,304 +1759,755 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
 }
 
 /* ============================================================
-   The Nav Rail (v0.9.85) — the sidebar, compacted.
+   The Nav — two tiers (v1.0.1) — the sidebar, re-laid.
 
-   The desktop sidebar is now a rail: 76px of icons at rest, the full
-   288px sidebar on hover or keyboard focus. Why a rail at all: the
-   dashboard's content is the point, and a permanent 288px column spent
-   a fifth of a 1440px deck on chrome that is read once per navigation.
-   Compacting it returns ~212px to every page.
+   The rail was one column that grew; this is two that do not. A DOCK of
+   six section glyphs holds still while a PANEL of rooms answers it.
+   Why: the rail bought its width by clipping every label to zero and
+   restoring it on hover, so a label the pointer was not touching did not
+   exist — in the DOM, yes, in the accessible tree, yes, but not on the
+   shore. The dock carries glyphs (each with its own `aria-label`, so the
+   accessible name never depends on visible text) and the panel carries
+   real labels. Nothing is clipped, ever, and the entire
+   `.nav-label` max-width/opacity apparatus is DELETED rather than
+   adapted.
 
-   DESKTOP ONLY, and that is load-bearing. The expansion is driven by
-   hover, and a touch device has no hover — so on mobile the rail would
-   open as 76px of unlabelled glyphs with no gesture that could ever
-   reveal them. The base rule below therefore sets the FULL sidebar
-   width, and every compaction lives inside the same 64rem breakpoint
-   the shell already uses to choose between the desktop sidebar and the
-   mobile drawer (`hidden lg:flex`). Below 64rem nothing here applies.
+   DEPTH IS TWO PLANES, NOT TWO BORDERS. The dock sits on `color.bg` (the
+   page), the panel on `color.surface` (raised). That is also why the
+   aside's `bg-vibrancy` + `backdrop-blur-xl` are gone: a translucent dock
+   over a translucent panel is exactly the glass-on-every-surface the
+   design refuses, and the two planes cannot read at all unless their
+   grounds are opaque.
 
-   THE RAIL IS VISUAL COMPACTION, NOT DISCLOSURE. Labels stay in the DOM
-   at every width and are hidden with `opacity` + a clipped max-width,
-   never `display: none` and never `visibility: hidden`. So a screen
-   reader reads the full nav with no pointer and no focus, and there is
-   no `aria-expanded` to claim, because nothing is disclosed — the markup
-   is identical at both widths and only its presentation moves. Hiding
-   the labels from AT instead would be the slop this design avoids.
+   SPECIFICITY: this block is UNLAYERED, so it beats Tailwind's utilities
+   layer — and therefore NO structural element of this nav may carry a
+   conflicting Tailwind spacing/colour utility. The JSX class lists below
+   carry the `nav-*` law and nothing that fights it. Two languages, one
+   of them authoritative.
 
-   The width is a TRANSITION on the rail only. Every child keeps its own
-   geometry and simply stops being clipped as the rail grows, which is
-   why no row needs a second layout for the open state.
+   MOTION: the panel arrives on the QUICK rung and its rooms follow one
+   another on `--nav-stagger`; ONE ambient loop survives — the active
+   marker's coral heartbeat (navBarBreathe, 3.2s) — which is this nav's
+   share of the deck's dial-3 budget. Nothing else here performs.
 
-   prefers-reduced-motion: the width transition belongs to `.nav-rail`
-   itself, not to `.motion-control`, because that class deliberately
-   enumerates non-layout properties and never `all`. The global rule
-   already clamps this transition's duration, so the rail still reaches
-   its expanded width — it simply arrives without the slide.
+   prefers-reduced-motion: NO per-class guard is written here, on purpose.
+   The global rule near the top of this file clamps BOTH `transition-
+   duration` and `transition-delay` for `*`, so every transition and
+   keyframe below is already stilled — and a future consumer of this block
+   cannot forget a guard it never had to write.
    ============================================================ */
-.nav-rail {
-  width: var(--rail-width-expanded);
+
+/* ---- The shell ------------------------------------------------
+   The root. On the narrow shore the tiers stack inside it; on the wide
+   shore they sit side by side, and its width is the dock alone until the
+   panel is docked, at which point it grows to hold both. */
+.nav-shell {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  width: var(--nav-drawer-w);
+  min-height: 100%;
+  border-right: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
 }
 
+/* ---- The dock -------------------------------------------------
+   Six section glyphs. On the narrow shore it is a horizontal strip —
+   horizontal room is free there, vertical room is not — and it keeps its
+   labels, because an unlabelled icon on a device with no hover is a door
+   with no handle. It scrolls sideways rather than shrinking them. */
+.nav-dock {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.nav-dock::-webkit-scrollbar { display: none; }
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex: 0 0 auto;
+  padding-right: 0.5rem;
+  margin-right: 0.25rem;
+  border-right: 1px solid var(--color-border-subtle);
+}
+.nav-brand-mark { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; }
+.nav-brand-mark img { width: 34px; height: 34px; }
+.nav-brand-text { display: flex; flex-direction: column; min-width: 0; }
+.nav-brand-name {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-text-main);
+  line-height: 1;
+}
+.nav-brand-sub { font-size: 11px; color: var(--color-text-muted); margin-top: 3px; }
+
+.nav-dock-list {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 40px of target, because the glyph is 20 and a dock is a pointer
+   surface dozens of times an hour. The label beside it is native to the
+   narrow shore and removed on the wide one — never with `display: none`
+   on anything the accessible name depends on, which is why the button
+   carries its own `aria-label` and the span is merely decorative. */
+.nav-dock-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+  /* `width: auto`, never a 40px square: the label beside the glyph is native to the narrow
+     shore, and a fixed box let the words escape their chip and run over the next one.
+     `min-width` keeps the wide shore exact, where the label is hidden and the bare
+     glyph measures 37.6px inside its 40px square. */
+  width: auto;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 0.6rem;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 550;
+  letter-spacing: -0.01em;
+  color: var(--color-text-muted);
+  transition:
+    background-color var(--motion-dur-instant) var(--motion-ease-out),
+    color var(--motion-dur-instant) var(--motion-ease-out);
+}
+.nav-dock-btn:hover { background: var(--color-surface-2); color: var(--color-text-main); }
+.nav-dock-btn .material-symbols-outlined {
+  font-size: 20px;
+  flex: 0 0 auto;
+  transition: color var(--motion-dur-instant) var(--motion-ease-out);
+}
+.nav-dock-text { white-space: nowrap; }
+
+/* The active section: a raised ground, full-contrast text and the coral
+   glyph. One marker, one accent — the design's single deliberate break
+   against an otherwise still column. The count rides it, because the
+   count answers "how much is behind this door", which is a question you
+   only ask about the door you are standing at. */
+.nav-dock-btn[data-active="true"] {
+  background: var(--color-surface-2);
+  color: var(--color-text-main);
+}
+.nav-dock-btn[data-active="true"] .material-symbols-outlined { color: var(--color-brand-500); }
+.nav-dock-count {
+  /* Narrow shore: the chip is glyph AND label side by side, and a count
+     badge would land on top of the label it is counting. Wide shore: the
+     chip is a bare glyph with room above its right shoulder, so the badge
+     returns with the room it needs. */
+  display: none;
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  /* White on brand-500 measured 3.23:1 on BOTH shores; brand-700 carries
+     it at 6.21:1. Same move v0.9.82 made on the login CTA. */
+  border-radius: 999px;
+  background: var(--color-brand-700);
+  color: var(--nav-on-brand);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+}
+
+/* The dock's foot carries the undock control on the wide shore only —
+   there is nothing to undock on a phone, where the nav is the drawer. */
+.nav-dock-foot {
+  display: none;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.75rem 0.75rem;
+}
+.nav-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--color-text-subtle);
+  transition:
+    background-color var(--motion-dur-instant) var(--motion-ease-out),
+    color var(--motion-dur-instant) var(--motion-ease-out);
+}
+.nav-icon-btn:hover { background: var(--color-surface-2); color: var(--color-text-main); }
+.nav-icon-btn .material-symbols-outlined { font-size: 20px; }
+
+/* ---- The panel ------------------------------------------------
+   Always mounted. On the narrow shore it is simply the rest of the
+   drawer — in flow, always visible, no float and no hover — so the
+   `data-open` state and the floating state are wide-shore concepts, and
+   writing them here would hand a phone a panel that could hide itself. */
+.nav-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--color-surface);
+}
+
+.nav-panel-head {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.75rem 0.5rem;
+}
+.nav-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 10.5px;
+  font-weight: 640;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+}
+.nav-panel-title .material-symbols-outlined { font-size: 14px; }
+
+.nav-search {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 32px;
+  padding: 0 0.5rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 8px;
+  background: var(--color-bg);
+  transition: border-color var(--motion-dur-instant) var(--motion-ease-out);
+}
+/* 2px perimeter, measured: a 1px border alone was short of SC 2.4.13's ring.
+   brand-500 on the field's ground reads 3.04:1 light / 5.94:1 dark, over the 3:1 floor. */
+.nav-search:focus-within {
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 1px var(--color-brand-500);
+}
+.nav-search .material-symbols-outlined { font-size: 16px; color: var(--color-text-subtle); flex: 0 0 auto; }
+.nav-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--color-text-main);
+}
+/* The wrapper carries the focus affordance (the coral border), so the
+   input's own ring would be a second, redundant one. */
+.nav-search input:focus-visible { outline: none; }
+.nav-search input::placeholder { color: var(--color-text-subtle); }
+.nav-search-key {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px;
+  color: var(--color-text-subtle);
+}
+/* The clear affordance is 20px, not the 40px `.nav-icon-btn` — it lives
+   inside a 32px field and must not set the field's own height. */
+.nav-search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text-subtle);
+  transition: color var(--motion-dur-instant) var(--motion-ease-out);
+}
+.nav-search-clear:hover { color: var(--color-text-main); }
+.nav-search-clear .material-symbols-outlined { font-size: 14px; }
+
+/* Search results arrive grouped by the section a room lives in, because a
+   result that does not say where it is sends the operator hunting. The
+   group is one body child, so it rises as a unit on the same cadence the
+   rooms do. */
+.nav-result-group { padding-bottom: 0.25rem; }
+.nav-result-head {
+  padding: 0.5rem 0.625rem 0.25rem;
+  font-size: 10px;
+  font-weight: 640;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+}
+
+.nav-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding: 0 0.5rem 0.75rem;
+}
+
+/* Rooms ARRIVE, they do not appear. The body is re-keyed on the shown
+   section in the component, so switching sections replays the assembly
+   while merely reopening the same panel does not — arriving is the
+   ceremony, and a nav opened dozens of times a day must not perform
+   every time. An accordion's sub-list is one body child, so it rises as
+   one unit rather than re-staggering what it contains. */
+@keyframes navRoomIn {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.nav-panel-body > * {
+  animation: navRoomIn var(--motion-dur-quick) var(--motion-ease-out) backwards;
+}
+.nav-panel-body > *:nth-child(1)  { animation-delay: 0ms; }
+.nav-panel-body > *:nth-child(2)  { animation-delay: calc(var(--nav-stagger) * 1); }
+.nav-panel-body > *:nth-child(3)  { animation-delay: calc(var(--nav-stagger) * 2); }
+.nav-panel-body > *:nth-child(4)  { animation-delay: calc(var(--nav-stagger) * 3); }
+.nav-panel-body > *:nth-child(5)  { animation-delay: calc(var(--nav-stagger) * 4); }
+.nav-panel-body > *:nth-child(6)  { animation-delay: calc(var(--nav-stagger) * 5); }
+.nav-panel-body > *:nth-child(7)  { animation-delay: calc(var(--nav-stagger) * 6); }
+.nav-panel-body > *:nth-child(8)  { animation-delay: calc(var(--nav-stagger) * 7); }
+.nav-panel-body > *:nth-child(9)  { animation-delay: calc(var(--nav-stagger) * 8); }
+.nav-panel-body > *:nth-child(10) { animation-delay: calc(var(--nav-stagger) * 9); }
+.nav-panel-body > *:nth-child(11) { animation-delay: calc(var(--nav-stagger) * 10); }
+.nav-panel-body > *:nth-child(12) { animation-delay: calc(var(--nav-stagger) * 11); }
+.nav-panel-body > *:nth-child(n+13) { animation-delay: calc(var(--nav-stagger) * 12); }
+
+/* A room is one icon, one label, room for a badge. It is never truncated
+   and never clipped: the panel is sized by its longest label, not the
+   other way round. */
+.nav-room {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 0.625rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-align: left;
+  color: var(--color-text-muted);
+  transition:
+    background-color var(--motion-dur-instant) var(--motion-ease-out),
+    color var(--motion-dur-instant) var(--motion-ease-out);
+}
+.nav-room:hover { background: var(--color-surface-2); color: var(--color-text-main); }
+.nav-room .material-symbols-outlined {
+  font-size: 18px;
+  flex: 0 0 auto;
+  opacity: 0.85;
+  transition:
+    transform var(--motion-dur-instant) var(--motion-ease-out),
+    opacity var(--motion-dur-instant) var(--motion-ease-out);
+}
+/* One pixel of lean toward the label it names: enough to read as the row
+   answering the pointer, not enough to move anything else. */
+.nav-room:hover .material-symbols-outlined { transform: translateX(1px); opacity: 1; }
+.nav-room-label { flex: 1; min-width: 0; }
+
+/* The active room: a coral marker on the leading edge, the label at full
+   contrast, a raised ground — and nothing else. No glow, no second
+   accent, no fill under the glyph. */
+.nav-room[data-active="true"] {
+  background: var(--color-surface-2);
+  color: var(--color-text-main);
+}
+.nav-room[data-active="true"] .material-symbols-outlined { opacity: 1; color: var(--color-brand-500); }
+
+.nav-active-bar {
+  position: absolute;
+  left: 0;
+  top: calc(50% - 9px);
+  width: 2px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--color-brand-500);
+  animation:
+    navBarIn var(--motion-dur-quick) var(--motion-ease-spring) backwards,
+    navBarBreathe 3.2s ease-in-out 0.4s infinite;
+}
+@keyframes navBarIn {
+  from { transform: scaleY(0); opacity: 0; }
+  to   { transform: scaleY(1); opacity: 1; }
+}
+/* The nav's ONE ambient loop — the live current in the marker of where
+   you actually are. */
+@keyframes navBarBreathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(229, 106, 74, 0); opacity: 1; }
+  50%      { box-shadow: 0 0 0 3px rgba(229, 106, 74, 0.16); opacity: 0.82; }
+}
+
+/* Sub-rows are the panel's second depth: one rung quieter and indented to
+   the label's own axis, so a nested room reads as belonging to the room
+   above rather than as a sibling of it. The hairline is the belonging. */
+.nav-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin: 0.125rem 0 0.25rem 1.05rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--color-border-subtle);
+}
+.nav-sub .nav-room {
+  min-height: 30px;
+  padding-left: 0.5rem;
+  font-size: 12.5px;
+  color: var(--color-text-subtle);
+}
+.nav-sub .nav-room .material-symbols-outlined { font-size: 16px; }
+.nav-sub .nav-room:hover,
+.nav-sub .nav-room[data-active="true"] { color: var(--color-text-main); }
+
+/* R-03 · the narrow shore is tapped, not clicked. The desktop rhythm (40px glyphs, 34px rows,
+   30px sub-rows, 32px field) stays on the dock, which is hidden below this same 64rem line;
+   the drawer gives every target 44px. min-* beats the fixed width/height it overrides. */
+@media (max-width: 64rem) {
+  .nav-room,
+  .nav-sub .nav-room { min-height: 44px; }
+  .nav-dock-btn,
+  .nav-icon-btn { min-width: 44px; min-height: 44px; }
+  .nav-search { min-height: 44px; }
+  /* The brand takes its own line. Sharing one strip left the six labelled chips about
+     137px of a 288px drawer — barely one door visible and the rest behind a swipe.
+     With the brand above them the chips own the whole width and scroll alone, so the
+     brand never slides away with the current. */
+  .nav-dock { flex-direction: column; align-items: stretch; gap: 0; overflow-x: visible; }
+  .nav-brand { border-right: 0; padding-right: 0; margin-right: 0; padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-border-subtle); }
+  .nav-dock-list { flex: 0 0 auto; width: 100%; overflow-x: auto;
+    overscroll-behavior-x: contain; scrollbar-width: none; }
+  .nav-dock-list::-webkit-scrollbar { display: none; }
+}
+
+/* A disclosure row toggles its sub-list; it does not navigate, so it
+   wears a chevron rather than a badge, and the chevron's rotation rides
+   the same `aria-expanded` the screen reader already has. */
+.nav-room-chevron {
+  font-size: 16px;
+  flex: 0 0 auto;
+  color: var(--color-text-subtle);
+  transition: rotate var(--motion-dur-quick) var(--motion-ease-spring);
+}
+.nav-room[aria-expanded="true"] .nav-room-chevron { rotate: 180deg; }
+
+.nav-badge {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border-radius: 999px;
+  /* Coral text on a 15% tint measured 2.75:1 (light) and 4.48:1 (dark) —
+     no tint carries this mark on both shores. Solid brand-700 + white
+     reads 6.21:1 in both ledgers, and matches the dock count's chip. */
+  background: var(--color-brand-700);
+  color: var(--nav-on-brand);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.nav-room-count {
+  flex: 0 0 auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: var(--color-text-subtle);
+}
+
+.nav-empty {
+  padding: 1.5rem 0.75rem;
+  font-size: 12.5px;
+  text-align: center;
+  color: var(--color-text-subtle);
+}
+
+/* ---- The update notice ----------------------------------------
+   A card, not a row. It used to live in the brand berth and had to be
+   hidden at rest — a notice squeezed into 76px would be unreadable rather
+   than merely small — and return whole on hover. The panel is a real
+   surface now, so the notice sits in it and is simply always legible. */
+.nav-notice {
+  position: relative;
+  overflow: hidden;
+  margin: 0 0.5rem 0.5rem;
+  padding: 0.625rem;
+  border: 1px solid color-mix(in oklab, var(--color-brand-500) 25%, transparent);
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--color-brand-500) 10%, transparent);
+  animation: navRoomIn var(--motion-dur-base) var(--motion-ease-out) backwards;
+}
+.nav-notice-glow {
+  position: absolute;
+  right: -2rem;
+  top: -2rem;
+  width: 5rem;
+  height: 5rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-brand-500) 20%, transparent);
+  filter: blur(20px);
+  pointer-events: none;
+}
+.nav-notice-head {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.nav-notice-line {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 600;
+  /* brand-700 on the 10% tint: 5.56:1 light. The dark shore keeps its
+     own override below, which measures 5.42:1 on its ground. */
+  color: var(--color-brand-700);
+}
+.dark .nav-notice-line { color: var(--color-brand-400); }
+.nav-notice-ping {
+  position: relative;
+  display: flex;
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+}
+.nav-notice-ping > :first-child {
+  position: absolute;
+  display: inline-flex;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-brand-500);
+  opacity: 0.6;
+  animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.nav-notice-ping > :last-child {
+  position: relative;
+  display: inline-flex;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-brand-500);
+}
+@keyframes ping {
+  75%, 100% { transform: scale(2); opacity: 0; }
+}
+.nav-notice-actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.375rem;
+}
+/* The dismiss is a 20px ghost, not the 40px `.nav-icon-btn` — it sits in a
+   notice head and must not set that head's height. */
+.nav-notice-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text-subtle);
+  transition: color var(--motion-dur-instant) var(--motion-ease-out);
+}
+.nav-notice-close:hover { color: var(--color-text-main); }
+.nav-notice-close .material-symbols-outlined { font-size: 14px; }
+
+.nav-notice-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--color-brand-700);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--nav-on-brand);
+  transition: background-color var(--motion-dur-instant) var(--motion-ease-out);
+}
+.nav-notice-go:hover { background: var(--color-brand-800); }
+.nav-notice-cmd {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  transition: opacity var(--motion-dur-instant) var(--motion-ease-out);
+}
+.nav-notice-cmd:hover { opacity: 0.8; }
+
+/* The version, worn at the panel's foot — where the eye lands after the
+   last room, not where it starts. */
+.nav-panel-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem 0.75rem;
+  border-top: 1px solid var(--color-border-subtle);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: var(--color-text-subtle);
+}
+
+/* ---- The wide shore -------------------------------------------
+   Everything above is the stacked, always-open drawer; everything below
+   is the two tiers standing side by side. The breakpoint is the same
+   64rem the shell already uses to choose between its desktop sidebar and
+   its mobile drawer, so the two decisions cannot disagree. */
 @media (min-width: 64rem) {
-  .nav-rail {
-    width: var(--rail-width);
+  .nav-shell {
+    flex-direction: row;
+    width: var(--nav-dock-w);
+    /* Above <main>, which is `position: relative; z-index: auto` — a
+       positive z-index here is what lets a floating panel paint over the
+       deck instead of sliding under it. `isolate` on main does not save
+       it, because an isolated auto-z-index still loses to a positive one. */
+    z-index: 30;
+    /* The width transition lives on the shell, NOT on `.motion-control`:
+       that class enumerates non-layout properties and never `all`, so it
+       cannot carry a width. The global reduced-motion rule clamps this
+       transition's duration, so a user who asked for stillness watches
+       the panel arrive at its width rather than never arriving. */
     transition: width var(--motion-dur-quick) var(--motion-ease-out);
   }
-  .nav-rail:hover,
-  .nav-rail:focus-within {
-    width: var(--rail-width-expanded);
+  .nav-shell[data-docked="true"] {
+    width: calc(var(--nav-dock-w) + var(--nav-panel-w));
   }
 
-  /* Every text label — a nav row, a sub-row, a section header, the count
-     chip, the chevron, the badge — is clipped to zero width at rest and
-     grows back on hover or focus. Clipping, never `display: none` and
-     never `visibility: hidden`: the text stays in the DOM and in the
-     accessible tree at every width, which is what keeps the rail readable
-     to a screen reader with no pointer and no focus. `max-width` rather
-     than `width`, so each label returns to its OWN natural size and a
-     longer one simply takes the room it needs; `white-space: nowrap` so
-     nothing wraps while it is being clipped. */
-  .nav-label {
-    max-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    opacity: 0;
-    transition:
-      max-width var(--motion-dur-quick) var(--motion-ease-out),
-      opacity var(--motion-dur-instant) var(--motion-ease-out);
+  .nav-dock {
+    flex-direction: column;
+    flex: 0 0 var(--nav-dock-w);
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.75rem 0.75rem 0.5rem;
+    border-bottom: 0;
+    border-right: 1px solid var(--color-border-subtle);
+    overflow-x: visible;
+    overflow-y: auto;
   }
-  .nav-rail:hover .nav-label,
-  .nav-rail:focus-within .nav-label {
-    max-width: var(--rail-label-max);
-    opacity: 1;
+  .nav-brand {
+    flex-direction: column;
+    padding: 0 0 0.5rem;
+    margin: 0 0 0.25rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border-subtle);
   }
-
-  /* The rise, on TEXT labels only. `:not(.material-symbols-outlined)`
-     keeps the chevrons out: they carry a rotation of their own (the group
-     header through Tailwind's `rotate` property, the accordion through an
-     inline `transform`), and a translate would either be overridden by
-     that inline style or overwrite the rotation. Text rises; glyphs do
-     not. The travel is 4px — the move registers as "arrived", not as a
-     slide. */
-  .nav-label:not(.material-symbols-outlined) {
-    transform: translateX(-4px);
-    transition:
-      max-width var(--motion-dur-quick) var(--motion-ease-out),
-      opacity var(--motion-dur-instant) var(--motion-ease-out),
-      transform var(--motion-dur-quick) var(--motion-ease-out);
+  .nav-brand-text { display: none; }
+  .nav-dock-list {
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 0 1 auto;
   }
-  .nav-rail:hover .nav-label:not(.material-symbols-outlined),
-  .nav-rail:focus-within .nav-label:not(.material-symbols-outlined) {
-    transform: translateX(0);
+  /* The label is decorative here — the button's own `aria-label` is the
+     accessible name, so hiding it costs assistive tech nothing. */
+  .nav-dock-text { display: none; }
+  /* The glyph's right shoulder is free here, so the count rides it. */
+  .nav-dock-count { display: block; }
+  /* The dock is a column here, so its foot stacks rather than crowds:
+     three 40px marks cannot share a 68px row. */
+  .nav-dock-foot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    margin-top: auto;
   }
 
-  /* The chevrons settle rather than snap when their accordion flips.
-     BOTH properties are transitioned because the two chevrons disagree
-     about which one they use — Tailwind v4 emits `-rotate-90` as the
-     `rotate` PROPERTY, while the accordions set `transform` inline. A
-     transition naming only one would animate half the chevrons. */
-  .nav-label.material-symbols-outlined {
-    transition:
-      transform var(--motion-dur-quick) var(--motion-ease-spring),
-      rotate var(--motion-dur-quick) var(--motion-ease-spring),
-      opacity var(--motion-dur-instant) var(--motion-ease-out);
-  }
-
-  /* Each label follows the one above it. The delays live in the OPEN rule,
-     not the base one, because a transition reads its timing from the state
-     it is moving TO: this way the nav assembles on the way out and closes
-     all at once on the way back, which is the right asymmetry — arriving is
-     the ceremony, leaving is not. Capped at the eighth row: past that the
-     last label would still be arriving while the operator is reading it. */
-  .nav-rail:hover nav a:nth-of-type(1) .nav-label,
-  .nav-rail:focus-within nav a:nth-of-type(1) .nav-label { transition-delay: 0ms; }
-  .nav-rail:hover nav a:nth-of-type(2) .nav-label,
-  .nav-rail:focus-within nav a:nth-of-type(2) .nav-label { transition-delay: calc(var(--rail-stagger) * 1); }
-  .nav-rail:hover nav a:nth-of-type(3) .nav-label,
-  .nav-rail:focus-within nav a:nth-of-type(3) .nav-label { transition-delay: calc(var(--rail-stagger) * 2); }
-  .nav-rail:hover nav a:nth-of-type(4) .nav-label,
-  .nav-rail:focus-within nav a:nth-of-type(4) .nav-label { transition-delay: calc(var(--rail-stagger) * 3); }
-  .nav-rail:hover nav a:nth-of-type(5) .nav-label,
-  .nav-rail:focus-within nav a:nth-of-type(5) .nav-label { transition-delay: calc(var(--rail-stagger) * 4); }
-  .nav-rail:hover nav a:nth-of-type(6) .nav-label,
-  .nav-rail:focus-within nav a:nth-of-type(6) .nav-label { transition-delay: calc(var(--rail-stagger) * 5); }
-  .nav-rail:hover nav a:nth-of-type(7) .nav-label,
-  .nav-rail:focus-within nav a:nth-of-type(7) .nav-label { transition-delay: calc(var(--rail-stagger) * 6); }
-  .nav-rail:hover nav a:nth-of-type(n+8) .nav-label,
-  .nav-rail:focus-within nav a:nth-of-type(n+8) .nav-label { transition-delay: calc(var(--rail-stagger) * 7); }
-
-  /* The icon leans 1px toward the label it is about to name. One pixel:
-     enough to read as the row answering the pointer, not enough to move
-     anything else. `:not(.nav-label)` keeps the chevrons out — their own
-     transform is a rotation, and a translate would overwrite it. */
-  .nav-rail nav a .material-symbols-outlined:not(.nav-label),
-  .nav-rail nav button .material-symbols-outlined:not(.nav-label) {
-    transition:
-      transform var(--motion-dur-instant) var(--motion-ease-out),
-      color var(--motion-dur-instant) var(--motion-ease-out);
-  }
-  .nav-rail nav a:hover .material-symbols-outlined:not(.nav-label),
-  .nav-rail nav button:hover .material-symbols-outlined:not(.nav-label) {
-    transform: translateX(1px);
-  }
-
-  /* The active marker: it grows in from a point on the row it marks, then
-     breathes — a slow 3.2s swell of the coral glow, which is the rail's one
-     ambient heartbeat. It marks where you are, and it is the only thing in
-     the rail that moves while your hand is still.
-
-     The keyframe scales ONLY; it must not re-express the centring. Tailwind
-     v4 emits `-translate-y-1/2` as the `translate` property, and individual
-     transform properties compose with `transform` rather than being
-     replaced by it — so a `translateY(-50%)` here would stack a second
-     half-height shift and drop the bar out of its row. */
-  @keyframes railBarIn {
-    from { transform: scaleY(0); opacity: 0; }
-    to   { transform: scaleY(1); opacity: 1; }
-  }
-  @keyframes railBarBreathe {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(229, 106, 74, 0); opacity: 1; }
-    50%      { box-shadow: 0 0 0 3px rgba(229, 106, 74, 0.16); opacity: 0.82; }
-  }
-  .nav-active-bar {
-    animation:
-      railBarIn var(--motion-dur-quick) var(--motion-ease-spring) backwards,
-      railBarBreathe 3.2s ease-in-out 0.4s infinite;
-  }
-
-  /* Sub-rows ease in when their accordion opens, so the disclosure reads
-     as unfolding rather than as a block appearing. */
-  @keyframes navSubIn {
-    from { opacity: 0; transform: translateY(-4px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  .nav-sub a {
-    animation: navSubIn var(--motion-dur-quick) var(--motion-ease-out) backwards;
-  }
-  .nav-sub a:nth-child(2) { animation-delay: calc(var(--rail-stagger) * 1); }
-  .nav-sub a:nth-child(3) { animation-delay: calc(var(--rail-stagger) * 2); }
-  .nav-sub a:nth-child(4) { animation-delay: calc(var(--rail-stagger) * 3); }
-  .nav-sub a:nth-child(5) { animation-delay: calc(var(--rail-stagger) * 4); }
-  .nav-sub a:nth-child(6) { animation-delay: calc(var(--rail-stagger) * 5); }
-
-  /* The rail's edge current — a slow coral light travelling down the
-     border, the vertical echo of the header's own `.mast-tide` line. Same
-     gesture, same colour, turned ninety degrees: the rail belongs to the
-     same instrument as the mast. */
-  @keyframes railCurrent {
-    0%   { background-position: 0 -240px; }
-    100% { background-position: 0 340px; }
-  }
-  .nav-rail::after {
-    content: "";
+  /* The panel floats by default and is pulled back into the flow only
+     while docked. `left` is the dock's own width, so the two tiers meet
+     on the same axis whether the panel is flying or standing. */
+  .nav-panel {
     position: absolute;
     top: 0;
-    right: 0;
     bottom: 0;
-    width: 1px;
+    left: var(--nav-dock-w);
+    width: var(--nav-panel-w);
+    flex: none;
+  }
+  .nav-shell[data-docked="true"] .nav-panel {
+    position: relative;
+    left: auto;
+    flex: 0 0 var(--nav-panel-w);
+  }
+
+  /* Hidden is `visibility: hidden`, deliberately NOT `inert`. A hidden
+     element leaves the tab order by spec, which is all this needs — and
+     unlike `inert`, a CSS property can be un-set by the mobile query
+     below with no JS, whereas an attribute would strand the drawer's
+     links as permanently unfocusable. The delay rides the transition so
+     the panel stays visible for the whole exit. */
+  .nav-panel {
+    transition:
+      opacity var(--motion-dur-quick) var(--motion-ease-out),
+      transform var(--motion-dur-quick) var(--motion-ease-out),
+      visibility 0s linear 0s;
+  }
+  .nav-panel[data-open="false"] {
+    opacity: 0;
+    visibility: hidden;
     pointer-events: none;
-    background: linear-gradient(
-      180deg,
-      transparent 0%,
-      var(--color-primary) 50%,
-      transparent 100%
-    );
-    background-size: 100% 240px;
-    background-repeat: no-repeat;
-    animation: railCurrent 7s linear infinite;
-  }
-
-  /* The brand block keeps the logo visible at rest and centres it on the
-     rail's own axis. The arithmetic, because a comment claiming "centred"
-     without the numbers is how an offset ships unnoticed — and every
-     number below is MEASURED, not derived:
-       · the nav's `px-4` (16) plus a row's `px-3` (12) puts each icon box
-         at left 28; the box is 24px, so the column's axis is 40;
-       · the logo is 40px, so its left edge must be 40 - 20 = 20px.
-     Two things had to be true for that. The Link's `gap-3` must stop
-     adding 12px toward a label that is 0px wide at rest, and the logo
-     must not FLEX-SHRINK: the brand box is 75px inside the border, so
-     `20 + 40 + 20` overruns it and flex was quietly shrinking the mark
-     to 35px — which is why its centre measured 37.5 rather than 40. The
-     wrapper carries `shrink-0` for exactly that. Both return to the
-     sidebar's own `px-6`/`gap-3` on hover or focus. */
-  .nav-brand {
-    padding-left: 20px;
-    padding-right: 20px;
-  }
-  .nav-brand-link {
-    gap: 0;
-  }
-  .nav-rail:hover .nav-brand,
-  .nav-rail:focus-within .nav-brand {
-    padding-left: 24px;
-    padding-right: 24px;
-  }
-  .nav-rail:hover .nav-brand-link,
-  .nav-rail:focus-within .nav-brand-link {
-    gap: 12px;
-  }
-
-  /* A section header cannot shrink to an icon, so at rest it becomes the
-     group's own divider: a short centred hairline stands in for the label
-     it just clipped away, which is what keeps the rail reading as grouped
-     sections rather than one undifferentiated column of glyphs. The rule
-     fades out as the label fades in. */
-  .nav-group-head::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 20px;
-    height: 1px;
-    transform: translate(-50%, -50%);
-    background: var(--color-border);
-    transition: opacity var(--motion-dur-instant) var(--motion-ease-out);
-  }
-  .nav-rail:hover .nav-group-head::after,
-  .nav-rail:focus-within .nav-group-head::after {
-    opacity: 0;
-  }
-
-  /* Sub-rows (a media kind, a proxy lens) hang off a border-left rail.
-     Collapsed, that indent and its hairline would push their icons out of
-     line with every other icon in the rail, so they are dropped at rest
-     and restored on open. */
-  .nav-sub {
-    margin-left: 0;
-    padding-left: 0;
-    border-left-width: 0;
+    transform: translateX(-6px);
     transition:
-      margin-left var(--motion-dur-quick) var(--motion-ease-out),
-      padding-left var(--motion-dur-quick) var(--motion-ease-out),
-      border-left-width var(--motion-dur-quick) var(--motion-ease-out);
+      opacity var(--motion-dur-instant) var(--motion-ease-out),
+      transform var(--motion-dur-quick) var(--motion-ease-out),
+      visibility 0s linear var(--motion-dur-quick);
   }
-  .nav-rail:hover .nav-sub,
-  .nav-rail:focus-within .nav-sub {
-    margin-left: 1.5rem;
-    padding-left: 1rem;
-    border-left-width: 1px;
-  }
-
-  /* The update notice is a card, not a row: it cannot compact. It is
-     hidden at rest and returns whole on hover or focus, because a notice
-     squeezed into 76px would be unreadable rather than merely small. */
-  .nav-notice {
-    max-height: 0;
-    overflow: hidden;
-    opacity: 0;
-    transition:
-      max-height var(--motion-dur-quick) var(--motion-ease-out),
-      opacity var(--motion-dur-instant) var(--motion-ease-out);
-  }
-  .nav-rail:hover .nav-notice,
-  .nav-rail:focus-within .nav-notice {
-    max-height: 200px;
-    opacity: 1;
+  /* A float carries a shadow; so does a peek, because a previewed section
+     is the panel saying "this is not your selection". */
+  .nav-shell:not([data-docked="true"]) .nav-panel[data-open="true"],
+  .nav-panel[data-peek="true"] {
+    box-shadow: var(--shadow-elev);
   }
 }
-
 /* ============================================================
    The Providers Console (v0.9.86) — the fleet, on one scan line.
 
