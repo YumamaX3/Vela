@@ -209,10 +209,7 @@ export default function DashboardLayout({ children }) {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* `variant="drawer"` matters: the panel is always open there, and the
-            keyboard shortcuts unbind, because the desktop dock is mounted at
-            the same time and would otherwise answer every chord twice. */}
-        <Sidebar onClose={() => setSidebarOpen(false)} variant="drawer" />
+        <Sidebar onClose={() => setSidebarOpen(false)} />
       </div>
 
       {/* Main content */}

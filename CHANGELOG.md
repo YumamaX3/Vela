@@ -32,7 +32,50 @@ compliant form of the same number.
 
 ---
 
-# v1.0.25 — The Watchful Dock ✨
+# v1.0.26 - The Returned Shore 
+
+*The dock folded back into the tide it rose from; the harbor keeps its original light.*
+
+### What sailed
+- **The two-tier dock is gone.** The sidebar returns to the original form the
+  repo carried before v1.0.10 — the last classic ancestor at v0.9.84, restored
+  byte-for-byte: one 288px vibrancy glass column, every room label always
+  visible, Media Providers and Proxy as in-column accordions, the proxy
+  accordion opening itself on a deep link, the small-caps group headers.
+- **~880 lines of dock CSS excised** from `globals.css` — the whole `.nav-*`
+  roster (shell, dock, panel, search, glint, favorites, inbox, notice) and the
+  six dock-era token declarations; brace balance re-proven at 0/0.
+- **`DashboardLayout` call sites restored** to the pre-dock shape (no
+  `variant` prop); the desktop keyboard-chord gating leaves with the dock.
+- **Kept, deliberately:** `notificationStore` (the proxy tabs, providers,
+  fallback-rules, prompt-injectors and the layout itself consume it), and the
+  `RoomState` exports (the usage room consumes them). This tide reverts the
+  sidebar; it does not claw at other rooms' imports.
+- **The revert is honest about one quirk:** in the original, the four proxy
+  lens rows carry no active state of their own (both ternary branches are
+  identical in v0.9.84's `ProxyAccordion`); the parent accordion holds
+  `bg-primary/10 text-primary`. Restored as-found, not "improved".
+
+### Proof
+- `npm run build` green (exit 0, standalone assets carried).
+- Suites (scoped): dashboard-layout-drawer + modal-open-prop-regression +
+  focus-trap + scroll-lock-refcount 57 cases green · globals-css-tokens +
+  deck-motion + docker-compose-pin 71 cases green · key-pills-render +
+  key-format-filters 20 cases green. No test pinned the dock's class names.
+- Browser walk on the live dev harbor: 288px `aside.flex.w-72` with
+  `bg-vibrancy` + `backdrop-blur(24px)` renders; 16 base rooms + 6 media
+  children + 4 proxy lenses verified; `/dashboard/profile` still redirects to
+  Settings; accordion disclosures open and land their own hrefs
+  (`?tab=fleet/fitness/egress/relay`); mobile drawer correctly `display:none`
+  at desktop width with the menu button effectively hidden (parent
+  `lg:hidden`); console clean across three client-side navigations; React root
+  mounted, no error boundary.
+- Version law applied: judged **small** by the Star's word (the dock design
+  leaves outright; no new instrument joins) → `1.0.25 -> 1.0.26`.
+
+---
+
+# v1.0.25 - The Watchful Dock 
 
 *The dock learned to watch: a star for what you love, a glint for what ails the fleet, a bell for what arrived, and a density that follows your eye.*
 
