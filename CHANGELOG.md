@@ -32,6 +32,86 @@ compliant form of the same number.
 
 ---
 
+# v1.0.30 - The Beacon Shore 🗼
+
+*The deck learned to speak when the water turns — no more silent voids where a room should be.*
+
+### What sailed
+A sweep before this tide measured **zero** `error.js` / `loading.js` /
+`not-found.js` files in the whole deck: a failed fetch left a spinner turning
+forever, an exception left a blank void, and a mistyped address fell through to
+the framework's bare default. The Beacon Shore lights those three states.
+
+**The boundaries — four new files**
+- `src/app/not-found.js` — the root stray. An unmatched URL never traverses a
+  `(dashboard)` boundary, so this one carries the house's own frame and voice:
+  *"No shore at this address."*
+- `src/app/(dashboard)/dashboard/not-found.js` — an unknown `/dashboard/*` berth
+  keeps the shell and says *"No room at this berth."*
+- `src/app/(dashboard)/dashboard/error.js` — **the deck's first error boundary.**
+  `reset()` remounts the segment so the shell (sidebar, header, theme) survives a
+  room's throw; the full error goes to the console, the visitor sees the digest.
+- `src/app/(dashboard)/dashboard/loading.js` — a streaming skeleton that mirrors
+  the room body's grid, so nothing jumps when the real content lands. The
+  masthead is deliberately **not** faked — `PageShell` renders with its content.
+
+**The instruments — two new shared modules**
+- `src/shared/components/RoomState.js` — one component, three honest states
+  (loading skeletons · error with the room's own `retry` · empty that says what
+  is missing), reusing the deck's existing `Skeleton`/`CardSkeleton`/`Button`
+  rather than minting a parallel family.
+- `src/shared/hooks/useRoomState.js` — a fetch that fails becomes visible state:
+  `loading` is derived (never stored), stale runs are discarded by `runId`, and
+  `detail` carries the response body so *"Failed to fetch"* is never the whole
+  story.
+
+**The wounded room — the usage observatory**
+- `usage/hooks/useMetrics.js` — a failed **initial** load no longer hides behind
+  fail-open: `error` and `refetch` now cross the door, while a failed *refetch*
+  still keeps its prior data (the distinction the hook's header states).
+- `usage/page.js` — the KPI band, the traffic chart and the rankings each mount
+  `RoomState`, so a dead metrics endpoint names itself instead of spinning.
+
+**One new door**
+- `GET /api/providers/status` — a counts-only census (healthy · degraded · down ·
+  cooling · idle, plus fleet-worst) mirroring `ProvidersPage.deriveState`, so no
+  two lenses can disagree on what "degraded" means. Read-boundary §5.4 held by
+  construction: no credentials, no `providerSpecificData`, no names cross it.
+
+### Proof
+- `npm run build` green (exit 0, standalone assets carried) with every new file
+  in the graph.
+- **Live probes:** the census answered real data —
+  `{"counts":{"healthy":13,"degraded":0,"down":0,"cooling":0,"idle":1},"worst":"idle","providers":14}`;
+  a stray `/dashboard/no-such-berth` rendered *"No room at this berth"*; a stray
+  `/no-such-berth` rendered *"No shore at this address"* — the two boundaries
+  doing two different jobs.
+- **The error path, stormed on purpose:** with `fetch` poisoned for
+  `/api/usage/metrics` the usage room rendered *"The usage KPIs could not load —
+  the metrics endpoint refused the request (HTTP 500)"* with its own **Try
+  again**; every block's retry was pressed and every one healed (0 titles left,
+  0 retries left, content restored).
+- **Console:** a sentinel-guarded sweep across Home → Usage → Providers carried
+  **zero** uncaught errors or rejections, in one document throughout.
+
+### Carried, and named honestly
+- `/api/providers/status` takes its counts straight from the **`rail's glint
+  census`** comment — it was forged for the dock's glint rail, and v1.0.26
+  returned that rail to the original sidebar. Nothing in this tree consumes it
+  today. It answers correctly when asked (proven above) and is carried as the
+  Star's own work, not re-plumbed by this tide's hand.
+- `useRoomState` is exported from the barrel and consumed by no room yet; the
+  usage observatory uses `useMetrics`' inline error/refetch. Proven by build,
+  not yet by use — recorded rather than glossed.
+- `error.js` was not triggered by a deliberate render throw; it is the framework's
+  own boundary contract, compiled into the build.
+
+### Version
+`1.0.26 -> 1.0.30` — the number this work reserved for itself (its comments name
+it throughout) and the one v1.0.26's small step deliberately left free.
+
+---
+
 # v1.0.26 - The Returned Shore 
 
 *The dock folded back into the tide it rose from; the harbor keeps its original light.*

@@ -29,7 +29,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Card, CardSkeleton } from "@/shared/components";
+import { Card, CardSkeleton, RoomState } from "@/shared/components";
 import { useMetrics } from "./hooks/useMetrics";
 import { useUsageStream } from "./hooks/useUsageStream";
 import RequestDetailsTab from "./components/RequestDetailsTab";
@@ -151,7 +151,7 @@ const KPI_STYLES = {
 };
 
 function KpiBand({ period }) {
-  const { data: kpis, loading } = useMetrics("kpis", `period=${period}`);
+  const { data: kpis, loading, error, refetch } = useMetrics("kpis", `period=${period}`);
   // Realtime: after the initial fetch, re-read the same KPI endpoint on a
   // light interval and swap the numbers in place — no page reload, no
   // skeleton flicker. Cadence matches the SSE coalesced full-refresh (≥15s).
@@ -180,6 +180,16 @@ function KpiBand({ period }) {
 
   const kpisData = kpiFresh || kpis;
 
+  if (error && !kpisData) {
+    return (
+      <RoomState
+        state="error"
+        title="The usage KPIs could not load"
+        description={`The metrics endpoint refused the request (${error}). The rest of the observatory is unaffected.`}
+        retry={refetch}
+      />
+    );
+  }
   if (loading || !kpisData) {
     return (
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -290,7 +300,7 @@ function perMtok(kpis) {
 // ── Traffic chart (recharts, /api/usage/metrics/timeseries) ────────────────
 function TrafficArea({ period }) {
   const granularity = period === "today" || period === "24h" ? "1h" : "1d";
-  const { data, loading } = useMetrics(
+  const { data, loading, error, refetch } = useMetrics(
     "timeseries",
     `period=${period}&metric=requests&granularity=${granularity}`
   );
@@ -306,6 +316,17 @@ function TrafficArea({ period }) {
 
   if (loading) {
     return <div className="h-[220px] animate-pulse rounded-xl bg-surface-2" />;
+  }
+
+  if (error && points.length === 0) {
+    return (
+      <RoomState
+        state="error"
+        title="The traffic chart could not load"
+        description={`The timeseries endpoint refused the request (${error}).`}
+        retry={refetch}
+      />
+    );
   }
 
   if (points.length === 0) {
@@ -374,7 +395,7 @@ function fmtTick(t, granularity) {
 
 // ── Ranked list (top models / top spenders) ─────────────────────────────────
 function RankedList({ period, metric, dimension, title, subtitle, icon, valueFmt }) {
-  const { data, loading } = useMetrics(
+  const { data, loading, error, refetch } = useMetrics(
     "breakdown",
     `period=${period}&dimension=${dimension}&metric=${metric}`
   );
@@ -394,6 +415,13 @@ function RankedList({ period, metric, dimension, title, subtitle, icon, valueFmt
             <div key={i} className="h-5 animate-pulse rounded bg-surface-2" />
           ))}
         </div>
+      ) : error && items.length === 0 ? (
+        <RoomState
+          state="error"
+          title="This ranking could not load"
+          description={`The breakdown endpoint refused the request (${error}).`}
+          retry={refetch}
+        />
       ) : items.length === 0 ? (
         <p className="py-6 text-center text-sm text-text-muted">No data yet</p>
       ) : (

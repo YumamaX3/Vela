@@ -6,5 +6,6 @@ export { useFocusTrap } from "./useFocusTrap";
 export { useReveal } from "./useReveal";
 export { useCountUp } from "./useCountUp";
 export { useAmbientController, useAmbientPause } from "./useAmbient";
+export { default as useRoomState } from "./useRoomState";
 // NOTE: useCopyToClipboard.js exists in this directory but is not exported here —
 // pre-existing, left alone so this commit stays one logical change.

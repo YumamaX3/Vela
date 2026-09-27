@@ -40,6 +40,7 @@ export { default as TabBar } from "./TabBar";
 export { default as Tooltip } from "./Tooltip";
 export { default as ProviderInfoCard } from "./ProviderInfoCard";
 export { default as CapacityBadges } from "./CapacityBadges";
+export { default as RoomState } from "./RoomState";
 
 // Layouts
 export * from "./layouts";
