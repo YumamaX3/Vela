@@ -2263,6 +2263,137 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
   color: var(--color-text-subtle);
 }
 
+/* ---- The four instruments -------------------------------------
+   Favorites, the fleet glint, the inbox, and the density shore. Every
+   color here cites a token the deck already owns: the glint speaks the
+   providers console's own state vocabulary (--color-danger / warning /
+   info), so the nav and the console can never disagree on what a state
+   looks like. */
+
+/* The fleet glint: a 7px dot on the Gateway glyph's shoulder, speaking
+   only when the fleet needs a look. Calm water stays unmarked - a dock
+   that glows green all day says nothing the eye learns to ignore. */
+.nav-glint {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  pointer-events: none;
+  animation: navGlintIn var(--motion-dur-quick) var(--motion-ease-out) backwards;
+}
+.nav-dock-btn .nav-glint { top: 5px; right: 5px; }
+.nav-glint-down { background: var(--color-danger); }
+.nav-glint-degraded { background: var(--color-brand-600); }
+.dark .nav-glint-degraded { background: var(--color-warning); }
+.nav-glint-cooling { background: var(--color-info); }
+.nav-glint-idle { background: var(--color-text-subtle); }
+.nav-glint-info { background: var(--color-info); }
+@keyframes navGlintIn {
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+/* The density shore: compact rows are shorter and tighter, but never
+   below the 30px the sub-rows already keep - density squeezes padding,
+   not readability. Scoped to the shell, so a data-density value on any
+   other element costs nothing. */
+.nav-shell[data-density="compact"] .nav-room { min-height: 28px; }
+.nav-shell[data-density="compact"] .nav-sub .nav-room { min-height: 24px; }
+.nav-shell[data-density="compact"] .nav-result-head { padding-block: 0.3rem 0.15rem; }
+
+/* The star: hidden at rest, shown on row hover or when already starred.
+   It sits beside the row (sibling, never nested in the link), so the
+   wrapper is the flex ground and the row keeps its full-width hover. */
+.nav-room-wrap { position: relative; display: flex; align-items: center; }
+.nav-room-wrap .nav-room { flex: 1; min-width: 0; }
+.nav-fav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-subtle);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity var(--motion-dur-instant) var(--motion-ease-out),
+    color var(--motion-dur-instant) var(--motion-ease-out);
+}
+.nav-room-wrap:hover .nav-fav-btn,
+.nav-fav-btn[data-fav="true"] { opacity: 1; }
+.nav-fav-btn:hover { color: var(--color-brand-600); }
+.nav-fav-btn[data-fav="true"] .material-symbols-outlined { color: var(--color-brand-600); }
+.dark .nav-fav-btn:hover,
+.dark .nav-fav-btn[data-fav="true"] .material-symbols-outlined { color: var(--color-warning); }
+.nav-fav-btn .material-symbols-outlined { font-size: 16px; }
+/* Focus reaches the star without a pointer, same as any dock mark. */
+.nav-fav-btn:focus-visible { opacity: 1; outline: 2px solid var(--color-brand-500); outline-offset: 1px; }
+
+/* Favorites group: the starred rooms ride at the top of the body, a
+   hairline beneath them separating the chosen from the section's own. */
+.nav-fav-group { border-bottom: 1px solid var(--color-border-subtle); margin-bottom: 0.25rem; }
+
+/* The inbox: a quiet list of cards, one per message. The type glyph takes
+   the message's own tone, so an error reads as an error before a word
+   is read. */
+.nav-inbox-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 8px;
+}
+.nav-inbox-card:hover { background: var(--color-surface-2); }
+.nav-inbox-card > .material-symbols-outlined { font-size: 18px; flex: 0 0 auto; margin-top: 1px; }
+.nav-inbox-card[data-kind="error"] > .material-symbols-outlined { color: var(--color-danger); }
+.nav-inbox-card[data-kind="success"] > .material-symbols-outlined { color: var(--color-success); }
+.nav-inbox-card[data-kind="warning"] > .material-symbols-outlined { color: var(--color-warning); }
+.nav-inbox-card[data-kind="update"] > .material-symbols-outlined { color: var(--color-info); }
+.nav-inbox-card[data-kind="info"] > .material-symbols-outlined { color: var(--color-info); }
+.nav-inbox-main { flex: 1; min-width: 0; }
+.nav-inbox-title { font-size: 12.5px; font-weight: 640; color: var(--color-text-main); }
+.nav-inbox-msg { font-size: 12.5px; color: var(--color-text-muted); overflow-wrap: anywhere; }
+.nav-inbox-time { font-size: 10px; color: var(--color-text-subtle); margin-top: 2px; }
+.nav-inbox-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-brand-600);
+  cursor: pointer;
+}
+.dark .nav-inbox-link { color: var(--color-brand-400); }
+.nav-inbox-link:hover { color: var(--color-brand-700); text-decoration: underline; }
+.dark .nav-inbox-link:hover { color: var(--color-brand-300); }
+.nav-inbox-dismiss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-subtle);
+  cursor: pointer;
+}
+.nav-inbox-dismiss:hover { background: var(--color-surface-2); color: var(--color-text-main); }
+.nav-inbox-dismiss .material-symbols-outlined { font-size: 14px; }
+
+/* The inbox mark rides the dock foot, so the foot's column keeps its
+   three 40px marks; the unread glint sits above the glyph's shoulder. */
+.nav-icon-btn { position: relative; }
+.nav-icon-btn .nav-glint { top: 6px; right: 6px; }
+
 /* ---- The update notice ----------------------------------------
    A card, not a row. It used to live in the brand berth and had to be
    hidden at rest — a notice squeezed into 76px would be unreadable rather

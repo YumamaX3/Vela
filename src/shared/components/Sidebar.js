@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, useSyncExternalStore } from "react";
 import PropTypes from "prop-types";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -7,25 +7,64 @@ import { APP_CONFIG, UPDATER_CONFIG } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { translate } from "@/i18n/runtime";
+import { useNotificationStore } from "@/store/notificationStore";
+import { getRelativeTime } from "@/shared/utils";
 import Button from "./Button";
 import { ConfirmModal } from "./Modal";
 import NineRemotePromoModal from "./NineRemotePromoModal";
 import UpdateNoticeModal from "./UpdateNoticeModal";
 
-/* ---- The two keys the nav keeps across tides --------------------- */
+/* ---- The keys the nav keeps across tides ------------------------- */
 const DOCKED_KEY = "vela_nav_docked";
 const UPDATE_DISMISSED_KEY = "vela_update_dismissed";
-
-const readDocked = () => {
+const FAVS_KEY = "vela_nav_favs";
+const DENSITY_KEY = "vela_nav_density";
+const readJSONKey = (key, fallback) => {
   try {
-    if (typeof localStorage === "undefined") return true;
-    return localStorage.getItem(DOCKED_KEY) !== "false";
+    if (typeof localStorage === "undefined") return fallback;
+    const raw = localStorage.getItem(key);
+    return raw === null ? fallback : JSON.parse(raw);
   } catch {
-    // Storage can be refused outright (private mode, hardened browser).
-    // The docked shore is the default, so a refused read costs nothing.
-    return true;
+    return fallback;
   }
 };
+
+/* localStorage is an external store: the server cannot see it, and two
+   Sidebar instances (dock + drawer) read the same keys. useSyncExternalStore
+   gives every value one server snapshot, one client snapshot, and one
+   subscription that re-renders each reader when a writer writes - the seam
+   React provides for exactly this, with no hydration mismatch and no
+   cascading render. Writers mutate storage, then notify. */
+const navStoreListeners = new Set();
+const subscribeNav = (cb) => {
+  navStoreListeners.add(cb);
+  return () => navStoreListeners.delete(cb);
+};
+const notifyNav = () => {
+  navStoreListeners.forEach((cb) => cb());
+};
+const getDockedSnapshot = () => {
+  try {
+    if (typeof localStorage === "undefined") return "true";
+    return localStorage.getItem(DOCKED_KEY) !== "false" ? "true" : "false";
+  } catch {
+    return "true";
+  }
+};
+const getDockedServer = () => "true";
+const getFavsSnapshot = () => JSON.stringify(readJSONKey(FAVS_KEY, []));
+const getFavsServer = () => "[]";
+const getDensitySnapshot = () => readJSONKey(DENSITY_KEY, "comfortable");
+const getDensityServer = () => "comfortable";
+const getDismissedSnapshot = () => {
+  try {
+    if (typeof localStorage === "undefined") return "";
+    return localStorage.getItem(UPDATE_DISMISSED_KEY) || "";
+  } catch {
+    return "";
+  }
+};
+const getDismissedServer = () => "";
 
 /* ---- The rooms ---------------------------------------------------
    Labels stay raw English. The i18n runtime resolves them at render,
@@ -200,7 +239,8 @@ export default function Sidebar({ onClose, variant = "dock" }) {
   const [selected, setSelected] = useState(() => sectionForPath(pathname));
   const [peek, setPeek] = useState(null);
   const [currentTab, setCurrentTab] = useState(null);
-  const [docked, setDocked] = useState(readDocked);
+  const dockedStr = useSyncExternalStore(subscribeNav, getDockedSnapshot, getDockedServer);
+  const docked = dockedStr === "true";
   const [shellFocus, setShellFocus] = useState(false);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -212,17 +252,17 @@ export default function Sidebar({ onClose, variant = "dock" }) {
   const [updateInfo, setUpdateInfo] = useState(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showNoticeModal, setShowNoticeModal] = useState(false);
-  const [dismissedVersion, setDismissedVersion] = useState(() => {
-    try {
-      if (typeof localStorage === "undefined") return "";
-      return localStorage.getItem(UPDATE_DISMISSED_KEY) || "";
-    } catch {
-      return "";
-    }
-  });
+  const dismissedVersion = useSyncExternalStore(subscribeNav, getDismissedSnapshot, getDismissedServer);
   const [isUpdating, setIsUpdating] = useState(false);
   const [shutdownCountdown, setShutdownCountdown] = useState(0);
   const [enableTranslator, setEnableTranslator] = useState(false);
+  const favsRaw = useSyncExternalStore(subscribeNav, getFavsSnapshot, getFavsServer);
+  const favs = useMemo(() => JSON.parse(favsRaw), [favsRaw]);
+  const density = useSyncExternalStore(subscribeNav, getDensitySnapshot, getDensityServer);
+  const [panelMode, setPanelMode] = useState("rooms");
+  const [census, setCensus] = useState(null);
+  const notifications = useNotificationStore((s) => s.notifications);
+  const removeNotification = useNotificationStore((s) => s.removeNotification);
 
   const searchRef = useRef(null);
   const activeChipRef = useRef(null);
@@ -239,16 +279,14 @@ export default function Sidebar({ onClose, variant = "dock" }) {
   // temporal dead zone on the first paint and throw. The order here is
   // load-bearing, not stylistic.
   const toggleDock = useCallback(() => {
-    setDocked((prev) => {
-      const next = !prev;
-      try {
-        if (typeof localStorage !== "undefined") localStorage.setItem(DOCKED_KEY, String(next));
-      } catch {
-        // Denied storage simply means the choice does not outlive the tab.
-      }
-      return next;
-    });
-  }, []);
+    const next = !docked;
+    try {
+      if (typeof localStorage !== "undefined") localStorage.setItem(DOCKED_KEY, String(next));
+    } catch {
+      // Denied storage simply means the choice does not outlive the tab.
+    }
+    notifyNav();
+  }, [docked]);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -304,6 +342,46 @@ export default function Sidebar({ onClose, variant = "dock" }) {
   useEffect(() => {
     if (searchOpen) searchRef.current?.focus();
   }, [searchOpen]);
+  /* The harbor's pulse: one shared census read per minute, dock only. The
+     drawer is held off-screen on the wide shore and never glints on the
+     narrow one, so a second poll would double the current for a mark
+     nobody can see. Shape: { counts, worst, providers } — counts only,
+     per the census door's own read boundary. */
+  useEffect(() => {
+    if (variant !== "dock") return undefined;
+    let alive = true;
+    const load = () =>
+      fetch("/api/providers/status", { cache: "no-store" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (alive && data) setCensus(data);
+        })
+        .catch(() => {});
+    load();
+    const id = setInterval(load, 60000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [variant]);
+  const toggleFav = useCallback((roomId) => {
+    const next = favs.includes(roomId) ? favs.filter((id) => id !== roomId) : [...favs, roomId];
+    try {
+      if (typeof localStorage !== "undefined") localStorage.setItem(FAVS_KEY, JSON.stringify(next));
+    } catch {
+      // Denied storage simply means the choice does not outlive the tab.
+    }
+    notifyNav();
+  }, [favs]);
+  const toggleDensity = useCallback(() => {
+    const next = density === "compact" ? "comfortable" : "compact";
+    try {
+      if (typeof localStorage !== "undefined") localStorage.setItem(DENSITY_KEY, JSON.stringify(next));
+    } catch {
+      // Denied storage simply means the choice does not outlive the tab.
+    }
+    notifyNav();
+  }, [density]);
 
   // The narrow shore runs the dock as a sideways strip, so a chip selected
   // from elsewhere must be walked back into view. jsdom implements no layout
@@ -320,6 +398,7 @@ export default function Sidebar({ onClose, variant = "dock" }) {
     setPeek(null);
     setQuery("");
     setSearchOpen(false);
+    setPanelMode("rooms");
     // Deliberately does not call `onClose`: on the narrow shore the drawer
     // must survive a section tap, or the operator can never reach a room.
   }, []);
@@ -361,7 +440,7 @@ export default function Sidebar({ onClose, variant = "dock" }) {
     } catch {
       // storage unavailable
     }
-    setDismissedVersion(v);
+    notifyNav();
     setUpdateInfo(null);
   };
 
@@ -370,6 +449,7 @@ export default function Sidebar({ onClose, variant = "dock" }) {
     setQuery("");
     setSearchOpen(false);
     setPeek(null);
+    setPanelMode("rooms");
     if (onClose) onClose();
   };
 
@@ -415,7 +495,10 @@ export default function Sidebar({ onClose, variant = "dock" }) {
      by hovering another section, by focusing anything inside the shell, or
      by searching. A keyboard user tabs out of the last dock glyph and into
      the panel because `shellFocus` holds it. */
-  const panelOpen = variant === "drawer" ? true : docked || peek !== null || shellFocus || searchOpen || searched;
+  const panelOpen =
+    variant === "drawer"
+      ? true
+      : docked || peek !== null || shellFocus || searchOpen || searched || panelMode === "notifications";
 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -432,6 +515,22 @@ export default function Sidebar({ onClose, variant = "dock" }) {
         }),
     })).filter((group) => group.rooms.length > 0);
   }, [query, enableTranslator]);
+  /* The starred rooms, resolved across every section and gate-filtered like
+     search results: a favorite that the translator gate hides must not
+     surface here either, or the panel would offer a door it refuses to open. */
+  const favRooms = useMemo(() => {
+    const all = SECTIONS.flatMap((section) => section.rooms.flatMap((room) => [room, ...(room.children || [])]));
+    return favs
+      .map((id) => all.find((room) => room.id === id))
+      .filter((room) => room && (room.gate !== "translator" || enableTranslator));
+  }, [favs, enableTranslator]);
+  const hasUnread = Boolean(updateInfo) || notifications.length > 0;
+  /* One glint, one sentence: the dock button's name carries the fleet's
+     worst state so a screen reader hears the same news the eye sees. */
+  const glintText =
+    census?.worst && census.worst !== "healthy"
+      ? `${translate("Providers")}: ${translate(census.worst.charAt(0).toUpperCase() + census.worst.slice(1))}`
+      : null;
 
   const renderRoom = (room) => {
     if (room.gate === "translator" && !enableTranslator) return null;
@@ -444,6 +543,8 @@ export default function Sidebar({ onClose, variant = "dock" }) {
           active={room.href ? isRouteActive(room.href, room.exact) : false}
           onClick={() => handleRoomClick(room.href)}
           onRemote={handleRemote}
+          starred={favs.includes(room.id)}
+          onStar={toggleFav}
         />
       );
     }
@@ -476,6 +577,8 @@ export default function Sidebar({ onClose, variant = "dock" }) {
                 active={isRouteActive(child.href)}
                 onClick={() => handleRoomClick(child.href)}
                 onRemote={handleRemote}
+                starred={favs.includes(child.id)}
+                onStar={toggleFav}
               />
             ))}
           </div>
@@ -490,10 +593,11 @@ export default function Sidebar({ onClose, variant = "dock" }) {
         className="nav-shell"
         data-docked={docked ? "true" : "false"}
         data-variant={variant}
-        // `docked` and `keyHint` are read from the machine before first
-        // paint so a chosen shore never flashes the other one. The server
-        // cannot know either, so this one element is allowed to differ on
-        // hydration rather than jitter on every load.
+        data-density={density}
+        // The server cannot see this machine's storage or platform, so any
+        // value it cannot know may differ on first paint; the storage-backed
+        // ones arrive through useSyncExternalStore, whose server snapshot is
+        // authoritative during hydration and whose client snapshot follows.
         suppressHydrationWarning
         onMouseLeave={() => setPeek(null)}
         onFocusCapture={() => setShellFocus(true)}
@@ -529,7 +633,7 @@ export default function Sidebar({ onClose, variant = "dock" }) {
                   ref={active ? activeChipRef : null}
                   className="nav-dock-btn"
                   data-active={active ? "true" : "false"}
-                  aria-label={translate(section.label)}
+                  aria-label={translate(section.label) + (section.id === "gateway" && glintText ? ` — ${glintText}` : "")}
                   aria-current={section.id === selected ? "true" : undefined}
                   title={translate(section.label)}
                   onClick={() => selectSection(section.id)}
@@ -537,6 +641,12 @@ export default function Sidebar({ onClose, variant = "dock" }) {
                   onFocus={() => setPeek(section.id === selected ? null : section.id)}
                 >
                   <span className="material-symbols-outlined" aria-hidden="true">{section.icon}</span>
+                  {section.id === "gateway" && census?.worst && census.worst !== "healthy" && (
+                    <span
+                      className={`nav-glint nav-glint-${census.worst}`}
+                      aria-hidden="true"
+                    />
+                  )}
                   <span className="nav-dock-text">{translate(section.label)}</span>
                   {active && <span className="nav-dock-count">{section.rooms.length}</span>}
                 </button>
@@ -564,6 +674,31 @@ export default function Sidebar({ onClose, variant = "dock" }) {
             >
               <span className="material-symbols-outlined" aria-hidden="true">search</span>
             </button>
+            {/* The harbor's pulse: the inbox gathers the bulletin and the
+                session toasts so a dismissed notification can still be read. */}
+            <button
+              type="button"
+              className="nav-icon-btn"
+              aria-label={translate("Notifications")}
+              title={translate("Notifications")}
+              aria-pressed={panelMode === "notifications"}
+              onClick={() => setPanelMode((mode) => (mode === "notifications" ? "rooms" : "notifications"))}
+            >
+              <span className="material-symbols-outlined" aria-hidden="true">monitor_heart</span>
+              {hasUnread && <span className="nav-glint nav-glint-info" aria-hidden="true" />}
+            </button>
+            {/* One rhythm or two: the density mark switches the panel's rows
+                between the comfortable shore and the compact one. */}
+            <button
+              type="button"
+              className="nav-icon-btn"
+              aria-label={translate(density === "compact" ? "Comfortable density" : "Compact density")}
+              title={translate(density === "compact" ? "Comfortable density" : "Compact density")}
+              aria-pressed={density === "compact"}
+              onClick={toggleDensity}
+            >
+              <span className="material-symbols-outlined" aria-hidden="true">tune</span>
+            </button>
           </div>
         </nav>
 
@@ -574,8 +709,10 @@ export default function Sidebar({ onClose, variant = "dock" }) {
         >
           <div className="nav-panel-head">
             <div className="nav-panel-title">
-              <span className="material-symbols-outlined" aria-hidden="true">{searched ? "search" : shown.icon}</span>
-              <span>{searched ? translate("Search") : translate(shown.label)}</span>
+              <span className="material-symbols-outlined" aria-hidden="true">
+                {searched ? "search" : panelMode === "notifications" ? "monitor_heart" : shown.icon}
+              </span>
+              <span>{searched ? translate("Search") : translate(panelMode === "notifications" ? "Notifications" : shown.label)}</span>
             </div>
             {/* A label, not a div: the whole 32px field answers a pointer, and the input's own
                 aria-label keeps the name, so the wider berth costs the name nothing. */}
@@ -655,8 +792,55 @@ export default function Sidebar({ onClose, variant = "dock" }) {
             </div>
           )}
 
-          {/* Re-keyed on the shown section so the staggered room entrance
-              replays when the operator changes sections or starts searching. */}
+          {/* The inbox: the bulletin's content without its urgency, plus the
+              session's toasts, each dismissible. Re-keyed so the rows rise
+              on the same entrance cadence the rooms keep. */}
+          {panelMode === "notifications" && !searched ? (
+            <div className="nav-panel-body" key="notifications">
+              {updateInfo && (
+                <div className="nav-inbox-card" data-kind="update">
+                  <span className="material-symbols-outlined" aria-hidden="true">sailing</span>
+                  <div className="nav-inbox-main">
+                    <div className="nav-inbox-title">
+                      {translate("New tide")}: v{updateInfo.currentVersion} → v{updateInfo.latestVersion}
+                    </div>
+                    <button type="button" className="nav-inbox-link" onClick={() => setShowNoticeModal(true)}>
+                      {translate("Details")}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {notifications.length === 0 && !updateInfo ? (
+                <p className="nav-empty">{translate("All quiet. No notifications.")}</p>
+              ) : (
+                notifications.map((note) => (
+                  <div className="nav-inbox-card" data-kind={note.type} key={note.id}>
+                    <span className="material-symbols-outlined" aria-hidden="true">
+                      {note.type === "error" ? "error" : note.type === "success" ? "check_circle" : note.type === "warning" ? "update" : "info"}
+                    </span>
+                    <div className="nav-inbox-main">
+                      {note.title && <div className="nav-inbox-title">{note.title}</div>}
+                      <div className="nav-inbox-msg">{note.message}</div>
+                      <div className="nav-inbox-time">{getRelativeTime(new Date(note.createdAt).toISOString())}</div>
+                    </div>
+                    {note.dismissible && (
+                      <button
+                        type="button"
+                        className="nav-inbox-dismiss"
+                        aria-label={translate("Dismiss notification")}
+                        title={translate("Dismiss notification")}
+                        onClick={() => removeNotification(note.id)}
+                      >
+                        <span className="material-symbols-outlined" aria-hidden="true">close</span>
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          ) : (
+          /* Re-keyed on the shown section so the staggered room entrance
+              replays when the operator changes sections or starts searching. */
           <div className="nav-panel-body" key={searched ? "search" : shown.id}>
             {searched ? (
               groups.length === 0 ? (
@@ -672,15 +856,36 @@ export default function Sidebar({ onClose, variant = "dock" }) {
                         active={room.href ? isRouteActive(room.href, room.exact) : false}
                         onClick={() => handleRoomClick(room.href)}
                         onRemote={handleRemote}
+                        starred={favs.includes(room.id)}
+                        onStar={toggleFav}
                       />
                     ))}
                   </div>
                 ))
               )
             ) : (
-              shown.rooms.map((room) => renderRoom(room))
+              <>
+                {favRooms.length > 0 && (
+                  <div className="nav-result-group nav-fav-group">
+                    <div className="nav-result-head">{translate("Favorites")}</div>
+                    {favRooms.map((room) => (
+                      <RoomRow
+                        key={`fav-${room.id}`}
+                        room={room}
+                        active={room.href ? isRouteActive(room.href, room.exact) : false}
+                        onClick={() => handleRoomClick(room.href)}
+                        onRemote={handleRemote}
+                        starred={favs.includes(room.id)}
+                        onStar={toggleFav}
+                      />
+                    ))}
+                  </div>
+                )}
+                {shown.rooms.map((room) => renderRoom(room))}
+              </>
             )}
           </div>
+          )}
 
           <div className="nav-panel-foot">
             <span>v{APP_CONFIG.version}</span>
@@ -746,8 +951,10 @@ Sidebar.propTypes = {
 
 /* One room, three possible natures: a link to a room, a door off the shore,
    or an act that opens a modal. `aria-current` is the accessibility
-   contract; `data-active` is only the styling hook. */
-function RoomRow({ room, active, onClick, onRemote }) {
+   contract; `data-active` is only the styling hook. When the row can be
+   starred, the star rides a wrapper as the row's own sibling - a button
+   nested inside a link is invalid HTML, and this tide keeps its markup honest. */
+function RoomRow({ room, active, onClick, onRemote, starred, onStar }) {
   const inner = (
     <>
       {active && <span className="nav-active-bar" />}
@@ -757,8 +964,9 @@ function RoomRow({ room, active, onClick, onRemote }) {
     </>
   );
 
+  let row;
   if (room.external) {
-    return (
+    row = (
       <a
         href={room.href}
         target="_blank"
@@ -770,10 +978,8 @@ function RoomRow({ room, active, onClick, onRemote }) {
         {inner}
       </a>
     );
-  }
-
-  if (room.action === "remote") {
-    return (
+  } else if (room.action === "remote") {
+    row = (
       <button
         type="button"
         className="nav-room"
@@ -783,18 +989,39 @@ function RoomRow({ room, active, onClick, onRemote }) {
         {inner}
       </button>
     );
+  } else {
+    row = (
+      <Link
+        href={room.href}
+        className="nav-room"
+        data-active={active ? "true" : "false"}
+        aria-current={active ? "page" : undefined}
+        onClick={onClick}
+      >
+        {inner}
+      </Link>
+    );
   }
-
+  if (!onStar) return row;
   return (
-    <Link
-      href={room.href}
-      className="nav-room"
-      data-active={active ? "true" : "false"}
-      aria-current={active ? "page" : undefined}
-      onClick={onClick}
-    >
-      {inner}
-    </Link>
+    <div className="nav-room-wrap" data-starred={starred ? "true" : "false"}>
+      {row}
+      <button
+        type="button"
+        className="nav-fav-btn"
+        data-fav={starred ? "true" : "false"}
+        aria-label={translate(starred ? "Remove from favorites" : "Add to favorites")}
+        aria-pressed={starred}
+        title={translate(starred ? "Remove from favorites" : "Add to favorites")}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onStar(room.id);
+        }}
+      >
+        <span className="material-symbols-outlined" aria-hidden="true">star</span>
+      </button>
+    </div>
   );
 }
 
@@ -811,6 +1038,8 @@ RoomRow.propTypes = {
   active: PropTypes.bool,
   onClick: PropTypes.func,
   onRemote: PropTypes.func,
+  starred: PropTypes.bool,
+  onStar: PropTypes.func,
 };
 
 /* The manual-update berth. Preserved whole: its markup, its three-branch

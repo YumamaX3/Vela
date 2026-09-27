@@ -9,8 +9,12 @@ sealed together in the same commit:
 
 | Tide | Rule | Example |
 |-|-|-|
-| **Small change** 🐚 | the last number ticks up by one | `1.0.0 → 1.0.1` |
-| **Big change** 🌊 | the last number rounds up to the next milestone of ten | `1.0.3 → 1.0.10` |
+| **Small change** 🐚 | the last number ticks up by one (`+0.0.01`) | `1.0.1 → 1.0.2` |
+| **Big change** 🌊 | the last number leaps five (`+0.0.05`) | `1.0.1 → 1.0.6` |
+
+> *The Star's decree, 2026-09-27:* the old "round up to the next milestone of
+> ten" tide rule is **retired** — a big change now leaps five, a small one
+> ticks one. The carry laws below are unchanged.
 
 The middle digit never passes `9`: when the last number ends `.99` the carry
 flows into the middle digit and the last number drops to `0`
@@ -27,6 +31,26 @@ compliant form of the same number.
 > keeps their names as they were.*
 
 ---
+
+# v1.0.25 — The Watchful Dock ✨
+
+*The dock learned to watch: a star for what you love, a glint for what ails the fleet, a bell for what arrived, and a density that follows your eye.*
+
+### ✨ The Four Instruments
+- **Favorites** ⭐ — every room row carries a hover-revealed star (`nav-fav-btn`); starred rooms surface in a Favorites strip under Home. Persisted at `vela_nav_favs`, starred glyphs carry `brand-600` light / `warning` dark (4.71 light / 9.55 dark on surface-2, the darkest shore each way).
+- **Fleet glint** 🔴 — a 7px status dot rides each dock section glyph (`nav-glint-*`): `danger` for down, `brand-600` for degraded/cooling in light, `warning` in dark, `info` for cooling/info, `text-subtle` idle. Color-only by design — the same state is announced as text in the providers console and the panel's own title (WCAG 1.4.11 content duplication).
+- **Notification inbox** 🔔 — the panel's third mode (`monitor_heart`): a live card list fed by `useNotificationStore` (`data-kind` success/error/warning/update/info), relative times via `getRelativeTime`, each card's glyph wearing its kind token. Replaces the bare update notice as the panel's bulletin.
+- **Density** 🇵 — `vela_nav_density` toggle (comfortable/compact); compact tightens room rows to 28px, sub-rows 24px, search groups to 0.3rem. Stored, hydration-safe via `useSyncExternalStore`.
+### 🔧 Refinements
+- `keyHint` (⌘K / Ctrl K) reads once from the platform, out of every effect's dep list; dock-count/badge/notice grounds re-inked to `brand-700` (6.21 both shores), notice-go hover to `brand-800` (9.33) — no new token minted.
+- The dock/undock, search, shortcuts, drawer and contrast law of v1.0.10/v1.0.20 stand untouched.
+### ♿ Proof
+- Production build green: compiled 39.7s, 164/164 pages, postbuild assets copied (126.65s wall).
+- Suites: `deck-motion` + `globals-css-tokens` + `docker-compose-pin` → **71 cases green**; `dashboard-layout-drawer` + `focus-trap` + `modal-open-prop-regression` + `scroll-lock-refcount` → **57 cases green**.
+- Live walk (dev harbor :32060, headless): favorites persist across reload (round-trip `true→false→true`); glint state classes read from the live stylesheet on both shores; Ctrl+K focuses the search input, Ctrl+B toggles dock `true→false→true`; Escape clears then blurs; clear rune wipes and restores the kbd hint; search groups Proxy+MITM under Network; empty state "No rooms match that current."; drawer opens via hamburger, closes on room click; zero console faults across a full reload.
+- Hit-test on the flying panel: `elementFromPoint` answers inside the panel at three depths while it is open — the earlier "header covers the panel" reading was the closed panel's own `pointer-events: none`; the speculative z-index mend was **reverted**, the aside's `z-index: 30` context was carrying it all along.
+- Contrast ledger: all used pairs pass both shores (star 4.71/9.55, glint-degraded 3.71 on bg, inbox-link hover 10.72 dark / 6.0 light); the `[nt]` search boundary stays a recorded condition (1.17/1.08, field identified by fill per `Input.js`).
+- A11y: focus ring 2px solid `rgb(46,124,246)`; all 13 glyph spans `aria-hidden`; dock buttons 40×40, rooms 222×34 (≥ WCAG 2.5.8).
 
 # v1.0.20 — The Shorekeeper Retheme 🌊
 
