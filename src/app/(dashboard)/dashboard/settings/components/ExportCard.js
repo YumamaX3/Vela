@@ -160,7 +160,7 @@ export default function ExportCard() {
             >
               <input
                 type="checkbox"
-                className="accent-[var(--color-brand-500,#E56A4A)] w-4 h-4 shrink-0"
+                className="accent-[var(--color-brand-500,#2E7CF6)] w-4 h-4 shrink-0"
                 checked={selected.has(s.id)}
                 onChange={() => toggle(s.id)}
               />

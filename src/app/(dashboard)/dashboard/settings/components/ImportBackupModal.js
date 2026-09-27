@@ -184,7 +184,7 @@ export default function ImportBackupModal({ fileName, payload, busy, onClose, on
                   >
                     <input
                       type="checkbox"
-                      className="accent-[var(--color-brand-500,#E56A4A)] w-4 h-4 shrink-0"
+                      className="accent-[var(--color-brand-500,#2E7CF6)] w-4 h-4 shrink-0"
                       checked={selected.has(section)}
                       disabled={!inFile}
                       onChange={() => toggleSection(section)}

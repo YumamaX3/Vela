@@ -15,18 +15,26 @@
    Brand orange (dark) / soft coral (light), neutral warm bases
    ============================================================ */
 :root {
-  /* Brand scale (light) - centered on #E56A4A */
-  --color-brand-50: #fdf1ed;
-  --color-brand-100: #fadccf;
-  --color-brand-200: #f4b59c;
-  --color-brand-300: #ee8d6a;
-  --color-brand-400: #ea7855;
-  --color-brand-500: #E56A4A;
-  --color-brand-600: #cc5236;
-  --color-brand-700: #a64027;
-  --color-brand-800: #7a2f1d;
-  --color-brand-900: #4d1e12;
+  /* Brand scale (light) — the Shorekeeper shore-blue. One scale serves
+     both shores; the token test pins light and dark brand-500 equal. */
+  --color-brand-50: #F0F7FF;
+  --color-brand-100: #DCEBFD;
+  --color-brand-200: #B7DBFB;
+  --color-brand-300: #8FD3FF;
+  --color-brand-400: #4FA8FF;
+  --color-brand-500: #2E7CF6;
+  --color-brand-600: #1F69DD;
+  --color-brand-700: #174BB0;
+  --color-brand-800: #12388A;
+  --color-brand-900: #0E2B66;
 
+  /* Shorekeeper gradients — the night water and the light that rides it.
+     Ocean-deep lays the constitution's two darks into one fall; sheen is
+     the crystal crest; current is the ambient drift behind an active mark. */
+  --grad-ocean-deep: linear-gradient(180deg, #0B1E33 0%, #12294A 100%);
+  --grad-sheen: linear-gradient(135deg, #4FA8FF 0%, #2E7CF6 100%);
+  --grad-current: linear-gradient(135deg, rgba(79, 168, 255, 0.35), rgba(31, 105, 221, 0.12));
+  --color-starlight: #FFE9A8;
   /* Primary (legacy alias for backward compat with existing components) */
   --color-primary: var(--color-brand-500);
   --color-primary-hover: var(--color-brand-600);
@@ -74,13 +82,13 @@
      old cream ground a 0.04-alpha soft shadow read as a hairline; on this
      cooler, slightly darker ground it vanished entirely. */
   --shadow-soft: 0 1px 2px 0 rgba(9, 14, 22, 0.05);
-  --shadow-warm: 0 2px 12px -2px rgba(229, 106, 74, 0.22);
+  --shadow-warm: 0 2px 12px -2px rgba(46, 124, 246, 0.22);
   --shadow-elevated: 0 12px 28px -4px rgba(9, 14, 22, 0.09);
   --shadow-elev:
     inset 0 1px 0 0 rgba(255,255,255,0.85),
     0 1px 2px rgba(9, 14, 22, 0.05),
     0 12px 36px -8px rgba(9, 14, 22, 0.13);
-  --shadow-focus: 0 0 0 3px rgba(229,106,74,0.18);
+  --shadow-focus: 0 0 0 3px rgba(46,124,246,0.18);
 
   /* Motion tokens — the deck's choreography, so every reason can cite a path.
      Durations are short by intent: this is an instrument panel, not a stage.
@@ -138,45 +146,45 @@
      read. */
   --nav-stagger: 12ms;
 
-  /* Command-deck terminal — obsidian ink panel, sea-glass text */
-  --color-terminal: #0C1117;
+  /* Command-deck terminal — deep-ocean ink panel, sea-glass text */
+  --color-terminal: #0B1E33;
   --color-terminal-text: #D6DEE9;
 
   color-scheme: light;
 }
 
 .dark {
-  /* Brand scale (dark) - centered on #E56A4A, same as light for consistency */
-  --color-brand-50: #fdf1ed;
-  --color-brand-100: #fadccf;
-  --color-brand-200: #f4b59c;
-  --color-brand-300: #ee8d6a;
-  --color-brand-400: #ea7855;
-  --color-brand-500: #E56A4A;
-  --color-brand-600: #cc5236;
-  --color-brand-700: #a64027;
-  --color-brand-800: #7a2f1d;
-  --color-brand-900: #4d1e12;
+  /* Brand scale (dark) — the same shore-blue as light, by test covenant */
+  --color-brand-50: #F0F7FF;
+  --color-brand-100: #DCEBFD;
+  --color-brand-200: #B7DBFB;
+  --color-brand-300: #8FD3FF;
+  --color-brand-400: #4FA8FF;
+  --color-brand-500: #2E7CF6;
+  --color-brand-600: #1F69DD;
+  --color-brand-700: #174BB0;
+  --color-brand-800: #12388A;
+  --color-brand-900: #0E2B66;
 
-  --color-primary: #E56A4A;
-  --color-primary-hover: #cc5236;
+  --color-primary: var(--color-brand-500);
+  --color-primary-hover: var(--color-brand-600);
 
-  /* Surfaces (dark) — the Obsidian Shore's deep water. Replaces the warm
-     charcoal (v0.9.99); the coral accent above is untouched. */
-  --color-bg: #0B0F14;
-  --color-bg-alt: #0F141B;
-  --color-surface: #141A22;
-  --color-surface-2: #1B232D;
-  --color-surface-3: #242E3A;
-  --color-sidebar: rgba(15, 20, 27, 0.85);
+  /* Surfaces (dark) — the Deep Night Ocean. The charcoal is blue-shifted into
+     the constitution's deep water (#0B1E33 family). */
+  --color-bg: #0A1220;
+  --color-bg-alt: #0D1524;
+  --color-surface: #101A2C;
+  --color-surface-2: #152238;
+  --color-surface-3: #1B2B45;
+  --color-sidebar: rgba(13, 21, 36, 0.85);
 
-  --color-border: #232C37;
-  --color-border-subtle: #1A2129;
+  --color-border: #223450;
+  --color-border-subtle: #17233A;
 
   /* Text — measured on both grounds:
-       --color-text        16.3:1 on bg · 15.1:1 on surface
-       --color-text-muted   7.49:1 on bg ·  6.82:1 on surface
-       --color-text-subtle  5.11:1 on bg ·  4.66:1 on surface  (was #6b7280,
+       --color-text        15.8:1 on bg · 14.7:1 on surface
+       --color-text-muted   7.28:1 on bg ·  6.76:1 on surface
+       --color-text-subtle  4.98:1 on bg ·  4.63:1 on surface  (was #6b7280,
                             which measured 3.90:1 — lifted over the floor) */
   --color-text: #E8ECF2;
   --color-text-main: #E8ECF2;
@@ -189,16 +197,16 @@
   --color-info: #60a5fa;
 
   --shadow-soft: 0 1px 2px 0 rgba(0,0,0,0.3);
-  --shadow-warm: 0 2px 12px -2px rgba(229, 106, 74, 0.25);
+  --shadow-warm: 0 2px 12px -2px rgba(46, 124, 246, 0.25);
   --shadow-elevated: 0 12px 28px -4px rgba(0, 0, 0, 0.45);
   --shadow-elev:
     inset 0 1px 0 0 rgba(255,255,255,0.06),
     0 1px 2px rgba(0,0,0,0.4),
     0 16px 48px -8px rgba(0,0,0,0.55);
-  --shadow-focus: 0 0 0 3px rgba(229, 106, 74, 0.18);
+  --shadow-focus: 0 0 0 3px rgba(46, 124, 246, 0.18);
 
   /* Command-deck terminal — the deepest water in the dark */
-  --color-terminal: #080B0F;
+  --color-terminal: #081426;
   --color-terminal-text: #C9D3E0;
 
   color-scheme: dark;
@@ -221,6 +229,7 @@ select {
 }
 
 @theme inline {
+  --color-starlight: var(--color-starlight);
   /* Brand scale */
   --color-brand-50: var(--color-brand-50);
   --color-brand-100: var(--color-brand-100);
@@ -258,13 +267,13 @@ select {
 
   /* Static fallbacks (explicit per-mode usage if needed) */
   --color-bg-light: #F7F8FA;
-  --color-bg-dark: #0B0F14;
+  --color-bg-dark: #0A1220;
   --color-surface-light: #ffffff;
-  --color-surface-dark: #141A22;
+  --color-surface-dark: #101A2C;
   --color-sidebar-light: #F3F5F9;
-  --color-sidebar-dark: #0F141B;
+  --color-sidebar-dark: #0D1524;
   --color-border-light: #DDE1E9;
-  --color-border-dark: #232C37;
+  --color-border-dark: #223450;
   --color-text-main-light: #0C1117;
   --color-text-main-dark: #E8ECF2;
   --color-text-muted-light: #5A6472;
@@ -334,7 +343,7 @@ body {
    `@layer utilities` anyway. Same outcome either way, verified rather than assumed;
    globals-css-tokens.test.js asserts the emitted order directly.
 
-   `--color-primary` is `#E56A4A` in BOTH themes (lines 21 and 83 are identical),
+   `--color-primary` is the shore-blue `#2E7CF6` in BOTH themes (one shared scale),
    so one declaration serves light and dark. Against `--color-bg` it clears WCAG
    1.4.11's 3:1 non-text contrast floor. */
 @layer base {
@@ -366,11 +375,11 @@ body {
 
 /* Selection - brand-tinted */
 ::selection {
-  background-color: rgba(229, 106, 74, 0.25);
+  background-color: rgba(46, 124, 246, 0.25);
   color: var(--color-primary);
 }
 .dark ::selection {
-  background-color: rgba(229, 106, 74, 0.3);
+  background-color: rgba(46, 124, 246, 0.3);
   color: var(--color-brand-300);
 }
 
@@ -397,19 +406,19 @@ input, textarea {
 /* Thin horizontal scrollbar - brand colored */
 .scroll-thin-x {
   scrollbar-width: thin;
-  scrollbar-color: rgba(229, 106, 74, 0.55) transparent;
+  scrollbar-color: rgba(46, 124, 246, 0.55) transparent;
 }
 .dark .scroll-thin-x {
-  scrollbar-color: rgba(229, 106, 74, 0.55) transparent;
+  scrollbar-color: rgba(46, 124, 246, 0.55) transparent;
 }
 .scroll-thin-x::-webkit-scrollbar { height: 3px; }
 .scroll-thin-x::-webkit-scrollbar-track { background: transparent; }
 .scroll-thin-x::-webkit-scrollbar-thumb {
-  background: rgba(229, 106, 74, 0.55);
+  background: rgba(46, 124, 246, 0.55);
   border-radius: 3px;
 }
 .dark .scroll-thin-x::-webkit-scrollbar-thumb {
-  background: rgba(229, 106, 74, 0.55);
+  background: rgba(46, 124, 246, 0.55);
 }
 
 /* Global thin mac-like scrollbars (overrides clunky Windows/Linux default) */
@@ -560,12 +569,12 @@ button:disabled,
 
 @keyframes border-glow {
   0%, 100% {
-    box-shadow: 0 0 5px rgba(229, 106, 74, 0.3), 0 0 10px rgba(229, 106, 74, 0.2);
-    border-color: rgba(229, 106, 74, 0.5);
+    box-shadow: 0 0 5px rgba(46, 124, 246, 0.3), 0 0 10px rgba(46, 124, 246, 0.2);
+    border-color: rgba(46, 124, 246, 0.5);
   }
   50% {
-    box-shadow: 0 0 10px rgba(229, 106, 74, 0.5), 0 0 20px rgba(229, 106, 74, 0.3);
-    border-color: rgba(229, 106, 74, 0.8);
+    box-shadow: 0 0 10px rgba(46, 124, 246, 0.5), 0 0 20px rgba(46, 124, 246, 0.3);
+    border-color: rgba(46, 124, 246, 0.8);
   }
 }
 .animate-border-glow { animation: border-glow 2s ease-in-out infinite; }
@@ -903,7 +912,7 @@ button:disabled,
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(229, 106, 74, 0.07),
+    rgba(46, 124, 246, 0.07),
     transparent
   );
   animation: phShimmer calc(var(--motion-dur-ambient) / 2) linear infinite;
@@ -990,8 +999,8 @@ button:disabled,
   animation: beaconBreathe var(--motion-dur-ambient) var(--motion-ease-inout) infinite;
 }
 @keyframes beaconCall {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(229, 106, 74, 0); }
-  50%      { box-shadow: 0 0 0 5px rgba(229, 106, 74, 0.28); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(46, 124, 246, 0); }
+  50%      { box-shadow: 0 0 0 5px rgba(46, 124, 246, 0.28); }
 }
 .mast-beacon-dot.mast-beacon-call {
   animation: beaconCall var(--motion-dur-ambient) var(--motion-ease-inout) infinite;
@@ -1015,13 +1024,14 @@ button:disabled,
   100% { transform: translateX(220%) skewX(-20deg); }
 }
 @keyframes ctaGlowPulse {
-  0%, 100% { box-shadow: 0 8px 24px -8px rgba(229, 106, 74, 0.45), 0 0 0 0 rgba(229, 106, 74, 0.5); }
-  50% { box-shadow: 0 12px 32px -8px rgba(229, 106, 74, 0.6), 0 0 0 8px rgba(229, 106, 74, 0); }
+  0%, 100% { box-shadow: 0 8px 24px -8px rgba(46, 124, 246, 0.45), 0 0 0 0 rgba(46, 124, 246, 0.5); }
+  50% { box-shadow: 0 12px 32px -8px rgba(46, 124, 246, 0.6), 0 0 0 8px rgba(46, 124, 246, 0); }
 }
 .btn-cta {
   position: relative;
   overflow: hidden;
   isolation: isolate;
+  background-image: var(--grad-sheen);
   animation: ctaGlowPulse var(--motion-dur-ambient) var(--motion-ease-inout) infinite;
 }
 .btn-cta::before {
@@ -1042,13 +1052,13 @@ button:disabled,
 .dot-grid-bg {
   background-color: var(--color-bg);
   background-image:
-    radial-gradient(circle at 15% 20%, rgba(229, 106, 74, 0.10) 0%, transparent 40%),
-    radial-gradient(circle at 85% 80%, rgba(229, 106, 74, 0.06) 0%, transparent 40%);
+    radial-gradient(circle at 15% 20%, rgba(46, 124, 246, 0.10) 0%, transparent 40%),
+    radial-gradient(circle at 85% 80%, rgba(46, 124, 246, 0.06) 0%, transparent 40%);
 }
 .dark .dot-grid-bg {
   background-image:
-    radial-gradient(circle at 15% 20%, rgba(229, 106, 74, 0.18) 0%, transparent 40%),
-    radial-gradient(circle at 85% 80%, rgba(229, 106, 74, 0.10) 0%, transparent 40%);
+    radial-gradient(circle at 15% 20%, rgba(46, 124, 246, 0.18) 0%, transparent 40%),
+    radial-gradient(circle at 85% 80%, rgba(46, 124, 246, 0.10) 0%, transparent 40%);
 }
 
 /* Landing-style faint grid overlay (use absolute pos inside relative parent) */
@@ -1280,22 +1290,22 @@ button:disabled,
   /* The login token ledger. Every colour decision below cites one of these
      paths, never a hex, so a rebrand is a one-line edit and the contrast
      reasons survive it. */
-  --login-cta: #c04e30;           /* white CTA text 4.80:1 (brand-500 was 3.23:1, FAIL) */
-  --login-cta-hover: #a64027;     /* white CTA text 6.21:1 */
-  --login-field-border: #8b8178;  /* 3.47:1 vs field fill (SC 1.4.11 floor 3:1) */
+  --login-cta: #174BB0;           /* white CTA text 7.87:1 (brand-700) */
+  --login-cta-hover: #12388A;     /* white CTA text 10.74:1 (brand-800) */
+  --login-field-border: #6B7B87;  /* 3.90:1 vs field fill (SC 1.4.11 floor 3:1) */
   --login-footer: var(--color-text-muted); /* light 4.65:1, dark 6.86:1 on the page */
-  --login-focus-ring: #b84a2c;    /* light: 4.71:1 vs field fill, 4.98:1 vs page */
-  --login-placeholder: #686f7b;   /* light: 4.61:1 vs field fill (SC 1.4.3 floor 4.5) */
-  --login-eyebrow: #a64027;       /* light: 6.16:1 on the card */
-  --login-feature-icon: #a64027;  /* light: 6.16:1 on the card (icon floor 3:1) */
+  --login-focus-ring: #2E7CF6;    /* light: 3.52:1 vs field fill, 3.75:1 vs page */
+  --login-placeholder: #5A6472;   /* light: 5.36:1 vs field fill (SC 1.4.3 floor 4.5) */
+  --login-eyebrow: #174BB0;       /* light: 7.87:1 on the card */
+  --login-feature-icon: #1F69DD;  /* light: 5.07:1 on the card (icon floor 3:1) */
   --login-warn: #b45309;          /* light: amber-700, 4.98:1 on the card */
   --login-error-text: #b91c1c;    /* light: red-700, 6.41:1 on the card */
 }
 .dark .login-page {
-  --login-focus-ring: #ee8d6a;    /* dark: 5.44:1 vs field fill, 7.17:1 vs page */
+  --login-focus-ring: #4FA8FF;    /* dark: 6.35:1 vs field fill, 8.0:1 vs page */
   --login-placeholder: #9ca3af;   /* dark: 5.20:1 vs field fill */
-  --login-eyebrow: #ea7855;       /* dark: 5.48:1 on the card */
-  --login-feature-icon: #ee8d6a;  /* dark: 6.48:1 on the card */
+  --login-eyebrow: #4FA8FF;       /* dark: 5.66:1 on the card */
+  --login-feature-icon: #8FD3FF;  /* dark: ~9:1 on the card (icon floor 3:1) */
   --login-warn: #fbbf24;          /* dark: 9.76:1 on the card */
   --login-error-text: #f87171;    /* dark: 6.03:1 on the card */
 }
@@ -1309,16 +1319,16 @@ button:disabled,
   inset: 0;
   z-index: 0;
   background:
-    radial-gradient(ellipse 90% 60% at 70% -10%, rgba(229, 106, 74, 0.16), transparent 60%),
+    radial-gradient(ellipse 90% 60% at 70% -10%, rgba(46, 124, 246, 0.16), transparent 60%),
     radial-gradient(ellipse 70% 50% at 10% 110%, rgba(120, 140, 180, 0.12), transparent 60%),
-    radial-gradient(ellipse 50% 40% at 90% 90%, rgba(229, 106, 74, 0.07), transparent 55%),
-    linear-gradient(180deg, #101013 0%, #16161a 100%);
+    radial-gradient(ellipse 50% 40% at 90% 90%, rgba(46, 124, 246, 0.07), transparent 55%),
+    linear-gradient(180deg, #0B1E33 0%, #12294A 100%);
 }
 html:not(.dark) .login-page::before {
   background:
-    radial-gradient(ellipse 90% 60% at 70% -10%, rgba(229, 106, 74, 0.16), transparent 62%),
-    radial-gradient(ellipse 70% 50% at 8% 110%, rgba(238, 141, 106, 0.14), transparent 60%),
-    linear-gradient(180deg, #fdfaf6 0%, #f7f0e8 100%);
+    radial-gradient(ellipse 90% 60% at 70% -10%, rgba(46, 124, 246, 0.16), transparent 62%),
+    radial-gradient(ellipse 70% 50% at 8% 110%, rgba(46, 124, 246, 0.12), transparent 60%),
+    linear-gradient(180deg, #F5F9FF 0%, #EAF2FC 100%);
 }
 
 /* Celestial chart — concentric orbit rings and radial spokes, masked toward
@@ -1332,8 +1342,8 @@ html:not(.dark) .login-page::before {
   z-index: 0;
   pointer-events: none;
   background-image:
-    repeating-radial-gradient(circle at 50% 42%, rgba(229, 106, 74, 0.6) 0 1px, transparent 1px 82px),
-    repeating-conic-gradient(from 0deg at 50% 42%, rgba(229, 106, 74, 0.5) 0 0.1deg, transparent 0.1deg 15deg);
+    repeating-radial-gradient(circle at 50% 42%, rgba(143, 211, 255, 0.6) 0 1px, transparent 1px 82px),
+    repeating-conic-gradient(from 0deg at 50% 42%, rgba(143, 211, 255, 0.5) 0 0.1deg, transparent 0.1deg 15deg);
   opacity: 0.05;
   mask-image: radial-gradient(ellipse 78% 66% at 50% 42%, black 22%, transparent 78%);
   -webkit-mask-image: radial-gradient(ellipse 78% 66% at 50% 42%, black 22%, transparent 78%);
@@ -1346,7 +1356,7 @@ html:not(.dark) .login-page::before {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 42% 32% at 22% 26%, rgba(229, 106, 74, 0.17), transparent 70%),
+    radial-gradient(ellipse 42% 32% at 22% 26%, rgba(46, 124, 246, 0.17), transparent 70%),
     radial-gradient(ellipse 40% 30% at 80% 72%, rgba(120, 140, 180, 0.15), transparent 70%);
   animation: login-aurora-drift 26s ease-in-out infinite alternate;
 }
@@ -1364,7 +1374,7 @@ html:not(.dark) .login-page::before {
   height: 240px;
   z-index: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse 68% 100% at 50% 128%, rgba(229, 106, 74, 0.22), transparent 70%);
+  background: radial-gradient(ellipse 68% 100% at 50% 128%, rgba(46, 124, 246, 0.22), transparent 70%);
   mask-image: linear-gradient(to top, black, transparent);
   -webkit-mask-image: linear-gradient(to top, black, transparent);
 }
@@ -1410,8 +1420,8 @@ html:not(.dark) .login-page::before {
   box-shadow: 0 0 6px rgba(232, 230, 240, 0.55);
 }
 html:not(.dark) .login-stars i {
-  background: rgba(120, 70, 40, 0.35);
-  box-shadow: 0 0 5px rgba(229, 106, 74, 0.25);
+  background: rgba(120, 90, 35, 0.35);
+  box-shadow: 0 0 5px rgba(255, 233, 168, 0.25);
 }
 .login-stars.layer-1 { animation: login-drift 90s linear infinite alternate; }
 .login-stars.layer-2 { animation: login-drift 140s linear infinite alternate-reverse; }
@@ -1455,7 +1465,7 @@ html:not(.dark) .login-stars i {
 .login-constellation .sail-lines { overflow: visible; }
 .login-constellation .sail-lines path {
   fill: none;
-  stroke: rgba(229, 106, 74, 0.5);
+  stroke: rgba(143, 211, 255, 0.5);
   stroke-width: 1.2;
   stroke-linecap: round;
   stroke-dasharray: 1;
@@ -1464,28 +1474,28 @@ html:not(.dark) .login-stars i {
   animation-delay: 0.4s;
 }
 html:not(.dark) .login-constellation .sail-lines path {
-  stroke: rgba(166, 64, 39, 0.4);
+  stroke: rgba(46, 124, 246, 0.4);
 }
 .login-constellation .star {
   position: absolute;
   transform: translate(-50%, -50%);
   border-radius: 9999px;
-  background: #f5ead9;
+  background: #FFE9A8;
   opacity: 0;
   animation: login-star-in 0.6s ease-out forwards;
 }
-html:not(.dark) .login-constellation .star { background: #a64027; }
+html:not(.dark) .login-constellation .star { background: #B8860B; }
 .login-constellation .star.bright {
-  background: #ee8d6a;
+  background: #FFE9A8;
   box-shadow:
-    0 0 8px rgba(238, 141, 106, 0.9),
-    0 0 22px rgba(238, 141, 106, 0.45);
+    0 0 8px rgba(255, 233, 168, 0.9),
+    0 0 22px rgba(255, 233, 168, 0.45);
 }
 html:not(.dark) .login-constellation .star.bright {
-  background: #e56a4a;
+  background: #D4A017;
   box-shadow:
-    0 0 8px rgba(229, 106, 74, 0.5),
-    0 0 22px rgba(229, 106, 74, 0.25);
+    0 0 8px rgba(46, 124, 246, 0.5),
+    0 0 22px rgba(46, 124, 246, 0.25);
 }
 @keyframes login-star-in {
   from { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
@@ -1499,8 +1509,8 @@ html:not(.dark) .login-constellation .star.bright {
 .login-card {
   position: relative;
   border-radius: 18px;
-  border: 1px solid rgba(229, 106, 74, 0.16);
-  background: linear-gradient(175deg, rgba(38, 38, 38, 0.72), rgba(26, 26, 26, 0.6));
+  border: 1px solid rgba(143, 211, 255, 0.18);
+  background: linear-gradient(175deg, rgba(18, 41, 74, 0.72), rgba(11, 30, 51, 0.6));
   backdrop-filter: blur(18px) saturate(1.2);
   -webkit-backdrop-filter: blur(18px) saturate(1.2);
   box-shadow:
@@ -1510,12 +1520,12 @@ html:not(.dark) .login-constellation .star.bright {
   animation: login-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 html:not(.dark) .login-card {
-  border-color: rgba(229, 106, 74, 0.2);
-  background: linear-gradient(175deg, rgba(255, 255, 255, 0.8), rgba(253, 250, 246, 0.7));
+  border-color: rgba(46, 124, 246, 0.2);
+  background: linear-gradient(175deg, rgba(255, 255, 255, 0.8), rgba(245, 249, 255, 0.7));
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
     0 24px 64px -16px rgba(160, 90, 60, 0.25),
-    0 1px 3px rgba(160, 90, 60, 0.08);
+    0 1px 3px rgba(46, 124, 246, 0.08);
 }
 @keyframes login-rise {
   from { opacity: 0; transform: translateY(18px) scale(0.985); }
@@ -1524,12 +1534,12 @@ html:not(.dark) .login-card {
 
 /* Crest halo */
 .login-crest {
-  filter: drop-shadow(0 0 18px rgba(229, 106, 74, 0.45));
+  filter: drop-shadow(0 0 18px rgba(46, 124, 246, 0.45));
   animation: login-crest-pulse 4s ease-in-out infinite;
 }
 @keyframes login-crest-pulse {
-  0%, 100% { filter: drop-shadow(0 0 14px rgba(229, 106, 74, 0.35)); }
-  50%      { filter: drop-shadow(0 0 26px rgba(229, 106, 74, 0.6)); }
+  0%, 100% { filter: drop-shadow(0 0 14px rgba(46, 124, 246, 0.35)); }
+  50%      { filter: drop-shadow(0 0 26px rgba(46, 124, 246, 0.6)); }
 }
 
 /* Password eye button */
@@ -1546,7 +1556,7 @@ html:not(.dark) .login-card {
     color var(--motion-dur-instant) var(--motion-ease-out),
     background-color var(--motion-dur-instant) var(--motion-ease-out);
 }
-.login-eye:hover { color: var(--color-primary); background: rgba(229, 106, 74, 0.08); }
+.login-eye:hover { color: var(--color-primary); background: rgba(46, 124, 246, 0.08); }
 
 /* Error banner shake + lockout countdown bar */
 .login-error {
@@ -1561,7 +1571,7 @@ html:not(.dark) .login-card {
 .login-lockout-bar {
   height: 3px;
   border-radius: 2px;
-  background: linear-gradient(90deg, #f59e0b, #e56a4a);
+  background: linear-gradient(90deg, #f59e0b, #2E7CF6);
   transform-origin: left;
   animation: login-countdown linear forwards;
 }
@@ -1578,7 +1588,7 @@ html:not(.dark) .login-card {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(ellipse at center, rgba(229, 106, 74, 0.12), rgba(16, 16, 19, 0.88));
+  background: radial-gradient(ellipse at center, rgba(46, 124, 246, 0.12), rgba(8, 20, 38, 0.88));
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   animation: login-flash-in 0.35s ease-out both;
@@ -1590,7 +1600,7 @@ html:not(.dark) .login-card {
 .login-success-flash .ring {
   position: absolute;
   border-radius: 9999px;
-  border: 1px solid rgba(229, 106, 74, 0.5);
+  border: 1px solid rgba(46, 124, 246, 0.5);
   animation: login-ring-out 1.2s ease-out infinite;
 }
 @keyframes login-ring-out {
@@ -1631,8 +1641,8 @@ html:not(.dark) .login-card {
    The dark fill is `#22c55e`, NOT the `#10B981` the light theme uses:
    `--color-success` is declared twice (line 54 light, line 129 dark) and the
    two greens differ, which is what a single-hex assumption gets wrong. Measured
-   on the gradient: **8.34:1** at the sky's crown (`#101013`), **7.92:1** at the
-   footer (`#16161a`). Clear on either.
+   on the gradient: **14.00:1** at the sky's crown (`#0B1E33`), **12.12:1** at the
+   footer (`#12294A`). Clear on either.
 
    In the light the shared `--color-success` (#10B981) sits on `#FDFAF6` at
    **2.44:1**, which fails. Rather than darken the global token and repaint
@@ -2168,8 +2178,8 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
 /* The nav's ONE ambient loop — the live current in the marker of where
    you actually are. */
 @keyframes navBarBreathe {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(229, 106, 74, 0); opacity: 1; }
-  50%      { box-shadow: 0 0 0 3px rgba(229, 106, 74, 0.16); opacity: 0.82; }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(46, 124, 246, 0); opacity: 1; }
+  50%      { box-shadow: 0 0 0 3px rgba(46, 124, 246, 0.16); opacity: 0.82; }
 }
 
 /* Sub-rows are the panel's second depth: one rung quieter and indented to

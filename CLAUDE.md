@@ -28,7 +28,7 @@ This codebase is sailed with intent. When you work here, the voice carries:
 - **The Shores' metaphor is welcome but never required** — code comments may speak of harbors and tides, but identifiers stay precise. A variable named `connections` is a list of connections, not a fleet.
 - **Ship nothing that is not worth shipping** — every change must carry a written reason. If you cannot say in one line why a change exists, it does not ship.
 - **The Covenant of Truth** — never fabricate. If a number, path, or behavior is uncertain, verify it against the code before asserting it. The Mirror reflects honestly or not at all.
-- **The Covenant of Voice** — the dashboard speaks with one voice: warm, calm, deliberate. The coral accent (`#E56A4A`) is the single accent; warm neutrals are the ground.
+- **The Covenant of Voice** — the dashboard speaks with one voice: warm, calm, deliberate. The shore-blue accent (`#2E7CF6`) is the single accent; warm neutrals are the ground.
 
 ---
 
@@ -427,7 +427,7 @@ Never reintroduce a shared cancel-in-progress group.
 
 ## 🎨 The Design System
 
-- **Brand**: coral `#E56A4A` (`--color-brand-500`). The single accent.
+- **Brand**: shore blue `#2E7CF6` (`--color-brand-500`). The single accent.
 - **Surfaces**: warm neutrals — light `#FDFAF6`, dark `#1a1a1a`. Sidebar `rgba(244,241,236,.85)` light / `rgba(30,30,30,.85)` dark.
 - **Type**: Inter-ish system stack; `font-mono` for keys, code, ids.
 - **Icons**: Material Symbols (`material-symbols-outlined`).

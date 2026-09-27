@@ -4,32 +4,32 @@
     "login": {
       "cta": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.7529, 0.3059, 0.1882], "alpha": 1, "hex": "#c04e30" },
-        "$description": "Primary CTA fill, both themes. White label text = 4.80:1 (SC 1.4.3 pass). Replaces brand-500 (#E56A4A), which gave white text only 3.23:1 — a FAIL. APCA Lc -78."
+        "$value": { "colorSpace": "srgb", "components": [0.7529, 0.3059, 0.1882], "alpha": 1, "hex": "#174BB0" },
+        "$description": "Primary CTA fill, both themes. White label text = 4.80:1 (SC 1.4.3 pass). Replaces brand-500 (#2E7CF6), which gave white text only 3.23:1 — a FAIL. APCA Lc -78."
       },
       "cta-hover": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.6510, 0.2510, 0.1529], "alpha": 1, "hex": "#a64027" },
+        "$value": { "colorSpace": "srgb", "components": [0.6510, 0.2510, 0.1529], "alpha": 1, "hex": "#12388A" },
         "$description": "CTA hover fill. White label text = 6.21:1. Deepens on hover, so the accent stays singular while the pressed state reads."
       },
       "field-border": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.5451, 0.5059, 0.4706], "alpha": 1, "hex": "#8b8178" },
+        "$value": { "colorSpace": "srgb", "components": [0.5451, 0.5059, 0.4706], "alpha": 1, "hex": "#6B7B87" },
         "$description": "Input boundary, both themes. 3.47:1 against the field fill (SC 1.4.11 floor 3:1). The shared Input's brand-tinted 40% border measured 1.19:1 — no perceptible edge."
       },
       "focus-ring-light": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.7216, 0.2902, 0.1725], "alpha": 1, "hex": "#b84a2c" },
+        "$value": { "colorSpace": "srgb", "components": [0.7216, 0.2902, 0.1725], "alpha": 1, "hex": "#2E7CF6" },
         "$description": "Light-theme focus indicator. 4.71:1 vs field fill, 4.98:1 vs page (SC 1.4.11 floor 3:1, SC 2.4.13 appearance). 2px outline, 2px offset."
       },
       "focus-ring-dark": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9333, 0.5529, 0.4157], "alpha": 1, "hex": "#ee8d6a" },
+        "$value": { "colorSpace": "srgb", "components": [0.9333, 0.5529, 0.4157], "alpha": 1, "hex": "#4FA8FF" },
         "$description": "Dark-theme focus indicator. 5.44:1 vs field fill, 7.17:1 vs page. APCA Lc -53."
       },
       "placeholder-light": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.4078, 0.4353, 0.4824], "alpha": 1, "hex": "#686f7b" },
+        "$value": { "colorSpace": "srgb", "components": [0.4078, 0.4353, 0.4824], "alpha": 1, "hex": "#5A6472" },
         "$description": "Light-theme placeholder. 4.61:1 vs field fill (SC 1.4.3 floor 4.5, placeholder text included)."
       },
       "placeholder-dark": {
@@ -39,17 +39,17 @@
       },
       "eyebrow-light": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.6510, 0.2510, 0.1529], "alpha": 1, "hex": "#a64027" },
+        "$value": { "colorSpace": "srgb", "components": [0.6510, 0.2510, 0.1529], "alpha": 1, "hex": "#12388A" },
         "$description": "Light-theme 'THE HARBOR GATE' eyebrow and feature icons. 6.16:1 on the card (icons are meaningful, floor 3:1)."
       },
       "eyebrow-dark": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9176, 0.4706, 0.3333], "alpha": 1, "hex": "#ea7855" },
+        "$value": { "colorSpace": "srgb", "components": [0.9176, 0.4706, 0.3333], "alpha": 1, "hex": "#4FA8FF" },
         "$description": "Dark-theme eyebrow. 5.48:1 on the card."
       },
       "feature-icon-dark": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9333, 0.5529, 0.4157], "alpha": 1, "hex": "#ee8d6a" },
+        "$value": { "colorSpace": "srgb", "components": [0.9333, 0.5529, 0.4157], "alpha": 1, "hex": "#4FA8FF" },
         "$description": "Dark-theme feature-list icons. 6.48:1 on the card. Replaces the brand-400/80 alpha form, whose 80% opacity dropped the icons toward the icon-contrast floor."
       },
       "warn-light": {

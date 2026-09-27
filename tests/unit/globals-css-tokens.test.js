@@ -385,14 +385,14 @@ describe("a global :focus-visible rule now exists", () => {
   });
 
   it("reuses the existing shadow-focus token's own colour, so the ring is not a new accent", () => {
-    // --shadow-focus is a 3px rgba(229,106,74,.18) glow. 229,106,74 IS #E56A4A,
+    // --shadow-focus is a 3px rgba(46,124,246,.18) glow. 46,124,246 IS #2E7CF6,
     // the brand. So the new outline and the pre-existing focus shadow are the same
     // hue — the accent stays singular (the design system's one-accent rule).
     const shadow = CSS_SRC.match(/--shadow-focus:\s*0 0 0 3px rgba\((\d+),\s*(\d+),\s*(\d+)/);
     expect(shadow).toBeTruthy();
     const [r, g, b] = [shadow[1], shadow[2], shadow[3]].map(Number);
     const hex = [r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("");
-    expect(`#${hex}`.toLowerCase()).toBe("#e56a4a");
+    expect(`#${hex}`.toLowerCase()).toBe("#2e7cf6");
   });
 });
 

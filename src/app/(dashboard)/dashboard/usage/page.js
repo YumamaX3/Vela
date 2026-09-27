@@ -143,7 +143,7 @@ function PeriodSegmented({ value, onChange }) {
 
 // ── KPI tile (self-tinted gradient — legible in light AND dark) ────────────
 const KPI_STYLES = {
-  requests: "from-[#E56A4A] to-[#C7502F]",
+  requests: "from-[#2E7CF6] to-[#174BB0]",
   promptTokens: "from-[#6366F1] to-[#4338CA]",
   cachedTokens: "from-[#14B8A6] to-[#0F766E]",
   completionTokens: "from-[#16A34A] to-[#15803D]",
@@ -321,8 +321,8 @@ function TrafficArea({ period }) {
       <AreaChart data={points} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
         <defs>
           <linearGradient id="trafficFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#E56A4A" stopOpacity={0.28} />
-            <stop offset="100%" stopColor="#E56A4A" stopOpacity={0} />
+            <stop offset="0%" stopColor="#2E7CF6" stopOpacity={0.28} />
+            <stop offset="100%" stopColor="#2E7CF6" stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.12} vertical={false} />
@@ -352,7 +352,7 @@ function TrafficArea({ period }) {
         <Area
           type="monotone"
           dataKey="value"
-          stroke="#E56A4A"
+          stroke="#2E7CF6"
           strokeWidth={2.5}
           fill="url(#trafficFill)"
           dot={false}

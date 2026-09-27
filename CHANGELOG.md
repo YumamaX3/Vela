@@ -28,6 +28,29 @@ compliant form of the same number.
 
 ---
 
+# v1.0.20 — The Shorekeeper Retheme 🌊
+
+*The coral gave way to shore-blue, and the deck learned the color of night water.*
+
+### 🎨 The Palette Retheme
+- **Shore-blue accent** — `--color-brand-500: #2E7CF6` re-inks the single accent on both shores; 46 rgba call-sites follow the token, no per-component edits. Dark surfaces blue-shifted to the Shores' night water (`#0A1220` bg · `#101A2C` surface · `#1B232D` surface-2).
+- **Gradient family minted** — `--grad-ocean-deep`, `--grad-sheen`, `--grad-current` carry the tide as tokens, never inline hex chains.
+- **Starlight accent** — `--color-starlight: #FFE9A8` reserved for constellation stars and highlights, never body text.
+
+### 🧭 The Navigation Redesign (two-tier dock + flyout)
+- 68px icon dock + 264px contextual panel; dock/undock toggle with persisted preference (`vela_nav_docked`); hover-peek while undocked; in-panel disclosures for Proxy (4 lenses) and Media (6 kinds) on their own `?tab=` hrefs.
+- All 23 tested rooms land on their declared hrefs; the `NEW` badge on Request Logs preserved; `/dashboard/mitm` restored.
+- **Accessibility**: all 13 decorative glyph spans carry `aria-hidden="true"` (accessible-name leak mended); `visibility: hidden` as the closed state keeps tab order honest; keyboard shortcuts gated on `variant`.
+
+### ♿ The Contrast Ledger (WCAG 2, both shores)
+- 12/14 pairs PASS after the shore-blue retheme: count chip/badge/notice-go `#fff` on `brand-700` **7.87**, hover ground on `brand-800` **10.72**, active glyph 3.94 light / 4.42 dark (1.4.11), muted labels 6.0/6.76, room labels 18.95/14.68, notice-lines 6.34/6.47.
+- **1 recorded condition, not forked**: the search field's resting boundary (`border-subtle` on surface, 1.17/1.11) — the house identifies fields by fill + focus ring (`Input.js`), so forking one hairline would violate R-05/R-11 for no accessibility gain.
+
+### 🧪 Proof
+- `globals.css` retheme: zero coral survivors, braces balanced 472/472, 46 new shore-blue rgba sites.
+- `globals-css-tokens` + `deck-motion` suites: **67 cases green**.
+- Live browser walk: both shores' tokens read from the rendered document; undock 332→68, flyout absolute + shadow, re-dock restores `<main>`; hover-peek surfaces and releases; search filters, Escape empties, clear rune wipes; dock preference survives reload; zero console faults.
+- Production build: all 164 pages generated (re-cast unclamped for the true green verdict).
 # v1.0.11 — The Redrawn Roster 📜
 > *"A router's catalog is never still. Fifteen names came aboard this tide and
 > twenty-four went ashore, and the harbor's own chart had to be drawn again

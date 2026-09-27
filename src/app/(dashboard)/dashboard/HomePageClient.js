@@ -266,12 +266,12 @@ export default function HomePageClient() {
               >
                 <defs>
                   <linearGradient id="homePulseArea" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#E56A4A" stopOpacity="0.28" />
-                    <stop offset="100%" stopColor="#E56A4A" stopOpacity="0" />
+                    <stop offset="0%" stopColor="#2E7CF6" stopOpacity="0.28" />
+                    <stop offset="100%" stopColor="#2E7CF6" stopOpacity="0" />
                   </linearGradient>
                 </defs>
                 <path d={sparkArea} fill="url(#homePulseArea)" />
-                <path d={sparkPath} fill="none" stroke="#E56A4A" strokeWidth="2" strokeLinecap="round" />
+                <path d={sparkPath} fill="none" stroke="#2E7CF6" strokeWidth="2" strokeLinecap="round" />
               </svg>
             ) : (
               <div className="flex h-40 flex-col items-center justify-center gap-1.5 text-center">

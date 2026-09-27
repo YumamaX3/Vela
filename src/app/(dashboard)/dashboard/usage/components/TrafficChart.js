@@ -50,7 +50,7 @@ export default function TrafficChart({ period }) {
         <polyline
           points={line}
           fill="none"
-          stroke="#E56A4A"
+          stroke="#2E7CF6"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -59,8 +59,8 @@ export default function TrafficChart({ period }) {
         {/* Gradient definition */}
         <defs>
           <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#E56A4A" />
-            <stop offset="100%" stopColor="#E56A4A" stopOpacity="0" />
+            <stop offset="0%" stopColor="#2E7CF6" />
+            <stop offset="100%" stopColor="#2E7CF6" stopOpacity="0" />
           </linearGradient>
         </defs>
       </svg>
