@@ -48,7 +48,11 @@ export default function SegmentedControl({
           )}
         >
           {option.icon && (
-            <span className="material-symbols-outlined text-[16px] mr-1.5">
+            // Decorative only. The label beside it carries the option's name;
+            // without this the glyph's ligature text joins the button's
+            // accessible name and a screen reader announces "grid_view Cards" -
+            // the same leak the sidebar's thirteen glyphs were mended for.
+            <span className="material-symbols-outlined text-[16px] mr-1.5" aria-hidden="true">
               {option.icon}
             </span>
           )}

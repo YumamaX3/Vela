@@ -32,6 +32,100 @@ compliant form of the same number.
 
 ---
 
+# v1.0.31 — The Two Depths 🍊
+
+> *"A lane's depth is not what a pattern remembers; it is what the harbor
+> declares. So the chart was re-inked — every general lane given 256k, every
+> unrestricted lane 512k — and the number written twice, where both shoals of
+> the current can read it."* 🍊🌊💜
+
+**The change.** Jerouter re-exported its catalog on 2026-09-29 — **34 lanes: 24
+general and 10 unrestricted (JB)** — and with it the Star's window decree:
+**every general lane carries 262144 (256k); every unrestricted lane 524288
+(512k).**
+
+**⚓ What sailed**
+- **Eight joined.** Two general ids — `mimo-v2.6-pro`, `longcat-2.5-preview` —
+  and six unrestricted lanes — `big-pickle-unrestricted`, `ling-unrestricted`,
+  `mimo-pro-unrestricted`, `longcat-unrestricted`, `step-5-unrestricted`,
+  `step-3.7-unrestricted`.
+- **Three left.** `hy3`, `hy4-preview`, `jev-1.13` — all three had arrived on
+  the 2026-09-26 tide and are absent from this export, so the export is the
+  authority on their retirement.
+- **The window, written in both places.** `contextLength` on every registry
+  model (the dashboard chip's half, which also opts the lane out of the synced
+  catalog's limit override in `src/lib/modelCatalog/sync.js`) **and**
+  `contextWindow` in `open-sse/providers/capabilities.js` (the runtime half —
+  capacity adapter, fallback-rules' `contextWindow` trigger, `/api/models`).
+  Every lane now carries an explicit capability row, because a provider entry
+  *replaces* the fallback chain rather than layering over it: it is the only
+  place a window can be stated as a fact no pattern and no synced catalog can
+  move.
+- **Three modality flips, the catalog's word winning as it did on the previous
+  tide**: `big-pickle-unrestricted`, `step-5-unrestricted` and
+  `step-3.7-unrestricted` are annotated vision upstream while the global pattern
+  called them text — so vision is turned ON.
+- **Everything else restated from measurement.** Each row also carries the
+  modality / reasoning / `thinkingFormat` / `maxOutput` the chain had supplied,
+  read off the live resolver before the tide — the window is the **only** value
+  this tide changed.
+
+**🧪 Proof**
+- `tests/unit/jerouter-catalog.test.js` rewritten to the 2026-09-29 roster and
+  extended with two new pins: the registry's `contextLength` and the resolver's
+  `contextWindow` are each asserted against the catalog's own window column, on
+  the id lane and the `je` alias lane alike → **10/10 green**.
+- **Mutation-proven, both directions.** Wounding one registry value
+  (`step-3.7-flash` → 128000) reddened *exactly* the registry pin; wounding one
+  capability row (`step-3.7-unrestricted` → 262144) reddened *exactly* the
+  resolver pin — each naming its lane — and restoring both returned **10/10**.
+- The capability + catalog suites together → **5 files / 43 cases green**.
+- Runtime census over the live registry: **34 lanes · 24 general · 10 JB · 0
+  window drift** on both the id and alias lanes.
+
+**🔧 Also aboard — the keys room's filter row, made to stand on the house's own
+measure.**
+The endpoint room's toolbar had become five heights in one line: the search field
+42, the sort `<select>` 35, the direction button 48, the sort-lens control 36, the
+select-all 46 — measured live in the browser, never eyeballed. The row now
+declares its measure **once** and every control stands on it: `--bar-h` = 46 below
+`sm` and 42 at `sm` and up, with `--bar-pad` = (--bar-h − 36) / 2, so the
+segmented control keeps its own `md` scale (36) and still sits flush inside the
+row at 42.
+- **One measure, four controls.** The square buttons, the sort-lens wrapper and
+  the live-filter pill all wear `h-[var(--bar-h)]`; the pill takes the same inset
+  rather than its own padding.
+- **The glyphs go quiet for the ear.** `SegmentedControl`'s icon span now carries
+  `aria-hidden="true"` — the same ligature leak the rail's glyphs were mended for,
+  so a screen reader announces *Cards* and not a Material Symbols ligature.
+- **Focus is visible, and proven in pixels.** Each control this row owns pairs
+  `focus:outline-none` with its own indicator — a 2px `brand-500` at 30% and a
+  `brand-500/40` boundary — so the global `:focus-visible` outline in
+  `globals.css` is suppressed exactly as that rule intends, and no element carries
+  a double ring. A keyboard Tab walk lands on search → sort → direction → Cards →
+  Table → select-all, in that order, with the ring painting on every one.
+- **The pill's pair, re-derived at the source instead of remembered.** White on
+  `--color-brand-700` (`#174BB0`) measures **7.87:1** (AA pass) and the muted glyph
+  on the field fill (`#5A6472` on `#F1F3F7`) measures **5.4:1** — both read from
+  the antislop contrast instrument, not from an older ledger.
+- **The copy reads clean.** Every string this row renders was checked for the em
+  dash; the row's own file now carries **zero**, and the two in
+  `SegmentedControl.js` are pre-existing house ink, left as they were.
+
+**🧪 Its proof:** `tests/unit/key-toolbar-render.test.jsx` (new with this tide)
+renders the row's smallest marks exactly as the room does — **8 cases, green** —
+and the whole row was walked in a real browser at 420 / 768 / 1440: search filters
+2 → 1 → 2, the sort select holds its value, the direction label flips, the lens
+renders the table, select-all raises the bulk bar (*2 keys selected*), the live
+pill clears the view, and an emptied filter set offers its own Clear.
+
+**📌 Recorded, not hidden:** `hy3` / `hy4-preview` still appear in
+`pricing.js`, in `capabilities.js`'s `hy3*` pattern, and in the `bandelbanget` /
+`codebuddy-cn` registries — those are *other* providers' lanes and shared
+tables, untouched by this tide by design.
+
+---
+
 # v1.0.30 - The Beacon Shore 🗼
 
 *The deck learned to speak when the water turns — no more silent voids where a room should be.*

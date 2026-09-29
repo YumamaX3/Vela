@@ -269,37 +269,60 @@ export const PROVIDER_CAPABILITIES = {
     "laguna-s-2.1":  { reasoning: true, thinkingFormat: "openai", contextWindow: 1000000, maxOutput: 32000 },
     "laguna-xs-2.1": { reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 32000 },
   },
-  // Jerouter (alias je) — the 2026-09-26 catalog (25 general + 4 unrestricted
-  // lanes) annotates every model as vision or text. Twelve of the twenty-nine
-  // disagreed with the fallback chain, every one in the same direction — the
-  // pattern said text, the catalog says vision — so the catalog wins and vision
-  // is turned ON. Three more rows (step-3.7-flash, deepseek-v4.1-flash,
-  // dots-3-note-preview) were already correct on the earlier tide and keep their
-  // measured facts; the remaining fourteen lanes resolve correctly with no entry.
+  // Jerouter (alias je) — the 2026-09-29 catalog (24 general + 10 unrestricted
+  // lanes). Every lane now carries a row, for one reason: the Star's window
+  // decree. A provider entry REPLACES the chain rather than layering over it
+  // (`{ ...DEFAULT_CAPABILITIES, ...entry }` at the resolver below), and this
+  // block's path returns WITHOUT the catalog refine — so a row is the only place
+  // a window can be stated as a fact that no pattern and no synced catalog can
+  // move. General lanes: 262144 (256k). Unrestricted (JB) lanes: 524288 (512k).
   //
-  // A provider entry REPLACES the chain rather than layering over it
-  // (`{ ...DEFAULT_CAPABILITIES, ...entry }` below), so every row restates the
-  // reasoning / thinkingFormat / window facts the chain would otherwise have
-  // supplied — measured against the live resolver, never guessed. Pinned on both
-  // the id lane and the "je" alias lane by tests/unit/jerouter-catalog.test.js.
+  // Every row also restates the modality / reasoning / thinkingFormat / maxOutput
+  // facts the chain would otherwise have supplied, each one measured against the
+  // live resolver before this tide rather than guessed — the window is the ONLY
+  // value this tide changed. Three lanes are annotated vision in the catalog
+  // while the global pattern called them text (big-pickle-unrestricted,
+  // step-5-unrestricted, step-3.7-unrestricted); the catalog wins, and vision is
+  // turned ON, exactly as the 2026-09-26 tide ruled for its twelve disagreements.
+  // Pinned on both the id lane and the "je" alias lane by
+  // tests/unit/jerouter-catalog.test.js.
   "jerouter": {
-    "step-3.7-flash":          { vision: true, reasoning: true, thinkingFormat: "step", contextWindow: 128000 },
-    "glm-5.3-flash":           { vision: true, reasoning: true, thinkingFormat: "zai", thinkingEffortSupported: true, contextWindow: 1000000, maxOutput: 131072 },
-    "deepseek-v4.1-flash":     { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 1000000, maxOutput: 384000 },
-    "dots-3-note-preview":     { vision: true },
-    "mimo-v2.5":               { vision: true, contextWindow: 1048576, maxOutput: 131072 },
-    // — the 2026-09-26 arrivals (general lanes) —
-    "hy3":                     { vision: true, reasoning: true, thinkingFormat: "hunyuan", contextWindow: 262144, maxOutput: 262144 },
-    "hy4-preview":             { vision: true },
-    "big-pickle":              { vision: true },
+    // — the general lanes: 256k —
+    "step-3.7-flash":          { vision: true, reasoning: true, thinkingFormat: "step", contextWindow: 262144 },
+    "nemotron-3-ultra":        { reasoning: true, contextWindow: 262144 },
+    "glm-5.3-flash":           { vision: true, reasoning: true, thinkingFormat: "zai", thinkingEffortSupported: true, contextWindow: 262144, maxOutput: 131072 },
+    "north-mini-code":         { contextWindow: 262144 },
+    "laguna-xs-2.1":           { reasoning: true, thinkingFormat: "openai", contextWindow: 262144, maxOutput: 32000 },
+    "nemotron-3-super":        { reasoning: true, contextWindow: 262144 },
+    "laguna-s-2.1":            { reasoning: true, thinkingFormat: "openai", contextWindow: 262144, maxOutput: 32000 },
+    "grok-4.6":                { vision: true, reasoning: true, thinkingFormat: "openai", contextWindow: 262144, maxOutput: 500000 },
+    "deepseek-v4.1-flash":     { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 262144, maxOutput: 384000 },
+    "dots-3-note-preview":     { vision: true, contextWindow: 262144 },
+    "big-pickle":              { vision: true, contextWindow: 262144 },
+    "mimo-v2.5":               { vision: true, contextWindow: 262144, maxOutput: 131072 },
+    "ling-3.0-flash-fin":      { reasoning: true, contextWindow: 262144 },
+    "nemotron-3.5-lightning":  { reasoning: true, contextWindow: 262144 },
+    "muse-spark-1.3-contributor": { contextWindow: 262144 },
+    "ling-3.0-flash-sante":    { reasoning: true, contextWindow: 262144 },
+    "grok-4.7":                { vision: true, reasoning: true, thinkingFormat: "openai", contextWindow: 262144 },
+    "mimo-v2.6-flash":         { vision: true, contextWindow: 262144, maxOutput: 131072 },
     "qwen3.8-27b":             { vision: true, reasoning: true, thinkingFormat: "qwen", contextWindow: 262144 },
-    "step-5-preview":          { vision: true, reasoning: true, thinkingFormat: "step", contextWindow: 128000 },
-    "space-bunny":             { vision: true },
+    "step-5-preview":          { vision: true, reasoning: true, thinkingFormat: "step", contextWindow: 262144 },
+    "space-bunny":             { vision: true, contextWindow: 262144 },
     "qwen3.8-flash":           { vision: true, reasoning: true, thinkingFormat: "qwen", contextWindow: 262144 },
-    // — the 2026-09-26 arrivals (unrestricted / JB lanes) —
-    "qwen3.8-27b-unsencored":  { vision: true, reasoning: true, thinkingFormat: "qwen", contextWindow: 262144 },
-    "unrestricted":            { vision: true },
-    "deepseek-unrestricted":   { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 128000 },
+    "mimo-v2.6-pro":           { vision: true, contextWindow: 262144, maxOutput: 131072 },
+    "longcat-2.5-preview":     { contextWindow: 262144 },
+    // — the unrestricted (JB) lanes: 512k —
+    "qwen3.8-27b-unsencored":  { vision: true, reasoning: true, thinkingFormat: "qwen", contextWindow: 524288 },
+    "unrestricted":            { vision: true, contextWindow: 524288 },
+    "muse-unrestricted":       { contextWindow: 524288 },
+    "deepseek-unrestricted":   { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 524288 },
+    "big-pickle-unrestricted": { vision: true, contextWindow: 524288 },
+    "ling-unrestricted":       { reasoning: true, contextWindow: 524288 },
+    "mimo-pro-unrestricted":   { vision: true, contextWindow: 524288, maxOutput: 131072 },
+    "longcat-unrestricted":    { contextWindow: 524288 },
+    "step-5-unrestricted":     { vision: true, reasoning: true, thinkingFormat: "step", contextWindow: 524288 },
+    "step-3.7-unrestricted":   { vision: true, reasoning: true, thinkingFormat: "step", contextWindow: 524288 },
   },
   // OpenCode Zen (keyless free lane) and OpenCode Go (paid) — Meta's muse-spark,
   // served by the Responses API. Upstream's caps table declares vision +
