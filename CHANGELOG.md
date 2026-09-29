@@ -32,6 +32,108 @@ compliant form of the same number.
 
 ---
 
+# v1.0.47 — The Single Column ⛵
+> *"The helm was two instruments answering one question. Now it is one column:
+> six headers whose open state IS the route, every room one motion away, and
+> the fleet's health gathered at the foot — measured before it sailed."* ⛵💜
+
+### ⚓ The Story
+
+The navigation was two instruments pretending to be one: a 68px section dock
+and a 216px room panel, with hover-peek, undock machinery, a floating flyout,
+and a sliding marker — four mechanisms where one question needed one answer.
+This tide rebuilds the helm as a **single 264px accordion column**: six section
+headers whose open state IS the route, twenty-one rooms beneath them, and a
+foot that gathers the fleet card, the search hand, the theme hand, the settings
+door, and the version line.
+
+### ✨ What changed
+
+**The navigation, reborn (`src/shared/components/Sidebar.js`, full rewrite):**
+- **The URL decides the section.** `activeSectionId` derives from the pathname
+  against the claim set (every room href + redirect aliases). There is no stored
+  open-state left to drift: `aria-expanded` is derived, not held, so
+  back/forward and deep links stay honest by construction. A header click's
+  only job is `router.push` to that section's first room.
+- **The claim set is derived from the doors** — every room href the helm can
+  render, plus `SECTION_ALIASES` for redirect targets (`/dashboard/settings`,
+  `/dashboard/profile` → System; `/dashboard/settings/pricing` nested claim),
+  and the longest match wins so a broad claim never shadows a specific sibling.
+- **§4.5 chips.** A tile shows a number only when the pulse carries an honest
+  one, and **never renders `0` or a placeholder**. The providers dot survives a
+  zero total, because fleet STATE is real at zero — `role="img"` with the
+  state's name in words.
+- **The fleet card** at the foot: the same pulse door, rendered as honest rows
+  (Providers state + count, Configured keys, Usage spend, Errors), absent when
+  no source answers, linking to `/dashboard/providers`.
+- **The mooring strip**: pin any room (cap 6), persisted to `localStorage`,
+  strip renders only when at least one pin exists. Pinned tiles carry `canPin`
+  so a moored room can be unmoored from the strip itself (a defect the browser
+  walk caught and mended in the same current).
+- **Both disclosures preserved**: Proxy's four lenses and Media Providers' six
+  kinds expand on chevron click, deep links open them by themselves, chevron
+  rotation driven by `data-open`/`aria-expanded`.
+- **Duties preserved**: 9Remote opens its modal, 9English sails external; the
+  `NEW` badge on Request Logs stays; the Translator stays gated behind
+  `enableTranslator`; `/dashboard/mitm` stays in Network per the Star's
+  2026-09-29 decree; Basic Chat and PXPIPE stay omitted.
+- **Hydration-safe theme hand**: the glyph pair is CSS-shown under `.dark`
+  (`light_mode`/`dark_mode` per the house ThemeToggle's "mode you would enter"
+  convention), so server markup and first client render agree. The search hand
+  re-houses to the header input (`#vela-header-search`) — one search, two doors;
+  hidden in the drawer where the header does not exist.
+- **A11y**: every decorative glyph `aria-hidden`; one open accordion carries
+  `aria-controls` pointing at a real id; active tile mirrors the link's
+  `aria-current="page"`; focus-visible rings on headers/utils/brand (proven live
+  by real Tab presses: 2px solid brand-500, offset 1px).
+
+**The CSS, re-cut (`src/app/globals.css`, nav block rewritten end to end):**
+- Tokens: `--nav-rail-w`/`--nav-panel-w` (72+216=288 dock) retired;
+  `--nav-w: 264px`, `--nav-sec-h: 40px`, `--nav-tile-h: 36px`.
+- The entire rail/marker/flyout/undock/dock-count/notice machinery struck —
+  a final sweep reads **0** survivors across `globals.css` and `Sidebar.js`.
+- Contrast ledger carried and re-measured: text-muted on ground 5.51/6.31,
+  active pair brand-700 light 7.23 / brand-400 dark 6.26 (the sealed 10% tint),
+  text-main on surface-2 17.15/11.12, warn chip 6.18/6.78; the search hairline
+  stays a recorded condition (the house identifies a field by its fill —
+  `Input.js` precedent), not a silent pass.
+- Motion: the deck's `navTileIn` stagger retained, capped at `--i ≤ 8`.
+
+**The contract suite, re-cut (`tests/unit/nav-rail-sections.test.jsx`, rewrite):**
+20 cases pinning: route-decides (6 sections, walk + return), header-click
+navigates, re-click earns no duplicate history entry, unknown route falls back
+to Home, exactly one accordion open at any route, the Settings redirect alias
+claims System on all three shapes, longest-match-wins, the restored mitm door
+(sits in Network beside Proxy, opens Network, marks current, no chip), the four
+rooms the Star left omitted stay omitted, §4.5 chips (zero suppression across
+every source, dot survives zero, per-field honest counts, money/errors tones),
+a11y (`aria-expanded` singleton + `aria-controls` integrity + rooms not
+rendered when closed), duties (9Remote button, 9English external), NEW badge,
+drawer close button present / search hidden in drawer.
+
+### 🧪 Proof
+
+- Contract suite: **20/20 green** (`nav-rail-sections.test.jsx`).
+- Guard fleet: **8 files / 147 cases green** (drawer, focus-trap,
+  modal-regression, scroll-lock, CSS tokens, deck motion, compose pin, contract).
+- Parse sweep: `Sidebar.js` + `DashboardLayout.js` through esbuild JSX — clean.
+- Build: **✓ Compiled successfully, 164/164 pages, 139.38s**.
+- Live browser walk on `next dev` :32060: shell 264px, `main` left edge 264
+  (no overlap); all six sections land their first rooms under `waitForUrl`;
+  Home↔System cycle both ways; every tile's `aria-current` singleton; active
+  paint brand-700/brand-400 read computed on both shores; theme toggled twice;
+  search focuses the header input on a page that registers one; settings door
+  lands `/dashboard/settings` with System held open; Proxy 4 lenses and Media
+  Providers 6 kinds expand on their own hrefs; moor pins, persists across
+  reload, unpins from the strip (the `canPin` mend); NEW badge verified.
+- Keyboard: real Tab presses paint the focus ring (2px solid brand-500).
+
+### 🌊 Why five
+
+A full-surface rewrite of the helm — structure, state model, CSS, and the
+contract suite — judged big under the version law. 1.0.42 → 1.0.47.
+
+---
 # v1.0.42 — The Lifted Shore 🌙
 > *"The operator looked at the deep water and asked for moonlight. The hues
 > keep their blue shift; only the luminance rises — and every pair on the
