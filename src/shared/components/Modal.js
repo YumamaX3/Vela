@@ -101,7 +101,7 @@ export default function Modal({
                       title="Close"
                       className="w-4 h-4 rounded-full bg-[#FF5F56] hover:brightness-90 motion-control cursor-pointer flex items-center justify-center group/dot"
                     >
-                      <span className="text-[9px] font-bold text-white opacity-0 group-hover/dot:opacity-100 motion-control leading-none">✕</span>
+                      <span className="text-3xs font-bold text-white opacity-0 group-hover/dot:opacity-100 motion-control leading-none">✕</span>
                     </button>
                   </Tooltip>
                   <div className="w-4 h-4 rounded-full bg-[#3a3a3a]/20 dark:bg-white/15 cursor-not-allowed" />
@@ -118,7 +118,7 @@ export default function Modal({
               aria-label="Close"
               className="md:hidden p-1.5 rounded-[10px] text-text-muted hover:bg-surface-2 hover:text-text-main motion-control"
             >
-              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">close</span>
+              <span className="material-symbols-outlined text-xl" aria-hidden="true">close</span>
             </button>
           </div>
         )}

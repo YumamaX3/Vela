@@ -101,7 +101,7 @@ export default function ModelAvailabilityBadge() {
             : "bg-amber-500/10 border-amber-500/20 text-amber-500 hover:bg-amber-500/15"
         }`}
       >
-        <span className="material-symbols-outlined text-[14px]">
+        <span className="material-symbols-outlined text-sm">
           {isHealthy ? "verified" : "warning"}
         </span>
         {isHealthy
@@ -114,7 +114,7 @@ export default function ModelAvailabilityBadge() {
           <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg">
             <div className="flex items-center gap-2">
               <span
-                className="material-symbols-outlined text-[16px]"
+                className="material-symbols-outlined text-base"
                 style={{ color: isHealthy ? "#22c55e" : "#f59e0b" }}
               >
                 {isHealthy ? "verified" : "warning"}
@@ -126,7 +126,7 @@ export default function ModelAvailabilityBadge() {
               className="p-1 rounded-lg hover:bg-surface text-text-muted hover:text-text-main motion-control"
               title="Refresh"
             >
-              <span className="material-symbols-outlined text-[14px]">refresh</span>
+              <span className="material-symbols-outlined text-sm">refresh</span>
             </button>
           </div>
 
@@ -151,7 +151,7 @@ export default function ModelAvailabilityBadge() {
                           >
                             <div className="flex items-center gap-1.5 min-w-0">
                               <span
-                                className="material-symbols-outlined text-[14px] shrink-0"
+                                className="material-symbols-outlined text-sm shrink-0"
                                 style={{ color: status.color }}
                               >
                                 {status.icon}
@@ -164,7 +164,7 @@ export default function ModelAvailabilityBadge() {
                                 variant="ghost"
                                 onClick={() => handleClearCooldown(m.provider, m.model)}
                                 disabled={isClearing}
-                                className="text-[10px] px-1.5! py-0.5! ml-2"
+                                className="text-3xs px-1.5! py-0.5! ml-2"
                               >
                                 {isClearing ? "..." : "Clear"}
                               </Button>

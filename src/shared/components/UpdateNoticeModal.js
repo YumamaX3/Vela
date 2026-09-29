@@ -73,7 +73,7 @@ export default function UpdateNoticeModal({ isOpen, onClose, info, onTriggerLega
               </span>
               <div>
                 <h2 className="text-[17px] font-semibold text-white">{translate("A new tide is on the horizon")}</h2>
-                <p className="mt-0.5 font-mono text-[12px] text-white/85">
+                <p className="mt-0.5 font-mono text-xs text-white/85">
                   v{info?.currentVersion}
                   <span className="mx-1.5 text-white/60">→</span>
                   <span className="font-semibold text-white">v{info?.latestVersion}</span>
@@ -85,7 +85,7 @@ export default function UpdateNoticeModal({ isOpen, onClose, info, onTriggerLega
               aria-label={translate("Close")}
               className="rounded-lg p-1.5 text-white/80 motion-control hover:bg-white/10 hover:text-white"
             >
-              <span className="material-symbols-outlined text-[20px]">close</span>
+              <span className="material-symbols-outlined text-xl">close</span>
             </button>
           </div>
         </div>
@@ -93,19 +93,19 @@ export default function UpdateNoticeModal({ isOpen, onClose, info, onTriggerLega
         {/* Meta — the honest facts of the tide */}
         <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle px-6 py-3">
           {info?.deployment && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface-2 px-2.5 py-1 text-[10.5px] font-medium text-text-muted">
-              <span className="material-symbols-outlined text-[12px] text-primary">anchor</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface-2 px-2.5 py-1 text-2xs font-medium text-text-muted">
+              <span className="material-symbols-outlined text-xs text-primary">anchor</span>
               {DEPLOYMENT_LABELS[info.deployment] || info.deployment}
             </span>
           )}
           {info?.source && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface-2 px-2.5 py-1 text-[10.5px] font-medium text-text-muted">
-              <span className="material-symbols-outlined text-[12px] text-primary">travel_explore</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface-2 px-2.5 py-1 text-2xs font-medium text-text-muted">
+              <span className="material-symbols-outlined text-xs text-primary">travel_explore</span>
               {info.source === "npm" ? "npm registry" : "GitHub"}
             </span>
           )}
           {info?.checkedAt && (
-            <span className="ml-auto font-mono text-[10px] text-text-subtle">
+            <span className="ml-auto font-mono text-3xs text-text-subtle">
               {translate("checked")} {new Date(info.checkedAt).toLocaleTimeString()}
             </span>
           )}
@@ -131,14 +131,14 @@ export default function UpdateNoticeModal({ isOpen, onClose, info, onTriggerLega
             <button
               type="button"
               onClick={() => copy(command)}
-              className="mb-3 block w-full truncate rounded-[10px] border border-border-subtle bg-surface px-3 py-2 text-left font-mono text-[11px] text-text-muted motion-control hover:border-primary/40"
+              className="mb-3 block w-full truncate rounded-[10px] border border-border-subtle bg-surface px-3 py-2 text-left font-mono text-2xs text-text-muted motion-control hover:border-primary/40"
               title={translate("Copy update command")}
             >
               {copied ? `${translate("Copied")} ✓` : command}
             </button>
           )}
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[11px] text-text-subtle">
+            <p className="text-2xs text-text-subtle">
               {isCli
                 ? translate("The in-place updater handles this berth.")
                 : translate("Run the command where your Vela sleeps, then it returns on the new tide.")}
@@ -146,7 +146,7 @@ export default function UpdateNoticeModal({ isOpen, onClose, info, onTriggerLega
             <button
               type="button"
               onClick={handlePrimary}
-              className="shrink-0 rounded-[10px] bg-brand-500 px-4 py-2 text-[12.5px] font-semibold text-white motion-control hover:bg-brand-600"
+              className="shrink-0 rounded-[10px] bg-brand-600 px-4 py-2 text-xs font-semibold text-white motion-control hover:bg-brand-700"
             >
               {isCli ? translate("Update now") : command && copied ? translate("Copied") : translate("Copy update command")}
             </button>

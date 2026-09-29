@@ -18,14 +18,14 @@ function ControlRow({ icon, title, description, checked, onChange, onLabel, offL
   return (
     <div className="flex items-start justify-between gap-4 py-4 border-b border-border-subtle last:border-b-0">
       <div className="flex items-start gap-3 min-w-0">
-        <span className="material-symbols-outlined text-[18px] text-brand-500 shrink-0 mt-0.5" aria-hidden="true">
+        <span className="material-symbols-outlined text-lg text-brand-500 shrink-0 mt-0.5" aria-hidden="true">
           {icon}
         </span>
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-medium">{title}</p>
             <span
-              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${
+              className={`text-3xs font-semibold px-1.5 py-0.5 rounded-full border ${
                 checked
                   ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30"
                   : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
@@ -69,7 +69,7 @@ export default function SecurityTab({ c }) {
         }`}
       >
         <span
-          className={`material-symbols-outlined text-[20px] shrink-0 ${
+          className={`material-symbols-outlined text-xl shrink-0 ${
             unmet === 0 ? "text-green-700 dark:text-green-400" : "text-amber-700 dark:text-amber-400"
           }`}
           aria-hidden="true"
@@ -118,14 +118,14 @@ export default function SecurityTab({ c }) {
 
         <div className="flex items-start justify-between gap-4 py-4 border-b border-border-subtle last:border-b-0">
           <div className="flex items-start gap-3 min-w-0">
-            <span className="material-symbols-outlined text-[18px] text-brand-500 shrink-0 mt-0.5" aria-hidden="true">
+            <span className="material-symbols-outlined text-lg text-brand-500 shrink-0 mt-0.5" aria-hidden="true">
               password
             </span>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-sm font-medium">{translate("Require dashboard login")}</p>
                 <span
-                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${
+                  className={`text-3xs font-semibold px-1.5 py-0.5 rounded-full border ${
                     requireLogin && hasPassword
                       ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30"
                       : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
@@ -143,9 +143,9 @@ export default function SecurityTab({ c }) {
           </div>
           <a
             href="/dashboard/settings"
-            className="shrink-0 inline-flex items-center gap-1.5 text-[12px] font-medium text-brand-700 dark:text-brand-300 hover:underline focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] rounded"
+            className="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-brand-700 dark:text-brand-300 hover:underline focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] rounded"
           >
-            <span className="material-symbols-outlined text-[15px] leading-none" aria-hidden="true">settings</span>
+            <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">settings</span>
             {translate("Settings")}
           </a>
         </div>
@@ -167,7 +167,7 @@ export default function SecurityTab({ c }) {
         </p>
 
         <div className="flex items-center gap-3 py-4 border-b border-border-subtle">
-          <span className="material-symbols-outlined text-[18px] text-brand-500 shrink-0" aria-hidden="true">cloud_upload</span>
+          <span className="material-symbols-outlined text-lg text-brand-500 shrink-0" aria-hidden="true">cloud_upload</span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium">Cloudflare Tunnel</p>
             <p className="text-xs text-text-muted">
@@ -175,7 +175,7 @@ export default function SecurityTab({ c }) {
             </p>
           </div>
           <span
-            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border shrink-0 ${
+            className={`text-3xs font-semibold px-1.5 py-0.5 rounded-full border shrink-0 ${
               tunnelEnabled
                 ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30"
                 : "bg-surface-2 text-text-muted border-border-subtle"
@@ -186,7 +186,7 @@ export default function SecurityTab({ c }) {
         </div>
 
         <div className="flex items-center gap-3 py-4 border-b border-border-subtle">
-          <span className="material-symbols-outlined text-[18px] text-brand-500 shrink-0" aria-hidden="true">vpn_lock</span>
+          <span className="material-symbols-outlined text-lg text-brand-500 shrink-0" aria-hidden="true">vpn_lock</span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium">Tailscale Funnel</p>
             <p className="text-xs text-text-muted">
@@ -194,7 +194,7 @@ export default function SecurityTab({ c }) {
             </p>
           </div>
           <span
-            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border shrink-0 ${
+            className={`text-3xs font-semibold px-1.5 py-0.5 rounded-full border shrink-0 ${
               tsEnabled
                 ? "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30"
                 : "bg-surface-2 text-text-muted border-border-subtle"

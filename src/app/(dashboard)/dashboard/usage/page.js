@@ -269,8 +269,8 @@ function KpiBand({ period }) {
                 {c.icon}
               </span>
               {(c.previous ?? 0) > 0 && (
-                <span className="inline-flex items-center gap-0.5 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-semibold">
-                  <span className="material-symbols-outlined text-[13px]">
+                <span className="inline-flex items-center gap-0.5 rounded-full bg-white/20 px-2 py-0.5 text-2xs font-semibold">
+                  <span className="material-symbols-outlined text-sm">
                     {up ? "trending_up" : down ? "trending_down" : "remove"}
                   </span>
                   {pct}%
@@ -281,7 +281,7 @@ function KpiBand({ period }) {
               <CountUp value={c.value ?? 0} format={c.format} />
             </div>
             <div className="mt-1 text-xs opacity-85">{c.label}</div>
-            <div className="mt-0.5 text-[11px] opacity-60">{c.sub}</div>
+            <div className="mt-0.5 text-2xs opacity-60">{c.sub}</div>
           </div>
         );
       })}
@@ -432,7 +432,7 @@ function RankedList({ period, metric, dimension, title, subtitle, icon, valueFmt
               className="flex items-center gap-3 border-b border-border-subtle py-2.5 last:border-b-0"
             >
               <span
-                className={`grid h-6 w-6 shrink-0 place-items-center rounded-md text-[11px] font-bold ${
+                className={`grid h-6 w-6 shrink-0 place-items-center rounded-md text-2xs font-bold ${
                   i < 3 ? "bg-brand-500/10 text-brand-500" : "bg-surface-2 text-text-muted"
                 }`}
               >
@@ -471,7 +471,7 @@ function LiveActivity({ requests = [] }) {
       icon="stream"
       padding="md"
       action={
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-success">
+        <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-success">
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
@@ -501,11 +501,11 @@ function LiveActivity({ requests = [] }) {
                 <span className="min-w-0 truncate font-mono text-xs font-semibold text-text-main" title={r.model}>
                   {r.model}
                 </span>
-                <span className="shrink-0 text-[11px] text-text-muted">{r.provider}</span>
-                <span className="ml-auto shrink-0 text-[11px] tabular-nums text-text-muted">
+                <span className="shrink-0 text-2xs text-text-muted">{r.provider}</span>
+                <span className="ml-auto shrink-0 text-2xs tabular-nums text-text-muted">
                   {formatNumber(r.promptTokens)}↑ {formatNumber(r.cachedTokens)}◎ {formatNumber(r.completionTokens)}↓
                 </span>
-                <span className="w-7 shrink-0 text-right text-[11px] tabular-nums text-text-subtle">
+                <span className="w-7 shrink-0 text-right text-2xs tabular-nums text-text-subtle">
                   {timeAgo(r.timestamp)}
                 </span>
               </div>
@@ -553,7 +553,7 @@ function UsagePageInner() {
           {/* The live pulse rides the action row rather than the heading: a masthead
               title is a string, and a status that outlives its own page belongs
               beside the period control it describes. */}
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-0.5 text-[11px] font-semibold text-success">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-0.5 text-2xs font-semibold text-success">
             <span className="relative flex h-1.5 w-1.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-success" />

@@ -52,7 +52,7 @@ export default function SegmentedControl({
             // without this the glyph's ligature text joins the button's
             // accessible name and a screen reader announces "grid_view Cards" -
             // the same leak the sidebar's thirteen glyphs were mended for.
-            <span className="material-symbols-outlined text-[16px] mr-1.5" aria-hidden="true">
+            <span className="material-symbols-outlined text-base mr-1.5" aria-hidden="true">
               {option.icon}
             </span>
           )}

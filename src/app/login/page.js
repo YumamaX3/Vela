@@ -340,7 +340,7 @@ export default function LoginPage() {
                 ))}
               </div>
             </div>
-            <p className="-mt-4 text-center text-[11px] tracking-[0.25em] login-footer-text uppercase">
+            <p className="-mt-4 text-center text-2xs tracking-[0.25em] login-footer-text uppercase">
               Vela · the sails of the great ship
             </p>
 
@@ -351,7 +351,7 @@ export default function LoginPage() {
                 { icon: "monitoring", text: "Live usage, tokens, and spend per key" },
               ].map((f) => (
                 <div key={f.icon} className="flex items-center gap-3 text-text-muted">
-                  <span className="material-symbols-outlined login-feature-icon text-[18px]">{f.icon}</span>
+                  <span className="material-symbols-outlined login-feature-icon text-lg">{f.icon}</span>
                   {f.text}
                 </div>
               ))}
@@ -418,7 +418,7 @@ export default function LoginPage() {
                   )}
 
                   {ssoAvailable && passwordAvailable && (
-                    <div className="login-footer-text flex items-center gap-3 text-[11px]">
+                    <div className="login-footer-text flex items-center gap-3 text-2xs">
                       <div className="h-px flex-1 bg-border/60" />
                       or with password
                       <div className="h-px flex-1 bg-border/60" />
@@ -466,21 +466,21 @@ export default function LoginPage() {
                             aria-label={showPassword ? "Hide password" : "Show password"}
                             title={showPassword ? "Hide password" : "Show password"}
                           >
-                            <span className="material-symbols-outlined text-[18px]">
+                            <span className="material-symbols-outlined text-lg">
                               {showPassword ? "visibility_off" : "visibility"}
                             </span>
                           </button>
                         </div>
                         {capsLockOn && (
                           <p className="login-warn text-xs flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[14px]">keyboard_capslock</span>
+                            <span className="material-symbols-outlined text-sm">keyboard_capslock</span>
                             Caps Lock is on
                           </p>
                         )}
                         {retryAfter > 0 && (
                           <div className="login-error flex flex-col gap-2 rounded-lg bg-red-500/10 border border-red-500/30 p-3">
                             <p className="login-error-text text-xs flex items-center gap-1.5">
-                              <span className="material-symbols-outlined text-[14px]">lock_clock</span>
+                              <span className="material-symbols-outlined text-sm">lock_clock</span>
                               Locked. Retry in <span className="font-mono font-semibold">{retryAfter}s</span>.
                             </p>
                             {lockTotal > 0 && (
@@ -517,7 +517,7 @@ export default function LoginPage() {
                       <div className="flex flex-col gap-1.5 mt-1">
                         {hasPassword === false && (
                           <p className="login-warn text-xs text-center flex items-center justify-center gap-1">
-                            <span className="material-symbols-outlined text-[14px]">warning</span>
+                            <span className="material-symbols-outlined text-sm">warning</span>
                             Security risk: no password set. Remote access stays locked until one is set (Profile → Security).
                           </p>
                         )}
@@ -535,7 +535,7 @@ export default function LoginPage() {
 
       {/* Footer — gateway status */}
       <footer className="relative z-10 pb-4 px-4">
-        <div className="login-footer-text flex items-center justify-center gap-2 text-[11px]">
+        <div className="login-footer-text flex items-center justify-center gap-2 text-2xs">
           <span className={`login-status-dot ${gatewayOk === true ? "ok" : gatewayOk === false ? "bad" : ""}`} />
           <span>
             {gatewayOk === true ? "Gateway online" : gatewayOk === false ? "Gateway unreachable" : "Checking gateway…"}

@@ -132,12 +132,12 @@ export default function QuickNav({ className = "" }) {
             <div key={fleet.label} className="min-w-0">
               <div className="flex items-center gap-1.5 px-1 pb-2">
                 <span
-                  className="material-symbols-outlined text-[14px] text-text-subtle"
+                  className="material-symbols-outlined text-sm text-text-subtle"
                   aria-hidden="true"
                 >
                   {fleet.icon}
                 </span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+                <span className="text-3xs font-semibold uppercase tracking-wider text-text-muted">
                   {fleet.label}
                 </span>
                 <span className="flex-1 h-px bg-border-subtle" aria-hidden="true" />
@@ -152,14 +152,14 @@ export default function QuickNav({ className = "" }) {
                       role="menuitem"
                       aria-current={current ? "page" : undefined}
                       className={cn(
-                        "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-[13px]",
+                        "flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm",
                         "text-text-main hover:bg-surface-2 motion-control",
                         current && "text-primary bg-primary/5 font-medium"
                       )}
                     >
                       <span
                         className={cn(
-                          "material-symbols-outlined text-[18px]",
+                          "material-symbols-outlined text-lg",
                           current ? "text-primary" : "text-text-muted"
                         )}
                         aria-hidden="true"

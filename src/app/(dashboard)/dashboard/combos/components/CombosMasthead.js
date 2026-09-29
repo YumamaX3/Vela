@@ -30,7 +30,7 @@ export default function CombosMasthead({ hasAny, loading, onNew, onReload, onImp
             hasAny ? "text-text-muted hover:text-primary" : "pointer-events-none opacity-40 text-text-muted"
           }`}
         >
-          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+          <span className="material-symbols-outlined text-lg" aria-hidden="true">
             download
           </span>
           Export

@@ -28,7 +28,7 @@ export default function Navigation() {
           <a className="text-gray-300 hover:text-white text-sm font-medium motion-control" href="#how-it-works">How it Works</a>
           <a className="text-gray-300 hover:text-white text-sm font-medium motion-control" href="https://github.com/YumamaX3/Vela#readme" target="_blank" rel="noopener noreferrer">Docs</a>
           <a className="text-gray-300 hover:text-white text-sm font-medium motion-control flex items-center gap-1" href="https://github.com/YumamaX3/Vela" target="_blank" rel="noopener noreferrer">
-            GitHub <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+            GitHub <span className="material-symbols-outlined text-sm">open_in_new</span>
           </a>
         </div>
 

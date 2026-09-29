@@ -70,7 +70,7 @@ export default function NineRemotePromoModal({ isOpen, onClose }) {
           {/* Hero */}
           <div className="flex flex-col items-center gap-2 text-center mt-2">
             <div className="w-14 h-14 rounded-[14px] flex items-center justify-center mb-1 bg-primary shadow-[var(--shadow-warm)]">
-              <span className="material-symbols-outlined text-white text-[30px]">terminal</span>
+              <span className="material-symbols-outlined text-white text-3xl">terminal</span>
             </div>
             <h1 className="text-lg font-bold text-text-main tracking-tight">9Remote</h1>
             <p className="text-xs text-text-muted leading-5 max-w-[220px]">
@@ -84,7 +84,7 @@ export default function NineRemotePromoModal({ isOpen, onClose }) {
               <div key={label} className="flex-1 flex flex-col items-center gap-1.5 py-4 px-1 rounded-[10px] border border-border-subtle bg-surface-2">
                 <span className="material-symbols-outlined text-primary text-[22px]">{icon}</span>
                 <p className="text-xs font-semibold text-text-main">{label}</p>
-                <p className="text-[10px] text-text-muted text-center leading-4">{desc}</p>
+                <p className="text-3xs text-text-muted text-center leading-4">{desc}</p>
               </div>
             ))}
           </div>
@@ -93,7 +93,7 @@ export default function NineRemotePromoModal({ isOpen, onClose }) {
           <div className="flex flex-col gap-3 w-full">
             {BULLETS.map(({ icon, text }) => (
               <div key={icon} className="flex items-center gap-2.5">
-                <span className="material-symbols-outlined flex-shrink-0 text-primary text-[16px]">{icon}</span>
+                <span className="material-symbols-outlined flex-shrink-0 text-primary text-base">{icon}</span>
                 <span className="text-xs text-text-muted">{text}</span>
               </div>
             ))}

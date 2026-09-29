@@ -19,10 +19,10 @@ import {
 function Pill({ tone = "muted", icon, children, title }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border whitespace-nowrap ${TONES[tone] || TONES.muted}`}
+      className={`inline-flex items-center gap-1 text-3xs font-semibold px-1.5 py-0.5 rounded-full border whitespace-nowrap ${TONES[tone] || TONES.muted}`}
       title={title}
     >
-      {icon && <span className="material-symbols-outlined text-[11px]">{icon}</span>}
+      {icon && <span className="material-symbols-outlined text-2xs">{icon}</span>}
       {children}
     </span>
   );
@@ -92,25 +92,25 @@ export function StoredHerePill({ title }) {
 export function UsageStrip({ usage, className = "" }) {
   if (!usage) return null;
   return (
-    <div className={`flex items-center gap-3 flex-wrap text-[11px] text-text-muted ${className}`}>
+    <div className={`flex items-center gap-3 flex-wrap text-2xs text-text-muted ${className}`}>
       <span className="inline-flex items-center gap-1" title={translate("Requests")}>
-        <span className="material-symbols-outlined text-[13px] text-primary/70">swap_calls</span>
+        <span className="material-symbols-outlined text-sm text-primary/70">swap_calls</span>
         {Number(usage.requests || 0).toLocaleString()}
       </span>
       <span className="inline-flex items-center gap-1" title={translate("Input tokens")}>
-        <span className="material-symbols-outlined text-[13px] text-sky-500/70">south</span>
+        <span className="material-symbols-outlined text-sm text-sky-500/70">south</span>
         {formatTokens(usage.promptTokens)} {translate("in")}
       </span>
       <span className="inline-flex items-center gap-1" title={translate("Output tokens")}>
-        <span className="material-symbols-outlined text-[13px] text-emerald-500/70">north</span>
+        <span className="material-symbols-outlined text-sm text-emerald-500/70">north</span>
         {formatTokens(usage.completionTokens)} {translate("out")}
       </span>
       <span className="inline-flex items-center gap-1" title={translate("Total tokens")}>
-        <span className="material-symbols-outlined text-[13px] text-violet-500/70">token</span>
+        <span className="material-symbols-outlined text-sm text-violet-500/70">token</span>
         {formatTokens(usage.totalTokens)} {translate("total")}
       </span>
       <span className="inline-flex items-center gap-1 font-medium text-text-main" title={translate("Estimated spend")}>
-        <span className="material-symbols-outlined text-[13px] text-amber-500/70">paid</span>
+        <span className="material-symbols-outlined text-sm text-amber-500/70">paid</span>
         {formatCost(usage.cost)}
       </span>
     </div>

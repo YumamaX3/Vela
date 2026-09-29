@@ -63,7 +63,7 @@ export default function ChangelogModal({ isOpen, onClose }) {
             className="p-1.5 rounded-lg text-text-muted hover:bg-black/5 dark:hover:bg-white/5 motion-control"
             aria-label="Close"
           >
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <span className="material-symbols-outlined text-xl">close</span>
           </button>
         </div>
 

@@ -22,9 +22,9 @@ function Row({ active, onClick, icon, label, count, title }) {
           : "text-text-muted hover:text-text-main hover:bg-black/[0.03] dark:hover:bg-white/[0.04]"
       }`}
     >
-      {icon && <span className="material-symbols-outlined text-[16px] shrink-0">{icon}</span>}
+      {icon && <span className="material-symbols-outlined text-base shrink-0">{icon}</span>}
       <span className="flex-1 min-w-0 truncate text-xs">{label}</span>
-      <span className="text-[11px] tabular-nums shrink-0">{count}</span>
+      <span className="text-2xs tabular-nums shrink-0">{count}</span>
     </button>
   );
 }
@@ -37,7 +37,7 @@ export default function KeyRail({ c, deck }) {
 
   return (
     <nav className="flex flex-col gap-1" aria-label={translate("Key categories")}>
-      <p className="text-[10px] uppercase tracking-wide text-text-muted px-2.5 mb-1">
+      <p className="text-3xs uppercase tracking-wide text-text-muted px-2.5 mb-1">
         {translate("Categories")}
       </p>
 

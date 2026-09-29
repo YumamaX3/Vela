@@ -64,7 +64,7 @@ function ToolIconButton({ glyph, label, onClick, disabled = false }) {
       title={label}
       className="h-[var(--bar-h)] w-[var(--bar-h)] shrink-0 inline-flex items-center justify-center rounded-[10px] bg-surface-2 border border-transparent text-text-muted hover:bg-surface-3 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 focus-visible:border-brand-500/40 active:scale-[0.97] motion-control disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
     >
-      <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
+      <span className="material-symbols-outlined text-xl" aria-hidden="true">
         {glyph}
       </span>
     </button>
@@ -138,7 +138,7 @@ export default function KeyToolbar({ deck }) {
           className="h-[var(--bar-h)] inline-flex items-center gap-1.5 pl-3 pr-2.5 rounded-[10px] bg-brand-700 text-white text-xs font-medium hover:bg-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 active:scale-[0.97] motion-control"
         >
           {postureMeta(posture).label}
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+          <span className="material-symbols-outlined text-base" aria-hidden="true">
             close
           </span>
         </button>

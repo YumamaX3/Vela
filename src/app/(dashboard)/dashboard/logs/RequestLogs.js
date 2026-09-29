@@ -96,7 +96,7 @@ export default function RequestLogs() {
             onClick={() => fetchLogs()}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text-main hover:bg-surface-2"
           >
-            <span className="material-symbols-outlined text-[15px] text-primary">refresh</span>
+            <span className="material-symbols-outlined text-base text-primary">refresh</span>
             {translate("Refresh")}
           </button>
         </div>
@@ -106,7 +106,7 @@ export default function RequestLogs() {
       {/* Search + model chips */}
       <div className="flex flex-col gap-2">
         <div className="relative">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[16px] text-text-subtle">search</span>
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-base text-text-subtle">search</span>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -121,7 +121,7 @@ export default function RequestLogs() {
                 key={m}
                 type="button"
                 onClick={() => setQuery(m)}
-                className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium motion-control ${
+                className={`rounded-full border px-2.5 py-0.5 text-2xs font-medium motion-control ${
                   query === m ? "border-primary/50 bg-primary/10 text-primary" : "border-border bg-surface text-text-muted hover:text-text-main"
                 }`}
               >
@@ -135,9 +135,9 @@ export default function RequestLogs() {
       {/* Table */}
       <Card className="overflow-hidden" padding="none">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-[12.5px]">
+          <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-border-subtle bg-surface-2/60 text-[10.5px] uppercase tracking-wider text-text-subtle">
+              <tr className="border-b border-border-subtle bg-surface-2/60 text-2xs uppercase tracking-wider text-text-subtle">
                 <th className="px-3 py-2.5 font-semibold">{translate("Time")}</th>
                 <th className="px-3 py-2.5 font-semibold">{translate("Model")}</th>
                 <th className="px-3 py-2.5 font-semibold">{translate("Provider")}</th>
@@ -157,12 +157,12 @@ export default function RequestLogs() {
               ) : (
                 rows.map((r, i) => (
                   <tr key={i} className="border-b border-border-subtle last:border-0 hover:bg-surface-2/40">
-                    <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] text-text-subtle">{r.timestamp}</td>
+                    <td className="whitespace-nowrap px-3 py-2 font-mono text-2xs text-text-subtle">{r.timestamp}</td>
                     <td className="max-w-[180px] truncate px-3 py-2 font-medium text-text-main">{r.model}</td>
                     <td className="px-3 py-2 text-text-muted">{r.provider}</td>
                     <td className="max-w-[120px] truncate px-3 py-2 text-text-muted">{r.account}</td>
-                    <td className="px-3 py-2 text-right font-mono text-[11.5px] text-text-muted">{r.prompt}</td>
-                    <td className="px-3 py-2 text-right font-mono text-[11.5px] text-text-muted">{r.completion}</td>
+                    <td className="px-3 py-2 text-right font-mono text-xs text-text-muted">{r.prompt}</td>
+                    <td className="px-3 py-2 text-right font-mono text-xs text-text-muted">{r.completion}</td>
                     <td className={`px-3 py-2 font-medium ${statusTone(r.status)}`}>{r.status}</td>
                   </tr>
                 ))
@@ -172,14 +172,14 @@ export default function RequestLogs() {
         </div>
       </Card>
 
-      <div className="flex items-center justify-between text-[11px] text-text-subtle">
+      <div className="flex items-center justify-between text-2xs text-text-subtle">
         <span>{translate("Showing")} {rows.length} {translate("of")} {lines.length}</span>
         <div className="flex items-center gap-2">
           <span>{translate("Rows")}</span>
           <select
             value={limit}
             onChange={(e) => setLimit(Number(e.target.value))}
-            className="rounded border border-border bg-surface px-2 py-0.5 text-[11px] text-text-main"
+            className="rounded border border-border bg-surface px-2 py-0.5 text-2xs text-text-main"
           >
             {[100, 200, 500].map((n) => <option key={n} value={n}>{n}</option>)}
           </select>

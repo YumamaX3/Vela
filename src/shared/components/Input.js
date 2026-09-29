@@ -40,7 +40,7 @@ export default function Input({
       <div className="relative">
         {icon && (
           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-text-muted">
-            <span className="material-symbols-outlined text-[20px]">{icon}</span>
+            <span className="material-symbols-outlined text-xl">{icon}</span>
           </div>
         )}
         <input
@@ -52,11 +52,11 @@ export default function Input({
           required={required}
           className={cn(
             "w-full py-2.5 px-3 text-sm text-text-main bg-surface-2 rounded-[10px]",
-            "border border-transparent placeholder-text-muted/70",
+            "border border-border-strong placeholder-text-muted/70",
             "focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/40",
             "motion-control disabled:opacity-50 disabled:cursor-not-allowed",
             // iOS zoom fix
-            "text-[16px] sm:text-sm",
+            "text-base sm:text-sm",
             icon && "pl-10",
             error && "ring-1 ring-red-500 focus:ring-2 focus:ring-red-500/40 border-red-500/40",
             inputClassName
@@ -66,7 +66,7 @@ export default function Input({
       </div>
       {error && (
         <p className="text-xs text-red-500 flex items-center gap-1">
-          <span className="material-symbols-outlined text-[14px]">error</span>
+          <span className="material-symbols-outlined text-sm">error</span>
           {error}
         </p>
       )}

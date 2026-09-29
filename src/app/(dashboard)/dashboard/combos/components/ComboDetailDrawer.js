@@ -17,7 +17,7 @@ function Section({ title, children, action }) {
   return (
     <section className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-text-subtle">{title}</h3>
+        <h3 className="text-2xs font-semibold uppercase tracking-wider text-text-subtle">{title}</h3>
         {action}
       </div>
       {children}
@@ -85,13 +85,13 @@ export default function ComboDetailDrawer({
         <div className="sticky top-0 z-10 flex items-start justify-between gap-2 border-b border-border-subtle bg-surface/95 px-4 py-3 backdrop-blur">
           <div className="flex min-w-0 items-start gap-2">
             <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg", TONES[meta.tone])} aria-hidden="true">
-              <span className="material-symbols-outlined text-[18px]">{meta.icon}</span>
+              <span className="material-symbols-outlined text-lg">{meta.icon}</span>
             </span>
             <div className="min-w-0">
               <h2 className="truncate font-mono text-sm font-medium text-text-main" title={combo.name}>
                 {combo.name}
               </h2>
-              <p className="mt-0.5 text-[11px] text-text-muted">
+              <p className="mt-0.5 text-2xs text-text-muted">
                 {harbor ? `${harbor} · ` : ""}
                 {meta.label} · {members.length} model{members.length === 1 ? "" : "s"}
               </p>
@@ -114,7 +114,7 @@ export default function ComboDetailDrawer({
               aria-label="Close details"
               className="rounded p-1 text-text-muted motion-control hover:text-text-main"
             >
-              <span className="material-symbols-outlined text-[18px]">close</span>
+              <span className="material-symbols-outlined text-lg">close</span>
             </button>
           </div>
         </div>
@@ -137,7 +137,7 @@ export default function ComboDetailDrawer({
             >
               Delete
             </Button>
-            <span className="text-[11px] text-text-muted">
+            <span className="text-2xs text-text-muted">
               <code className="font-mono">model: {combo.name}</code> in any client
             </span>
           </div>
@@ -152,9 +152,9 @@ export default function ComboDetailDrawer({
               onOpenJudge={() => setShowJudgeSelect(true)}
               onClearJudge={() => onSetStrategy?.({ judgeModel: "" })}
             />
-            <p className="text-[11px] text-text-muted">{meta.hint}</p>
+            <p className="text-2xs text-text-muted">{meta.hint}</p>
             {current === "fusion" && (
-              <p className="text-[11px] text-text-muted">
+              <p className="text-2xs text-text-muted">
                 Judge: <span className="font-mono text-text-main">{judge || `Auto · ${members[0] || "first model"}`}</span>
               </p>
             )}
@@ -186,12 +186,12 @@ export default function ComboDetailDrawer({
                       key={`${model}-${index}`}
                       className="group flex items-center gap-2 rounded-lg border border-border-subtle bg-bg px-2 py-1.5"
                     >
-                      <span className="w-4 shrink-0 text-center text-[10px] tabular-nums text-text-muted">{index + 1}</span>
+                      <span className="w-4 shrink-0 text-center text-3xs tabular-nums text-text-muted">{index + 1}</span>
                       <span className="min-w-0 flex-1">
                         <code className="block truncate font-mono text-xs text-text-main" title={model}>
                           {model}
                         </code>
-                        <span className="mt-0.5 flex items-center gap-1 text-[10px] text-text-muted">
+                        <span className="mt-0.5 flex items-center gap-1 text-3xs text-text-muted">
                           {provider ? (
                             <span
                               className={cn(
@@ -199,7 +199,7 @@ export default function ComboDetailDrawer({
                                 TONES[verdict === true ? "emerald" : verdict === false ? "red" : "muted"]
                               )}
                             >
-                              <span className="material-symbols-outlined text-[11px]" aria-hidden="true">
+                              <span className="material-symbols-outlined text-2xs" aria-hidden="true">
                                 {verdict === true ? "check_circle" : verdict === false ? "error" : "help"}
                               </span>
                               {provider} {verdict === true ? "connected" : verdict === false ? "offline" : "unknown"}
@@ -218,7 +218,7 @@ export default function ComboDetailDrawer({
                           aria-label={`Move ${model} up`}
                           className={cn("rounded p-0.5 text-text-muted hover:text-primary", index === 0 && "opacity-30")}
                         >
-                          <span className="material-symbols-outlined text-[14px]">arrow_upward</span>
+                          <span className="material-symbols-outlined text-sm">arrow_upward</span>
                         </button>
                         <button
                           type="button"
@@ -227,7 +227,7 @@ export default function ComboDetailDrawer({
                           aria-label={`Move ${model} down`}
                           className={cn("rounded p-0.5 text-text-muted hover:text-primary", index === members.length - 1 && "opacity-30")}
                         >
-                          <span className="material-symbols-outlined text-[14px]">arrow_downward</span>
+                          <span className="material-symbols-outlined text-sm">arrow_downward</span>
                         </button>
                         <button
                           type="button"
@@ -235,7 +235,7 @@ export default function ComboDetailDrawer({
                           aria-label={`Remove ${model}`}
                           className="rounded p-0.5 text-text-muted hover:text-red-600 dark:hover:text-red-300"
                         >
-                          <span className="material-symbols-outlined text-[14px]">close</span>
+                          <span className="material-symbols-outlined text-sm">close</span>
                         </button>
                       </span>
                     </li>
@@ -247,7 +247,7 @@ export default function ComboDetailDrawer({
 
           {/* Meta */}
           <Section title="Record">
-            <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-2xs">
               <dt className="text-text-muted">Kind</dt>
               <dd className="font-mono text-text-main">{combo.kind || "llm"}</dd>
               <dt className="text-text-muted">Created</dt>

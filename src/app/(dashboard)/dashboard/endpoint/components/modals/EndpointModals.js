@@ -91,7 +91,7 @@ export default function Modals({ c }) {
             <section className="flex flex-col gap-3.5">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary" style={{ fontSize: "16px" }} aria-hidden="true">badge</span>
-                <h3 className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">{translate("Identity")}</h3>
+                <h3 className="text-2xs font-semibold text-text-muted uppercase tracking-wider">{translate("Identity")}</h3>
               </div>
               <Input
                 label={translate("Key Name")}
@@ -115,7 +115,7 @@ export default function Modals({ c }) {
                   existing={categories}
                   onChange={setNewKeyCategory}
                 />
-                <p className="text-[10px] text-text-muted mt-1">
+                <p className="text-3xs text-text-muted mt-1">
                   {translate("Group keys by purpose — pick an existing one or type your own")}
                 </p>
               </div>
@@ -129,7 +129,7 @@ export default function Modals({ c }) {
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-primary" style={{ fontSize: "16px" }} aria-hidden="true">shield_lock</span>
                   <div>
-                    <h3 className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">{translate("Restrict models")}</h3>
+                    <h3 className="text-2xs font-semibold text-text-muted uppercase tracking-wider">{translate("Restrict models")}</h3>
                     <p className="text-xs text-text-muted">{translate("Limit which models this key can call")}</p>
                   </div>
                 </div>
@@ -173,7 +173,7 @@ export default function Modals({ c }) {
             <section className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary" style={{ fontSize: "16px" }} aria-hidden="true">tune</span>
-                <h3 className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">{translate("Limits")}</h3>
+                <h3 className="text-2xs font-semibold text-text-muted uppercase tracking-wider">{translate("Limits")}</h3>
               </div>
               {/* W3 limits — rate, budgets, window, expiry, IP allowlist */}
               <KeyLimitsEditor
@@ -237,7 +237,7 @@ export default function Modals({ c }) {
             className="rounded-lg border border-black/20 dark:border-white/10 p-4 font-mono text-sm break-all select-all"
             style={{ background: "var(--color-terminal)", color: "var(--color-terminal-text)" }}
           >
-            <p className="text-[10px] uppercase tracking-wider opacity-60 mb-2" style={{ color: "var(--color-terminal-text)" }}>
+            <p className="text-3xs uppercase tracking-wider opacity-60 mb-2" style={{ color: "var(--color-terminal-text)" }}>
               vela api key · shown once
             </p>
             <p className="leading-relaxed">{createdKey?.key || ""}</p>
@@ -285,7 +285,7 @@ export default function Modals({ c }) {
             <section className="flex flex-col gap-3.5">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary" style={{ fontSize: "16px" }} aria-hidden="true">badge</span>
-                <h3 className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">{translate("Identity")}</h3>
+                <h3 className="text-2xs font-semibold text-text-muted uppercase tracking-wider">{translate("Identity")}</h3>
               </div>
               <Input
                 label={translate("Key Name")}
@@ -309,7 +309,7 @@ export default function Modals({ c }) {
                   existing={categories}
                   onChange={(cat) => setEditingKey((prev) => (prev ? { ...prev, category: cat } : prev))}
                 />
-                <p className="text-[10px] text-text-muted mt-1">
+                <p className="text-3xs text-text-muted mt-1">
                   {translate("Leave empty to keep this key uncategorized")}
                 </p>
               </div>
@@ -323,7 +323,7 @@ export default function Modals({ c }) {
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-primary" style={{ fontSize: "16px" }} aria-hidden="true">shield_lock</span>
                   <div>
-                    <h3 className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">{translate("Restrict models")}</h3>
+                    <h3 className="text-2xs font-semibold text-text-muted uppercase tracking-wider">{translate("Restrict models")}</h3>
                     <p className="text-xs text-text-muted">{translate("Limit which models this key can call")}</p>
                   </div>
                 </div>
@@ -372,7 +372,7 @@ export default function Modals({ c }) {
               <section className="flex flex-col gap-3">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-primary" style={{ fontSize: "16px" }} aria-hidden="true">tune</span>
-                  <h3 className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">{translate("Limits")}</h3>
+                  <h3 className="text-2xs font-semibold text-text-muted uppercase tracking-wider">{translate("Limits")}</h3>
                 </div>
                 <KeyLimitsEditor
                   key={editingKey.id}
@@ -512,7 +512,7 @@ export default function Modals({ c }) {
           {tsInstalled === true && !tsInstalling && (
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                <span className="material-symbols-outlined text-base">check_circle</span>
                 Tailscale installed
               </div>
               <div className="flex gap-2">

@@ -369,7 +369,7 @@ export default function SsoTab({ deck }) {
     <Card>
       <div className="flex items-start gap-3 mb-4">
         <div className="p-2 rounded-[10px] bg-brand-500/10 text-brand-500 shrink-0">
-          <span className="material-symbols-outlined text-[20px] leading-none">lock_open</span>
+          <span className="material-symbols-outlined text-xl leading-none">lock_open</span>
         </div>
         <div>
           <h3 className="text-text-main font-semibold">Single Sign-On (SSO)</h3>
@@ -475,20 +475,20 @@ export default function SsoTab({ deck }) {
                 className="w-full p-3 flex items-center justify-between gap-2 text-left hover:bg-brand-500/5 motion-control cursor-pointer"
               >
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-brand-500 text-[20px] leading-none">
+                  <span className="material-symbols-outlined text-brand-500 text-xl leading-none">
                     menu_book
                   </span>
                   <div>
                     <p className="font-semibold text-sm text-text-main">
                       IdP Setup Guidelines & Provider Configuration Instructions
                     </p>
-                    <p className="text-[11px] text-text-muted">
+                    <p className="text-2xs text-text-muted">
                       Click to view setup steps for AWS IAM Identity Center, Okta, Entra ID, Keycloak, & Authentik
                     </p>
                   </div>
                 </div>
                 <span
-                  className="material-symbols-outlined text-text-muted motion-control text-[20px] leading-none"
+                  className="material-symbols-outlined text-text-muted motion-control text-xl leading-none"
                   style={{ transform: showSamlGuide ? "rotate(180deg)" : "none" }}
                 >
                   expand_more
@@ -499,7 +499,7 @@ export default function SsoTab({ deck }) {
                 <div className="p-4 border-t border-border-subtle text-xs text-text-main flex flex-col gap-3">
                   <div className="p-2.5 rounded-[8px] border border-brand-500/20 bg-brand-500/5 text-brand-700 dark:text-brand-300">
                     <p className="font-semibold mb-1">Required Service Provider (SP) values for your IdP setup:</p>
-                    <ul className="list-disc pl-4 space-y-1 font-mono text-[11px]">
+                    <ul className="list-disc pl-4 space-y-1 font-mono text-2xs">
                       <li>
                         <b>Assertion Consumer Service (ACS) URL:</b>{" "}
                         <code className="bg-bg px-1 py-0.5 rounded break-all">{samlAcsUrl}</code>
@@ -712,7 +712,7 @@ export default function SsoTab({ deck }) {
                   download="Vela-sp-metadata.xml"
                   className="inline-flex items-center gap-1 text-xs font-medium text-brand-500 hover:underline shrink-0"
                 >
-                  <span className="material-symbols-outlined text-[16px] leading-none">download</span>
+                  <span className="material-symbols-outlined text-base leading-none">download</span>
                   Download XML
                 </a>
               </div>

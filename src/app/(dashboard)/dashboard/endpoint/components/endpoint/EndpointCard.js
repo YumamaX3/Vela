@@ -88,14 +88,14 @@ export default function EndpointCard({ c }) {
                   onClick={() => copy(`${tunnelPublicUrl || tunnelUrl}/v1`, "tunnel_url")}
                   className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary motion-control shrink-0"
                 >
-                  <span className="material-symbols-outlined text-[18px]">{copied === "tunnel_url" ? "check" : "content_copy"}</span>
+                  <span className="material-symbols-outlined text-lg">{copied === "tunnel_url" ? "check" : "content_copy"}</span>
                 </button>
                 <button
                   onClick={() => setShowDisableTunnelModal(true)}
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 motion-control shrink-0"
                   title={translate("Disable Tunnel")}
                 >
-                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
+                  <span className="material-symbols-outlined text-lg">power_settings_new</span>
                 </button>
               </>
             ) : tunnelEnabled && !tunnelLoading && !tunnelReachable ? (
@@ -109,7 +109,7 @@ export default function EndpointCard({ c }) {
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 motion-control shrink-0"
                   title={translate("Disable Tunnel")}
                 >
-                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
+                  <span className="material-symbols-outlined text-lg">power_settings_new</span>
                 </button>
               </>
             ) : tunnelLoading ? (
@@ -123,7 +123,7 @@ export default function EndpointCard({ c }) {
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 motion-control shrink-0"
                   title={translate("Stop")}
                 >
-                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
+                  <span className="material-symbols-outlined text-lg">power_settings_new</span>
                 </button>
               </>
             ) : tunnelStatus?.type === "error" ? (
@@ -145,7 +145,7 @@ export default function EndpointCard({ c }) {
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 motion-control shrink-0"
                   title={translate("Stop")}
                 >
-                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
+                  <span className="material-symbols-outlined text-lg">power_settings_new</span>
                 </button>
               </>
             ) : (
@@ -180,14 +180,14 @@ export default function EndpointCard({ c }) {
                   onClick={() => copy(`${tsUrl}/v1`, "ts_url")}
                   className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary motion-control shrink-0"
                 >
-                  <span className="material-symbols-outlined text-[18px]">{copied === "ts_url" ? "check" : "content_copy"}</span>
+                  <span className="material-symbols-outlined text-lg">{copied === "ts_url" ? "check" : "content_copy"}</span>
                 </button>
                 <button
                   onClick={() => setShowDisableTsModal(true)}
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 motion-control shrink-0"
                   title={translate("Disable Tailscale")}
                 >
-                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
+                  <span className="material-symbols-outlined text-lg">power_settings_new</span>
                 </button>
               </>
             ) : tsEnabled && !tsLoading && !tsReachable ? (
@@ -201,7 +201,7 @@ export default function EndpointCard({ c }) {
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 motion-control shrink-0"
                   title={translate("Disable Tailscale")}
                 >
-                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
+                  <span className="material-symbols-outlined text-lg">power_settings_new</span>
                 </button>
               </>
             ) : (tsLoading || tsConnecting) ? (
@@ -224,7 +224,7 @@ export default function EndpointCard({ c }) {
                   className="p-2 hover:bg-red-500/10 rounded text-red-500 motion-control shrink-0"
                   title={translate("Stop")}
                 >
-                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
+                  <span className="material-symbols-outlined text-lg">power_settings_new</span>
                 </button>
               </>
             ) : tsStatus?.type === "error" ? (

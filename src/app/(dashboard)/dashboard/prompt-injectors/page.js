@@ -229,10 +229,10 @@ export default function PromptInjectorsPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs text-text-muted font-mono">#{index + 1}</span>
                     <p className="text-sm font-medium">{inj.name}</p>
-                    <span className="rounded-md border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-text-muted">{inj.position}</span>
-                    <span className="rounded-md border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-text-muted">{inj.applyTo}</span>
+                    <span className="rounded-md border px-1.5 py-0.5 text-3xs uppercase tracking-wide text-text-muted">{inj.position}</span>
+                    <span className="rounded-md border px-1.5 py-0.5 text-3xs uppercase tracking-wide text-text-muted">{inj.applyTo}</span>
                     {Object.keys(inj.variables || {}).length > 0 && (
-                      <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-1.5 py-0.5 text-[10px] text-blue-400">vars</span>
+                      <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-1.5 py-0.5 text-3xs text-blue-400">vars</span>
                     )}
                     {!inj.enabled && <span className="text-xs text-text-muted">(disabled)</span>}
                   </div>
@@ -269,7 +269,7 @@ export default function PromptInjectorsPage() {
             <p className="text-xs text-text-muted">
               Variables:{" "}
               {BUILTIN_VARS.map((v) => (
-                <code key={v.name} title={v.desc} className="mr-1 cursor-help rounded bg-surface-2 px-1 py-0.5 font-mono text-[10px]">
+                <code key={v.name} title={v.desc} className="mr-1 cursor-help rounded bg-surface-2 px-1 py-0.5 font-mono text-3xs">
                   {`{{${v.name}}}`}
                 </code>
               ))}

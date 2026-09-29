@@ -76,7 +76,7 @@ export default function StorageCard({ onChanged, refreshKey }) {
     <Card>
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 rounded-lg bg-brand-500/10 text-brand-500 shrink-0">
-          <span className="material-symbols-outlined text-[20px]">storage</span>
+          <span className="material-symbols-outlined text-xl">storage</span>
         </div>
         <div className="min-w-0">
           <h3 className="text-base sm:text-lg font-semibold">Storage</h3>

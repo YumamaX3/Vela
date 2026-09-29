@@ -66,7 +66,7 @@ function ModelItem({ index, model, total, onEdit, onMoveUp, onMoveDown, onRemove
     >
       <div className="flex items-center gap-2 min-w-0">
         <span
-          className="text-[10px] font-semibold text-text-muted w-5 text-center shrink-0 tabular-nums"
+          className="text-3xs font-semibold text-text-muted w-5 text-center shrink-0 tabular-nums"
           aria-label={`Position ${index + 1} of ${total}`}
         >
           {String(index + 1).padStart(2, "0")}
@@ -152,7 +152,7 @@ function ModelItem({ index, model, total, onEdit, onMoveUp, onMoveDown, onRemove
           operator needs to know what each model in the combo can do without
           leaving the editor. Anti-slop R-22: every element carries its
           reason; this strip is the reason the model item is a card. */}
-      <div className="flex items-center gap-2 pl-7 text-[10px] text-text-muted">
+      <div className="flex items-center gap-2 pl-7 text-3xs text-text-muted">
         {providerAliasOf(model) && (
           <span className="font-mono text-text-subtle">@{providerAliasOf(model)}</span>
         )}
@@ -322,9 +322,9 @@ export default function ComboFormModal({
                       />
                     </div>
                     {nameError && (
-                      <p id="combo-name-error" className="text-[11px] text-red-500 mt-1">{nameError}</p>
+                      <p id="combo-name-error" className="text-2xs text-red-500 mt-1">{nameError}</p>
                     )}
-                    <p id="combo-name-hint" className="text-[10px] text-text-muted mt-1">
+                    <p id="combo-name-hint" className="text-3xs text-text-muted mt-1">
                       Auto-prefixed with <span className="font-mono">{forcePrefix}</span> · letters, numbers, -, _, . and / allowed · use / to namespace, e.g. <span className="font-mono">{forcePrefix}cc/opus</span>
                     </p>
                   </>
@@ -346,7 +346,7 @@ export default function ComboFormModal({
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm font-medium text-text-main">Models</label>
                   {models.length > 0 && (
-                    <span className="text-[11px] text-text-muted tabular-nums">
+                    <span className="text-2xs text-text-muted tabular-nums">
                       {models.length} {models.length === 1 ? "model" : "models"}
                     </span>
                   )}

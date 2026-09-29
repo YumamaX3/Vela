@@ -144,7 +144,7 @@ export default function ImportBackupModal({ fileName, payload, busy, onClose, on
     >
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-2 text-sm">
-          <span className="material-symbols-outlined text-[18px] text-text-muted">description</span>
+          <span className="material-symbols-outlined text-lg text-text-muted">description</span>
           <span className="text-text-main font-medium truncate" title={fileName}>{fileName}</span>
           {meta?.exportedAt && (
             <span className="text-xs text-text-muted shrink-0">
@@ -189,7 +189,7 @@ export default function ImportBackupModal({ fileName, payload, busy, onClose, on
                       disabled={!inFile}
                       onChange={() => toggleSection(section)}
                     />
-                    <span className="material-symbols-outlined text-[18px] text-text-muted shrink-0">{info.icon}</span>
+                    <span className="material-symbols-outlined text-lg text-text-muted shrink-0">{info.icon}</span>
                     <span className="flex flex-col min-w-0 flex-1">
                       <span className="text-sm text-text-main font-medium">{info.label}</span>
                       <span className="text-xs text-text-muted truncate">{info.description}</span>
@@ -234,7 +234,7 @@ export default function ImportBackupModal({ fileName, payload, busy, onClose, on
                 const row = planRow(section);
                 return (
                   <div key={section} className="flex items-center gap-3 px-3 py-2.5 border-t border-border-subtle first:border-t-0">
-                    <span className="material-symbols-outlined text-[18px] text-text-muted shrink-0">{info.icon}</span>
+                    <span className="material-symbols-outlined text-lg text-text-muted shrink-0">{info.icon}</span>
                     <span className="text-sm text-text-main font-medium flex-1">{info.label}</span>
                     <span className="text-xs text-text-muted">
                       {row ? `${row.items} item${row.items === 1 ? "" : "s"}` : "—"}
@@ -245,7 +245,7 @@ export default function ImportBackupModal({ fileName, payload, busy, onClose, on
             </div>
             {adoptSecrets && (
               <p className="flex items-start gap-2 text-xs rounded-md p-3 bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                <span className="material-symbols-outlined text-[16px] shrink-0">warning</span>
+                <span className="material-symbols-outlined text-base shrink-0">warning</span>
                 Secrets from this file will REPLACE this instance&apos;s dashboard password, SSO
                 configuration and key hashes. A restart is required before sessions are trusted again.
               </p>
@@ -255,7 +255,7 @@ export default function ImportBackupModal({ fileName, payload, busy, onClose, on
 
         {error && (
           <p className="flex items-start gap-2 text-xs rounded-md p-3 bg-red-500/10 text-red-500">
-            <span className="material-symbols-outlined text-[16px] shrink-0">error</span>
+            <span className="material-symbols-outlined text-base shrink-0">error</span>
             {error}
           </p>
         )}

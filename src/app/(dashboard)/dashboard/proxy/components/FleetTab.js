@@ -409,7 +409,7 @@ export default function FleetTab({ c }) {
 
         {selectedIds.length > 0 && (
           <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
-            <span className="material-symbols-outlined text-[18px] text-primary">checklist</span>
+            <span className="material-symbols-outlined text-lg text-primary">checklist</span>
             <span className="text-xs font-medium text-primary">
               {selectedIds.length} selected
             </span>
@@ -459,7 +459,7 @@ export default function FleetTab({ c }) {
                         <p className="min-w-0 max-w-full truncate text-sm font-medium sm:max-w-[18rem]">{pool.name}</p>
                         <PoolVerdictBadge pool={pool} />
                         {probe && verdictFromResult(probe) !== verdictFromTestStatus(pool.testStatus) && (
-                          <span className="text-[10px] text-text-muted" title="This sweep's fresh verdict">
+                          <span className="text-3xs text-text-muted" title="This sweep's fresh verdict">
                             now: {probe.verdict}
                           </span>
                         )}
@@ -475,7 +475,7 @@ export default function FleetTab({ c }) {
                       <p className="mt-1 truncate text-xs text-text-muted">{maskProxyUrl(pool.proxyUrl)}</p>
                       {geo && (
                         <p className="mt-1 flex items-center gap-1.5 truncate text-xs text-text-muted">
-                          <span className="material-symbols-outlined text-[13px]">travel_explore</span>
+                          <span className="material-symbols-outlined text-sm">travel_explore</span>
                           <span className="font-mono">{geo.ip}</span>
                           {geo.country ? <span>· {geo.country}</span> : null}
                           {geo.isUnstable ? (
@@ -487,7 +487,7 @@ export default function FleetTab({ c }) {
                         </p>
                       )}
                       {pool.noProxy ? <p className="truncate text-xs text-text-muted">No proxy: {pool.noProxy}</p> : null}
-                      <p className="mt-1 text-[11px] text-text-muted">
+                      <p className="mt-1 text-2xs text-text-muted">
                         Last tested: {formatDateTime(pool.lastTestedAt)}
                         {pool.lastError ? ` · ${pool.lastError}` : ""}
                       </p>
@@ -507,7 +507,7 @@ export default function FleetTab({ c }) {
                       disabled={testingId === pool.id}
                     >
                       <span
-                        className="material-symbols-outlined text-[18px]"
+                        className="material-symbols-outlined text-lg"
                         style={testingId === pool.id ? { animation: "spin 1s linear infinite" } : undefined}
                       >
                         {testingId === pool.id ? "progress_activity" : "science"}
@@ -518,14 +518,14 @@ export default function FleetTab({ c }) {
                       className="rounded p-2 text-text-muted hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
                       title="Edit"
                     >
-                      <span className="material-symbols-outlined text-[18px]">edit</span>
+                      <span className="material-symbols-outlined text-lg">edit</span>
                     </button>
                     <button
                       onClick={() => handleDelete(pool)}
                       className="rounded p-2 text-red-500 hover:bg-red-500/10"
                       title="Delete"
                     >
-                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                      <span className="material-symbols-outlined text-lg">delete</span>
                     </button>
                   </div>
                 </div>

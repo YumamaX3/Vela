@@ -23,7 +23,7 @@ export default function DashboardNotFound() {
         href="/dashboard"
         className="mt-4 inline-flex items-center gap-1.5 rounded-[10px] border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-main motion-control hover:bg-surface-2"
       >
-        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+        <span className="material-symbols-outlined text-base" aria-hidden="true">
           home
         </span>
         Back to the Dashboard

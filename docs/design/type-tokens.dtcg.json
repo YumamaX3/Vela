@@ -1,0 +1,167 @@
+{
+  "$description": "The house type scale: nine rungs, each a token with a paired line-height, in the Design Tokens Community Group format and matching docs/design/nav-tokens.dtcg.json. The stylesheet declares every rung in the `@theme inline` block of src/app/globals.css, which is what makes them reach Tailwind's own text-* utilities and, through those, every room in the harbor. Size and leading are held as one decision here, never as two habits. The scan that produced these values is recorded in `sweep` below, and the reason each rung exists is written in one line beside it (the antislop R-31 keystone). The colour ledger already lived in src/app/globals.css and the login ledger; the motion and geometry ledgers live in motion-tokens.dtcg.json and nav-tokens.dtcg.json; type was the one family with no ledger until the v1.0.45 tide.",
+  "type": {
+    "3xs": {
+      "size": {
+        "$type": "dimension",
+        "$value": { "value": 10, "unit": "px" },
+        "$description": "Micro counters and dot labels: the smallest mark that stays legible at 1x. Absorbs text-[9px] (12 sites) and text-[10px] (187 sites), the two smallest stray sizes in the harbor."
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": { "value": 14, "unit": "px" },
+        "$description": "1.4 leading. A micro row is read as a mark, not a sentence, so it wants the tightest pairing that still separates two stacked counters."
+      }
+    },
+    "2xs": {
+      "size": {
+        "$type": "dimension",
+        "$value": { "value": 11, "unit": "px" },
+        "$description": "Chips, table heads and badges. Absorbs text-[11px] (160 sites) and text-[10.5px] (10 sites), the latter snapped up by half a pixel. One step above micro so a badge reads without the reader leaning in."
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": { "value": 16, "unit": "px" },
+        "$description": "1.45 leading. Chips wrap to two lines inside narrow columns, so the pair must survive a wrap without clipping."
+      }
+    },
+    "xs": {
+      "size": {
+        "$type": "dimension",
+        "$value": { "value": 12, "unit": "px" },
+        "$description": "Dense meta and labels. Merges text-[12px] (31 sites), text-[12.5px] (14 sites) and text-[11.5px] (8 sites). Carries 825 named `text-xs` sites, so its size is fixed by what already renders rather than chosen fresh."
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": { "value": 16, "unit": "px" },
+        "$description": "Tailwind's own pairing for the rung, restated here so the house owns the number instead of inheriting it."
+      }
+    },
+    "sm": {
+      "size": {
+        "$type": "dimension",
+        "$value": { "value": 14, "unit": "px" },
+        "$description": "Table cells and dense body. Merges text-[13px] (27 sites), text-[13.5px] (1 site) and text-[14px] (234 sites). Carries 758 named `text-sm` sites, making this the harbor's de facto body rung."
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": { "value": 20, "unit": "px" },
+        "$description": "Tailwind's pairing for the rung, restated. A one-pixel tightening from the 21px a bare inherited line-height gave the inline strays; verified in the browser rather than assumed."
+      }
+    },
+    "base": {
+      "size": {
+        "$type": "dimension",
+        "$value": { "value": 16, "unit": "px" },
+        "$description": "Default body in prose and forms. Merges text-[15px] (25 sites) and text-[16px] (76 sites). Also the iOS input floor: a control below 16px makes Safari zoom the page on focus."
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": { "value": 24, "unit": "px" },
+        "$description": "1.5 leading, the house's prose rhythm. The Input component already spends this rung on small screens for the iOS zoom floor, so the pairing has to read well in a form."
+      }
+    },
+    "lg": {
+      "size": {
+        "$type": "dimension",
+        "$value": { "value": 18, "unit": "px" },
+        "$description": "Card titles and form section leads. Absorbs text-[18px] (100 sites) exactly, including the icon glyphs sized at 18px inside buttons."
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": { "value": 28, "unit": "px" },
+        "$description": "Tailwind's pairing for the rung, restated so a title and its subtitle stack on a whole-pixel rhythm."
+      }
+    },
+    "xl": {
+      "size": {
+        "$type": "dimension",
+        "$value": { "value": 20, "unit": "px" },
+        "$description": "Page sub-heads. Absorbs text-[20px] (74 sites), which is also the size the nav rail gives its glyphs."
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": { "value": 28, "unit": "px" },
+        "$description": "Tailwind's pairing, kept. A sub-head and the xl glyph beside it share one leading so a row of mixed type stays on its baseline."
+      }
+    },
+    "2xl": {
+      "size": {
+        "$type": "dimension",
+        "$value": { "value": 24, "unit": "px" },
+        "$description": "Page heads and display numerals. Absorbs text-[24px] (1 site) and the stylesheet's 1.4rem stray (22.4px), the only CSS font-size with no utility behind it."
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": { "value": 32, "unit": "px" },
+        "$description": "1.33 leading. A display numeral is read alone, so it wants a tighter ratio than body copy."
+      }
+    },
+    "3xl": {
+      "size": {
+        "$type": "dimension",
+        "$value": { "value": 30, "unit": "px" },
+        "$description": "Hero numerals. Absorbs text-[30px] (2 sites) and text-[32px] (11 sites), the largest stride in the map at two pixels down, the snap ceiling. Thirty holds the same presence on a 14-inch deck without forcing a horizontal scroll on a 375px one."
+      },
+      "lineHeight": {
+        "$type": "dimension",
+        "$value": { "value": 36, "unit": "px" },
+        "$description": "1.2 leading, the tightest ratio in the scale, because a hero numeral is one line by construction."
+      }
+    }
+  },
+  "sweep": {
+    "$description": "The scan this scale was drawn from: every inline font-size utility in src/, counted by size before a single rung was minted. 1,007 instances across twenty-seven distinct sizes sat beside 1,770 named type utilities, measured after the fact: the figure this line carried before the sweep was 1,583, which is exactly 825 xs plus 758 sm, the two rungs whose counts the first pass had checked, mislabeled as a total. The map below is what the tide's codemod applied, one direction only: 973 sites rewritten across 156 files, 34 left alone. The pre-sweep map held the twelve sizes the first scan named; it was then extended by five it had classified as strays (10.5, 11.5, 13.5, 24, 30), each snapping up by two pixels or less, because a half-pixel body size is not a register the house chose, and a map that leaves text behind is not a scale. The 34 that remain are **28 icon-glyph optical sizes** (22, 26, 28, 40, 48, 56, 64 — each sizing a ligature) and **six deliberate exceptions** (the home masthead's 34px greeting, a 26px KPI numeral, the update notice's 17px heading, three 8px chips in the cowork card): geometry and numerals, not sentences, and argued in the Delivery Gate.",
+    "$map": {
+      "[9px]": "3xs",
+      "[10px]": "3xs",
+      "[10.5px]": "2xs",
+      "[11px]": "2xs",
+      "[11.5px]": "xs",
+      "[12px]": "xs",
+      "[12.5px]": "xs",
+      "[13px]": "sm",
+      "[13.5px]": "sm",
+      "[14px]": "sm",
+      "[15px]": "base",
+      "[16px]": "base",
+      "[18px]": "lg",
+      "[20px]": "xl",
+      "[24px]": "2xl",
+      "[30px]": "3xl",
+      "[32px]": "3xl"
+    },
+    "$counts": {
+      "[9px]": 12,
+      "[10px]": 187,
+      "[10.5px]": 10,
+      "[11px]": 160,
+      "[11.5px]": 8,
+      "[12px]": 31,
+      "[12.5px]": 14,
+      "[13px]": 27,
+      "[13.5px]": 1,
+      "[14px]": 234,
+      "[15px]": 25,
+      "[16px]": 76,
+      "[18px]": 100,
+      "[20px]": 74,
+      "[24px]": 1,
+      "[30px]": 2,
+      "[32px]": 11
+    },
+    "$blastRadius": {
+      "filesChanged": 157,
+      "filesCarryingTypeRewrites": 156,
+      "underDashboard": 120,
+      "namedUtilitiesUntouched": 1770,
+      "namedUtilitiesAfterSweep": 2743,
+      "preSweepScan": 1007,
+      "inlineSitesRewritten": 973,
+      "inlineSitesLeftAlone": 34,
+      "parseSweep": "156 of 156 js/jsx files transform clean under Bun's jsx transpiler",
+      "diff": "1037 insertions, 983 deletions",
+      "coralInkMend": "7 lines across 5 files, the only solid brand-500 grounds carrying white text"
+    }
+  }
+}

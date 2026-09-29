@@ -39,13 +39,13 @@ function TransportRow({ label, icon, url, state, note, copy, copied, copyId }) {
   const label_ = { on: translate("Reachable"), off: translate("Off"), pending: translate("Checking") }[state];
   return (
     <div className="flex items-center gap-3 py-3 border-b border-border-subtle last:border-b-0">
-      <span className="material-symbols-outlined text-[18px] text-brand-500 shrink-0" aria-hidden="true">
+      <span className="material-symbols-outlined text-lg text-brand-500 shrink-0" aria-hidden="true">
         {icon}
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm font-medium">{label}</p>
-          <span className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${tone}`}>
+          <span className={`inline-flex items-center gap-1.5 text-3xs font-semibold px-1.5 py-0.5 rounded-full border ${tone}`}>
             <span className={`size-1.5 rounded-full ${dot}`} aria-hidden="true" />
             {label_}
           </span>
@@ -64,7 +64,7 @@ function TransportRow({ label, icon, url, state, note, copy, copied, copyId }) {
           title={translate("Copy")}
           className="shrink-0 p-2 rounded-[10px] text-text-muted hover:text-brand-600 dark:hover:text-brand-300 hover:bg-black/5 dark:hover:bg-white/5 motion-control cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
         >
-          <span className="material-symbols-outlined text-[16px] leading-none" aria-hidden="true">
+          <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">
             {copied === copyId ? "check" : "content_copy"}
           </span>
         </button>
@@ -114,7 +114,7 @@ export default function OverviewTab({ c }) {
           {translate("API Endpoint")}
         </h2>
         <div className="rounded-[12px] p-4" style={{ background: "var(--color-terminal)", color: "var(--color-terminal-text)" }}>
-          <p className="text-[10px] uppercase tracking-wider opacity-60 mb-1.5">
+          <p className="text-3xs uppercase tracking-wider opacity-60 mb-1.5">
             {translate("Local address")}
           </p>
           <code className="font-mono text-sm break-all">{local}</code>
@@ -165,8 +165,8 @@ export default function OverviewTab({ c }) {
             style={{ animationDelay: `${i * 40}ms` }}
           >
             <div className="flex items-center gap-2 text-text-muted">
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{s.icon}</span>
-              <p className="text-[11px] font-semibold uppercase tracking-wider">{s.label}</p>
+              <span className="material-symbols-outlined text-base" aria-hidden="true">{s.icon}</span>
+              <p className="text-2xs font-semibold uppercase tracking-wider">{s.label}</p>
             </div>
             <p className={`text-2xl font-semibold mt-2 ${s.warn ? "text-amber-700 dark:text-amber-400" : ""}`}>{s.value}</p>
             <p className="text-xs text-text-muted mt-0.5">{s.sub}</p>
@@ -182,7 +182,7 @@ export default function OverviewTab({ c }) {
             {translate("Quick connect")}
           </h2>
           {!vaultKey && (
-            <span className="text-[11px] text-text-muted">
+            <span className="text-2xs text-text-muted">
               {translate("No key in this browser's vault — snippet shows a placeholder")}
             </span>
           )}
@@ -195,19 +195,19 @@ export default function OverviewTab({ c }) {
               role="tab"
               aria-selected={client === cl.id}
               onClick={() => setClient(cl.id)}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px] text-[12px] font-medium motion-control cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[10px] text-xs font-medium motion-control cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] ${
                 client === cl.id
                   ? "bg-brand-500/10 text-brand-700 dark:text-brand-300"
                   : "text-text-muted hover:text-text-main hover:bg-surface-2"
               }`}
             >
-              <span className="material-symbols-outlined text-[14px] leading-none" aria-hidden="true">{cl.icon}</span>
+              <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">{cl.icon}</span>
               {cl.name}
             </button>
           ))}
         </div>
         <div className="relative rounded-[12px] p-4 pr-14" style={{ background: "var(--color-terminal)", color: "var(--color-terminal-text)" }}>
-          <pre className="whitespace-pre-wrap break-all font-mono text-[12px] leading-relaxed">
+          <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed">
             {snippetFor(client, baseUrl, vaultKey)}
           </pre>
           <button
@@ -218,7 +218,7 @@ export default function OverviewTab({ c }) {
             className="absolute top-3 right-3 inline-flex items-center justify-center size-8 rounded-[8px] opacity-70 hover:opacity-100 hover:bg-white/10 transition-[opacity,background-color] cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
             style={{ color: "var(--color-terminal-text)" }}
           >
-            <span className="material-symbols-outlined text-[16px] leading-none" aria-hidden="true">
+            <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">
               {copied === "snippet" ? "check" : "content_copy"}
             </span>
           </button>
@@ -228,18 +228,18 @@ export default function OverviewTab({ c }) {
       {unmet.length > 0 && (
         <Card>
           <h2 className="text-sm font-semibold flex items-center gap-2 mb-2">
-            <span className="material-symbols-outlined text-amber-600 dark:text-amber-400 text-[18px]" aria-hidden="true">shield</span>
+            <span className="material-symbols-outlined text-amber-600 dark:text-amber-400 text-lg" aria-hidden="true">shield</span>
             {translate("Before you enable a tunnel")}
           </h2>
           <ul className="flex flex-col gap-1.5">
             {unmet.map((m) => (
               <li key={m} className="text-xs text-text-muted flex items-start gap-1.5">
-                <span className="material-symbols-outlined text-[13px] mt-0.5 text-amber-600 dark:text-amber-400" aria-hidden="true">warning</span>
+                <span className="material-symbols-outlined text-sm mt-0.5 text-amber-600 dark:text-amber-400" aria-hidden="true">warning</span>
                 {m}
               </li>
             ))}
           </ul>
-          <p className="text-[11px] text-text-muted mt-2">
+          <p className="text-2xs text-text-muted mt-2">
             {translate("The Security tab shows these controls in full.")}
           </p>
         </Card>

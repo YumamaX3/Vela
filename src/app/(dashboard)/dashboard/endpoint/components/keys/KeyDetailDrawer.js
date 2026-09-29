@@ -83,7 +83,7 @@ export default function KeyDetailDrawer({ k, deck }) {
             )}
           </div>
           {!storedOnDevice && (
-            <p className="text-[11px] text-text-muted mt-2">
+            <p className="text-2xs text-text-muted mt-2">
               {translate("The full key is not in this browser's vault. It was shown once, at creation, and cannot be shown again — rotate it if it was lost.")}
             </p>
           )}
@@ -91,7 +91,7 @@ export default function KeyDetailDrawer({ k, deck }) {
 
         {usage && (
           <div className="rounded-[10px] bg-surface-2 border border-border-subtle p-3">
-            <p className="text-[11px] uppercase tracking-wide text-text-muted mb-2">
+            <p className="text-2xs uppercase tracking-wide text-text-muted mb-2">
               {translate("Usage in this window")}
             </p>
             <UsageStrip usage={usage} />
@@ -124,7 +124,7 @@ export default function KeyDetailDrawer({ k, deck }) {
             onChange={(next) => setCategory([k.id], next || null)}
             idPrefix={`key-detail-${k.id}`}
           />
-          <p className="text-[11px] text-text-muted mt-2">
+          <p className="text-2xs text-text-muted mt-2">
             {translate("Filing is immediate — the rail's counts follow.")}
           </p>
         </div>
@@ -132,7 +132,7 @@ export default function KeyDetailDrawer({ k, deck }) {
         <div className="pt-2 border-t border-border">
           <KeyLimitsEditor value={limits} onChange={setLimits} />
           <div className="flex items-center justify-between gap-2 mt-3">
-            <p className="text-[11px] text-text-muted flex-1">
+            <p className="text-2xs text-text-muted flex-1">
               {translate("Ceilings apply to this key alone. Cleared fields become unlimited.")}
             </p>
             <Button
@@ -149,7 +149,7 @@ export default function KeyDetailDrawer({ k, deck }) {
         <div className="flex items-center justify-between gap-3 pt-3 border-t border-border">
           <div className="min-w-0">
             <p className="text-sm font-medium">{translate("Pause this key")}</p>
-            <p className="text-[11px] text-text-muted">
+            <p className="text-2xs text-text-muted">
               {translate("Requests bearing it are refused until you resume. The key string never changes.")}
             </p>
           </div>

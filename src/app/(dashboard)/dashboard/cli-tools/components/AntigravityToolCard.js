@@ -254,7 +254,7 @@ export default function AntigravityToolCard({
             <p className="text-xs text-text-muted truncate">{tool.description}</p>
           </div>
         </div>
-        <span className={`material-symbols-outlined text-text-muted text-[20px] motion-control ${isExpanded ? "rotate-180" : ""}`}>expand_more</span>
+        <span className={`material-symbols-outlined text-text-muted text-xl motion-control ${isExpanded ? "rotate-180" : ""}`}>expand_more</span>
       </div>
 
       {isExpanded && (
@@ -271,9 +271,9 @@ export default function AntigravityToolCard({
                 <div key={key} className="flex items-center">
                   <div className="flex items-center gap-1 px-2 py-1 rounded-md">
                     {isLoading ? (
-                      <span className="material-symbols-outlined text-[14px] text-primary animate-spin">progress_activity</span>
+                      <span className="material-symbols-outlined text-sm text-primary animate-spin">progress_activity</span>
                     ) : (
-                      <span className={`material-symbols-outlined text-[14px] ${ok ? "text-green-500" : "text-text-muted"}`}>
+                      <span className={`material-symbols-outlined text-sm ${ok ? "text-green-500" : "text-text-muted"}`}>
                         {ok ? "check_circle" : "radio_button_unchecked"}
                       </span>
                     )}
@@ -281,7 +281,7 @@ export default function AntigravityToolCard({
                       {label}
                     </span>
                   </div>
-                  {i < 2 && <span className="material-symbols-outlined text-[12px] text-text-muted">arrow_forward</span>}
+                  {i < 2 && <span className="material-symbols-outlined text-xs text-text-muted">arrow_forward</span>}
                 </div>
               );
             })}
@@ -295,7 +295,7 @@ export default function AntigravityToolCard({
                 disabled={loading}
                 className="px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 font-medium text-sm flex items-center gap-2 hover:bg-red-500/20 motion-control disabled:opacity-50"
               >
-                <span className="material-symbols-outlined text-[18px]">stop_circle</span>
+                <span className="material-symbols-outlined text-lg">stop_circle</span>
                 Stop MITM
               </button>
             ) : (
@@ -304,7 +304,7 @@ export default function AntigravityToolCard({
                 disabled={loading || !hasActiveProviders}
                 className="px-4 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary font-medium text-sm flex items-center gap-2 hover:bg-primary/20 motion-control disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span className="material-symbols-outlined text-[18px]">play_circle</span>
+                <span className="material-symbols-outlined text-lg">play_circle</span>
                 Start MITM
               </button>
             )}
@@ -312,7 +312,7 @@ export default function AntigravityToolCard({
 
           {message?.type === "error" && (
             <div className="flex items-center gap-2 px-2 py-1.5 rounded text-xs bg-red-500/10 text-red-600">
-              <span className="material-symbols-outlined text-[14px]">error</span>
+              <span className="material-symbols-outlined text-sm">error</span>
               <span>{message.text}</span>
             </div>
           )}
@@ -322,7 +322,7 @@ export default function AntigravityToolCard({
             <>
               <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr_auto] sm:items-center sm:gap-2">
                 <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">API Key</span>
-                <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
+                <span className="material-symbols-outlined hidden text-text-muted text-sm sm:inline">arrow_forward</span>
                 {apiKeys.length > 0 ? (
                   <select
                     value={selectedApiKey}
@@ -341,7 +341,7 @@ export default function AntigravityToolCard({
               {tool.defaultModels.map((model) => (
                 <div key={model.alias} className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr_auto] sm:items-center sm:gap-2">
                   <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">{model.name}</span>
-                  <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
+                  <span className="material-symbols-outlined hidden text-text-muted text-sm sm:inline">arrow_forward</span>
                   <div className="relative w-full min-w-0">
                     <input
                       type="text"
@@ -356,7 +356,7 @@ export default function AntigravityToolCard({
                         className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-red-500 rounded motion-control"
                         title="Clear"
                       >
-                        <span className="material-symbols-outlined text-[14px]">close</span>
+                        <span className="material-symbols-outlined text-sm">close</span>
                       </button>
                     )}
                   </div>
@@ -377,7 +377,7 @@ export default function AntigravityToolCard({
                   onClick={handleSaveMappings}
                   disabled={loading || Object.keys(modelMappings).length === 0}
                 >
-                  <span className="material-symbols-outlined text-[14px] mr-1">save</span>
+                  <span className="material-symbols-outlined text-sm mr-1">save</span>
                   Save Mappings
                 </Button>
               </div>
@@ -387,7 +387,7 @@ export default function AntigravityToolCard({
           {/* Windows admin warning */}
           {!isRunning && serverIsWindows && (
             <div className="flex items-center gap-2 px-2 py-1.5 rounded text-xs bg-yellow-500/10 text-yellow-600 border border-yellow-500/20">
-              <span className="material-symbols-outlined text-[14px]">warning</span>
+              <span className="material-symbols-outlined text-sm">warning</span>
               <span>Windows: Run terminal (Vela) as Administrator to enable MITM</span>
             </div>
           )}
@@ -398,9 +398,9 @@ export default function AntigravityToolCard({
               <p className="text-xs text-text-muted">
                 <span className="font-medium text-text-main">How it works:</span> Intercepts Antigravity traffic via DNS redirect, letting you reroute models through Vela.
               </p>
-              <div className="flex flex-col gap-0.5 text-[11px] text-text-muted">
+              <div className="flex flex-col gap-0.5 text-2xs text-text-muted">
                 <span>1. Generates SSL cert & adds to system keychain</span>
-                <span>2. Redirects <code className="text-[10px] bg-surface px-1 rounded">daily-cloudcode-pa.googleapis.com</code> → localhost</span>
+                <span>2. Redirects <code className="text-3xs bg-surface px-1 rounded">daily-cloudcode-pa.googleapis.com</code> → localhost</span>
                 <span>3. Maps Antigravity models to any provider via Vela</span>
               </div>
             </div>
@@ -421,7 +421,7 @@ export default function AntigravityToolCard({
       >
         <div className="flex flex-col gap-4">
           <div className="flex items-start gap-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-            <span className="material-symbols-outlined text-yellow-500 text-[20px]">warning</span>
+            <span className="material-symbols-outlined text-yellow-500 text-xl">warning</span>
             <p className="text-xs text-text-muted">Required for SSL certificate and DNS configuration</p>
           </div>
 
@@ -437,7 +437,7 @@ export default function AntigravityToolCard({
 
           {message && (
             <div className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs ${message.type === "success" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"}`}>
-              <span className="material-symbols-outlined text-[14px]">{message.type === "success" ? "check_circle" : "error"}</span>
+              <span className="material-symbols-outlined text-sm">{message.type === "success" ? "check_circle" : "error"}</span>
               <span>{message.text}</span>
             </div>
           )}

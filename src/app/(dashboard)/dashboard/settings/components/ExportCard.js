@@ -81,7 +81,7 @@ export default function ExportCard() {
     <Card>
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 rounded-lg bg-brand-500/10 text-brand-500 shrink-0">
-          <span className="material-symbols-outlined text-[20px]">download</span>
+          <span className="material-symbols-outlined text-xl">download</span>
         </div>
         <div className="min-w-0">
           <h3 className="text-base sm:text-lg font-semibold">Export</h3>
@@ -108,7 +108,7 @@ export default function ExportCard() {
             <p className="text-xs text-text-muted">Governance only — key strings are hash-at-rest and cannot be exported.</p>
           </div>
           <a href="/api/keys/export" download className={cn(ANCHOR_BTN, "shrink-0")}>
-            <span className="material-symbols-outlined text-[18px]">download</span>
+            <span className="material-symbols-outlined text-lg">download</span>
             Export
           </a>
         </div>
@@ -127,7 +127,7 @@ export default function ExportCard() {
               className="w-[150px]"
             />
             <a href={`/api/usage/metrics/export?period=${period}`} download className={ANCHOR_BTN}>
-              <span className="material-symbols-outlined text-[18px]">download</span>
+              <span className="material-symbols-outlined text-lg">download</span>
               Export
             </a>
           </div>

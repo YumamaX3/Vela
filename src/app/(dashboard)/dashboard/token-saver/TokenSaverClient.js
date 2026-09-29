@@ -616,7 +616,7 @@ export default function TokenSaverClient() {
               <p className="text-xs text-text-muted mt-1">Restarting proxy…</p>
             )}
             {(extrasActionLoading || removingExtra) && installLog && (
-              <pre className="mt-2 max-h-32 overflow-auto rounded bg-surface-2 p-2 text-[10px] leading-tight text-text-muted whitespace-pre-wrap">
+              <pre className="mt-2 max-h-32 overflow-auto rounded bg-surface-2 p-2 text-3xs leading-tight text-text-muted whitespace-pre-wrap">
                 {installLog}
               </pre>
             )}

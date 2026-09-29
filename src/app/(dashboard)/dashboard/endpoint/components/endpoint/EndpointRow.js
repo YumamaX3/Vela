@@ -14,7 +14,7 @@ export default function EndpointRow({ label, url, copyId, copied, onCopy, badge,
         onClick={() => onCopy(url, copyId)}
         className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary motion-control shrink-0"
       >
-        <span className="material-symbols-outlined text-[18px]">{copied === copyId ? "check" : "content_copy"}</span>
+        <span className="material-symbols-outlined text-lg">{copied === copyId ? "check" : "content_copy"}</span>
       </button>
       {actions}
     </div>

@@ -645,7 +645,7 @@ export default function ModelSelectModal({
             because it shortens the next click. */}
         {recents.length > 0 && !searchQuery.trim() && (
           <div className="hidden sm:flex items-center gap-2 px-4 py-2 border-b border-border-subtle bg-surface-2/30 shrink-0">
-            <span className="text-[11px] font-medium text-text-muted uppercase tracking-wider">Recent</span>
+            <span className="text-2xs font-medium text-text-muted uppercase tracking-wider">Recent</span>
             <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
               {recents.map((r) => (
                 <button
@@ -666,7 +666,7 @@ export default function ModelSelectModal({
             </div>
             <button
               onClick={clearRecents}
-              className="text-[11px] text-text-muted hover:text-text-main motion-control focus-visible:outline-none focus-visible:underline"
+              className="text-2xs text-text-muted hover:text-text-main motion-control focus-visible:outline-none focus-visible:underline"
               title="Clear recents"
             >
               Clear
@@ -707,7 +707,7 @@ export default function ModelSelectModal({
             {/* Search — full width on its own row. */}
             <div className="p-3 border-b border-border-subtle shrink-0">
               <div className="relative">
-                <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted text-[16px]" aria-hidden="true">
+                <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted text-base" aria-hidden="true">
                   search
                 </span>
                 <input
@@ -743,9 +743,9 @@ export default function ModelSelectModal({
               {!isLoading && filteredCombos.length > 0 && (
                 <section aria-label="Combos">
                   <div className="flex items-center gap-1.5 mb-2 sticky top-0 bg-surface/95 backdrop-blur py-1 -mx-1 px-1 z-10">
-                    <span className="material-symbols-outlined text-primary text-[14px]" aria-hidden="true">layers</span>
+                    <span className="material-symbols-outlined text-primary text-sm" aria-hidden="true">layers</span>
                     <h3 className="text-xs font-semibold text-primary uppercase tracking-wider">Combos</h3>
-                    <span className="text-[10px] text-text-muted">({filteredCombos.length})</span>
+                    <span className="text-3xs text-text-muted">({filteredCombos.length})</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {filteredCombos.map((combo) => {
@@ -765,10 +765,10 @@ export default function ModelSelectModal({
                                 : "bg-surface border-border hover:border-primary/50"
                           )}
                         >
-                          <span className="material-symbols-outlined text-primary text-[16px] shrink-0" aria-hidden="true">layers</span>
+                          <span className="material-symbols-outlined text-primary text-base shrink-0" aria-hidden="true">layers</span>
                           <span className="font-mono text-sm truncate flex-1 min-w-0">{combo.name}</span>
                           {addedModelValues.includes(combo.name) && (
-                            <span className="material-symbols-outlined text-primary text-[14px] shrink-0" aria-hidden="true">check</span>
+                            <span className="material-symbols-outlined text-primary text-sm shrink-0" aria-hidden="true">check</span>
                           )}
                         </button>
                       );
@@ -789,9 +789,9 @@ export default function ModelSelectModal({
                       fallbackColor={group.color}
                     />
                     <h3 className="text-xs font-semibold text-text-main uppercase tracking-wider">{group.name}</h3>
-                    <span className="text-[10px] text-text-muted">({group.models.length})</span>
+                    <span className="text-3xs text-text-muted">({group.models.length})</span>
                     {group.isCustom && (
-                      <span className="text-[10px] text-text-muted italic ml-1">custom</span>
+                      <span className="text-3xs text-text-muted italic ml-1">custom</span>
                     )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -826,20 +826,20 @@ export default function ModelSelectModal({
                         >
                           <div className="flex items-center gap-1.5 min-w-0">
                             {isPlaceholder ? (
-                              <span className="material-symbols-outlined text-[14px] shrink-0" aria-hidden="true">edit</span>
+                              <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">edit</span>
                             ) : isDisabled ? (
-                              <span className="material-symbols-outlined text-[14px] shrink-0" aria-hidden="true">block</span>
+                              <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">block</span>
                             ) : null}
                             <span className="font-mono text-sm truncate flex-1 min-w-0">{model.name}</span>
                             {addedModelValues.includes(model.value) && !isPlaceholder && (
-                              <span className="material-symbols-outlined text-primary text-[14px] shrink-0" aria-hidden="true">check</span>
+                              <span className="material-symbols-outlined text-primary text-sm shrink-0" aria-hidden="true">check</span>
                             )}
                             {model.isCustom && !isPlaceholder && (
-                              <span className="text-[9px] opacity-60 font-normal shrink-0">custom</span>
+                              <span className="text-3xs opacity-60 font-normal shrink-0">custom</span>
                             )}
                           </div>
                           {!isPlaceholder && (
-                            <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
+                            <div className="flex items-center gap-1.5 text-3xs text-text-muted">
                               <CapacityBadges caps={getCaps(model.value)} />
                             </div>
                           )}

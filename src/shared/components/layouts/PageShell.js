@@ -82,7 +82,7 @@ export default function PageShell({
 
         <div className="min-w-0 flex-1">
           {eyebrow ? (
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-subtle mb-1">
+            <p className="text-2xs font-medium uppercase tracking-[0.14em] text-text-subtle mb-1">
               {eyebrow}
             </p>
           ) : null}

@@ -42,7 +42,7 @@ export default function OffsiteCard({ data, refreshKey }) {
     <Card>
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 rounded-lg bg-brand-500/10 text-brand-500 shrink-0">
-          <span className="material-symbols-outlined text-[20px]">
+          <span className="material-symbols-outlined text-xl">
             {o?.armed ? "cloud_done" : "cloud_off"}
           </span>
         </div>

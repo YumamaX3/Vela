@@ -134,7 +134,7 @@ export default function SessionsCard() {
     <Card>
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 rounded-lg bg-brand-500/10 text-brand-500 shrink-0">
-          <span className="material-symbols-outlined text-[20px]">devices</span>
+          <span className="material-symbols-outlined text-xl">devices</span>
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-base sm:text-lg font-semibold">Sessions</h3>
@@ -192,17 +192,17 @@ export default function SessionsCard() {
                     {s.label || "Unnamed device"}
                   </p>
                   {s.current && (
-                    <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/15 text-primary">
+                    <span className="text-3xs uppercase tracking-wide px-1.5 py-0.5 rounded bg-primary/15 text-primary">
                       this device
                     </span>
                   )}
                   {revoked && (
-                    <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-red-500/15 text-red-500">
+                    <span className="text-3xs uppercase tracking-wide px-1.5 py-0.5 rounded bg-red-500/15 text-red-500">
                       revoked
                     </span>
                   )}
                   {!revoked && expired && (
-                    <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-border/60 text-text-muted">
+                    <span className="text-3xs uppercase tracking-wide px-1.5 py-0.5 rounded bg-border/60 text-text-muted">
                       expired
                     </span>
                   )}
@@ -211,7 +211,7 @@ export default function SessionsCard() {
                   {s.ip || "unknown ip"} · {fmtAgent(s.userAgent)} · last seen {fmtWhen(s.lastSeenAt)}
                 </p>
                 {revoked && (
-                  <p className="text-[11px] text-text-subtle">
+                  <p className="text-2xs text-text-subtle">
                     revoked {fmtWhen(s.revokedAt)}
                     {s.revokedReason ? ` (${s.revokedReason})` : ""}
                   </p>

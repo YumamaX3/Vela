@@ -73,7 +73,7 @@ export default function KeyImportModal({ deck }) {
       <div className="flex flex-col gap-4">
         <div className="rounded-[10px] border border-amber-500/30 bg-amber-500/5 p-3">
           <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
-            <span className="material-symbols-outlined text-[14px] mt-0.5">warning</span>
+            <span className="material-symbols-outlined text-sm mt-0.5">warning</span>
             <span>
               {translate("An import cannot restore a key. Every entry it accepts is minted anew, and the new strings appear in the result below exactly once — save them before you close this panel, or the entries are dead on arrival.")}
             </span>
@@ -136,7 +136,7 @@ export default function KeyImportModal({ deck }) {
             {plan.length > 0 && (
               <ul className="mt-3 space-y-1">
                 {rows.map((row, i) => (
-                  <li key={`${row.name}-${i}`} className="text-[11px] flex items-center gap-2">
+                  <li key={`${row.name}-${i}`} className="text-2xs flex items-center gap-2">
                     <span className={`font-semibold w-[62px] shrink-0 ${ACTION_TONE[row.action] || ""}`}>
                       {row.action}
                     </span>
@@ -151,7 +151,7 @@ export default function KeyImportModal({ deck }) {
             {plan.length > 8 && (
               <button
                 onClick={() => setShowAll((v) => !v)}
-                className="text-[11px] text-primary mt-2 motion-control"
+                className="text-2xs text-primary mt-2 motion-control"
               >
                 {showAll ? translate("Show fewer") : `${translate("Show all")} ${plan.length}`}
               </button>
@@ -160,7 +160,7 @@ export default function KeyImportModal({ deck }) {
             {invalid.length > 0 && (
               <ul className="mt-3 space-y-1">
                 {invalid.map((row, i) => (
-                  <li key={`${row.name || "entry"}-${i}`} className="text-[11px] text-red-500">
+                  <li key={`${row.name || "entry"}-${i}`} className="text-2xs text-red-500">
                     <span className="truncate">{row.name || translate("unnamed entry")}</span>
                     <span className="text-text-muted"> — {row.error}</span>
                   </li>
@@ -178,21 +178,21 @@ export default function KeyImportModal({ deck }) {
 
             {created.length > 0 && (
               <>
-                <p className="text-[11px] text-text-muted mb-1">
+                <p className="text-2xs text-text-muted mb-1">
                   {translate("These strings are shown once. Copy them now.")}
                 </p>
                 <ul className="space-y-1.5">
                   {created.map((entry) => (
                     <li key={entry.keyId} className="flex items-center gap-2">
-                      <span className="text-[11px] text-text-muted w-[110px] truncate shrink-0" title={entry.name}>
+                      <span className="text-2xs text-text-muted w-[110px] truncate shrink-0" title={entry.name}>
                         {entry.name}
                       </span>
                       <Tooltip text={translate("Copy this key")}>
                         <button
                           onClick={() => deck.copy(entry.key, entry.keyId)}
-                          className="inline-flex items-center gap-1 text-[11px] font-mono bg-surface border border-border rounded px-2 py-1 hover:border-primary/50 motion-control"
+                          className="inline-flex items-center gap-1 text-2xs font-mono bg-surface border border-border rounded px-2 py-1 hover:border-primary/50 motion-control"
                         >
-                          <span className="material-symbols-outlined text-[13px]">
+                          <span className="material-symbols-outlined text-sm">
                             {deck.copied === entry.keyId ? "check" : "content_copy"}
                           </span>
                           {entry.key}
@@ -203,7 +203,7 @@ export default function KeyImportModal({ deck }) {
                 </ul>
                 <button
                   onClick={() => deck.copy(created.map((c) => `${c.name}: ${c.key}`).join("\n"), "__all_import__")}
-                  className="text-[11px] text-primary mt-2 motion-control"
+                  className="text-2xs text-primary mt-2 motion-control"
                 >
                   {translate("Copy all as name: key lines")}
                 </button>
@@ -213,7 +213,7 @@ export default function KeyImportModal({ deck }) {
             {applied.results?.some((r) => !r.ok) && (
               <ul className="mt-3 space-y-1">
                 {applied.results.filter((r) => !r.ok).map((r, i) => (
-                  <li key={`${r.name}-${i}`} className="text-[11px] text-red-500">
+                  <li key={`${r.name}-${i}`} className="text-2xs text-red-500">
                     <span className="truncate">{r.name}</span>
                     <span className="text-text-muted"> — {r.error}</span>
                   </li>

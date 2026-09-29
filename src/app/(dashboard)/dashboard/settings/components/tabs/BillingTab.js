@@ -116,7 +116,7 @@ export default function BillingTab() {
       <Card>
         <div className="flex items-start gap-3 mb-4">
           <div className="p-2 rounded-[10px] bg-brand-500/10 text-brand-500 shrink-0">
-            <span className="material-symbols-outlined text-[20px] leading-none">payments</span>
+            <span className="material-symbols-outlined text-xl leading-none">payments</span>
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-text-main font-semibold">Pricing rates</h3>

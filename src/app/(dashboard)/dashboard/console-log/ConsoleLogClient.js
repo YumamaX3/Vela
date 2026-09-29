@@ -348,7 +348,7 @@ export default function ConsoleLogClient() {
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
         <div className="rounded-[14px] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-soft)]">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-text-subtle">
+            <span className="mr-1 text-2xs font-semibold uppercase tracking-wider text-text-subtle">
               {translate("Levels")}
             </span>
             {levelChips.map(({ level, count, on, meta }) => (
@@ -358,7 +358,7 @@ export default function ConsoleLogClient() {
                 onClick={() => toggleLevel(level)}
                 aria-pressed={on}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold motion-control",
+                  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-2xs font-semibold motion-control",
                   on ? meta.hudOn : "border-border bg-surface-2 text-text-muted hover:text-text-main"
                 )}
               >
@@ -370,7 +370,7 @@ export default function ConsoleLogClient() {
 
           {topTags.length > 0 && (
             <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border-subtle pt-3">
-              <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-text-subtle">
+              <span className="mr-1 text-2xs font-semibold uppercase tracking-wider text-text-subtle">
                 {translate("Tags")}
               </span>
               {topTags.map(([tag, count]) => (
@@ -380,7 +380,7 @@ export default function ConsoleLogClient() {
                   onClick={() => toggleTag(tag)}
                   aria-pressed={tagFilter === tag}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-[8px] border px-2 py-0.5 font-mono text-[11px] motion-control",
+                    "inline-flex items-center gap-1.5 rounded-[8px] border px-2 py-0.5 font-mono text-2xs motion-control",
                     tagFilter === tag
                       ? "border-brand-500/60 bg-brand-500/10 text-brand-700 dark:text-brand-300"
                       : "border-border-subtle bg-surface-2 text-text-muted hover:text-text-main"
@@ -394,7 +394,7 @@ export default function ConsoleLogClient() {
                 <button
                   type="button"
                   onClick={() => setTagFilter(null)}
-                  className="rounded-[8px] px-2 py-0.5 text-[11px] text-text-muted underline decoration-dotted hover:text-text-main"
+                  className="rounded-[8px] px-2 py-0.5 text-2xs text-text-muted underline decoration-dotted hover:text-text-main"
                 >
                   {translate("Clear tag")}
                 </button>
@@ -406,7 +406,7 @@ export default function ConsoleLogClient() {
         {/* Rate meter */}
         <div className="rounded-[14px] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-soft)]">
           <div className="flex items-baseline justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-text-subtle">
+            <span className="text-2xs font-semibold uppercase tracking-wider text-text-subtle">
               {translate("Rate")}
             </span>
             <span className="font-mono text-xs tabular-nums text-text-muted">
@@ -426,7 +426,7 @@ export default function ConsoleLogClient() {
               />
             ))}
           </div>
-          <div className="mt-2 flex items-center justify-between text-[10.5px] text-text-subtle">
+          <div className="mt-2 flex items-center justify-between text-2xs text-text-subtle">
             <span>{translate("30s window")}</span>
             <span className="tabular-nums">
               {translate("Buffered")} {counts.total}/{maxLines}
@@ -440,7 +440,7 @@ export default function ConsoleLogClient() {
         <div className="relative min-w-[200px] flex-1">
           <span
             aria-hidden="true"
-            className="material-symbols-outlined pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] text-text-subtle"
+            className="material-symbols-outlined pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-base text-text-subtle"
           >
             search
           </span>
@@ -464,7 +464,7 @@ export default function ConsoleLogClient() {
           aria-pressed={useRegex}
           title={translate("Treat the filter as a regular expression")}
           className={cn(
-            "h-8 rounded-[8px] border px-2.5 font-mono text-[11px] font-semibold motion-control",
+            "h-8 rounded-[8px] border px-2.5 font-mono text-2xs font-semibold motion-control",
             useRegex
               ? "border-brand-500/60 bg-brand-500/10 text-brand-700 dark:text-brand-300"
               : "border-border bg-surface-2 text-text-muted hover:text-text-main"
@@ -484,11 +484,11 @@ export default function ConsoleLogClient() {
               onClick={() => setView(opt.value)}
               aria-pressed={view === opt.value}
               className={cn(
-                "inline-flex h-7 items-center gap-1 rounded-[8px] px-2.5 text-[11px] font-semibold motion-control",
+                "inline-flex h-7 items-center gap-1 rounded-[8px] px-2.5 text-2xs font-semibold motion-control",
                 view === opt.value ? "bg-surface text-text-main shadow-sm" : "text-text-muted hover:text-text-main"
               )}
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[15px]">
+              <span aria-hidden="true" className="material-symbols-outlined text-base">
                 {opt.icon}
               </span>
               {opt.label}
@@ -497,7 +497,7 @@ export default function ConsoleLogClient() {
         </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 font-mono text-[11px] tabular-nums text-text-muted">
+          <span className="mr-1 font-mono text-2xs tabular-nums text-text-muted">
             {filtered.length}/{entries.length}
           </span>
           <Button
@@ -552,10 +552,10 @@ export default function ConsoleLogClient() {
       {/* ── Terminal ───────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden rounded-[14px] border border-border-subtle bg-[var(--color-terminal)] shadow-[var(--shadow-soft)]">
         <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
-          <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--color-terminal-text)]/60">
+          <span className="font-mono text-2xs uppercase tracking-wider text-[var(--color-terminal-text)]/60">
             {view === "structured" ? translate("Structured stream") : translate("Raw stream")}
           </span>
-          <span className="font-mono text-[11px] tabular-nums text-[var(--color-terminal-text)]/60">
+          <span className="font-mono text-2xs tabular-nums text-[var(--color-terminal-text)]/60">
             {warnCount} warn · {errorCount} error
           </span>
         </div>
@@ -610,7 +610,7 @@ export default function ConsoleLogClient() {
                   >
                     <span
                       aria-hidden="true"
-                      className="w-10 shrink-0 select-none text-right text-[10px] tabular-nums text-[var(--color-terminal-text)]/35"
+                      className="w-10 shrink-0 select-none text-right text-3xs tabular-nums text-[var(--color-terminal-text)]/35"
                     >
                       {entry.seq}
                     </span>
@@ -635,9 +635,9 @@ export default function ConsoleLogClient() {
           <button
             type="button"
             onClick={jumpToTail}
-            className="absolute bottom-4 right-4 inline-flex items-center gap-1.5 rounded-full border border-brand-500/50 bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white shadow-[var(--shadow-warm)]"
+            className="absolute bottom-4 right-4 inline-flex items-center gap-1.5 rounded-full border border-brand-500/50 bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-[var(--shadow-warm)]"
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-[15px]">
+            <span aria-hidden="true" className="material-symbols-outlined text-base">
               arrow_downward
             </span>
             {translate("Jump to latest")}
@@ -657,7 +657,7 @@ export default function ConsoleLogClient() {
             <div className="flex flex-wrap items-center gap-2">
               <span
                 className={cn(
-                  "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold",
+                  "rounded-full border px-2.5 py-0.5 text-2xs font-semibold",
                   metaFor(selected.level).hudOn
                 )}
               >
@@ -671,7 +671,7 @@ export default function ConsoleLogClient() {
                     setTagFilter(tag);
                     setSelectedId(null);
                   }}
-                  className="rounded-[8px] border border-border bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-text-muted hover:text-text-main"
+                  className="rounded-[8px] border border-border bg-surface-2 px-2 py-0.5 font-mono text-2xs text-text-muted hover:text-text-main"
                 >
                   {tag}
                 </button>
@@ -686,29 +686,29 @@ export default function ConsoleLogClient() {
                 { label: translate("Entry id"), value: selected.id, mono: true },
               ].map((row) => (
                 <div key={row.label} className="rounded-[10px] border border-border-subtle bg-surface-2 p-3">
-                  <dt className="text-[10.5px] font-semibold uppercase tracking-wider text-text-subtle">
+                  <dt className="text-2xs font-semibold uppercase tracking-wider text-text-subtle">
                     {row.label}
                   </dt>
-                  <dd className="mt-1 break-all font-mono text-[11.5px] text-text-main">{row.value}</dd>
+                  <dd className="mt-1 break-all font-mono text-xs text-text-main">{row.value}</dd>
                 </div>
               ))}
             </dl>
 
             <div>
-              <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-text-subtle">
+              <p className="mb-1.5 text-2xs font-semibold uppercase tracking-wider text-text-subtle">
                 {translate("Message")}
               </p>
-              <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap break-words rounded-[10px] bg-[var(--color-terminal)] p-3 font-mono text-[11.5px] leading-relaxed text-[var(--color-terminal-text)]">
+              <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap break-words rounded-[10px] bg-[var(--color-terminal)] p-3 font-mono text-xs leading-relaxed text-[var(--color-terminal-text)]">
                 {selected.message}
               </pre>
             </div>
 
             {selected.raw && selected.raw !== selected.message && (
               <div>
-                <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-text-subtle">
+                <p className="mb-1.5 text-2xs font-semibold uppercase tracking-wider text-text-subtle">
                   {translate("Raw line")}
                 </p>
-                <pre className="max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-[10px] border border-border-subtle bg-surface-2 p-3 font-mono text-[11.5px] leading-relaxed text-text-muted">
+                <pre className="max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-[10px] border border-border-subtle bg-surface-2 p-3 font-mono text-xs leading-relaxed text-text-muted">
                   {selected.raw}
                 </pre>
               </div>
@@ -718,7 +718,7 @@ export default function ConsoleLogClient() {
               <Button size="sm" variant="outline" icon="content_copy" onClick={() => copyEntry(selected)}>
                 {translate("Copy entry")}
               </Button>
-              <span className="text-[11px] text-text-subtle">
+              <span className="text-2xs text-text-subtle">
                 {selected.message.length} {translate("characters")}
               </span>
             </div>

@@ -41,14 +41,14 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
         <div className="flex min-w-0 flex-1 items-start gap-2.5 sm:items-center">
           <Toggle checked={enabled} onChange={(v) => patch({ enabled: v })} aria-label={`Enable ${cap.label} adapter`} />
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-            <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
+            <span className="material-symbols-outlined text-lg text-primary" aria-hidden="true">
               {cap.icon}
             </span>
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <code className="font-mono text-sm font-medium">{cap.label}</code>
-              <span className="text-[10px] text-text-muted">— {cap.desc}</span>
+              <span className="text-3xs text-text-muted">— {cap.desc}</span>
             </div>
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
               {models.length === 0 ? (
@@ -70,7 +70,7 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
                         index === 0 ? "text-text-muted/20" : "text-text-muted hover:text-primary"
                       }`}
                     >
-                      <span className="material-symbols-outlined text-[12px]">arrow_upward</span>
+                      <span className="material-symbols-outlined text-xs">arrow_upward</span>
                     </button>
                     <button
                       type="button"
@@ -81,7 +81,7 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
                         index === models.length - 1 ? "text-text-muted/20" : "text-text-muted hover:text-primary"
                       }`}
                     >
-                      <span className="material-symbols-outlined text-[12px]">arrow_downward</span>
+                      <span className="material-symbols-outlined text-xs">arrow_downward</span>
                     </button>
                     <button
                       type="button"
@@ -89,12 +89,12 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
                       aria-label={`Remove ${model}`}
                       className="leading-none text-text-muted opacity-0 hover:text-red-600 focus-visible:opacity-100 group-hover/chip:opacity-100 dark:hover:text-red-300"
                     >
-                      <span className="material-symbols-outlined text-[12px]">close</span>
+                      <span className="material-symbols-outlined text-xs">close</span>
                     </button>
                   </code>
                 ))
               )}
-              {models.length > 3 && <span className="text-[10px] text-text-muted">+{models.length - 3} more</span>}
+              {models.length > 3 && <span className="text-3xs text-text-muted">+{models.length - 3} more</span>}
             </div>
           </div>
         </div>
@@ -146,7 +146,7 @@ export default function CapacityAdapterSection({ capacityAdapter, onChange, acti
         <p className="mt-0.5 text-xs text-text-muted">
           Your model can&apos;t read image/audio? Auto-switches to a model in the pool below.
         </p>
-        <ul className="mt-1.5 flex flex-col gap-0.5 text-[11px] text-text-muted">
+        <ul className="mt-1.5 flex flex-col gap-0.5 text-2xs text-text-muted">
           <li>
             <span className="font-medium text-text-main">Vision</span> — images (png, jpg, webp, …)
           </li>

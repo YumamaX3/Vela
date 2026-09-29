@@ -68,7 +68,7 @@ export default function CategoryPicker({ value, existing, onChange, idPrefix }) 
       {/* The free-form escape hatch — the contract promises new categories. */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted text-[14px]" aria-hidden="true">
+          <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted text-sm" aria-hidden="true">
             label
           </span>
           <input

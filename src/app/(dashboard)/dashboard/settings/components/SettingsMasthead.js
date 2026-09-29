@@ -47,7 +47,7 @@ export default function SettingsMasthead({ deck }) {
           </div>
         </div>
 
-        <span className="text-[10px] font-mono px-2 py-1 rounded-full bg-surface-2 border border-border-subtle text-text-muted leading-none shrink-0">
+        <span className="text-3xs font-mono px-2 py-1 rounded-full bg-surface-2 border border-border-subtle text-text-muted leading-none shrink-0">
           v{APP_CONFIG.version}
         </span>
       </div>
@@ -64,7 +64,7 @@ export default function SettingsMasthead({ deck }) {
               key={a.key}
               className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-full bg-brand-500/10 text-brand-700 dark:text-brand-300 border border-brand-500/20"
             >
-              <span className="material-symbols-outlined text-[14px] leading-none" aria-hidden="true">
+              <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">
                 {a.icon}
               </span>
               {a.label}

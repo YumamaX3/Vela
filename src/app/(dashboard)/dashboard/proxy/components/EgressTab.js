@@ -24,7 +24,7 @@ function EgressRow({ pool, geo, probing, onProbe }) {
       <td className="px-4 py-3">
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="truncate text-sm font-medium text-text-main">{pool.name}</span>
-          <code className="truncate font-mono text-[11px] text-text-muted">{maskProxyUrl(pool.proxyUrl)}</code>
+          <code className="truncate font-mono text-2xs text-text-muted">{maskProxyUrl(pool.proxyUrl)}</code>
         </div>
       </td>
       <td className="px-4 py-3">
@@ -32,11 +32,11 @@ function EgressRow({ pool, geo, probing, onProbe }) {
           <div className="flex min-w-0 flex-col gap-0.5">
             <span className="font-mono text-xs text-text-main">{geo.ip}</span>
             {geo.city || geo.region ? (
-              <span className="text-[11px] text-text-muted">
+              <span className="text-2xs text-text-muted">
                 {[geo.city, geo.region].filter(Boolean).join(", ")}
               </span>
             ) : null}
-            {geo.org ? <span className="truncate text-[11px] text-text-muted">{geo.org}</span> : null}
+            {geo.org ? <span className="truncate text-2xs text-text-muted">{geo.org}</span> : null}
           </div>
         ) : (
           <span className="text-xs text-text-muted">no probe yet</span>
@@ -74,14 +74,14 @@ function EgressRow({ pool, geo, probing, onProbe }) {
               .reverse()
               .slice(0, 4)
               .map((h) => (
-                <span key={`${h.ip}-${h.ts}`} className="flex items-center gap-1.5 text-[11px] text-text-muted">
-                  <span className="material-symbols-outlined text-[12px]">history</span>
+                <span key={`${h.ip}-${h.ts}`} className="flex items-center gap-1.5 text-2xs text-text-muted">
+                  <span className="material-symbols-outlined text-xs">history</span>
                   <span className="font-mono">{h.ip}</span>
                   <span className="opacity-70">{formatDateTime(h.ts)}</span>
                 </span>
               ))}
             {history.length > 4 ? (
-              <span className="text-[10px] text-text-muted">+{history.length - 4} earlier</span>
+              <span className="text-3xs text-text-muted">+{history.length - 4} earlier</span>
             ) : null}
           </div>
         )}

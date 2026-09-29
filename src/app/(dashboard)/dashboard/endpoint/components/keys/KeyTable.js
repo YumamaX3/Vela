@@ -39,7 +39,7 @@ export default function KeyTable({ deck }) {
 
   const sortArrow = (id) =>
     sortKey === id ? (
-      <span className="material-symbols-outlined text-[12px] align-middle">
+      <span className="material-symbols-outlined text-xs align-middle">
         {sortDir === "asc" ? "arrow_upward" : "arrow_downward"}
       </span>
     ) : null;
@@ -57,7 +57,7 @@ export default function KeyTable({ deck }) {
               />
             </th>
             {HEAD.map((col) => (
-              <th key={col.id} className="py-2 pr-3 text-[11px] uppercase tracking-wide text-text-muted font-semibold whitespace-nowrap">
+              <th key={col.id} className="py-2 pr-3 text-2xs uppercase tracking-wide text-text-muted font-semibold whitespace-nowrap">
                 <button
                   onClick={() => {
                     if (["name", "requests", "tokens", "cost", "lastUsed"].includes(col.id)) {
@@ -74,7 +74,7 @@ export default function KeyTable({ deck }) {
                 </button>
               </th>
             ))}
-            <th className="py-2 text-[11px] uppercase tracking-wide text-text-muted font-semibold text-right">
+            <th className="py-2 text-2xs uppercase tracking-wide text-text-muted font-semibold text-right">
               {translate("Actions")}
             </th>
           </tr>
@@ -107,7 +107,7 @@ export default function KeyTable({ deck }) {
                   </button>
                   <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                     <PosturePill posture={posture} />
-                    <code className="text-[11px] text-text-muted font-mono">{k.keyPrefix}</code>
+                    <code className="text-2xs text-text-muted font-mono">{k.keyPrefix}</code>
                   </div>
                 </td>
                 <td className="py-2.5 pr-3 text-xs text-text-muted whitespace-nowrap">{k.category || "—"}</td>
@@ -131,7 +131,7 @@ export default function KeyTable({ deck }) {
                     className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary motion-control"
                     title={k.isActive ? translate("Pause key") : translate("Resume key")}
                   >
-                    <span className="material-symbols-outlined text-[16px]">
+                    <span className="material-symbols-outlined text-base">
                       {k.isActive ? "block" : "check_circle"}
                     </span>
                   </button>
@@ -140,7 +140,7 @@ export default function KeyTable({ deck }) {
                     className="p-1.5 hover:bg-red-500/10 rounded text-red-500 motion-control"
                     title={translate("Delete (revoke)")}
                   >
-                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                    <span className="material-symbols-outlined text-base">delete</span>
                   </button>
                 </td>
               </tr>

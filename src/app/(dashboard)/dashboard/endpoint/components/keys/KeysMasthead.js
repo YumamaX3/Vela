@@ -31,7 +31,7 @@ export default function KeysMasthead({ c, deck }) {
           {/* The window every usage strip is measured over. It is a lens, not a
               filter — changing it never hides a key, only re-measures it. */}
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-text-muted hidden sm:inline">{translate("Window")}</span>
+            <span className="text-2xs text-text-muted hidden sm:inline">{translate("Window")}</span>
             <Select
               value={deck.usagePeriod}
               onChange={(e) => deck.setUsagePeriod(e.target.value)}

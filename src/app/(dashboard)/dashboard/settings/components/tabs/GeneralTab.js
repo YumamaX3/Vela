@@ -37,7 +37,7 @@ export default function GeneralTab() {
       <Card>
         <div className="flex items-start gap-3 mb-4">
           <div className="p-2 rounded-[10px] bg-brand-500/10 text-brand-500 shrink-0">
-            <span className="material-symbols-outlined text-[20px] leading-none">palette</span>
+            <span className="material-symbols-outlined text-xl leading-none">palette</span>
           </div>
           <div>
             <h3 className="text-text-main font-semibold">Appearance</h3>
@@ -69,7 +69,7 @@ export default function GeneralTab() {
                       : "text-text-muted hover:text-text-main"
                   )}
                 >
-                  <span className="material-symbols-outlined text-[18px] leading-none" aria-hidden="true">
+                  <span className="material-symbols-outlined text-lg leading-none" aria-hidden="true">
                     {THEME_ICONS[option]}
                   </span>
                   <span className="capitalize">{option}</span>
@@ -95,7 +95,7 @@ export default function GeneralTab() {
       <Card>
         <div className="flex items-start gap-3 mb-4">
           <div className="p-2 rounded-[10px] bg-brand-500/10 text-brand-500 shrink-0">
-            <span className="material-symbols-outlined text-[20px] leading-none">storage</span>
+            <span className="material-symbols-outlined text-xl leading-none">storage</span>
           </div>
           <div>
             <h3 className="text-text-main font-semibold">Database</h3>

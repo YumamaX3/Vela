@@ -19,7 +19,7 @@
  * tests/unit/cn-conflict-resolution.test.js; and zero dropped a Vela custom token.
  *
  * The four genuine resolutions were latent bugs this fixes:
- *  · Input.js:41,46 / Select.js:33,37 — the `// iOS zoom fix` needs text-[16px] to
+ *  · Input.js:41,46 / Select.js:33,37 — the `// iOS zoom fix` needs text-base to
  *    beat the base text-sm on mobile; which won was emission order.
  *  · Input.js:42,48 — `error && "…border-red-500/40"` means the border turns red,
  *    so border-transparent must yield; it did not reliably.

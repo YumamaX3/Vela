@@ -60,7 +60,7 @@ form is how a value is *written*; the value itself is `1.0.0`.
 | Tide | Rule | Example |
 |-|-|-|
 | **Small change** 🐚 | the last number ticks up by one | `1.0.0 → 1.0.1` |
-| **Big change** 🌊 | the last number rounds up to the next milestone of ten | `1.0.3 → 1.0.10` |
+| **Big change** 🌊 | the last number leaps five | `1.0.3 → 1.0.8` |
 
 The carry rules, when rounding crosses a boundary:
 
@@ -69,8 +69,13 @@ The carry rules, when rounding crosses a boundary:
 | Last number rounds past `.99` | carry into the middle digit, last number drops to `0` | `1.9.99 → 2.0.0` |
 | The middle digit never passes `.9` | it takes the carry into the first digit | `0.9.99 → 1.0.0` |
 
-> *"A big change rounds the voyage up to the next milestone of ten; the number
-> keeps its value and rounds — 0.6.03 becomes 0.6.10, 0.6.93 carries to 0.7.0."*
+> *"A big change leaps five; the number keeps its value and leaps — 0.6.03
+> becomes 0.6.08, 0.6.93 carries to 0.7.0."*
+>
+> ⚠️ **This table once read *rounds up to the next milestone of ten*.** The Star's decree of 2026-09-27
+> retired that rule; the leap is five now, and `CHANGELOG.md` carries the same decree. The doc lagged
+> the log until v1.0.41, which is exactly how a keeper picks the wrong number: by reading the slower
+> authority. When the rule changes, both are inked in the same tide.
 
 **Which is which?** A small change is a fix, a refit, a single room re-cut. A
 big change is a covenant — a new system, a posture, a wave of the scale that

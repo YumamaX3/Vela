@@ -335,7 +335,7 @@ export default function CombosPage() {
             </div>
 
             {importState.preview?.invalid?.length > 0 && (
-              <p className="text-[11px] text-amber-700 dark:text-amber-300">
+              <p className="text-2xs text-amber-700 dark:text-amber-300">
                 Refused by name: {importState.preview.invalid.slice(0, 6).map((i) => `${i.name} (${i.error})`).join(" · ")}
                 {importState.preview.invalid.length > 6 && ` · +${importState.preview.invalid.length - 6} more`}
               </p>
@@ -353,7 +353,7 @@ export default function CombosPage() {
               <Button variant="ghost" size="sm" onClick={() => setImportState(null)} disabled={importState.busy}>
                 Cancel
               </Button>
-              <span className="text-[11px] text-text-muted">
+              <span className="text-2xs text-text-muted">
                 Nothing has been written yet — the dry run is the only thing that has run.
               </span>
             </div>

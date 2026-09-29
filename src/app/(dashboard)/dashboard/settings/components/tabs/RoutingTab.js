@@ -51,7 +51,7 @@ export default function RoutingTab({ deck }) {
     <Card>
       <div className="flex items-start gap-3 mb-4">
         <div className="p-2 rounded-[10px] bg-brand-500/10 text-brand-500 shrink-0">
-          <span className="material-symbols-outlined text-[20px] leading-none">alt_route</span>
+          <span className="material-symbols-outlined text-xl leading-none">alt_route</span>
         </div>
         <div>
           <h3 className="text-text-main font-semibold">Routing strategy</h3>

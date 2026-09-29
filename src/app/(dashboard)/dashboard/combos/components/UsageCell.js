@@ -44,7 +44,7 @@ function Sparkline({ values, width = 72, height = 20 }) {
 
 export default function UsageCell({ usage, size = "sm", className }) {
   if (!usage || !usage.requests) {
-    return <span className={cn("text-[11px] italic text-text-muted/70", className)}>No usage in the last 24h</span>;
+    return <span className={cn("text-2xs italic text-text-muted/70", className)}>No usage in the last 24h</span>;
   }
 
   const ratio = okRatioOf(usage);
@@ -54,18 +54,18 @@ export default function UsageCell({ usage, size = "sm", className }) {
   return (
     <div className={cn("flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1", className)}>
       <Sparkline values={seriesOf(usage)} width={large ? 160 : 72} height={large ? 40 : 20} />
-      <span className={cn("text-text-muted", large ? "text-xs" : "text-[11px]")}>
+      <span className={cn("text-text-muted", large ? "text-xs" : "text-2xs")}>
         {fmt(usage.requests)} req · {fmt(usageTokens(usage))} tok · {fmtCost(usage.cost)}
       </span>
       {ratio !== null && (
-        <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium", TONES[tone])}>
-          <span className="material-symbols-outlined text-[12px]" aria-hidden="true">
+        <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-3xs font-medium", TONES[tone])}>
+          <span className="material-symbols-outlined text-xs" aria-hidden="true">
             monitoring
           </span>
           {Math.round(ratio * 100)}% ok
         </span>
       )}
-      <span className="text-[10px] text-text-muted" title={usage.lastAt || ""}>
+      <span className="text-3xs text-text-muted" title={usage.lastAt || ""}>
         {timeAgo(usage.lastAt)}
       </span>
     </div>

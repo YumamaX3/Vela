@@ -12,13 +12,13 @@ export default function HealthPill({ reachable, total, className }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium",
+        "inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-3xs font-medium",
         TONES[tone],
         className
       )}
       title={healthSummary(reachable, total)}
     >
-      <span className="material-symbols-outlined text-[12px]" aria-hidden="true">
+      <span className="material-symbols-outlined text-xs" aria-hidden="true">
         {healthIcon(reachable, total)}
       </span>
       {healthLabel(reachable, total)}

@@ -38,7 +38,7 @@ export default function StrategyControl({
                 onChange(option.value);
               }}
               className={cn(
-                "rounded-md px-2 py-1 text-[11px] font-medium motion-control",
+                "rounded-md px-2 py-1 text-2xs font-medium motion-control",
                 active
                   ? "bg-surface text-text-main shadow-[var(--shadow-soft)]"
                   : "text-text-muted hover:text-text-main"
@@ -59,9 +59,9 @@ export default function StrategyControl({
               onOpenJudge?.();
             }}
             title={`Pick the model that fuses panel answers (${meta.hint})`}
-            className="inline-flex min-w-0 max-w-[220px] items-center gap-1 rounded border border-dashed border-violet-400/50 px-1.5 py-1 font-mono text-[11px] text-violet-600 motion-control hover:border-violet-400 hover:bg-violet-500/5 dark:text-violet-300"
+            className="inline-flex min-w-0 max-w-[220px] items-center gap-1 rounded border border-dashed border-violet-400/50 px-1.5 py-1 font-mono text-2xs text-violet-600 motion-control hover:border-violet-400 hover:bg-violet-500/5 dark:text-violet-300"
           >
-            <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">
               gavel
             </span>
             <span className="truncate">{judge || `Auto · ${judgeFallback || "first model"}`}</span>
@@ -77,7 +77,7 @@ export default function StrategyControl({
               title="Reset judge to Auto"
               aria-label="Reset judge to Auto"
             >
-              <span className="material-symbols-outlined text-[13px]">close</span>
+              <span className="material-symbols-outlined text-sm">close</span>
             </button>
           )}
         </span>

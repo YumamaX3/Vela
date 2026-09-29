@@ -55,13 +55,13 @@ function ErrorState({ icon = "error", title, description, detail, retry }) {
       {/* detail is for the operator's eye only — rendered small, never the
           raw error object. The full shape belongs in the console. */}
       {detail ? (
-        <p className="mt-2 max-w-md break-words font-mono text-[11px] text-text-subtle">
+        <p className="mt-2 max-w-md break-words font-mono text-2xs text-text-subtle">
           {detail}
         </p>
       ) : null}
       {retry ? (
         <Button variant="outline" size="sm" className="mt-4" onClick={retry}>
-          <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+          <span className="material-symbols-outlined text-base" aria-hidden="true">
             refresh
           </span>
           Try again

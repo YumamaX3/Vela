@@ -46,7 +46,7 @@ export default function ComboToolbar({
     <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
       <div className="relative min-w-0 flex-1">
         <span
-          className="material-symbols-outlined pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] text-text-muted"
+          className="material-symbols-outlined pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-base text-text-muted"
           aria-hidden="true"
         >
           search
@@ -62,7 +62,7 @@ export default function ComboToolbar({
           aria-label="Search combos"
           className="w-full rounded-lg border border-border-subtle bg-surface py-2 pl-8 pr-12 text-sm outline-none placeholder:text-text-muted/60 focus:border-primary/50 focus:ring-2 focus:ring-[var(--color-brand-500)]/25"
         />
-        <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-border-subtle bg-bg px-1.5 py-0.5 font-mono text-[10px] text-text-muted">
+        <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-border-subtle bg-bg px-1.5 py-0.5 font-mono text-3xs text-text-muted">
           /
         </kbd>
       </div>
@@ -91,11 +91,11 @@ export default function ComboToolbar({
               onClick={() => onView(option.value)}
               title={option.label}
               className={cn(
-                "flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium motion-control",
+                "flex items-center gap-1 rounded-md px-2 py-1 text-2xs font-medium motion-control",
                 view === option.value ? "bg-surface text-text-main shadow-[var(--shadow-soft)]" : "text-text-muted hover:text-text-main"
               )}
             >
-              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+              <span className="material-symbols-outlined text-sm" aria-hidden="true">
                 {option.icon}
               </span>
               {option.label}
@@ -111,7 +111,7 @@ export default function ComboToolbar({
             aria-label="Collapse all harbors"
             className="rounded-lg border border-border-subtle p-1.5 text-text-muted motion-control hover:text-text-main"
           >
-            <span className="material-symbols-outlined text-[16px]">unfold_less</span>
+            <span className="material-symbols-outlined text-base">unfold_less</span>
           </button>
           <button
             type="button"
@@ -120,7 +120,7 @@ export default function ComboToolbar({
             aria-label="Expand all harbors"
             className="rounded-lg border border-border-subtle p-1.5 text-text-muted motion-control hover:text-text-main"
           >
-            <span className="material-symbols-outlined text-[16px]">unfold_more</span>
+            <span className="material-symbols-outlined text-base">unfold_more</span>
           </button>
           <button
             type="button"
@@ -129,12 +129,12 @@ export default function ComboToolbar({
             aria-label="Reload the fleet"
             className="rounded-lg border border-border-subtle p-1.5 text-text-muted motion-control hover:text-text-main"
           >
-            <span className="material-symbols-outlined text-[16px]">refresh</span>
+            <span className="material-symbols-outlined text-base">refresh</span>
           </button>
         </div>
       </div>
 
-      <p className="shrink-0 text-[11px] text-text-muted lg:pl-1">
+      <p className="shrink-0 text-2xs text-text-muted lg:pl-1">
         {resultCount === totalCount ? `${totalCount} combos` : `${resultCount} of ${totalCount} combos`}
         {filtersActive && (
           <button type="button" onClick={onReset} className="ml-2 text-primary hover:underline">

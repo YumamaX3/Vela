@@ -45,13 +45,13 @@ export default function BulkActionBar({ deck }) {
               className="motion-control text-text-muted hover:text-text-main"
               title={translate("Dismiss")}
             >
-              <span className="material-symbols-outlined text-[14px]">close</span>
+              <span className="material-symbols-outlined text-sm">close</span>
             </button>
           </div>
           {refusals.length > 0 && (
             <ul className="mt-1 space-y-0.5">
               {refusals.map((r) => (
-                <li key={r.id || r.name} className="text-[11px] text-red-600 dark:text-red-400">
+                <li key={r.id || r.name} className="text-2xs text-red-600 dark:text-red-400">
                   <span className="font-medium">{r.name}</span>
                   <span className="text-text-muted"> \u2014 {r.error || translate("refused")}</span>
                 </li>
@@ -97,21 +97,21 @@ export default function BulkActionBar({ deck }) {
           className="p-2 rounded-[10px] text-text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5 motion-control"
           title={translate("Export the fleet")}
         >
-          <span className="material-symbols-outlined text-[16px]">download</span>
+          <span className="material-symbols-outlined text-base">download</span>
         </button>
         <button
           onClick={openImport}
           className="p-2 rounded-[10px] text-text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5 motion-control"
           title={translate("Import a fleet file")}
         >
-          <span className="material-symbols-outlined text-[16px]">file_upload</span>
+          <span className="material-symbols-outlined text-base">file_upload</span>
         </button>
         <button
           onClick={clearSelection}
           className="p-2 rounded-[10px] text-text-muted hover:text-text-main hover:bg-black/5 dark:hover:bg-white/5 motion-control"
           title={translate("Clear selection")}
         >
-          <span className="material-symbols-outlined text-[16px]">close</span>
+          <span className="material-symbols-outlined text-base">close</span>
         </button>
       </div>
     </div>

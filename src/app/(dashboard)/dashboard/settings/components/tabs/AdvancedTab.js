@@ -70,7 +70,7 @@ export default function AdvancedTab({ deck }) {
       <Card>
         <div className="flex items-start gap-3 mb-4">
           <div className="p-2 rounded-[10px] bg-brand-500/10 text-brand-500 shrink-0">
-            <span className="material-symbols-outlined text-[20px] leading-none">monitoring</span>
+            <span className="material-symbols-outlined text-xl leading-none">monitoring</span>
           </div>
           <div>
             <h3 className="text-text-main font-semibold">Observability</h3>
@@ -99,7 +99,7 @@ export default function AdvancedTab({ deck }) {
       <Card>
         <div className="flex items-start gap-3 mb-4">
           <div className="p-2 rounded-[10px] bg-brand-500/10 text-brand-500 shrink-0">
-            <span className="material-symbols-outlined text-[20px] leading-none">tune</span>
+            <span className="material-symbols-outlined text-xl leading-none">tune</span>
           </div>
           <div>
             <h3 className="text-text-main font-semibold">Other instruments</h3>
@@ -117,7 +117,7 @@ export default function AdvancedTab({ deck }) {
               href={room.href}
               className={`flex items-center gap-3 py-3 group ${i > 0 ? "border-t border-border-subtle" : ""}`}
             >
-              <span className="material-symbols-outlined text-[20px] leading-none text-text-muted group-hover:text-brand-500 motion-control">
+              <span className="material-symbols-outlined text-xl leading-none text-text-muted group-hover:text-brand-500 motion-control">
                 {room.icon}
               </span>
               <span className="flex-1 min-w-0">
@@ -126,7 +126,7 @@ export default function AdvancedTab({ deck }) {
                 </span>
                 <span className="block text-sm text-text-muted truncate">{room.owns}</span>
               </span>
-              <span className="material-symbols-outlined text-[18px] leading-none text-text-muted shrink-0">
+              <span className="material-symbols-outlined text-lg leading-none text-text-muted shrink-0">
                 chevron_right
               </span>
             </Link>
@@ -137,7 +137,7 @@ export default function AdvancedTab({ deck }) {
       <Card>
         <div className="flex items-start gap-3 mb-4">
           <div className="p-2 rounded-[10px] bg-brand-500/10 text-brand-500 shrink-0">
-            <span className="material-symbols-outlined text-[20px] leading-none">power_settings_new</span>
+            <span className="material-symbols-outlined text-xl leading-none">power_settings_new</span>
           </div>
           <div>
             <h3 className="text-text-main font-semibold">Session</h3>

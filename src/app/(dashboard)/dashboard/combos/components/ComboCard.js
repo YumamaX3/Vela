@@ -30,7 +30,7 @@ function IconBtn({ icon, label, active, danger, onClick }) {
             : "text-text-muted hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
       )}
     >
-      <span className="material-symbols-outlined text-[16px]">{active ? "check" : icon}</span>
+      <span className="material-symbols-outlined text-base">{active ? "check" : icon}</span>
     </button>
   );
 }
@@ -95,11 +95,11 @@ export default function ComboCard({
                 <code className="truncate font-mono text-sm font-medium text-text-main" title={combo.name}>
                   {leaf}
                 </code>
-                <span className="shrink-0 text-[10px] text-text-muted">
+                <span className="shrink-0 text-3xs text-text-muted">
                   {members.length} model{members.length === 1 ? "" : "s"}
                 </span>
               </span>
-              <span className="mt-0.5 block truncate text-[10px] text-text-muted" title={`${combo.name} · ${meta.hint}`}>
+              <span className="mt-0.5 block truncate text-3xs text-text-muted" title={`${combo.name} · ${meta.hint}`}>
                 {harbor ? `${harbor} · ` : ""}
                 {meta.label}
               </span>
@@ -128,7 +128,7 @@ export default function ComboCard({
           members.map((model, index) => (
             <span
               key={`${model}-${index}`}
-              className="inline-flex max-w-full items-center gap-1 rounded bg-black/5 px-1.5 py-0.5 font-mono text-[11px] text-text-muted dark:bg-white/5"
+              className="inline-flex max-w-full items-center gap-1 rounded bg-black/5 px-1.5 py-0.5 font-mono text-2xs text-text-muted dark:bg-white/5"
               title={model}
             >
               <span className="truncate">{model}</span>

@@ -280,25 +280,32 @@ export default function Sidebar({ onClose, variant = "dock" }) {
   const [collapsed, setCollapsed] = useState(false);
   const [pinned, setPinned] = useState([]);
 
-  // Hydrate both from localStorage. `localStorage` does not exist during SSR, so
-  // this is React's documented "adjust state when a prop changes" shape applied
-  // to an external store: it runs during render, on the client only, and
-  // re-renders before the first commit. The `hydrated` latch is what keeps it
-  // from looping, and the render phase is what keeps it clear of
-  // react-hooks/set-state-in-effect — the same reason the disclosure state
-  // below is adjusted here rather than in an effect.
-  const [hydrated, setHydrated] = useState(false);
-  if (!hydrated && typeof window !== "undefined") {
-    setHydrated(true);
+  // Adopt both from localStorage AFTER mount, never during render. An earlier cut
+  // adjusted them during render, on the client only, on the reasoning that React
+  // restarts before committing. That is not what happens at hydration: React keeps
+  // the server's markup, and a render-phase pass that produces a different tree is
+  // refused outright. The server rendered the default, the client produced the
+  // stored value, and every load for an operator who had ever collapsed the panel
+  // answered "Hydration failed because the server rendered HTML didn't match the
+  // client". An effect is the only shape whose first client render is identical to
+  // the server's. The cost is one frame at the default before the stored choice
+  // lands, which is the honest price of a preference the server cannot know.
+  useEffect(() => {
     try {
       setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
       const raw = localStorage.getItem(PIN_KEY);
       const parsed = raw ? JSON.parse(raw) : [];
       if (Array.isArray(parsed)) setPinned(parsed.filter((h) => typeof h === "string").slice(0, PIN_CAP));
-    } catch { /* storage unavailable — the nav works unmoored */ }
-  }
+    } catch { /* storage unavailable; the nav works unmoored */ }
+  }, []);
 
+  // One writer for the stored choice, and it never fires on the mount commit: the
+  // adoption effect above sets state once after mount, and an unguarded write would
+  // run on that same first commit holding the pre-adoption value, replacing the
+  // operator's stored choice with the default. The first run only arms the latch.
+  const collapseWritten = useRef(false);
   useEffect(() => {
+    if (!collapseWritten.current) { collapseWritten.current = true; return; }
     try { localStorage.setItem(COLLAPSE_KEY, collapsed ? "1" : "0"); } catch { /* storage unavailable */ }
   }, [collapsed]);
 
@@ -516,7 +523,7 @@ export default function Sidebar({ onClose, variant = "dock" }) {
                   title={translate("Expand the room panel")}
                   onClick={() => setCollapsed(false)}
                 >
-                  <span className="material-symbols-outlined text-[15px]" aria-hidden="true">unfold_more</span>
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">unfold_more</span>
                 </button>
               </div>
             )}
@@ -554,7 +561,7 @@ export default function Sidebar({ onClose, variant = "dock" }) {
                   title={translate(collapsed ? "Expand the room panel" : "Collapse the room panel")}
                   onClick={() => setCollapsed((v) => !v)}
                 >
-                  <span className="material-symbols-outlined text-[15px]" aria-hidden="true">
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">
                     {collapsed ? "unfold_more" : "unfold_less"}
                   </span>
                 </button>
@@ -567,7 +574,7 @@ export default function Sidebar({ onClose, variant = "dock" }) {
                   title={translate("Close navigation")}
                   onClick={onClose}
                 >
-                  <span className="material-symbols-outlined text-[15px]" aria-hidden="true">close</span>
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">close</span>
                 </button>
               )}
             </div>
@@ -583,7 +590,7 @@ export default function Sidebar({ onClose, variant = "dock" }) {
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
                     </span>
-                    <p className="truncate text-[11px] font-semibold text-brand-600 dark:text-brand-400">
+                    <p className="truncate text-2xs font-semibold text-brand-600 dark:text-brand-400">
                       {translate("New tide")}: v{updateInfo.currentVersion} → v{updateInfo.latestVersion}
                     </p>
                   </div>
@@ -593,15 +600,15 @@ export default function Sidebar({ onClose, variant = "dock" }) {
                     title={translate("Dismiss until a newer tide")}
                     className="shrink-0 rounded p-0.5 text-text-subtle motion-control hover:bg-black/5 hover:text-text-muted dark:hover:bg-white/10 cursor-pointer"
                   >
-                    <span className="material-symbols-outlined text-[14px]" aria-hidden="true">close</span>
+                    <span className="material-symbols-outlined text-sm" aria-hidden="true">close</span>
                   </button>
                 </div>
                 <div className="relative mt-1.5 flex items-center gap-2">
                   <button
                     onClick={() => setShowNoticeModal(true)}
-                    className="flex items-center gap-1 rounded-lg bg-brand-500 px-2.5 py-1 text-[11px] font-semibold text-white motion-control hover:bg-brand-600 cursor-pointer"
+                    className="flex items-center gap-1 rounded-lg bg-brand-600 px-2.5 py-1 text-2xs font-semibold text-white motion-control hover:bg-brand-700 cursor-pointer"
                   >
-                    <span className="material-symbols-outlined text-[13px]" aria-hidden="true">sailing</span>
+                    <span className="material-symbols-outlined text-sm" aria-hidden="true">sailing</span>
                     {translate("View details")}
                   </button>
                   <button
@@ -609,7 +616,7 @@ export default function Sidebar({ onClose, variant = "dock" }) {
                     title={INSTALL_CMD}
                     className="min-w-0 flex-1 cursor-pointer text-left motion-control hover:opacity-80"
                   >
-                    <code className="block truncate font-mono text-[10px] text-text-muted">
+                    <code className="block truncate font-mono text-3xs text-text-muted">
                       {copied ? "✓ copied!" : INSTALL_CMD}
                     </code>
                   </button>
@@ -744,7 +751,7 @@ export default function Sidebar({ onClose, variant = "dock" }) {
           ) : (
             <div className="text-center p-8">
               <div className="flex items-center justify-center size-16 rounded-full bg-red-500/20 text-red-500 mx-auto mb-4">
-                <span className="material-symbols-outlined text-[32px]" aria-hidden="true">power_off</span>
+                <span className="material-symbols-outlined text-3xl" aria-hidden="true">power_off</span>
               </div>
               <h2 className="text-xl font-semibold text-white mb-2">{translate("Server Disconnected")}</h2>
               <p className="text-text-muted mb-6">{translate("The gateway has been stopped.")}</p>
@@ -854,7 +861,7 @@ function RoomTile({
               onTogglePin(room.href);
             }}
           >
-            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">anchor</span>
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">anchor</span>
           </button>
         )}
       </div>
@@ -870,7 +877,7 @@ function RoomTile({
               className="nav-sub-tile"
               style={{ "--i": Math.min(i, 8) }}
             >
-              <span className="material-symbols-outlined text-[15px]" aria-hidden="true">{child.icon}</span>
+              <span className="material-symbols-outlined text-base" aria-hidden="true">{child.icon}</span>
               <span className="nav-sub-label">{translate(child.label)}</span>
             </Link>
           ))}
@@ -938,7 +945,7 @@ function ManualUpdatePanel({ latestVersion, installCmd, copied, onCopyAndShutdow
     <div className="w-full max-w-lg rounded-xl bg-neutral-900/95 border border-white/10 p-6 text-white">
       <div className="flex items-center gap-3 mb-4">
         <div className="flex items-center justify-center size-11 rounded-full bg-amber-500/20 text-amber-400">
-          <span className="material-symbols-outlined text-[24px]" aria-hidden="true">content_copy</span>
+          <span className="material-symbols-outlined text-2xl" aria-hidden="true">content_copy</span>
         </div>
         <div>
           <h2 className="text-lg font-semibold">Update Vela{latestVersion ? ` to v${latestVersion}` : ""}</h2>

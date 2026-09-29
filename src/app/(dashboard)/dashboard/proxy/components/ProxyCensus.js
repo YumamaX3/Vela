@@ -14,12 +14,12 @@ function Tile({ label, value, icon, tone = "text-brand-500/80", hint }) {
       className="flex items-center gap-2.5 rounded-[14px] border border-border-subtle bg-surface px-3 py-2"
       title={hint}
     >
-      <span className={`material-symbols-outlined text-[18px] ${tone}`} aria-hidden="true">
+      <span className={`material-symbols-outlined text-lg ${tone}`} aria-hidden="true">
         {icon}
       </span>
       <div className="min-w-0">
         <div className="text-sm font-semibold leading-tight tabular-nums">{value}</div>
-        <div className="truncate text-[11px] text-text-muted">{label}</div>
+        <div className="truncate text-2xs text-text-muted">{label}</div>
       </div>
     </div>
   );
@@ -42,7 +42,7 @@ export default function ProxyCensus({ census }) {
         />
         <Tile label="Blocked pairs" value={String(c.blocked ?? 0)} icon="health_and_safety" tone="text-red-500" />
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-text-muted">
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-2xs text-text-muted">
         <span>
           <span className="tabular-nums text-text-main">{c.bound ?? 0}</span> bound connections
         </span>

@@ -61,7 +61,7 @@ export default function ObservabilityCard({ deck }) {
     <Card>
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 rounded-lg bg-brand-500/10 text-brand-500 shrink-0">
-          <span className="material-symbols-outlined text-[20px]">health_and_safety</span>
+          <span className="material-symbols-outlined text-xl">health_and_safety</span>
         </div>
         <div className="min-w-0">
           <h3 className="text-base sm:text-lg font-semibold">Recording budget</h3>

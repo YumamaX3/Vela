@@ -41,13 +41,13 @@ export default function ComboGrid({
                 aria-expanded={!isCollapsed}
                 className="mb-2 flex w-full items-center gap-2 rounded-lg px-1 py-1 text-left motion-control hover:bg-black/[0.03] dark:hover:bg-white/[0.03]"
               >
-                <span className="material-symbols-outlined text-[16px] text-primary" aria-hidden="true">
+                <span className="material-symbols-outlined text-base text-primary" aria-hidden="true">
                   {isCollapsed ? "chevron_right" : "expand_more"}
                 </span>
                 <span className="font-mono text-xs font-medium text-text-main">
                   {isRoot ? "No namespace" : harbor}
                 </span>
-                <span className="text-[11px] text-text-muted">
+                <span className="text-2xs text-text-muted">
                   {combos.length} combo{combos.length === 1 ? "" : "s"} · {members} model{members === 1 ? "" : "s"}
                   {judged > 0 && ` · ${reachable}/${judged} connected`}
                 </span>

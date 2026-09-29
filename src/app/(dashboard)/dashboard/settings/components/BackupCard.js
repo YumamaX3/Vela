@@ -80,7 +80,7 @@ export default function BackupCard({ onChanged }) {
     <Card>
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 rounded-lg bg-brand-500/10 text-brand-500 shrink-0">
-          <span className="material-symbols-outlined text-[20px]">backup</span>
+          <span className="material-symbols-outlined text-xl">backup</span>
         </div>
         <h3 className="text-base sm:text-lg font-semibold">Backup</h3>
         {status?.degraded && (
@@ -125,15 +125,15 @@ export default function BackupCard({ onChanged }) {
       {/* Actions */}
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" disabled={loading} onClick={() => setRunOpen(true)}>
-          <span className="material-symbols-outlined text-[16px] mr-1">upload_file</span>
+          <span className="material-symbols-outlined text-base mr-1">upload_file</span>
           Backup now
         </Button>
         <Button variant="secondary" disabled={loading} onClick={() => setRestoreOpen(true)}>
-          <span className="material-symbols-outlined text-[16px] mr-1">restore</span>
+          <span className="material-symbols-outlined text-base mr-1">restore</span>
           Restore
         </Button>
         <Button variant="secondary" disabled={loading} onClick={() => setDrillOpen(true)}>
-          <span className="material-symbols-outlined text-[16px] mr-1">fact_check</span>
+          <span className="material-symbols-outlined text-base mr-1">fact_check</span>
           Restore drill
         </Button>
       </div>

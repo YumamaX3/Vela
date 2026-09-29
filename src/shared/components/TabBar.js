@@ -64,19 +64,19 @@ export default function TabBar({ tabs, active, onChange, ariaLabel }) {
             aria-controls={`panel-${t.id}`}
             tabIndex={on ? 0 : -1}
             onClick={() => onChange(t.id)}
-            className={`relative shrink-0 inline-flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium rounded-t-[10px] motion-control cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] ${
+            className={`relative shrink-0 inline-flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-t-[10px] motion-control cursor-pointer focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] ${
               on
                 ? "text-brand-700 dark:text-brand-300"
                 : "text-text-muted hover:text-text-main hover:bg-surface-2/60"
             }`}
           >
-            <span className="material-symbols-outlined text-[16px] leading-none" aria-hidden="true">
+            <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">
               {t.icon}
             </span>
             {t.label}
             {typeof t.badge === "number" && t.badge > 0 && (
               <span
-                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${
+                className={`text-3xs font-semibold px-1.5 py-0.5 rounded-full border ${
                   t.tone === "warn"
                     ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
                     : "bg-surface-2 text-text-muted border-border-subtle"

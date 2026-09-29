@@ -21,10 +21,10 @@ const TONE_TEXT = {
 function Stat({ label, value, tone = "muted", icon, title }) {
   return (
     <div className="flex items-center gap-2 px-3 py-2 rounded-[10px] bg-surface-2 border border-border-subtle" title={title || label}>
-      {icon && <span className={`material-symbols-outlined text-[16px] ${TONE_TEXT[tone] || TONE_TEXT.muted}`}>{icon}</span>}
+      {icon && <span className={`material-symbols-outlined text-base ${TONE_TEXT[tone] || TONE_TEXT.muted}`}>{icon}</span>}
       <div className="leading-tight">
         <div className={`text-sm font-semibold ${TONE_TEXT[tone] || TONE_TEXT.muted}`}>{value}</div>
-        <div className="text-[10px] text-text-muted">{label}</div>
+        <div className="text-3xs text-text-muted">{label}</div>
       </div>
     </div>
   );
@@ -76,10 +76,10 @@ export default function KeyFleetPulse({ c, deck }) {
               } ${isOn ? "ring-2 ring-offset-1 ring-primary/60" : ""}`}
               title={empty ? `${meta.label} — nothing in this posture` : `${translate("Show only")} ${meta.label.toLowerCase()}`}
             >
-              <span className="material-symbols-outlined text-[16px]">{meta.icon}</span>
+              <span className="material-symbols-outlined text-base">{meta.icon}</span>
               <div className="leading-tight text-left">
                 <div className="text-sm font-semibold">{count}</div>
-                <div className="text-[10px]">{meta.label}</div>
+                <div className="text-3xs">{meta.label}</div>
               </div>
             </button>
           );
@@ -94,7 +94,7 @@ export default function KeyFleetPulse({ c, deck }) {
       </div>
 
       {(scoped != null || limited != null || idle != null) && (
-        <div className="flex items-center gap-3 flex-wrap mt-2 text-[11px] text-text-muted">
+        <div className="flex items-center gap-3 flex-wrap mt-2 text-2xs text-text-muted">
           {scoped != null && (
             <span title={translate("Keys narrowed by model scope or ACL — the rest reach every provider")}>
               {scoped} {translate("scoped")}
@@ -114,7 +114,7 @@ export default function KeyFleetPulse({ c, deck }) {
       )}
 
       {statsError && (
-        <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-2">
+        <p className="text-2xs text-amber-600 dark:text-amber-400 mt-2">
           {translate("The harbor's census could not be read — the counts above are this browser's own.")}
         </p>
       )}
@@ -124,7 +124,7 @@ export default function KeyFleetPulse({ c, deck }) {
           {attention.length > 0 && (
             <div className="rounded-[10px] border border-amber-500/30 bg-amber-500/5 p-3">
               <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-[14px]">warning</span>
+                <span className="material-symbols-outlined text-sm">warning</span>
                 {translate("Worth a look")}
               </p>
               <ul className="mt-2 space-y-1">
@@ -140,7 +140,7 @@ export default function KeyFleetPulse({ c, deck }) {
                   </li>
                 ))}
                 {attention.length > 3 && (
-                  <li className="text-[11px] text-text-muted">
+                  <li className="text-2xs text-text-muted">
                     {translate("and")} {attention.length - 3} {translate("more")}
                   </li>
                 )}
@@ -151,7 +151,7 @@ export default function KeyFleetPulse({ c, deck }) {
           {busiest.length > 0 && (
             <div className="rounded-[10px] border border-border-subtle bg-surface-2 p-3">
               <p className="text-xs font-semibold flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-[14px] text-primary">bolt</span>
+                <span className="material-symbols-outlined text-sm text-primary">bolt</span>
                 {translate("Carrying the load")}
               </p>
               <ul className="mt-2 space-y-1">

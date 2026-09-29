@@ -79,21 +79,21 @@ export default function DiagnosticsTab({ c }) {
             </p>
           ) : probe.state === "up" ? (
             <>
-              <p className="text-[10px] uppercase tracking-wider opacity-60 mb-1">
+              <p className="text-3xs uppercase tracking-wider opacity-60 mb-1">
                 {translate("Responded in")}
               </p>
               <p className="font-mono text-3xl font-semibold">{probe.ms}<span className="text-base opacity-60"> ms</span></p>
             </>
           ) : (
             <>
-              <p className="text-[10px] uppercase tracking-wider opacity-60 mb-1">
+              <p className="text-3xs uppercase tracking-wider opacity-60 mb-1">
                 {translate("No response")}
               </p>
               <p className="font-mono text-lg font-semibold break-all">{probe.error}</p>
             </>
           )}
           {probe.at && (
-            <p className="text-[11px] opacity-60 mt-2">
+            <p className="text-2xs opacity-60 mt-2">
               {translate("Last checked")} {probe.at.toLocaleTimeString()}
             </p>
           )}
@@ -103,10 +103,10 @@ export default function DiagnosticsTab({ c }) {
         {samples.length > 0 && (
           <div className="mt-4">
             <div className="flex items-center justify-between mb-1.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+              <p className="text-2xs font-semibold uppercase tracking-wider text-text-muted">
                 {translate("This session")}
               </p>
-              <p className="text-[11px] text-text-muted">
+              <p className="text-2xs text-text-muted">
                 {translate("best")} {best} ms · {translate("worst")} {worst} ms
               </p>
             </div>
@@ -128,7 +128,7 @@ export default function DiagnosticsTab({ c }) {
       {/* Facts the page already knows — no extra request */}
       <Card>
         <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
-          <span className="material-symbols-outlined text-brand-500 text-[18px]" aria-hidden="true">fact_check</span>
+          <span className="material-symbols-outlined text-brand-500 text-lg" aria-hidden="true">fact_check</span>
           {translate("Known state")}
         </h2>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
@@ -145,7 +145,7 @@ export default function DiagnosticsTab({ c }) {
             </div>
           ))}
         </dl>
-        <p className="text-[11px] text-text-muted mt-3">
+        <p className="text-2xs text-text-muted mt-3">
           {translate("The probe measures from this browser to the dashboard's own health route — it does not test an upstream provider.")}
         </p>
       </Card>

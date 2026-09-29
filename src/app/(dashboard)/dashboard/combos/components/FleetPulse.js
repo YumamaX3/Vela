@@ -8,12 +8,12 @@ import { fmt } from "../lib/comboFormat";
 function Tile({ label, value, icon, tone = "text-primary/70" }) {
   return (
     <div className="flex items-center gap-2.5 rounded-[14px] border border-border-subtle bg-surface px-3 py-2">
-      <span className={`material-symbols-outlined text-[18px] ${tone}`} aria-hidden="true">
+      <span className={`material-symbols-outlined text-lg ${tone}`} aria-hidden="true">
         {icon}
       </span>
       <div className="min-w-0">
         <div className="text-sm font-semibold leading-tight tabular-nums">{value}</div>
-        <div className="truncate text-[11px] text-text-muted">{label}</div>
+        <div className="truncate text-2xs text-text-muted">{label}</div>
       </div>
     </div>
   );
@@ -31,7 +31,7 @@ export default function FleetPulse({ pulse, server, className }) {
         <Tile label="Active · 24h" value={String(data.activeCombos ?? 0)} icon="monitoring" />
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-text-muted">
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-2xs text-text-muted">
         <span>
           <span className="tabular-nums text-text-main">{fmt(data.uniqueModels ?? 0)}</span> unique models
         </span>

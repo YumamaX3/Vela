@@ -161,7 +161,7 @@ export default function MitmToolCard({
               <p className="text-xs text-text-muted sm:truncate">Intercept {tool.name} requests via MITM proxy</p>
             </div>
           </div>
-          <span className={`material-symbols-outlined text-text-muted text-[20px] motion-control ${isExpanded ? "rotate-180" : ""}`}>
+          <span className={`material-symbols-outlined text-text-muted text-xl motion-control ${isExpanded ? "rotate-180" : ""}`}>
             expand_more
           </span>
         </div>
@@ -171,10 +171,10 @@ export default function MitmToolCard({
             {/* Hosts */}
             {mitmHosts.length > 0 && (
               <div className="mt-2 rounded-md border border-border bg-surface/50 px-2 py-1.5">
-                <p className="text-[10px] font-medium tracking-wide text-text-main/80 mb-1">
+                <p className="text-3xs font-medium tracking-wide text-text-main/80 mb-1">
                   Edit hosts file manually to add the following entries:
                 </p>
-                <ul className="list-none space-y-0.5 font-mono text-[10px] text-text-muted break-all">
+                <ul className="list-none space-y-0.5 font-mono text-3xs text-text-muted break-all">
                   {mitmHosts.map((h) => (
                     <li key={h}>127.0.0.1 {h}</li>
                   ))}
@@ -182,10 +182,10 @@ export default function MitmToolCard({
               </div>
             )}
             {/* Info */}
-            <div className="flex flex-col gap-0.5 text-[11px] text-text-muted px-1">
+            <div className="flex flex-col gap-0.5 text-2xs text-text-muted px-1">
               <p>Toggle DNS to redirect {tool.name} traffic through Vela via MITM.</p>
               {!dnsActive && (
-                <p className="text-amber-600 text-[10px] mt-1">
+                <p className="text-amber-600 text-3xs mt-1">
                   ⚠️ Enable DNS to edit model mappings
                 </p>
               )}
@@ -197,7 +197,7 @@ export default function MitmToolCard({
                 {tool.defaultModels.map((model) => (
                   <div key={model.alias} className="grid grid-cols-1 gap-1.5 sm:grid-cols-[9rem_auto_1fr_auto] sm:items-center sm:gap-2">
                     <span className="text-xs font-semibold text-text-main sm:text-right">{model.name}</span>
-                    <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
+                    <span className="material-symbols-outlined hidden text-text-muted text-sm sm:inline">arrow_forward</span>
                     <div className="relative w-full min-w-0">
                       <input
                         type="text"
@@ -217,7 +217,7 @@ export default function MitmToolCard({
                           className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-red-500 rounded motion-control"
                           title="Clear"
                         >
-                          <span className="material-symbols-outlined text-[14px]">close</span>
+                          <span className="material-symbols-outlined text-sm">close</span>
                         </button>
                       )}
                     </div>
@@ -245,7 +245,7 @@ export default function MitmToolCard({
                   disabled={!serverRunning || loading}
                   className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-medium text-red-500 motion-control hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:py-1.5"
                 >
-                  <span className="material-symbols-outlined text-[16px]">stop_circle</span>
+                  <span className="material-symbols-outlined text-base">stop_circle</span>
                   Stop DNS
                 </button>
               ) : (
@@ -254,7 +254,7 @@ export default function MitmToolCard({
                   disabled={!serverRunning || loading}
                   className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 text-xs font-medium text-primary motion-control hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:py-1.5"
                 >
-                  <span className="material-symbols-outlined text-[16px]">play_circle</span>
+                  <span className="material-symbols-outlined text-base">play_circle</span>
                   Start DNS
                 </button>
               )}
@@ -262,7 +262,7 @@ export default function MitmToolCard({
               {/* Warning below button */}
               {warning && (
                 <div className="flex items-center gap-2 px-2 py-1.5 rounded text-xs text-amber-500">
-                  <span className="material-symbols-outlined text-[14px]">warning</span>
+                  <span className="material-symbols-outlined text-sm">warning</span>
                   <span>{warning}</span>
                 </div>
               )}
@@ -277,7 +277,7 @@ export default function MitmToolCard({
           <div className="mx-4 flex w-full max-w-sm flex-col gap-4 rounded-xl border border-border bg-surface p-5 shadow-xl sm:p-6">
             <h3 className="font-semibold text-text-main">Sudo Password Required</h3>
             <div className="flex items-start gap-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-              <span className="material-symbols-outlined text-yellow-500 text-[20px]">warning</span>
+              <span className="material-symbols-outlined text-yellow-500 text-xl">warning</span>
               <p className="text-xs text-text-muted">Required to modify /etc/hosts and flush DNS cache</p>
             </div>
             <Input
@@ -289,7 +289,7 @@ export default function MitmToolCard({
             />
             {modalError && (
               <div className="flex items-center gap-2 px-2 py-1.5 rounded text-xs bg-red-500/10 text-red-600">
-                <span className="material-symbols-outlined text-[14px]">error</span>
+                <span className="material-symbols-outlined text-sm">error</span>
                 <span>{modalError}</span>
               </div>
             )}

@@ -23,7 +23,7 @@ function RailButton({ active, icon, label, count, depth = 0, mono, compact, onCl
       style={depth && !compact ? { paddingLeft: `${10 + depth * 12}px` } : undefined}
     >
       {icon && (
-        <span className="material-symbols-outlined text-[15px] shrink-0" aria-hidden="true">
+        <span className="material-symbols-outlined text-base shrink-0" aria-hidden="true">
           {icon}
         </span>
       )}
@@ -31,7 +31,7 @@ function RailButton({ active, icon, label, count, depth = 0, mono, compact, onCl
       {count !== undefined && (
         <span
           className={cn(
-            "shrink-0 rounded px-1.5 py-0.5 text-[10px] tabular-nums",
+            "shrink-0 rounded px-1.5 py-0.5 text-3xs tabular-nums",
             active ? "bg-primary/15 text-primary" : "bg-black/5 text-text-muted dark:bg-white/5"
           )}
         >
@@ -51,7 +51,7 @@ export default function ComboRail({ counts, tree, category, onSelect, totalCombo
       <div className={cn("flex gap-0.5", compact ? "flex-row flex-wrap items-center" : "flex-col")}>
         <p
           className={cn(
-            "text-[10px] font-semibold uppercase tracking-wider text-text-subtle",
+            "text-3xs font-semibold uppercase tracking-wider text-text-subtle",
             compact ? "shrink-0 px-1" : "px-2.5 pb-1"
           )}
         >
@@ -74,7 +74,7 @@ export default function ComboRail({ counts, tree, category, onSelect, totalCombo
         <div className={cn("flex gap-0.5", compact ? "flex-row flex-wrap items-center" : "flex-col")}>
           <p
             className={cn(
-              "text-[10px] font-semibold uppercase tracking-wider text-text-subtle",
+              "text-3xs font-semibold uppercase tracking-wider text-text-subtle",
               compact ? "shrink-0 px-1" : "px-2.5 pb-1"
             )}
           >
@@ -105,7 +105,7 @@ export default function ComboRail({ counts, tree, category, onSelect, totalCombo
       )}
 
       {!compact && (
-        <p className="px-2.5 text-[10px] leading-relaxed text-text-subtle">
+        <p className="px-2.5 text-3xs leading-relaxed text-text-subtle">
           Namespaces come from <code className="font-mono">/</code> in a combo name — group a fleet as{" "}
           <code className="font-mono">vela/cc/opus</code>.
         </p>

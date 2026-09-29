@@ -101,7 +101,7 @@ export default function ArtifactsCard({ onChanged, refreshKey }) {
     <Card>
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 rounded-lg bg-brand-500/10 text-brand-500 shrink-0">
-          <span className="material-symbols-outlined text-[20px]">inventory_2</span>
+          <span className="material-symbols-outlined text-xl">inventory_2</span>
         </div>
         <div className="min-w-0">
           <h3 className="text-base sm:text-lg font-semibold">Backup artifacts</h3>
@@ -160,7 +160,7 @@ export default function ArtifactsCard({ onChanged, refreshKey }) {
       {verify?.result && (
         <div className="mt-3 rounded-[10px] p-3 bg-surface-2">
           <p className="flex items-center gap-2 text-sm text-success mb-2">
-            <span className="material-symbols-outlined text-[18px]">verified</span>
+            <span className="material-symbols-outlined text-lg">verified</span>
             Verified — this artifact decrypts and carries data
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">

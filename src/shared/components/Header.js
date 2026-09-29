@@ -356,9 +356,9 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
             className="hidden sm:flex items-center max-w-[220px] px-3 py-1.5 rounded-full border border-border bg-surface/70 text-xs text-text-muted truncate"
             title={displayName}
           >
-            <span className="material-symbols-outlined text-[14px] mr-1.5 text-primary">person</span>
+            <span className="material-symbols-outlined text-sm mr-1.5 text-primary">person</span>
             <span className="truncate">{displayName}</span>
-            <span className="ml-2 shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+            <span className="ml-2 shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-3xs font-semibold uppercase tracking-wide text-primary">
               {loginMethod}
             </span>
           </div>
@@ -413,7 +413,7 @@ function HeaderSearch() {
   return (
     <div className="relative w-[160px] sm:w-[220px]">
       <span
-        className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-text-muted text-[16px] pointer-events-none"
+        className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-text-muted text-base pointer-events-none"
         aria-hidden="true"
       >
         search
@@ -434,11 +434,11 @@ function HeaderSearch() {
           className="absolute right-1 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main p-0.5 rounded"
           aria-label="Clear search"
         >
-          <span className="material-symbols-outlined text-[16px]">close</span>
+          <span className="material-symbols-outlined text-base">close</span>
         </button>
       ) : (
         <kbd
-          className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 items-center h-4.5 px-1 rounded border border-border bg-surface text-[10px] font-mono text-text-subtle pointer-events-none"
+          className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 items-center h-4.5 px-1 rounded border border-border bg-surface text-3xs font-mono text-text-subtle pointer-events-none"
           aria-hidden="true"
         >
           /

@@ -154,7 +154,7 @@ export default function RelayTab({ c }) {
               <div className="flex flex-col gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className={`material-symbols-outlined text-[20px] ${platform.tone}`} aria-hidden="true">
+                    <span className={`material-symbols-outlined text-xl ${platform.tone}`} aria-hidden="true">
                       {platform.icon}
                     </span>
                     <p className="text-sm font-medium">{platform.label}</p>
@@ -182,12 +182,12 @@ export default function RelayTab({ c }) {
                               </Badge>
                               <Badge variant="default" size="sm">{pool.boundConnectionCount || 0} bound</Badge>
                             </div>
-                            <code className="truncate font-mono text-[11px] text-text-muted">
+                            <code className="truncate font-mono text-2xs text-text-muted">
                               {maskProxyUrl(pool.proxyUrl)}
                             </code>
                             {geo ? (
-                              <p className="flex items-center gap-1.5 text-[11px] text-text-muted">
-                                <span className="material-symbols-outlined text-[12px]">travel_explore</span>
+                              <p className="flex items-center gap-1.5 text-2xs text-text-muted">
+                                <span className="material-symbols-outlined text-xs">travel_explore</span>
                                 <span className="font-mono">{geo.ip}</span>
                                 {geo.country ? <span>· {geo.country}</span> : null}
                                 {geo.isUnstable ? <span>· flapping</span> : null}
@@ -195,7 +195,7 @@ export default function RelayTab({ c }) {
                             ) : null}
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[11px] text-text-muted">
+                            <span className="text-2xs text-text-muted">
                               {pool.relayDeployedAt ? `deployed ${formatDateTime(pool.relayDeployedAt)}` : null}
                             </span>
                             <Button

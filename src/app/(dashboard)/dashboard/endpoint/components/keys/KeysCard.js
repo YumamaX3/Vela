@@ -54,14 +54,14 @@ export default function KeysCard({ c, deck }) {
 
       {deck.notice && (
         <div className={`flex items-start gap-2 rounded-[10px] border px-3 py-2 text-xs ${NOTICE_TONE[deck.notice.tone] || NOTICE_TONE.warn}`}>
-          <span className="material-symbols-outlined text-[14px] mt-0.5">info</span>
+          <span className="material-symbols-outlined text-sm mt-0.5">info</span>
           <span className="flex-1 whitespace-pre-line">{deck.notice.message}</span>
           <button
             onClick={() => deck.setNotice(null)}
             className="motion-control opacity-70 hover:opacity-100"
             title={translate("Dismiss")}
           >
-            <span className="material-symbols-outlined text-[14px]">close</span>
+            <span className="material-symbols-outlined text-sm">close</span>
           </button>
         </div>
       )}
@@ -72,7 +72,7 @@ export default function KeysCard({ c, deck }) {
         {keys.length === 0 ? (
           <div className="text-center py-12">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
-              <span className="material-symbols-outlined text-[32px]">vpn_key</span>
+              <span className="material-symbols-outlined text-3xl">vpn_key</span>
             </div>
             <p className="text-text-main font-medium mb-1">{translate("No API keys yet")}</p>
             <p className="text-sm text-text-muted mb-4">{translate("Create your first API key to get started")}</p>

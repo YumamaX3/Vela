@@ -95,7 +95,7 @@ export default function NetworkTab({ deck }) {
     <Card>
       <div className="flex items-start gap-3 mb-4">
         <div className="p-2 rounded-[10px] bg-brand-500/10 text-brand-500 shrink-0">
-          <span className="material-symbols-outlined text-[20px] leading-none">wifi</span>
+          <span className="material-symbols-outlined text-xl leading-none">wifi</span>
         </div>
         <div>
           <h3 className="text-text-main font-semibold">Outbound proxy</h3>

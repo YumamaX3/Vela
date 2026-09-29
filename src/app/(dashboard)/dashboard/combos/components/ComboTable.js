@@ -34,7 +34,7 @@ function SortHeader({ column, label, sortKey, onSort, align = "left" }) {
       >
         {label}
         {active && (
-          <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
+          <span className="material-symbols-outlined text-sm" aria-hidden="true">
             sort
           </span>
         )}
@@ -67,7 +67,7 @@ export default function ComboTable({
     <div className="overflow-x-auto rounded-[14px] border border-border-subtle bg-surface shadow-[var(--shadow-soft)]">
       <table className="w-full min-w-[980px] border-collapse text-sm">
         <caption className="sr-only">Combo fleet — one row per combo, sorted by {sortKey}</caption>
-        <thead className="bg-bg-alt text-[11px] uppercase tracking-wide text-text-muted">
+        <thead className="bg-bg-alt text-2xs uppercase tracking-wide text-text-muted">
           <tr>
             <th scope="col" className="w-8 px-3 py-2">
               <input
@@ -138,25 +138,25 @@ export default function ComboTable({
                     <code className="truncate font-mono text-xs font-medium text-text-main" title={combo.name}>
                       {leaf}
                     </code>
-                    {harbor && <span className="truncate text-[10px] text-text-muted">{harbor}</span>}
+                    {harbor && <span className="truncate text-3xs text-text-muted">{harbor}</span>}
                   </button>
                 </td>
                 <td className="max-w-[260px] px-3 py-2">
                   {members.length === 0 ? (
-                    <span className="text-[11px] italic text-text-muted">No models</span>
+                    <span className="text-2xs italic text-text-muted">No models</span>
                   ) : (
                     <span className="flex flex-wrap items-center gap-1">
                       {members.slice(0, 3).map((model, index) => (
                         <span
                           key={`${model}-${index}`}
-                          className="inline-flex max-w-[160px] items-center gap-1 rounded bg-black/5 px-1.5 py-0.5 font-mono text-[10px] text-text-muted dark:bg-white/5"
+                          className="inline-flex max-w-[160px] items-center gap-1 rounded bg-black/5 px-1.5 py-0.5 font-mono text-3xs text-text-muted dark:bg-white/5"
                           title={model}
                         >
                           <span className="truncate">{model}</span>
                           <CapacityBadges caps={getCaps?.(model)} />
                         </span>
                       ))}
-                      {members.length > 3 && <span className="text-[10px] text-text-muted">+{members.length - 3}</span>}
+                      {members.length > 3 && <span className="text-3xs text-text-muted">+{members.length - 3}</span>}
                     </span>
                   )}
                 </td>
@@ -164,10 +164,10 @@ export default function ComboTable({
                   <button
                     type="button"
                     onClick={() => onOpen?.(combo)}
-                    className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium", TONES[meta.tone])}
+                    className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-2xs font-medium", TONES[meta.tone])}
                     title={`${meta.label} — ${meta.hint}`}
                   >
-                    <span className="material-symbols-outlined text-[13px]" aria-hidden="true">
+                    <span className="material-symbols-outlined text-sm" aria-hidden="true">
                       {meta.icon}
                     </span>
                     {meta.label}
@@ -180,7 +180,7 @@ export default function ComboTable({
                   {usage?.requests ? (
                     <span className="text-xs text-text-main">{fmt(usage.requests)}</span>
                   ) : (
-                    <span className="text-[11px] text-text-muted">—</span>
+                    <span className="text-2xs text-text-muted">—</span>
                   )}
                 </td>
                 <td className="px-3 py-2 text-right text-xs tabular-nums text-text-muted">
@@ -191,14 +191,14 @@ export default function ComboTable({
                 </td>
                 <td className="px-3 py-2 text-right">
                   {ratio === null ? (
-                    <span className="text-[11px] text-text-muted">—</span>
+                    <span className="text-2xs text-text-muted">—</span>
                   ) : (
-                    <span className={cn("inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums", TONES[toneForRatio(ratio)])}>
+                    <span className={cn("inline-flex rounded px-1.5 py-0.5 text-3xs font-medium tabular-nums", TONES[toneForRatio(ratio)])}>
                       {Math.round(ratio * 100)}%
                     </span>
                   )}
                 </td>
-                <td className="px-3 py-2 text-right text-[10px] text-text-muted">
+                <td className="px-3 py-2 text-right text-3xs text-text-muted">
                   {usage?.lastAt ? timeAgo(usage.lastAt) : "—"}
                 </td>
                 <td className="px-3 py-2">
@@ -213,7 +213,7 @@ export default function ComboTable({
                         copied === `combo-${combo.id}` ? "text-primary" : "text-text-muted hover:text-primary"
                       )}
                     >
-                      <span className="material-symbols-outlined text-[15px]">
+                      <span className="material-symbols-outlined text-base">
                         {copied === `combo-${combo.id}` ? "check" : "content_copy"}
                       </span>
                     </button>
@@ -224,7 +224,7 @@ export default function ComboTable({
                       aria-label={`Edit ${combo.name}`}
                       className="rounded p-1 text-text-muted motion-control hover:text-primary"
                     >
-                      <span className="material-symbols-outlined text-[15px]">edit</span>
+                      <span className="material-symbols-outlined text-base">edit</span>
                     </button>
                     <button
                       type="button"
@@ -233,7 +233,7 @@ export default function ComboTable({
                       aria-label={`Duplicate ${combo.name}`}
                       className="rounded p-1 text-text-muted motion-control hover:text-primary"
                     >
-                      <span className="material-symbols-outlined text-[15px]">copy_all</span>
+                      <span className="material-symbols-outlined text-base">copy_all</span>
                     </button>
                     <button
                       type="button"
@@ -242,7 +242,7 @@ export default function ComboTable({
                       aria-label={`Delete ${combo.name}`}
                       className="rounded p-1 text-text-muted motion-control hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-300"
                     >
-                      <span className="material-symbols-outlined text-[15px]">delete</span>
+                      <span className="material-symbols-outlined text-base">delete</span>
                     </button>
                   </span>
                 </td>
@@ -251,7 +251,7 @@ export default function ComboTable({
           })}
         </tbody>
       </table>
-      <div className="border-t border-border-subtle px-3 py-2 text-[11px] text-text-muted">
+      <div className="border-t border-border-subtle px-3 py-2 text-2xs text-text-muted">
         <UsageCellHint />
       </div>
     </div>

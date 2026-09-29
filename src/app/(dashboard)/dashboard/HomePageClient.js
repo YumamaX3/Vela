@@ -175,7 +175,7 @@ export default function HomePageClient() {
             {day && version && <span aria-hidden="true" className="text-text-subtle">·</span>}
             {version && <span className="font-mono text-xs text-text-subtle">v{version}</span>}
           </p>
-          <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-text-main">
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-text-main">
             {/* The day's story in one living sentence — every figure is
                 live truth, so the sentence is always honest. */}
             {requests > 0 ? (
@@ -225,7 +225,7 @@ export default function HomePageClient() {
               onClick={() => router.push("/dashboard/providers")}
               className="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-surface px-3 py-1.5 text-xs font-medium text-text-muted motion-control hover:border-primary/40 hover:text-text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
             >
-              <span className="material-symbols-outlined text-[14px] text-primary">monitor_heart</span>
+              <span className="material-symbols-outlined text-sm text-primary">monitor_heart</span>
               {fleetOk}/{fleet.length} {translate("providers ok")}
             </button>
           )}
@@ -241,7 +241,7 @@ export default function HomePageClient() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
               </span>
-              <h2 className="text-[13px] font-semibold uppercase tracking-wide text-text-main">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-text-main">
                 {translate("The Pulse")}
               </h2>
               <span className="hidden text-xs text-text-subtle sm:inline">
@@ -323,10 +323,10 @@ export default function HomePageClient() {
             <button
               type="button"
               onClick={() => router.push("/dashboard/usage")}
-              className="inline-flex items-center gap-1 rounded-md text-[11.5px] font-semibold text-primary motion-control hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              className="inline-flex items-center gap-1 rounded-md text-xs font-semibold text-primary motion-control hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
             >
               {translate("View all")}
-              <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </button>
           }
         >
@@ -343,10 +343,10 @@ export default function HomePageClient() {
                     }`}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[12.5px] font-medium text-text-main">
+                    <div className="truncate text-xs font-medium text-text-main">
                       {r.model || r.provider || "request"}
                     </div>
-                    <div className="text-[10.5px] text-text-subtle">
+                    <div className="text-2xs text-text-subtle">
                       {r.provider ? `${r.provider} · ` : ""}
                       {r.promptTokens != null
                         ? `${compact((r.promptTokens || 0) + (r.completionTokens || 0))} ${translate("tokens")}`
@@ -354,7 +354,7 @@ export default function HomePageClient() {
                       {r.costUsd != null ? ` · ${money(r.costUsd)}` : r.cost != null ? ` · ${money(r.cost)}` : ""}
                     </div>
                   </div>
-                  <span className="shrink-0 font-mono text-[10.5px] tabular-nums text-text-subtle">
+                  <span className="shrink-0 font-mono text-2xs tabular-nums text-text-subtle">
                     {r.timestamp ? timeAgo(r.timestamp) : r.timeAgo || ""}
                   </span>
                 </div>
@@ -375,10 +375,10 @@ export default function HomePageClient() {
               <button
                 type="button"
                 onClick={() => router.push("/dashboard/providers")}
-                className="inline-flex items-center gap-1 rounded-md text-[11.5px] font-semibold text-primary motion-control hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                className="inline-flex items-center gap-1 rounded-md text-xs font-semibold text-primary motion-control hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               >
                 {translate("All providers")}
-                <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
               </button>
             ) : null
           }
@@ -400,8 +400,8 @@ export default function HomePageClient() {
                     }`}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[12.5px] font-medium text-text-main">{p.name}</div>
-                    {p.latencyMs != null && <div className="text-[10.5px] text-text-subtle">{p.latencyMs}ms</div>}
+                    <div className="truncate text-xs font-medium text-text-main">{p.name}</div>
+                    {p.latencyMs != null && <div className="text-2xs text-text-subtle">{p.latencyMs}ms</div>}
                   </div>
                 </div>
               ))}
@@ -414,7 +414,7 @@ export default function HomePageClient() {
                 onClick={() => router.push("/dashboard/providers")}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface px-3 py-1.5 text-xs font-semibold text-text-main motion-control hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               >
-                <span className="material-symbols-outlined text-[14px]">add</span>
+                <span className="material-symbols-outlined text-sm">add</span>
                 {translate("Connect a provider")}
               </button>
             </div>
@@ -429,13 +429,13 @@ function StatTile({ icon, label, value, sub }) {
   return (
     <div className="rounded-[14px] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-soft)] motion-control hover:shadow-[var(--shadow-warm)]">
       <div className="flex items-center gap-2 text-text-muted">
-        <span className="material-symbols-outlined text-[16px] text-primary">{icon}</span>
-        <span className="text-[11px] font-medium uppercase tracking-wide">{label}</span>
+        <span className="material-symbols-outlined text-base text-primary">{icon}</span>
+        <span className="text-2xs font-medium uppercase tracking-wide">{label}</span>
       </div>
       <p className="mt-2 text-[26px] font-semibold leading-none tabular-nums tracking-tight text-text-main">
         {value}
       </p>
-      {sub && <p className="mt-1.5 truncate text-[11px] text-text-subtle">{sub}</p>}
+      {sub && <p className="mt-1.5 truncate text-2xs text-text-subtle">{sub}</p>}
     </div>
   );
 }

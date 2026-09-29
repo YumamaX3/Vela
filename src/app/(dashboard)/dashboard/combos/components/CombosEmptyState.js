@@ -25,7 +25,7 @@ export default function CombosEmptyState({ variant = "empty", onCreate, onReset 
     <Card>
       <div className="py-12 text-center">
         <div className="mb-4 inline-flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <span className="material-symbols-outlined text-[32px]" aria-hidden="true">
+          <span className="material-symbols-outlined text-3xl" aria-hidden="true">
             layers
           </span>
         </div>

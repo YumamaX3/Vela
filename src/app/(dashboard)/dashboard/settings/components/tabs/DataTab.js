@@ -114,7 +114,7 @@ export default function DataTab({ deck }) {
       <Card>
         <div className="flex items-start gap-3 mb-4">
           <div className="p-2 rounded-[10px] bg-brand-500/10 text-brand-500 shrink-0">
-            <span className="material-symbols-outlined text-[20px] leading-none">database</span>
+            <span className="material-symbols-outlined text-xl leading-none">database</span>
           </div>
           <div>
             <h3 className="text-text-main font-semibold">Manual backup</h3>

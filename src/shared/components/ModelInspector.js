@@ -120,7 +120,7 @@ export default function ModelInspector({
         <section>
           <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">
+              <p className="text-3xs font-semibold text-text-muted uppercase tracking-wider">
                 {model?.isCombo ? "Combo" : "Model"}
               </p>
               <h2 className="font-mono text-lg text-text-main break-all">
@@ -154,7 +154,7 @@ export default function ModelInspector({
 
         {!model?.isCombo && (
           <section>
-            <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-2">
+            <h3 className="text-3xs font-semibold text-text-muted uppercase tracking-wider mb-2">
               Capabilities
             </h3>
             {caps && Object.keys(caps).length > 0 ? (
@@ -169,7 +169,7 @@ export default function ModelInspector({
 
         {!model?.isCombo && (
           <section>
-            <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-2">
+            <h3 className="text-3xs font-semibold text-text-muted uppercase tracking-wider mb-2">
               Transport
             </h3>
             <div className="rounded-md border border-border-subtle bg-surface-2/30 p-3 space-y-1.5">
@@ -196,7 +196,7 @@ export default function ModelInspector({
 
         {!model?.isCombo && (
           <section>
-            <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-2">
+            <h3 className="text-3xs font-semibold text-text-muted uppercase tracking-wider mb-2">
               Aliases
             </h3>
             {aliases === null ? (
@@ -223,7 +223,7 @@ export default function ModelInspector({
 
         {!model?.isCombo && (
           <section>
-            <h3 className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-2">
+            <h3 className="text-3xs font-semibold text-text-muted uppercase tracking-wider mb-2">
               Health
             </h3>
             {health === null ? (

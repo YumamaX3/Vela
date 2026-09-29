@@ -751,7 +751,7 @@ export default function BasicChatPageClient() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-white">{modelLabel}</span>
-                  <span className="material-symbols-outlined text-[18px] text-white/70">expand_more</span>
+                  <span className="material-symbols-outlined text-lg text-white/70">expand_more</span>
                 </div>
                 <p className="truncate text-xs text-white/55">{modelSubLabel}</p>
               </div>
@@ -783,9 +783,9 @@ export default function BasicChatPageClient() {
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
                                   <p className="truncate text-sm font-medium text-white">{model.name}</p>
-                                  <p className="truncate text-[11px] text-white/45">{model.requestModel}</p>
+                                  <p className="truncate text-2xs text-white/45">{model.requestModel}</p>
                                 </div>
-                                {isActive ? <span className="material-symbols-outlined text-[18px] text-blue-300">check_circle</span> : null}
+                                {isActive ? <span className="material-symbols-outlined text-lg text-blue-300">check_circle</span> : null}
                               </div>
                             </button>
                           );
@@ -837,7 +837,7 @@ export default function BasicChatPageClient() {
                         <p className="truncate text-sm font-medium text-white">{session.title}</p>
                         <p className="mt-1 truncate text-xs text-white/50">{textValue(latestMessage?.content) || "Empty chat"}</p>
                       </div>
-                      <span className="text-[10px] text-white/40 shrink-0">{formatRelativeTime(session.updatedAt)}</span>
+                      <span className="text-3xs text-white/40 shrink-0">{formatRelativeTime(session.updatedAt)}</span>
                     </div>
                   </button>
                 );
@@ -849,7 +849,7 @@ export default function BasicChatPageClient() {
         {loadError ? (
           <div className="mt-4 rounded-[18px] border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-rose-100">
             <div className="flex items-start gap-3">
-              <span className="material-symbols-outlined text-[20px]">error</span>
+              <span className="material-symbols-outlined text-xl">error</span>
               <p className="text-sm leading-6">{loadError}</p>
             </div>
           </div>
@@ -861,7 +861,7 @@ export default function BasicChatPageClient() {
               <div className="flex min-h-[50vh] items-center justify-center px-4 text-center">
                 <div className="max-w-xl space-y-4">
                   <div className="mx-auto flex size-16 items-center justify-center rounded-[20px] border border-white/10 bg-white/5 text-white/80">
-                    <span className="material-symbols-outlined text-[30px]">chat</span>
+                    <span className="material-symbols-outlined text-3xl">chat</span>
                   </div>
                   <div className="space-y-2">
                     <h2 className="text-2xl font-semibold text-white">Start a conversation</h2>
@@ -897,7 +897,7 @@ export default function BasicChatPageClient() {
                         </div>
                       ) : null}
 
-                      <div className="whitespace-pre-wrap break-words text-[15px] leading-7">
+                      <div className="whitespace-pre-wrap break-words text-base leading-7">
                         {content}
                         {isAssistant && isStreaming && !streamingText ? <span className="inline-block animate-pulse">▋</span> : null}
                       </div>
@@ -915,7 +915,7 @@ export default function BasicChatPageClient() {
                   <div key={attachment.id} className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2">
                     <span className="text-xs text-white/80 max-w-[12rem] truncate">{attachment.name}</span>
                     <button type="button" onClick={() => removeAttachment(attachment.id)} className="text-white/55 hover:text-white" aria-label="Remove attachment">
-                      <span className="material-symbols-outlined text-[18px]">close</span>
+                      <span className="material-symbols-outlined text-lg">close</span>
                     </button>
                   </div>
                 ))}
@@ -930,13 +930,13 @@ export default function BasicChatPageClient() {
                   onKeyDown={handleKeyDown}
                   placeholder="Message AI"
                   rows={1}
-                  className="w-full resize-none bg-transparent px-2 text-[15px] leading-6 text-white outline-none placeholder:text-white/40 custom-scrollbar max-h-[25vh] overflow-y-auto"
+                  className="w-full resize-none bg-transparent px-2 text-base leading-6 text-white outline-none placeholder:text-white/40 custom-scrollbar max-h-[25vh] overflow-y-auto"
                 />
 
                 <div className="mt-2 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <button type="button" onClick={() => fileInputRef.current?.click()} disabled={!activeModel || loadingData} className="p-2 text-white/50 hover:text-white motion-control rounded-full hover:bg-white/5">
-                      <span className="material-symbols-outlined text-[20px]">attach_file</span>
+                      <span className="material-symbols-outlined text-xl">attach_file</span>
                     </button>
                     <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleAttachFiles} />
                     <span className="text-xs font-medium text-white/30 truncate max-w-[120px]">{activeModel ? activeModel.name : "No model"}</span>
@@ -945,11 +945,11 @@ export default function BasicChatPageClient() {
                   <div className="flex items-center gap-2">
                     {isSending ? (
                       <button type="button" onClick={handleStop} className="p-2 text-white bg-white/10 hover:bg-white/20 motion-control rounded-full h-8 w-8 flex items-center justify-center">
-                        <span className="material-symbols-outlined text-[16px]">stop</span>
+                        <span className="material-symbols-outlined text-base">stop</span>
                       </button>
                     ) : null}
                     <button onClick={sendMessage} disabled={!canSend} className={`h-8 w-8 rounded-full flex items-center justify-center motion-control ${canSend ? 'bg-white text-black hover:opacity-90' : 'bg-white/10 text-white/30 cursor-not-allowed'}`}>
-                      <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
+                      <span className="material-symbols-outlined text-base">arrow_upward</span>
                     </button>
                   </div>
                 </div>
@@ -957,7 +957,7 @@ export default function BasicChatPageClient() {
             </div>
           </div>
 
-          <p className="mx-auto mt-2 max-w-3xl px-4 pb-4 text-center text-[11px] text-white/30">
+          <p className="mx-auto mt-2 max-w-3xl px-4 pb-4 text-center text-2xs text-white/30">
             Model list is filtered from connected providers.
           </p>
         </div>

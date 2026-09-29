@@ -41,7 +41,7 @@ function StatusPill({ testStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border",
+        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-medium border",
         meta.color,
         meta.bg,
         meta.border
@@ -124,7 +124,7 @@ export default function RoutedByComboPage() {
       icon="call_merge"
       bodyClassName="flex flex-col gap-4"
       actions={
-        <div className="flex items-center gap-2 text-[10px] text-text-muted">
+        <div className="flex items-center gap-2 text-3xs text-text-muted">
           <span className="font-mono">/api/combos</span>
           <span>·</span>
           <span className="font-mono">/api/fallback-rules</span>
@@ -156,7 +156,7 @@ export default function RoutedByComboPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-[10px] font-semibold text-text-muted uppercase tracking-wider border-b border-border-subtle">
+                <tr className="text-left text-3xs font-semibold text-text-muted uppercase tracking-wider border-b border-border-subtle">
                   <th className="px-4 py-2.5 w-2/5">Combo</th>
                   <th className="px-4 py-2.5 w-1/4">Fallback rule</th>
                   <th className="px-4 py-2.5 w-1/4">Proxy pool</th>
@@ -169,7 +169,7 @@ export default function RoutedByComboPage() {
                     <td className="px-4 py-3 align-top">
                       <div className="font-mono text-text-main">{combo.name}</div>
                       {combo.models && (
-                        <div className="text-[10px] text-text-muted mt-0.5">
+                        <div className="text-3xs text-text-muted mt-0.5">
                           {Array.isArray(combo.models) ? combo.models.length : 0} {Array.isArray(combo.models) && combo.models.length === 1 ? "model" : "models"}
                         </div>
                       )}
@@ -181,7 +181,7 @@ export default function RoutedByComboPage() {
                             {rule.sourceModel} <span className="text-text-muted">→</span> {rule.targetModel || (Array.isArray(rule.targetModels) ? rule.targetModels.join(" → ") : "—")}
                           </div>
                           {rule.triggerType && (
-                            <div className="text-[10px] text-text-muted mt-0.5">{rule.triggerType}</div>
+                            <div className="text-3xs text-text-muted mt-0.5">{rule.triggerType}</div>
                           )}
                         </div>
                       ) : (
@@ -192,7 +192,7 @@ export default function RoutedByComboPage() {
                       {pool ? (
                         <div>
                           <div className="font-mono text-xs text-text-main">{pool.name || pool.id}</div>
-                          <div className="text-[10px] text-text-muted mt-0.5">
+                          <div className="text-3xs text-text-muted mt-0.5">
                             {pool.data?.proxyUrl || pool.data?.scheme || "—"}
                           </div>
                         </div>
@@ -220,13 +220,13 @@ export default function RoutedByComboPage() {
           <div className="px-4 py-3 border-b border-border-subtle flex items-center gap-2">
             <span className="material-symbols-outlined text-text-muted" style={{ fontSize: "14px" }} aria-hidden="true">inventory_2</span>
             <h2 className="text-sm font-medium text-text-main">Unassigned pools</h2>
-            <span className="text-[10px] text-text-muted">({unassignedPools.length})</span>
+            <span className="text-3xs text-text-muted">({unassignedPools.length})</span>
           </div>
           <ul className="divide-y divide-border-subtle">
             {unassignedPools.map((p) => (
               <li key={p.id} className="flex items-center gap-3 px-4 py-2.5">
                 <span className="font-mono text-xs text-text-main flex-1 truncate">{p.name || p.id}</span>
-                <span className="text-[10px] text-text-muted font-mono">
+                <span className="text-3xs text-text-muted font-mono">
                   {p.data?.proxyUrl || p.data?.scheme || "—"}
                 </span>
                 <StatusPill testStatus={p.testStatus} />

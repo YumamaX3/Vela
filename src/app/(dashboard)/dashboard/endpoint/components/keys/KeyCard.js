@@ -79,7 +79,7 @@ export default function KeyCard({ k, deck }) {
                   className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary motion-control"
                   title={translate("Copy full key (from this browser's vault)")}
                 >
-                  <span className="material-symbols-outlined text-[14px]">
+                  <span className="material-symbols-outlined text-sm">
                     {copied === k.id ? "check" : "content_copy"}
                   </span>
                 </button>
@@ -88,7 +88,7 @@ export default function KeyCard({ k, deck }) {
                   className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-red-500 motion-control"
                   title={translate("Forget the full key from this browser's vault")}
                 >
-                  <span className="material-symbols-outlined text-[14px]">lock_reset</span>
+                  <span className="material-symbols-outlined text-sm">lock_reset</span>
                 </button>
               </>
             )}
@@ -97,7 +97,7 @@ export default function KeyCard({ k, deck }) {
               className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary motion-control"
               title={translate("Edit name, description, allowed models")}
             >
-              <span className="material-symbols-outlined text-[14px]">edit</span>
+              <span className="material-symbols-outlined text-sm">edit</span>
             </button>
           </div>
 
@@ -131,7 +131,7 @@ export default function KeyCard({ k, deck }) {
             className="p-2 hover:bg-red-500/10 rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 motion-control"
             title={translate("Delete (revoke)")}
           >
-            <span className="material-symbols-outlined text-[18px]">delete</span>
+            <span className="material-symbols-outlined text-lg">delete</span>
           </button>
         </div>
       </div>

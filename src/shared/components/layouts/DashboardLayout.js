@@ -144,7 +144,7 @@ export default function DashboardLayout({ children }) {
                   aria-label overrides element content for the accessible name.
                 */}
                 <span
-                  className="material-symbols-outlined text-[18px] leading-5"
+                  className="material-symbols-outlined text-lg leading-5"
                   aria-hidden="true"
                 >
                   {style.icon}
@@ -160,7 +160,7 @@ export default function DashboardLayout({ children }) {
                     className="text-current/70 hover:text-current"
                     aria-label="Dismiss notification"
                   >
-                    <span className="material-symbols-outlined text-[16px]">close</span>
+                    <span className="material-symbols-outlined text-base">close</span>
                   </button>
                 ) : null}
               </div>

@@ -603,18 +603,20 @@ describe("font token (BUILT CSS)", () => {
 // re-proposed on the strength of a census that counted consumers wrongly
 // ────────────────────────────────────────────────────────────────
 
-describe("the four token families measured and deliberately NOT added", () => {
+describe("the token families measured and deliberately NOT added", () => {
   it("adds no z-index token family (z-index is not a v4 theme namespace)", () => {
     expect(CSS_SRC).not.toMatch(/--z-index-|--z-\w+:/);
     // and nothing consumes one
     expect(CSS_SRC).not.toContain("var(--z-");
   });
 
-  it("adds no type-scale token family (the lone census hit was a colour, not a size)", () => {
-    // The "1 custom type-scale consumer" that justified this family was
-    // `text-[var(--color-terminal)]` — a colour in arbitrary-value position.
-    expect(CSS_SRC).not.toMatch(/--text-2xs|--text-3xs/);
-  });
+  // The type-scale family was the fourth member of this list until the tide that minted
+  // it. The reason it was held back was sound when written: the lone "custom type-scale
+  // consumer" the census found was `text-[var(--color-terminal)]`, a colour sitting in
+  // arbitrary-value position. That reason no longer holds. The family that shipped is
+  // nine rungs drawn from 1,007 measured inline sites across 22 sizes, and the sites now
+  // ride it (973 rewritten across 156 files). The case is DELETED, not re-pinned: a test
+  // asserting an absence is the echo of a decision, and the decision was made otherwise.
 
   it("adds no motion token family (transition-colors and friends are Tailwind defaults)", () => {
     expect(CSS_SRC).not.toMatch(/--transition-(colors|all|transform):/);

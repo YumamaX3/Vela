@@ -168,7 +168,7 @@ export default function FitnessTab({ c }) {
                     <tr key={key} className="border-b border-border-subtle align-top last:border-0 hover:bg-surface-2/40">
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center gap-2 rounded bg-red-500/10 px-2 py-0.5 text-xs font-medium capitalize text-red-600 dark:text-red-400">
-                          <span className="material-symbols-outlined text-[14px]">block</span>
+                          <span className="material-symbols-outlined text-sm">block</span>
                           {rec.provider}
                         </span>
                       </td>
@@ -177,7 +177,7 @@ export default function FitnessTab({ c }) {
                         <div className="flex min-w-0 flex-col gap-0.5">
                           <code className="truncate font-mono text-xs text-text-main">{maskProxyUrl(pool?.proxyUrl || "")}</code>
                           {rec.egressIp && (
-                            <span className="flex items-center gap-1 text-[11px] text-text-muted">
+                            <span className="flex items-center gap-1 text-2xs text-text-muted">
                               <span className="truncate">
                                 egress {rec.egressIp}
                                 {rec.egressCountry ? ` · ${rec.egressCountry}` : ""}

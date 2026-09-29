@@ -403,7 +403,7 @@ export default function ProvidersPage() {
       <section className="fleet-health" aria-label="Fleet health summary">
         <div className="fleet-health-cell">
           <div className="fleet-health-k">
-            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">
               monitor_heart
             </span>
             Fleet health
@@ -483,14 +483,14 @@ export default function ProvidersPage() {
               type="button"
               aria-pressed={stateFilter === key}
               onClick={() => setStateFilter(key)}
-              className={`inline-flex min-h-[30px] cursor-pointer items-center gap-1.5 rounded-[7px] px-3 text-[12.5px] font-medium motion-control focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] ${
+              className={`inline-flex min-h-[30px] cursor-pointer items-center gap-1.5 rounded-[7px] px-3 text-xs font-medium motion-control focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] ${
                 stateFilter === key
                   ? "bg-surface text-text-main shadow-[var(--shadow-soft)]"
                   : "text-text-muted hover:text-text-main"
               }`}
             >
               {label}
-              <span className="text-[11px] tabular-nums text-text-muted">{n}</span>
+              <span className="text-2xs tabular-nums text-text-muted">{n}</span>
             </button>
           ))}
         </div>
@@ -498,7 +498,7 @@ export default function ProvidersPage() {
           aria-label="Filter by auth type"
           value={authFilter}
           onChange={(e) => setAuthFilter(e.target.value)}
-          className="min-h-9 cursor-pointer rounded-[10px] border border-border bg-surface px-2.5 text-[12.5px] text-text-main focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
+          className="min-h-9 cursor-pointer rounded-[10px] border border-border bg-surface px-2.5 text-xs text-text-main focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
         >
           <option value="all">All auth types</option>
           <option value="oauth">OAuth</option>
@@ -510,7 +510,7 @@ export default function ProvidersPage() {
           aria-label="Sort providers"
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value)}
-          className="min-h-9 cursor-pointer rounded-[10px] border border-border bg-surface px-2.5 text-[12.5px] text-text-main focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
+          className="min-h-9 cursor-pointer rounded-[10px] border border-border bg-surface px-2.5 text-xs text-text-main focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
         >
           <option value="health">Sort: health</option>
           <option value="priority">Sort: priority</option>
@@ -525,14 +525,14 @@ export default function ProvidersPage() {
             onClick={handleTestAll}
             disabled={testing}
             aria-label="Test every provider connection"
-            className={`inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border px-3 text-[12.5px] font-medium motion-control focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] disabled:opacity-60 ${
+            className={`inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border px-3 text-xs font-medium motion-control focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] disabled:opacity-60 ${
               testing
                 ? "border-primary/40 bg-primary/20 text-primary"
                 : "border-border bg-surface text-text-muted hover:border-primary/40 hover:text-text-main"
             }`}
           >
             <span
-              className={`material-symbols-outlined text-[14px]${testing ? " animate-spin" : ""}`}
+              className={`material-symbols-outlined text-sm${testing ? " animate-spin" : ""}`}
               aria-hidden="true"
             >
               {testing ? "progress_activity" : "play_arrow"}
@@ -552,9 +552,9 @@ export default function ProvidersPage() {
           </Button>
           <Link
             href="/dashboard/providers/new"
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-[10px] bg-brand-500 px-3 text-[13px] font-semibold text-white motion-control hover:bg-brand-600 focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-[10px] bg-brand-600 px-3 text-sm font-semibold text-white motion-control hover:bg-brand-700 focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
           >
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">
               add
             </span>
             Add provider
@@ -567,11 +567,11 @@ export default function ProvidersPage() {
       {loadError ? (
         <div className="fleet-table">
           <div className="py-11 text-center">
-            <span className="material-symbols-outlined text-[32px] text-danger" aria-hidden="true">
+            <span className="material-symbols-outlined text-3xl text-danger" aria-hidden="true">
               cloud_off
             </span>
             <h3 className="mt-2.5 text-sm font-semibold">Could not reach the gateway</h3>
-            <p className="mx-auto mt-1 max-w-[42ch] text-[12.5px] text-text-muted">
+            <p className="mx-auto mt-1 max-w-[42ch] text-xs text-text-muted">
               The provider list failed to load. Check that the Vela service is running, then retry.
             </p>
             <div className="mt-3.5">
@@ -584,11 +584,11 @@ export default function ProvidersPage() {
       ) : rows.length === 0 ? (
         <div className="fleet-table">
           <div className="py-11 text-center">
-            <span className="material-symbols-outlined text-[32px] text-text-muted" aria-hidden="true">
+            <span className="material-symbols-outlined text-3xl text-text-muted" aria-hidden="true">
               dns
             </span>
             <h3 className="mt-2.5 text-sm font-semibold">No providers configured</h3>
-            <p className="mx-auto mt-1 max-w-[42ch] text-[12.5px] text-text-muted">
+            <p className="mx-auto mt-1 max-w-[42ch] text-xs text-text-muted">
               Connect your first upstream to start routing. An API key or an OAuth sign-in is all it takes.
             </p>
           </div>
@@ -614,11 +614,11 @@ export default function ProvidersPage() {
               is empty, and the reveal below is the honest next step. */}
           {visible.length === 0 && hasActiveLens && (
             <div className="py-11 text-center">
-              <span className="material-symbols-outlined text-[32px] text-text-muted" aria-hidden="true">
+              <span className="material-symbols-outlined text-3xl text-text-muted" aria-hidden="true">
                 search_off
               </span>
               <h3 className="mt-2.5 text-sm font-semibold">No providers match</h3>
-              <p className="mx-auto mt-1 max-w-[42ch] text-[12.5px] text-text-muted">
+              <p className="mx-auto mt-1 max-w-[42ch] text-xs text-text-muted">
                 Nothing matches the current search and filters. Clear the search or pick another filter.
               </p>
             </div>
@@ -627,11 +627,11 @@ export default function ProvidersPage() {
               true empty install. */}
           {visible.length === 0 && !hasActiveLens && summary.unconfigured === 0 && (
             <div className="py-11 text-center">
-              <span className="material-symbols-outlined text-[32px] text-text-muted" aria-hidden="true">
+              <span className="material-symbols-outlined text-3xl text-text-muted" aria-hidden="true">
                 dns
               </span>
               <h3 className="mt-2.5 text-sm font-semibold">No providers configured</h3>
-              <p className="mx-auto mt-1 max-w-[42ch] text-[12.5px] text-text-muted">
+              <p className="mx-auto mt-1 max-w-[42ch] text-xs text-text-muted">
                 Connect your first upstream to start routing. An API key or an OAuth sign-in is all it takes.
               </p>
             </div>
@@ -641,11 +641,11 @@ export default function ProvidersPage() {
               different sentences, never both at once. */}
           {visible.length === 0 && !hasActiveLens && summary.unconfigured > 0 && (
             <div className="py-11 text-center">
-              <span className="material-symbols-outlined text-[32px] text-text-muted" aria-hidden="true">
+              <span className="material-symbols-outlined text-3xl text-text-muted" aria-hidden="true">
                 dns
               </span>
               <h3 className="mt-2.5 text-sm font-semibold">No providers connected yet</h3>
-              <p className="mx-auto mt-1 max-w-[42ch] text-[12.5px] text-text-muted">
+              <p className="mx-auto mt-1 max-w-[42ch] text-xs text-text-muted">
                 {summary.unconfigured} providers are catalogued and ready. Add a key or sign in with OAuth to bring one online.
               </p>
             </div>
@@ -657,9 +657,9 @@ export default function ProvidersPage() {
             <button
               type="button"
               onClick={() => setShowUnconfigured(true)}
-              className="flex w-full cursor-pointer items-center justify-center gap-1.5 border-t border-dashed border-border px-3 py-3 text-[13px] font-medium text-text-muted motion-control hover:bg-bg-alt hover:text-text-main focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
+              className="flex w-full cursor-pointer items-center justify-center gap-1.5 border-t border-dashed border-border px-3 py-3 text-sm font-medium text-text-muted motion-control hover:bg-bg-alt hover:text-text-main focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
             >
-              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+              <span className="material-symbols-outlined text-base" aria-hidden="true">
                 expand_more
               </span>
               Show {summary.unconfigured} providers not yet connected
@@ -731,7 +731,7 @@ function TestResultsView({ results }) {
   if (results.error && !results.results) {
     return (
       <div className="py-6 text-center">
-        <span className="material-symbols-outlined mb-2 block text-[32px] text-danger" aria-hidden="true">
+        <span className="material-symbols-outlined mb-2 block text-3xl text-danger" aria-hidden="true">
           error
         </span>
         <p className="text-sm text-danger">{results.error}</p>
@@ -762,7 +762,7 @@ function TestResultsView({ results }) {
           className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg bg-black/[0.03] px-3 py-2 text-xs dark:bg-white/[0.03] sm:flex-nowrap"
         >
           <span
-            className={`material-symbols-outlined text-[16px] ${r.valid ? "text-emerald-500" : "text-danger"}`}
+            className={`material-symbols-outlined text-base ${r.valid ? "text-emerald-500" : "text-danger"}`}
             aria-hidden="true"
           >
             {r.valid ? "check_circle" : "error"}
@@ -775,7 +775,7 @@ function TestResultsView({ results }) {
             <span className="shrink-0 font-mono tabular-nums text-text-muted">{r.latencyMs}ms</span>
           )}
           <span
-            className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+            className={`shrink-0 rounded px-1.5 py-0.5 text-3xs font-bold uppercase ${
               r.valid ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"
             }`}
           >
@@ -871,8 +871,8 @@ function FleetRow({ row, onToggle }) {
           />
         </span>
         <span className="min-w-0">
-          <span className="block truncate text-[13.5px] font-semibold">{r.name}</span>
-          <span className="block truncate text-[11.5px] text-text-muted">
+          <span className="block truncate text-sm font-semibold">{r.name}</span>
+          <span className="block truncate text-xs text-text-muted">
             {r.connectionCount > 0
               ? `${r.connectionCount} ${r.connectionCount === 1 ? "connection" : "connections"}`
               : r.noAuth
@@ -913,7 +913,7 @@ function FleetRow({ row, onToggle }) {
 
       <span className="fleet-col-status flex items-center gap-1.5">
         <span
-          className="text-[12.5px] font-medium"
+          className="text-xs font-medium"
           style={{ color: STATE_TOKEN[r.state] }}
         >
           {STATE_LABEL[r.state]}

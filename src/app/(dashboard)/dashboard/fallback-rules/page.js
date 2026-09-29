@@ -271,7 +271,7 @@ export default function FallbackRulesPage() {
                   <td className="p-3 font-mono text-xs">{chainFromRule(rule).join(" → ") || "—"}</td>
                   <td className="p-3 font-mono text-xs">
                     <span className="inline-flex items-center gap-1">
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                      <span className={`px-1.5 py-0.5 rounded text-3xs font-medium ${
                         rule.triggerType === "contextWindow" ? "bg-blue-500/10 text-blue-400"
                         : rule.triggerType === "contentPolicy" ? "bg-amber-500/10 text-amber-400"
                         : rule.triggerType === "timeout" ? "bg-purple-500/10 text-purple-400"
@@ -330,7 +330,7 @@ export default function FallbackRulesPage() {
                   }`}
                 >
                   <span className="font-medium">{t.label}</span>
-                  <span className="block text-[11px] text-text-muted">{t.hint}</span>
+                  <span className="block text-2xs text-text-muted">{t.hint}</span>
                 </button>
               ))}
             </div>

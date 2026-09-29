@@ -55,6 +55,12 @@
      (3:1 non-text) without needing a border class of its own. */
   --color-border: #DDE1E9;
   --color-border-subtle: #EAEDF3;
+  /* The control boundary. A resting field or outline button must be
+     identifiable on its own, and WCAG 1.4.11 asks 3:1 for that boundary.
+     Measured against the card (#FFFFFF) 3.47:1, the same ratio the login
+     gate's own field border earned. The soft `--color-border` above stays
+     for containers and dividers, which carry no such duty. */
+  --color-border-strong: #828A99;
 
   /* Text — measured on BOTH grounds, since faint copy sits on --color-bg as
      often as on --color-surface:
@@ -167,6 +173,12 @@
 
   --color-border: #223450;
   --color-border-subtle: #17233A;
+  /* The control boundary. A resting field or outline button must be
+     identifiable on its own, and WCAG 1.4.11 asks 3:1 for that boundary.
+     Measured against the card (#101A2C) 3.38:1, and against the field's own
+     fill (#152238) 3.09:1. The soft `--color-border` above stays for
+     containers and dividers, which carry no such duty. */
+  --color-border-strong: #5D6E8C;
 
   /* Text — measured on both grounds:
        --color-text        15.8:1 on bg · 14.7:1 on surface
@@ -242,6 +254,7 @@ select {
   --color-sidebar: var(--color-sidebar);
   --color-border: var(--color-border);
   --color-border-subtle: var(--color-border-subtle);
+  --color-border-strong: var(--color-border-strong);
   --color-text: var(--color-text);
   --color-text-main: var(--color-text-main);
   --color-text-muted: var(--color-text-muted);
@@ -276,6 +289,39 @@ select {
   --shadow-elevated: var(--shadow-elevated);
   --shadow-elev: var(--shadow-elev);
   --shadow-focus: var(--shadow-focus);
+  /* Type scale: the house's one ledger-free family before this tide. Nine rungs,
+     each carrying its line-height, so a size and its leading are one decision
+     rather than two habits. Values were chosen so the 1,583 named type
+     utilities keep their exact rendered size (every named rung below already
+     equals Tailwind's own value and pair); only five inline strays snap, by
+     under 2px each (9, 12.5, 13, 15, 32px).
+       3xs  10 / 14  micro counters: the smallest mark that stays legible at 1x
+       2xs  11 / 16  chips, table heads, badges
+       xs   12 / 16  dense meta and labels (825 named uses ride this rung)
+       sm   14 / 20  table cells and dense body (758 named uses)
+       base 16 / 24  default body in prose and forms
+       lg   18 / 28  card titles and form section leads
+       xl   20 / 28  page sub-heads
+       2xl  24 / 32  page heads and display numerals
+       3xl  30 / 36  hero numerals */
+  --text-3xs: 10px;
+  --text-3xs--line-height: 14px;
+  --text-2xs: 11px;
+  --text-2xs--line-height: 16px;
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 14px;
+  --text-sm--line-height: 20px;
+  --text-base: 16px;
+  --text-base--line-height: 24px;
+  --text-lg: 18px;
+  --text-lg--line-height: 28px;
+  --text-xl: 20px;
+  --text-xl--line-height: 28px;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 32px;
+  --text-3xl: 30px;
+  --text-3xl--line-height: 36px;
 
   /* Font — a literal stack, on purpose. See the `body` rule below for why
      `var(--font-inter)` cannot live here. */
