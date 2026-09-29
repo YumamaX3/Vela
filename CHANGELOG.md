@@ -32,6 +32,52 @@ compliant form of the same number.
 
 ---
 
+# v1.0.40 — The Living Chart 🌊
+
+> *Twenty rooms once lay in one flat column, and a keeper read the whole of it to find a single door.
+> Now the ship is navigated in two tiers — a rail of six shores, a panel of the rooms each shore keeps,
+> and numbers that speak only when the tide has something true to say. The rail turns by route; the chart breathes.* 🌊💜
+
+**The navigation was re-cut end to end: a two-tier dock with a room panel, a living census read from the gateway's own pulse, and a rail that finally obeys the hand that turns it.**
+
+## ✨ Features
+- **The two-tier helm** — `src/shared/components/Sidebar.js` rebuilt as a **rail + room panel**. The rail (`--nav-rail-w: 72px`) answers *which shore*; the panel (`--nav-panel-w: 216px`) answers *which rooms* — and `72 + 216 = 288`, the helm's own width, so the new nav replaces the old column instead of widening the deck it sits on.
+- **The living chart** — a new endpoint, `GET /api/nav/pulse` (`src/app/api/nav/pulse/route.js`), reports the gateway's census in one request, and `src/shared/hooks/useNavPulse.js` polls it. Rooms carry a number **only when the pulse actually carries one** — measured live: `Endpoint & Key 2`, `Providers 14` with an `idle` state dot, `Proxy 1`; `Combos`, `Usage` and `Request Logs` stay silent. A zero is never rendered as a placeholder: `0` beside Combos reads as *"you have none"* when the fleet holds one idle.
+- **The sliding marker** — one indicator travels the rail on a 52px section pitch (`translateY(0/52/104/156/208/260)`), driven by the route rather than by a second copy of the state.
+- **The mooring strip** — rooms can be moored from the panel (`Moor Request Logs`, `Moor Console Log`, `Moor Settings`), with `Expand the room panel` and the drawer's `Close navigation` beside it.
+- **The undocked flyout** — the panel floats over the deck (`position: absolute`, `left: var(--nav-rail-w)`, `--shadow-elevated`) and expands on `:hover` **and** `:focus-within`: undocking means *more deck*, not *no nav*, and it is reachable from a keyboard as well as a pointer.
+- **Six sections, nineteen doors, four disclosures** — Home 1 · Gateway 4 · Traffic 3 · Network 2 (+4 nested: Fleet · Fitness · Egress · Relay) · Toolkit 5 · System 4, with the Translator joining when its gate is on.
+- **`/dashboard/mitm` restored to the rail** — the sealed chart had deliberately omitted it (along with `basic-chat`, `pxpipe`, `proxy-pools` and `proxy-fitness`); by the Star's decree of 2026-09-29 it takes its door beside Proxy in Network, and the chart was amended in the same breath so the next keeper does not read the omission as still in force.
+
+## 🐛 Fixes
+- **The rail's tabs were inert.** `onClick` wrote a `selected` name that the active-section resolver never read — it derives from `pathname` — so the marker, `aria-selected`, `aria-labelledby` and the room list could not move on a click, while every other control on the page worked. The name is gone and the tab now navigates to its section's first room; all six sections verified click-by-click on a live harbour.
+- **The undocked panel was deleted, not flown.** `.nav-panel[data-docked="false"] { width: 0 }` was the entire rule — no `position`, no hover — so the flyout existed only in the design. It now floats, and a hit-test at three depths (`y=20/450/880`) resolves **inside the panel** with `<main>` beneath it.
+- **A door that led out of its own section.** The System panel's own `Settings` tile links to `/dashboard/profile`, which redirects to `/dashboard/settings` — and that redirect **target** was claimed by no section, so clicking the rail's own door lit **Home** and the panel the user was working in disappeared. The claim set is derived from the doors; `SECTION_ALIASES` now names the redirect targets, with longest-match-wins replacing the old first-match `find`.
+- **A zero on a count chip.** `keys`, `combos`, `providers` and `proxy` all rendered `0` against the sealed chart's §4.5 (*never render `0`, `—`, or a placeholder to fill a gap*). All four collapse to `null` at zero; the providers' state dot survives a zero **total**, because fleet health is real whether or not a number prints beside it.
+- **Two dark-shore text pairs below AA** — `.nav-eyebrow` (the "Rooms" label) and `.nav-panel-foot` (the panel's version line), both `--color-text-subtle` at **4.33** against the 4.5 floor on the painted dark ground; moved to `--color-text-muted` (**6.33**), light untouched.
+- **The panel's ARIA was absent** — the rail's tabs carried `aria-controls="nav-panel"` while the panel declared no `id`, `role` or `aria-labelledby`, so the tabs described a region that did not exist.
+
+## 🔧 Changes & Improvements
+- **Contrast, measured and mended** — coral that carries white text moved to `--color-brand-700` (`#fff` on `brand-500` is **3.23** and fails AA; on `brand-700` it is **6.21** and passes on both shores); the tinted `.nav-badge` ground was deleted outright (**2.75** / **4.48**); `.nav-notice-line` and `.nav-notice-go` re-inked. Every text pair passes on **both** shores.
+- **The nav mints no colour of its own** — all 44 colour tokens in the stylesheet are pre-existing; the nav block defines none.
+- **Accessibility** — the rail is a real tablist (`tablist "Sections"` → six `tab`s → `tabpanel`), keyboard-drivable (ArrowDown/Up/Home/End), with every glyph span in the shell `aria-hidden` so no ligature reaches an accessible name, and the current room marked by `data-active` + `aria-current="page"`.
+- **The two berths** — `hidden lg:flex` for the dock, `lg:hidden` for the drawer; measured at 390px (drawer `288×840`, dock not rendered) and 1365px (dock `73×900`, drawer not rendered) with no horizontal overflow.
+- **Persisted posture** — `vela-nav-docked` keeps the dock/undock choice across reloads.
+
+## 📖 Documentation
+- `CHANGELOG.md` — this entry. `docs/VERSIONING.md` remains the versioning law; the private chart (`CLAUDE.md`) gains this tide's row.
+
+## ⚠️ Breaking Changes
+- **The rail is the nav now.** There is no search box and no `⌘K`/`⌘B` in it: those were uncommitted experiments in the old dock, never present in `HEAD`, so nothing that shipped was removed — but anyone who had grown used to them in a working tree will notice.
+- **Labels are English-first.** The new strings resolve through `public/i18n/literals`; `scripts/i18n-seed-literals.mjs` is absent at `HEAD`, so `translate()` returns the raw English key and the 34 languages are **not** machine-translated for this tide.
+
+## ⚙️ Internal
+- Three new test files ride with the feature: `tests/unit/nav-rail-sections.test.jsx` (the render-level proof that the shell can be turned, mutation-proven, now also pinning the section-claim rules), `tests/unit/nav-pulse.test.js` and `tests/unit/use-nav-pulse.test.jsx`.
+
+⚓ **What sailed**: `src/shared/components/Sidebar.js` · `src/shared/components/layouts/DashboardLayout.js` · `src/app/globals.css` · `src/app/api/nav/pulse/route.js` (new) · `src/shared/hooks/useNavPulse.js` (new) · `tests/unit/nav-rail-sections.test.jsx` (new) · `tests/unit/nav-pulse.test.js` (new) · `tests/unit/use-nav-pulse.test.jsx` (new) · `CHANGELOG.md` · `package.json` · `package-lock.json` · `docker-compose.example.yml` · `CLAUDE.md`
+
+🧪 **Proof**: `npm run build` **green** — all routes compiled, `postbuild` copied the standalone assets, **270.21 seconds** · suites **7 files / 127 cases green** (`nav-rail-sections`, `dashboard-layout-drawer`, `deck-motion`, `globals-css-tokens`, `nav-pulse`, `use-nav-pulse`, `docker-compose-pin`), re-run independently · golden headers **187 cases green** after the bump · live browser walk on `:32061` — all six sections clicked and each landed on its own first room with the marker following (52/104/156/208/260/0), chips `2` / `14+DOT` / `1` with every zero silent, the disclosure opening Fleet · Fitness · Egress · Relay, the accessible tree clean (`link "Fleet"`, `tab "Home"`, `tab "System"`, every glyph blinded), the current room marked `data-active` + `aria-current="page"` while its siblings carry neither, the Settings door keeping **System** lit through its redirect, the undocked flyout painting above `<main>` at every depth probed, and the 390/1365 ladder clean with no horizontal overflow · contrast re-measured live on both shores: `nav-rail-btn[aria-selected]` **6.48** dark / **7.24** light, at rest **6.31** / **5.52**, every text pair AA.
+---
 # v1.0.31 — The Two Depths 🍊
 
 > *"A lane's depth is not what a pattern remembers; it is what the harbor

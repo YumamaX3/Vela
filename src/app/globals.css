@@ -127,6 +127,16 @@
   --color-terminal: #0B1E33;
   --color-terminal-text: #D6DEE9;
 
+  /* ---- The Living Chart (nav geometry) ----
+     Sizes, never colours, so nothing is mirrored into .dark. The one figure
+     that matters is the sum: 72 + 216 = 288 — exactly `w-72`, the width the
+     helm occupied before this tide, so no room loses a pixel of content. */
+  --nav-rail-w: 72px;        /* the section rail at rest */
+  --nav-panel-w: 216px;      /* the room panel; 72 + 216 = 288 = the helm's own width */
+  --nav-tile-h: 34px;        /* clears WCAG 2.5.8's 24px target with room for a 13px label */
+  --nav-tile-radius: 10px;   /* the house's nav-pill radius, unchanged */
+  --nav-tile-gap: 2px;
+
   color-scheme: light;
 }
 
@@ -1946,3 +1956,603 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
   .fleet-row > .fleet-col-latency,
   .fleet-row > .fleet-col-priority { display: none; }
 }
+
+/* ============================================================
+   The Living Chart — the navigation, rebuilt as a two-tier dock.
+
+   A 72px rail of six sections beside a 216px room panel. Together
+   they are 288px — exactly the `w-72` the helm occupied before this
+   tide — so every room keeps the content width it had.
+
+   The navigation is also the health readout: a tile carries a live
+   number from one counts-only pulse door, and carries NOTHING where
+   no honest number exists. A chip never renders a placeholder to fill
+   a gap (see the ledger below: the decorative dot and the two-state
+   panel are both named slop patterns, and this block walks past both).
+
+   ── THE CONTRAST LEDGER (measured, both shores) ──────────────
+   The ground is decided by TWO `background` rules on the SAME
+   element — the aside carries both `nav-shell` and `bg-vibrancy` —
+   and, this file's plain rules being unlayered, SPECIFICITY picks a
+   different winner per shore rather than one composite serving both:
+     · DARK  — `.dark .bg-vibrancy` (0,2,0) outranks `.nav-shell`
+               (0,1,0), so rgba(38,38,38,.72) paints over --color-bg
+               (#0A1220) and composites to exactly #1E2024.
+     · LIGHT — both are (0,1,0), so SOURCE ORDER wins and
+               `.nav-shell`'s later `background: var(--color-sidebar)`
+               rgba(243,245,249,.85) paints, NOT .bg-vibrancy's
+               rgba(255,255,255,.72). Over #F7F8FA that is #F4F5F9.
+   ⚠️ So the light column is not the dark column with another alpha.
+   An earlier revision named the light ground #FDFDFE — the vibrancy
+   composite, which never paints in light mode — and three light
+   figures inherited the optimism: text-subtle read 4.92 rather than
+   4.59, text-muted 5.90 rather than 5.51, the marker 5.01 rather
+   than 4.68. Every VERDICT held; three numbers did not. Corrected at
+   the rules below. The light ground is derived from these tokens,
+   not read live — re-read it in a browser before trusting it to a
+   decimal.
+   Every ratio is WCAG relative luminance, with the 10% / 16% tints
+   composited in encoded sRGB as the browser paints them, none
+   rounded up.
+
+   Six pairs in the sealed chart failed measurement. Each repair is
+   recorded at the rule it fixes, and the three literal hexes
+   (#92400E, #047857, #B45309) are written as literals with their
+   ratio beside them — the house's own precedent (the login ledger's
+   #c04e30 4.80:1) rather than a new colour token family.
+   ============================================================ */
+
+.nav-shell {
+  display: flex;
+  position: relative;
+  z-index: 30;
+  border-right: 1px solid var(--color-border-subtle);
+  background: var(--color-sidebar);
+  backdrop-filter: blur(20px);
+  min-height: 100%;
+}
+
+/* ── The rail: six sections, icon over a 10px label ─────────────── */
+.nav-rail {
+  width: var(--nav-rail-w);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 6px;
+  overflow-y: auto;
+  border-right: 1px solid var(--color-border-subtle);
+}
+
+.nav-rail-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  margin-bottom: 6px;
+  border-radius: var(--nav-tile-radius);
+  transition: background-color var(--motion-dur-instant) var(--motion-ease-out);
+}
+.nav-rail-brand:hover { background: var(--color-surface-2); }
+.nav-rail-logo { width: 28px; height: 28px; }
+
+/* The tablist. `position: relative` is what the sliding marker is measured
+   against — and it is the ONLY containing block involved, so the marker's
+   transform is pure index arithmetic and the shell never reads a layout box
+   (tests/unit/dashboard-layout-drawer.test.jsx mounts it in happy-dom, which
+   has no layout engine at all). */
+.nav-rail-tabs {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--nav-tile-gap);
+  flex: 1;
+}
+
+.nav-rail-btn {
+  width: 60px;
+  height: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border-radius: var(--nav-tile-radius);
+  /* 5.51:1 light · 6.31:1 dark */
+  color: var(--color-text-muted);
+  transition:
+    background-color var(--motion-dur-instant) var(--motion-ease-out),
+    color var(--motion-dur-instant) var(--motion-ease-out);
+  cursor: pointer;
+}
+.nav-rail-btn:hover { background: var(--color-surface-2); }
+.nav-rail-btn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+/* 7.24:1 light on the 10% brand-500 tint over the shell — MEASURED LIVE
+   2026-09-29 (rgb(23,75,176) on rgb(244,245,249)), not derived. This is one of
+   the two figures the ledger refused to model and the browser settled. */
+.nav-rail-btn[aria-selected="true"] {
+  color: var(--color-brand-700);
+  background: color-mix(in oklab, var(--color-brand-500) 10%, transparent);
+}
+/* 6.48:1 dark — measured live, rgb(79,168,255) on rgb(30,32,36). The house's
+   existing two-shore pattern for coral text. */
+.dark .nav-rail-btn[aria-selected="true"] { color: var(--color-brand-400); }
+
+.nav-rail-icon { font-size: 20px; line-height: 1; }
+.nav-rail-label {
+  font-size: 10px;
+  font-weight: 550;
+  line-height: 1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The sliding active mark. Its transform and height arrive as INLINE style
+   from React, computed from the active index — never a measurement. */
+.nav-rail-marker {
+  position: absolute;
+  left: 0;
+  top: 10px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  /* Grounds: see THE CONTRAST LEDGER above — the two shores do NOT share one
+     composite. Light is `.nav-shell`'s rgba(243,245,249,.85) over --color-bg,
+     i.e. #F4F5F9; dark is `.dark .bg-vibrancy` over --color-bg, i.e. #1E2024.
+     4.68:1 light (the bare --color-bg #F7F8FA gives 4.79:1 — lower, because
+     the painted ground is a shade darker). On the dark ground --color-brand-600
+     measures 3.20:1 — legal against the 3.0 non-text floor but with no headroom
+     for a 3px bar, so the dark shore takes --color-brand-400 at 6.51:1. */
+  background: var(--color-brand-600);
+  transition:
+    transform var(--motion-dur-quick) var(--motion-ease-out),
+    height var(--motion-dur-quick) var(--motion-ease-out);
+  pointer-events: none;
+}
+.dark .nav-rail-marker { background: var(--color-brand-400); }
+
+.nav-rail-foot {
+  display: flex;
+  justify-content: center;
+  padding-top: 6px;
+}
+
+/* ── The panel: the rooms ──────────────────────────────────────── */
+.nav-panel {
+  width: var(--nav-panel-w);
+  flex: none;
+  overflow: hidden;
+  transition: width var(--motion-dur-quick) var(--motion-ease-out);
+}
+/* Docked away. The panel leaves the column entirely — <main> reclaims the
+   216px — and returns over the content as a FLYOUT on hover or on keyboard
+   focus, so the rooms are never further than a pointer-rest away.
+   (The sealed chart's §3 fixed the REST state as `width: 0` with the contents
+   sliding out of view; the flyout is the return journey that state implies, and
+   is additive to that line rather than a change to it.)
+   `visibility: hidden` — NOT an `inert` attribute — is what keeps the clipped
+   links out of the tab order: visibility is a CSS state that can follow a hover
+   and a focus, while an attribute React sets cannot follow either. It is also
+   what makes the keyboard path real — focus landing on any rail tab matches
+   `:focus-within` below, which un-hides the panel, which lets the next Tab walk
+   into the rooms. With `inert` the panel would have been visible and
+   unreachable at the same instant, which is worse than either. */
+.nav-panel[data-docked="false"] {
+  position: absolute;
+  /* Flush against the shell's outer edge — the 1px is its own right border,
+     left showing as the divider between the rail and the flyout. */
+  left: calc(100% + 1px);
+  top: 0;
+  bottom: 0;
+  width: 0;
+  overflow: hidden;
+  visibility: hidden;
+  /* The overhang sits over <main>, so it needs its own surface: the shell's
+     background stops at the shell's own box. Same pair the shell wears. */
+  background: var(--color-sidebar);
+  backdrop-filter: blur(20px);
+  box-shadow: var(--shadow-elevated);
+  /* Hidden instantly is wrong — it would snap out at full width. Hold the hide
+     until the width has finished collapsing; reveal with no delay, so a hover
+     feels wired directly to the pointer. */
+  transition:
+    width var(--motion-dur-quick) var(--motion-ease-out),
+    visibility 0s linear var(--motion-dur-quick);
+}
+/* Hovering anywhere in the shell opens it (the rail is the handle), and so does
+   focus landing anywhere in the shell — which includes a rail tab, so the
+   keyboard reaches the rooms by the same door the pointer does. */
+.nav-shell:hover .nav-panel[data-docked="false"],
+.nav-shell:focus-within .nav-panel[data-docked="false"] {
+  width: var(--nav-panel-w);
+  visibility: visible;
+  transition:
+    width var(--motion-dur-quick) var(--motion-ease-out),
+    visibility 0s;
+}
+
+/* The body holds the FULL width even while the shell collapses, so the tiles
+   travel rather than reflow. */
+.nav-panel-body {
+  width: var(--nav-panel-w);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 8px 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.nav-panel-head {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px 0 2px;
+}
+.nav-eyebrow {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  /* 4.59:1 light · 4.33:1 dark on the painted grounds (#F4F5F9 / #1E2024 —
+     see THE CONTRAST LEDGER for why the two shores are different composites).
+     ⚠️ The dark figure FAILED the 4.5:1 floor for text, and this comment used
+     to call LIGHT the tight pair — it is not: light passes at 4.59:1 (the
+     ledger's earlier 4.92:1 was measured against a ground that never paints)
+     and dark was the failure. It read 4.98:1 against the bare --color-bg
+     (#0A1220), which is exactly how it slipped through: a real ground is the
+     composite a reader receives, not the token behind it.
+     The dark shore therefore takes --color-text-muted (6.33:1 painted); see
+     the override below. Light keeps --color-text-subtle — but 4.59 is inside
+     the floor by only 2%, the tightest text pair in the helm, so re-measure
+     BOTH grounds before moving either token. */
+  color: var(--color-text-subtle);
+}
+
+.nav-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 7px;
+  /* A glyph, so the 3.0 non-text floor governs — but it wears
+     --color-text-subtle on the same painted ground as .nav-eyebrow, so it
+     carries that rule's corrected pair: 4.59:1 light · 4.33:1 dark. The
+     4.92:1 once written here was the same pre-correction light ground. */
+  color: var(--color-text-subtle);
+  transition:
+    background-color var(--motion-dur-instant) var(--motion-ease-out),
+    color var(--motion-dur-instant) var(--motion-ease-out);
+  cursor: pointer;
+}
+.nav-collapse-btn:hover { background: var(--color-surface-2); color: var(--color-text-main); }
+
+.nav-panel-foot {
+  margin-top: auto;
+  padding: 8px 4px 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--color-text-subtle);
+}
+.nav-panel-name { font-weight: 600; }
+.nav-panel-version { font-size: 10px; }
+/* Two TEXT pairs wear --color-text-subtle and both fail on the dark shore: the
+   panel-head eyebrow and this foot (the app name and its version, both 10px).
+   Over the painted dark ground (#1E2024) it measures 4.33:1 — under the 4.5:1
+   text floor — while reading a comfortable 4.98:1 against the bare
+   --color-bg (#0A1220), which is how it got past a first measuring pass.
+   --color-text-muted measures 6.33:1 painted on dark (5.51:1 light), so only
+   the dark shore is overridden; light keeps 4.59:1, which passes.
+   The icons that also wear --color-text-subtle (moor, chevron, collapse) are
+   NOT overridden: they are glyphs, and the non-text floor is 3.0. */
+.dark .nav-eyebrow,
+.dark .nav-panel-foot {
+  color: var(--color-text-muted);
+}
+
+/* ── Groups ─────────────────────────────────────────────────────── */
+.nav-group { display: flex; flex-direction: column; gap: var(--nav-tile-gap); }
+
+.nav-group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 2px;
+}
+.nav-group-title {
+  flex: 1;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  /* ⚠️ This rule MENDS a shipped failure; it does not introduce one. The helm
+     it replaces renders its group labels as `text-text-muted/60`; read live,
+     that computed to `oklab(… / 0.6)` and measured 2.55:1 on the light ground
+     and 3.18:1 on the dark — both far under the 4.5:1 floor for text this
+     size. At full strength the same token measures 5.51:1 light · 6.31:1. */
+  color: var(--color-text-muted);
+}
+.nav-group-count {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  /* 5.40:1 light · 6.19:1 dark */
+  color: var(--color-text-muted);
+}
+
+/* ── A room ─────────────────────────────────────────────────────── */
+.nav-room { display: flex; flex-direction: column; gap: var(--nav-tile-gap); }
+
+/* The row. The link inside is what navigates; the chevron and the moor button
+   are siblings, never nested in an anchor — a button inside a link is invalid
+   HTML and puts two controls behind one tab stop. */
+.nav-tile {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--nav-tile-h);
+  padding: 0 4px 0 8px;
+  border-radius: var(--nav-tile-radius);
+  /* 5.51:1 light · 6.31:1 dark */
+  color: var(--color-text-muted);
+  transition:
+    background-color var(--motion-dur-instant) var(--motion-ease-out),
+    color var(--motion-dur-instant) var(--motion-ease-out);
+}
+.nav-tile:hover { background: var(--color-surface-2); }
+/* 7.24:1 light · 6.48:1 dark — byte-identical in colour AND ground to the
+   `.nav-rail-btn[aria-selected="true"]` rule above: the same 10% brand-500 tint,
+   the same `--color-brand-700`/`--color-brand-400`, and the docked panel
+   declares NO background of its own, so a tile composites over the shell exactly
+   as the rail button does. So this carries the figures that rule MEASURED LIVE
+   rather than a second derivation — the 6.87/5.80 once written here was the
+   ledger's last modelled figure and it was wrong.
+   (The undocked flyout is the one exception: it paints its own
+   `var(--color-sidebar)` over <main>, so its composite is a shade different.
+   Both shores still clear AA there with room; nothing rides the exact number.)
+   The existing nav's active language, kept exactly. `data-active` mirrors the
+   link's own aria-current, which is the semantic source of truth (see §4.2). */
+.nav-tile[data-active="true"] {
+  background: color-mix(in oklab, var(--color-brand-500) 10%, transparent);
+  color: var(--color-brand-700);
+}
+.dark .nav-tile[data-active="true"] { color: var(--color-brand-400); }
+
+.nav-tile-link {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: inherit;
+}
+
+/* The duty entries (9Remote, 9English) are a button and an anchor rather than
+   a link, so they carry the row's own shape instead of the link's. */
+.nav-tile--duty {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nav-tile-icon { font-size: 17px; line-height: 1; flex: none; }
+.nav-tile-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The LIVE number. Rendered only where the pulse door supplied one. */
+.nav-tile-count {
+  margin-left: auto;
+  flex: none;
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  /* 5.40:1 light · 6.19:1 dark. (The sealed chart said --color-text-subtle,
+     which measures 4.51:1 light and 4.23:1 dark — the dark shore failed.) */
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+/* ⚠️ Repair: the sealed chart specified `color: var(--color-warning)` here,
+   which measures 1.87:1 on the light chip — unreadable. #92400E is a literal,
+   not a new token: 6.18:1 on the chip, 6.19:1 on the active tile's ground. */
+.nav-tile-count[data-tone="warn"] {
+  background: color-mix(in oklab, var(--color-warning) 16%, transparent);
+  color: #92400E;
+}
+/* On the dark ground the token itself is right: 6.78:1. */
+.dark .nav-tile-count[data-tone="warn"] { color: var(--color-warning); }
+
+/* The state dot. It exists ONLY when a real fleet state exists, and always
+   carries a title + aria-label naming that state in words — a dot that
+   conveys nothing is the named slop pattern, and there is not one here. */
+.nav-tile-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--color-text-subtle);
+}
+/* Light-shore repairs: --color-success measures 2.49:1 and --color-warning
+   1.87:1 against the light ground, both under the 3.0:1 non-text floor. The
+   literals measure 5.39:1 and 4.94:1; --color-danger already passes at 5.27:1. */
+.nav-tile-dot[data-state="healthy"] { background: #047857; }
+.nav-tile-dot[data-state="cooling"],
+.nav-tile-dot[data-state="idle"],
+.nav-tile-dot[data-state="degraded"] { background: #B45309; }
+.nav-tile-dot[data-state="down"] { background: var(--color-danger); }
+/* The dark shore returns all three to the tokens: 7.13 / 9.73 / 4.32. */
+.dark .nav-tile-dot[data-state="healthy"] { background: var(--color-success); }
+.dark .nav-tile-dot[data-state="cooling"],
+.dark .nav-tile-dot[data-state="idle"],
+.dark .nav-tile-dot[data-state="degraded"] { background: var(--color-warning); }
+
+/* The NEW badge. Solid brand-700 with white text: 7.87:1 on BOTH shores,
+   because brand-700 is one shared scale. A tint with coral text would be
+   2.75:1 — which is why this is solid. */
+.nav-tile-badge {
+  flex: none;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: var(--color-brand-700);
+  color: #FFFFFF;
+}
+
+/* The moor button. Hidden by OPACITY, never by `display: none` — a control
+   that leaves the accessibility tree cannot be reached by a keyboard, and
+   this one is the only way to pin a room. */
+.nav-tile-moor {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  opacity: 0;
+  color: var(--color-text-subtle);
+  transition:
+    opacity var(--motion-dur-instant) var(--motion-ease-out),
+    color var(--motion-dur-instant) var(--motion-ease-out);
+  cursor: pointer;
+}
+.nav-tile:hover .nav-tile-moor,
+.nav-tile:focus-within .nav-tile-moor { opacity: 1; }
+.nav-tile-moor:hover { color: var(--color-brand-600); }
+/* Reachable regardless of opacity: the ring is the keyboard's proof the control
+   is there, and it is drawn whether or not the row is hovered. */
+.nav-tile-moor:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+.nav-tile-moor[aria-pressed="true"] { opacity: 1; color: var(--color-brand-600); }
+
+/* The disclosure chevron. Same reachability rule as the moor button. */
+.nav-chevron-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  opacity: 0;
+  color: var(--color-text-subtle);
+  transition: opacity var(--motion-dur-instant) var(--motion-ease-out);
+  cursor: pointer;
+}
+.nav-tile:hover .nav-chevron-btn,
+.nav-tile:focus-within .nav-chevron-btn { opacity: 1; }
+.nav-chevron-btn:focus-visible { opacity: 1; outline: 2px solid var(--color-primary); outline-offset: 1px; }
+/* A room whose children are showing keeps its chevron visible — the row it
+   belongs to is the only thing that says the list below came from it. */
+.nav-tile[data-active="true"] .nav-chevron-btn,
+.nav-chevron-btn[aria-expanded="true"] { opacity: 1; }
+
+.nav-chevron {
+  font-size: 15px;
+  transition: transform var(--motion-dur-instant) var(--motion-ease-out);
+}
+.nav-chevron[data-open="false"] { transform: rotate(-90deg); }
+
+/* ── A room's children (proxy lenses, media kinds) ──────────────── */
+.nav-sub {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nav-tile-gap);
+  padding-left: 18px;
+  margin-left: 10px;
+  border-left: 1px solid var(--color-border-subtle);
+}
+.nav-sub-tile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 8px;
+  /* 5.51:1 light · 6.31:1 dark */
+  color: var(--color-text-muted);
+  transition:
+    background-color var(--motion-dur-instant) var(--motion-ease-out),
+    color var(--motion-dur-instant) var(--motion-ease-out);
+}
+.nav-sub-tile:hover { background: var(--color-surface-2); }
+/* 7.24:1 light · 6.48:1 dark — the same brand-700/brand-400 pair as the rail
+   button and the active tile, on the same painted ground. This state adds NO
+   tint of its own, so its ground is the plain shell rather than the tinted one:
+   by hand that reads 7.22 against the rail button's live 7.24, a gap under 0.05
+   in either direction — rounding, not a disagreement. Both clear AA widely. */
+.nav-sub-tile[aria-current="page"] { color: var(--color-brand-700); }
+.dark .nav-sub-tile[aria-current="page"] { color: var(--color-brand-400); }
+.nav-sub-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Motion. State only: an arrival, and a number that moved. There is no
+   `infinite` animation anywhere in this block — the deck's visibility-budget
+   law forbids an ambient loop in a navigation. ─────────────────── */
+
+/* The rooms arrive. `backwards` ONLY, never `forwards`/`both`: a filled
+   animation leaves `transform` live forever, which makes the element a
+   containing block for every `position: fixed` modal child — the measured
+   v0.9.83 defect that left the deck's 29 modals unable to escape. */
+@keyframes navTileIn {
+  from { opacity: 0; transform: translateX(calc(-1 * var(--motion-rise))); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.nav-panel-body .nav-tile,
+.nav-panel-body .nav-group-head,
+.nav-panel-body .nav-sub-tile {
+  animation: navTileIn var(--motion-dur-quick) var(--motion-ease-out) backwards;
+  /* --i is set inline per tile and capped at 8 in the JSX (the house's stagger
+     law): past the eighth, a stagger you can outrun by looking at it is
+     latency with better manners. `prefers-reduced-motion` already clamps both
+     duration AND delay globally, so there is deliberately no per-component
+     guard here. */
+  animation-delay: calc(var(--motion-stagger) * var(--i, 0));
+}
+
+/* A number that CHANGED breathes once. Not a loop: the attribute is cleared on
+   animationend, so the breath is spent only when a value actually moved. */
+@keyframes navCountPulse {
+  0%   { transform: scale(1);    opacity: 1; }
+  45%  { transform: scale(1.16); opacity: 0.72; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+.nav-tile-count[data-changed="true"] {
+  animation: navCountPulse var(--motion-dur-base) var(--motion-ease-out) 1;
+}
+
+/* Drawer variant (mobile): one column at the FULL 288px — the whole helm, not
+   just the panel — with no rail and no collapse control, because there is no
+   second column for one to switch. 72 + 216 is the same 288 the desktop dock
+   occupies, so the drawer is the same navigation seen a different way. */
+.nav-shell[data-variant="drawer"] { width: calc(var(--nav-rail-w) + var(--nav-panel-w)); }
+.nav-shell[data-variant="drawer"] .nav-panel,
+.nav-shell[data-variant="drawer"] .nav-panel-body { width: calc(var(--nav-rail-w) + var(--nav-panel-w)); }

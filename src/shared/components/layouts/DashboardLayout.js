@@ -209,7 +209,7 @@ export default function DashboardLayout({ children }) {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <Sidebar onClose={() => setSidebarOpen(false)} />
+        <Sidebar variant="drawer" onClose={() => setSidebarOpen(false)} />
       </div>
 
       {/* Main content */}
