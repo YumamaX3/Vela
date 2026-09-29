@@ -1,0 +1,74 @@
+{
+  "$description": "The Living Chart geometry ledger — the navigation's two-tier dock in the Design Tokens Community Group format, matching docs/design/motion-tokens.dtcg.json. Every token here is a CSS custom property declared on :root in src/app/globals.css. These are SIZES, never colours, so nothing is mirrored into `.dark`: the nav reads the house's existing colour tokens (--color-brand-500/600/700, --color-surface*, --color-border*, --color-text*, --color-sidebar, --color-danger/success/warning) and its motion family (--motion-dur-instant|quick|base, --motion-ease-out, --motion-stagger, --motion-rise) rather than restating any of them. The colour proof for the nav lives in the CSS comments at each rule, measured against the grounds the browser actually paints (`.bg-vibrancy` over --color-bg: #FDFDFE light, #1E2024 dark), not restated here.",
+  "nav": {
+    "rail": {
+      "width": {
+        "$type": "dimension",
+        "$value": { "value": 72, "unit": "px" },
+        "$description": "The section rail at rest. Wide enough for a 60px button carrying a 20px glyph over a 10px label, plus 6px of breathing room each side. This is the half of the dock that never leaves, so it is sized for the icon and the word beneath it, not for the room names — those live in the panel."
+      }
+    },
+    "panel": {
+      "width": {
+        "$type": "dimension",
+        "$value": { "value": 216, "unit": "px" },
+        "$description": "The room panel. 72 + 216 = 288 — exactly the width the previous helm occupied as `w-72` — which is the whole reason the dock was cut this way: the navigation gains a second column and a live readout without any room on the deck losing a single pixel of content width. The panel collapses to 0 while its body keeps this fixed width, so the tiles slide out of view instead of squashing."
+      }
+    },
+    "tile": {
+      "height": {
+        "$type": "dimension",
+        "$value": { "value": 34, "unit": "px" },
+        "$description": "A room tile's height. It clears WCAG 2.5.8's 24px minimum target with room left over for a 13px label and the 10px count chip that rides beside it — a number the operator reads at a glance, so the row has to hold it without crowding the room's name."
+      },
+      "radius": {
+        "$type": "dimension",
+        "$value": { "value": 10, "unit": "px" },
+        "$description": "The house's existing nav-pill radius, unchanged. The previous helm's NavItem already used `rounded-[10px]`; carrying the same figure here is what keeps the dock reading as a refit of the same navigation rather than a new component that happens to sit where the old one did."
+      },
+      "gap": {
+        "$type": "dimension",
+        "$value": { "value": 2, "unit": "px" },
+        "$description": "Vertical gap between tiles, and between rail buttons. Small deliberately: at this size the rows read as one filed column, while a hairline of space is still enough to separate a hover from its neighbour. The same value serves the rail so the sliding marker's translate step (50 + 2) stays a whole number — the marker's position is pure index arithmetic, never a layout measurement."
+      }
+    },
+    "contrast": {
+      "$description": "The nav's colour proof — MEASURED LIVE on 2026-09-29, both shores, via getComputedStyle: the element's computed `color` against the first OPAQUE background up its ancestor chain, any remaining alpha composited with `over()`, then WCAG 2 relative luminance. Measured and not modelled, for two reasons. First, a `color-mix()` RESOLVES to concrete rgb in the browser, so the oklab-tinted grounds are answerable directly rather than by arithmetic nobody can do reliably from the file. Second, the grounds here are chosen by the cascade, not by one declaration — see the two ground entries below. The per-rule proof still lives in the CSS comments at each rule in src/app/globals.css; these rows are the pairs the file alone could not settle.",
+      "groundDark": {
+        "$type": "color",
+        "$value": "#1E2024",
+        "$description": "The dark shore's painted ground. Both `nav-shell` and `bg-vibrancy` ride the aside, and in dark `.dark .bg-vibrancy` (0,2,0) OUTRANKS `.nav-shell` (0,1,0), so rgba(38,38,38,.72) paints over --color-bg #0A1220. Live read confirms rgb(30,32,36) — the ledger's original figure was right."
+      },
+      "groundLight": {
+        "$type": "color",
+        "$value": "#F4F5F9",
+        "$description": "The light shore's painted ground — and this ledger's own earlier error, corrected. In light BOTH classes are (0,1,0), so SOURCE ORDER wins and `.nav-shell`'s later `background: var(--color-sidebar)` rgba(243,245,249,.85) paints, NOT `.bg-vibrancy`'s rgba(255,255,255,.72): over #F7F8FA that is #F4F5F9, not the #FDFDFE this file once claimed. The two shores are not one composite at two alphas — each takes a different declaration. Live read confirms rgb(244,245,249), to the byte."
+      },
+      "railButtonSelectedDark": {
+        "$type": "number",
+        "$value": 6.48,
+        "$description": "Selected rail button (rgb(79,168,255), --color-brand-400) on the dark ground. Clears AA for text and the 3.0 non-text floor alike."
+      },
+      "railButtonSelectedLight": {
+        "$type": "number",
+        "$value": 7.24,
+        "$description": "rgb(23,75,176) (--color-brand-700) on #F4F5F9. Measured live — this is one of the two oklab-tinted figures the ledger previously refused to invent."
+      },
+      "railButtonRestDark": {
+        "$type": "number",
+        "$value": 6.31,
+        "$description": "The rail button at rest (rgb(152,162,179), --color-text-muted) on the dark ground."
+      },
+      "railButtonRestLight": {
+        "$type": "number",
+        "$value": 5.52,
+        "$description": "rgb(90,100,114) (--color-text-muted) on #F4F5F9. Independent cross-check on the corrected light ground: the browser paints the exact hex the cascade was read to produce, and this live 5.52 against the derived 5.51 for every light text-muted pair is rounding, not disagreement. Two different methods agreeing to a hundredth is what entitles the corrected ground to stand."
+      },
+      "correctionLedger": {
+        "$type": "number",
+        "$value": 3,
+        "$description": "How many light figures the ground correction moved: text-subtle (eyebrow, panel foot) 4.92 to 4.59; text-muted (rail button, group head, tile, sub-tile) 5.90 to 5.51; marker brand-600 5.01 to 4.68. Every VERDICT held — all three still pass AA — so this was three wrong numbers, not three wrong decisions. The dark column was unaffected and reproduces exactly (4.33 eyebrow, 3.20 brand-600-rejected, 6.51 marker). Recorded so the next keeper re-derives from the browser rather than from this arithmetic."
+      }
+    }
+  }
+}
