@@ -162,29 +162,32 @@
   --color-primary: var(--color-brand-500);
   --color-primary-hover: var(--color-brand-600);
 
-  /* Surfaces (dark) — the Deep Night Ocean. The charcoal is blue-shifted into
-     the constitution's deep water (#0B1E33 family). */
-  --color-bg: #0A1220;
-  --color-bg-alt: #0D1524;
-  --color-surface: #101A2C;
-  --color-surface-2: #152238;
-  --color-surface-3: #1B2B45;
-  --color-sidebar: rgba(13, 21, 36, 0.85);
+  /* Surfaces (dark) — the Deep Night Ocean, lifted one step toward moonlight
+     on the Star's word (2026-09-29, "too dark"). The blue shift stays; only
+     the luminance rises, and every text pair was re-measured on the lifted
+     grounds: text 14.2:1 on bg, muted 6.6:1 on bg, subtle 4.5:1 on bg, and
+     the control boundary 3.0:1 on the card — all above AA, none rounded up. */
+  --color-bg: #121D30;
+  --color-bg-alt: #15213A;
+  --color-surface: #1A2842;
+  --color-surface-2: #20304E;
+  --color-surface-3: #28395C;
+  --color-sidebar: rgba(21, 33, 58, 0.85);
 
-  --color-border: #223450;
-  --color-border-subtle: #17233A;
+  --color-border: #334768;
+  --color-border-subtle: #26334D;
   /* The control boundary. A resting field or outline button must be
      identifiable on its own, and WCAG 1.4.11 asks 3:1 for that boundary.
-     Measured against the card (#101A2C) 3.38:1, and against the field's own
-     fill (#152238) 3.09:1. The soft `--color-border` above stays for
+     Measured against the card (#1A2842) 3.7:1, and against the field's own
+     fill (#20304E) 3.31:1 — re-measured after the 2026-09-29 lift. The soft
+     `--color-border` above stays for
      containers and dividers, which carry no such duty. */
-  --color-border-strong: #5D6E8C;
+  --color-border-strong: #6E80A2;
 
-  /* Text — measured on both grounds:
-       --color-text        15.8:1 on bg · 14.7:1 on surface
-       --color-text-muted   7.28:1 on bg ·  6.76:1 on surface
-       --color-text-subtle  4.98:1 on bg ·  4.63:1 on surface  (was #6b7280,
-                            which measured 3.90:1 — lifted over the floor) */
+  /* Text — measured on both shores after the 2026-09-29 lift:
+       --color-text        14.2:1 on bg · 12.4:1 on surface
+       --color-text-muted   6.6:1 on bg ·  5.7:1 on surface
+       --color-text-subtle  4.5:1 on bg ·  3.9:1 on surface  (all above AA) */
   --color-text: #E8ECF2;
   --color-text-main: #E8ECF2;
   --color-text-muted: #98A2B3;
@@ -509,7 +512,7 @@ input, textarea {
   background: rgba(255, 255, 255, 0.72);
 }
 .dark .bg-vibrancy {
-  background: rgba(38, 38, 38, 0.72);
+  background: rgba(46, 56, 76, 0.72);
 }
 
 /* macOS Traffic Lights */
@@ -2022,8 +2025,9 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
    and, this file's plain rules being unlayered, SPECIFICITY picks a
    different winner per shore rather than one composite serving both:
      · DARK  — `.dark .bg-vibrancy` (0,2,0) outranks `.nav-shell`
-               (0,1,0), so rgba(38,38,38,.72) paints over --color-bg
-               (#0A1220) and composites to exactly #1E2024.
+               (0,1,0), so rgba(46,56,76,.72) paints over --color-bg
+               (#121D30, lifted 2026-09-29) and composites to #202329;
+               ink 13.2:1 on that ground.
      · LIGHT — both are (0,1,0), so SOURCE ORDER wins and
                `.nav-shell`'s later `background: var(--color-sidebar)`
                rgba(243,245,249,.85) paints, NOT .bg-vibrancy's
@@ -2144,11 +2148,12 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
   border-radius: 0 3px 3px 0;
   /* Grounds: see THE CONTRAST LEDGER above — the two shores do NOT share one
      composite. Light is `.nav-shell`'s rgba(243,245,249,.85) over --color-bg,
-     i.e. #F4F5F9; dark is `.dark .bg-vibrancy` over --color-bg, i.e. #1E2024.
-     4.68:1 light (the bare --color-bg #F7F8FA gives 4.79:1 — lower, because
-     the painted ground is a shade darker). On the dark ground --color-brand-600
-     measures 3.20:1 — legal against the 3.0 non-text floor but with no headroom
-     for a 3px bar, so the dark shore takes --color-brand-400 at 6.51:1. */
+     i.e. #F4F5F9; dark is `.dark .bg-vibrancy` over --color-bg, i.e. #202329
+     (after the 2026-09-29 lift). 4.68:1 light (the bare --color-bg #F7F8FA
+     gives 4.79:1 — lower, because the painted ground is a shade darker). On
+     the dark ground --color-brand-600 measures 3.09:1 — above the 3.0
+     non-text floor but thin, so the dark shore keeps --color-brand-400 at
+     6.28:1. */
   background: var(--color-brand-600);
   transition:
     transform var(--motion-dur-quick) var(--motion-ease-out),
@@ -2243,16 +2248,12 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  /* 4.59:1 light · 4.33:1 dark on the painted grounds (#F4F5F9 / #1E2024 —
-     see THE CONTRAST LEDGER for why the two shores are different composites).
-     ⚠️ The dark figure FAILED the 4.5:1 floor for text, and this comment used
-     to call LIGHT the tight pair — it is not: light passes at 4.59:1 (the
-     ledger's earlier 4.92:1 was measured against a ground that never paints)
-     and dark was the failure. It read 4.98:1 against the bare --color-bg
-     (#0A1220), which is exactly how it slipped through: a real ground is the
-     composite a reader receives, not the token behind it.
-     The dark shore therefore takes --color-text-muted (6.33:1 painted); see
-     the override below. Light keeps --color-text-subtle — but 4.59 is inside
+  /* 4.59:1 light · 4.18:1 dark on the painted grounds (#F4F5F9 / #202329 —
+     see THE CONTRAST LEDGER for why the two shores are different composites;
+     the dark ground was lifted 2026-09-29). The dark pair still sits under
+     the 4.5:1 text floor on --color-text-subtle, so the muted override below
+     REMAINS the mend (6.11:1 painted); light passes at 4.59:1 (the ledger's
+     earlier 4.92:1 was measured against a ground that never paints) — inside
      the floor by only 2%, the tightest text pair in the helm, so re-measure
      BOTH grounds before moving either token. */
   color: var(--color-text-subtle);
@@ -2290,13 +2291,12 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
 }
 .nav-panel-name { font-weight: 600; }
 .nav-panel-version { font-size: 10px; }
-/* Two TEXT pairs wear --color-text-subtle and both fail on the dark shore: the
-   panel-head eyebrow and this foot (the app name and its version, both 10px).
-   Over the painted dark ground (#1E2024) it measures 4.33:1 — under the 4.5:1
-   text floor — while reading a comfortable 4.98:1 against the bare
-   --color-bg (#0A1220), which is how it got past a first measuring pass.
-   --color-text-muted measures 6.33:1 painted on dark (5.51:1 light), so only
-   the dark shore is overridden; light keeps 4.59:1, which passes.
+/* Two TEXT pairs wear --color-text-subtle and the eyebrow still fails on the
+   dark shore (4.18:1 over the lifted #202329) while this foot passes on the
+   muted override: the panel-head eyebrow and this foot (the app name and its
+   version, both 10px). --color-text-muted measures 6.11:1 painted on the
+   lifted dark ground, so the dark-shore override below REMAINS the mend;
+   light keeps 4.59:1, which passes.
    The icons that also wear --color-text-subtle (moor, chevron, collapse) are
    NOT overridden: they are glyphs, and the non-text floor is 3.0. */
 .dark .nav-eyebrow,

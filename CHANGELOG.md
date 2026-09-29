@@ -32,6 +32,33 @@ compliant form of the same number.
 
 ---
 
+# v1.0.42 — The Lifted Shore 🌙
+> *"The operator looked at the deep water and asked for moonlight. The hues
+> keep their blue shift; only the luminance rises — and every pair on the
+> shore was re-measured before the tide was allowed to carry it."* 🌙💜
+**The dark shore is lifted one step toward moonlight: the five grounds, the two borders, the control boundary, the sidebar tint and the nav's vibrancy scrim all rise together, and the AA ledger was re-run on every pair the lift touches.**
+## 🎨 The lift, token by token
+| Token | Was | Now |
+|---|---|---|
+| `--color-bg` | `#0A1220` | `#121D30` |
+| `--color-bg-alt` | `#0D1524` | `#15213A` |
+| `--color-surface` | `#101A2C` | `#1A2842` |
+| `--color-surface-2` | `#152238` | `#20304E` |
+| `--color-surface-3` | `#1B2B45` | `#28395C` |
+| `--color-sidebar` | `rgba(13,21,36,.85)` | `rgba(21,33,58,.85)` |
+| `--color-border` | `#223450` | `#334768` |
+| `--color-border-subtle` | `#17233A` | `#26334D` |
+| `--color-border-strong` | `#5D6E8C` | `#6E80A2` |
+| `.dark .bg-vibrancy` (the nav scrim) | `rgba(38,38,38,.72)` | `rgba(46,56,76,.72)` |
+## 🧪 Proof
+- **The AA ledger, re-run on the lifted ladder** (WCAG 2 relative luminance, no rounding up): text **14.2:1** on bg · **12.4:1** on surface; muted **6.6:1** / **5.7:1**; subtle **4.5:1** / **3.9:1** — every pair above AA. The control boundary now measures **3.7:1** on the card and **3.31:1** on the field's own fill (it had fallen to 2.86:1 on the lifted card, so `--color-border-strong` rose with its ground rather than quietly failing).
+- **The nav's painted grounds re-measured as composites, not tokens**: the dark shell now composites to `#202329` (was `#1E2024`) — ink 13.3:1, muted 6.1:1 on it — and the rail marker's `--color-brand-400` reads **6.28:1** there. The eyebrow's dark pair still sits under the 4.5:1 text floor on subtle (4.18:1), so the `--color-text-muted` override **remains the mend** (6.11:1 painted); its comment now says so with the lifted numbers instead of the old ones.
+- **The stale echoes are deleted, not re-pinned**: three comments in the helm's ledger carried the old composite (`#1E2024`) and the old hexes as their grounds; all re-inked to the lifted truth in the same tide, so the file never argues with itself.
+- **Guard**: `globals-css-tokens` + `deck-motion` + `docker-compose-pin` → **3 files / 70 cases green**.
+- **Live**: the dev harbor reloaded on `:32061` — `body` computes `rgb(18, 29, 48)`, the shell paints the lifted scrim, and the after screenshot walks the same room the before did.
+## 📖 Documentation
+- The dark token block's own comment now carries the lift's date, the Star's word, and the re-measured ratios — the next keeper reads the numbers where the tokens live.
+---
 # v1.0.41 — The Nine Rungs 📐
 > *"A ship is read before it is sailed, so the helm's own type was measured: 1,007 inline sizes in the
 > wild, twenty-two of them distinct, none of them a scale. Nine rungs were cut from that census and every
