@@ -1,4 +1,4 @@
-import { getConsoleLogs, getConsoleEmitter, getConsoleLogStats, initConsoleLogCapture } from "@/lib/consoleLogBuffer";
+import { getConsoleLogs, getRawLogs, getConsoleEmitter, getConsoleLogStats, initConsoleLogCapture } from "@/lib/consoleLogBuffer";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +15,7 @@ export async function GET(request) {
     send: null,
     sendLines: null,
     sendEntries: null,
+    sendRaw: null,
     sendClear: null,
     keepalive: null,
   };
@@ -24,6 +25,7 @@ export async function GET(request) {
     if (state.send) emitter.off("line", state.send);
     if (state.sendLines) emitter.off("lines", state.sendLines);
     if (state.sendEntries) emitter.off("entries", state.sendEntries);
+    if (state.sendRaw) emitter.off("raw", state.sendRaw);
     clearInterval(state.keepalive);
   };
 
@@ -33,12 +35,14 @@ export async function GET(request) {
     start(controller) {
       // Send initial buffered payload
       const initialLogs = getConsoleLogs({ structured });
+      const rawLogs = getRawLogs();
       const stats = getConsoleLogStats();
 
       controller.enqueue(
         encoder.encode(`data: ${JSON.stringify({
           type: "init",
           logs: initialLogs,
+          rawLogs,
           stats,
           structured
         })}\n\n`)
@@ -90,6 +94,15 @@ export async function GET(request) {
         emitter.on("line", state.send);
         emitter.on("lines", state.sendLines);
       }
+      state.sendRaw = (rawEntries) => {
+        if (state.closed || !Array.isArray(rawEntries) || rawEntries.length === 0) return;
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "raw", entries: rawEntries })}\n\n`));
+        } catch {
+          cleanup();
+        }
+      };
+      emitter.on("raw", state.sendRaw);
       emitter.on("clear", state.sendClear);
 
       // Keepalive heartbeat

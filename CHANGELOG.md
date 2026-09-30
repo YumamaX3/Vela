@@ -32,6 +32,131 @@ compliant form of the same number.
 
 ---
 
+# v1.0.59 — The Log Harbor 🌊
+> *"Three streams ran to three shores, and no shore could see the others.
+> Now they meet in one harbor, and the harbor keeps the record whole."* 🪞💜
+### ✨ What sailed
+Two rooms kept the gateway's memory and neither could see the other:
+`/dashboard/console-log` held the live `console.*` deck, `/dashboard/logs` held
+the request ledger — and a third shore, **what the process itself prints** (the
+part `docker logs` shows), had no room at all. They are now **one room with
+three streams**: `/dashboard/logs` is the **Log Harbor**, and its stream lives
+in the URL (`?tab=console|container|requests`) so a deep link lands on the
+stream it names.
+- **Console stream** — carried from the retired room and re-inked to the house
+  tokens: level chips with counts, tag filters, the 30s rate meter,
+  structured/raw views, follow, wrap, copy, `.txt`/`.json` export, the armed
+  clear, the `/`-to-search shortcut, and the per-entry inspector drawer.
+- **Container stream** (new) — the raw stdout/stderr tap.
+  `src/lib/consoleLogBuffer.js` now patches `process.stdout.write` /
+  `process.stderr.write` and keeps a second ring (`rawEntries`, cap 2000),
+  classifying every line: `stderr → ERROR`, and on stdout a traceback or a
+  `…warn…` is `ERROR`/`WARN` rather than mere output. The lines ride the same
+  SSE channel as a new frame pair — `init` now carries `rawLogs`, live lines
+  arrive as `{type:"raw"}` — so **one connection funds both streams**. Filters:
+  level chips with counts, a stdout/stderr split with its own live
+  `stdout n · stderr n` census, search with a regex toggle, follow, wrap,
+  `.log` export, and a line inspector.
+- **Requests stream** — the ledger, carried from `RequestLogs.js` and re-inked:
+  the level chips, model chips, search, refresh, row-count select, and the
+  seven-column table.
+- **The retired room redirects**: `/dashboard/console-log` → `?tab=console`,
+  kept as a redirect rather than deleted — it was a System room for many
+  versions and bookmarks, history and muscle memory deserve to land. The nav's
+  System section now carries **Log Harbor** where the two rooms stood, and
+  `SECTION_ALIASES` claims the retired route so a bookmark never lights Home on
+  its way through.
+### 🐛 The wound the browser found
+The harbor's control strip announced its own glyphs. `Button` rendered
+`.material-symbols-outlined` spans with **no `aria-hidden`**, and Material
+Symbols renders its ligature as real text — so the ledger's Refresh button read
+`refresh Refresh` to a screen reader, and every icon-bearing button in the app
+did the same. Measured live with `ariaSnapshot`, never inferred. The span is now
+blinded whenever the button carries a name of its own (visible children, or an
+`aria-label`/`title` the caller supplied); an icon-only button keeps its glyph,
+because silencing a control nobody has named is worse than the redundancy.
+Re-measured live: `button "Refresh"`.
+### 🎨 The contrast ledger, re-derived
+Every harbor surface was measured on **both shores** against WCAG 2 (relative
+luminance, sRGB alpha compositing, ratios never rounded up) and then
+cross-checked with an independent instrument (the antislop `check_contrast`
+MCP) — every figure agreed to the second decimal. Four real misses were found
+and mended; the two condition classes that predate the tide are **recorded, not
+forked**:
+| Measured | Was | Now |
+|---|---|---|
+| field borders (light) | `border-border` **1.31:1** | `border-border-strong` **3.47:1** |
+| field borders (dark) | `border-border` **1.57:1** | `border-border-strong` **3.70:1** |
+| WARN chip (light) | `text-amber-700` on the rail **4.23:1** | `text-amber-800` **5.97:1** |
+| table head (dark) | `text-text-subtle` **3.65:1** | `text-text-muted` **5.34:1** |
+| status column (light) | `--color-success` **2.54:1** · `--color-warning` **2.15:1** | `emerald-700` **5.48:1** · `amber-700` **5.02:1** |
+| status column (dark) | `--color-danger` **3.91:1** | `red-400` **5.32:1** |
+- The field borders move **toward** the house convention, never away from it:
+  `Input.js` and `Select.js` have always carried `border-border-strong` for
+  exactly this reason — the harbor had drifted to plain `border-border`.
+- **Recorded, not fixed**: `--color-success` (2.54:1), `--color-warning`
+  (2.15:1) and `--color-danger` dark (3.91:1) as *text on a surface* are an
+  **app-wide** condition — 32, 17 and 10 call sites outside this room — and
+  they are fill colours the app also uses for dots and bars, so the token
+  itself cannot simply move. The harbor's own status column now paints explicit
+  hue pairs that clear AA; the token condition stands exactly where it stood.
+- **The last placeholder retired**: `parseLog` defaulted every absent field to
+  `"-"`, so a gap was painted as an em dash in `text-subtle` (3.91:1 on the dark
+  shore). Absent values now paint **nothing** — the same law the nav's count
+  chips have obeyed since v1.0.40.
+### ⚓ Proof
+- **8 cases, new and permanent** — `tests/unit/log-harbor.test.jsx` drives the
+  **real** producer (`consoleLogBuffer`) and the **real** consumers, so a
+  regression only a live shore would show (a line that never renders, a filter
+  that hides the wrong side, a level that reaches the wrong chip, a ledger
+  column that shifts) fails here first. It pins the tap's capture and
+  classification, the live `raw` event, the full entry shape, and the law that
+  a `console.*` line is **never** doubled into the raw ring; then all three
+  components' rendering; then that the retired room still redirects rather than
+  404s. *(The probe lines it writes through the tap appear in the runner's
+  stdout — that noise is the proof, not a leak.)*
+- **121 cases green across six suites**: `log-harbor` (8) · `nav-rail-sections`
+  (20, re-pinned for the rename) · `dashboard-layout-drawer` · `deck-motion` ·
+  `globals-css-tokens` · `docker-compose-pin`.
+- **`npm run build` green** at v1.0.59 — 165 static pages, zero errors.
+- **Live browser walk** on `:32060`: each of the three stream tabs renders and
+  writes its own `?tab=`; the System section reads
+  `Log Harbor · Settings · 9Remote · 9English`; `/dashboard/console-log` lands
+  on `/dashboard/logs?tab=console` with the console pane live; the Container
+  strip reports **Tapped** and shows its honest empty state; the ledger parses
+  **200 rows** into seven columns; and the mends read back off the DOM —
+  `border-color: rgb(130,138,153)` on every field, `rgb(90,100,114)` on the
+  table head, `lab(44.4871 -41.0396 11.0361)` (emerald-700) on the status cell,
+  `button "Refresh"` in the accessibility tree.
+### ⚙️ Files
+- **new** — `logs/LogHarbor.js` · `logs/ConsoleStream.js` ·
+  `logs/ContainerStream.js` · `logs/RequestLedger.js` ·
+  `tests/unit/log-harbor.test.jsx`
+- **mended** — `lib/consoleLogBuffer.js` (the raw tap) ·
+  `api/translator/console-logs/stream/route.js` (the `rawLogs` / `raw` frames) ·
+  `logs/page.js` · `console-log/page.js` (now a redirect) ·
+  `shared/components/Button.js` (glyph a11y) · `Sidebar.js` · `QuickNav.js` ·
+  `Header.js` (the Log Harbor room) · `nav-rail-sections.test.jsx`
+- **deleted** — `logs/RequestLogs.js` · `console-log/ConsoleLogClient.js`.
+  Clean cutover: no shim, no re-export, no alias.
+### 🌊 Honest scope
+- **The Container tap begins with the first request** — installed by
+  `instrumentation.js`, and again at `layout.js` module scope — so it does not
+  hold what the process printed before that, the Next startup banner among it.
+  What it catches from then on is the part `docker logs` shows that the Console
+  stream cannot: the MITM child's relayed output, dependency prints, crash
+  stacks. Writes that go straight to fd 1 from a child (`stdio: […, 1, 1]`)
+  bypass a JS patch by definition and are never in here.
+- **In `next dev` the tap sees nothing** — measured this tide: 387 console
+  entries, **0** raw, because Turbopack prints from outside the parent's
+  `process.stdout`. The stream therefore reads empty on a dev shore and fills on
+  the container. The empty state says as much rather than pretending otherwise.
+- **No new label is machine-translated.** The harbor's copy resolves through
+  `public/i18n/literals`, and `scripts/i18n-seed-literals.mjs` is absent at HEAD,
+  so `translate()` returns the raw English key — the same English-first
+  placeholder the rest of the deck renders.
+---
+
 # v1.0.54 — The Honest Retreat 🐛
 
 > *"The instrument I trusted had learned to lie to me: it counted the

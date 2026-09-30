@@ -56,8 +56,7 @@ const NAV_FLEETS = [
     label: "Deck",
     icon: "deck",
     items: [
-      { href: "/dashboard/logs", label: "Request Logs", icon: "receipt_long" },
-      { href: "/dashboard/console-log", label: "Console Log", icon: "terminal" },
+      { href: "/dashboard/logs", label: "Log Harbor", icon: "waves" },
       { href: "/dashboard/translator", label: "Translator", icon: "translate" },
     ],
   },

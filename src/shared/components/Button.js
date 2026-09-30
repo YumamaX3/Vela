@@ -37,6 +37,14 @@ export default function Button({
   className,
   ...props
 }) {
+  // A glyph is decoration, never a word. `.material-symbols-outlined` renders
+  // its ligature as real text, so an unblinded icon joins the accessible name:
+  // the Requests ledger's Refresh button announced "refresh Refresh" — measured
+  // live in a real browser. Blind the span whenever the button carries a
+  // name of its own (visible children, or a label the caller supplied); an
+  // icon-only button keeps its glyph as the name, because silencing a control
+  // nobody has named is worse than the redundancy.
+  const hasOwnName = Boolean(children) || Boolean(props["aria-label"]) || Boolean(props.title);
   return (
     <button
       className={cn(
@@ -51,13 +59,19 @@ export default function Button({
       {...props}
     >
       {loading ? (
-        <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>
+        <span aria-hidden={hasOwnName ? "true" : undefined} className="material-symbols-outlined animate-spin text-lg">
+          progress_activity
+        </span>
       ) : icon ? (
-        <span className="material-symbols-outlined text-lg">{icon}</span>
+        <span aria-hidden={hasOwnName ? "true" : undefined} className="material-symbols-outlined text-lg">
+          {icon}
+        </span>
       ) : null}
       {children}
       {iconRight && !loading && (
-        <span className="material-symbols-outlined text-lg">{iconRight}</span>
+        <span aria-hidden={hasOwnName ? "true" : undefined} className="material-symbols-outlined text-lg">
+          {iconRight}
+        </span>
       )}
     </button>
   );

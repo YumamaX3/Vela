@@ -167,18 +167,11 @@ const getPageInfo = (pathname) => {
       icon: "translate",
       breadcrumbs: [],
     };
-  if (pathname.includes("/console-log"))
-    return {
-      title: "Console Log",
-      description: "Live server console output",
-      icon: "monitor",
-      breadcrumbs: [],
-    };
   if (pathname.includes("/logs"))
     return {
-      title: "Request Logs",
-      description: "Every request that crossed the harbor, recorded",
-      icon: "receipt_long",
+      title: "Log Harbor",
+      description: "The harbor's record — console, container, and every request",
+      icon: "waves",
       breadcrumbs: [],
     };
   if (pathname.includes("/fallback-rules"))

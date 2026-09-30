@@ -109,8 +109,7 @@ const SECTIONS = [
     label: "System",
     icon: "shield",
     rooms: [
-      { href: "/dashboard/logs", label: "Request Logs", icon: "receipt_long", badge: "NEW", chip: "errors" },
-      { href: "/dashboard/console-log", label: "Console Log", icon: "terminal" },
+      { href: "/dashboard/logs", label: "Log Harbor", icon: "waves", badge: "NEW", chip: "errors" },
       { href: "/dashboard/translator", label: "Translator", icon: "translate", requiresEnableTranslator: true },
       { href: "/dashboard/profile", label: "Settings", icon: "settings" },
       // The two duties: one opens a modal, one leaves the harbor entirely.
@@ -136,7 +135,7 @@ const SECTIONS = [
  * exists purely to stop a redirect from stranding its section.
  */
 const SECTION_ALIASES = {
-  system: ["/dashboard/settings"],
+  system: ["/dashboard/settings", "/dashboard/console-log"],
 };
 /** Every room across every section, so a pin can be re-rendered from its href alone. */
 const ROOMS_BY_HREF = new Map();

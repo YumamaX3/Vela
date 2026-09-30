@@ -112,7 +112,7 @@ describe("the URL decides the section — a header's only job is to move it", ()
       ["traffic", "/dashboard/usage", "Usage"],
       ["network", "/dashboard/proxy", "Proxy"],
       ["toolkit", "/dashboard/cli-tools", "CLI Tools"],
-      ["system", "/dashboard/logs", "Request Logs"],
+      ["system", "/dashboard/logs", "Log Harbor"],
     ];
     for (const [id, href, firstTile] of walk) {
       await act(async () => { sec(id).click(); });
@@ -317,6 +317,6 @@ describe("a tile shows a number only when the pulse carries an honest one", () =
     expect(chipText("Proxy")).toBe("5 · 2"); // total, with the blocked count appended
     currentPath = "/dashboard/logs";
     await commit();
-    expect(chipText("Request Logs")).toBe("7");
+    expect(chipText("Log Harbor")).toBe("7");
   });
 });

@@ -1,26 +1,22 @@
 "use client";
-
-// Console Log — the gateway's own stdout, re-cut as a telemetry deck.
+// Console Stream — the gateway's own console.* output, kept as a telemetry deck.
 //
-// The server buffer (src/lib/consoleLogBuffer.js) stamps every captured line
-// with an arrival time and level, and now also publishes structured entries
-// over the same SSE channel. This deck renders those entries: a live HUD of
-// level counts and top tags, a rate meter, and a terminal pane whose rows
-// open a full-entry inspector. Raw mode still shows the untouched line.
-
+// Carried from the v0.9.44 Console Log room: level chips with counts, tag
+// filters, a 30s rate meter, structured/raw views, follow/wrap, copy and
+// download, an armed clear, and a per-entry inspector drawer. Re-homed here as
+// the harbor's first stream. Two harmony changes on this tide: meta text rides
+// at >=55% opacity (the old 35% measured 2.66:1 on the terminal ground, below
+// SC 1.4.3), and the empty states speak in the Keeper's register.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Drawer } from "@/shared/components";
 import { CONSOLE_LOG_CONFIG } from "@/shared/constants/config";
 import { translate } from "@/i18n/runtime";
 import { cn } from "@/shared/utils/cn";
-import PageShell from "@/shared/components/layouts/PageShell";
-
 const LEVELS = ["LOG", "INFO", "WARN", "ERROR", "DEBUG"];
-
-// Two colour sets on purpose: `term` sits on the warm ink terminal panel,
-// `hud` sits on a surface card in either theme. The light-theme HUD chips
-// use the 700 step and the dark-theme chips the 300 step, so both keep
-// >= 4.5:1 against their own background.
+// Two colour sets on purpose: `term` sits on the dark terminal panel, `hud`
+// sits on a surface card in either theme. Every hue here was measured on the
+// terminal ground (#0B1E33): emerald 8.75:1 · sky 7.86:1 · amber 11.67:1 ·
+// red 6.08:1 · violet 9.12:1 — all clear of SC 1.4.3 with room.
 const LEVEL_META = {
   LOG: {
     term: "text-emerald-400",
@@ -35,7 +31,7 @@ const LEVEL_META = {
   WARN: {
     term: "text-amber-300",
     accent: "border-l-amber-500/60",
-    hudOn: "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    hudOn: "border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-300",
   },
   ERROR: {
     term: "text-red-400",
@@ -48,13 +44,10 @@ const LEVEL_META = {
     hudOn: "border-violet-500/50 bg-violet-500/10 text-violet-700 dark:text-violet-300",
   },
 };
-
 const RATE_SECONDS = 30;
-
 function metaFor(level) {
   return LEVEL_META[level] || LEVEL_META.LOG;
 }
-
 // The captured message already carries its own leading [TAG] tokens, and the
 // deck renders those tags separately. Strip the leading run so the body is not
 // double-tagged; a message that is nothing but tags keeps its original text.
@@ -62,7 +55,6 @@ function bodyOf(message) {
   const stripped = String(message).replace(/^(\s*\[[A-Za-z0-9_-]{2,24}\])+/, "").trimStart();
   return stripped || message;
 }
-
 function buildMatcher(query, useRegex) {
   const q = query.trim();
   if (!q) return { test: () => true, error: null };
@@ -77,8 +69,7 @@ function buildMatcher(query, useRegex) {
     return { test: () => false, error: err.message };
   }
 }
-
-export default function ConsoleLogClient() {
+export default function ConsoleStream() {
   const [entries, setEntries] = useState([]);
   const [connected, setConnected] = useState(false);
   const [activeLevels, setActiveLevels] = useState(() => new Set(LEVELS));
@@ -92,20 +83,15 @@ export default function ConsoleLogClient() {
   const [armedClear, setArmedClear] = useState(false);
   const [atBottom, setAtBottom] = useState(true);
   const [nowMs, setNowMs] = useState(() => Date.now());
-
   const logRef = useRef(null);
   const searchRef = useRef(null);
   const stickToBottomRef = useRef(true);
   const disarmTimerRef = useRef(null);
-
   const maxLines = CONSOLE_LOG_CONFIG.maxLines;
-
   // ── Stream ───────────────────────────────────────────────────────────────
   useEffect(() => {
     const es = new EventSource("/api/translator/console-logs/stream?structured=true");
-
     es.onopen = () => setConnected(true);
-
     es.onmessage = (e) => {
       let msg;
       try {
@@ -125,25 +111,20 @@ export default function ConsoleLogClient() {
         setSelectedId(null);
       }
     };
-
     es.onerror = () => setConnected(false);
-
     return () => es.close();
   }, [maxLines]);
-
   // Ages the rate buckets even when no line arrives.
   useEffect(() => {
     const id = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
-
   // Follow the tail only while the reader is at the bottom.
   useEffect(() => {
     if (follow && stickToBottomRef.current && logRef.current) {
       logRef.current.scrollTop = logRef.current.scrollHeight;
     }
   }, [entries, follow, view, wrap]);
-
   const handleScroll = useCallback(() => {
     const el = logRef.current;
     if (!el) return;
@@ -151,7 +132,6 @@ export default function ConsoleLogClient() {
     stickToBottomRef.current = near;
     setAtBottom((prev) => (prev === near ? prev : near));
   }, []);
-
   // `/` focuses search from anywhere on the deck.
   useEffect(() => {
     const onKey = (e) => {
@@ -164,9 +144,7 @@ export default function ConsoleLogClient() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-
   useEffect(() => () => clearTimeout(disarmTimerRef.current), []);
-
   // ── Derived telemetry ────────────────────────────────────────────────────
   const counts = useMemo(() => {
     const out = { total: entries.length, LOG: 0, INFO: 0, WARN: 0, ERROR: 0, DEBUG: 0 };
@@ -175,7 +153,6 @@ export default function ConsoleLogClient() {
     }
     return out;
   }, [entries]);
-
   const tagCounts = useMemo(() => {
     const map = new Map();
     for (const e of entries) {
@@ -183,11 +160,8 @@ export default function ConsoleLogClient() {
     }
     return [...map.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   }, [entries]);
-
   const topTags = useMemo(() => tagCounts.slice(0, 10), [tagCounts]);
-
   const matcher = useMemo(() => buildMatcher(query, useRegex), [query, useRegex]);
-
   const filtered = useMemo(
     () =>
       entries.filter((e) => {
@@ -197,7 +171,6 @@ export default function ConsoleLogClient() {
       }),
     [entries, activeLevels, tagFilter, matcher]
   );
-
   const rate = useMemo(() => {
     const buckets = new Array(RATE_SECONDS).fill(0);
     const now = nowMs;
@@ -213,15 +186,12 @@ export default function ConsoleLogClient() {
     const perSec = buckets[RATE_SECONDS - 1] || 0;
     return { buckets, peak, perSec };
   }, [entries, nowMs]);
-
   const selected = useMemo(
     () => (selectedId ? entries.find((e) => e.id === selectedId) || null : null),
     [entries, selectedId]
   );
-
   const errorCount = counts.ERROR;
   const warnCount = counts.WARN;
-
   // ── Actions ──────────────────────────────────────────────────────────────
   const toggleLevel = useCallback((level) => {
     setActiveLevels((prev) => {
@@ -231,23 +201,18 @@ export default function ConsoleLogClient() {
       return next;
     });
   }, []);
-
   const toggleTag = useCallback((tag) => {
     setTagFilter((prev) => (prev === tag ? null : tag));
   }, []);
-
   const exportText = useCallback(
     () => filtered.map((e) => e.raw || `${e.time} [${e.level}] ${e.message}`).join("\n"),
     [filtered]
   );
-
   const copyAll = useCallback(async () => {
     const text = exportText();
     try {
       await navigator.clipboard.writeText(text);
     } catch {
-      // Clipboard can be unavailable (permissions / non-secure context);
-      // fall back to a transient textarea selection.
       const ta = document.createElement("textarea");
       ta.value = text;
       document.body.appendChild(ta);
@@ -256,7 +221,6 @@ export default function ConsoleLogClient() {
       ta.remove();
     }
   }, [exportText]);
-
   const download = useCallback(
     (kind) => {
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -273,7 +237,6 @@ export default function ConsoleLogClient() {
     },
     [exportText, filtered]
   );
-
   const handleClear = useCallback(async () => {
     if (!armedClear) {
       setArmedClear(true);
@@ -285,18 +248,15 @@ export default function ConsoleLogClient() {
     clearTimeout(disarmTimerRef.current);
     try {
       await fetch("/api/translator/console-logs", { method: "DELETE" });
-      // The pane empties on the SSE "clear" event.
     } catch (err) {
       console.error("Failed to clear console logs:", err);
     }
   }, [armedClear]);
-
   const jumpToTail = useCallback(() => {
     stickToBottomRef.current = true;
     setFollow(true);
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, []);
-
   const copyEntry = useCallback(async (entry) => {
     const text = entry.raw || `${entry.time} [${entry.level}] ${entry.message}`;
     try {
@@ -305,45 +265,14 @@ export default function ConsoleLogClient() {
       /* clipboard unavailable; the drawer still shows the full text */
     }
   }, []);
-
   const levelChips = LEVELS.map((level) => ({
     level,
     count: counts[level] || 0,
     on: activeLevels.has(level),
     meta: metaFor(level),
   }));
-
   return (
-    <PageShell
-      title={translate("Console Log")}
-      subtitle={translate("Live gateway output, level by level")}
-      icon="terminal"
-      bodyClassName="flex flex-col gap-4"
-      className="min-w-0 px-1 sm:px-0"
-      actions={
-        <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold",
-              connected
-                ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                : "border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-300"
-            )}
-            role="status"
-          >
-            <span
-              aria-hidden="true"
-              className={cn("h-1.5 w-1.5 rounded-full", connected ? "bg-emerald-500" : "bg-red-500")}
-            />
-            {connected ? translate("Live") : translate("Disconnected")}
-          </span>
-          <Button size="sm" variant="outline" icon="refresh" onClick={jumpToTail}>
-            {translate("Tail")}
-          </Button>
-        </div>
-      }
-    >
-
+    <div className="flex flex-col gap-4">
       {/* ── Telemetry HUD ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
         <div className="rounded-[14px] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-soft)]">
@@ -358,8 +287,8 @@ export default function ConsoleLogClient() {
                 onClick={() => toggleLevel(level)}
                 aria-pressed={on}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-2xs font-semibold motion-control",
-                  on ? meta.hudOn : "border-border bg-surface-2 text-text-muted hover:text-text-main"
+                  "inline-flex min-h-[26px] items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-2xs font-semibold motion-control",
+                  on ? meta.hudOn : "border-border-strong bg-surface-2 text-text-muted hover:text-text-main"
                 )}
               >
                 {level}
@@ -367,7 +296,6 @@ export default function ConsoleLogClient() {
               </button>
             ))}
           </div>
-
           {topTags.length > 0 && (
             <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border-subtle pt-3">
               <span className="mr-1 text-2xs font-semibold uppercase tracking-wider text-text-subtle">
@@ -380,10 +308,10 @@ export default function ConsoleLogClient() {
                   onClick={() => toggleTag(tag)}
                   aria-pressed={tagFilter === tag}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-[8px] border px-2 py-0.5 font-mono text-2xs motion-control",
+                    "inline-flex min-h-[26px] items-center gap-1.5 rounded-[8px] border px-2 py-0.5 font-mono text-2xs motion-control",
                     tagFilter === tag
                       ? "border-brand-500/60 bg-brand-500/10 text-brand-700 dark:text-brand-300"
-                      : "border-border-subtle bg-surface-2 text-text-muted hover:text-text-main"
+                      : "border-border-strong bg-surface-2 text-text-muted hover:text-text-main"
                   )}
                 >
                   {tag}
@@ -394,7 +322,7 @@ export default function ConsoleLogClient() {
                 <button
                   type="button"
                   onClick={() => setTagFilter(null)}
-                  className="rounded-[8px] px-2 py-0.5 text-2xs text-text-muted underline decoration-dotted hover:text-text-main"
+                  className="min-h-[26px] rounded-[8px] px-2 py-0.5 text-2xs text-text-muted underline decoration-dotted hover:text-text-main"
                 >
                   {translate("Clear tag")}
                 </button>
@@ -402,7 +330,6 @@ export default function ConsoleLogClient() {
             </div>
           )}
         </div>
-
         {/* Rate meter */}
         <div className="rounded-[14px] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-soft)]">
           <div className="flex items-baseline justify-between">
@@ -434,7 +361,6 @@ export default function ConsoleLogClient() {
           </div>
         </div>
       </div>
-
       {/* ── Controls ───────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2 rounded-[14px] border border-border-subtle bg-surface p-3 shadow-[var(--shadow-soft)]">
         <div className="relative min-w-[200px] flex-1">
@@ -453,26 +379,24 @@ export default function ConsoleLogClient() {
             placeholder={useRegex ? translate("Regular expression") : translate("Filter output, press / to focus")}
             className={cn(
               "h-8 w-full rounded-[8px] border bg-surface-2 pl-8 pr-2.5 font-mono text-xs text-text-main placeholder:font-sans placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-500/30",
-              matcher.error ? "border-red-500/60" : "border-border focus:border-brand-500/60"
+              matcher.error ? "border-red-500/60" : "border-border-strong focus:border-brand-500/60"
             )}
           />
         </div>
-
         <button
           type="button"
           onClick={() => setUseRegex((v) => !v)}
           aria-pressed={useRegex}
           title={translate("Treat the filter as a regular expression")}
           className={cn(
-            "h-8 rounded-[8px] border px-2.5 font-mono text-2xs font-semibold motion-control",
+            "inline-flex min-h-[32px] items-center rounded-[8px] border px-2.5 font-mono text-2xs font-semibold motion-control",
             useRegex
               ? "border-brand-500/60 bg-brand-500/10 text-brand-700 dark:text-brand-300"
-              : "border-border bg-surface-2 text-text-muted hover:text-text-main"
+              : "border-border-strong bg-surface-2 text-text-muted hover:text-text-main"
           )}
         >
           .*
         </button>
-
         <div className="flex items-center gap-1 rounded-[10px] bg-surface-2 p-0.5">
           {[
             { value: "structured", label: translate("Structured"), icon: "data_array" },
@@ -495,7 +419,6 @@ export default function ConsoleLogClient() {
             </button>
           ))}
         </div>
-
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
           <span className="mr-1 font-mono text-2xs tabular-nums text-text-muted">
             {filtered.length}/{entries.length}
@@ -542,13 +465,11 @@ export default function ConsoleLogClient() {
           </Button>
         </div>
       </div>
-
       {matcher.error && (
         <p className="px-1 text-xs text-red-600 dark:text-red-400">
           {translate("Invalid pattern")}: <span className="font-mono">{matcher.error}</span>
         </p>
       )}
-
       {/* ── Terminal ───────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden rounded-[14px] border border-border-subtle bg-[var(--color-terminal)] shadow-[var(--shadow-soft)]">
         <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
@@ -559,7 +480,6 @@ export default function ConsoleLogClient() {
             {warnCount} warn · {errorCount} error
           </span>
         </div>
-
         <div
           ref={logRef}
           onScroll={handleScroll}
@@ -567,13 +487,13 @@ export default function ConsoleLogClient() {
           aria-live="polite"
           aria-relevant="additions"
           aria-label={translate("Console output")}
-          className="h-[calc(100vh-430px)] min-h-[280px] overflow-y-auto p-3 font-mono text-xs"
+          className="h-[calc(100vh-520px)] min-h-[280px] overflow-y-auto p-3 font-mono text-xs"
         >
           {filtered.length === 0 ? (
-            <p className="p-2 text-[var(--color-terminal-text)]/60">
+            <p className="p-2 text-[var(--color-terminal-text)]/70">
               {entries.length === 0
-                ? translate("No console output yet. Lines appear here as the gateway logs them.")
-                : translate("No lines match the current filters.")}
+                ? translate("The harbor is quiet — the gateway has logged nothing yet. Lines will surface here the moment it speaks.")
+                : translate("No lines answer to the current filters — widen them and the tide returns.")}
             </p>
           ) : view === "raw" ? (
             <div className="space-y-px">
@@ -610,15 +530,15 @@ export default function ConsoleLogClient() {
                   >
                     <span
                       aria-hidden="true"
-                      className="w-10 shrink-0 select-none text-right text-3xs tabular-nums text-[var(--color-terminal-text)]/35"
+                      className="w-10 shrink-0 select-none text-right text-3xs tabular-nums text-[var(--color-terminal-text)]/55"
                     >
                       {entry.seq}
                     </span>
-                    <span className="shrink-0 text-[var(--color-terminal-text)]/55">{entry.time}</span>
+                    <span className="shrink-0 text-[var(--color-terminal-text)]/65">{entry.time}</span>
                     <span className={cn("w-[46px] shrink-0 font-semibold", meta.term)}>{entry.level}</span>
                     <span className={cn("min-w-0 flex-1", wrap ? "break-all whitespace-pre-wrap" : "whitespace-pre")}>
                       {(entry.tags || []).length > 0 && (
-                        <span className="mr-1.5 text-[var(--color-terminal-text)]/45">
+                        <span className="mr-1.5 text-[var(--color-terminal-text)]/55">
                           {(entry.tags || []).map((t) => `[${t}]`).join("")}
                         </span>
                       )}
@@ -630,12 +550,11 @@ export default function ConsoleLogClient() {
             </div>
           )}
         </div>
-
         {!atBottom && (
           <button
             type="button"
             onClick={jumpToTail}
-            className="absolute bottom-4 right-4 inline-flex items-center gap-1.5 rounded-full border border-brand-500/50 bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-[var(--shadow-warm)]"
+            className="absolute bottom-4 right-4 inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-brand-500/50 bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-[var(--shadow-warm)]"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-base">
               arrow_downward
@@ -644,7 +563,6 @@ export default function ConsoleLogClient() {
           </button>
         )}
       </div>
-
       {/* ── Entry inspector ────────────────────────────────────────────── */}
       <Drawer
         isOpen={Boolean(selected)}
@@ -671,13 +589,12 @@ export default function ConsoleLogClient() {
                     setTagFilter(tag);
                     setSelectedId(null);
                   }}
-                  className="rounded-[8px] border border-border bg-surface-2 px-2 py-0.5 font-mono text-2xs text-text-muted hover:text-text-main"
+                  className="min-h-[26px] rounded-[8px] border border-border-strong bg-surface-2 px-2 py-0.5 font-mono text-2xs text-text-muted hover:text-text-main"
                 >
                   {tag}
                 </button>
               ))}
             </div>
-
             <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {[
                 { label: translate("Time"), value: selected.time, mono: true },
@@ -693,7 +610,6 @@ export default function ConsoleLogClient() {
                 </div>
               ))}
             </dl>
-
             <div>
               <p className="mb-1.5 text-2xs font-semibold uppercase tracking-wider text-text-subtle">
                 {translate("Message")}
@@ -702,7 +618,6 @@ export default function ConsoleLogClient() {
                 {selected.message}
               </pre>
             </div>
-
             {selected.raw && selected.raw !== selected.message && (
               <div>
                 <p className="mb-1.5 text-2xs font-semibold uppercase tracking-wider text-text-subtle">
@@ -713,7 +628,6 @@ export default function ConsoleLogClient() {
                 </pre>
               </div>
             )}
-
             <div className="flex items-center gap-2">
               <Button size="sm" variant="outline" icon="content_copy" onClick={() => copyEntry(selected)}>
                 {translate("Copy entry")}
@@ -725,6 +639,6 @@ export default function ConsoleLogClient() {
           </div>
         )}
       </Drawer>
-    </PageShell>
+    </div>
   );
 }

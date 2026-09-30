@@ -1,6 +1,7 @@
-// Request Logs page — the full request ledger (System category).
-import RequestLogs from "./RequestLogs";
+// Log Harbor — the gateway's own record, three streams in one room
+// (System category). The active stream lives in ?tab=console|container|requests.
+import LogHarbor from "./LogHarbor";
 
 export default function LogsPage() {
-  return <RequestLogs />;
+  return <LogHarbor />;
 }
