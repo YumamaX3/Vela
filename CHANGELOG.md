@@ -32,6 +32,21 @@ compliant form of the same number.
 
 ---
 
+# v1.0.53 — The Tidied Rig 🔧
+
+> *"A rig that litters the deck is not a rig; it is drift waiting to be
+> tripped over. One line in the chart, and the deck is clear."* 🧹💜
+
+### 🔧 What changed
+- `.gitignore` gains `.blast-radius/` — `tests/blast-radius.sh`'s own output
+  directory (pristine/`--dry`/tide name-lists, all regenerable) no longer
+  litters `git status`. No runtime artifact touched; no image content change.
+
+### 🧪 Proof
+- `docker-compose-pin` 4/4 (both charts sail 1.0.53 with the package version).
+- `npm run build` untouched by this tide (no source, no dependency change).
+
+---
 # v1.0.52 — The Truthful Instruments 🌊
 
 > *"The Mirror refused to flatter: three of the four 'obvious' costs were

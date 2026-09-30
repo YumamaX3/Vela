@@ -100,3 +100,6 @@ plans/
 scripts/*
 !scripts/sync-changelog.mjs
 !scripts/copy-standalone-assets.mjs
+
+# the blast-radius rig writes its name-lists here (regenerable output, never source)
+.blast-radius/
