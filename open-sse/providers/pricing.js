@@ -234,6 +234,14 @@ export const MODEL_PRICING = {
   "claude-opus-4-7":              { input: 5.00,  output: 25.00, cached: 0.50,  reasoning: 25.00,  cache_creation: 6.25  },
   "claude-opus-4-8":              { input: 5.00,  output: 25.00, cached: 0.50,  reasoning: 25.00,  cache_creation: 6.25  },
   "claude-sonnet-5":              { input: 2.00,  output: 10.00, cached: 0.20,  reasoning: 10.00,  cache_creation: 2.50  },
+  // === Anthropic (additions) === [2026-09-30 platform.claude.com/docs/en/build-with-claude/prompt-caching — verified live]
+  // Read-multiplier exceptions: Fable 5.1 / Mythos 5.1 cache hits at 0.025x,
+  // Opus 5.5 at 0.05x; all other models stay 0.1x. 1h writes = 2x base input
+  // everywhere — derived in calculateCostFromTokens, never a sixth rate field.
+  "claude-fable-5.1":             { input: 10.00, output: 50.00, cached: 0.25,  reasoning: 50.00,  cache_creation: 12.50 },
+  "claude-mythos-5.1":            { input: 10.00, output: 50.00, cached: 0.25,  reasoning: 50.00,  cache_creation: 12.50 },
+  "claude-opus-5.5":              { input: 4.00,  output: 20.00, cached: 0.20,  reasoning: 20.00,  cache_creation: 5.00  },
+  "claude-sonnet-5.5":            { input: 2.00,  output: 10.00, cached: 0.20,  reasoning: 10.00,  cache_creation: 2.50  },
 
   // === Perplexity === [2026-08-15 models.dev/api.json]
   "sonar":                        { input: 1.00,  output: 1.00 },
@@ -932,6 +940,13 @@ export function calculateCostFromTokens(tokens, pricing) {
   const inputTokens = tokens.prompt_tokens || tokens.input_tokens || 0;
   const cachedTokens = tokens.cached_tokens || tokens.cache_read_input_tokens || 0;
   const cacheCreationTokens = tokens.cache_creation_input_tokens || 0;
+  // TTL split (Anthropic): the 1h write premium rides the canonical object as a
+  // flat field, flattened from usage.cache_creation.ephemeral_1h_input_tokens by
+  // the extractors. 1h = 2x base input (documented for every Claude model);
+  // 5m keeps the stored cache_creation rate (1.25x). Derived here, never a
+  // sixth field; clamped to the total so a pathological split cannot overcharge.
+  const cacheCreation1h = Math.min(tokens.cache_creation_1h_input_tokens || 0, cacheCreationTokens);
+  const cacheCreation5m = cacheCreationTokens - cacheCreation1h;
   // prompt_tokens is cache-inclusive (see canonicalizeUsage): cached + cache_creation
   // are subsets, so subtract both to avoid charging them at the full input rate.
   const nonCachedInput = Math.max(0, inputTokens - cachedTokens - cacheCreationTokens);
@@ -951,7 +966,13 @@ export function calculateCostFromTokens(tokens, pricing) {
   }
 
   if (cacheCreationTokens > 0) {
-    cost += cacheCreationTokens * ((pricing.cache_creation || pricing.input) / 1000000);
+    // 5m writes: the stored cache_creation rate (1.25x). 1h writes: 2x base
+    // input — documented for every Claude model, derived here so the table
+    // keeps its five fields (open-sse/AGENTS.md rate-field law).
+    cost += cacheCreation5m * ((pricing.cache_creation || pricing.input) / 1000000);
+    if (cacheCreation1h > 0) {
+      cost += cacheCreation1h * ((2 * pricing.input) / 1000000);
+    }
   }
 
   return cost;

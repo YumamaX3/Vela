@@ -30,7 +30,8 @@ export function extractUsageFromResponse(responseBody) {
       prompt_tokens: responseBody.usage.input_tokens || 0,
       completion_tokens: responseBody.usage.output_tokens || 0,
       cache_read_input_tokens: responseBody.usage.cache_read_input_tokens,
-      cache_creation_input_tokens: responseBody.usage.cache_creation_input_tokens
+      cache_creation_input_tokens: responseBody.usage.cache_creation_input_tokens,
+      cache_creation_1h_input_tokens: responseBody.usage.cache_creation?.ephemeral_1h_input_tokens
     };
   }
 

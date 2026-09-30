@@ -1,3 +1,54 @@
+# v1.0.61 — The Two Tides of the Cache 🌊
+> *"Anthropic keeps its writes in two tides — the quick one and the long one —
+> and the harbor charged both at the quick one's rate. Now the ledger knows
+> which water each token waited in."* 💜
+### 🐛 What this mends
+**Cache-write pricing was undercharging every 1h-TTL write.** Anthropic prompt
+caching carries two write tiers — 5m at 1.25x base input (the stored
+`cache_creation` rate) and **1h at 2x base input** (verified live 2026-09-30
+against platform.claude.com prompt-caching docs). Every 1h write was priced
+at the 5m rate: a Fable-5.1 request writing 500 tokens for 1h was billed
+$0.00625 where the truth is $0.01. The 1h count rides the upstream
+`usage.cache_creation.ephemeral_1h_input_tokens` field, which every capture
+seam dropped.
+**Seven seams now carry the split:**
+- `pricing.js` — `calculateCostFromTokens` decomposes the write: 5m portion at
+  the stored rate, 1h portion at derived 2x input (never a sixth rate field,
+  per open-sse/AGENTS.md). Clamped defensively against a pathological
+  1h > total.
+- `usageTracking.js` — `normalizeUsage` flattens the nested shape into a flat
+  `cache_creation_1h_input_tokens`; `canonicalizeUsage` carries it (only when
+  present, so legacy rows stay byte-identical); and the **fold guard**: the
+  streaming translator leaves `state.usage` as a hybrid (inclusive
+  `prompt_tokens` beside exclusive `input_tokens`), which the fold branch
+  counted twice — prompt inflated to 560 where the truth was 330. It now
+  folds from the exclusive count when present. This second wound sat beneath
+  the first.
+- `requestDetail.js` — `extractUsageFromResponse` carries flat + nested 1h
+  from non-streamed Claude bodies.
+- `claude-to-openai.js` — message_start/message_delta capture the 1h field
+  with merge fallbacks, so streamed requests keep the split across
+  start→delta.
+**Pricing table grows four verified rows:** `claude-fable-5.1`,
+`claude-mythos-5.1` (reads at 0.025x input), `claude-opus-5.5` (reads at
+0.05x), `claude-sonnet-5.5` (standard 0.1x) — each entry traced to the same
+vendor table.
+### 🔒 Honest boundaries
+Client-facing usage NEVER carries the split (the field is filtered out of
+every client format); the ledger keeps it. The idempotency law holds:
+canonicalize twice, same shape.
+**Proof**: `tests/unit/cache-ttl-pricing.test.js` — 18 cases, mutation-proven
+(killing the 1h charge reddens exactly the 4 cost cases; reverting the fold
+guard reddens exactly the hybrid case; disabling the flatten reddens exactly
+the 4 extraction cases); `cached-token-usage` 22 green; `pricing-covenant`
+27/27 green (its gitignored harvest fixture restored from git object
+886e300d); translator fleet 487 passed, and its 30 pre-existing failures
+proven byte-identical at pristine HEAD (blast-radius diff, not attributable);
+`npm run build` untouched seams; eslint exit 0 with `no-undef` over all five
+touched files; live node smoke: streamed fable-5.1 chain (extract → merge →
+canonicalize → cost) = $0.004015, matching hand-computed to 1e-12, legacy row
+cost unchanged. Version bump `1.0.60 → 1.0.61` (package.json, both charts,
+lockfile).
 # v1.0.60 — The Honest Comma 🌊
 > *"The Prism's gate read the harbor's words and found the wrong curve in
 > them — so I took the long dash out of the harbor's mouth and let the

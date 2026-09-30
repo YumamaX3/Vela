@@ -129,6 +129,11 @@ export function normalizeUsage(usage) {
   assignNumber("total_tokens", usage?.total_tokens);
   assignNumber("cache_read_input_tokens", usage?.cache_read_input_tokens);
   assignNumber("cache_creation_input_tokens", usage?.cache_creation_input_tokens);
+  // TTL split (Anthropic): flatten usage.cache_creation.{ephemeral_5m,ephemeral_1h}_input_tokens
+  // into a flat 1h field so any path through normalizeUsage carries the split.
+  // 5m stays the aggregate minus 1h — never a second flat field.
+  assignNumber("cache_creation_1h_input_tokens",
+    usage?.cache_creation_1h_input_tokens ?? usage?.cache_creation?.ephemeral_1h_input_tokens);
   assignNumber("cached_tokens", usage?.cached_tokens);
   assignNumber("reasoning_tokens", usage?.reasoning_tokens);
 
@@ -171,7 +176,8 @@ export function canonicalizeUsage(usage) {
   // (buildUsage()'s OpenAI-forwarding format) when the top-level field is
   // absent, so callers that pass a buildUsage() object through don't silently
   // drop cache_creation.
-  const cacheCreation = num(usage.cache_creation_input_tokens ?? usage.prompt_tokens_details?.cache_creation_tokens);
+  const cacheCreation1h = num(usage.cache_creation_1h_input_tokens);
+  const cacheCreation = num(usage.cache_creation_input_tokens ?? usage.prompt_tokens_details?.cache_creation_tokens) || cacheCreation1h;
 
   let prompt = num(usage.prompt_tokens ?? usage.input_tokens);
   let cached;
@@ -185,9 +191,17 @@ export function canonicalizeUsage(usage) {
   // sets that key (even to 0), so re-running canonicalizeUsage on an already-
   // folded result takes the passthrough branch instead of folding again.
   if (usage.cached_tokens === undefined &&
-      (usage.cache_read_input_tokens !== undefined || usage.cache_creation_input_tokens !== undefined)) {
+      (usage.cache_read_input_tokens !== undefined || usage.cache_creation_input_tokens !== undefined ||
+       usage.cache_creation_1h_input_tokens !== undefined)) {
     cached = num(usage.cache_read_input_tokens);
-    prompt = prompt + cached + cacheCreation;
+    // Hybrid guard: the streaming translator (claude-to-openai) leaves
+    // state.usage carrying BOTH spellings — prompt_tokens already inclusive
+    // (input + cache_read + cache_creation) and the exclusive input_tokens.
+    // Fold from the exclusive count when present so the cache subsets are not
+    // added a second time (inflated prompt_tokens = phantom full-price input
+    // plus write charges on tokens already inside the prompt).
+    const foldBase = usage.input_tokens !== undefined ? num(usage.input_tokens) : prompt;
+    prompt = foldBase + cached + cacheCreation;
   } else {
     // OpenAI/Gemini path (or already-canonical input): prompt already includes cached_tokens.
     // Mirror the cacheCreation fallback above: buildUsage() only ever emits the
@@ -197,6 +211,10 @@ export function canonicalizeUsage(usage) {
     cached = num(usage.cached_tokens ?? usage.prompt_tokens_details?.cached_tokens);
   }
 
+  // TTL split: clamp 1h to the total creation count (defensive against a
+  // pathological upstream) and carry it only when present, so the canonical
+  // shape of every legacy row stays byte-identical.
+  const oneH = Math.min(cacheCreation1h, cacheCreation);
   const result = {
     prompt_tokens: prompt,
     completion_tokens: completion,
@@ -206,6 +224,7 @@ export function canonicalizeUsage(usage) {
     cached_tokens: cached,
     cache_creation_input_tokens: cacheCreation,
   };
+  if (oneH > 0) result.cache_creation_1h_input_tokens = oneH;
   if (reasoning > 0) result.reasoning_tokens = reasoning;
   return result;
 }
@@ -249,7 +268,8 @@ export function extractUsage(chunk) {
       prompt_tokens: u.input_tokens || 0,
       completion_tokens: u.output_tokens || 0,
       cache_read_input_tokens: u.cache_read_input_tokens,
-      cache_creation_input_tokens: u.cache_creation_input_tokens
+      cache_creation_input_tokens: u.cache_creation_input_tokens,
+      cache_creation_1h_input_tokens: u.cache_creation?.ephemeral_1h_input_tokens
     });
   }
 
@@ -259,7 +279,8 @@ export function extractUsage(chunk) {
       prompt_tokens: chunk.usage.input_tokens || 0,
       completion_tokens: chunk.usage.output_tokens || 0,
       cache_read_input_tokens: chunk.usage.cache_read_input_tokens,
-      cache_creation_input_tokens: chunk.usage.cache_creation_input_tokens
+      cache_creation_input_tokens: chunk.usage.cache_creation_input_tokens,
+      cache_creation_1h_input_tokens: chunk.usage.cache_creation?.ephemeral_1h_input_tokens
     });
   }
 
