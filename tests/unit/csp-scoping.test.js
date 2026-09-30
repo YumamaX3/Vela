@@ -2,11 +2,15 @@
 //
 // The dashboard shipped for its whole life with NO Content-Security-Policy while a
 // comment claimed "the dashboard's React runtime owns its own CSP" — a protection
-// that did not exist. The 2026-09-30 mend adds a nonce'd policy in dashboardGuard,
-// scoped to DOCUMENT routes only. This suite pins that scoping as a contract:
+// that did not exist. The 2026-09-30 mend adds a policy in dashboardGuard, scoped
+// to DOCUMENT routes only. This suite pins that scoping as a contract:
 //
-//   • /dashboard/* and /login carry the CSP header (report-only until the browser
-//     walk flips the flag), with a fresh nonce forwarded to the document render;
+//   • /dashboard/* and /login carry the CSP header;
+//   • the policy is the CORRECTED posture (2026-09-30): script-src 'self'
+//     'unsafe-inline' — the v1.0.52 nonce+'strict-dynamic' variant blocked every
+//     script on the live box (18 scripts, 0 nonced) because the nonce rode a
+//     custom header nothing reads; this suite pins BOTH the scoping AND the
+//     absence of that broken shape;
 //   • the gateway prefixes (/v1, /v1beta, /codex, /responses, /api/v1, /api/v1beta)
 //     carry NO CSP of any kind — their clients are not browsers, and a CSP header
 //     on a proxied SSE stream is semantically wrong and operationally risky.
@@ -89,14 +93,14 @@ describe("dashboard CSP — document routes carry it, gateway paths never do", (
     expect(csp).toBeTruthy();
   });
 
-  it("forwards a fresh x-nonce to the document render", async () => {
-    const first = await proxy(edgeRequest("/dashboard"));
-    const second = await proxy(edgeRequest("/dashboard"));
-    const n1 = first.init?.request?.headers?.get("x-nonce");
-    const n2 = second.init?.request?.headers?.get("x-nonce");
-    expect(n1).toBeTruthy();
-    expect(n2).toBeTruthy();
-    expect(n1).not.toBe(n2); // a nonce is one-time by definition
+  it("carries the corrected script-src posture ('self' 'unsafe-inline', no nonce/strict-dynamic)", async () => {
+    const response = await proxy(edgeRequest("/dashboard"));
+    const csp = response.headers?.get?.("Content-Security-Policy") || "";
+    expect(csp).toContain("script-src 'self' 'unsafe-inline'");
+    // The v1.0.52 outage shape — a nonce without a stamping path executes nothing.
+    expect(csp).not.toContain("'strict-dynamic'");
+    expect(csp).not.toContain("'nonce-");
+    expect(csp).not.toContain("x-nonce");
   });
 
   it.each(["/v1/chat/completions", "/v1beta/models", "/codex/responses", "/responses", "/api/v1/chat/completions", "/api/v1beta"])(

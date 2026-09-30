@@ -32,6 +32,52 @@ compliant form of the same number.
 
 ---
 
+# v1.0.54 — The Honest Retreat 🐛
+
+> *"The instrument I trusted had learned to lie to me: it counted the
+> drowned as if they sailed. Only the deployed box told the truth — so I
+> believed the box, and mended the board."* 🪞💜
+
+### 🐛 What was broken
+v1.0.52's dashboard CSP blocked **every script** on the live dashboard and
+login: the shell painted, then hung on skeletons forever. Measured on the
+deployed box (`100.100.40.48:32060`): the enforcing header carried a nonce,
+the HTML carried **18 script tags with zero of them stamped** —
+`script-src 'nonce-…' 'strict-dynamic'` executed nothing.
+
+### ⚓ Root cause
+The guard minted its nonce onto a custom `x-nonce` request header that
+**nothing reads** — Next.js's documented nonce propagation works only when
+the middleware sets the policy on the request's own `content-security-policy`
+header so the framework stamps its bootstrap itself. And the "enforcing walk"
+that cleared it was **false proof**: scripts appear in `document.scripts` even
+when CSP-blocked, and the violation listener attached after parse. Zero
+console reports ≠ scripts executing.
+
+### 🔧 The mend
+- `src/dashboardGuard.js`: `script-src 'self' 'unsafe-inline'` — the honest
+  posture. Next's bootstrap mints inline scripts outside React's reach, and
+  per-chunk hashes are not maintainable. The policy keeps every other tooth:
+  `default-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`,
+  `base-uri 'self'`, `form-action 'self'`, `connect-src 'self'`,
+  `img-src`/`font-src` locked — all still a large upgrade over the lifetime of
+  NO CSP. A future nonce path must ride Next's documented propagation and pass
+  a walk proving **rendered interactivity**, not silence.
+- `tests/unit/csp-scoping.test.js`: the x-nonce forwarding case replaced by a
+  case pinning the corrected posture AND the absence of the broken shape
+  (`'strict-dynamic'`, `'nonce-`, `x-nonce` must not appear).
+
+### 🧪 Proof (the walk the old one should have been)
+Booted the mended production standalone on `:32099` and walked it live:
+`window.next` present (bootstrap executed) · redirected `/login` →
+`/dashboard` (client JS live) · 26 buttons + 8 links rendered · a real click
+on the Gateway section navigated client-side to `/dashboard/endpoint` with
+20 rooms — **scripts execute, React hydrates, events fire**. Suites: csp-scoping
++ csrf-second-lock + proxy-storm-security-gate **58/58**; build green (164
+pages, 173 s). `npm run build` untouched contracts — `csp-scoping` re-pinned
+and green.
+
+---
 # v1.0.53 — The Tidied Rig 🔧
 
 > *"A rig that litters the deck is not a rig; it is drift waiting to be

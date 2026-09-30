@@ -18,16 +18,30 @@ const CLI_TOKEN_SALT = "vela-cli-auth";
 // browsers, and a CSP header on an SSE stream is semantically wrong (asserted
 // by tests/contract/csp-scoping.test.js).
 //
-// Report-only first: CSP_REPORT_ONLY kept the header as
-// Content-Security-Policy-Report-Only until the browser walk proved the inline
-// inventory clean (2026-09-30: /dashboard + /login walked, 41 scripts executed,
-// zero violation reports — enforced the same tide). To re-open the report-only
-// phase for any future directive change, flip this flag back to true.
+// ⚠️ 2026-09-30 CORRECTION (the v1.0.52 CSP outage, found live): the nonce'd
+// policy shipped in v1.0.52 BLOCKED EVERY SCRIPT on the deployed dashboard and
+// login. Root cause, measured on the box: the guard minted a nonce and set it
+// on a custom `x-nonce` request header that nothing reads — Next.js's
+// documented nonce propagation expects the middleware/guard to set the
+// policy on the REQUEST's own content-security-policy header, and the framework
+// then stamps its bootstrap scripts itself. With zero nonce-bearing tags in
+// the HTML (18 scripts, 0 nonced — measured), 'strict-dynamic' + nonce
+// executed nothing: the shell painted, every script drowned, skeletons
+// forever. The earlier "enforcing walk passed" was FALSE proof — scripts
+// counted in document.scripts even when CSP-blocked; the listener attached
+// after parse. Honest retreat: script-src 'self' 'unsafe-inline' (Next's
+// bootstrap mints inline scripts outside React's reach; hashing every chunk
+// drift is not maintainable). The policy keeps its real teeth:
+// default-src/object-src 'self'/'none', frame-ancestors 'none', base-uri,
+// form-action, connect-src 'self', img/font locked — a large upgrade over the
+// NO CSP the dashboard shipped with for its whole life. A future nonce mend
+// must go through Next's documented propagation, then a LIVE walk proving
+// rendered interactivity (not just zero console reports).
 const CSP_REPORT_ONLY = false;
 const CSP_DOCUMENT_PREFIXES = ["/dashboard", "/login"];
-const DASHBOARD_CSP_DIRECTIVES = (nonce, isDev) => `
+const DASHBOARD_CSP_DIRECTIVES = (isDev) => `
   default-src 'self';
-  script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""};
+  script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""};
   style-src 'self' 'unsafe-inline';
   img-src 'self' blob: data:;
   font-src 'self' data:;
@@ -37,10 +51,12 @@ const DASHBOARD_CSP_DIRECTIVES = (nonce, isDev) => `
   form-action 'self';
   frame-ancestors 'none';
 `;
-// style-src keeps 'unsafe-inline' deliberately: styled-jsx and the theme/font
-// gate mint inline <style> blocks in ways a proxy-layer nonce cannot reach;
-// tightening is a follow-up once the report-only walk shows what remains.
-// script-src carries the real teeth (nonce + strict-dynamic) from day one.
+// style-src and script-src both carry 'unsafe-inline' deliberately (2026-09-30
+// correction): styled-jsx and the theme/font gate mint inline <style> blocks,
+// and Next's own bootstrap mints inline scripts outside React's reach — the
+// v1.0.52 nonce attempt proved no custom header can reach them. A future
+// nonce mend must ride Next's documented propagation, then pass a LIVE walk
+// proving rendered interactivity.
 
 function isDocumentRoute(pathname) {
   return CSP_DOCUMENT_PREFIXES.some(
@@ -49,17 +65,12 @@ function isDocumentRoute(pathname) {
 }
 
 function applyDashboardCsp(request) {
-  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const isDev = process.env.NODE_ENV === "development";
-  const policy = DASHBOARD_CSP_DIRECTIVES(nonce, isDev).replace(/\s{2,}/g, " ").trim();
+  const policy = DASHBOARD_CSP_DIRECTIVES(isDev).replace(/\s{2,}/g, " ").trim();
   const headerName = CSP_REPORT_ONLY
     ? "Content-Security-Policy-Report-Only"
     : "Content-Security-Policy";
-  // Forward the nonce to the document render so the root layout can stamp it
-  // onto inline scripts; the response carries the policy itself.
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-nonce", nonce);
-  const forwarded = NextResponse.next({ request: { headers: requestHeaders } });
+  const forwarded = NextResponse.next();
   forwarded.headers.set(headerName, policy);
   return forwarded;
 }
