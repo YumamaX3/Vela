@@ -291,7 +291,7 @@ export default function ContainerStream() {
           {filtered.length === 0 ? (
             <p className="p-2 text-[var(--color-terminal-text)]/70">
               {entries.length === 0
-                ? translate("Nothing raw has surfaced yet. This stream carries what the process itself prints — the parts the console never sees.")
+                ? translate("Nothing raw has surfaced yet. This stream carries what the process itself prints: the parts the console never sees.")
                 : translate("No raw lines answer to the current filters.")}
             </p>
           ) : (

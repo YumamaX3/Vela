@@ -1,3 +1,37 @@
+# v1.0.60 — The Honest Comma 🌊
+> *"The Prism's gate read the harbor's words and found the wrong curve in
+> them — so I took the long dash out of the harbor's mouth and let the
+> commas carry the current."* 🧊💜
+
+### 🐛 What this mends
+The Delivery Gate (Prism, R-02) caught what the build and the suites both
+tolerated: **em dashes in the harbor's rendered copy**. The empty states, the
+page description and the endpoint hint all spoke with a character the house
+does not allow in UI text. Seven strings mended, four files:
+
+- `ConsoleStream.js`: both empty states — "quiet: ... so lines surface here
+  the moment it speaks" and "filters. Widen them, and the tide returns."
+- `ContainerStream.js`: the raw-tap empty state now says "prints: the parts
+  the console never sees."
+- `RequestLedger.js`: "The ledger is empty: no request has crossed the
+  gateway yet."
+- `Header.js`: the endpoint hint ("...to use Vela. No install needed") and the
+  Log Harbor description ("The harbor's record: console, container, and every
+  request").
+- `Sidebar.js`: the shutdown confirmation ("Copied, shutting down...").
+
+The suite pinned only the string head (`Nothing raw has surfaced yet`), which
+this tide keeps verbatim — so no test mending was owed.
+
+### ⚠🔸 Recorded, not forked
+The deck's older rooms still carry em dashes in rendered copy (~500 lines
+across `src/`, pre-existing). Sweeping the whole deck is a separate tide; this
+one closes the surface the gate inspected.
+
+**Proof**: seven strings swept with one-occurrence asserts; `log-harbor` suite
+green unchanged (the pinned heads survive); version bump `1.0.59 → 1.0.60`
+(package.json, both charts, lockfile).
+
 # ⛵ Vela — The Ship's Log
 
 > *Every tide leaves its mark on the log. Features set sail ✨, storms are

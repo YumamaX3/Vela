@@ -492,8 +492,8 @@ export default function ConsoleStream() {
           {filtered.length === 0 ? (
             <p className="p-2 text-[var(--color-terminal-text)]/70">
               {entries.length === 0
-                ? translate("The harbor is quiet — the gateway has logged nothing yet. Lines will surface here the moment it speaks.")
-                : translate("No lines answer to the current filters — widen them and the tide returns.")}
+                ? translate("The harbor is quiet: the gateway has logged nothing yet, so lines surface here the moment it speaks.")
+                : translate("No lines answer to the current filters. Widen them, and the tide returns.")}
             </p>
           ) : view === "raw" ? (
             <div className="space-y-px">

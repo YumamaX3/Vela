@@ -171,7 +171,7 @@ export default function RequestLedger() {
                 <tr>
                   <td colSpan={7} className="px-3 py-12 text-center text-xs text-text-muted">
                     {lines.length === 0
-                      ? translate("The ledger is empty — no request has crossed the gateway yet.")
+                      ? translate("The ledger is empty: no request has crossed the gateway yet.")
                       : translate("No request answers to the current filters.")}
                   </td>
                 </tr>

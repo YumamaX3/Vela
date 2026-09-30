@@ -142,7 +142,7 @@ const getPageInfo = (pathname) => {
   if (pathname.includes("/skills"))
     return {
       title: "Agent Skills",
-      description: "Copy a link and paste to your AI to use Vela — no install needed",
+      description: "Copy a link and paste it to your AI to use Vela. No install needed",
       icon: "extension",
       breadcrumbs: [],
     };
@@ -170,7 +170,7 @@ const getPageInfo = (pathname) => {
   if (pathname.includes("/logs"))
     return {
       title: "Log Harbor",
-      description: "The harbor's record — console, container, and every request",
+      description: "The harbor's record: console, container, and every request",
       icon: "waves",
       breadcrumbs: [],
     };
