@@ -2,7 +2,6 @@ const http = require("http");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
-const { pathToFileURL } = require("url");
 
 const origCreate = http.createServer.bind(http);
 
@@ -30,9 +29,11 @@ const HOP_BY_HOP = new Set([
 
 // Response security headers applied to every response the gateway emits
 // (dashboard HTML, /v1 JSON/SSE, API routes). Only headers that are
-// universally safe for a proxied-API surface are set — a Content-Security-
-// Policy is deliberately NOT injected here: the dashboard's React runtime
-// owns its own CSP, and a gateway-wide CSP would break proxied SSE streams.
+// universally safe for a proxied-API surface are set here. CSP is NOT set
+// at the helm: the dashboard document CSP lives in src/dashboardGuard.js
+// (nonce'd, scoped to /dashboard + /login, added 2026-09-30) — the old claim
+// that "the dashboard's React runtime owns its own CSP" was false; nothing
+// set one until that tide.
 const SECURITY_HEADERS = {
   "x-content-type-options": "nosniff",
   "x-frame-options": "DENY",
@@ -55,38 +56,12 @@ const HEADERS_TIMEOUT_MS = 66_000;
 const PEER_TOKEN = crypto.randomBytes(24).toString("hex");
 process.env.VELA_PEER_TOKEN = PEER_TOKEN;
 
-let backgroundRefreshStarted = false;
-
-function startBackgroundTokenRefreshFromCustomServer() {
-  if (backgroundRefreshStarted) return;
-  backgroundRefreshStarted = true;
-  // Prefer source path (repo / standalone that still has src). Fail-open if missing
-  // — initializeApp also starts the same scheduler when the Next app boots.
-  const modPath = path.join(__dirname, "src", "sse", "services", "backgroundTokenRefresh.js");
-  import(pathToFileURL(modPath).href)
-    .then((m) => {
-      try {
-        m.startBackgroundTokenRefresh();
-      } catch (e) {
-        console.error("[BackgroundTokenRefresh] start failed:", e && e.message ? e.message : e);
-      }
-      const stop = () => {
-        try {
-          m.stopBackgroundTokenRefresh();
-        } catch {
-          /* ignore */
-        }
-      };
-      process.once("SIGINT", stop);
-      process.once("SIGTERM", stop);
-    })
-    .catch((e) => {
-      // Expected in published CLI standalone (src/ not on disk). App bootstrap covers it.
-      if (process.env.DEBUG_BACKGROUND_TOKEN_REFRESH) {
-        console.error("[BackgroundTokenRefresh] import failed:", e && e.message ? e.message : e);
-      }
-    });
-}
+// NOTE: the background token refresh scheduler is started by src/shared/services/
+// initializeApp.js (via bootstrap) when the Next app boots — the ONLY live start
+// path. An earlier fs-path import here never worked in ANY layout (the raw file’s
+// bare `open-sse/...` import cannot resolve from repo root or standalone) and was
+// removed 2026-09-30; the import failure was swallowed, making the old latch dead
+// weight that only pretended to be a second start path.
 
 // Wrap Next standalone HTTP server: derive client IP from the TCP socket
 // (unspoofable) and strip client-supplied forwarding headers so downstream
@@ -130,7 +105,8 @@ http.createServer = (...args) => {
   server.keepAliveTimeout = KEEPALIVE_TIMEOUT_MS;
   server.headersTimeout = HEADERS_TIMEOUT_MS;
   server.once("listening", () => {
-    startBackgroundTokenRefreshFromCustomServer();
+    // Background token refresh starts via initializeApp (bootstrap) — see the
+    // NOTE near the top of this file. Nothing else is owed on listening.
   });
 
   // Graceful drain: stop accepting new connections, let in-flight requests

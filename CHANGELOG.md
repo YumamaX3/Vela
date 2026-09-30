@@ -32,6 +32,133 @@ compliant form of the same number.
 
 ---
 
+# v1.0.52 — The Truthful Instruments 🌊
+
+> *"The Mirror refused to flatter: three of the four 'obvious' costs were
+> phantoms, and the truth underneath was sharper. The harbor now measures
+> before it claims, and every board it cut carries a number or a test."* 🪞💜
+
+### ⚓ The Story
+
+A full optimization design (RAM, CPU, stability, security) sailed through the
+Stillwater Mirror's ceremony, and its Tidebreaker REFUTED the opening frame:
+the "wasteful" stringify passes feed a live anti-billing guard; the "duplicate
+scheduler" never existed (one import path is dead in every layout); the "28
+unbounded caches" was a miscoun­ted 20 with 19 already bounded. What survived
+the refutation is this tide — every change carrying its own proof, every
+refusal recorded as a choice.
+
+The Star's decree, given during the design: **the 14 unreachable providers are
+activated in this tide** — the one sanctioned behavior change, executed under a
+live verifier on a pristine tree.
+
+### ✨ What changed
+
+**The registry debt, RESOLVED (111 → 125 dialable providers):**
+- `scripts/generate-registry-index.mjs` — the missing emitter, written fresh
+  (the lost `migrate-registry.mjs` was a schema-migrator, never an index
+  emitter). Deterministic: LC_ALL=C order, HIDDEN set (`trae`, `devin-cli`,
+  `windsurf`) kept as files-on-disk-but-unimported with the original comment.
+- `open-sse/providers/registry/index.js` regenerated: 149 → 163 imports.
+  All 14 dormant providers activated: `agentrouter`, `agentrouter-pro`,
+  `ai21`, `alibaba`, `alibaba-intl`, `databricks`, `devin-cli-pro`,
+  `muse-spark-lite`, `muse-spark-web`, `qwen`, `qwen-v2`, `snowflake`,
+  `zcode`, `zcode-lite` — verified openai-format with inline `models[]`
+  resolving through `PROVIDER_MODELS` (directly or via alias).
+- **The census suite** `tests/unit/provider-registry-census.test.js` (new):
+  every registry file on disk MUST be imported (or named HIDDEN), ids unique
+  and filename-equal, PROVIDERS map consistent both directions. Mutation-proven:
+  it went red on exactly the 14 before activation, green after.
+
+**A dashboard CSP, for the first time (`src/dashboardGuard.js`):**
+- The dashboard shipped its whole life with no Content-Security-Policy while a
+  comment claimed "the dashboard's React runtime owns its own CSP" — false.
+  The mend: a nonce'd policy (script-src nonce + strict-dynamic) scoped to
+  document routes only (`/dashboard`, `/login`). Report-only walked clean
+  (41 scripts executed, zero violation reports), then flipped to ENFORCING
+  the same tide; the walk re-run under enforcement: zero faults, shell and
+  fonts render, both shores.
+- **The gateway paths carry NO CSP** — `/v1`, `/v1beta`, `/codex`, `/responses`,
+  `/api/v1`, `/api/v1beta` asserted by `tests/unit/csp-scoping.test.js` (9
+  cases, mutation-proven to bite). SSE clients are not browsers; a CSP header
+  on a proxied stream is semantically wrong.
+- The false rationale comment in `custom-server.js` replaced with the truth.
+
+**The dead scheduler import, deleted (`custom-server.js`):**
+- The fs-path import of `backgroundTokenRefresh.js` failed in EVERY layout
+  (its own bare `open-sse/...` import cannot resolve from repo root or
+  standalone) and the failure was swallowed — a dead latch pretending to be a
+  second start path. Removed; the one live start path (initializeApp/bootstrap)
+  documented in its place. The h2c node:test suite's red at HEAD was proven
+  pre-existing by A/B before and after the cut.
+
+**The one uncapped cache, bounded (`open-sse/utils/proxyFetch.js`):**
+- `DNS_CACHE` — delete-on-expiry at read (was: skip-but-keep, a slow leak),
+  purge-expired on write, hard cap 200 with oldest-insertion eviction.
+  `tests/unit/dns-cache-bound.test.js` (new, 4 cases) pins the mechanisms.
+- The honest cache audit: 20 module-scope Map/Set declarations in the named
+  directories, 19 already bounded by MAX_*/TTL — the "28 unbounded" claim
+  retired.
+
+**The evidence rig (`tests/blast-radius.sh`, new):**
+- The repo has no green suite to claim, so the honest instrument is a
+  failing-test-NAME diff against a pristine-worktree capture. Pristine
+  baseline measured 2026-09-30 at HEAD `da333e2c`: **82 failing names**.
+  The rig refuses on modified tracked files, ignores its own output dir,
+  and strips durations (a duration difference is not drift).
+- The baseline law, refined by measurement: read per-FILE. Case-level variance
+  inside an already-failing file is order-dependent flake (proven:
+  `compatible-provider-connections.test.js` — 3 red / 1 red / 1 red across
+  three runs of the same tree). A NEW failing FILE is the real blast radius.
+
+**The chart, re-inked (`CLAUDE.md`):**
+- The registry debt block marked RESOLVED with the full story; the provider
+  arithmetic updated (166 = 163 imported + 3 hidden; 125 dialable); the
+  add-provider step now points at the emitter; the false "started by
+  custom-server.js AND initializeApp" claim corrected to the one live path.
+
+### 🔧 Measured, then refused (numbers recorded, defaults untouched)
+
+- **`preloadEntriesOnStart`**: boot RSS probe on the production standalone —
+  ON: 147 MB, OFF: 146 MB at rest. Next's own doc is right: the footprint
+  converges once pages are visited. Refusal recorded; flipping the flag buys
+  ~1 MB and charges TTFB on every room's first hit.
+- **The 32 MB body ceiling** (`proxyClientMaxBodySize`): exposure is
+  32 MB × in-flight non-GET requests, buffered before handlers run. Against
+  the compose 2 GB limit and 1024 MB heap: ~25 concurrent large uploads to
+  saturation. A documented tradeoff protecting handlers from unbounded
+  bodies; any default change is a separate decree.
+- **WAL pragmas**: verified executed by ALL FOUR adapters (better-sqlite3,
+  node:sqlite, bun:sqlite, sql.js) from the single `PRAGMA_SQL` source
+  (WAL, NORMAL, temp_store MEMORY, mmap 30 MB, cache −64000, foreign_keys,
+  busy_timeout 5000), with TRUNCATE checkpoints already wired. No change needed.
+
+### 🐛 Refusals (the mirror's honest "no")
+
+- Headroom diagnostics untouched: `isHeadroomPhantomSavings` consumes the
+  before/after sizes — a live anti-billing guard, not waste.
+- HSTS: inert without a TLS listener; follow-up gated on real TLS.
+- Process splitting, soak-rig-as-CI, catalog changes beyond reachability:
+  out of scope by the Star's tune-in-place word.
+
+### 🧪 Proof
+
+- `npm run build` green (164 pages, 267 s incl. postbuild copy).
+- Census 5/5 · CSP scoping 9/9 · DNS bound 4/4 · CSRF second lock +
+  proxy-storm security gate 49/49 · peer-trust 20/20 · docker guards 6/6.
+- Blast radius vs pristine: zero NEW failing files (the census's one
+  by-design red at M1 turned green at M3).
+- Live: `/dashboard` + `/login` carry enforcing CSP with fresh nonces;
+  `/v1`-family carries none; 125 providers in the runtime map; 14/14
+  activated providers dialable with models resolving.
+
+### ⚠️ Breaking
+
+- None for compliant clients. The 14 newly-activated providers are additive;
+  the CSP is new surface (enforcing on dashboard documents only — report-only
+  walk preceded enforcement); the deleted dead import had no observable
+  behavior in any layout.
+
 # v1.0.47 — The Single Column ⛵
 > *"The helm was two instruments answering one question. Now it is one column:
 > six headers whose open state IS the route, every room one motion away, and

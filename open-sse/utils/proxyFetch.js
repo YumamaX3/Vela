@@ -123,7 +123,13 @@ async function tryGotScrapingFetch(url, options) {
 }
 */
 
-// DNS cache — use Map to avoid prototype pollution via malformed hostnames
+// DNS cache — use Map to avoid prototype pollution via malformed hostnames.
+// Bounded (2026-09-30, the optimization tide): entries expire via TTL, but
+// expired entries were only skipped on read, never removed, so the map grew
+// monotonically with the (allowlist-gated) host set. Cap + purge-on-write
+// keeps the worst case at DNS_CACHE_MAX entries; the writer path purges
+// expired rows first so a hot cache prefers recency over insertion order.
+const DNS_CACHE_MAX = 200;
 const DNS_CACHE = new Map();
 const MITM_BYPASS_HOSTS = [
   "cloudcode-pa.googleapis.com",
@@ -236,7 +242,10 @@ function fenceEgressHeaders(headers) {
  */
 async function resolveRealIP(hostname) {
   const cached = DNS_CACHE.get(hostname);
-  if (cached && Date.now() < cached.expiry) return cached.ip;
+  if (cached) {
+    if (Date.now() < cached.expiry) return cached.ip;
+    DNS_CACHE.delete(hostname); // expired: remove, not just skip (the old leak)
+  }
 
   try {
     const dns = await import("dns");
@@ -245,6 +254,18 @@ async function resolveRealIP(hostname) {
     resolver.setServers(GOOGLE_DNS_SERVERS);
     const resolve4 = promisify(resolver.resolve4.bind(resolver));
     const addresses = await resolve4(hostname);
+    // Purge other expired entries first, then enforce the size cap (oldest
+    // insertion order evicted — Map preserves insertion order).
+    if (DNS_CACHE.size >= DNS_CACHE_MAX) {
+      const now = Date.now();
+      for (const [host, entry] of DNS_CACHE) {
+        if (now >= entry.expiry) DNS_CACHE.delete(host);
+      }
+      while (DNS_CACHE.size >= DNS_CACHE_MAX) {
+        const oldest = DNS_CACHE.keys().next().value;
+        DNS_CACHE.delete(oldest);
+      }
+    }
     DNS_CACHE.set(hostname, { ip: addresses[0], expiry: Date.now() + MEMORY_CONFIG.dnsCacheTtlMs });
     return addresses[0];
   } catch (error) {

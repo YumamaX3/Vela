@@ -8,6 +8,62 @@ import { timingSafeEqual } from "@/shared/utils/timingSafeEqual.js";
 const CLI_TOKEN_HEADER = "x-vela-cli-token";
 const CLI_TOKEN_SALT = "vela-cli-auth";
 
+// ─── CSP for dashboard documents (2026-09-30, the optimization tide's B2) ───
+// The dashboard (30 rooms, OAuth token minting, admin gates) shipped with NO
+// Content-Security-Policy at all; an old comment claimed "the dashboard's React
+// runtime owns its own CSP" — false (no headers(), no meta, no middleware ever
+// set one). This helper is the mend: a nonce'd policy scoped to DOCUMENT routes
+// only (dashboard rooms, /login). Gateway paths (/v1, /v1beta, /codex,
+// /responses, /api/v1*) never pass through here — their clients are not
+// browsers, and a CSP header on an SSE stream is semantically wrong (asserted
+// by tests/contract/csp-scoping.test.js).
+//
+// Report-only first: CSP_REPORT_ONLY kept the header as
+// Content-Security-Policy-Report-Only until the browser walk proved the inline
+// inventory clean (2026-09-30: /dashboard + /login walked, 41 scripts executed,
+// zero violation reports — enforced the same tide). To re-open the report-only
+// phase for any future directive change, flip this flag back to true.
+const CSP_REPORT_ONLY = false;
+const CSP_DOCUMENT_PREFIXES = ["/dashboard", "/login"];
+const DASHBOARD_CSP_DIRECTIVES = (nonce, isDev) => `
+  default-src 'self';
+  script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ""};
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' blob: data:;
+  font-src 'self' data:;
+  connect-src 'self';
+  object-src 'none';
+  base-uri 'self';
+  form-action 'self';
+  frame-ancestors 'none';
+`;
+// style-src keeps 'unsafe-inline' deliberately: styled-jsx and the theme/font
+// gate mint inline <style> blocks in ways a proxy-layer nonce cannot reach;
+// tightening is a follow-up once the report-only walk shows what remains.
+// script-src carries the real teeth (nonce + strict-dynamic) from day one.
+
+function isDocumentRoute(pathname) {
+  return CSP_DOCUMENT_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`)
+  );
+}
+
+function applyDashboardCsp(request) {
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const isDev = process.env.NODE_ENV === "development";
+  const policy = DASHBOARD_CSP_DIRECTIVES(nonce, isDev).replace(/\s{2,}/g, " ").trim();
+  const headerName = CSP_REPORT_ONLY
+    ? "Content-Security-Policy-Report-Only"
+    : "Content-Security-Policy";
+  // Forward the nonce to the document render so the root layout can stamp it
+  // onto inline scripts; the response carries the policy itself.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  const forwarded = NextResponse.next({ request: { headers: requestHeaders } });
+  forwarded.headers.set(headerName, policy);
+  return forwarded;
+}
+
 let cachedCliToken = null;
 async function getCliToken() {
   if (!cachedCliToken) cachedCliToken = await getConsistentMachineId(CLI_TOKEN_SALT);
@@ -537,14 +593,14 @@ export async function proxy(request) {
       // On error, keep defaults (require login, block tunnel)
     }
 
-    // If login not required, allow through
-    if (!requireLogin) return NextResponse.next();
+    // If login not required, allow through (with the dashboard CSP)
+    if (!requireLogin) return isDocumentRoute(pathname) ? applyDashboardCsp(request) : NextResponse.next();
 
     // Verify JWT token
     const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
     if (token) {
       if (await verifyDashboardAuthToken(token)) {
-        return NextResponse.next();
+        return applyDashboardCsp(request);
       } else {
         return NextResponse.redirect(new URL("/login", request.url));
       }
@@ -558,5 +614,8 @@ export async function proxy(request) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
+  // /login and every other document-bearing path falls through to here — the
+  // last seam the dashboard CSP must cover.
+  if (isDocumentRoute(pathname)) return applyDashboardCsp(request);
   return NextResponse.next();
 }

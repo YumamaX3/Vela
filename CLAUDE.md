@@ -12,7 +12,7 @@
 > node -e "import('./open-sse/providers/registry/index.js').then(m=>console.log(m.default.length))"  # 149 imported
 > node -e "import('./open-sse/providers/index.js').then(m=>console.log(Object.keys(m.PROVIDERS).length))"  # 111 dialable
 > ```
-> **14 of the 166 are unreachable** — see the registry debt below. The arithmetic closes like this: **166 − 14 = 152** import statements in the generated index, of which **three are commented out** (`trae`, `devin-cli`, `windsurf`) — so **149 modules load** and **111** of them carry a chat transport. Measured 2026-09-20 at v0.9.77, **re-confirmed unchanged at v0.9.89** (2026-09-23) and **again at v0.9.93** (2026-09-24 — 166 / 149 / 111, re-derived before this line's version was allowed to move); the figures before those (144 / 127 / 91) were measured 2026-09-04 and had drifted.
+> - **All 166 files accounted for as of 2026-09-30** (the registry debt is RESOLVED — see below). The arithmetic now closes like this: **166 files on disk = 163 imported** by the regenerated index **+ 3 hidden** (`trae`, `devin-cli`, `windsurf` — files on disk, deliberately unimported), and **125** of the 163 carry a chat transport. Re-derive by running the census suite: `npx vitest run -c tests/vitest.config.js tests/unit/provider-registry-census.test.js` — it asserts the property mechanically.
 
 - **Language**: Node.js + Next.js (App Router, standalone output)
 - **Runtime**: Node 22+ (the image pins `node:22-alpine`). ⚠️ There is **no `engines` field** in `package.json`, and `≥ 22.5` is **not** a hard floor — it is the threshold at which the driver chain offers the zero-install `node:sqlite` (`driver.js:34`: `if (maj < 22 || (maj === 22 && min < 5)) return null`). Below it the chain still works via `better-sqlite3`, and last via pure-JS `sql.js`. Bun compatible.
@@ -130,7 +130,7 @@ Six files, all verified present: `dashboardSession.js`, `loginLimiter.js`, `logi
 ### OAuth & Tokens
 
 - **`src/lib/oauth/`** — provider OAuth flows.
-- **`src/sse/services/tokenRefresh.js` + `backgroundTokenRefresh.js`** — the background scheduler; started by `custom-server.js` AND `initializeApp` (idempotent).
+- **`src/sse/services/tokenRefresh.js` + `backgroundTokenRefresh.js`** — the background scheduler; started by `initializeApp` (bootstrap) — the ONLY live start path. The earlier `custom-server.js` fs-path import never worked in any layout and was removed 2026-09-30 (its failure was swallowed, so the old “started by AND” claim was false).
 
 ### The Headroom Sidecar (`src/lib/headroom/`)
 
@@ -151,28 +151,19 @@ Six files, all verified present: `dashboardSession.js`, `loginLimiter.js`, `logi
 - **Adding a provider**: copy an existing simple entry (e.g. `openai.js`), add models to `config/providerModels.js`; add an executor only for non-OpenAI-compatible upstreams.
 - **`executors/` lives at `open-sse/executors/`, NOT under `providers/`** — **30 files** = 27 specialized per-upstream executors + `base.js` (`BaseExecutor`) + `default.js` (`DefaultExecutor`) + `index.js` (the map). OpenAI-compatible providers share `default.js`. (This chart once listed it under the Providers heading; the path there holds 0 files.)
 
-> 🐛 **THE REGISTRY DEBT (found 2026-09-04, NOT yet fixed).** The generator
-> `scripts/migrate-registry.mjs` (and `injectDisplayToRegistry.mjs`) **no longer
-> exists** — `scripts/` now holds `copy-standalone-assets.mjs`,
-> `sync-changelog.mjs`, `i18n-seed-literals.mjs`, `subset-icons.py`,
-> `icon-ligatures.txt` and `icon-subset-manifest.json`; the two registry
-> generators are absent. They were untracked by `b88fabfc` ("gitignore scripts/
-> too — keep on disk") and are now gone from disk as well; the blob survives only
-> at `b88fabfc~1:scripts/migrate-registry.mjs` (9,303 bytes, recoverable).
->
-> Consequence: **14 committed provider files are absent from the generated index
-> and therefore unreachable** — `agentrouter`, `agentrouter-pro`, `ai21`,
+> ✅ **THE REGISTRY DEBT (found 2026-09-04) — RESOLVED 2026-09-30, by the Star's
+> decree.** The old generator (`migrate-registry.mjs`) was a schema-migrator, not
+> an index-emitter; the index had drifted so 14 committed provider files sat
+> unreachable. The mend: `scripts/generate-registry-index.mjs` — a fresh,
+> deterministic emitter (LC_ALL=C order; HIDDEN = `trae`/`devin-cli`/`windsurf`
+> kept as files-on-disk-but-unimported), the index regenerated (149 -> 163
+> imports), all 14 activated (`agentrouter`, `agentrouter-pro`, `ai21`,
 > `alibaba`, `alibaba-intl`, `databricks`, `devin-cli-pro`, `muse-spark-lite`,
-> `muse-spark-web`, `qwen`, `qwen-v2`, `snowflake`, `zcode`, `zcode-lite`. All
-> committed 2026-08-22, all carrying ordinary `id:` entries with **no exclusion
-> marker**, so this reads as drift from a stale index, not a deliberate cull.
-> Three more are commented out in the index: `trae`, `devin-cli`, `windsurf`.
->
-> ⚠️ **Fixing this means regenerating the index — a behavior change that makes 14
-> providers live at once.** That is the Star's decree, not a drive-by: it needs the
-> generator restored from `b88fabfc~1`, a regen, and a model-catalog check per
-> provider. Recorded here so the next keeper measures before trusting any
-> "provider count", and so the gap is never re-derived by memory.
+> `muse-spark-web`, `qwen`, `qwen-v2`, `snowflake`, `zcode`, `zcode-lite` —
+> all openai-format with inline `models[]`). Dialable count 111 -> 125. The
+> census suite `tests/unit/provider-registry-census.test.js` now enforces
+> disk == index as a property (mutation-proven), so this debt class cannot
+> silently recur.
 
 ### RTK Token Saver (`open-sse/rtk/`)
 
@@ -200,7 +191,7 @@ The custom Node server that wraps Next's standalone output. **Do not weaken it**
 - **Hop-by-hop hygiene** — strips the RFC 7230 §6.1 set (`connection`, `keep-alive`, `proxy-authenticate`, `proxy-authorization`, `te`, `trailer`, `transfer-encoding`, `upgrade`) from client headers.
 - **h2c upgrade** — JBR 25 sends h2c; the server downgrades it to HTTP/1.1 with a **512mb body guard**.
 - **Graceful drain** — SIGTERM/SIGINT → `server.close()` → bounded drain (10s) → exit.
-- **Background token refresh** — starts `backgroundTokenRefresh.js` on `listening` (idempotent; fail-open if `src/` absent).
+- **Background token refresh** — starts via `initializeApp` (bootstrap), not from this server. An earlier import here never resolved (removed 2026-09-30); the scheduler’s own `started` latch keeps it idempotent.
 - **Main-path guard** — `require.main === module` loads `server.js` if present, else delegates to `next start`.
 
 ---
@@ -492,7 +483,7 @@ node custom-server.js   # production server (IP stamp + h2c + drain)
 ### Add a provider
 1. Copy an existing simple registry entry (e.g. `open-sse/providers/registry/openai.js`) → `open-sse/providers/registry/<slug>.js`
 2. Add models to `open-sse/config/providerModels.js`
-3. Regenerate `registry/index.js` — ⚠️ **the generator `scripts/migrate-registry.mjs` is MISSING** (see the registry debt under Providers). Until it is restored from `b88fabfc~1`, a new provider file will sit on disk but NOT be imported, so it is unreachable at runtime. **This is exactly how the 14-provider gap happened — do not add a provider without first confirming it lands in `index.js`.**
+3. Regenerate `registry/index.js` — run `node scripts/generate-registry-index.mjs` (the deterministic emitter, landed 2026-09-30; `--dry` to preview). It reads the directory, keeps the HIDDEN set out, and writes the index. The census suite fails if a file on disk is not imported — trust the suite.
 4. Add an executor only if the upstream is NOT OpenAI-compatible
 
 ### Add a migration
