@@ -1,3 +1,66 @@
+# v1.0.62 — The Silent Glyphs 🔤
+
+> *"Four icons stood in the inventory's blind spots and painted their own names
+> where their faces should be — and every icon in a Card tile rode three pixels
+> high on the font's own tall water. The inventory now sees all shapes, and the
+> tiles hold their glyphs dead center."* 💜
+
+### 🐛 What this mends
+
+**Four glyphs rendered as giant raw ligature text** because their names were
+absent from `scripts/icon-ligatures.txt` — the pruned subset font carries no
+GSUB rule for a name it never listed, so the browser painted the literal
+string instead of the icon:
+
+- `insights` (Usage masthead) — painted "INSIGHTS" as a 336px watermark
+- `add_box` (Add New Provider masthead)
+- `wrong_location` (both not-found pages) — painted a 336px raw-text banner
+  above "No shore at this address"
+- `inbox` (`RoomState`'s default empty-state icon — caught by the
+  `icon-subset` guard, not by any scan)
+
+**The scan gaps that let them through** (recorded so they stay closed): the
+five-shape scan regexes missed (a) child-text spans whose glyph name sits on a
+*different source line* than `material-symbols-outlined`, and (b) default
+parameter values (`icon = "inbox"`). Two further candidates the broad ternary
+regex surfaced — `dock` and `resume` — are prop/API strings, never glyphs;
+they are included anyway at ~600 bytes each for future-proofing. The inventory
+grows 250 → **256**; the subset font re-mints as
+`vela-icons.9cceb50f6a90525d.woff2` (194,564 bytes) with the `@font-face` URL
+following the content hash.
+
+**Card.js icon tiles sat their glyphs 3px high.** The tile was a plain
+`p-2` block while the icon font's vertical metrics (hhea ascent 1056 /
+descent −96 on a 960 upm) push glyph ink high in the line box — measured
+40×46 boxes with the glyph at `dy 8` where center demands 11. The mend adopts
+PageShell's masthead-tile pattern exactly: `flex size-10 items-center
+justify-center` + `leading-none`, giving measured 40×40 with the glyph dead
+center on every Card icon across the deck.
+
+### 🔬 Method note — how the exonerations were proven
+
+Glyph-name reconstruction from the GSUB table is unreliable: `pyftsubset`
+renames glyphs (`inventory_2` → `uniE1A1`), so joined-text matching reports
+false absences. Two `inventory_2` suspicions were exonerated by a shaper
+simulation (walking the subset GSUB rules against the cmap-mapped letter
+sequence); `insights`, `add_box`, and `wrong_location` were confirmed truly
+absent by codepoint probe (`0xf092`, `0xe146`, `0xef78` not in the old
+subset's cmap) and confirmed present in the new one.
+
+### ✅ Proof
+
+- `tests/unit/icon-subset.test.js` green (its "no src icon literal falls
+  outside the inventory" case is what caught `inbox`) · `globals-css-tokens`
+  + `docker-compose-pin` green — **3 files / 45 cases**
+- `python scripts/subset-icons.py --check` — manifest ≡ inventory ≡ font,
+  256 icons
+- Live walk on :32060: Usage masthead paints the real `insights` glyph
+  (24px, centered); all five Card tiles measure 40×40 with `off:false`;
+  Add New Provider paints `add_box`; both 404 shores paint `wrong_location`
+  at 24px; a 17-room sweep found zero raw-ligature renders
+- `npm run build` green
+
+
 # v1.0.61 — The Two Tides of the Cache 🌊
 > *"Anthropic keeps its writes in two tides — the quick one and the long one —
 > and the harbor charged both at the quick one's rate. Now the ledger knows

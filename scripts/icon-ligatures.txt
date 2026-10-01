@@ -1,6 +1,7 @@
 account_circle
 account_tree
 add
+add_box
 add_link
 air
 all_inclusive
@@ -26,8 +27,8 @@ blur_on
 bolt
 brush
 business
-cancel
 call_merge
+cancel
 cast
 change_history
 chat
@@ -66,6 +67,7 @@ devices
 diamond
 directions_boat
 dns
+dock
 done
 download
 download_done
@@ -101,8 +103,10 @@ http
 hub
 image
 image_search
+inbox
 info
 input
+insights
 inventory_2
 key
 keyboard_arrow_down
@@ -173,6 +177,7 @@ remove
 restart_alt
 restaurant
 restore
+resume
 rocket_launch
 route
 router
@@ -248,3 +253,4 @@ wifi
 wifi_off
 wifi_tethering
 wrap_text
+wrong_location

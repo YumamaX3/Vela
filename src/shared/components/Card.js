@@ -37,8 +37,8 @@ export default function Card({
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             {icon && (
-              <div className="p-2 rounded-[10px] bg-bg text-text-muted">
-                <span className="material-symbols-outlined text-xl">{icon}</span>
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-bg text-text-muted">
+                <span className="material-symbols-outlined text-xl leading-none">{icon}</span>
               </div>
             )}
             <div>
