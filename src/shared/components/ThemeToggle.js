@@ -30,6 +30,7 @@ export default function ThemeToggle({ className, variant = "default" }) {
       title={`Switch to ${isDark ? "light" : "dark"} mode`}
     >
       <span
+        aria-hidden="true"
         className={cn(
           "material-symbols-outlined text-[22px]",
           variant === "card" && "motion-control group-hover:rotate-12"

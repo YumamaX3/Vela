@@ -1,3 +1,72 @@
+# v1.0.67 — The Living Gate 🌊
+> *"The harbor gate was honest but inert — a starfield that twinkled and a card
+> that sat still. Now the water itself lives: a full-viewport tide of merging
+> goo beneath the glass, fields that glow beneath the text as focus arrives,
+> and a CTA that swells like a drop of mercury. The gate keeps every key it
+> ever held — it simply breathes now."* 💜
+
+### ✨ What this sails
+**Full redesign of `/login` — the Mercury tide**, fused with the Shores'
+harbor identity under the sealed plan
+`2026-10-02-vela-login-mercury-tide.md` (Tidebreaker-refuted, Star-sealed at
+Gate 18, counsel dissent recorded).
+
+**The living water**: a full-viewport ambient stage — a `filter: url(#vela-goo)`
+SVG goo layer of seeded, merging blobs over the chart/aurora/horizon/starfield
+stack — decorative only, `aria-hidden`, and governed by the tide's one hard
+line: **no SVG filter is ever placed on, or under, an interactive element**
+(the Tidebreaker's A2 finding, disposed by mounting the drop on the CTA's own
+`::before` instead of a filtered ancestor).
+
+**The fields glow beneath the text**: a `.login-glow` span mounts inside the
+password field's existing relative wrapper (and `DeviceLabelField`'s own local
+berth) — first child, so it paints below the absolutely-positioned eye button
+and above the static input; zero DOM nodes moved, so the entrance stagger
+(`.login-stagger > :nth-child()`) sees exactly what it saw before.
+
+**The mercury drop CTA**: the submit button swells on hover via its own
+`::before` + `transform: scale` — no wrapper, no filter, `:focus-visible`
+untouched.
+
+**Both shores re-inked**: the `--login-*` DTCG ledger
+(`docs/design/login-tokens.dtcg.json`) re-derived with corrected grounds —
+notably `--login-field-border` **split per shore** (light `#6B7B87` 3.93:1 /
+dark `#7E8A9C` on the dark fill), and the CTA pair re-measured at **7.87:1**
+rest / **10.72:1** hover.
+
+### 🔤 The Silent Glyphs, completed on the gate
+The a11y walk found three more voices the ligature law had never reached:
+`login/page.js`'s six feature/eye/warn/lockout/crest spans,
+`ThemeToggle.js`'s mode glyph, and — the one the gate itself exposed live —
+`Input.js`'s **error slot** (`"error Invalid password"` → now reads
+`"Invalid password"`), each blinded with `aria-hidden="true"` only where the
+visible text beside it already carries the name (the Button.js law since
+v1.0.59). `Input.js`'s leading `icon` span is a recorded condition, not
+swept: it renders no name of its own on any current surface.
+
+### 🛡️ Proofs
+- **New guard**: `tests/unit/login-contrast.test.js` computes every
+  `--login-*` pair from the CSS and asserts the WCAG floors (text ≥ 4.5,
+  non-text ≥ 3.0) — the first contrast guard in the repo that computes, not
+  transcribes.
+- **Suites**: `login-contrast` + `globals-css-tokens` + `deck-motion` +
+  `docker-compose-pin` → **4 files / 92 cases green**; the four suites pinning
+  `Input`'s markup → **60 cases green**; `eslint` exit 0 on all three touched
+  sources.
+- **Build**: `npm run build` green (108s).
+- **Live walk**: recognized caller → `/dashboard`; wrong password → error +
+  ligature-free a11y tree (`leak: false`); reduced motion freezes the tide and
+  clamps every delay; 375px viewport carries no horizontal overflow; focus
+  paints solid + ring; frame cost measured on a named host (p50 10.1ms · p95
+  20.2ms · one 654ms first-compile task outside the idle window) and the
+  event-loop A/B (59.9 vs 71.0 ms/req) reads as noise.
+- **Delivery Gate**: all four blocks PASS, evidence recorded per line.
+
+### 📖 Honest scope
+Labels are English-first; the i18n seeder is absent at HEAD, so no
+machine-translation into the 34 locales sails with this tide.
+The goo's frame cost on low-power hardware is the Star's own accepted risk,
+measured and gated, with the fallback ladder documented in the plan.
 # v1.0.62 — The Silent Glyphs 🔤
 
 > *"Four icons stood in the inventory's blind spots and painted their own names

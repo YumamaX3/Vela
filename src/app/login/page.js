@@ -29,6 +29,23 @@ const STAR_LAYERS = [
   { cls: "layer-2", stars: seededStars(2, 32) },
   { cls: "layer-3", stars: seededStars(3, 18) },
 ];
+// ── The tide — the gate's water ────────────────────────────────────────
+// Six blobs, seeded at module scope exactly as the starfield is: the array is
+// built once per process, so the server and the client pour the same water.
+// (The only hydration hazard would be call-order divergence, and module scope
+// removes it.) Geometry lives inline; the animation is declared in CSS, so the
+// inline-animation count in globals-css-tokens.test.js stays put.
+function seededBlobs(seed, count) {
+  const rnd = mulberry32(seed * 104729);
+  return Array.from({ length: count }, (_, i) => ({
+    cls: i % 2 ? "tide-b" : "tide-a",
+    left: (-10 + rnd() * 110).toFixed(2),
+    top: (-8 + rnd() * 116).toFixed(2),
+    size: Math.round(220 + rnd() * 320),
+    delay: (rnd() * 12).toFixed(2),
+  }));
+}
+const TIDE_BLOBS = seededBlobs(11, 6);
 
 // ── The Vela constellation — the sail of the great ship ────────────────────
 // Positions in % of the constellation box; γ Vel is the sail's brightest.
@@ -53,17 +70,24 @@ const LOCK_MAX_ATTEMPTS = 5; // mirrors loginLimiter MAX_FAILS_BEFORE_LOCK
 const DEVICE_LABEL_MAX = 120;
 
 function DeviceLabelField({ value, onChange }) {
+  // The glow span is the wrapper's FIRST child on purpose: a positioned
+  // sibling paints above the static <input> (so the underline is visible over
+  // the fill) and below anything that follows it (so the eye button keeps the
+  // top layer). Positioned siblings paint in DOM order — plan §3.2.
   return (
-    <Input
-      id="deviceLabel"
-      label="Device name"
-      hint="Optional. Recorded with this session in the ledger so your devices can be told apart."
-      placeholder="e.g. Ryzen NAS, Chrome"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      maxLength={DEVICE_LABEL_MAX}
-      autoComplete="off"
-    />
+    <div className="relative">
+      <span className="login-glow" aria-hidden="true" />
+      <Input
+        id="deviceLabel"
+        label="Device name"
+        hint="Optional. Recorded with this session in the ledger so your devices can be told apart."
+        placeholder="e.g. Ryzen NAS, Chrome"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        maxLength={DEVICE_LABEL_MAX}
+        autoComplete="off"
+      />
+    </div>
   );
 }
 
@@ -269,6 +293,30 @@ export default function LoginPage() {
           All decorative and aria-hidden; every animation is declared in CSS so
           the reduced-motion cap reaches it and the inline-animation count
           stays put (globals-css-tokens.test.js). */}
+      {/* The tide — the gate's water. Decorative only: nothing focusable,
+          clickable or readable is ever a descendant of the filtered stage. */}
+      <svg className="login-svg-defs" aria-hidden="true">
+        <filter id="vela-goo" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="18" result="blur" />
+          <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9" result="goo" />
+          <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+        </filter>
+      </svg>
+      <div className="login-tide" aria-hidden="true">
+        {TIDE_BLOBS.map((b, i) => (
+          <span
+            key={i}
+            className={`login-tide-blob ${b.cls}`}
+            style={{
+              left: `${b.left}%`,
+              top: `${b.top}%`,
+              width: b.size,
+              height: b.size,
+              animationDelay: `${b.delay}s`,
+            }}
+          />
+        ))}
+      </div>
       <div className="login-chart" aria-hidden="true" />
       <div className="login-aurora" aria-hidden="true" />
       <div className="login-horizon" aria-hidden="true" />
@@ -351,7 +399,7 @@ export default function LoginPage() {
                 { icon: "monitoring", text: "Live usage, tokens, and spend per key" },
               ].map((f) => (
                 <div key={f.icon} className="flex items-center gap-3 text-text-muted">
-                  <span className="material-symbols-outlined login-feature-icon text-lg">{f.icon}</span>
+                  <span className="material-symbols-outlined login-feature-icon text-lg" aria-hidden="true">{f.icon}</span>
                   {f.text}
                 </div>
               ))}
@@ -445,6 +493,7 @@ export default function LoginPage() {
                           )}
                         </div>
                         <div className="relative">
+                          <span className="login-glow" aria-hidden="true" />
                           <Input
                             id="password"
                             type={showPassword ? "text" : "password"}
@@ -466,21 +515,21 @@ export default function LoginPage() {
                             aria-label={showPassword ? "Hide password" : "Show password"}
                             title={showPassword ? "Hide password" : "Show password"}
                           >
-                            <span className="material-symbols-outlined text-lg">
+                            <span className="material-symbols-outlined text-lg" aria-hidden="true">
                               {showPassword ? "visibility_off" : "visibility"}
                             </span>
                           </button>
                         </div>
                         {capsLockOn && (
                           <p className="login-warn text-xs flex items-center gap-1">
-                            <span className="material-symbols-outlined text-sm">keyboard_capslock</span>
+                            <span className="material-symbols-outlined text-sm" aria-hidden="true">keyboard_capslock</span>
                             Caps Lock is on
                           </p>
                         )}
                         {retryAfter > 0 && (
                           <div className="login-error flex flex-col gap-2 rounded-lg bg-red-500/10 border border-red-500/30 p-3">
                             <p className="login-error-text text-xs flex items-center gap-1.5">
-                              <span className="material-symbols-outlined text-sm">lock_clock</span>
+                              <span className="material-symbols-outlined text-sm" aria-hidden="true">lock_clock</span>
                               Locked. Retry in <span className="font-mono font-semibold">{retryAfter}s</span>.
                             </p>
                             {lockTotal > 0 && (
@@ -517,7 +566,7 @@ export default function LoginPage() {
                       <div className="flex flex-col gap-1.5 mt-1">
                         {hasPassword === false && (
                           <p className="login-warn text-xs text-center flex items-center justify-center gap-1">
-                            <span className="material-symbols-outlined text-sm">warning</span>
+                            <span className="material-symbols-outlined text-sm" aria-hidden="true">warning</span>
                             Security risk: no password set. Remote access stays locked until one is set (Profile → Security).
                           </p>
                         )}
@@ -557,7 +606,7 @@ export default function LoginPage() {
           <span className="ring" />
           <span className="ring" style={{ animationDelay: "0.4s" }} />
           <div className="relative flex flex-col items-center gap-3">
-            <span className="material-symbols-outlined text-[56px] text-brand-400">verified</span>
+            <span className="material-symbols-outlined text-[56px] text-brand-400" aria-hidden="true">verified</span>
             <p className="text-sm text-text-muted">Entering the harbor…</p>
           </div>
         </div>

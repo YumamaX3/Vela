@@ -66,7 +66,8 @@ export default function Input({
       </div>
       {error && (
         <p className="text-xs text-red-500 flex items-center gap-1">
-          <span className="material-symbols-outlined text-sm">error</span>
+          {/* Decorative — the message text beside it carries the name. */}
+          <span className="material-symbols-outlined text-sm" aria-hidden="true">error</span>
           {error}
         </p>
       )}

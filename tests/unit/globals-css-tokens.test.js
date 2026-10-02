@@ -268,7 +268,17 @@ describe("prefers-reduced-motion is no longer scoped to the login page", () => {
   it("the login-page animations it already covered are unchanged in kind", () => {
     // The old scope was `.login-page *`. These four were the ones it reached; naming
     // them keeps the "newly covered" list above honest about what is actually new.
-    for (const anim of ["login-drift", "login-twinkle", "login-crest-pulse", "login-ring-out"]) {
+    // The tide's two drift keyframes joined on 2026-10-02 (the Mercury tide).
+    // They are login-page animations, so they belong in THIS group and not in
+    // NEWLY_COVERED, which is the set the widening newly reaches.
+    for (const anim of [
+      "login-drift",
+      "login-twinkle",
+      "login-crest-pulse",
+      "login-ring-out",
+      "login-tide-a",
+      "login-tide-b",
+    ]) {
       expect(CSS_CODE, `@keyframes ${anim} missing`).toContain(`@keyframes ${anim}`);
     }
   });

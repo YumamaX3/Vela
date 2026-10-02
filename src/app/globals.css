@@ -1324,25 +1324,33 @@ button:disabled,
   isolation: isolate;
   /* The login token ledger. Every colour decision below cites one of these
      paths, never a hex, so a rebrand is a one-line edit and the contrast
-     reasons survive it. */
-  --login-cta: #174BB0;           /* white CTA text 7.87:1 (brand-700) */
-  --login-cta-hover: #12388A;     /* white CTA text 10.74:1 (brand-800) */
-  --login-field-border: #6B7B87;  /* 3.90:1 vs field fill (SC 1.4.11 floor 3:1) */
-  --login-footer: var(--color-text-muted); /* light 4.65:1, dark 6.86:1 on the page */
-  --login-focus-ring: #2E7CF6;    /* light: 3.52:1 vs field fill, 3.75:1 vs page */
-  --login-placeholder: #5A6472;   /* light: 5.36:1 vs field fill (SC 1.4.3 floor 4.5) */
-  --login-eyebrow: #174BB0;       /* light: 7.87:1 on the card */
-  --login-feature-icon: #1F69DD;  /* light: 5.07:1 on the card (icon floor 3:1) */
-  --login-warn: #b45309;          /* light: amber-700, 4.98:1 on the card */
-  --login-error-text: #b91c1c;    /* light: red-700, 6.41:1 on the card */
+     reasons survive it.
+     Every ratio below is COMPUTED, not remembered: tests/unit/login-contrast
+     .test.js re-derives each one from this file and turns red if a comment
+     disagrees with the arithmetic. Each number names the ground it holds
+     against, because the same token measures differently on the page, on the
+     card and on a field fill.
+     Grounds: page #F7F8FA light / #121D30 dark · card #F7F8FA / #1A2842 ·
+     field fill #F1F3F7 / #20304E. */
+  --login-cta: #174BB0;           /* white CTA label 7.87:1 */
+  --login-cta-hover: #12388A;     /* white CTA label 10.72:1 */
+  --login-field-border: #6B7B87;  /* light field boundary 3.93:1 vs the field fill #F1F3F7 (SC 1.4.11 floor 3:1) */
+  --login-footer: var(--color-text-muted); /* over the page: 5.65:1 light, 6.55:1 dark */
+  --login-focus-ring: #2E7CF6;    /* light focus indicator 3.55:1 vs the field fill */
+  --login-placeholder: #5A6472;   /* light placeholder copy 5.40:1 vs the field fill */
+  --login-eyebrow: #174BB0;       /* light eyebrow over the page 7.40:1 */
+  --login-feature-icon: #1F69DD;  /* light feature glyph over the page 4.79:1 (icon floor 3:1) */
+  --login-warn: #b45309;          /* light lockout copy on the card 4.73:1 */
+  --login-error-text: #b91c1c;    /* light error copy on the card 6.09:1 */
 }
 .dark .login-page {
-  --login-focus-ring: #4FA8FF;    /* dark: 6.35:1 vs field fill, 8.0:1 vs page */
-  --login-placeholder: #9ca3af;   /* dark: 5.20:1 vs field fill */
-  --login-eyebrow: #4FA8FF;       /* dark: 5.66:1 on the card */
-  --login-feature-icon: #8FD3FF;  /* dark: ~9:1 on the card (icon floor 3:1) */
-  --login-warn: #fbbf24;          /* dark: 9.76:1 on the card */
-  --login-error-text: #f87171;    /* dark: 6.03:1 on the card */
+  --login-field-border: #7E8A9C;  /* dark field boundary 3.77:1 vs the field fill #20304E - the light grey measured 3.02, one rounding from the floor */
+  --login-focus-ring: #4FA8FF;    /* dark focus indicator 5.25:1 vs the field fill */
+  --login-placeholder: #9ca3af;   /* dark placeholder copy 5.19:1 vs the field fill */
+  --login-eyebrow: #4FA8FF;       /* dark eyebrow over the page 6.73:1 */
+  --login-feature-icon: #8FD3FF;  /* dark feature glyph over the page 10.39:1 */
+  --login-warn: #fbbf24;          /* dark lockout copy on the card 8.82:1 */
+  --login-error-text: #f87171;    /* dark error copy on the card 5.32:1 */
 }
 /* Night-sky tint over the theme background. The cool radial is desaturated
    slate — the sky itself, not a second brand hue — and replaces an earlier
@@ -1394,6 +1402,62 @@ html:not(.dark) .login-page::before {
     radial-gradient(ellipse 42% 32% at 22% 26%, rgba(46, 124, 246, 0.17), transparent 70%),
     radial-gradient(ellipse 40% 30% at 80% 72%, rgba(120, 140, 180, 0.15), transparent 70%);
   animation: login-aurora-drift 26s ease-in-out infinite alternate;
+}
+/* ── The tide — the gate's water ─────────────────────────────────────────
+   Six seeded blobs merged by one goo filter into a single liquid silhouette.
+   The filter lives on a DECORATIVE layer ONLY: no control, no text and no
+   focus ring is ever a descendant of it. That boundary is this design's own
+   law (plan §3.1): a `filter: url()` whose reference does not resolve removes
+   the element and its subtree from rendering — on a call-to-action that would
+   be an unreachable gate — and one that does resolve sends every glyph edge
+   through an alpha threshold. Background water only. */
+.login-svg-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  /* NOT display:none: a display-none filter definition does not resolve in
+     every engine, and here that failure would be a blank stage. */
+}
+.login-tide {
+  /* `fixed`, matching .login-chart / .login-aurora / .login-horizon: the tide
+     rides the viewport, not the page box, so it never depends on the page's
+     own height and can never become a band. */
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  filter: url(#vela-goo);
+  /* The tide's opacity is a CONTRAST decision, not a mood. 0.50 dark /
+     0.35 light is the shallowest depth at which the worst-case composite
+     still clears the floors: computed at the brightest gradient stop
+     (brand-300 #8FD3FF) over the page ground, text-muted falls to a
+     3.48:1 LOWER BOUND dark / 2.99:1 light — bounds because the true
+     ground is the gradient's average, not its brightest stop. At the old
+     0.38/0.25 depth those bounds were 2.48 / 2.18, under every floor. */
+  opacity: 0.5;
+}
+html:not(.dark) .login-tide { opacity: 0.35; }
+.login-tide-blob {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-brand-300), var(--color-brand-500) 55%, var(--color-brand-900));
+  will-change: transform;
+  /* Transform and opacity only, so the compositor moves the cached filter
+     result instead of re-running the blur chain per blob. */
+  animation: login-tide-a calc(var(--motion-dur-drift) * 1.6) ease-in-out infinite alternate;
+}
+.login-tide-blob.tide-b {
+  animation-name: login-tide-b;
+  animation-duration: calc(var(--motion-dur-drift) * 1.9);
+}
+@keyframes login-tide-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(7%, -6%, 0) scale(1.14); }
+}
+@keyframes login-tide-b {
+  from { transform: translate3d(0, 0, 0) scale(1.06); }
+  to { transform: translate3d(-6%, 7%, 0) scale(0.94); }
 }
 @keyframes login-aurora-drift {
   from { transform: translate3d(-2%, 1%, 0) scale(1); }
@@ -1712,6 +1776,62 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
 }
 .login-page .btn-login:hover:not(:disabled) {
   background: var(--login-cta-hover);
+}
+/* ── The field glow — the underline that ignites ────────────────────────
+   An ADDITIVE flourish, not the focus indicator: the gate's indicator is the
+   2px --login-focus-ring outline below. It cites that same token, so the tide
+   mints no colour and the glow carries no contrast duty of its own; it rides
+   the field's bottom edge, brightest at its centre, and grows from the left as
+   the field takes focus. `:focus-within` on the wrapper is what fires it —
+   the same wrapper that holds the glow span (plan §3.2). */
+.login-glow {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, transparent, var(--login-focus-ring) 50%, transparent);
+  box-shadow: 0 0 12px -2px var(--login-focus-ring);
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    width var(--motion-dur-quick) var(--motion-ease-out),
+    opacity var(--motion-dur-quick) var(--motion-ease-out);
+}
+.login-page .relative:focus-within .login-glow {
+  width: 100%;
+  opacity: 1;
+}
+/* ── The gate's drop — the button swells ────────────────────────────────
+   No wrapper and no SVG filter on the control: the halo is the Button's own
+   ::before, so its label, its icon ligature and its focus ring are never
+   inside a filter (plan §3.3 — the refutation's A2). `isolation: isolate`
+   makes the button its own stacking context, which is what lets the halo ride
+   BEHIND the opaque fill and show only where it bleeds past the button's box:
+   the swell below and around the gate. A CSS blur function degrades by doing
+   nothing; it never removes the element. */
+.login-page .btn-login {
+  position: relative;
+  isolation: isolate;
+}
+.login-page .btn-login::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(135deg, var(--color-brand-300), var(--color-brand-500) 55%, var(--color-brand-700));
+  filter: blur(10px);
+  opacity: 0.45;
+  transition:
+    transform var(--motion-dur-base) var(--motion-ease-out),
+    opacity var(--motion-dur-base) var(--motion-ease-out);
+}
+.login-page .btn-login:hover:not(:disabled)::before,
+.login-page .btn-login:focus-visible::before {
+  transform: scale(1.03, 1.32);
+  opacity: 1;
 }
 .login-eyebrow { color: var(--login-eyebrow); }
 .login-feature-icon { color: var(--login-feature-icon); }

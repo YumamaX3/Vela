@@ -1,91 +1,101 @@
 {
-  "$description": "Login gate token ledger — the colours the login surface ships, in the Design Tokens Community Group format. Every token here is a CSS custom property declared on .login-page / .dark .login-page in src/app/globals.css. Each $description carries its measured WCAG ratio so the reason travels with the token. Ratios are computed, never rounded up; APCA Lc is advisory and reported alongside.",
+  "$description": "Login gate token ledger - the colours the login surface ships, in the Design Tokens Community Group format. Every token here is a CSS custom property declared on .login-page / .dark .login-page in src/app/globals.css. Each $description carries its measured WCAG ratio AND names the ground that ratio holds against, because the same token measures differently on the page sky, on the card and on a field fill. Ratios are computed, never rounded up, by tests/unit/login-contrast.test.js - which re-derives every one of them from the stylesheet and turns red the moment a comment here or in the CSS disagrees with the arithmetic. APCA is NOT reported: nothing in this repository computes it, and an unverified number in a ledger is worse than an absent one. CORRECTED 2026-10-02: this file still carried the coral-era retheme's residue - RGB components and ratios left over from the palette that preceded the shore-blue ground, sitting under blue hexes, disagreeing with the CSS comments and with the arithmetic. Every entry below was re-derived; the field border split per shore because one grey cannot clear the floor on both grounds.",
   "color": {
     "login": {
       "cta": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.7529, 0.3059, 0.1882], "alpha": 1, "hex": "#174BB0" },
-        "$description": "Primary CTA fill, both themes. White label text = 4.80:1 (SC 1.4.3 pass). Replaces brand-500 (#2E7CF6), which gave white text only 3.23:1 — a FAIL. APCA Lc -78."
+        "$value": { "colorSpace": "srgb", "components": [0.0902, 0.2941, 0.6902], "alpha": 1, "hex": "#174BB0" },
+        "$description": "Primary CTA fill, both themes (= brand-700). White label text = 7.87:1. Replaces brand-500 (#2E7CF6), which gave white text only 3.23:1 - a FAIL."
       },
       "cta-hover": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.6510, 0.2510, 0.1529], "alpha": 1, "hex": "#12388A" },
-        "$description": "CTA hover fill. White label text = 6.21:1. Deepens on hover, so the accent stays singular while the pressed state reads."
+        "$value": { "colorSpace": "srgb", "components": [0.0706, 0.2196, 0.5412], "alpha": 1, "hex": "#12388A" },
+        "$description": "CTA hover fill (= brand-800). White label text = 10.72:1. Deepens on hover, so the accent stays singular while the pressed state reads."
       },
-      "field-border": {
+      "field-border-light": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.5451, 0.5059, 0.4706], "alpha": 1, "hex": "#6B7B87" },
-        "$description": "Input boundary, both themes. 3.47:1 against the field fill (SC 1.4.11 floor 3:1). The shared Input's brand-tinted 40% border measured 1.19:1 — no perceptible edge."
+        "$value": { "colorSpace": "srgb", "components": [0.4196, 0.4824, 0.5294], "alpha": 1, "hex": "#6B7B87" },
+        "$description": "Light-theme input boundary. 3.93:1 against the light field fill #F1F3F7 (SC 1.4.11 floor 3:1). The shared Input's own border-strong measured 3.13:1 on that fill."
+      },
+      "field-border-dark": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.4941, 0.5412, 0.6118], "alpha": 1, "hex": "#7E8A9C" },
+        "$description": "Dark-theme input boundary. 3.77:1 against the dark field fill #20304E. A single shared grey could not hold: #6B7B87 measured 3.02:1 on this fill - one rounding from the floor - which is why the token is split per shore. (A single value cannot clear 3:1 on both grounds at once: the geometric optimum is ~3.44:1 on each, measured.)"
       },
       "focus-ring-light": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.7216, 0.2902, 0.1725], "alpha": 1, "hex": "#2E7CF6" },
-        "$description": "Light-theme focus indicator. 4.71:1 vs field fill, 4.98:1 vs page (SC 1.4.11 floor 3:1, SC 2.4.13 appearance). 2px outline, 2px offset."
+        "$value": { "colorSpace": "srgb", "components": [0.1804, 0.4863, 0.9647], "alpha": 1, "hex": "#2E7CF6" },
+        "$description": "Light-theme focus indicator (= brand-500). 3.55:1 vs the field fill #F1F3F7 (SC 1.4.11 floor 3:1, SC 2.4.13 appearance). 2px outline. Also the light stop of the field's focus glow."
       },
       "focus-ring-dark": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9333, 0.5529, 0.4157], "alpha": 1, "hex": "#4FA8FF" },
-        "$description": "Dark-theme focus indicator. 5.44:1 vs field fill, 7.17:1 vs page. APCA Lc -53."
+        "$value": { "colorSpace": "srgb", "components": [0.3098, 0.6588, 1], "alpha": 1, "hex": "#4FA8FF" },
+        "$description": "Dark-theme focus indicator (= brand-400). 5.25:1 vs the field fill #20304E - the previous comment claimed 6.35:1, overstated by 1.1. Also the dark stop of the field's focus glow."
       },
       "placeholder-light": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.4078, 0.4353, 0.4824], "alpha": 1, "hex": "#5A6472" },
-        "$description": "Light-theme placeholder. 4.61:1 vs field fill (SC 1.4.3 floor 4.5, placeholder text included)."
+        "$value": { "colorSpace": "srgb", "components": [0.3529, 0.3922, 0.4471], "alpha": 1, "hex": "#5A6472" },
+        "$description": "Light-theme placeholder. 5.40:1 vs the field fill #F1F3F7 (SC 1.4.3 floor 4.5; placeholder text is text)."
       },
       "placeholder-dark": {
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.6118, 0.6392, 0.6863], "alpha": 1, "hex": "#9ca3af" },
-        "$description": "Dark-theme placeholder. 5.20:1 vs field fill. APCA Lc -47."
+        "$description": "Dark-theme placeholder. 5.19:1 vs the field fill #20304E."
       },
       "eyebrow-light": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.6510, 0.2510, 0.1529], "alpha": 1, "hex": "#12388A" },
-        "$description": "Light-theme 'THE HARBOR GATE' eyebrow and feature icons. 6.16:1 on the card (icons are meaningful, floor 3:1)."
+        "$value": { "colorSpace": "srgb", "components": [0.0902, 0.2941, 0.6902], "alpha": 1, "hex": "#174BB0" },
+        "$description": "Light-theme 'THE HARBOR GATE' eyebrow (= brand-700). 7.40:1 over the page. NOTE the ground: the eyebrow sits in the column ABOVE the card, so the page sky is its ground - not the card, which the previous entry claimed (and it named #12388A, a hex the CSS never used for it)."
       },
       "eyebrow-dark": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9176, 0.4706, 0.3333], "alpha": 1, "hex": "#4FA8FF" },
-        "$description": "Dark-theme eyebrow. 5.48:1 on the card."
+        "$value": { "colorSpace": "srgb", "components": [0.3098, 0.6588, 1], "alpha": 1, "hex": "#4FA8FF" },
+        "$description": "Dark-theme eyebrow (= brand-400). 6.73:1 over the page (previous claim 5.48:1 / 5.66:1 - both measured on the wrong ground)."
+      },
+      "feature-icon-light": {
+        "$type": "color",
+        "$value": { "colorSpace": "srgb", "components": [0.1216, 0.4118, 0.8667], "alpha": 1, "hex": "#1F69DD" },
+        "$description": "Light-theme feature-list glyphs (= brand-600). 4.79:1 over the page (icons are meaningful, floor 3:1). Previously absent from this ledger entirely."
       },
       "feature-icon-dark": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9333, 0.5529, 0.4157], "alpha": 1, "hex": "#4FA8FF" },
-        "$description": "Dark-theme feature-list icons. 6.48:1 on the card. Replaces the brand-400/80 alpha form, whose 80% opacity dropped the icons toward the icon-contrast floor."
+        "$value": { "colorSpace": "srgb", "components": [0.5608, 0.8275, 1], "alpha": 1, "hex": "#8FD3FF" },
+        "$description": "Dark-theme feature-list glyphs (= brand-300, the crystal). 10.39:1 over the page. Replaces the brand-400/80 alpha form, whose 80% opacity dropped the icons toward the floor."
       },
       "warn-light": {
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.7059, 0.3255, 0.0353], "alpha": 1, "hex": "#b45309" },
-        "$description": "Light-theme warning copy (caps-lock, SSO incomplete, no-password risk). 4.98:1 on the card (SC 1.4.3 pass at 12px)."
+        "$description": "Light-theme warning copy (caps-lock, SSO incomplete, no-password risk). 4.73:1 on the card #F7F8FA (SC 1.4.3 pass at 12px)."
       },
       "warn-dark": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.9843, 0.7490, 0.1412], "alpha": 1, "hex": "#fbbf24" },
-        "$description": "Dark-theme warning copy. 9.76:1 on the card. APCA Lc -72."
+        "$value": { "colorSpace": "srgb", "components": [0.9843, 0.749, 0.1412], "alpha": 1, "hex": "#fbbf24" },
+        "$description": "Dark-theme warning copy. 8.82:1 on the card #1A2842."
       },
       "error-light": {
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.7255, 0.1098, 0.1098], "alpha": 1, "hex": "#b91c1c" },
-        "$description": "Light-theme error copy, including the shared Input's own error slot. 6.41:1 on the card. The shared component's text-red-500 measured 3.73:1 — a FAIL at 12px."
+        "$description": "Light-theme error copy, including the shared Input's own error slot. 6.09:1 on the card. The shared component's text-red-500 measured 3.73:1 - a FAIL at 12px."
       },
       "error-dark": {
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.9725, 0.4431, 0.4431], "alpha": 1, "hex": "#f87171" },
-        "$description": "Dark-theme error copy. 6.03:1 on the card. APCA Lc -47."
+        "$description": "Dark-theme error copy. 5.32:1 on the card #1A2842."
       },
       "footer": {
         "$type": "color",
-        "$value": { "colorSpace": "srgb", "components": [0.4196, 0.4471, 0.5020], "alpha": 1, "hex": "#6b7280" },
-        "$description": "Footer status line and constellation caption, 11px. Resolves to --color-text-muted: light 4.65:1 on the page, dark 6.86:1. Replaces --color-text-subtle, which gave 2.52:1 (light) and 3.37:1 (dark) — both FAIL at 11px."
+        "$value": { "colorSpace": "srgb", "components": [0.3529, 0.3922, 0.4471], "alpha": 1, "hex": "#5A6472" },
+        "$description": "Footer status line and constellation caption, 11px. An ALIAS: resolves to --color-text-muted - #5A6472 light, #98A2B3 dark. Light 5.65:1 over the page, dark 6.55:1. The previous entry named #6b7280, a grey the stylesheet does not use. Replaces --color-text-subtle, which gave 2.52:1 (light) and 3.37:1 (dark) - both FAIL at 11px."
       },
       "status-dot-light": {
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.0157, 0.4706, 0.3412], "alpha": 1, "hex": "#047857" },
-        "$description": "Light-theme gateway-status dot, 7px of pure non-text signal (SC 1.4.11, floor 3:1). Measures 5.27:1 on #FDFAF6. Replaces the shared --color-success (#10b981), which gave 2.44:1 — a FAIL. Scoped to the gate rather than darkened globally, so no success badge elsewhere in the dashboard is repainted for a login-page finding."
+        "$description": "Light-theme gateway-status dot, 7px of pure non-text signal (SC 1.4.11, floor 3:1). 5.16:1 on the light page #F7F8FA; 4.86:1 at the sky gradient's foot (#EAF2FC), the worst of its grounds. Replaces the shared --color-success (#10b981), which gave 2.44:1 - a FAIL. Scoped to the gate rather than darkened globally, so no success badge elsewhere in the dashboard is repainted for a login-page finding."
       },
       "status-dot-dark": {
         "$type": "color",
         "$value": { "colorSpace": "srgb", "components": [0.1333, 0.7725, 0.3686], "alpha": 1, "hex": "#22c55e" },
-        "$description": "Dark-theme gateway-status dot — the dark-theme --color-success, kept. NOTE the two greens differ: --color-success is declared twice (#10B981 light, #22c55e dark), and assuming one hex for both is exactly how a false ratio gets written. Its ground is NOT --color-bg either — the gate's ::before night-sky gradient is opaque and paints over the page, so the dot rides the gradient's own stops: 8.34:1 at the sky's crown (#101013), 7.92:1 at the footer (#16161a). Both clear the 3:1 floor."
+        "$description": "Dark-theme gateway-status dot - the dark-theme --color-success, kept. NOTE the two greens differ: --color-success is declared twice (#10B981 light, #22c55e dark), and assuming one hex for both is exactly how a false ratio gets written. Its ground is the gate's night sky: 7.41:1 on #121D30, 7.39:1 at the sky's crown (#0B1E33). Both clear the 3:1 floor."
       }
     }
   }
