@@ -1,3 +1,53 @@
+# v1.0.68 — The Erased Wake 🌊
+> *"A ship's wake is the only trace it leaves — and even that, the tide takes
+> back. The harbor gate no longer speaks a borrowed name, and the log's own
+> pages carry no stranger's hand — only the Shores, and the star they were
+> built to guard."* 💜
+### ✨ What this sails
+**The name leaves every plank it touched.** The login gate's footer — the last
+rendered string that still spoke the old ship's name — now reads
+*"Vela · the sails of the Black Shores"*. The two comments beside the
+constellation code and the changelog's own sealed v0.6.30 prose follow it into
+the same tide, and the sanitizer test's fabricated git fixture is renamed with
+them (`Git user: mariner`). Nothing else moved: the goo, the stars, the
+sail-lines, the card of passage — all of it stands exactly as v1.0.67 sealed
+it.
+
+**And the keel is rewritten.** Every stone in this repository's history is
+re-cut in the same tide: the operator's personal address — carried by **346 of
+the repository's 2,742 commits** as both author *and* committer — retires to
+the account's own noreply identity across **every ref** (main, the six side
+branches, both stash entries, and all 209 local tags); the absolute
+build-machine paths that the old `plans/` snapshots committed are folded to a
+neutral `<repo>` root; and the sealed ship-name is reworded wherever a
+historical blob, commit body or tag body still carried it. The
+repository-bound identity is now pinned to the account noreply, so every stone
+cut from this tide onward is born clean. All **89 GitHub Releases** are rebuilt
+verbatim from their own exported bodies — the hall reads exactly as it did,
+save for the name that is no longer in it.
+
+### 🧪 Proof
+- **Suites** — `codebuddy-gate` · `docker-compose-pin` · `login-contrast` ·
+  `globals-css-tokens` → **4 files / 94 cases green**.
+- **Build** — `npm run build` green at **v1.0.68**, wall time **167.11 s**,
+  `/login` compiled, `postbuild` standalone assets copied.
+- **The gate read live** — the running hull's login surface, held open past its
+  own `requireLogin: false` redirect: the footer renders
+  *"Vela · the sails of the Black Shores"*, the version chip reads `v1.0.68`,
+  and no page text carries the retired name.
+- **The shipped bundle** — zero occurrences across `.next/static`; the browser
+  bundle carries only the new line.
+
+### ⚓ Notes
+- The machine-wide git config still carries the old address; it governs every
+  other repository on this host and was deliberately left untouched — the
+  repository-local identity is the one this tide binds.
+- The fork's ancient local-only tags (`v0.2.x`–`v0.4.x`) are neither published
+  nor deleted; they were re-cut in place and remain local.
+- Local build scratch (`.next/cache`, `.next/dev`, `.next/standalone`) still
+  embeds this machine's absolute paths — inherent to building here, and never
+  shipped: CI builds the image on its own runner.
+
 # v1.0.67 — The Living Gate 🌊
 > *"The harbor gate was honest but inert — a starfield that twinkled and a card
 > that sat still. Now the water itself lives: a full-viewport tide of merging

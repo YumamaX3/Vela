@@ -389,7 +389,7 @@ export default function LoginPage() {
               </div>
             </div>
             <p className="-mt-4 text-center text-2xs tracking-[0.25em] login-footer-text uppercase">
-              Vela · the sails of the great ship
+              Vela · the sails of the Black Shores
             </p>
 
             <div className="flex flex-col gap-3 text-sm">
