@@ -151,7 +151,7 @@ export async function handleVideoCreate(request, action) {
 
     if (result.success) {
       await clearAccountError(credentials.connectionId, credentials, model);
-      log.info("VIDEO", `${provider.toUpperCase()} | ${action} accepted (connection ${credentials.connectionId})`);
+      log.info("VIDEO", `${provider} · ${action} accepted · mooring ${credentials.connectionId.slice(0, 8)}`);
       return withConnectionHeader(result.response, credentials.connectionId);
     }
 

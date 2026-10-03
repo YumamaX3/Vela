@@ -80,7 +80,7 @@ describe("handleChatCore Headroom diagnostics", () => {
 
     expect(log.warn).toHaveBeenCalledWith(
       "HEADROOM",
-      expect.stringContaining("skipped: request failed")
+      expect.stringContaining("stood down · request failed")
     );
     expect(log.warn).toHaveBeenCalledWith(
       "HEADROOM",
@@ -200,7 +200,7 @@ describe("handleChatCore Headroom diagnostics", () => {
       }),
     }));
     expect(JSON.stringify(executeMock.mock.calls[0][0].body)).not.toContain(original);
-    expect(log.info).toHaveBeenCalledWith("HEADROOM", expect.stringContaining("reported token delta=90 before=100 after=10"));
+    expect(log.info).toHaveBeenCalledWith("HEADROOM", expect.stringContaining("reported delta=90 before=100 after=10"));
     expect(log.info).toHaveBeenCalledWith("HEADROOM", expect.stringContaining("body="));
     expect(log.info).toHaveBeenCalledWith("HEADROOM", expect.stringContaining("messages="));
 
@@ -247,7 +247,7 @@ describe("handleChatCore Headroom diagnostics", () => {
 
     expect(log.warn).toHaveBeenCalledWith(
       "HEADROOM",
-      expect.stringContaining("reported token delta, but outbound JSON shrank <5%; provider may bill near-original payload")
+      expect.stringContaining("phantom combs — the wire shrank <5% though tokens moved; the provider may bill near-full size")
     );
   });
 

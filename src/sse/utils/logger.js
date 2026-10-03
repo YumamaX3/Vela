@@ -1,5 +1,7 @@
 // Logger utility for cloud
 
+import { fmtDur, fmtTok, kv } from "open-sse/utils/logfmt.js";
+
 const LOG_LEVELS = {
   DEBUG: 0,
   INFO: 1,
@@ -56,58 +58,42 @@ export function fmtThink(intent) {
   return null;
 }
 
-function formatData(data) {
-  if (!data) return "";
-  if (typeof data === "string") return data;
-  try {
-    return JSON.stringify(data);
-  } catch {
-    return String(data);
-  }
-}
 
 export function debug(tag, message, data) {
   if (LEVEL <= LOG_LEVELS.DEBUG) {
-    const dataStr = data ? ` ${formatData(data)}` : "";
-    console.log(`[${formatTime()}] 🔍 [${tag}] ${message}${dataStr}`);
+    console.log(`[${formatTime()}] 🔍 [${tag}] ${message}${kv(data)}`);
   }
 }
 
 export function info(tag, message, data) {
   if (LEVEL <= LOG_LEVELS.INFO) {
-    const dataStr = data ? ` ${formatData(data)}` : "";
-    console.log(`[${formatTime()}] ℹ️  [${tag}] ${message}${dataStr}`);
+    console.log(`[${formatTime()}] ℹ️  [${tag}] ${message}${kv(data)}`);
   }
 }
 
 export function warn(tag, message, data) {
   if (LEVEL <= LOG_LEVELS.WARN) {
-    const dataStr = data ? ` ${formatData(data)}` : "";
-    console.warn(`[${formatTime()}] ⚠️  [${tag}] ${message}${dataStr}`);
+    console.warn(`[${formatTime()}] ⚠️  [${tag}] ${message}${kv(data)}`);
   }
 }
 
 export function error(tag, message, data) {
   if (LEVEL <= LOG_LEVELS.ERROR) {
-    const dataStr = data ? ` ${formatData(data)}` : "";
-    console.log(`[${formatTime()}] ❌ [${tag}] ${message}${dataStr}`);
+    console.log(`[${formatTime()}] ❌ [${tag}] ${message}${kv(data)}`);
   }
 }
 
 export function request(method, path, extra) {
-  const dataStr = extra ? ` ${formatData(extra)}` : "";
-  console.log(`\x1b[36m[${formatTime()}] 📥 ${method} ${path}${dataStr}\x1b[0m`);
+  console.log(`\x1b[36m[${formatTime()}] 📥 arrive ${method} ${path}${kv(extra)}\x1b[0m`);
 }
 
 export function response(status, duration, extra) {
   const icon = status < 400 ? "📤" : "💥";
-  const dataStr = extra ? ` ${formatData(extra)}` : "";
-  console.log(`[${formatTime()}] ${icon} ${status} (${duration}ms)${dataStr}`);
+  console.log(`[${formatTime()}] ${icon} ${status} · ${fmtDur(duration)}${kv(extra)}`);
 }
 
 export function stream(event, data) {
-  const dataStr = data ? ` ${formatData(data)}` : "";
-  console.log(`[${formatTime()}] 🌊 [STREAM] ${event}${dataStr}`);
+  console.log(`[${formatTime()}] 🌊 [STREAM] ${event}${kv(data)}`);
 }
 
 // Mask sensitive data

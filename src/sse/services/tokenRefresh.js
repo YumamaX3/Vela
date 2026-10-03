@@ -83,7 +83,7 @@ export const shouldRefreshCredentials = (provider, credentials) =>
 export function releaseConnection(connectionId) {
   if (!connectionId) return;
   removeConnection(connectionId);
-  log.debug("TOKEN_REFRESH", "Released connection resources", { connectionId });
+  log.debug("TOKEN_REFRESH", "moorings released", { connectionId });
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
@@ -166,14 +166,14 @@ function _refreshProjectId(provider, connectionId, accessToken) {
     .then((projectId) => {
       if (!projectId) return;
       updateProviderCredentials(connectionId, { projectId }).catch((err) => {
-        log.debug("TOKEN_REFRESH", "Failed to persist refreshed projectId", {
+        log.debug("TOKEN_REFRESH", "could not stow the refreshed projectId", {
           connectionId,
           error: err?.message ?? err,
         });
       });
     })
     .catch((err) => {
-      log.debug("TOKEN_REFRESH", "Failed to fetch projectId after token refresh", {
+      log.debug("TOKEN_REFRESH", "projectId fetch sank after token refresh", {
         connectionId,
         error: err?.message ?? err,
       });
@@ -225,13 +225,13 @@ export async function updateProviderCredentials(connectionId, newCredentials) {
     if (newCredentials.projectId)            updates.projectId = newCredentials.projectId;
 
     const result = await updateProviderConnection(connectionId, updates);
-    log.info("TOKEN_REFRESH", "Credentials updated in localDb", {
+    log.info("TOKEN_REFRESH", "credentials stowed in the local harbor", {
       connectionId,
       success: !!result
     });
     return !!result;
   } catch (error) {
-    log.error("TOKEN_REFRESH", "Error updating credentials in localDb", {
+    log.error("TOKEN_REFRESH", "stowing credentials broke", {
       connectionId,
       error: error.message,
     });
@@ -265,7 +265,7 @@ export async function checkAndRefreshToken(provider, credentials, options = {}) 
     const remaining = expiresAt ? expiresAt - Date.now() : null;
     const refreshLead = _getRefreshLeadMs(provider);
 
-    log.info("TOKEN_REFRESH", "Refreshing provider credentials proactively", {
+    log.info("TOKEN_REFRESH", "renewing credentials ahead of the tide", {
       provider,
       expiresIn: remaining === null ? null : Math.round(remaining / 1000),
       refreshLeadMs: refreshLead,
@@ -279,7 +279,7 @@ export async function checkAndRefreshToken(provider, credentials, options = {}) 
       // scheduler can stop retrying and surface "re-login required". Only a
       // HARD auth failure tags; a transient error (network/5xx) returns null
       // here and stays retryable.
-      log.warn("TOKEN_REFRESH", `Refresh token unrecoverable for ${provider} — re-login required`, {
+      log.warn("TOKEN_REFRESH", `the refresh token is lost for ${provider} — re-login required`, {
         error: newCreds.error || newCreds.code || newCreds.status,
       });
       return {
@@ -330,7 +330,7 @@ export async function checkAndRefreshToken(provider, credentials, options = {}) 
     const remaining        = copilotExpiresAt - now;
 
     if (!copilotToken || remaining < TOKEN_EXPIRY_BUFFER_MS) {
-      log.info("TOKEN_REFRESH", "Copilot token expiring soon or missing, refreshing proactively", {
+      log.info("TOKEN_REFRESH", "copilot token near its ebb — renewing ahead of the tide", {
         provider,
         expiresIn: copilotToken ? Math.round(remaining / 1000) : "missing",
       });

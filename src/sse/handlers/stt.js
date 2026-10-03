@@ -42,7 +42,7 @@ export async function handleStt(request) {
   if (!modelInfo.provider) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");
 
   const { provider, model } = modelInfo;
-  log.info("ROUTING", `Provider: ${provider}, Model: ${model}`);
+  log.info("ROUTING", `${provider}/${model}`);
 
   // noAuth providers
   if (!CREDENTIALED_PROVIDERS.has(provider)) {
@@ -69,7 +69,7 @@ export async function handleStt(request) {
       return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable");
     }
 
-    log.info("AUTH", `\x1b[32mUsing ${provider} account: ${credentials.connectionName}\x1b[0m`);
+    log.info("AUTH", `\x1b[32mmoored at ${credentials.connectionName} (${provider})\x1b[0m`);
 
     const result = await handleSttCore({ provider, model, formData, credentials, sttConfig: AI_PROVIDERS[provider]?.sttConfig });
 

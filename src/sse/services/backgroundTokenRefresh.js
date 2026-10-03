@@ -96,7 +96,7 @@ async function refreshOne(connection) {
         refreshBlockedAt: result.refreshErrorAt,
       },
     });
-    log.warn("BG_TOKEN_REFRESH", "Refresh token unrecoverable — auto-refresh stopped, re-login required", {
+    log.warn("BG_TOKEN_REFRESH", "the refresh token is lost — the renewer stands down, re-login required", {
       id: connection.id,
       provider: connection.provider,
       error: result.refreshError,
@@ -111,7 +111,7 @@ async function refreshOne(connection) {
  */
 export async function runBackgroundTokenRefreshTick(deps = {}) {
   if (tickRunning) {
-    log.debug("BG_TOKEN_REFRESH", "Tick already running, skip");
+    log.debug("BG_TOKEN_REFRESH", "the round is already walking — skip");
     return;
   }
   tickRunning = true;
@@ -123,13 +123,13 @@ export async function runBackgroundTokenRefreshTick(deps = {}) {
     const due = selectConnectionsNeedingRefresh(connections, Date.now());
 
     if (due.length === 0) {
-      log.debug("BG_TOKEN_REFRESH", "No connections due for refresh", {
+      log.debug("BG_TOKEN_REFRESH", "no credentials due — the tide is quiet", {
         active: Array.isArray(connections) ? connections.length : 0,
       });
       return;
     }
 
-    log.info("BG_TOKEN_REFRESH", "Refreshing due OAuth connections", {
+    log.info("BG_TOKEN_REFRESH", "the renewer walks its rounds", {
       due: due.length,
       ids: due.map((c) => c.id).filter(Boolean),
     });
@@ -138,12 +138,12 @@ export async function runBackgroundTokenRefreshTick(deps = {}) {
       due.map(async (conn) => {
         try {
           await refresh(conn);
-          log.info("BG_TOKEN_REFRESH", "Connection refresh finished", {
+          log.info("BG_TOKEN_REFRESH", "one mooring renewed", {
             id: conn.id,
             provider: conn.provider,
           });
         } catch (err) {
-          log.warn("BG_TOKEN_REFRESH", "Connection refresh failed (swallowed)", {
+          log.warn("BG_TOKEN_REFRESH", "one renewal stumbled — swallowed, the round goes on", {
             id: conn?.id,
             provider: conn?.provider,
             error: err?.message ?? String(err),
@@ -152,7 +152,7 @@ export async function runBackgroundTokenRefreshTick(deps = {}) {
       })
     );
   } catch (err) {
-    log.warn("BG_TOKEN_REFRESH", "Tick failed (swallowed)", {
+    log.warn("BG_TOKEN_REFRESH", "the round itself broke — swallowed", {
       error: err?.message ?? String(err),
     });
   } finally {
@@ -168,7 +168,7 @@ export async function runBackgroundTokenRefreshTick(deps = {}) {
 export function startBackgroundTokenRefresh({ intervalMs } = {}) {
   if (started) return false;
   if (isTruthyEnv(process.env.DISABLE_BACKGROUND_TOKEN_REFRESH)) {
-    log.info("BG_TOKEN_REFRESH", "Disabled via DISABLE_BACKGROUND_TOKEN_REFRESH");
+    log.info("BG_TOKEN_REFRESH", "the renewer stands down by decree");
     return false;
   }
   if (isNonServerRuntime()) {

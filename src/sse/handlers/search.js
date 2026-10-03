@@ -26,7 +26,7 @@ export async function handleSearch(request) {
   try {
     body = await request.json();
   } catch {
-    log.warn("SEARCH", "Invalid JSON body");
+    log.warn("SEARCH", "the payload arrived waterlogged — invalid JSON");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid JSON body");
   }
 
@@ -42,7 +42,7 @@ export async function handleSearch(request) {
   if (apiKey) {
     log.debug("AUTH", `API Key: ${log.maskKey(apiKey)}`);
   } else {
-    log.debug("AUTH", "No API key provided (local mode)");
+    log.debug("AUTH", "no key at the gate · local mode");
   }
 
   // The gate — identity + scope in one stage pipeline (plan §3.4).
@@ -54,12 +54,12 @@ export async function handleSearch(request) {
   }
 
   if (!providerInput || typeof providerInput !== "string") {
-    log.warn("SEARCH", "Missing provider/model");
+    log.warn("SEARCH", "no provider named — turning the boat away");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: provider (or model)");
   }
 
   if (!query || typeof query !== "string" || !query.trim()) {
-    log.warn("SEARCH", "Missing query");
+    log.warn("SEARCH", "no query given — turning the boat away");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: query");
   }
 
@@ -70,7 +70,7 @@ export async function handleSearch(request) {
     const comboStrategies = settings.comboStrategies || {};
     const comboStrategy = comboStrategies[providerInput]?.fallbackStrategy || settings.comboStrategy || "fallback";
     const comboStickyLimit = settings.comboStickyRoundRobinLimit;
-    log.info("SEARCH", `Combo "${providerInput}" with ${comboModels.length} providers (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
+    log.info("SEARCH", `the chain sails "${providerInput}" · ${comboModels.length} providers · ${comboStrategy} · sticky ${comboStickyLimit}`);
     return handleComboChat({
       body,
       models: comboModels,
@@ -92,7 +92,7 @@ async function handleSingleProviderSearch(body, providerInput, request, apiKey, 
   const resolvedProvider = AI_PROVIDERS[providerId];
 
   if (!resolvedProvider) {
-    log.warn("SEARCH", "Unknown provider", { provider: providerInput });
+    log.warn("SEARCH", "no such harbor on the chart", { provider: providerInput });
     return errorResponse(HTTP_STATUS.BAD_REQUEST, `Unknown provider: ${providerInput}`);
   }
 
@@ -100,7 +100,7 @@ async function handleSingleProviderSearch(body, providerInput, request, apiKey, 
   const supportsSearch = !!providerConfig || !!resolvedProvider.searchViaChat;
 
   if (!supportsSearch) {
-    log.warn("SEARCH", "Provider does not support web search", { provider: providerId });
+    log.warn("SEARCH", "this harbor flies no search flag", { provider: providerId });
     return errorResponse(HTTP_STATUS.BAD_REQUEST, `Provider ${providerId} does not support web search`);
   }
 
@@ -127,7 +127,7 @@ async function handleSingleProviderSearch(body, providerInput, request, apiKey, 
 
   // No-auth providers (e.g. searxng) bypass credential lookup
   if (resolvedProvider.noAuth) {
-    log.info("AUTH", `\x1b[32m${providerId} no-auth mode\x1b[0m`);
+    log.info("AUTH", `\x1b[32m${providerId} sails without papers · no-auth\x1b[0m`);
     const result = await handleSearchCore({
       body: coreBody,
       provider: resolvedProvider,
@@ -175,7 +175,7 @@ async function handleSingleProviderSearch(body, providerInput, request, apiKey, 
       credentials = await getProviderCredentials(fallbackProviderId, excludeConnectionIds, searchLockKey);
       if (credentials) {
         credentialProviderId = fallbackProviderId;
-        log.info("AUTH", `[${providerId}] reusing ${fallbackProviderId} credentials`);
+        log.info("AUTH", `[${providerId}] sailing under ${fallbackProviderId} papers`);
       }
     }
 
@@ -183,18 +183,18 @@ async function handleSingleProviderSearch(body, providerInput, request, apiKey, 
       if (credentials?.allRateLimited) {
         const errorMsg = lastError || credentials.lastError || "Unavailable";
         const status = lastStatus || Number(credentials.lastErrorCode) || HTTP_STATUS.SERVICE_UNAVAILABLE;
-        log.warn("SEARCH", `[${providerId}] ${errorMsg} (${credentials.retryAfterHuman})`);
+        log.warn("SEARCH", `${providerId} riding at anchor · ${errorMsg} (${credentials.retryAfterHuman})`);
         return unavailableResponse(status, `[${providerId}] ${errorMsg}`, credentials.retryAfter, credentials.retryAfterHuman);
       }
       if (excludeConnectionIds.size === 0) {
-        log.error("AUTH", `No credentials for provider: ${providerId}`);
+        log.error("AUTH", `every mooring for ${providerId} is dark`);
         return errorResponse(HTTP_STATUS.BAD_REQUEST, `No credentials for provider: ${providerId}`);
       }
-      log.warn("SEARCH", "No more accounts available", { provider: providerId });
+      log.warn("SEARCH", "the fleet is spent — no mooring left to try", { provider: providerId });
       return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable");
     }
 
-    log.info("AUTH", `\x1b[32mUsing ${providerId} account: ${credentials.connectionName}\x1b[0m`);
+    log.info("AUTH", `\x1b[32mmoored at ${credentials.connectionName} (${providerId})\x1b[0m`);
 
     const refreshedCredentials = await checkAndRefreshToken(providerId, credentials);
 
@@ -227,7 +227,7 @@ async function handleSingleProviderSearch(body, providerInput, request, apiKey, 
     const { shouldFallback } = await markAccountUnavailable(credentials.connectionId, result.status, result.error, credentialProviderId, searchLockKey);
 
     if (shouldFallback) {
-      log.warn("AUTH", `Account ${credentials.connectionName} unavailable (${result.status}), trying fallback`);
+      log.warn("AUTH", `${credentials.connectionName} refused us (${result.status}) — bearing for the next harbor`);
       excludeConnectionIds.add(credentials.connectionId);
       lastError = result.error;
       lastStatus = result.status;

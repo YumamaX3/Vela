@@ -1,6 +1,7 @@
 // Stream handler with disconnect detection - shared for all providers
 import { STREAM_STALL_TIMEOUT_MS } from "../config/runtimeConfig.js";
 import { dbg, isDebugEnabled } from "./debugLog.js";
+import { fmtDur } from "./logfmt.js";
 
 // Get HH:MM:SS timestamp
 function getTimeString() {
@@ -26,8 +27,8 @@ export function createStreamController({ onDisconnect, onError, log, provider, m
   const logStream = (symbol, status, isError = false) => {
     const duration = Date.now() - startTime;
     const emit = isError ? log?.errorLine : log?.line;
-    if (emit) emit(reqTag, symbol, `${status} · ${provider}/${model} · ${duration}ms`);
-    else console.log(`[${getTimeString()}] ${symbol} ${provider}/${model} · ${status} · ${duration}ms`);
+    if (emit) emit(reqTag, symbol, `${status} · ${provider}/${model} · ${fmtDur(duration)}`);
+    else console.log(`[${getTimeString()}] ${symbol} ${provider}/${model} · ${status} · ${fmtDur(duration)}`);
   };
 
   return {
@@ -41,7 +42,7 @@ export function createStreamController({ onDisconnect, onError, log, provider, m
       if (disconnected) return;
       disconnected = true;
 
-      logStream("⚡", `DISCONNECT: ${reason}`);
+      logStream("⚡", `parted moorings · ${reason}`);
       dbg("CTRL", `${provider}/${model} | disconnect=${reason} | dur=${Date.now() - startTime}ms`);
 
       // Delay abort to allow cleanup
@@ -74,11 +75,11 @@ export function createStreamController({ onDisconnect, onError, log, provider, m
       }
 
       if (error.name === "AbortError") {
-        logStream("⚡", "ABORTED");
+        logStream("⚡", "hauled ashore — the caller hauled the line");
         return;
       }
 
-      logStream("✗", `ERROR: ${error.message}${error.stack ? `\n    ${error.stack}` : ""}`, true);
+      logStream("✗", `the current broke · ${error.message}${error.stack ? `\n    ${error.stack}` : ""}`, true);
       onError?.(error);
     },
 
@@ -207,7 +208,7 @@ export function pipeWithDisconnect(providerResponse, transformStream, streamCont
     stallTimer = setTimeout(() => {
       stallTimer = null;
       abortMessage = "stream stall timeout";
-      dbg(tag, `STALL TIMEOUT ${stallTimeoutMs}ms | chunks=${chunkCount} | bytes=${totalBytes} | sinceLast=${Date.now() - lastChunkAt}ms`);
+      dbg(tag, `the current ran dry · no byte for ${stallTimeoutMs}ms · chunks=${chunkCount} · bytes=${totalBytes} · sinceLast=${Date.now() - lastChunkAt}ms`);
       streamController.handleError?.(new Error("stream stall timeout"));
       streamController.abort?.();
     }, stallTimeoutMs);

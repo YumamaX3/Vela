@@ -63,7 +63,7 @@ export async function handleChat(request, clientRawRequest = null) {
   try {
     body = await request.json();
   } catch {
-    log.warn("CHAT", "Invalid JSON body");
+    log.warn("CHAT", "the payload arrived waterlogged — invalid JSON");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid JSON body");
   }
 
@@ -103,7 +103,7 @@ export async function handleChat(request, clientRawRequest = null) {
     const masked = log.maskKey(apiKey);
     log.debug("AUTH", `API Key: ${masked}`);
   } else {
-    log.debug("AUTH", "No API key provided (local mode)");
+    log.debug("AUTH", "no key at the gate · local mode");
   }
 
   // The gate — identity + model scope in one stage pipeline (plan §3.4).
@@ -119,7 +119,7 @@ export async function handleChat(request, clientRawRequest = null) {
   }
 
   if (!modelStr) {
-    log.warn("CHAT", "Missing model");
+    log.warn("CHAT", "no model named — turning the boat away");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
   }
 
@@ -141,7 +141,7 @@ export async function handleChat(request, clientRawRequest = null) {
     const adapterAdded = augmentedModels.filter((m) => !comboModels.includes(m));
 
     if (comboStrategy === "fusion") {
-      log.info("CHAT", `Combo "${modelStr}" with ${comboModels.length} models (strategy: fusion)`);
+      log.info("CHAT", `the panel convenes "${modelStr}" · ${comboModels.length} models · fusion`);
       return handleFusionChat({
         body,
         models: comboModels,
@@ -161,7 +161,7 @@ export async function handleChat(request, clientRawRequest = null) {
     }
 
     const comboStickyLimit = settings.comboStickyRoundRobinLimit;
-    log.info("CHAT", `Combo "${modelStr}" with ${augmentedModels.length} models (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
+    log.info("CHAT", `the chain sails "${modelStr}" · ${augmentedModels.length} models · ${comboStrategy} · sticky ${comboStickyLimit}`);
     return handleComboChat({
       body,
       models: augmentedModels,
@@ -182,7 +182,7 @@ export async function handleChat(request, clientRawRequest = null) {
   const soloAugmented = augmentModelsWithCapacityAdapter([modelStr], requiredCapabilities, settings);
   if (soloAugmented.length > 1) {
     const adapterAdded = soloAugmented.filter((m) => m !== modelStr);
-    log.info("CHAT", `Capacity adapter for [${[...requiredCapabilities].join(",")}] on "${modelStr}" → trying ${soloAugmented.join(", ")}`);
+    log.info("CHAT", `capacity adapter for [${[...requiredCapabilities].join(",")}] on "${modelStr}" → the chain widens: ${soloAugmented.join(", ")}`);
     return handleComboChat({
       body,
       models: soloAugmented,
@@ -226,7 +226,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       const adapterAdded = augmentedModels.filter((m) => !comboModels.includes(m));
 
       if (comboStrategy === "fusion") {
-        log.info("CHAT", `Combo "${modelStr}" with ${comboModels.length} models (strategy: fusion)`);
+        log.info("CHAT", `the panel convenes "${modelStr}" · ${comboModels.length} models · fusion`);
         return handleFusionChat({
           body,
           models: comboModels,
@@ -246,7 +246,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       }
 
       const comboStickyLimit = chatSettings.comboStickyRoundRobinLimit;
-      log.info("CHAT", `Combo "${modelStr}" with ${augmentedModels.length} models (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
+      log.info("CHAT", `the chain sails "${modelStr}" · ${augmentedModels.length} models · ${comboStrategy} · sticky ${comboStickyLimit}`);
       return handleComboChat({
         body,
         models: augmentedModels,
@@ -261,7 +261,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
         fallbackRulesRepo
       });
     }
-    log.warn("CHAT", "Invalid model format", { model: modelStr });
+    log.warn("CHAT", "unreadable chart reference", { model: modelStr });
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");
   }
 
@@ -293,14 +293,14 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
         // combo fallback + clients key their retry logic on 503 (ported from
         // upstream 9router 15687d19 — W1, v0.9.47).
         const status = HTTP_STATUS.SERVICE_UNAVAILABLE;
-        log.warn("CHAT", `[${provider}/${model}] ${errorMsg} (${credentials.retryAfterHuman})`);
+        log.warn("CHAT", `${provider}/${model} riding at anchor · ${errorMsg} (${credentials.retryAfterHuman})`);
         return unavailableResponse(status, `[${provider}/${model}] ${errorMsg}`, credentials.retryAfter, credentials.retryAfterHuman);
       }
       if (excludeConnectionIds.size === 0) {
-        log.warn("AUTH", `No active credentials for provider: ${provider}`);
+        log.warn("AUTH", `every mooring for ${provider} is dark`);
         return errorResponse(HTTP_STATUS.NOT_FOUND, `No active credentials for provider: ${provider}`);
       }
-      log.warn("CHAT", "No more accounts available", { provider });
+      log.warn("CHAT", "the fleet is spent — no mooring left to try", { provider });
       return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable");
     }
 
@@ -345,7 +345,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
         });
       } catch (e) {
         if (isSemaphoreCapacityError(e)) {
-          log.warn("AUTH", `Account ${credentials.connectionName} at capacity (${e.reason}) → NEXT ACCOUNT`);
+          log.warn("AUTH", `${credentials.connectionName} at capacity (${e.reason}) — bearing for the next harbor`);
           excludeConnectionIds.add(credentials.connectionId);
           lastError = `Account at capacity (${e.reason})`;
           lastStatus = HTTP_STATUS.SERVICE_UNAVAILABLE;
@@ -426,7 +426,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       : (await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model, resetsAtMs)).shouldFallback;
 
     if (shouldFallback) {
-      log.warn("FALLBACK", `⇄ ACC:${credentials.connectionName} UNAVAILABLE (${result.status}) → NEXT ACCOUNT`);
+      log.warn("FALLBACK", `${credentials.connectionName} unavailable (${result.status}) — bearing for the next harbor`);
       excludeConnectionIds.add(credentials.connectionId);
       lastError = result.error;
       lastStatus = result.status;

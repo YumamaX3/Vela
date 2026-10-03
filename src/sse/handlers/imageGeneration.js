@@ -52,7 +52,7 @@ export async function handleImageGeneration(request) {
     const comboStrategies = settings.comboStrategies || {};
     const comboStrategy = comboStrategies[modelStr]?.fallbackStrategy || settings.comboStrategy || "fallback";
     const comboStickyLimit = settings.comboStickyRoundRobinLimit;
-    log.info("IMAGE", `Combo "${modelStr}" with ${comboModels.length} models (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
+    log.info("IMAGE", `the chain sails "${modelStr}" · ${comboModels.length} models · ${comboStrategy} · sticky ${comboStickyLimit}`);
     return handleComboChat({
       body,
       models: comboModels,

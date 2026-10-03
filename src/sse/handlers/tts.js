@@ -50,7 +50,7 @@ export async function handleTts(request) {
     const comboStrategies = settings.comboStrategies || {};
     const comboStrategy = comboStrategies[modelStr]?.fallbackStrategy || settings.comboStrategy || "fallback";
     const comboStickyLimit = settings.comboStickyRoundRobinLimit;
-    log.info("TTS", `Combo "${modelStr}" with ${comboModels.length} models (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
+    log.info("TTS", `the chain sails "${modelStr}" · ${comboModels.length} models · ${comboStrategy} · sticky ${comboStickyLimit}`);
     return handleComboChat({
       body,
       models: comboModels,
@@ -71,7 +71,7 @@ async function handleSingleModelTts(body, modelStr, responseFormat, language, st
   if (!modelInfo.provider) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");
 
   const { provider, model } = modelInfo;
-  log.info("ROUTING", `Provider: ${provider}, Voice: ${model}`);
+  log.info("ROUTING", `${provider}/${model} (voice)`);
 
   // noAuth providers — no credential needed
   if (!CREDENTIALED_PROVIDERS.has(provider)) {
@@ -98,7 +98,7 @@ async function handleSingleModelTts(body, modelStr, responseFormat, language, st
       return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable");
     }
 
-    log.info("AUTH", `\x1b[32mUsing ${provider} account: ${credentials.connectionName}\x1b[0m`);
+    log.info("AUTH", `\x1b[32mmoored at ${credentials.connectionName} (${provider})\x1b[0m`);
 
     const result = await handleTtsCore({ provider, model, input: body.input, credentials, responseFormat, language, style });
 

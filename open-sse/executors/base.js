@@ -1,4 +1,5 @@
 import { HTTP_STATUS, RETRY_CONFIG, DEFAULT_RETRY_CONFIG, resolveRetryEntry, FETCH_CONNECT_TIMEOUT_MS } from "../config/runtimeConfig.js";
+import { fmtDur } from "../utils/logfmt.js";
 import { shouldRefreshCredentials } from "../services/oauthCredentialManager.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import { dbg } from "../utils/debugLog.js";
@@ -119,7 +120,7 @@ export class BaseExecutor {
         if (dynamic != null) waitMs = dynamic;
       }
       retryAttemptsByUrl[urlIndex]++;
-      log?.debug?.("RETRY", `${reason} retry ${retryAttemptsByUrl[urlIndex]}/${attempts} after ${waitMs / 1000}s`);
+      log?.debug?.("RETRY", `${reason} — re-dial ${retryAttemptsByUrl[urlIndex]}/${attempts} after ${fmtDur(waitMs)}`);
       await new Promise(resolve => setTimeout(resolve, waitMs));
       return true;
     };
@@ -155,7 +156,7 @@ export class BaseExecutor {
         if (await tryRetry(urlIndex, response.status, `status ${response.status}`, response)) { urlIndex--; continue; }
 
         if (this.shouldRetry(response.status, urlIndex)) {
-          log?.debug?.("RETRY", `${response.status} on ${url}, trying fallback ${urlIndex + 1}`);
+          log?.debug?.("RETRY", `${response.status} from this dock — trying dock ${urlIndex + 2} of the chain`);
           lastStatus = response.status;
           continue;
         }

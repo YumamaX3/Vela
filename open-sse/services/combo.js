@@ -369,7 +369,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
     const extras = chain.filter((t) => !rotatedModels.includes(t));
     if (extras.length > 0) {
       rotatedModels = [...rotatedModels, ...extras];
-      log.info("COMBO", `fallback-rules: appended ${extras.join(" → ")} for "${comboName}"`);
+      log.info("COMBO", `fallback currents joined for "${comboName}" · ${extras.join(" → ")}`);
     }
   };
 
@@ -382,7 +382,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       const contextLimit = headCaps?.contextWindow || 0;
       const preChain = buildFallbackChain(rules, { inputTokens, contextLimit });
       if (preChain.length > 0) {
-        log.info("COMBO", `fallback-rules: pre-call context-window → ${preChain.join(" → ")}`);
+        log.info("COMBO", `context window trimmed before the call · ${preChain.join(" → ")}`);
       }
       appendChain(preChain);
     }
@@ -394,7 +394,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
     if (required.size > 0) {
       const reordered = reorderByCapabilities(rotatedModels, required);
       if (reordered[0] !== rotatedModels[0]) {
-        log.info("COMBO", `auto-switch for [${[...required].join(",")}] → ${reordered[0]}`);
+        log.info("COMBO", `auto-switch · [${[...required].join(",")}] → ${reordered[0]}`);
       }
       rotatedModels = reordered;
     }
@@ -406,14 +406,14 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
 
   for (let i = 0; i < rotatedModels.length; i++) {
     const modelStr = rotatedModels[i];
-    log.info("COMBO", `Trying model ${i + 1}/${rotatedModels.length}: ${modelStr}`);
+    log.info("COMBO", `trying the next in the chain · ${i + 1}/${rotatedModels.length} · ${modelStr}`);
 
     try {
       const result = await handleSingleModel(body, modelStr);
       
       // Success (2xx) - return response
       if (result.ok) {
-        log.info("COMBO", `Model ${modelStr} succeeded`);
+        log.info("COMBO", `anchored · ${modelStr}`);
         return result;
       }
 
@@ -442,7 +442,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       const { shouldFallback, cooldownMs } = checkFallbackError(result.status, errorText);
 
       if (!shouldFallback) {
-        log.warn("COMBO", `Model ${modelStr} failed (no fallback)`, { status: result.status });
+        log.warn("COMBO", `ran aground — no next in the chain · ${modelStr}`, { status: result.status });
         return result;
       }
 
@@ -451,7 +451,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       // skipped immediately (fixes: combo falls through on transient 503)
       if (cooldownMs && cooldownMs > 0 && cooldownMs <= 5000 &&
           (result.status === 503 || result.status === 502 || result.status === 504)) {
-        log.info("COMBO", `Model ${modelStr} transient ${result.status}, waiting ${cooldownMs}ms before next`);
+        log.info("COMBO", `headwind ${result.status} · ${modelStr} — riding at anchor ${cooldownMs}ms before the next`);
         await new Promise(r => setTimeout(r, cooldownMs));
       }
 
@@ -474,12 +474,12 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
           console.warn("[combo] fallback-rules post-failure lookup failed:", err.message);
         }
       }
-      log.warn("COMBO", `Model ${modelStr} failed, trying next`, { status: result.status });
+      log.warn("COMBO", `stumbled — trying the next · ${modelStr}`, { status: result.status });
     } catch (error) {
       // Catch unexpected exceptions to ensure fallback continues
       lastError = error.message || String(error);
       if (!lastStatus) lastStatus = 500;
-      log.warn("COMBO", `Model ${modelStr} threw error, trying next`, { error: lastError });
+      log.warn("COMBO", `threw — trying the next · ${modelStr}`, { error: lastError });
     }
   }
 
@@ -493,11 +493,11 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
 
   if (earliestRetryAfter) {
     const retryHuman = formatRetryAfter(earliestRetryAfter);
-    log.warn("COMBO", `All models failed | ${msg} (${retryHuman})`);
+    log.warn("COMBO", `every hull refused · ${msg} (${retryHuman})`);
     return unavailableResponse(status, msg, earliestRetryAfter, retryHuman);
   }
 
-  log.warn("COMBO", `All models failed | ${msg}`);
+  log.warn("COMBO", `every hull refused · ${msg}`);
   return new Response(
     JSON.stringify({ error: { message: msg } }),
     { status, headers: { "Content-Type": "application/json" } }
@@ -684,7 +684,7 @@ export async function handleFusionChat({ body, models, handleSingleModel, log, c
   const cfg = { ...FUSION_DEFAULTS, ...(tuning || {}) };
   const minPanel = Math.min(Math.max(2, cfg.minPanel), panel.length);
   const judge = judgeModel && judgeModel.trim() ? judgeModel.trim() : panel[0];
-  log.info("FUSION", `Combo "${comboName}" | panel=${panel.length} [${panel.join(", ")}] | judge=${judge} | quorum=${minPanel}`);
+  log.info("FUSION", `the panel convenes "${comboName}" · panel=${panel.length} [${panel.join(", ")}] · judge=${judge} · quorum=${minPanel}`);
 
   // 1. Fan out to the panel in parallel: non-streaming, tools stripped (we want prose).
   const { tools, tool_choice, stream_options, ...rest } = body;

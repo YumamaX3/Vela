@@ -34,7 +34,7 @@ export async function handleEmbeddings(request) {
   try {
     body = await request.json();
   } catch {
-    log.warn("EMBEDDINGS", "Invalid JSON body");
+    log.warn("EMBEDDINGS", "the payload arrived waterlogged — invalid JSON");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid JSON body");
   }
 
@@ -48,7 +48,7 @@ export async function handleEmbeddings(request) {
   if (apiKey) {
     log.debug("AUTH", `API Key: ${log.maskKey(apiKey)}`);
   } else {
-    log.debug("AUTH", "No API key provided (local mode)");
+    log.debug("AUTH", "no key at the gate · local mode");
   }
 
   // The gate — identity + model scope in one stage pipeline (plan §3.4).
@@ -60,18 +60,18 @@ export async function handleEmbeddings(request) {
   }
 
   if (!modelStr) {
-    log.warn("EMBEDDINGS", "Missing model");
+    log.warn("EMBEDDINGS", "no model named — turning the boat away");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
   }
 
   if (!body.input) {
-    log.warn("EMBEDDINGS", "Missing input");
+    log.warn("EMBEDDINGS", "no input given — turning the boat away");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: input");
   }
 
   const modelInfo = await getModelInfo(modelStr);
   if (!modelInfo.provider) {
-    log.warn("EMBEDDINGS", "Invalid model format", { model: modelStr });
+    log.warn("EMBEDDINGS", "unreadable chart reference", { model: modelStr });
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");
   }
 
@@ -80,7 +80,7 @@ export async function handleEmbeddings(request) {
   if (modelStr !== `${provider}/${model}`) {
     log.info("ROUTING", `${modelStr} → ${provider}/${model}`);
   } else {
-    log.info("ROUTING", `Provider: ${provider}, Model: ${model}`);
+    log.info("ROUTING", `${provider}/${model}`);
   }
 
   // Credential + fallback loop (mirrors handleChat)
@@ -96,18 +96,18 @@ export async function handleEmbeddings(request) {
       if (credentials?.allRateLimited) {
         const errorMsg = lastError || credentials.lastError || "Unavailable";
         const status = lastStatus || Number(credentials.lastErrorCode) || HTTP_STATUS.SERVICE_UNAVAILABLE;
-        log.warn("EMBEDDINGS", `[${provider}/${model}] ${errorMsg} (${credentials.retryAfterHuman})`);
+        log.warn("EMBEDDINGS", `${provider}/${model} riding at anchor · ${errorMsg} (${credentials.retryAfterHuman})`);
         return unavailableResponse(status, `[${provider}/${model}] ${errorMsg}`, credentials.retryAfter, credentials.retryAfterHuman);
       }
       if (excludeConnectionIds.size === 0) {
-        log.error("AUTH", `No credentials for provider: ${provider}`);
+        log.error("AUTH", `every mooring for ${provider} is dark`);
         return errorResponse(HTTP_STATUS.BAD_REQUEST, `No credentials for provider: ${provider}`);
       }
-      log.warn("EMBEDDINGS", "No more accounts available", { provider });
+      log.warn("EMBEDDINGS", "the fleet is spent — no mooring left to try", { provider });
       return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable");
     }
 
-    log.info("AUTH", `\x1b[32mUsing ${provider} account: ${credentials.connectionName}\x1b[0m`);
+    log.info("AUTH", `\x1b[32mmoored at ${credentials.connectionName} (${provider})\x1b[0m`);
 
     const refreshedCredentials = await checkAndRefreshToken(provider, credentials);
 
@@ -147,7 +147,7 @@ export async function handleEmbeddings(request) {
     const { shouldFallback } = await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model);
 
     if (shouldFallback) {
-      log.warn("AUTH", `Account ${credentials.connectionName} unavailable (${result.status}), trying fallback`);
+      log.warn("AUTH", `${credentials.connectionName} refused us (${result.status}) — bearing for the next harbor`);
       excludeConnectionIds.add(credentials.connectionId);
       lastError = result.error;
       lastStatus = result.status;

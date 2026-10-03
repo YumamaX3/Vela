@@ -1,4 +1,5 @@
 import { saveRequestUsage, appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
+import { fmtDur, fmtTok } from "../../utils/logfmt.js";
 import { COLORS } from "../../utils/stream.js";
 import { canonicalizeUsage } from "../../utils/usageTracking.js";
 
@@ -85,15 +86,15 @@ export function formatDoneLine({ usage, latency }) {
   const outTok = u.completion_tokens ?? u.output_tokens ?? 0;
   const cacheRead = u.cache_read_input_tokens ?? u.cached_tokens ?? u.prompt_tokens_details?.cached_tokens ?? 0;
   const cacheCreate = u.cache_creation_input_tokens ?? 0;
-  let inStr = `IN ${inTok}`;
+  let inStr = `IN ${fmtTok(inTok)}`;
   if (cacheRead || cacheCreate) {
     const parts = [];
-    if (cacheRead) parts.push(`↻${cacheRead}`);
-    if (cacheCreate) parts.push(`+${cacheCreate}`);
+    if (cacheRead) parts.push(`↻${fmtTok(cacheRead)}`);
+    if (cacheCreate) parts.push(`+${fmtTok(cacheCreate)}`);
     inStr += ` (CACHE ${parts.join(" ")})`;
   }
-  const ttftStr = latency?.ttft ? ` · TTFT ${latency.ttft}ms` : "";
-  return `DONE ${latency?.total ?? 0}ms${ttftStr} · ${inStr} · OUT ${outTok}`;
+  const ttftStr = latency?.ttft ? ` · first light ${fmtDur(latency.ttft)}` : "";
+  return `DONE ${fmtDur(latency?.total ?? 0)}${ttftStr} · ${inStr} · OUT ${fmtTok(outTok)}`;
 }
 
 export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, endpoint, combo = null, label = "USAGE", silent = false, latencyMs = null, ttftMs = null, httpStatus = null, rtk = null }) {
@@ -106,8 +107,8 @@ export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, 
 
   if (!silent) {
     const time = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    const accountSuffix = connectionId ? ` | account=${connectionId.slice(0, 8)}...` : "";
-    console.log(`${COLORS.green}[${time}] 📊 [${label}] ${provider.toUpperCase()} | in=${inTokens} | out=${outTokens}${accountSuffix}${COLORS.reset}`);
+    const accountSuffix = connectionId ? ` · acct ${connectionId.slice(0, 8)}` : "";
+    console.log(`${COLORS.green}[${time}] 📊 [${label}] ${provider} · in ${fmtTok(inTokens)} · out ${fmtTok(outTokens)}${accountSuffix}${COLORS.reset}`);
   }
 
   // Canonicalize to one storage convention (prompt_tokens cache-inclusive) so

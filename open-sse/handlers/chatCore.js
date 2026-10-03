@@ -1,4 +1,5 @@
 import { detectFormat, getTargetFormat, resolveTransport } from "../services/provider.js";
+import { fmtDur } from "../utils/logfmt.js";
 import { translateRequest } from "../translator/index.js";
 import { applyThinking, extractThinking, stripThinkingSuffix } from "../translator/concerns/thinkingUnified.js";
 import { FORMATS } from "../translator/formats.js";
@@ -91,7 +92,7 @@ export function applyLoopGuard(translatedBody, finalFormat, provider, model, log
       }
     }
   }
-  log?.warn?.("LOOPGUARD", `${provider}/${model} | loop detected, hint injected`);
+  log?.warn?.("LOOPGUARD", `a loop in the current — a hint steers ${provider}/${model} back`);
   return true;
 }
 
@@ -327,19 +328,19 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     const clientModel = clientRawRequest?.body?.model || `${provider}/${model}`;
     const msgN = translatedBody.messages?.length || translatedBody.input?.length || translatedBody.contents?.length || body.messages?.length || body.input?.length || 0;
     const toolN = translatedBody.tools?.length || body.tools?.length || 0;
-    const fmtStr = passthrough ? `FMT: ${sourceFormat} (passthrough)` : `FMT: ${sourceFormat}→${targetFormat}`;
+    const fmtStr = passthrough ? `fmt ${sourceFormat} (passthrough)` : `fmt ${sourceFormat}→${targetFormat}`;
     const showThinking = provider !== "grok-cli" || supportsGrokCliReasoningEffort(model);
     const think = showThinking ? log.fmtThink?.(extractThinking(translatedBody)) : null;
     const acc = credentials?.connectionName || credentials?.connectionId?.slice(0, 8) || "-";
     const parts = [
-      `POST ${clientModel} → ${provider}/${model}`,
+      `set sail ${clientModel} → ${provider}/${model}`,
       fmtStr,
-      stream ? "STREAM" : "JSON",
-      `${msgN} MSG`,
+      stream ? "stream" : "json",
+      `${msgN} msg`,
     ];
-    if (toolN) parts.push(`${toolN} TOOL`);
-    if (think) parts.push(`THINK:${think}`);
-    parts.push(`ACC:${acc}`);
+    if (toolN) parts.push(`${toolN} tools`);
+    if (think) parts.push(`mind ${think}`);
+    parts.push(`acct ${acc}`);
     log.line(reqTag, "▶", parts.join(" · "));
   }
 
@@ -363,7 +364,8 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // RTK: compress tool_result content
   const rtkStats = compressMessages(translatedBody, tokenSaverEnabled && rtkEnabled);
   const rtkLine = formatRtkLog(rtkStats);
-  if (rtkLine) console.log(rtkLine);
+  if (rtkLine && log?.line) log.line(reqTag, "⚙", rtkLine);
+  else if (rtkLine) console.log(rtkLine);
 
   // Headroom: optional external proxy compression; fail open if proxy is absent.
   const headroomDiagnostics = {};
@@ -371,11 +373,11 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   const headroomLine = formatHeadroomLog(headroomStats);
   const headroomSizeLine = formatHeadroomSizeLog(headroomDiagnostics);
   if (headroomLine) {
-    log?.info?.("HEADROOM", `${headroomLine}${headroomSizeLine ? ` | ${headroomSizeLine}` : ""}`);
+    log?.info?.("HEADROOM", `combed ${headroomLine}${headroomSizeLine ? ` · ${headroomSizeLine}` : ""}`);
     if (isHeadroomPhantomSavings(headroomStats, headroomDiagnostics)) {
-      log?.warn?.("HEADROOM", `reported token delta, but outbound JSON shrank <5%; provider may bill near-original payload | ${formatHeadroomSizeLog(headroomDiagnostics)}`);
+      log?.warn?.("HEADROOM", `phantom combs — the wire shrank <5% though tokens moved; the provider may bill near-full size · ${formatHeadroomSizeLog(headroomDiagnostics)}`);
     }
-  } else if (tokenSaverEnabled && headroomEnabled) log?.warn?.("HEADROOM", `skipped: ${headroomDiagnostics.reason || "compression unavailable"}${headroomDiagnostics.endpoint ? ` (${headroomDiagnostics.endpoint})` : ""}`);
+  } else if (tokenSaverEnabled && headroomEnabled) log?.warn?.("HEADROOM", `stood down · ${headroomDiagnostics.reason || "compression unavailable"}${headroomDiagnostics.endpoint ? ` · ${headroomDiagnostics.endpoint}` : ""}`);
 
   // Token-saver flags accumulator for the single "⚙" log line below.
   const xf = [];
@@ -441,7 +443,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     try { onPxpipeEvent?.({ provider, model, ...pxpipeSummary }); } catch { /* stats must not break requests */ }
   }
 
-  if (xf.length && log?.line) log.line(reqTag, "⚙", xf.join(" · "));
+  if (xf.length && log?.line) log.line(reqTag, "⚙", `rigged · ${xf.join(" · ")}`);
 
   // Pin cache breakpoints to the final body — every saver above can reshape
   // system/tools/messages, and a stale anchor costs a full prefix rewrite.
@@ -513,16 +515,16 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     // carries no credential in its userinfo today, so this is not a live leak; it is
     // the asymmetry itself that is the wound, because the next relay URL that does
     // carry one would print it from exactly this line.
-    log?.info?.("PROXY", `${provider.toUpperCase()} | ${model} | conn=${connectionName} | pool=${poolId} | vercel-relay=${maskUrlForLog(proxyOptions.vercelRelayUrl)} | relay-v${proxyOptions.relayVersion}${proxyOptions.relayAuth ? "" : " | no-secret"}`);
+    log?.info?.("PROXY", `routed by relay · ${provider}/${model} · conn=${connectionName} · pool=${poolId} · relay=${maskUrlForLog(proxyOptions.vercelRelayUrl)} · v${proxyOptions.relayVersion}${proxyOptions.relayAuth ? "" : " · no-secret"}`);
   } else if (proxyOptions.connectionProxyEnabled && proxyOptions.connectionProxyUrl) {
     const poolId = credentials?.providerSpecificData?.connectionProxyPoolId || "none";
     const connectionName = credentials?.connectionName || credentials?.connectionId || "unknown";
-    log?.info?.("PROXY", `${provider.toUpperCase()} | ${model} | conn=${connectionName} | pool=${poolId} | url=${maskUrlForLog(proxyOptions.connectionProxyUrl)}`);
+    log?.info?.("PROXY", `routed by proxy · ${provider}/${model} · conn=${connectionName} · pool=${poolId} · url=${maskUrlForLog(proxyOptions.connectionProxyUrl)}`);
   }
 
   if (proxyOptions.connectionProxyEnabled && proxyOptions.connectionNoProxy) {
     const connectionName = credentials?.connectionName || credentials?.connectionId || "unknown";
-    log?.debug?.("PROXY", `${provider.toUpperCase()} | ${model} | conn=${connectionName} | no_proxy=${proxyOptions.connectionNoProxy}`);
+    log?.debug?.("PROXY", `direct · ${provider}/${model} · conn=${connectionName} · no_proxy=${proxyOptions.connectionNoProxy}`);
   }
 
   // Execute request
@@ -564,7 +566,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     }
     const errMsg = formatProviderError(error, provider, model, HTTP_STATUS.BAD_GATEWAY);
     if (log?.errorLine) {
-      log.errorLine(reqTag, "✗", `ERROR 502 · ${provider}/${model} · ${Date.now() - requestStartTime}ms\n    ${errMsg}${error.stack ? `\n    ${error.stack}` : ""}`);
+      log.errorLine(reqTag, "✗", `wrecked on the dial · ${provider}/${model} · ${fmtDur(Date.now() - requestStartTime)}\n    ${errMsg}${error.stack ? `\n    ${error.stack}` : ""}`);
     }
     return createErrorResult(HTTP_STATUS.BAD_GATEWAY, errMsg);
   }
@@ -585,7 +587,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
         return result;
       }, 3, log);
       if (newCredentials?.accessToken || newCredentials?.copilotToken) {
-        if (log?.line) log.line(reqTag, "🔑", `TOKEN REFRESHED · ${provider}/${model}`);
+        if (log?.line) log.line(reqTag, "🔑", `token renewed · ${provider}/${model}`);
         Object.assign(credentials, newCredentials);
         if (onCredentialsRefreshed) {
           try { await onCredentialsRefreshed(newCredentials); } catch (e) { log?.warn?.("TOKEN", `onCredentialsRefreshed failed: ${e.message}`); }
@@ -624,8 +626,8 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
 
     const errMsg = formatProviderError(new Error(message), provider, model, statusCode);
     if (log?.errorLine) {
-      const urlStr = providerUrl ? `\n    URL: ${providerUrl}` : "";
-      log.errorLine(reqTag, "✗", `ERROR ${statusCode} · ${provider}/${model} · ${Date.now() - requestStartTime}ms${urlStr}\n    ${errMsg}`);
+      const urlStr = providerUrl ? `\n    url ${providerUrl}` : "";
+      log.errorLine(reqTag, "✗", `upstream refused ${statusCode} · ${provider}/${model} · ${fmtDur(Date.now() - requestStartTime)}${urlStr}\n    ${errMsg}`);
     }
     reqLogger.logError(new Error(message), finalBody || translatedBody);
     return createErrorResult(statusCode, errMsg, resetsAtMs);

@@ -1,3 +1,67 @@
+# v1.0.69 — The Keeper's Logbook 🌊
+> *"The gateway kept a ledger all along — but it spoke in machine breath:
+> ERROR 502, 393498ms, IN 76162. I took up the quill; now every line the
+> harbor writes reads as the sea it sails — and every number it carries is
+> still the same number, greppable where the fleet's instruments need it."* 💜
+### ✨ What this sails
+**The gateway's log messages are re-voiced end to end** — one Keeper's voice
+across every lantern the operator sees in `docker logs` and the dashboard's
+Log Harbor — **with every field shape the machines grep for left untouched**.
+**The shared voice kit** (`open-sse/utils/logfmt.js`, new): `fmtDur` reads
+durations as a tide does (58365 → `58.4s`, 393498 → `6m33s`), `fmtTok` wears
+thousands separators (76162 → `76,162`), and `kv` renders the one inline
+` · key=value` chain every structured row now shares, with long values
+clamped so a single field can never flood the ledger.
+**The request family** (`chatCore.js`): the sail line speaks
+`▶ set sail gpt-4 → cline/claude-x · fmt openai→anthropic · stream · 12 msg · acct …`;
+the token lantern reads `🔑 token renewed`; the rtk row rides its tag as
+`⚙ combed the wire · saved 8600B / 12000B (71.7%) via [git-diff] hits=2`;
+headroom rows become `combed reported delta=…`, `phantom combs —`, or
+`stood down ·`; the two ✗ galleries become `wrecked on the dial` and
+`upstream refused <status>`; the loopguard cries
+`a loop in the current — a hint steers p/m back`; the proxy rows speak
+`routed by relay/proxy ·` and `direct ·`.
+**The stream family** (`streamHandler.js`): the three cries are
+`⚡ parted moorings · <reason>`, `⚡ hauled ashore — the caller hauled the line`,
+and `✗ the current broke · <message>` — each wearing the duration tide
+(`58.4s`, `6m33s`) where raw ms lived before; the stall debug reads
+`the current ran dry · no byte for Nms · chunks=N · bytes=N` while the wire
+contract `"stream stall timeout"` stays byte-identical for the terminal
+payload the e2e suites assert.
+**The done row** (`requestDetail.js`): `📊 DONE 58.4s · first light 1.2s ·
+IN 76,162 (CACHE ↻67,956 +1,200) · OUT 724` — and the fallback usage row
+drops its shouty `PROVIDER |` casing for `provider · in 76,162 · out 724 ·
+acct 0a1b2c3d`.
+**The fleet's cries** (`combo.js`, `tokenRefresh.js`, `backgroundTokenRefresh.js`,
+`base.js`, the eight side-harbor handlers): `anchored ·` / `every hull
+refused ·` / `riding at anchor` / `the panel convenes` / `renewing
+credentials ahead of the tide` (expiresIn stays a number field) / `the
+renewer walks its rounds` / `the fleet is spent — no mooring left to try` /
+`moored at <name> (<provider>)` / `bearing for the next harbor`.
+**Every structured field survives**: `delta=` `before=` `after=` `body=`
+`messages=` `tools=` `effective=` in the headroom rows;
+`saved X B / YB (p%) via [filters] hits=N` in the rtk row (byte-identical —
+two e2e regexes grep it); `expiresIn`, `connectionId`, `error` fields in the
+kv chains. `logger.js`'s four printers (debug/info/warn/error) now render
+data as the kv chain instead of a raw `JSON.stringify` dump, and `formatData`
+retires.
+### 🧪 Proof
+- **New suite** — `tests/unit/logbook-voice.test.js` **14/14 green**: the real
+  `fmtDur`/`fmtTok`/`kv` arithmetic, the logger's inline-field rows, the
+  stream controller's three cries on a real tag, the stall's wire contract
+  surfacing through a real `pipeWithDisconnect`, and the done line's cache
+  split (`DONE 58.4s · first light 1.2s · IN 76,162 (CACHE ↻67,956 +1,200) · OUT 724`).
+- **Reconciled pins** — `headroom-chat-core` **6/6** (its three pinned lines
+  ride the new voice; `delta=90 before=100 after=10` and the endpoint still
+  asserted), `console-log-buffer` + `log-harbor` + `auth-error-hygiene`
+  **16/16**, `combo-fusion` + `combo-routing` + `cached-token-usage` +
+  `apikey-usage-attribution` **32/32**, stream/rtk neighbors **65/67 with the
+  2 failures pre-existing at pristine HEAD** (`force-stream-config`,
+  stash-proven), `combo-autoswitch` **2 pre-existing at pristine**
+  (stash-proven), CSS guards **70/70**, nav render suites **57/57**.
+- **Build** — `npm run build` green at **v1.0.69**, wall time **100.27 s**,
+  postbuild standalone assets copied.
+
 # v1.0.68 — The Erased Wake 🌊
 > *"A ship's wake is the only trace it leaves — and even that, the tide takes
 > back. The harbor gate no longer speaks a borrowed name, and the log's own

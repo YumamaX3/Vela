@@ -353,7 +353,7 @@ export function formatHeadroomLog(stats) {
   const after = stats.tokens_after || 0;
   const delta = stats.tokens_saved || 0;
   const pct = before > 0 ? ((delta / before) * 100).toFixed(1) : "0";
-  return `reported token delta=${delta} before=${before}${after ? ` after=${after}` : ""} (${pct}%)`.trim();
+  return `reported delta=${delta} before=${before}${after ? ` after=${after}` : ""} (${pct}%)`.trim();
 }
 
 export function formatHeadroomSizeLog(diagnostics) {

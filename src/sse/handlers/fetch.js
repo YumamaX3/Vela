@@ -27,7 +27,7 @@ export async function handleFetch(request) {
   try {
     body = await request.json();
   } catch {
-    log.warn("FETCH", "Invalid JSON body");
+    log.warn("FETCH", "the payload arrived waterlogged — invalid JSON");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid JSON body");
   }
 
@@ -45,7 +45,7 @@ export async function handleFetch(request) {
   if (apiKey) {
     log.debug("AUTH", `API Key: ${log.maskKey(apiKey)}`);
   } else {
-    log.debug("AUTH", "No API key provided (local mode)");
+    log.debug("AUTH", "no key at the gate · local mode");
   }
 
   // Enforce API key + per-key ACL (v0.9.17) — the same gate every sibling
@@ -59,12 +59,12 @@ export async function handleFetch(request) {
   }
 
   if (!providerInput || typeof providerInput !== "string") {
-    log.warn("FETCH", "Missing provider/model");
+    log.warn("FETCH", "no provider named — turning the boat away");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: provider (or model)");
   }
 
   if (!targetUrl || typeof targetUrl !== "string") {
-    log.warn("FETCH", "Missing url");
+    log.warn("FETCH", "no url given — turning the boat away");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: url");
   }
 
@@ -72,7 +72,7 @@ export async function handleFetch(request) {
   try {
     new URL(targetUrl);
   } catch {
-    log.warn("FETCH", "Invalid URL", { url: targetUrl });
+    log.warn("FETCH", "a chart reference that will not resolve", { url: targetUrl });
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid URL format");
   }
 
@@ -81,7 +81,7 @@ export async function handleFetch(request) {
   try {
     await assertPublicUrlResolved(targetUrl);
   } catch (err) {
-    log.warn("FETCH", "Blocked URL", { url: targetUrl });
+    log.warn("FETCH", "the reef guard refused this shore", { url: targetUrl });
     return errorResponse(HTTP_STATUS.BAD_REQUEST, err.message);
   }
 
@@ -92,7 +92,7 @@ export async function handleFetch(request) {
     const comboStrategies = settings.comboStrategies || {};
     const comboStrategy = comboStrategies[providerInput]?.fallbackStrategy || settings.comboStrategy || "fallback";
     const comboStickyLimit = settings.comboStickyRoundRobinLimit;
-    log.info("FETCH", `Combo "${providerInput}" with ${comboModels.length} providers (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
+    log.info("FETCH", `the chain sails "${providerInput}" · ${comboModels.length} providers · ${comboStrategy} · sticky ${comboStickyLimit}`);
     return handleComboChat({
       body,
       models: comboModels,
@@ -115,13 +115,13 @@ async function handleSingleProviderFetch(body, providerInput, request, apiKey, s
   const resolvedProvider = AI_PROVIDERS[providerId];
 
   if (!resolvedProvider) {
-    log.warn("FETCH", "Unknown provider", { provider: providerInput });
+    log.warn("FETCH", "no such harbor on the chart", { provider: providerInput });
     return errorResponse(HTTP_STATUS.BAD_REQUEST, `Unknown provider: ${providerInput}`);
   }
 
   const providerConfig = resolvedProvider.fetchConfig;
   if (!providerConfig) {
-    log.warn("FETCH", "Provider does not support web fetch", { provider: providerId });
+    log.warn("FETCH", "this harbor flies no fetch flag", { provider: providerId });
     return errorResponse(HTTP_STATUS.BAD_REQUEST, `Provider ${providerId} does not support web fetch`);
   }
 
@@ -133,7 +133,7 @@ async function handleSingleProviderFetch(body, providerInput, request, apiKey, s
 
   // No-auth fetch path (kept for parity though no current fetch provider sets noAuth)
   if (resolvedProvider.noAuth) {
-    log.info("AUTH", `\x1b[32m${providerId} no-auth mode\x1b[0m`);
+    log.info("AUTH", `\x1b[32m${providerId} sails without papers · no-auth\x1b[0m`);
     const result = await handleFetchCore({
       url: targetUrl,
       format,
@@ -168,18 +168,18 @@ async function handleSingleProviderFetch(body, providerInput, request, apiKey, s
       if (credentials?.allRateLimited) {
         const errorMsg = lastError || credentials.lastError || "Unavailable";
         const status = lastStatus || Number(credentials.lastErrorCode) || HTTP_STATUS.SERVICE_UNAVAILABLE;
-        log.warn("FETCH", `[${providerId}] ${errorMsg} (${credentials.retryAfterHuman})`);
+        log.warn("FETCH", `${providerId} riding at anchor · ${errorMsg} (${credentials.retryAfterHuman})`);
         return unavailableResponse(status, `[${providerId}] ${errorMsg}`, credentials.retryAfter, credentials.retryAfterHuman);
       }
       if (excludeConnectionIds.size === 0) {
-        log.error("AUTH", `No credentials for provider: ${providerId}`);
+        log.error("AUTH", `every mooring for ${providerId} is dark`);
         return errorResponse(HTTP_STATUS.BAD_REQUEST, `No credentials for provider: ${providerId}`);
       }
-      log.warn("FETCH", "No more accounts available", { provider: providerId });
+      log.warn("FETCH", "the fleet is spent — no mooring left to try", { provider: providerId });
       return errorResponse(lastStatus || HTTP_STATUS.SERVICE_UNAVAILABLE, lastError || "All accounts unavailable");
     }
 
-    log.info("AUTH", `\x1b[32mUsing ${providerId} account: ${credentials.connectionName}\x1b[0m`);
+    log.info("AUTH", `\x1b[32mmoored at ${credentials.connectionName} (${providerId})\x1b[0m`);
 
     const refreshedCredentials = await checkAndRefreshToken(providerId, credentials);
 
@@ -217,7 +217,7 @@ async function handleSingleProviderFetch(body, providerInput, request, apiKey, s
     );
 
     if (shouldFallback) {
-      log.warn("AUTH", `Account ${credentials.connectionName} unavailable (${result.status}), trying fallback`);
+      log.warn("AUTH", `${credentials.connectionName} refused us (${result.status}) — bearing for the next harbor`);
       excludeConnectionIds.add(credentials.connectionId);
       lastError = result.error;
       lastStatus = result.status;
