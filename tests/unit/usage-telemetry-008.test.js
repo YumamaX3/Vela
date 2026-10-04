@@ -72,7 +72,11 @@ describe("Migration 008 — usage telemetry", () => {
     expect(rows.map((r) => r.statusClass)).toEqual(["ok", "ok", "upstream_error", ""]);
 
     const stamped = db2.get(`SELECT value FROM _meta WHERE key='schemaVersion'`);
-    expect(parseInt(stamped.value, 10)).toBe(10);
+    // Derived, not pinned: the case's law is that a forced-back chain re-runs
+    // FORWARD to the live head — `10` was simply the head when this case was
+    // written (db-export-completeness law; a hardcoded pin rusts per bump).
+    const { SCHEMA_VERSION } = await import("@/lib/db/schema.js");
+    expect(parseInt(stamped.value, 10)).toBe(SCHEMA_VERSION);
   });
 
   it("backfill is idempotent and never touches classified rows", async () => {

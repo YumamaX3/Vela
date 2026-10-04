@@ -1,7 +1,36 @@
 import crypto from "crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { DATA_DIR } from "@/lib/dataDir.js";
+import os from "node:os";
+// LAZY DATA_DIR LAW (log-pipeline M5 wiring, 2026-10-04): importing the frozen
+// DATA_DIR constant here pulled dataDir.js into EVERY importer's module graph at
+// eval time — including the console funnel (consoleLogBuffer -> logshipper ->
+// redact.js -> apiKey.js). A vitest file that imports the funnel then sets
+// DATA_DIR and imports the DB chain afterwards would freeze the REAL data dir
+// and silently read/write the operator's shore (the stale conn-voyage row was
+// the symptom). The dir is resolved lazily at CALL time instead, re-deriving
+// the same logic as src/lib/dataDir.js — the exact duplication-with-note
+// pattern workerDriver.js already carries. NO static/dynamic import of
+// dataDir.js may return to this file; the funnel sits upstream of it.
+const APP_DIR_NAME = "vela";
+function lazyDataDir() {
+  const configured = process.env.DATA_DIR;
+  const defaultDir = () => {
+    if (process.platform === "win32") {
+      return path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), APP_DIR_NAME);
+    }
+    return path.join(os.homedir(), `.${APP_DIR_NAME}`);
+  };
+  if (!configured) return defaultDir();
+  // Windows ignores Unix-style absolute paths, exactly as dataDir.js does.
+  if (process.platform === "win32" && /^\//.test(configured)) return defaultDir();
+  try {
+    fs.mkdirSync(configured, { recursive: true });
+    return configured;
+  } catch {
+    return defaultDir();
+  }
+}
 
 /**
  * Vela API key format — vela-v1-{keyId}-{crc}   (plan: plans/vela-key-governance.md §3.1)
@@ -36,13 +65,14 @@ export function getApiKeySecret() {
     cachedSecret = process.env.API_KEY_SECRET;
     return cachedSecret;
   }
-  const file = path.join(DATA_DIR, "api-key-secret");
+  const dir = lazyDataDir();
+  const file = path.join(dir, "api-key-secret");
   try {
     cachedSecret = fs.readFileSync(file, "utf8").trim();
     return cachedSecret;
   } catch {}
   const generated = crypto.randomBytes(32).toString("hex");
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(file, generated, { mode: 0o600 });
   cachedSecret = generated;
   return cachedSecret;

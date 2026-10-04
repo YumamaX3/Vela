@@ -86,6 +86,13 @@ export async function exportDb({ includeRequestDetails = false, redact = false }
       // '' is the normalized unknown, sealed by migration 008:91 — never NULL.
       statusClass: r.statusClass ?? "",
       combo: r.combo ?? null,
+      // M6 §3: 19 → 21 fields, in lockstep with the sqlite twin. This export
+      // feeds BOTH an operator artifact and runFullResync's primary→twin
+      // payload, so omitting the two join keys here would drop them on the
+      // backup path and the resync path alike — the v0.9.44 wound again. Both
+      // are TEXT on the twin, so no Number() coercion (unlike the DECIMALs
+      // above), and `?? null` never invents a key the row never had.
+      reqId: r.reqId ?? null, upstreamId: r.upstreamId ?? null,
     })),
     usageDaily: (await db.all(`SELECT * FROM usageDaily ORDER BY dateKey ASC`)).map((r) => ({ dateKey: r.dateKey, data: parseJson(r.data, {}) })),
     // S3 — backupLedger + outbox excluded BY NAME (EXPORT_EXCLUDED_TABLES).
@@ -385,9 +392,9 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
       // just above, so it can only fire on a payload carrying duplicate ids, and
       // widening it would be a behaviour change outside this wound's scope.
       await tx.run(
-        `INSERT INTO usageHistory(id, timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo) VALUES(?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO usageHistory(id, timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo, reqId, upstreamId) VALUES(?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE status = VALUES(status)`,
-        [h.id, h.timestamp, h.provider || "", h.model || "", h.connectionId || "", h.keyId || "", h.keyPrefix ?? null, h.endpoint ?? null, h.promptTokens ?? 0, h.completionTokens ?? 0, h.cost ?? 0, h.status ?? null, stringifyJson(h.tokens ?? null), stringifyJson(h.meta ?? null), h.latencyMs ?? null, h.ttftMs ?? null, h.httpStatus ?? null, h.statusClass ?? "", h.combo ?? null]
+        [h.id, h.timestamp, h.provider || "", h.model || "", h.connectionId || "", h.keyId || "", h.keyPrefix ?? null, h.endpoint ?? null, h.promptTokens ?? 0, h.completionTokens ?? 0, h.cost ?? 0, h.status ?? null, stringifyJson(h.tokens ?? null), stringifyJson(h.meta ?? null), h.latencyMs ?? null, h.ttftMs ?? null, h.httpStatus ?? null, h.statusClass ?? "", h.combo ?? null, h.reqId ?? null, h.upstreamId ?? null]
       );
     }
     if (want("usage")) for (const d of payload.usageDaily || []) {

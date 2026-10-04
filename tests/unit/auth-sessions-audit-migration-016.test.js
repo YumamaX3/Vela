@@ -114,9 +114,16 @@ describe("Migration 016 — auth sessions, durable failures, audit log", () => {
     // a bumped version with no migration, or a migration whose version the
     // schema block never followed.
     const { SCHEMA_VERSION } = await import("@/lib/db/schema.js");
-    const { latestVersion } = await import("@/lib/db/migrations/index.js");
-    expect(latestVersion()).toBe(16);
-    expect(SCHEMA_VERSION).toBe(16);
+    const { latestVersion, MIGRATIONS } = await import("@/lib/db/migrations/index.js");
+    // Derived, not pinned: the hardcoded numbers broke at every past bump
+    // (16→17→18) while the invariant this case's name promises is AGREEMENT —
+    // a bumped version with no migration, or a migration whose version the
+    // schema block never followed. Same law db-export-completeness.test.js
+    // recorded when its own `toBe(10)` rusted for five minors.
+    expect(latestVersion()).toBe(SCHEMA_VERSION);
+    expect(MIGRATIONS.map((m) => m.version)).toEqual(
+      Array.from({ length: SCHEMA_VERSION }, (_, i) => i + 1)
+    );
   });
 
   it("idempotent — replaying up() against a migrated database does not throw", async () => {

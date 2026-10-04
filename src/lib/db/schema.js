@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 17;
+export const SCHEMA_VERSION = 18;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -175,6 +175,22 @@ export const TABLES = {
       // part of the uq_uh_dedupe identity. Declared so auto-sync + the mysql
       // bootstrap diff heal the column on fresh installs and the twin.
       combo: "TEXT",
+      // Migration 018 — the log pipeline's join keys. `reqId` is the gateway's
+      // own request id (one per inbound request, across every fallback hop);
+      // `upstreamId` is the provider's own id for the SPECIFIC upstream call
+      // that produced this row, so a multi-hop request keeps one thread per
+      // hop instead of collapsing into one. Both are NULL on rows written
+      // before this migration — NULL meaning "pre-instrumentation", never a
+      // 0-faked empty string.
+      //
+      // NOT IN THE DEDUPE IDENTITY. uq_uh_dedupe below is UNTOUCHED by this
+      // migration, and that restraint is the design: a dedupe identity is a
+      // claim that two rows are the same usage EVENT, and a request id is not
+      // part of that claim. Folding it in would let a legitimate retry write a
+      // second row where the ledger expects one — a silent double-count of
+      // tokens and cost, which is the one thing this table must never do.
+      reqId: "TEXT",
+      upstreamId: "TEXT",
     },
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_uh_ts ON usageHistory(timestamp DESC)",
@@ -195,6 +211,11 @@ export const TABLES = {
       // Migration 004's dedupe identity — declared here so auto-sync heals it
       // if it is ever dropped (mirrors the uq_ak_key_hash pattern in apiKeys).
       "CREATE UNIQUE INDEX IF NOT EXISTS uq_uh_dedupe ON usageHistory(timestamp, provider, model, connectionId, keyId, promptTokens, completionTokens)",
+      // Migration 018 — the log pipeline's two join paths: a usage row to the
+      // request's logEvents thread, and a usage row to one specific upstream
+      // call within it.
+      "CREATE INDEX IF NOT EXISTS idx_uh_reqId ON usageHistory(reqId)",
+      "CREATE INDEX IF NOT EXISTS idx_uh_upstreamId ON usageHistory(upstreamId)",
     ],
   },
   usageDaily: {
@@ -398,6 +419,63 @@ export const TABLES = {
     },
     indexes: [
       "CREATE UNIQUE INDEX IF NOT EXISTS uq_auth_users_username ON authUsers(username)",
+    ],
+  },
+  // The log pipeline (migration 018) — three streams in one ledger.
+  //
+  // The harbor had two rooms and no door between them: the gateway's console
+  // room, its container room, and its request ledger each kept their own
+  // records and none of them could be joined to another. This table is that
+  // door. `stream` names which of the three a row came from, so one table
+  // answers "what happened" without pretending the three are the same thing.
+  //
+  // `ts` is epoch-ms INTEGER, not the TEXT ISO this schema uses elsewhere:
+  // this ledger is ordered and range-queried on every read, and an integer
+  // comparison is the comparison SQLite can serve from an index without
+  // parsing a string first. `authFailures` (016) already set the precedent.
+  //
+  // `lvl` is the numeric severity — 10 debug, 20 info, 30 warn, 40 error,
+  // 50 fatal — so a threshold filter is `lvl >= ?` rather than a chain of
+  // string equality tests. The numeric names are open; nothing here asserts
+  // a vocabulary.
+  //
+  // `id` is INTEGER PRIMARY KEY AUTOINCREMENT and is the CURSOR ANCHOR:
+  // rowid order IS arrival order, monotonically, with no tie-break to invent —
+  // which epoch-ms timestamps cannot promise (two lines can share a
+  // millisecond). Paginating "everything after what I last saw" is therefore
+  // `WHERE id > ?`, and a client that reconnects mid-stream resumes without
+  // a duplicate and without a gap.
+  //
+  // TRUNCATION FLAGS ARE COLUMNS, NOT JSON. `truncMsg`/`truncMeta` are
+  // dedicated flags precisely so a truncation is never something a reader has
+  // to notice inside a clamped blob — if the flag lived in `meta`, a consumer
+  // that did not know to look would silently read a clipped line as the
+  // whole truth. The clamps themselves (8,000 chars on `msg`, 16,000 on
+  // `meta`) are enforced at the write door, not here.
+  //
+  // `reqId`/`upstreamId`/`provider` mirror usageHistory's join keys: a request
+  // that reached an upstream carries one id on both ledgers, so a log line
+  // and the usage it produced can be read together.
+  logEvents: {
+    columns: {
+      id: "INTEGER PRIMARY KEY AUTOINCREMENT", // arrival order + cursor anchor
+      ts: "INTEGER NOT NULL", // epoch ms
+      lvl: "INTEGER NOT NULL", // 10 debug · 20 info · 30 warn · 40 error · 50 fatal
+      stream: "TEXT NOT NULL", // 'console' | 'container' | 'request'
+      reqId: "TEXT", // the gateway request id
+      upstreamId: "TEXT", // the provider's own id for THIS upstream call
+      provider: "TEXT",
+      tag: "TEXT", // existing topic tag — COMBO / FETCH / RETRY / AUTH …
+      msg: "TEXT NOT NULL", // clamped to 8,000 chars at the write door
+      meta: "TEXT", // JSON, clamped to 16,000
+      truncMsg: "INTEGER DEFAULT 0", // dedicated flags — never inside meta
+      truncMeta: "INTEGER DEFAULT 0",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS ix_log_ts ON logEvents(ts)",
+      "CREATE INDEX IF NOT EXISTS ix_log_req ON logEvents(reqId)",
+      "CREATE INDEX IF NOT EXISTS ix_log_up ON logEvents(upstreamId)",
+      "CREATE INDEX IF NOT EXISTS ix_log_provider ON logEvents(provider)",
     ],
   },
 };

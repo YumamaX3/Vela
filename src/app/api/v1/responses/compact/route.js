@@ -1,3 +1,8 @@
+// M6 §3 — withVoyage is the mint-site chokepoint: the reqId is minted HERE, at
+// handler entry, so every console line the gateway prints for this request
+// carries it without a single call-site edit. An inbound x-vela-request-id is
+// client-controlled and is never adopted (logContext.js mintVoyageReqId).
+import { withVoyage } from "@/lib/logContext.js";
 import { handleChat } from "@/sse/handlers/chat.js";
 import { initTranslators } from "open-sse/translator/index.js";
 
@@ -24,7 +29,7 @@ export async function OPTIONS() {
  * POST /v1/responses/compact - Compact conversation context
  * Reuses the same handleChat pipeline, signals compact via body._compact
  */
-export async function POST(request) {
+export const POST = withVoyage(async function POST(request) {
   await ensureInitialized();
   const body = await request.json();
   body._compact = true;
@@ -34,4 +39,4 @@ export async function POST(request) {
     body: JSON.stringify(body)
   });
   return await handleChat(newRequest);
-}
+});

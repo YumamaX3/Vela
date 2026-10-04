@@ -87,8 +87,14 @@ describe("combo column presence — the INSERT contracts", () => {
   it("sqlite usageRepo INSERT writes the combo column", async () => {
     const fs = await import("node:fs");
     const src = fs.readFileSync(new URL("../../src/lib/db/repos/sqlite/usageRepo.js", import.meta.url), "utf8");
-    expect(src).toContain("statusClass, combo)");
+    // M6 §3 appends the log pipeline's two join keys AFTER `combo`, so the
+    // column-list pin names the whole tail — the case still proves combo is
+    // present, and now also that the voyage keys ride the same INSERT rather
+    // than a second write that could diverge from the dedupe identity.
+    expect(src).toContain("statusClass, combo, reqId, upstreamId)");
     expect(src).toContain("entry.combo || null");
+    expect(src).toContain("voyage?.reqId ?? null");
+    expect(src).toContain("voyage?.upstreamId ?? null");
   });
 
   it("sqlite requestDetailsRepo INSERT writes the combo column", async () => {
@@ -102,8 +108,10 @@ describe("combo column presence — the INSERT contracts", () => {
     const fs = await import("node:fs");
     const usage = fs.readFileSync(new URL("../../src/lib/db/repos/mysql/usageRepo.js", import.meta.url), "utf8");
     const details = fs.readFileSync(new URL("../../src/lib/db/repos/mysql/requestDetailsRepo.js", import.meta.url), "utf8");
-    expect(usage).toContain("statusClass, combo)");
+    expect(usage).toContain("statusClass, combo, reqId, upstreamId)");
     expect(usage).toContain("entry.combo || null");
+    expect(usage).toContain("voyage?.reqId ?? null");
+    expect(usage).toContain("voyage?.upstreamId ?? null");
     expect(details).toContain("status, combo, data)");
     expect(details).toContain("item.combo || null");
   });

@@ -164,6 +164,13 @@ const ALWAYS_PROTECTED = [
   // may ride the deny-by-default branch that passes when requireLogin===false.
   // The prefix covers /api/network/diagnose and /api/network/status.
   "/api/network",
+  // Log Pipeline v2 (sealed plan §6): the whole /api/logs prefix escalates
+  // above requireLogin===false — the read surface returns redacted-but-
+  // sensitive rows, /export is the richest reconnaissance surface in the
+  // product, and /clear is irreversible. Log read access implies credential
+  // exposure if redaction ever fails; one more reason the prefix never rides
+  // the deny-by-default branch.
+  "/api/logs",
 ];
 
 // Require auth, but allow through if requireLogin is disabled.

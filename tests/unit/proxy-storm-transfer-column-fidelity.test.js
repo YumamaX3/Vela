@@ -424,7 +424,7 @@ describe("S5 — the negligence-vs-law boundary holds end to end", () => {
 });
 
 describe("S6 — the mysql apply seam's column list matches its placeholders", () => {
-  it("S6.1 applyUsageBatch binds 19 values for 20 columns (apiKey is a literal NULL)", async () => {
+  it("S6.1 applyUsageBatch binds every column except apiKey (a literal NULL)", async () => {
     // A column/placeholder mismatch is a RUNTIME throw in mysql, not a lint
     // error — and unlike the sqlite round-trip above there is no adapter here to
     // catch it, since the twin needs a live MariaDB. So the seam is verified by
@@ -450,18 +450,43 @@ describe("S6 — the mysql apply seam's column list matches its placeholders", (
     const columns = columnList.split(",").map((c) => c.trim()).filter(Boolean);
     const placeholders = (sql.match(/\?/g) || []).length;
 
-    // 20 columns, 19 placeholders — apiKey is bound as a literal NULL.
-    expect(columns).toHaveLength(20);
-    expect(placeholders).toBe(19);
-    expect(params).toHaveLength(19);
+    // The law is RELATIONAL, not a count: every column except apiKey is bound,
+    // and apiKey is a literal NULL. Asserted as a relation because the absolute
+    // count moved twice on purpose — v0.9.44 (LIVE-C) took it 15 → 20, and M6
+    // took it 20 → 22 by appending usageHistory's two log-pipeline join keys
+    // (reqId, upstreamId). Pinning the NUMBER would redden the next honest
+    // column addition and teach nothing; pinning the relation would have caught
+    // the real v0.9.44 defect, which was a column present but never bound.
     expect(columns).toContain("apiKey");
+    expect(placeholders).toBe(columns.length - 1);
+    expect(params).toHaveLength(placeholders);
     for (const c of ["latencyMs", "ttftMs", "httpStatus", "statusClass", "combo"]) {
       expect(columns).toContain(c);
     }
-    // The values actually reached the binding array, in order.
-    expect(params.slice(-5)).toEqual([
-      TELEMETRY.latencyMs, TELEMETRY.ttftMs, TELEMETRY.httpStatus,
-      TELEMETRY.statusClass, TELEMETRY.combo,
+    // M6 §3 — the join keys must ride this seam. A resync that omitted them
+    // would leave the twin's columns permanently NULL, and no sweep could see
+    // it (usageHistory is absent from FINGERPRINT_TABLES) — the v0.9.44 wound
+    // in its second costume.
+    expect(columns).toContain("reqId");
+    expect(columns).toContain("upstreamId");
+    // The tail, read from the END so an appended column cannot shift it. The
+    // apply seam's order is …, latencyMs, ttftMs, httpStatus, statusClass,
+    // combo, reqId, upstreamId — so the last THREE are combo + the two join
+    // keys, and the five telemetry columns sit immediately before them.
+    //
+    // The join keys coalesce to null (NOT undefined): the seam writes `?? null`
+    // so an absent key reaches the twin as a real NULL, which is the same
+    // honest-absent reading S6.2 asserts for these two columns.
+    expect(params.slice(-3)).toEqual([TELEMETRY.combo, null, null]);
+    // The seam's tail is …, latencyMs, ttftMs, httpStatus, statusClass, combo,
+    // reqId, upstreamId — so the last SEVEN bindings are those seven, and the
+    // four telemetry values occupy offsets -7..-4. Slicing a block by its own
+    // length only works while that block is LAST; M6 made combo
+    // second-to-last and added two columns after it, so the window is stated
+    // from the end instead of by length.
+    expect(params.slice(-7, -3)).toEqual([
+      TELEMETRY.latencyMs, TELEMETRY.ttftMs,
+      TELEMETRY.httpStatus, TELEMETRY.statusClass,
     ]);
     vi.doUnmock("@/lib/db/mysql/adapter.js");
   });
@@ -479,14 +504,23 @@ describe("S6 — the mysql apply seam's column list matches its placeholders", (
     await applyUsageBatch([{ id: 9, timestamp: TS, provider: "p", model: "m" }]);
 
     const params = captured[0];
-    // Last five bindings: latencyMs, ttftMs, httpStatus, statusClass, combo.
-    const [latencyMs, ttftMs, httpStatus, statusClass, combo] = params.slice(-5);
+    // The coalesced bindings are named by position from the END, not from the
+    // start: M6 appended two columns after them, so a `slice(-5)` read as
+    // "the telemetry block" silently became a mixed window and reported a NULL
+    // as if it were statusClass. The per-column law below is what the case
+    // claims, so the window is anchored where the block is anchored — at the
+    // end — with the join keys named in their own right.
+    const [upstreamId, reqId, combo, statusClass, httpStatus, ttftMs, latencyMs] = params.slice(-7);
     expect(latencyMs).toBeNull();
     expect(ttftMs).toBeNull();
     expect(httpStatus).toBeNull();
     expect(statusClass).toBe("");
     expect(statusClass).not.toBeNull();
     expect(combo).toBeNull();
+    // A row written before the voyage stamp has no key, and the twin must not
+    // invent one — NULL on both harbors is the honest reading.
+    expect(reqId).toBeNull();
+    expect(upstreamId).toBeNull();
     vi.doUnmock("@/lib/db/mysql/adapter.js");
   });
 });

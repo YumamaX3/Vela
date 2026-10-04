@@ -15,6 +15,17 @@ export async function register() {
     const { initConsoleLogCapture } = await import("@/lib/consoleLogBuffer");
     initConsoleLogCapture();
 
+    // M3 §2 — the durable log transport. Joins the console capture above,
+    // inside the same nodejs guard: logshipper owns its own worker spawn, so
+    // it must NOT be pulled into the Edge bundle. Fire-and-forget and
+    // fail-soft — a transport that cannot boot must never stop the server.
+    try {
+      const { initLogshipper } = await import("@/lib/logshipper/index.js");
+      await initLogshipper();
+    } catch (err) {
+      console.warn("[instrumentation] Logshipper init failed:", err.message);
+    }
+
     // Boot Fleet Captain once per server lifetime (fire-and-forget).
     // v0.9.42: call startFleet, not init. init only builds the singleton;
     // startFleet also starts the egress geo probe and the geo pruner sweeper,

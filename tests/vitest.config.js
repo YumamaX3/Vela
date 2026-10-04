@@ -48,6 +48,12 @@ export default defineConfig({
     exclude: ["**/node_modules/**", "**/.claude/**", "**/dist/**"],
     // Allow many it.concurrent cases (real provider smoke runs ~50 providers in parallel)
     maxConcurrency: 60,
+    // Real-adapter floor: the DB suites boot a real SQLite adapter and run the
+    // full migration chain per test (some spawn a real worker thread); the
+    // vitest default 5000ms starves them whenever the machine is loaded
+    // (parallel tide, a build running). 30s is still a hard fail-fast bound —
+    // a hung boot is a defect, a 6s boot is not.
+    testTimeout: 30_000,
     // Suppress noisy console output from handlers under test
     silent: false,
   },

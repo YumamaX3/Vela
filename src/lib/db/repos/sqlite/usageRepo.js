@@ -3,6 +3,11 @@ import { getAdapter } from "../../driver.js";
 import { parseJson, stringifyJson } from "../../helpers/jsonCol.js";
 import { getMeta, setMeta } from "../../helpers/metaStore.js";
 import { deriveStatusClass } from "../../../usageStatus.js";
+// M6 §3 — the voyage stamp for the ledger row. RELATIVE, matching this
+// file's own convention (../../driver.js): the db layer never uses the "@/"
+// alias, and open-sse/executors/base.js:14-22 records what that alias costs
+// when a module is loaded outside vite's transform.
+import { getVoyage } from "../../../logContext.js";
 
 // Usage Observatory W1-B (plans/mirror-usage-observatory/SEALED-PLAN.md W1.3):
 // the write-time enrichment covenant, mirrored verbatim in the mysql twin
@@ -391,9 +396,19 @@ export async function saveRequestUsage(entry) {
     // not include the telemetry columns, so a duplicate group's telemetry is
     // dropped with the conflict (endpoint-only backfill below). Accepted at
     // Gate 14: telemetry on the first write, never retrofit.
+    // M6 §3 — the ledger row joins the voyage rows on ONE key. The stamp is
+    // read from the live ALS store at the INSERT site (the writer is the one
+    // place that runs inside the request's context, on the main thread), so a
+    // ledger row and every log line of that request share a reqId. Outside a
+    // voyage — background aggregation, a CLI write — getVoyage() yields null
+    // and the columns stay NULL, which is the honest "no voyage" reading.
+    // It rides the SAME INSERT, never a second write: uq_uh_dedupe keeps its
+    // seven columns (a reqId is not part of the event identity), so this
+    // column can never widen the dedupe.
+    const voyage = getVoyage();
     db.transaction(() => {
       const res = db.run(
-        `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo) VALUES(?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo, reqId, upstreamId) VALUES(?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(timestamp, provider, model, connectionId, keyId, promptTokens, completionTokens) DO NOTHING`,
         [
           entry.timestamp, entry.provider || "", entry.model || "",
@@ -403,6 +418,8 @@ export async function saveRequestUsage(entry) {
           stringifyJson(tokens), stringifyJson(meta),
           latencyMs, ttftMs, httpStatus, statusClass,
           entry.combo || null, // migration 015 — NULL = direct request
+          voyage?.reqId ?? null, // M6 §3 — the voyage join key
+          voyage?.upstreamId ?? null, // M6 §3 — this hop's own upstream id
         ]
       );
 

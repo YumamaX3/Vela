@@ -121,6 +121,13 @@ export async function exportDb({ includeRequestDetails = false, redact = false }
         latencyMs: r.latencyMs ?? null, ttftMs: r.ttftMs ?? null,
         httpStatus: r.httpStatus ?? null, statusClass: r.statusClass ?? "",
         combo: r.combo ?? null,
+        // M6 §3: 19 → 21 fields. reqId/upstreamId ride every transfer path for
+        // the same reason the five above were added — a restore that dropped
+        // them would silently sever the usage ledger from the log ledger's
+        // voyage view, and no sweep covers usageHistory. `?? null` is honest:
+        // an artifact exported before the stamp carries no key, and one must
+        // never be invented at either end.
+        reqId: r.reqId ?? null, upstreamId: r.upstreamId ?? null,
       })),
       usageDaily: db.all(`SELECT * FROM usageDaily ORDER BY dateKey ASC`).map((r) => ({ dateKey: r.dateKey, data: parseJson(r.data, {}) })),
       // S3 — backupLedger + outbox EXCLUDED BY NAME (EXPORT_EXCLUDED_TABLES).
@@ -429,8 +436,8 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
       // every `?? ` falls through to the documented default — the restore stays
       // backward-compatible with artifacts written by v0.9.43 and earlier.
       db.run(
-        `INSERT OR REPLACE INTO usageHistory(id, timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo) VALUES(?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [h.id, h.timestamp, h.provider || "", h.model || "", h.connectionId || "", h.keyId || "", h.keyPrefix ?? null, h.endpoint ?? null, h.promptTokens ?? 0, h.completionTokens ?? 0, h.cost ?? 0, h.status ?? null, stringifyJson(h.tokens ?? null), stringifyJson(h.meta ?? null), h.latencyMs ?? null, h.ttftMs ?? null, h.httpStatus ?? null, h.statusClass ?? "", h.combo ?? null]
+        `INSERT OR REPLACE INTO usageHistory(id, timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo, reqId, upstreamId) VALUES(?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [h.id, h.timestamp, h.provider || "", h.model || "", h.connectionId || "", h.keyId || "", h.keyPrefix ?? null, h.endpoint ?? null, h.promptTokens ?? 0, h.completionTokens ?? 0, h.cost ?? 0, h.status ?? null, stringifyJson(h.tokens ?? null), stringifyJson(h.meta ?? null), h.latencyMs ?? null, h.ttftMs ?? null, h.httpStatus ?? null, h.statusClass ?? "", h.combo ?? null, h.reqId ?? null, h.upstreamId ?? null]
       );
     }
     if (want("usage")) for (const d of payload.usageDaily || []) {

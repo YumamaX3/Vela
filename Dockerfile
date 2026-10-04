@@ -45,6 +45,16 @@ ENV HOSTNAME=0.0.0.0
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATA_DIR=/app/data
 ENV VELA_DEPLOYMENT=docker
+# ─── The log driver's pin (M10) ──────────────────────────────────────────
+# The runner does NOT pin VELA_DB_DRIVER today — only the BUILDER does, and
+# that ENV is builder-scoped by design (Dockerfile:24). So on the shipped image
+# "the main handle is node:sqlite" is NOT true; it is merely whatever the chain
+# resolves. `VELA_LOG_DRIVER` pins the WORKER's own handle (sealed plan §2,
+# "Driver pin"), so this ENV is what makes the declaration TRUE rather than
+# inferred. node:sqlite ships inside the node binary: no native addon, so the
+# arm64-under-QEMU SIGILL class cannot reach it, and the wasm fallback is not
+# paid for either. Same declaration shape as the builder's line 24.
+ENV VELA_LOG_DRIVER=node:sqlite
 # ─── The heap ceiling (stability) ────────────────────────────────────────
 # V8 sizes its old space from the HOST's memory, not from the container's
 # cgroup limit, so on a large host inside a 2G container the GC happily grows
@@ -71,6 +81,32 @@ COPY --from=builder /app/custom-server.js ./custom-server.js
 COPY --from=builder /app/open-sse ./open-sse
 # Next file tracing can omit sibling files; MITM runs server.js as a separate process.
 COPY --from=builder /app/src/mitm ./src/mitm
+# ─── The log shipper's worker (M10) ──────────────────────────────────────
+# `initLogshipper` spawns a REAL `worker_threads` Worker by PATH:
+# `new Worker(new URL("./worker.js", import.meta.url))` (logshipper/index.js:424).
+# Next's standalone output tracing CANNOT follow `new Worker(url)` — there is
+# no static import edge to follow — so worker.js is absent from the image and
+# the shipper would die at boot, taking the durable log ledger with it.
+# Measured, not assumed: `import.meta.url` is INLINED by the server bundler as
+# a build-machine absolute literal (chunk: `fileURLToPath("file:///…/src/…")`,
+# zero occurrences of `import.meta.url` survive in the compiled chunks), so the
+# URL resolves against THIS mirrored path, not against the bundler's chunk dir.
+# Hence the src-mirror layout, the same precedent as the MITM copy above.
+#
+# THE COPY IS THE WHOLE CLOSURE, NOT JUST worker.js (mysql2-closure precedent):
+# the worker is loaded BY PATH by Node, so its relative imports are resolved by
+# Node's ESM loader and NO bundler follows them. Measured closure:
+#   logshipper/{writer,workerDriver}.js
+#   db/repos/sqlite/logStore.js → db/schema.js
+#   db/adapters/{node,betterSqlite,bunSqlite,sqljs}Adapter.js → db/{schema,checkpointOwner}.js
+# Every one of those files is alias-free (`@/` does NOT resolve in a spawned
+# thread — workerDriver.js's header) but Node-relative, so a lone worker.js COPY
+# would ENOENT on `./writer.js` the first time it boots.
+COPY --from=builder /app/src/lib/logshipper ./src/lib/logshipper
+COPY --from=builder /app/src/lib/db/repos/sqlite/logStore.js ./src/lib/db/repos/sqlite/logStore.js
+COPY --from=builder /app/src/lib/db/adapters ./src/lib/db/adapters
+COPY --from=builder /app/src/lib/db/schema.js ./src/lib/db/schema.js
+COPY --from=builder /app/src/lib/db/checkpointOwner.js ./src/lib/db/checkpointOwner.js
 # Standalone node_modules may omit deps only required by the MITM child process.
 COPY --from=builder /app/node_modules/node-forge ./node_modules/node-forge
 # Ensure `next` is available at runtime in case tracing did not include it.

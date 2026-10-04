@@ -1,6 +1,7 @@
 // Built-in node:sqlite adapter — available in Node >= 22.5.0.
 // No native build, no npm install. API mirrors betterSqliteAdapter.
 import { PRAGMA_SQL } from "../schema.js";
+import { registerNativeHandle, workerOwnsCheckpointing } from "../checkpointOwner.js";
 
 const CHECKPOINT_INTERVAL_MS = 60 * 1000;
 
@@ -22,6 +23,15 @@ export async function createNodeSqliteAdapter(filePath) {
 
   db.exec(PRAGMA_SQL);
 
+  // §2 checkpoint ownership: when the logshipper worker owns checkpointing,
+  // this handle is born opted out — wal_autocheckpoint = 0 (reads are served
+  // from the WAL regardless) and NO TRUNCATE interval, so no serving-path
+  // statement can ever wait on a checkpoint lock the worker is holding.
+  const workerOwnsCheckpoints = workerOwnsCheckpointing();
+  if (workerOwnsCheckpoints) {
+    try { db.exec("PRAGMA wal_autocheckpoint = 0"); } catch {}
+  }
+
   const stmtCache = new Map();
   function prepare(sql) {
     let stmt = stmtCache.get(sql);
@@ -32,11 +42,23 @@ export async function createNodeSqliteAdapter(filePath) {
     return stmt;
   }
 
-  // Periodic WAL checkpoint to keep -wal/-shm small
-  const checkpointTimer = setInterval(() => {
-    try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch {}
-  }, CHECKPOINT_INTERVAL_MS);
-  if (typeof checkpointTimer.unref === "function") checkpointTimer.unref();
+  // Periodic WAL checkpoint to keep -wal/-shm small. Suppressed entirely when
+  // the worker owns checkpointing — a TRUNCATE here waits on the worker's
+  // write transaction and froze the main thread for 5,495 ms (measured).
+  let checkpointTimer = null;
+  if (!workerOwnsCheckpoints) {
+    checkpointTimer = setInterval(() => {
+      try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch {}
+    }, CHECKPOINT_INTERVAL_MS);
+    if (typeof checkpointTimer.unref === "function") checkpointTimer.unref();
+  }
+  registerNativeHandle({
+    disableAutoCheckpoint: () => {
+      try { db.exec("PRAGMA wal_autocheckpoint = 0"); } catch {}
+      if (checkpointTimer) { clearInterval(checkpointTimer); checkpointTimer = null; }
+    },
+    checkpointNow: () => { try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch {} },
+  });
 
   function gracefulClose() {
     try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch {}
@@ -50,6 +72,12 @@ export async function createNodeSqliteAdapter(filePath) {
 
   return {
     driver: "node:sqlite",
+    // Exposed so the checkpoint-ownership test can PROVE the timer is genuinely
+    // ABSENT, not merely unref'd. The `wal_autocheckpoint = 0` pragma reads 0
+    // either way, so it cannot by itself distinguish "suppressed" from
+    // "registered but idle" — which is precisely the mutation that would
+    // reintroduce the 5,495 ms main-thread freeze this ownership exists to end.
+    hasCheckpointTimer: () => checkpointTimer !== null,
     run(sql, params = []) {
       const r = prepare(sql).run(...params);
       return { changes: Number(r.changes ?? 0), lastInsertRowid: Number(r.lastInsertRowid ?? 0) };

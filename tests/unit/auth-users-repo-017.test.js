@@ -125,7 +125,6 @@ describe("Migration 017 — the credential store's table", () => {
     const { MIGRATIONS, latestVersion } = await import("@/lib/db/migrations/index.js");
     const { SCHEMA_VERSION } = await import("@/lib/db/schema.js");
     expect(latestVersion()).toBe(SCHEMA_VERSION);
-    expect(latestVersion()).toBe(17);
     const m = MIGRATIONS.find((x) => x.version === 17);
     expect(m?.name).toBe("auth-users");
   });

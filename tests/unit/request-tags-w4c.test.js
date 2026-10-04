@@ -113,10 +113,13 @@ describe("W4-C request tags — the pure validation contract", () => {
 describe("W4-C request tags — migration 010 + schema mirror", () => {
   it("migration registry and schema mirror advanced to 10", async () => {
     const { MIGRATIONS, latestVersion } = await import("@/lib/db/migrations/index.js");
-    expect(latestVersion()).toBe(10);
-    expect(MIGRATIONS.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    // Derived, not pinned (db-export-completeness law): migration 010's
+    // historical marker stays named in the second assertion below; the
+    // registry/sync invariants are derived so a bump cannot rust them.
+    expect(latestVersion()).toBeGreaterThan(10);
+    expect(MIGRATIONS.filter((m) => m.version <= 10).map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     const { TABLES, SCHEMA_VERSION } = await import("@/lib/db/schema.js");
-    expect(SCHEMA_VERSION).toBe(10);
+    expect(SCHEMA_VERSION).toBe(latestVersion());
     expect(TABLES.usageRequestTags).toBeTruthy();
     expect(TABLES.usageRequestTags.columns.name).toBe("TEXT NOT NULL");
     expect(TABLES.usageRequestTags.columns.usageId).toBe("INTEGER NOT NULL");

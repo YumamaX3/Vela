@@ -81,7 +81,8 @@ export async function fetchUsageBatch(afterId, batchSize) {
   return db.all(
     `SELECT id, timestamp, provider, model, connectionId, keyId, keyPrefix,
             endpoint, promptTokens, completionTokens, cost, status, tokens, meta,
-            latencyMs, ttftMs, httpStatus, statusClass, combo
+            latencyMs, ttftMs, httpStatus, statusClass, combo,
+            reqId, upstreamId
      FROM usageHistory WHERE id > ? ORDER BY id ASC LIMIT ?`,
     [afterId, batchSize]
   );

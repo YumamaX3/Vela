@@ -5,6 +5,48 @@ import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import { dbg } from "../utils/debugLog.js";
 import { ANTHROPIC_API_VERSION, OPENAI_COMPAT_BASE, ANTHROPIC_COMPAT_BASE } from "../providers/shared.js";
 import { resolveOpenAICompatibleApiType } from "../services/provider.js";
+// M6 §3 — per-call upstreamId capture. RELATIVE, not "@/": this file is
+// reparsed as a native ES module by some test graphs (reasoningContent-
+// Injector.test.js) that never see vite's alias table, so `@/lib/...` arrives
+// as a bare package specifier and fails at import time — the exact correction
+// proxyFetch.js:14-22 records. logContext.js imports only node builtins, so it
+// resolves under both loaders.
+import { stampUpstreamCall } from "../../src/lib/logContext.js";
+
+/**
+ * BaseExecutor - Base class for provider executors
+ */
+// The well-known request-id headers, in precedence order. First one PRESENT on
+// the response wins; absent everywhere, stampUpstreamCall is called with
+// upstreamId undefined and stores nothing. A provider's own id is never
+// guessed from a body or a tag — forged attribution is worse than an honest
+// NULL (sealed plan §3, and the same law the stale-context rule exists for).
+const UPSTREAM_ID_HEADERS = [
+  "x-request-id",
+  "request-id",
+  "cf-ray",
+  "x-amzn-requestid",
+  "anthropic-request-id",
+];
+
+/** Capture THIS upstream call's own id into the live voyage store (§3).
+ *  Per-call precedence: each fetch overwrites provider/upstreamId, so a
+ *  multi-hop request keeps one thread per hop. The request-wide reqId never
+ *  changes. A no-op outside a live voyage — safe on every non-gateway path. */
+function captureUpstreamId(provider, response) {
+  let upstreamId;
+  const headers = response?.headers;
+  if (headers?.get) {
+    for (const name of UPSTREAM_ID_HEADERS) {
+      const value = headers.get(name);
+      if (value) {
+        upstreamId = value;
+        break;
+      }
+    }
+  }
+  stampUpstreamCall({ provider, upstreamId });
+}
 
 /**
  * BaseExecutor - Base class for provider executors
@@ -152,6 +194,7 @@ export class BaseExecutor {
         const ct = response.headers?.get?.("content-type") || "";
         const cl = response.headers?.get?.("content-length") || "?";
         dbg("FETCH", `${this.provider.toUpperCase()} ← ${response.status} | ttft=${Date.now() - fetchT0}ms | ct=${ct} | cl=${cl}`);
+        captureUpstreamId(this.provider, response);
 
         if (await tryRetry(urlIndex, response.status, `status ${response.status}`, response)) { urlIndex--; continue; }
 

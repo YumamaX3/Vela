@@ -112,15 +112,82 @@ http.createServer = (...args) => {
   // Graceful drain: stop accepting new connections, let in-flight requests
   // finish (bounded), then exit. Docker sends SIGTERM on `docker stop`; a
   // clean drain avoids the half-boot states that cost the 0.9.19 tide.
+  //
+  // M4 — THE LOGSHIPPER HANDSHAKE (sealed plan §2.1). The measured wound:
+  // 5,000/5,000 accepted log lines were lost on a graceful restart, because
+  // the ring's last batches sat in a worker thread when `process.exit(0)` fired.
+  // So the drain now FLUSHES BEFORE IT EXITS.
+  //
+  // THREE SEQUENCING FACTS — the third one is a MEASURED correction, and the
+  // measurement is why this comment is longer than the code:
+  //   1. `server.close()` is INITIATED first, never awaited. Awaiting it before
+  //      flushing would serialize the flush behind every in-flight request.
+  //   2. THE EXIT WAITS FOR THE FLUSH. This was WRONG on the first attempt, and
+  //      the probe caught it: with the exit racing the handshake, `server.close()`'s
+  //      callback fired at +1ms and called `process.exit(0)` while the worker's
+  //      `stopped` ack was still 99ms away — the rows were never written and the
+  //      whole handshake was theatre. The close callback therefore resolves a
+  //      PROMISE, and the exit happens after BOTH the close and the flush have
+  //      settled. Neither may wait on the other.
+  //   3. THE 10s BACKSTOP IS UNTOUCHED and remains the outer ceiling; the 2s
+  //      handshake sits INSIDE it, so a wedged worker cannot strand the process.
+  //      `draining` is the idempotency latch — Docker sends SIGTERM twice on a
+  //      slow stop, and the handshake is itself idempotent (one shared promise).
   let draining = false;
+  let exited = false;
+  const exitAfterDrain = () => {
+    if (exited) return;
+    exited = true;
+    process.exit(0);
+  };
   const drain = () => {
     if (draining) return;
     draining = true;
-    server.close(() => process.exit(0));
-    setTimeout(() => process.exit(0), DRAIN_TIMEOUT_MS).unref();
+    // Close the listener now; resolve the promise only when the socket drains.
+    const closed = new Promise((resolve) => server.close(() => resolve()));
+    // The handshake never rejects and never outlives its 2s bound, so awaiting
+    // both can only make this drain FINITE — which is the whole law.
+    void Promise.all([closed, flushLogsBeforeExit()]).then(exitAfterDrain);
+    // The outer backstop, unchanged: if an in-flight request or a wedged worker
+    // outlasts everything above, the process still leaves on time.
+    setTimeout(exitAfterDrain, DRAIN_TIMEOUT_MS).unref();
   };
   process.once("SIGTERM", drain);
   process.once("SIGINT", drain);
+
+  // M4 — reach the shipper's shutdown door. BEST-EFFORT BY CONSTRUCTION, and
+  // the seam is chosen from what was MEASURED rather than what reads well:
+  //
+  //
+  //   · This file is CommonJS at the repo root; the shipper is ESM under `src/`.
+  //   · `require()` of that ESM path works on Node 22+/25 (verified), BUT an ESM
+  //     module already registered in the loader is NOT re-requireable by path
+  //     (measured: MODULE_NOT_FOUND once the app had booted it). So whether this
+  //     reaches the LIVE module or a SECOND, never-booted copy depends on layout.
+  //   · A never-booted copy is harmless but useless — `state.booted` is false, so
+  //     its handshake resolves immediately and flushes nothing. The flush is
+  //     therefore LOSSLESS only where the module resolves to the booted instance.
+  //
+  // Every failure path resolves, so a missing module costs the flush, never the
+  // drain. `next dev` and a bare `next start` never load this file at all, so no
+  // flush is lost there — nothing boots a shipper in those paths.
+  let shutdownPromise = null;
+  function flushLogsBeforeExit() {
+    try {
+      const mod = require("./src/lib/logshipper/index.js");
+      shutdownPromise = Promise.resolve(mod.shutdownLogshipper());
+    } catch {
+      shutdownPromise = Promise.resolve();
+    }
+    return shutdownPromise;
+  }
+
+  // The `beforeExit` belt (§2.1): fires when the loop drains NATURALLY, which a
+  // SIGTERM never does — so this covers `next dev`, a plain `next start`, and any
+  // path that reaches the end of its work without a signal.
+  process.once("beforeExit", () => {
+    void flushLogsBeforeExit();
+  });
   const origEmit = server.emit;
   // JBR 25 sends h2c upgrades that the HTTP/1.1 server would otherwise close.
   server.emit = function (event, ...eventArgs) {

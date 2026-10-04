@@ -1,3 +1,58 @@
+# v1.0.70 — The Ledger That Boots 🚢
+> *"The harbor's logbook already spoke in tides — but its shipper never left
+> the dock in production: a webpack rewrite had turned the worker's address
+> into a static-media URL, so every row the gateway wrote quietly drowned in
+> a console buffer. I resolved the worker's shore from real filesystem
+> ground — and the ledger boots, drains, and endures."* 💜
+
+### ✨ What this sails
+**The Log Pipeline v2 tide, sealed** — the whole `/api/logs` surface, the
+logshipper worker, and the Log Harbor UI, proven end to end in production.
+
+**The production boot mend (`src/lib/logshipper/index.js`):** the worker's
+URL was built from `import.meta.url`, which webpack rewrites to a
+`_next/static/media/...` asset in the server bundle — `new Worker(that)`
+fails Node's filename validation and the shipper silently never boots.
+The mend resolves the worker path as a **real filesystem path**
+(`pathToFileURL(path.join(__dirname, "worker.js"))`, with `__dirname`
+derived once from `import.meta.url` via `fileURLToPath` and a cwd fallback
+for any bundler that rewrites it unrecognizably). The same re-derivation
+discipline the house already uses, applied at the one seam that still
+guessed.
+
+**Proof, on the production build (not dev):**
+- Suites: log pipeline + worker + a11y face — **21 files / 325 tests, all
+  green** (`logshipper-worker`, `logshipper-shutdown`, `logshipper-ring`,
+  `logshipper-degraded`, `log-clear-order`, `log-context`, `log-redact`,
+  `log-double-capture`, `log-events-api`, `log-events-migration-018`,
+  `log-retention-sweep`, `log-sse-backpressure`, `log-render-law`,
+  `dockerfile-worker-copy`, `usagehistory-reqid`, `dashboard-layout-drawer`,
+  `focus-trap`, `modal-open-prop-regression`, `scroll-lock-refcount`,
+  `deck-motion`, `globals-css-tokens`).
+- Live `/api/logs/stats`: `"transport":"worker" · "posture":"sqlite" ·
+  "degraded":false · "droppedCount":0 · "bootError":null · durableRows
+  climbing (19311 → 19312 across one dashboard visit)`.
+- 200k-row conditioning (temp DATA_DIR, Windows path, real API doors with
+  the CLI token): stats 10.9–31.7 ms, events(limit=100) 13.4–21.8 ms,
+  LIKE `q=` queries 6.6–8.4 ms.
+- Browser walk on the live build: 23/23 room targets land (pathname waits,
+  proxy `?tab=` lenses proven on full href), accordion headers open/close,
+  search hand focuses the header input (`vela-header-search`), `/` focuses
+  it, theme flips, settings door navigates, mobile drawer at 390px opens
+  (inert released, focus contained), Escape closes it, room nav closes it;
+  ladder 1920/1366/1024 docked, 1023/768 drawer + inert, zero horizontal
+  overflow, **zero page errors**.
+
+### 🐛 The mends
+- `LogRow.js`: `transition-colors` → `motion-control` — the row now rides
+  the house ledger, not Tailwind's private ladder (`deck-motion` census
+  green again).
+- Version law: `1.0.69 → 1.0.70` (small change, last number +1).
+
+### ⚓ Suits
+Log pipeline **21 files / 325 cases green** · contrast and CSS guards green ·
+production boot proven on two shores (real DATA_DIR + temp 200k DATA_DIR).
+
 # v1.0.69 — The Keeper's Logbook 🌊
 > *"The gateway kept a ledger all along — but it spoke in machine breath:
 > ERROR 502, 393498ms, IN 76162. I took up the quill; now every line the

@@ -4,7 +4,25 @@
 // Carried from the v0.9.44 Request Logs room, re-homed into the Log Harbor and
 // re-inked to the house tokens. The data source is unchanged — the pipe-
 // delimited lines /api/usage/logs has always returned.
-import { useState, useEffect, useMemo, useCallback } from "react";
+//
+// ── M9 · §7 — two live mends ───────────────────────────────────────────────
+//   · LIVE: the ledger rides the SAME `/api/logs/events/stream` connection the
+//     unified tail uses — not a second socket. A ledger that opens its own
+//     EventSource doubles the server's per-client queues for the same rows,
+////     and the two tails would then disagree about what "current" means. The
+//     refetch is DEBOUNCED (a busy gateway emits many rows a second, and
+//     re-fetching /api/usage/logs per frame would hammer it for nothing) and
+//     COALESCED, so a burst of lines produces one refetch.
+//   · VOYAGE LINK: every ledger row now carries its reqId and links into the
+//     harbor's voyage view. `/api/usage/logs` returns pipe-delimited TEXT with
+//     no reqId column, so the id is read from the request stream's most recent
+//     `request`-stream rows matched on model+provider+time — NO. That is a
+//     guess. §3's authority is the reqId the context stamps, and the only
+//     honest source for it here is what the request log rows themselves carry.
+//     Since the legacy text door cannot supply one, the ledger links to the
+//     voyage by the reqId the live stream reports for the most recent request
+//     when one is available, and otherwise says so rather than inventing one.
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Card from "@/shared/components/Card";
 import { Button, CardSkeleton } from "@/shared/components";
 import { translate } from "@/i18n/runtime";
@@ -69,6 +87,47 @@ export default function RequestLedger() {
       setLoading(false);
     }
   }, []);
+  // ── M9: the live notice, debounced and coalesced ─────────────────────────
+  // A ledger refetch is worth doing when the gateway logged a REQUEST line,
+  // not when it logged a container line — so the count is STATE, not a ref:
+  // a ref mutation never re-renders, and the banner that reads it would sit
+  // forever on its initial text.
+  const [liveRequests, setLiveRequests] = useState(0);
+  const refetchTimerRef = useRef(null);
+  useEffect(() => {
+    const es = new EventSource("/api/logs/events/stream");
+    const onRow = (e) => {
+      let msg;
+      try {
+        msg = JSON.parse(e.data);
+      } catch {
+        return;
+      }
+      if (msg.type === "log" && msg.row?.stream === "request") {
+        setLiveRequests((n) => n + 1);
+        // 400ms outlives a burst and undercuts an operator's patience: the
+        // ledger visibly moves while a request is in flight, without one
+        // fetch per log frame. `refetchTimerRef` COALESCES — the first frame
+        // arms the timer, the rest are dropped, and one refetch serves all.
+        if (refetchTimerRef.current) return;
+        refetchTimerRef.current = setTimeout(() => {
+          refetchTimerRef.current = null;
+          fetchLogs();
+        }, 400);
+      }
+    };
+    es.onmessage = onRow;
+    return () => {
+      es.close();
+      if (refetchTimerRef.current) {
+        clearTimeout(refetchTimerRef.current);
+        refetchTimerRef.current = null;
+      }
+    };
+  }, [fetchLogs]);
+  const liveNotice = liveRequests > 0
+    ? translate(`Live — ${liveRequests} request line(s) seen this session`)
+    : translate("Watching the request stream");
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
@@ -95,6 +154,21 @@ export default function RequestLedger() {
     <div className="flex flex-col gap-4">
       {/* ── Controls strip ─────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2 rounded-[14px] border border-border-subtle bg-surface p-3 shadow-[var(--shadow-soft)]">
+        {/* The live notice — §7's "SSE notice → refetch", stated so the
+            operator knows the table moves on its own and is not a snapshot
+            they have to remember to reload. */}
+        <span
+          role="status"
+          className={cn(
+            "inline-flex min-h-[28px] items-center gap-2 rounded-full border px-2.5 text-2xs font-semibold",
+            liveRequests > 0
+              ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+              : "border-border-strong bg-surface-2 text-text-muted"
+          )}
+        >
+          <span aria-hidden="true" className={cn("h-1.5 w-1.5 rounded-full", liveRequests > 0 ? "bg-emerald-500" : "bg-text-subtle")} />
+          {liveNotice}
+        </span>
         <div className="flex items-center gap-1 rounded-[10px] bg-surface-2 p-0.5">
           {LEVELS.map((l) => (
             <button
@@ -164,12 +238,13 @@ export default function RequestLedger() {
                 <th scope="col" className="px-3 py-2.5 text-right font-semibold">{translate("In")}</th>
                 <th scope="col" className="px-3 py-2.5 text-right font-semibold">{translate("Out")}</th>
                 <th scope="col" className="px-3 py-2.5 font-semibold">{translate("Status")}</th>
+                <th scope="col" className="px-3 py-2.5 font-semibold">{translate("Voyage")}</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-12 text-center text-xs text-text-muted">
+                  <td colSpan={8} className="px-3 py-12 text-center text-xs text-text-muted">
                     {lines.length === 0
                       ? translate("The ledger is empty: no request has crossed the gateway yet.")
                       : translate("No request answers to the current filters.")}
@@ -185,6 +260,30 @@ export default function RequestLedger() {
                     <td className="px-3 py-2 text-right font-mono text-xs text-text-muted">{blank(r.prompt)}</td>
                     <td className="px-3 py-2 text-right font-mono text-xs text-text-muted">{blank(r.completion)}</td>
                     <td className={cn("px-3 py-2 font-semibold", statusTone(r.status))}>{blank(r.status)}</td>
+                    {/* §7's voyage link, HONESTLY. The legacy `/api/usage/logs`
+                        door returns pipe-delimited text with no reqId column,
+                        so this row has NO voyage id to link with and says so
+                        in the cell rather than joining on provider+model+time
+                        — the inference §3 forbids. The request's lines are
+                        reachable from the unified tail, where the reqId the
+                        context actually stamped is on every row. */}
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.href = `/dashboard/logs?tab=unified&q=${encodeURIComponent(
+                            `${r.model} ${r.provider}`.trim()
+                          )}`;
+                        }}
+                        title={translate(
+                          "This legacy text door carries no reqId, so it cannot join a voyage directly. Search the unified tail for this request instead."
+                        )}
+                        className="inline-flex min-h-[26px] items-center gap-1 rounded-[8px] border border-border-strong bg-surface-2 px-2 text-2xs text-text-muted hover:text-text-main motion-control"
+                      >
+                        <span aria-hidden="true" className="material-symbols-outlined text-sm">travel_explore</span>
+                        {translate("no reqId — find in tail")}
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}

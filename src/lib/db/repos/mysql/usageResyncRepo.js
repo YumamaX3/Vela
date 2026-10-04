@@ -41,9 +41,17 @@ export async function applyUsageBatch(rows) {
       //     unknown and deriveStatusClass can only ever return a string, so a
       //     NULL here would violate the invariant idx_uh_ts_status relies on.
       //   - combo → `?? null` (NULL = direct request, migration 015).
+      //   - reqId / upstreamId (M6 §3) → `?? null`. These are the log
+      //     pipeline's join keys: the primary writes them on the same INSERT,
+      //     and a resync that omitted them would leave the twin's columns
+      //     permanently NULL — the v0.9.44 five-column lesson exactly, and
+      //     undetectable here because `usageHistory` is absent from
+      //     FINGERPRINT_TABLES, so no sweep would ever see the divergence.
+      //     A row written before the stamp is NULL on BOTH harbors; the twin
+      //     must not invent one, so `?? null` and never a synthesized id.
       await tx.run(
-        `INSERT INTO usageHistory(id, timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo)
-         VALUES(?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO usageHistory(id, timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo, reqId, upstreamId)
+         VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE id = id`,
         [
           r.id, r.timestamp, r.provider || "", r.model || "",
@@ -53,6 +61,8 @@ export async function applyUsageBatch(rows) {
           stringifyJson(r.tokens ?? null), stringifyJson(r.meta ?? null),
           r.latencyMs ?? null, r.ttftMs ?? null, r.httpStatus ?? null,
           r.statusClass ?? "", r.combo ?? null,
+          // M6 §3 — carried verbatim from the primary's own read seam.
+          r.reqId ?? null, r.upstreamId ?? null,
         ]
       );
     }

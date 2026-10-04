@@ -14,6 +14,21 @@
 // catches from then on is the part `docker logs` shows that the Console stream
 // cannot. Writes that go straight to fd 1 from a child (`stdio: […, 1, 1]`)
 // bypass the tap by definition and are never in here.
+// M9 · §7 — three parity mends and one rendering mend:
+//   · PARITY: this tab gains what the Console tab already had — a tag filter,
+//     a JSON export, and the armed clear. A stream the operator can read but
+//     not export is half a tool, and "half a tool" is how a container
+//     incident gets pasted through a chat window instead of a file.
+//   · THE RAW LABEL: §1 exempts THIS view from the control-char scrub
+//     (persisted rows are scrubbed; the raw ring keeps its ANSI by
+//     construction), so the tab says so in its own header. An operator who
+//     sees colour must be able to find out whether colour means anything.
+//   · THE ANSI RENDERING: escape codes are PARSED into styled React spans
+//     (`ansiToSegments`), never injected. The previous render was a plain
+//     text child, which was already inert; parsing makes the raw view legible
+//     AND keeps the law — a span with a class is still a text child, and
+//     `\u001b[31m` in a message body becomes zero characters, not markup.
+import { AnsiText } from "./LogRow";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Drawer } from "@/shared/components";
 import { translate } from "@/i18n/runtime";
@@ -57,6 +72,19 @@ export default function ContainerStream() {
   const [atBottom, setAtBottom] = useState(true);
   const logRef = useRef(null);
   const stickToBottomRef = useRef(true);
+  // ── M9 parity state ─────────────────────────────────────────────────────
+  // Tag filter + the armed clear + a JSON export: the three controls the
+  // Console tab carried and this one did not (§7's parity mend). The clear
+  // arms exactly as the console deck's does, so a destructive act on one tab
+  // behaves identically to a destructive act on the other — and it clears the
+  // MEMORY rings only. The durable ledger is /api/logs/clear, which demands a
+  // password re-confirm and writes an audit row; pretending a DELETE on the
+  // in-memory ring is that would be the one dishonesty this harbor must not
+  // commit.
+  const [tagFilter, setTagFilter] = useState(null);
+  const [armedClear, setArmedClear] = useState(false);
+  const disarmTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(disarmTimerRef.current), []);
   // ── Stream (same SSE channel; this stream reads the raw entries) ─────────
   useEffect(() => {
     const es = new EventSource("/api/translator/console-logs/stream?structured=true");
@@ -104,14 +132,22 @@ export default function ContainerStream() {
     return out;
   }, [entries]);
   const matcher = useMemo(() => buildMatcher(query, useRegex), [query, useRegex]);
+  const topTags = useMemo(() => {
+    const counts = new Map();
+    for (const e of entries) {
+      for (const t of e.tags || []) counts.set(t, (counts.get(t) || 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 10);
+  }, [entries]);
   const filtered = useMemo(
     () =>
       entries.filter((e) => {
         if (!activeLevels.has(e.level)) return false;
         if (streamFilter && e.stream !== streamFilter) return false;
+        if (tagFilter && !(e.tags || []).includes(tagFilter)) return false;
         return matcher.test(e);
       }),
-    [entries, activeLevels, streamFilter, matcher]
+    [entries, activeLevels, streamFilter, matcher, tagFilter]
   );
   const selected = useMemo(
     () => (selectedId ? entries.find((e) => e.id === selectedId) || null : null),
@@ -124,6 +160,9 @@ export default function ContainerStream() {
       else next.add(level);
       return next;
     });
+  }, []);
+  const toggleTag = useCallback((tag) => {
+    setTagFilter((prev) => (prev === tag ? null : tag));
   }, []);
   const exportText = useCallback(() => filtered.map((e) => e.raw).join("\n"), [filtered]);
   const copyAll = useCallback(async () => {
@@ -143,6 +182,33 @@ export default function ContainerStream() {
     a.click();
     URL.revokeObjectURL(url);
   }, [exportText]);
+  const downloadJson = useCallback(() => {
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const blob = new Blob([JSON.stringify(filtered, null, 2)], {
+      type: "application/json;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `vela-container-${stamp}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [filtered]);
+  const handleClear = useCallback(async () => {
+    if (!armedClear) {
+      setArmedClear(true);
+      clearTimeout(disarmTimerRef.current);
+      disarmTimerRef.current = setTimeout(() => setArmedClear(false), 4000);
+      return;
+    }
+    setArmedClear(false);
+    clearTimeout(disarmTimerRef.current);
+    try {
+      await fetch("/api/translator/console-logs", { method: "DELETE" });
+    } catch (err) {
+      console.error("Failed to clear console logs:", err);
+    }
+  }, [armedClear]);
   const jumpToTail = useCallback(() => {
     stickToBottomRef.current = true;
     setFollow(true);
@@ -206,6 +272,37 @@ export default function ContainerStream() {
             );
           })}
         </div>
+        {/* Tag chips — parity with the Console tab's tag filter */}
+        {topTags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {topTags.map(([tag, count]) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => toggleTag(tag)}
+                aria-pressed={tagFilter === tag}
+                className={cn(
+                  "inline-flex min-h-[28px] items-center gap-1.5 rounded-[8px] border px-2 font-mono text-2xs motion-control",
+                  tagFilter === tag
+                    ? "border-brand-500/60 bg-brand-500/10 text-brand-700 dark:text-brand-300"
+                    : "border-border-strong bg-surface-2 text-text-muted hover:text-text-main"
+                )}
+              >
+                {tag}
+                <span className="tabular-nums opacity-80">{count}</span>
+              </button>
+            ))}
+            {tagFilter && (
+              <button
+                type="button"
+                onClick={() => setTagFilter(null)}
+                className="min-h-[28px] rounded-[8px] px-2 text-2xs text-text-muted underline decoration-dotted hover:text-text-main"
+              >
+                {translate("Clear tag")}
+              </button>
+            )}
+          </div>
+        )}
         {/* Search */}
         <div className="relative min-w-[180px] flex-1">
           <span aria-hidden="true" className="material-symbols-outlined pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-base text-text-subtle">
@@ -262,6 +359,12 @@ export default function ContainerStream() {
           <Button size="sm" variant="outline" icon="download" onClick={download}>
             .log
           </Button>
+          <Button size="sm" variant="outline" icon="download" onClick={downloadJson}>
+            .json
+          </Button>
+          <Button size="sm" variant={armedClear ? "danger" : "outline"} icon="delete" onClick={handleClear}>
+            {armedClear ? translate("Confirm clear") : translate("Clear")}
+          </Button>
         </div>
       </div>
       {matcher.error && (
@@ -273,7 +376,12 @@ export default function ContainerStream() {
       <div className="relative overflow-hidden rounded-[14px] border border-border-subtle bg-[var(--color-terminal)] shadow-[var(--shadow-soft)]">
         <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
           <span className="font-mono text-2xs uppercase tracking-wider text-[var(--color-terminal-text)]/60">
-            {translate("Raw process stream")}
+            {translate("Raw process stream")}{" "}
+            {/* §1's explicit exemption, stated where the colour is: the raw
+                ring keeps its ANSI by construction while persisted rows are
+                scrubbed. The label is what stops an operator reading this
+                tab's escape codes as evidence about the durable ledger. */}
+            <span className="text-amber-300/70">({translate("raw — ANSI kept, not scrubbed")})</span>
           </span>
           <span className="font-mono text-2xs tabular-nums text-[var(--color-terminal-text)]/60">
             stdout {counts.total - counts.stderr} · stderr {counts.stderr}
@@ -313,7 +421,11 @@ export default function ContainerStream() {
                   <span className="shrink-0 text-[var(--color-terminal-text)]/65">{entry.time}</span>
                   <span className={cn("w-[52px] shrink-0 font-semibold", metaFor(entry.level).term)}>{entry.level}</span>
                   <span className={cn("min-w-0 flex-1 text-[var(--color-terminal-text)]/85", wrap ? "break-all whitespace-pre-wrap" : "whitespace-pre overflow-x-auto")}>
-                    {entry.message}
+                    {/* §7's rendering law for the raw view: SGR codes become
+                        styled React spans, never markup. `AnsiText` splits the
+                        line into text segments; every segment is an ordinary
+                        escaped child. */}
+                    <AnsiText line={entry.message} />
                   </span>
                 </button>
               ))}

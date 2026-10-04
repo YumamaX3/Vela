@@ -1,4 +1,8 @@
 // Storage Covenant Wave A9 — the mysql twin of sqlite/usageRepo.js.
+// M6 §3 — the voyage stamp for the twin's ledger row. RELATIVE, matching this
+// file's own convention: the db layer never uses the "@/" alias (see
+// open-sse/executors/base.js:14-22 for what that alias costs outside vite).
+import { getVoyage } from "../../../logContext.js";
 // Plan line 274: "dedupe via UNIQUE + ON DUPLICATE KEY UPDATE; day-aggregate
 // upsert; GROUP BY parity; concurrent-write scenario (both engines converge
 // to one row)".
@@ -402,10 +406,16 @@ export async function saveRequestUsage(entry) {
     // not include the telemetry columns, so a duplicate group's telemetry is
     // dropped with the conflict (endpoint-only backfill below). Accepted at
     // Gate 14: telemetry on the first write, never retrofit.
+    // M6 §3 — the twin carries the SAME two join keys the primary writes. Read
+    // from the live ALS store at the INSERT site, so both harbors stamp the same
+    // voyage and both leave the columns NULL when no voyage is live. It rides
+    // this INSERT, never a second write, so uq_uh_dedupe's seven-column event
+    // identity is untouched — a reqId is not part of that identity.
+    const voyage = getVoyage();
     await db.transaction(async (tx) => {
       try {
         await tx.run(
-          `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo) VALUES(?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo, reqId, upstreamId) VALUES(?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             entry.timestamp, entry.provider || "", entry.model || "",
             entry.connectionId || "", entry.keyId || "", entry.keyPrefix || null,
@@ -414,6 +424,8 @@ export async function saveRequestUsage(entry) {
             stringifyJson(tokens), stringifyJson(meta),
             latencyMs, ttftMs, httpStatus, statusClass,
             entry.combo || null, // migration 015 — NULL = direct request
+            voyage?.reqId ?? null, // M6 §3 — the voyage join key
+            voyage?.upstreamId ?? null, // M6 §3 — this hop's own upstream id
           ]
         );
         inserted = true;

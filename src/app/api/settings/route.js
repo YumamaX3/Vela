@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { getSettings, updateSettings } from "@/lib/localDb";
-import { WRITABLE_SETTING_KEYS } from "@/lib/db/repos/settingsDefaults.js";
+import { WRITABLE_SETTING_KEYS, resolveLogRetention } from "@/lib/db/repos/settingsDefaults.js";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 import { resetComboRotation } from "open-sse/services/combo.js";
 import bcrypt from "bcryptjs";
@@ -117,6 +117,36 @@ export async function PATCH(request) {
             ? patch.n8nWebhookUrl.trim()
             : (typeof current.n8nWebhookUrl === "string" ? current.n8nWebhookUrl : ""),
       };
+    }
+
+    // M8 §8 — `logRetention`. Two mends, and BOTH are load-bearing:
+    //
+    //   (1) VALUE VALIDATION BEFORE THE ROSTER ADMIT. A stored `days: NaN` or a
+    //       mode outside the enum would otherwise reach the worker's sweep,
+    //       which DELETEs rows on a horizon nobody chose. The admission of the
+    //       key is the least interesting moment in this route; what matters is
+    //       that nothing illegal has been admitted by the time the roster check
+    //       runs below.
+    //   (2) THE DEEP MERGE, explicit and narrow. `updateSettings` shallow-merges
+    //       TOP-LEVEL keys, so a partial `{logRetention:{mode:'rows'}}` would
+    //       clobber the stored `days`/`maxRows` — and the sweep would then prune
+    //       by a rule the operator never picked, permanently deleting rows they
+    //       expected to keep. This is exactly the budgetAlerts branch above,
+    //       and it is spelled out rather than generalized on purpose: a generic
+    //       deep-merge over the whole settings blob would silently nest-merge
+    //       keys whose merge semantics nobody has declared.
+    //
+    // The two outcomes are genuinely different and both are 400-shaped: an
+    // illegal VALUE is rejected, while an unknown key inside the object is
+    // rejected rather than spread — a stored `{mode, sql}` must never become a
+    // settings write that a future reader trusts.
+    if (Object.prototype.hasOwnProperty.call(body, "logRetention")) {
+      const current = ((await getSettings()) || {}).logRetention;
+      const resolved = resolveLogRetention(body.logRetention, current);
+      if (!resolved.ok) {
+        return NextResponse.json({ error: resolved.error }, { status: 400 });
+      }
+      body.logRetention = resolved.value;
     }
 
     // CWE-915 — only declared settings keys may be persisted. Placed AFTER the
