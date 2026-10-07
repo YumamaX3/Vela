@@ -1,3 +1,59 @@
+# v1.0.71 — The Closure Re-measured ⚓
+> *"I had fitted the hull for every file the worker knew — and then the tide
+> added one more, silently, and the ship sailed without it. A closure is not
+> a list I once measured; it is a promise I re-measure. Now the guard
+> derives it from the source tree itself, so the next import that crosses
+> the boundary fails at test time, not in a container at dawn."* 💜
+
+### 🐛 Fixes
+**The logshipper worker's retention sweep could not boot in the Docker
+image** (`Dockerfile`): v1.0.70's "The Ledger That Boots" added
+`retention.js`'s import of `../db/repos/settingsDefaults.js` — the ONE set
+of retention numbers — but the runner-stage COPY closure (M10) was never
+re-measured, so `settingsDefaults.js` was absent from the shipped image.
+The worker thread died at boot with
+`ERR_MODULE_NOT_FOUND: /app/src/lib/db/repos/settingsDefaults.js imported
+from /app/src/lib/logshipper/retention.js`; the main thread kept sailing
+(transport "worker" was claimed, bootError recorded, retention never
+swept). Live-proven on the fleet at `ghcr.io/yumamax3/vela:1.0.70` via
+Wintergate logs. The mend: one COPY line for `settingsDefaults.js` (it
+imports nothing, so the closure stops there), plus the closure law written
+into the guard below.
+
+**🧪 Proof**
+- `dockerfile-worker-copy.test.js`: **10/10 green** with the mend; the NEW
+  closure guard (`COPYies every cross-directory file the shipped logshipper
+  tree imports`) was proven to BITE — with the COPY line stripped it fails
+  naming exactly `src/lib/db/repos/settingsDefaults.js`, and restored it is
+  green again. The guard no longer trusts a hand-kept list: it scans the
+  shipped `logshipper/*.js` tree for relative imports that leave the
+  directory and requires each resolved target to be COPY'd into the runner.
+- `dockerfile-mysql2-closure.test.js`: green (the fence holds).
+- `docker-compose-pin.test.js`: green (4/4) after the bump.
+- Closure re-measured by hand as well: every import edge in
+  `logshipper/*.js` is either in-directory (rides the dir COPY), alias-free
+  cross-directory and now COPY'd (`settingsDefaults.js`), or main-thread
+  only (`redact.js`'s `@/shared/utils/apiKey.js` — bundler-resolved, not in
+  the worker chain). `settingsDefaults.js` itself imports nothing.
+
+### 🔧 Changes & Improvements
+- Version law: `1.0.70 → 1.0.71` (small change, last number +1). All four
+  pins moved together: `package.json`, both `package-lock.json` lines, and
+  both compose charts.
+
+### ⚓ What sailed
+`Dockerfile` · `tests/unit/dockerfile-worker-copy.test.js` ·
+`CHANGELOG.md` · `package.json` · `package-lock.json` ·
+`docker-compose.example.yml` · `docker-compose.yml` (gitignored, bumped on
+disk, excluded from the diff cross-check by law)
+
+### 🌊 Recorded, not repeated
+The M10 closure list was a snapshot of a shore that moved. The mend's real
+payload is the guard: the image's closure requirements are now derived from
+the imports the tree actually carries, so a future cross-directory import
+fails the suite with the exact file to COPY — the error surfaces where the
+work happens, not inside a spawned thread at boot.
+
 # v1.0.70 — The Ledger That Boots 🚢
 > *"The harbor's logbook already spoke in tides — but its shipper never left
 > the dock in production: a webpack rewrite had turned the worker's address

@@ -107,6 +107,14 @@ COPY --from=builder /app/src/lib/db/repos/sqlite/logStore.js ./src/lib/db/repos/
 COPY --from=builder /app/src/lib/db/adapters ./src/lib/db/adapters
 COPY --from=builder /app/src/lib/db/schema.js ./src/lib/db/schema.js
 COPY --from=builder /app/src/lib/db/checkpointOwner.js ./src/lib/db/checkpointOwner.js
+# v1.0.70 added retention.js's import of settingsDefaults.js (the ONE set of
+# retention numbers) but the closure above was never re-measured, so the
+# worker's retention sweep died at boot: ERR_MODULE_NOT_FOUND for
+# /app/src/lib/db/repos/settingsDefaults.js. The file imports nothing, so this
+# one COPY closes the gap. Re-measure this closure whenever any file in it
+# gains a NEW cross-directory import — that is the law this block already
+# states, and this line is what honoring it looks like.
+COPY --from=builder /app/src/lib/db/repos/settingsDefaults.js ./src/lib/db/repos/settingsDefaults.js
 # Standalone node_modules may omit deps only required by the MITM child process.
 COPY --from=builder /app/node_modules/node-forge ./node_modules/node-forge
 # Ensure `next` is available at runtime in case tracing did not include it.

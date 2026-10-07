@@ -116,6 +116,43 @@ describe("M10 — the runner image carries the log shipper's worker", () => {
     }
   });
 
+  it("COPYies every cross-directory file the shipped logshipper tree imports (v1.0.71 law)", () => {
+    // THE CLOSURE GUARD THAT BITES. v1.0.70's wound: retention.js gained
+    // `import ... from "../db/repos/settingsDefaults.js"` and the M10 closure
+    // list above was never re-measured, so the shipped image was missing that
+    // one file and the worker's retention sweep died at boot with
+    // ERR_MODULE_NOT_FOUND — far from any import site a reader would check.
+    // This test derives the requirement from the SOURCE TREE instead of a
+    // hand-kept list: scan every shipped logshipper/*.js for RELATIVE imports
+    // that leave the directory, and require each resolved target to be COPY'd
+    // into the runner. A future import that crosses the boundary fails here,
+    // at test time, with the exact file to COPY — not in a container at 6am.
+    const shipped = fs
+      .readdirSync(LOGSHIPPER_DIR)
+      .filter((f) => f.endsWith(".js"))
+      .map((f) => path.join(LOGSHIPPER_DIR, f));
+    const imported = new Set();
+    for (const file of shipped) {
+      const text = fs.readFileSync(file, "utf8");
+      for (const m of text.matchAll(/from\s+["'](\.\.?\/[^"']+)["']/g)) {
+        const spec = m[1];
+        // Normalize to a repo-relative POSIX path: strip the drive letter AND
+        // everything above ROOT, so "C:/…/Vela/src/…" and "/src/…" both land
+        // on "src/…" — the form copiesIntoRunner() matches against.
+        const abs = path.resolve(path.dirname(file), spec);
+        const rel = path.relative(ROOT, abs).split(path.sep).join("/");
+        imported.add(rel);
+      }
+    }
+    const missing = [...imported]
+      .filter((p) => !p.startsWith("src/lib/logshipper/")) // in-dir imports ride the dir COPY
+      .filter((p) => !copiesIntoRunner(p));
+    expect(
+      missing,
+      `logshipper's worker chain imports files the Dockerfile never COPYs into the runner: ${missing.join(", ")} — the worker loads BY PATH, so Node resolves these and no bundler follows them. Add a COPY --from=builder line for each.`
+    ).toEqual([]);
+  });
+
   it("pins VELA_LOG_DRIVER=node:sqlite in the RUNNER stage, not just the builder", () => {
     // The pin must sit in the runner: the builder's VELA_DB_DRIVER (line 24) is
     // builder-scoped by design and never reaches the shipped image, so a match
