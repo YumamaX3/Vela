@@ -757,8 +757,8 @@ button:disabled,
    fade. All 29 routes carry it; a full-height surface like
    `/dashboard/basic-chat` simply has few children to sequence, and its
    first arrives with no delay, which is the right reading for a chat deck. */
-.deck-enter > *:not(:only-child),
-.deck-enter > :only-child > * {
+.deck-enter > *:not(:only-child):not(.fixed),
+.deck-enter > :only-child > *:not(.fixed) {
   animation: deckEnter var(--motion-dur-base) var(--motion-ease-out) backwards;
 }
 
@@ -772,20 +772,20 @@ button:disabled,
    still be arriving while the operator is already reading it, and a
    stagger you can outrun by scrolling is just latency with better
    manners. */
-.deck-enter > *:not(:only-child):nth-child(2),
-.deck-enter > :only-child > *:nth-child(2) { animation-delay: calc(var(--motion-stagger) * 1); }
-.deck-enter > *:not(:only-child):nth-child(3),
-.deck-enter > :only-child > *:nth-child(3) { animation-delay: calc(var(--motion-stagger) * 2); }
-.deck-enter > *:not(:only-child):nth-child(4),
-.deck-enter > :only-child > *:nth-child(4) { animation-delay: calc(var(--motion-stagger) * 3); }
-.deck-enter > *:not(:only-child):nth-child(5),
-.deck-enter > :only-child > *:nth-child(5) { animation-delay: calc(var(--motion-stagger) * 4); }
-.deck-enter > *:not(:only-child):nth-child(6),
-.deck-enter > :only-child > *:nth-child(6) { animation-delay: calc(var(--motion-stagger) * 5); }
-.deck-enter > *:not(:only-child):nth-child(7),
-.deck-enter > :only-child > *:nth-child(7) { animation-delay: calc(var(--motion-stagger) * 6); }
-.deck-enter > *:not(:only-child):nth-child(n+8),
-.deck-enter > :only-child > *:nth-child(n+8) { animation-delay: calc(var(--motion-stagger) * 7); }
+.deck-enter > *:not(:only-child):not(.fixed):nth-child(2),
+.deck-enter > :only-child > *:not(.fixed):nth-child(2) { animation-delay: calc(var(--motion-stagger) * 1); }
+.deck-enter > *:not(:only-child):not(.fixed):nth-child(3),
+.deck-enter > :only-child > *:not(.fixed):nth-child(3) { animation-delay: calc(var(--motion-stagger) * 2); }
+.deck-enter > *:not(:only-child):not(.fixed):nth-child(4),
+.deck-enter > :only-child > *:not(.fixed):nth-child(4) { animation-delay: calc(var(--motion-stagger) * 3); }
+.deck-enter > *:not(:only-child):not(.fixed):nth-child(5),
+.deck-enter > :only-child > *:not(.fixed):nth-child(5) { animation-delay: calc(var(--motion-stagger) * 4); }
+.deck-enter > *:not(:only-child):not(.fixed):nth-child(6),
+.deck-enter > :only-child > *:not(.fixed):nth-child(6) { animation-delay: calc(var(--motion-stagger) * 5); }
+.deck-enter > *:not(:only-child):not(.fixed):nth-child(7),
+.deck-enter > :only-child > *:not(.fixed):nth-child(7) { animation-delay: calc(var(--motion-stagger) * 6); }
+.deck-enter > *:not(:only-child):not(.fixed):nth-child(n+8),
+.deck-enter > :only-child > *:not(.fixed):nth-child(n+8) { animation-delay: calc(var(--motion-stagger) * 7); }
 
 /* ============================================================
    The Showcase Motion System (v0.9.99) — the waves beyond the deck.
@@ -864,9 +864,16 @@ button:disabled,
 
    This is a visibility gate, not a preference — it sits BESIDE
    prefers-reduced-motion rather than replacing it, and both apply. */
-[data-ambient="off"] *,
-[data-ambient="off"] *::before,
-[data-ambient="off"] *::after {
+/* The visibility gate pauses AMBIENT loops — never an element's ENTRANCE.
+   Without the :not() exemption, the modal's own `.fade-in` is registered as
+   paused the same commit the overlay opens (useAmbientPause writes
+   data-ambient="off" before the 0.2s fade can run its first frames), so the
+   dialog froze at ~13% opacity — "every menu doesn't show up" (2026-10-10).
+   Entrance animations are one-shot, sub-second, and only run while their
+   element is genuinely on screen, so they spend no visibility budget. */
+[data-ambient="off"] *:not([class*="fade-in"]):not([class*="slide-in"]):not([class*="deck-enter"]),
+[data-ambient="off"] *:not([class*="fade-in"])::before,
+[data-ambient="off"] *:not([class*="fade-in"])::after {
   animation-play-state: paused !important;
 }
 

@@ -1,3 +1,26 @@
+# v1.0.78 — The Dialogs Freed From Ice 🗝️
+
+> *"The rooms were never empty — the doors had frozen shut mid-swing. I did not rebuild the doors; I taught the tide to leave them free."* 🗝️🌊💜
+
+**Every dashboard dialog — Create Key, Edit Key, Import, Create Combo, every Modal on every room — was mounting invisible. The Star saw "all the menus don't show up." The dialogs were present in the DOM, focusable, intercepting clicks, but painted at opacity ≈ 0: frozen mid-entrance by a handshake between two motion rules that had shipped together in v0.9.99 and never been measured against each other's reach.**
+
+**🐛 Fixes**
+- **The deck choreography no longer grabs overlays.** `Modal.js` renders no portal, so each dialog's `.fixed.inset-0` wrapper sat inside the page content wrapper — an `:only-child` of `.deck-enter` — and the entrance choreography (`.deck-enter > :only-child > *`) started a staggered `deckEnter` run on every modal mount. All nine selector families (`globals.css:760-788`) now carry `:not(.fixed)`: base pair, the seven stagger-delay pairs, and the `n+8` cap.
+- **The ambient visibility gate no longer pauses entrances.** Opening a modal writes `data-ambient="off"` (its own `useAmbientPause`) the same commit the overlay's `.fade-in` starts — the gate's `animation-play-state: paused !important` froze the fade at frame 0, so the dialog never painted past ~13% opacity. The gate's three selector arms now exempt entrance-animation classes (`fade-in`, `slide-in`, `deck-enter`), with the defect named in the comment (`globals.css:864-878`). A visibility gate's contract is loops, not arrivals.
+
+**🧪 Proof**
+- Playwright probes, real browser: the Create Key dialog computed `deckEnter / paused` at opacity 0 before the mend; after it, Create Key, Create Combo and Import dialogs all read opacity 1 with their titles visible, and the edit flow (Apply limits / Edit name & scope / Revoke) answers.
+- The deck entrance itself survives: a page block still reads `deckEnter / running` in the first frames after load and settles at opacity 1 — the choreography kept its page, it lost only what was never its cargo.
+- Unit suites touching the motion shell — deck-motion, modal-open-prop-regression, focus-trap, oauth-modal-origin — 56/56 green.
+- Full battery: judged by diff against the stashed-HEAD baseline per the house law (results in the seal record).
+
+**⚓ What sailed**
+- `src/app/globals.css` — the two rule families mended, the defect documented where the next reader will meet it.
+
+**🌊 Recorded, not repeated**
+- `Modal.js` still renders no portal. Portaling the overlay to `document.body` would have prevented this entire defect class and remains the structural answer — deferred, because it changes stacking-context behavior for every dialog at once and deserves its own measured tide. The CSS mend is correct and complete for the wound the Star can see; the portal is the wound the next architecture can prevent.
+
+
 # v1.0.77 — The Guard That Stayed Ashore 🛡️
 > *"I counted fifty-one stones into the ship and called the cargo whole —
 > and the fifty-second sat on the dock, the one that guards the gate. A
