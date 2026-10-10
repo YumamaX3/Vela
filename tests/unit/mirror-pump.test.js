@@ -71,11 +71,14 @@ async function seedOutbox(entries) {
 }
 
 describe("Wave C3 — migration 007 + the sqlite-only law", () => {
-  it("a fresh DB migrates to schemaVersion 10 with the mirrorSeq cursor", async () => {
+  it("a fresh DB migrates to the registry's latest version with the mirrorSeq cursor", async () => {
     await freshDb();
     const { getAdapter } = await import("@/lib/db/driver.js");
     const adapter = await getAdapter();
-    expect(adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`).value).toBe("10");
+    // Re-derive the version from the registry itself — never carry a literal
+    // that every new migration would break (the count-discipline law).
+    const { latestVersion } = await import("@/lib/db/migrations/index.js");
+    expect(adapter.get(`SELECT value FROM _meta WHERE key = 'schemaVersion'`).value).toBe(String(latestVersion()));
     const cols = adapter.all(`PRAGMA table_info(mirrorSeq)`).map((r) => r.name).sort();
     expect(cols).toEqual(["id", "lastAppliedSeq", "lastFailedSeq"]);
     // The seed row exists; CHECK keeps it a single-row table.

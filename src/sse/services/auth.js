@@ -1,5 +1,5 @@
 import { getProviderConnections, validateApiKey, updateProviderConnection, getSettings, getProxyPools } from "@/lib/localDb";
-import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/connectionProxy";
+import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 // v0.9.42: was `import fleet from "@/lib/network/proxyFleet.js"` — a DEFAULT
 // import, and proxyFleet.js:864 is `export default global.__velaProxyFleet ||
 // null`, evaluated at module-eval time before init() has run. ESM freezes a
@@ -8,7 +8,10 @@ import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/con
 // fire-and-forget catch swallowed — every failure signal on every lane was
 // silently discarded. The named export is a real function binding; importing it
 // costs nothing new (this file already imported the module) and cannot be null.
+// W8 cutover: `pick` and `pickProxyPoolId` are deleted — pool selection rides
+// the pipeline's live-wired entry (see buildVirtualNoAuthConnection below).
 import { recordOutcome } from "@/lib/network/proxyFleet.js";
+import { pickPool } from "@/lib/network/pipeline/selection.js";
 import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "open-sse/services/accountFallback.js";
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
 import { FREEBUFF_MODEL_LOCK_MS, FREEBUFF_COOLDOWNS, FREEBUFF_MAX_COOLDOWN_MS } from "open-sse/config/freebuff.js";
@@ -115,13 +118,20 @@ async function buildVirtualNoAuthConnection(providerId) {
   if (strategy !== "none") {
     const allPools = await getProxyPools({ isActive: true });
     const poolIds = allPools.filter(p => p.proxyUrl).map(p => p.id);
-    pickedId = pickProxyPoolId(poolIds, strategy, providerId);
+    // W8 cutover of the proxy control-plane rebirth: selection flows through
+    // the pipeline's live-wired `pickPool` — the ONE selection entry. The
+    // legacy `pick`/`pickSmart`/`pickRoundRobin`/`pickProxyPoolId` family is
+    // deleted; the pipeline's health-filter (breaker hard-skip), weighted
+    // draw (EWMA α=0.3, 7d half-life), and hysteresis are the selection
+    // truth. The caller-owned fallback below (`?? poolIds[0]`) is the same
+    // policy `pick` carried — stated here, where it can be read.
+    pickedId = pickPool(poolIds, { strategy, providerId }) ?? poolIds[0];
   }
   const resolvedProxy = await resolveConnectionProxyConfig({ proxyPoolId: pickedId || "" });
   return {
     id: "noauth",
     // v0.9.42: stamped at birth. The virtual lane is the ONLY one whose pool
-    // rotates per request (pickProxyPoolId above), and clearAccountError had no
+    // rotates per request, and clearAccountError had no
     // way to learn which provider it was clearing — it hardcoded "freebuff",
     // so every non-freebuff noauth success was recorded against the wrong
     // fitness key. Identity travels with the credential instead of being

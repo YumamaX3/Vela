@@ -16,6 +16,15 @@ export const DEFAULT_SETTINGS = {
   tailscaleUrl: "",
   stickyRoundRobinLimit: 3,
   providerStrategies: {},
+  // W10 (proxy control-plane rebirth, F1) — route rules: destination → egress.
+  // Shape: [{id, enabled, match:{hostSuffix?, provider?, modelPrefix?},
+  //          action:{poolId?|poolIds?}}]. FIRST match wins (stage order). The
+  // pipeline's rule-resolve consumes these via selection.syncSeams; there is
+  // NO operator editor by design (the plan's refuse-the-document law — C's
+  // fallbackRules editor precedent does not exist here), so the array arrives
+  // only through settings import/CLI, and an invalid entry is skipped by the
+  // stage's own matcher, never by a validator that would block boot.
+  proxyRoutingRules: [],
   quotaVisibility: {},
   comboStrategy: "fallback",
   comboStickyRoundRobinLimit: 1,

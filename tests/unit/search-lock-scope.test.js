@@ -43,7 +43,6 @@ vi.mock("@/lib/localDb", () => ({
 }));
 
 vi.mock("@/lib/network/connectionProxy", () => ({
-  pickProxyPoolId: vi.fn(),
   resolveConnectionProxyConfig: vi.fn(async () => ({})),
 }));
 

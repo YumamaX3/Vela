@@ -10,3 +10,4 @@ export const getFitnessRows = bound.getFitnessRows;
 export const upsertFitnessBatch = bound.upsertFitnessBatch;
 export const resetFitness = bound.resetFitness;
 export const clearAllFitnessRows = bound.clearAllFitnessRows;
+export const upsertFitnessUnfit = bound.upsertFitnessUnfit;

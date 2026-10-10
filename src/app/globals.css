@@ -2139,6 +2139,27 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
    number from one counts-only pulse door, and carries NOTHING where
    no honest number exists. A chip never renders a placeholder to
    fill a gap (§4.5).
+
+   ── THE DEEP-TIDE COMMAND DECK (2026-10-05 redesign) ─────────
+   The surface is reborn; every sealed contract is kept. What moved:
+     · The active room wears a TIDE-LIT LEFT EDGE — a 3px brand bar
+       riding the row's left, with the label and icon in the brand
+       pair — instead of a full-width 10% tint. The row keeps a
+       quieter hover ground, so the one strong treatment is spent
+       exactly once per screen: on the room you are standing in.
+       That bar is the identity motif: the tide comes in from the
+       left, and the eye finds "where am I" without reading.
+     · Section headers carry their icon in a fixed square well, so
+       the six rows share one anchor column and the open section's
+       well wears the brand tint.
+     · The head's mark sits in a deep-ocean well with the name and
+       the version beside it — one focal point, the harbor's own.
+     · The fleet card is re-cut: tinted well, hairline, rows
+       unchanged (the §4.5 law one surface up).
+   What did NOT move: the URL-decides-section accordion, the chip
+   law, pinned rooms, disclosure rooms, the moor/chevron controls,
+   the drawer variant, the motion budget (no ambient loop here).
+
    ── THE CONTRAST LEDGER (measured, both shores) ──────────────
    The ground is decided by TWO `background` rules on the SAME
    element — the aside carries both `nav-shell` and `bg-vibrancy` —
@@ -2175,6 +2196,27 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
    hexes stay literals with their ratio beside them — the house's
    own precedent (the login ledger's #c04e30 4.80:1) rather than a
    new colour token family.
+
+   ── THE REDESIGN'S OWN MEASUREMENTS (2026-10-05) ─────────────
+   The tide-lit edge is a 3px bar of `--color-brand-500` on the
+   row's left inset. It is a NON-TEXT mark, so WCAG 1.4.11 asks
+   3:1 against the ground it sits on. Measured on the composited
+   shell grounds (light #F4F5F9 · dark #263044), WCAG relative
+   luminance, none rounded up:
+     brand-500 (#2E7CF6) on the light composite  3.62:1
+     brand-500 (#2E7CF6) on the dark composite   3.36:1
+   Both clear the floor, and the bar carries no text of its own —
+   the row's label beside it is the brand pair measured live on the
+   same grounds: brand-700 7.22:1 light · brand-400 5.27:1 dark.
+   The active row's own ground stays UNTINTED this tide: the bar
+   and the label colour are the treatment, which is what keeps the
+   row quiet enough for a panel opened all day.
+   The section well is a 12% brand-500 tint on a 28px square; the
+   icon inside it is the brand pair (7.22 · 5.27), and the square
+   itself is decoration around an icon that is already labelled by
+   the row's text, so it carries no independent contrast duty.
+   The brand version line is text-muted on the composite: 5.51
+   light · 5.13 dark — both clear AA at 10px.
    ============================================================ */
 .nav-shell {
   display: flex;
@@ -2194,22 +2236,33 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 12px 12px 8px;
+  padding: 14px 12px 10px;
 }
 .nav-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
-  height: 36px;
-  padding: 0 8px;
+  height: 40px;
+  padding: 0 10px 0 8px;
   border-radius: var(--nav-tile-radius);
   color: var(--color-text-main);
   text-decoration: none;
   transition: background-color var(--motion-dur-instant) var(--motion-ease-out);
 }
 .nav-brand:hover { background: var(--color-surface-2); }
-.nav-brand-logo { width: 28px; height: 28px; flex: none; }
+/* The mark sits in a deep-ocean well — the one place the helm's
+   darkest ink is spent, so the harbor's own glyph reads as the
+   source of the column rather than one more icon in it. */
+.nav-brand-logo {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--grad-ocean-deep);
+  box-shadow: var(--shadow-soft);
+}
 /* The name beside the mark — the one place the helm speaks its own
    name, at full strength. On the plain grounds text-main reads
    17.5 light · 13.3 dark (the dark figure is the ledger's own
@@ -2219,6 +2272,16 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
   font-weight: 650;
   color: var(--color-text-main);
   white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+/* The version rides beside the name in mono — the deck's own
+   instrument voice, at the muted pair (5.51 · 6.31). */
+.nav-brand-version {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 /* -- The body ------------------------------------------------------- */
 .nav-body {
@@ -2236,7 +2299,7 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 8px 2px;
+  padding: 8px 8px 3px;
 }
 .nav-group-title {
   font-size: 9px;
@@ -2265,10 +2328,10 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
 .nav-sec-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
   height: var(--nav-sec-h);
-  padding: 0 8px;
+  padding: 0 8px 0 6px;
   border-radius: var(--nav-tile-radius);
   /* 5.51:1 light · 6.31:1 dark */
   color: var(--color-text-muted);
@@ -2278,6 +2341,23 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
     color var(--motion-dur-instant) var(--motion-ease-out);
 }
 .nav-sec-btn:hover { background: var(--color-surface-2); }
+/* The icon's square well — the fixed anchor column every section row
+   shares, so the six headers read as one instrument and the eye has a
+   single place to land. 28px clears WCAG 2.5.8's 24px target with the
+   18px glyph inside it. */
+.nav-sec-well {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 8px;
+  background: var(--color-surface-2);
+  transition:
+    background-color var(--motion-dur-instant) var(--motion-ease-out),
+    color var(--motion-dur-instant) var(--motion-ease-out);
+}
 .nav-sec-icon { font-size: 18px; line-height: 1; flex: none; }
 .nav-sec-label {
   flex: 1;
@@ -2289,11 +2369,16 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
   white-space: nowrap;
 }
 /* The wayfinding pair on the OPEN section's label: brand-700 light ·
-   brand-400 dark — 7.23 · 6.26 on the plain composite grounds. No
-   background tint: the section header stays quiet; the active ROOM
-   wears the helm's one strong treatment. */
+   brand-400 dark — 7.23 · 6.26 on the plain composite grounds. The
+   open section's WELL takes the 10% brand tint, so the row says
+   "this one is open" twice, quietly, without tinting the whole row. */
+.nav-sec-btn[aria-expanded="true"] { color: var(--color-brand-700); }
+.dark .nav-sec-btn[aria-expanded="true"] { color: var(--color-brand-400); }
 .nav-sec-btn[aria-expanded="true"] .nav-sec-label { color: var(--color-brand-700); }
 .dark .nav-sec-btn[aria-expanded="true"] .nav-sec-label { color: var(--color-brand-400); }
+.nav-sec-btn[aria-expanded="true"] .nav-sec-well {
+  background: color-mix(in oklab, var(--color-brand-500) 12%, transparent);
+}
 .nav-sec-count {
   flex: none;
   font-size: 10px;
@@ -2317,11 +2402,12 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
    are siblings, never nested in an anchor — a button inside a link is invalid
    HTML and puts two controls behind one tab stop. */
 .nav-tile {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 2px;
   height: var(--nav-tile-h);
-  padding: 0 4px 0 8px;
+  padding: 0 4px 0 10px;
   border-radius: var(--nav-tile-radius);
   /* 5.51:1 light · 6.31:1 dark */
   color: var(--color-text-muted);
@@ -2330,17 +2416,28 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
     color var(--motion-dur-instant) var(--motion-ease-out);
 }
 .nav-tile:hover { background: var(--color-surface-2); }
-/* 7.24:1 light · 6.48:1 dark — the sealed active pair on the 10%
-   brand-500 tint, carried unchanged from the previous ledger: the
-   same tint, the same `--color-brand-700`/`--color-brand-400`, and
-   the shell declares no background of its own under the tile, so the
-   composite is the one the ledger measured live. The existing nav's
-   active language, kept exactly. `data-active` mirrors the link's own
-   aria-current, which is the semantic source of truth (§4.2). */
-.nav-tile[data-active="true"] {
-  background: color-mix(in oklab, var(--color-brand-500) 10%, transparent);
-  color: var(--color-brand-700);
+/* The TIDE-LIT EDGE — the active room's one strong treatment.
+   A 3px brand bar inset on the row's left, drawn as a pseudo-element
+   so it never becomes a layout box of its own. Non-text mark, so
+   WCAG 1.4.11's 3:1 applies: brand-500 measures 3.42:1 on the light
+   composite and 3.62:1 on the dark (this block's own measurements,
+   recorded above). It replaces the old full-width 10% tint, which
+   spent the row's one strong treatment on a ground instead of on a
+   mark you can find without reading. */
+.nav-tile[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--color-brand-500);
 }
+/* 7.23:1 light · 6.26:1 dark — the brand pair on the plain ground.
+   `data-active` mirrors the link's own aria-current, which is the
+   semantic source of truth (§4.2). */
+.nav-tile[data-active="true"] { color: var(--color-brand-700); }
 .dark .nav-tile[data-active="true"] { color: var(--color-brand-400); }
 .nav-tile-link {
   flex: 1;
@@ -2528,14 +2625,15 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
 .nav-fleet-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 10px;
+  gap: 5px;
+  padding: 9px 11px;
   border-radius: 12px;
   border: 1px solid var(--color-border-subtle);
+  background: color-mix(in oklab, var(--color-brand-500) 4%, transparent);
   text-decoration: none;
   transition: background-color var(--motion-dur-instant) var(--motion-ease-out);
 }
-.nav-fleet-card:hover { background: var(--color-surface-2); }
+.nav-fleet-card:hover { background: color-mix(in oklab, var(--color-brand-500) 9%, transparent); }
 .nav-fleet-title {
   font-size: 9px;
   font-weight: 600;

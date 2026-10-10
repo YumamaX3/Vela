@@ -45,7 +45,7 @@ import { getFitnessRows, upsertFitnessBatch, resetFitness as resetFitnessRows, c
 import { getProxyPools, getProxyPoolById, updateProxyPool } from "../db/repos/proxyPoolsRepo.js";
 import { openStoreAdapter } from "../db/index.js";
 import { resolveConnectionProxyConfig } from "./connectionProxy.js";
-import { isAvailable, recordFailure, recordSuccess, onRetryAfter, flushNow as flushBreakerNow } from "./circuitBreaker.js";
+import { isAvailable, recordFailure, recordSuccess, onRetryAfter, flushNow as flushBreakerNow, hydrate as hydrateBreaker } from "./circuitBreaker.js";
 import { setPoolGeo } from "./poolGeo.js"; // v0.9.18 — shared egress geo registry
 // v0.9.42 — two symbols this module CALLED but never imported. Each threw a
 // ReferenceError that its caller's fail-open catch swallowed into {ok:false},
@@ -58,10 +58,15 @@ import { setPoolGeo } from "./poolGeo.js"; // v0.9.18 — shared egress geo regi
 //     result was never used.
 import { testPoolReachability } from "./proxyTest.js";
 import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
+// W8 — the pipeline's synchronous selection face. The pipeline never imports
+// this module (verified: no cycle), so a static import is safe and sync.
+import { runSelection } from "./pipeline/runner.js";
+import { buildRouteContext } from "./pipeline/wire.js";
+import { STAGE_NAMES } from "./pipeline/stages.js";
 
 const RE_PICK_CODES = new Set(["country_blocked", "ip_capped"]); // C16 LOCKED
-const MAX_REPICKS = 3;
-const REPICK_BUDGET_MS = 45_000;
+// W8 cutover: MAX_REPICKS / REPICK_BUDGET_MS deleted with repick() — the
+// freebuff executor now passes its own caps to repickPool (pipeline/selection.js).
 const FLUSH_INTERVAL_MS = 30_000;
 const ALPHA_EWMA = 0.3;
 const HALF_LIFE_DAYS = 7;
@@ -103,7 +108,6 @@ let loaded = false;
 let flushTimer = null;
 let flushArmed = false;
 const probeCache = new Map(); // poolId -> { ip, country, observedAt } — sliding window
-let healthSchedulerStarted = false;
 
 /**
  * Load persisted fitness rows into memory
@@ -130,6 +134,26 @@ async function loadFitness() {
     }
 
     loaded = true;
+    // W9 — feed the breaker's own ledger through the hydrate law: widen
+    // only. One extra SELECT on the adapter this function already holds;
+    // the breaker's per-model counts round-trip across restarts. The hydrate
+    // import rides the static binding above (same module, same instance —
+    // never a second specifier, the v0.9.65 two-instance wound).
+    const { getBreakerRows } = await import('../db/repos/circuitBreakerRepo.js');
+    const breakerRows = await getBreakerRows(db);
+    hydrateBreaker(breakerRows);
+    // W10 (F1) — stash the route-rules snapshot on the fleet anchor. The
+    // pipeline's selection seam is SYNC and reads THIS snapshot; the async
+    // settings read belongs at boot, not on the hot path.
+    try {
+      const { getSettings } = await import('../localDb.js');
+      const settings = await getSettings();
+      fleetState.proxyRoutingRules = Array.isArray(settings?.proxyRoutingRules)
+        ? settings.proxyRoutingRules
+        : [];
+    } catch {
+      fleetState.proxyRoutingRules = []; // no settings yet — rules match nothing
+    }
   } catch (err) {
     // Boot fail-open: empty store = neutral fitness = legacy behavior (C15)
     console.warn("[proxyFleet] boot failed — defaulting to neutral fitness:", err.message);
@@ -374,7 +398,22 @@ export function pruneExpiredBlocks(now = Date.now()) {
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
- * Pick pool ID using strategy
+ * Pick pool ID using strategy — W8 CUTOVER SHELL.
+ *
+ * The legacy pickSmart/pickRoundRobin bodies are DELETED. Every strategy now
+ * answers through the pipeline's selection stages (pipeline/selection.js):
+ * its health-filter IS the breaker pre-filter, its weighted draw IS the EWMA
+ * scoring with hysteresis, and its affinity check IS consistent hashing.
+ *
+ * This shell exists for exactly two remaining references — the freebuff
+ * executor's `repick` (re-pointed to repickPool in this same tide) and the
+ * globalThis facade's `pick` property. The shell maps the old policy onto
+ * the pipeline: `pinnedPoolId` becomes the draw's incumbent (hysteresis),
+ * and `none`/`random` keep their pre-cutover semantics.
+ *
+ * Fail-open by construction: a pipeline throw or empty choice returns null
+ * and the CALLER's stated fallback answers.
+ *
  * @param {Array} poolIds
  * @param {{strategy: string, pinnedPoolId?: string|null, providerId: string}} policy
  * @returns {string|null}
@@ -382,143 +421,25 @@ export function pruneExpiredBlocks(now = Date.now()) {
 export function pick(poolIds, policy) {
   try {
     const { strategy, pinnedPoolId, providerId } = policy;
-
     if (!poolIds || poolIds.length === 0) return null;
     if (poolIds.length === 1) return poolIds[0];
-
-    switch (strategy) {
-      case "smart":
-        return pickSmart(poolIds, providerId, pinnedPoolId);
-      case "round-robin":
-        return pickRoundRobin(poolIds, providerId);
-
-      case "random": {
-        // C17: return a poolId (the string), not an index that leaks into
-        // callers expecting an id — the weighted draw's `id` is used downstream.
-        return poolIds[Math.floor(Math.random() * poolIds.length)];
-      }
-
-      case "none":
-      default:
-        return poolIds[0];
+    const ctx = buildRouteContext({
+      providerId, model: "", target: "https://selection.local/",
+      candidates: poolIds, strategy: "smart",
+      incumbentPoolId: pinnedPoolId ?? null,
+    });
+    const chosen = runSelection(ctx, STAGE_NAMES);
+    if (chosen) return chosen;
+    if (strategy === "random") {
+      // C17: return a poolId (the string), not an index that leaks into
+      // callers expecting an id — the weighted draw's `id` is used downstream.
+      return poolIds[Math.floor(Math.random() * poolIds.length)];
     }
+    return null;
   } catch (err) {
     // Fail-open: fall back to first pool
     console.warn("[proxyFleet] pick failed:", err.message);
     return poolIds[0];
-  }
-}
-
-/**
- * Smart: fitness-weighted order (with fallback to legacy if no signals)
- * Circuit Breaker integration: pre-filter !isAvailable BEFORE unfit check (Seam 1)
- */
-function pickSmart(poolIds, providerId, pinnedPoolId) {
-  // Build fitness map for this provider
-  const fitnessMap = new Map();
-  let anySignal = false;
-  
-  // Circuit breaker pre-filter: exclude unavailable keys before fitness scoring
-  const availableIds = [];
-  for (const id of poolIds) {
-    const fitness = getOrCreateFitness(id, providerId);
-    fitnessMap.set(id, fitness);
-    
-    if (fitness.successCount > 0 || fitness.failureCount > 0) {
-      anySignal = true;
-    }
-    
-    // Circuit breaker check: isAvailable returns true for healthy OR cooldown passed
-    if (isAvailable(id, providerId, "")) {
-      availableIds.push(id);
-    }
-  }
-  
-  if (!anySignal) {
-    // No signals yet: round-robin by pool ID order (byte-identical legacy)
-    return poolIds[0];
-  }
-  
-  // Score and filter out unfit pools from AVAILABLE pools only
-  const scored = [];
-  const now = Date.now();
-  
-  for (const id of availableIds) {
-    const fitness = fitnessMap.get(id);
-    
-    // Check unfitness TTL — expiry IS the auto-reenable (Gate 11 verified)
-    if (fitness.unfit && fitness.unfitUntil) {
-      const unfitUntil = Date.parse(fitness.unfitUntil);
-      if (now < unfitUntil) continue; // still unfit
-    }
-    
-    const weight = computeScore(fitness);
-    scored.push({ id, weight });
-  }
-  
-  if (scored.length === 0) return poolIds[0]; // all unfit → first one
-  
-  // Weighted random draw among fit pools
-  const totalWeight = scored.reduce((sum, s) => sum + s.weight, 0);
-  let r = Math.random() * totalWeight;
-  
-  for (const { id, weight } of scored) {
-    if (r < weight) return id;
-    r -= weight;
-  }
-  
-  return scored[scored.length - 1].id;
-}
-
-/**
- * Round-robin with per-provider state (legacy identity)
- */
-function pickRoundRobin(poolIds, providerId) {
-  const stateKey = `rr_${providerId}`;
-  const state = global.__velaProxyState?.[stateKey] || { index: -1 };
-  state.index = (state.index + 1) % poolIds.length;
-  global.__velaProxyState = global.__velaProxyState || {};
-  global.__velaProxyState[stateKey] = state;
-  return poolIds[state.index];
-}
-
-/**
- * Resolve full proxy config for a connection
- */
-export async function resolveForConnection(providerSpecificData, providerId) {
-  try {
-    const poolId = providerSpecificData?.connectionProxyPoolId;
-    if (!poolId) return null;
-
-    const resolved = await resolveConnectionProxyConfig({ proxyPoolId: poolId });
-    return resolved;
-  } catch (err) {
-    console.warn("[proxyFleet] resolveForConnection failed:", err.message);
-    return null;
-  }
-}
-
-/**
- * Virtual connection resolution for noAuth lanes
- */
-export async function resolveVirtualConnection(providerId) {
-  try {
-    const allPools = await getProxyPools({ isActive: true }); // self-binding facade
-    const poolIds = allPools.filter(p => p.proxyUrl).map(p => p.id);
-    const picked = pick(poolIds, { strategy: "smart", providerId });
-
-    if (!picked) return null;
-
-    const pool = await getProxyPoolById(picked);
-    const resolved = await resolveConnectionProxyConfig({ proxyPoolId: picked });
-    return {
-      poolId: picked,
-      pool,
-      resolvedProxy: resolved,
-    };
-  } catch (err) {
-    console.warn("[proxyFleet] resolveVirtualConnection failed:", err.message);
-    return null;
   }
 }
 
@@ -593,54 +514,6 @@ export function recordClaimGate(poolId, providerId, code) {
   }
 }
 
-/**
- * Instant re-pick loop (bounded attempt cap + latency budget)
- * Returns the picked poolId/providerId PLUS the rebuilt proxy options so the
- * executor never has to re-derive them (executor's local proxyOptions are a
- * snapshot — the covenant requires the fresh one returned, Gate 6 revision).
- */
-export async function repick(model, excludePoolIds, maxAttempts = MAX_REPICKS, budgetMs = REPICK_BUDGET_MS, providerId = "freebuff") {
-  try {
-    const deadline = Date.now() + budgetMs;
-    const excluded = new Set(excludePoolIds || []);
-    let attempts = 0;
-
-    while (attempts < maxAttempts) {
-      if (Date.now() >= deadline) break;
-
-      // v0.9.42: providerId was hardcoded "freebuff" inside the loop with a
-      // "pass as param" TODO beside it. It is now a trailing parameter with
-      // that same value as default — the lone caller (freebuff.js:367, four
-      // positional args) is unchanged, and any future caller can name its own
-      // provider instead of corrupting freebuff's fitness rows.
-      const allPools = await getProxyPools({ isActive: true }); // self-binding facade
-      const poolIds = allPools.filter(p => p.proxyUrl && !excluded.has(p.id)).map(p => p.id);
-
-      if (poolIds.length === 0) break;
-
-      const next = pick(poolIds, { strategy: "smart", providerId, pinnedPoolId: null });
-
-      if (!next) break;
-
-      // Rebuild the proxy options from the picked pool — the executor receives
-      // this object to re-claim with (no header hacks, no second surface).
-      const pool = await getProxyPoolById(next);
-      const resolved = await resolveConnectionProxyConfig({ proxyPoolId: next });
-      if (!resolved) {
-        excluded.add(next); // unfit config — never pick it again this round
-        attempts++;
-        continue;
-      }
-
-      return { poolId: next, providerId, proxyOptions: resolved };
-    }
-
-    return null; // exhausted
-  } catch (err) {
-    console.error("[proxyFleet] repick failed:", err.message);
-    return null;
-  }
-}
 
 // ───────────────────────────────────────────────────────────────────────────
 // Persistence Family
@@ -779,12 +652,13 @@ export async function probeEgress(poolId, pool = null) {
  */
 let sweepInFlight = false;
 
+let healthSchedulerTimer = null;
 export function startHealthScheduler() {
-  if (healthSchedulerStarted) return;
-  healthSchedulerStarted = true;
+  if (healthSchedulerTimer) return;
+  // W3: retain the interval HANDLE so stop can cancel it.
 
-  // Periodic bulk health check (concurrency-capped)
-  setInterval(async () => {
+  healthSchedulerTimer = setInterval(async () => {
+  
     if (sweepInFlight) {
       console.warn("[proxyFleet] health sweep skipped — previous pass still in flight");
       return;
@@ -805,7 +679,10 @@ export function startHealthScheduler() {
  * Stop health scheduler
  */
 export function stopHealthScheduler() {
-  healthSchedulerStarted = false;
+  if (healthSchedulerTimer) {
+    clearInterval(healthSchedulerTimer);
+    healthSchedulerTimer = null;
+  }
 }
 
 /**
@@ -964,13 +841,11 @@ export async function init() {
   }
 
   global.__velaProxyFleet = {
-    // Expose all public APIs
-    pick,
-    resolveForConnection,
-    resolveVirtualConnection,
+    // Expose all public APIs — W8 cutover: pick/resolveForConnection/
+    // resolveVirtualConnection/repick deleted; selection lives at
+    // pipeline/selection.js (pickPool/repickPool).
     recordOutcome,
     recordClaimGate,
-    repick,
     flushNow,
     getFitnessSummary,
     resetFitness,
@@ -1018,12 +893,11 @@ export async function init() {
  * for the same reason fleetStartup.js needed it.
  */
 const fleetFacade = {
-  get pick() { return pick; },
-  get resolveForConnection() { return resolveForConnection; },
-  get resolveVirtualConnection() { return resolveVirtualConnection; },
+  // W8 cutover: pick/repick/resolveForConnection/resolveVirtualConnection are
+  // DELETED from the facade — pool selection lives at pipeline/selection.js
+  // (pickPool/repickPool), and the resolve family had zero callers.
   get recordOutcome() { return recordOutcome; },
   get recordClaimGate() { return recordClaimGate; },
-  get repick() { return repick; },
   get flushNow() { return flushNow; },
   get getFitnessSummary() { return getFitnessSummary; },
   get resetFitness() { return resetFitness; },

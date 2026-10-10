@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 18;
+export const SCHEMA_VERSION = 19;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -323,6 +323,29 @@ export const TABLES = {
     primaryKey: "PRIMARY KEY (poolId, provider)",
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_pf_pool ON proxyFitness(poolId)",
+    ],
+  },
+  // Proxy control-plane rebirth W9 (migration 019) — the breaker's own ledger.
+  // One row per breaker key (poolId, provider, model): the state machine's
+  // durable memory, so model-granular counts round-trip across restarts. The
+  // proxyFitness.unfit columns remain the UI/draw view; this table is the
+  // breaker's own memory, written by the breaker's flush, read by hydrate().
+  circuitBreakerKeys: {
+    columns: {
+      poolId: "TEXT NOT NULL",
+      provider: "TEXT NOT NULL DEFAULT ''",
+      model: "TEXT NOT NULL DEFAULT ''",
+      state: "TEXT NOT NULL DEFAULT 'healthy'",
+      failureCount: "INTEGER NOT NULL DEFAULT 0",
+      lastFailureAt: "TEXT",
+      cooldownUntil: "INTEGER",
+      retryAfterMs: "INTEGER",
+      updatedAt: "TEXT NOT NULL",
+    },
+    primaryKey: "PRIMARY KEY (poolId, provider, model)",
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_cbk_pool ON circuitBreakerKeys(poolId)",
+      "CREATE INDEX IF NOT EXISTS idx_cbk_state ON circuitBreakerKeys(state)",
     ],
   },
   // Auth Hardening W1 (migration 016) — the session ledger. One row per issued

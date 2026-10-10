@@ -59,6 +59,50 @@ export function upsertFitnessBatch(db, rows) {
 }
 
 /**
+ * Upsert ONLY the breaker-owned columns of proxyFitness.
+ *
+ * Why this exists beside upsertFitnessBatch: the breaker's flush row carries
+ * six fields (poolId, provider, unfit, unfitReason, unfitUntil, updatedAt).
+ * Routing it through the 13-column batch binds eight `undefined` values into
+ * NOT NULL columns — node:sqlite throws "cannot be bound to parameter 3",
+ * better-sqlite3 throws "NOT NULL constraint failed", and mysql2's escaper
+ * coerces `undefined` to NULL (which would poison computeScore into NaN and
+ * pin the weighted draw to the last pool). The batch wraps its loop in one
+ * transaction, so a single bad row rolled back every row and the breaker's
+ * cooldown never reached the DB at all.
+ *
+ * This writer names exactly the four columns the breaker owns, so no binding
+ * semantic can supply a value the breaker did not. A sibling fitness row's
+ * counters are untouched by construction.
+ *
+ * @param {DbClient} db - sqlite3 database client
+ * @param {Array} rows - array of {poolId, provider, unfit, unfitReason, unfitUntil, updatedAt}
+ */
+export function upsertFitnessUnfit(db, rows) {
+  if (!rows || rows.length === 0) return;
+  db.transaction(() => {
+    for (const row of rows) {
+      db.run(
+        `INSERT INTO proxyFitness (
+          poolId, provider, successCount, failureCount, successEwma,
+          latencyEwmaMs, lastOutcomeAt, unfit, unfitReason, unfitUntil,
+          egressIp, egressCountry, updatedAt
+        ) VALUES (?, ?, 0, 0, 0, 0, NULL, ?, ?, ?, '', '', ?)
+        ON CONFLICT(poolId, provider) DO UPDATE SET
+          unfit = excluded.unfit,
+          unfitReason = excluded.unfitReason,
+          unfitUntil = excluded.unfitUntil,
+          updatedAt = excluded.updatedAt`,
+        [
+          row.poolId, row.provider,
+          row.unfit, row.unfitReason, row.unfitUntil, row.updatedAt,
+        ]
+      );
+    }
+  });
+}
+
+/**
  * Reset fitness for a pool (optionally filtered by provider)
  * @param {DbClient} db - sqlite3 database client
  * @param {string} poolId - pool ID to reset

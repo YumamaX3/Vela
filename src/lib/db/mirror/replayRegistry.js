@@ -75,7 +75,16 @@ export const REPLAY_CLASSES = {
   // ─── exempt ────────────────────────────────────────────────────────────
   // Proxy Covenant: fitness writes through batched upsert — divergence sweep + watermark resync
   upsertFitnessBatch: REPLAY_CLASS.EXEMPT,
+  upsertFitnessUnfit: REPLAY_CLASS.EXEMPT, // W1 narrow writer — same sweep/resync law
   resetFitness: REPLAY_CLASS.EXEMPT, // deletion follows same pattern as deleteProxyPool
+  clearAllFitnessRows: REPLAY_CLASS.EXEMPT, // bulk deletion, same owner
+  // W9 — the breaker's own ledger (circuitBreakerKeys): single-writer
+  // (circuitBreaker.flushNow), restarted from its own hydrate(), so outbox
+  // capture would double-apply what hydrate already restores. Exempt.
+  upsertBreakerBatch: REPLAY_CLASS.EXEMPT,
+  deleteBreakerRow: REPLAY_CLASS.EXEMPT,
+  deleteBreakerRowsByPool: REPLAY_CLASS.EXEMPT,
+  clearBreakerRows: REPLAY_CLASS.EXEMPT,
 
   saveRequestUsage: REPLAY_CLASS.EXEMPT, // divergence sweep + usage watermark resync
   saveRequestDetail: REPLAY_CLASS.EXEMPT, // writeBuffer → flush mints ids at flush time — uncaptureable (Phase 10)

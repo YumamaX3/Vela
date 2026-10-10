@@ -1,3 +1,117 @@
+# v1.0.76 — The Routing Rebirth 🌊
+> *"The harbor had four hands on one wheel — pick and pickSmart and
+> pickRoundRobin and the old pool picker — each pulling a different way.
+> A shore cannot be steered by committee. I cut four ropes, gave the
+> wheel to one pipeline, and wrote down every turn it takes in a ledger
+> the operator can read. The engine that was dead code now sails; the
+> breaker that forgot its own cooldowns now keeps a ledger of its own."* 💜
+
+### ✨ Features
+**The proxy control-plane rebirth — waves W1 through W11, sealed.** The
+plan (`plans/2026-10-05-proxy-control-plane-rebirth.md`) is fully built:
+one pipeline (eight stages: egress-fence → rule-resolve → group-select →
+health-filter → weighted-draw → affinity-check → dispatch → outcome-record)
+is the single truth for proxy-pool selection; the legacy
+`pick`/`pickSmart`/`pickRoundRobin`/`pickProxyPoolId` family is deleted.
+
+**🔧 Changes & Improvements**
+- **Rules data (F1)** — `settings.proxyRoutingRules`: destination→egress
+  rules matched FIRST-match by hostSuffix/provider/modelPrefix; read once
+  at boot onto the fleet anchor; no operator editor by design
+  (refuse-the-document law).
+- **Pooling knobs (F9)** — pool `pooling` blobs flow through the ONE
+  payload builder into the dispatcher cache; closed allow-list, out-of-range
+  dropped (never clamped); cache key splits on knobs.
+- **Hedged dispatch (F3)** — `ctx.hedge` races the primary against the next
+  candidate after `hedgeDelayMs` (150ms default); first `ok` wins; bounded
+  two-in-flight; the sequential path is byte-identical when off.
+- **Backup tiers (F7)** — group-select orders primaries first, backups
+  grouped behind their primary, stable by weight (the GOST borrow).
+- **Routing ledger + health score (F10/W11)** — `pipeline/ledger.js`: a
+  fixed 256-slot ring on globalThis, overwritten in place; sampled by
+  default (successes keep span names, failures keep the walk);
+  `healthScore()` = per-provider success rate, `null` when no traffic.
+  Surfaced at `GET /api/proxy-pools/routing-ledger` and as `routingHealth`
+  on the stats census.
+- **Version label** in the sidebar brand.
+
+**🐛 Fixes**
+- **The weighted draw scored latency wrong** — the pipeline's `weightOf`
+  used `1000/latency` while the fleet's `computeScore` uses
+  `max(0, 1 − latency/5000)`, and its age-decay formula drifted too; a
+  lookalike, not a match. The golden-parity fixture caught it the day the
+  pre-cutover oracle expired. `weightOf` now carries the fleet's formulas
+  verbatim. Also: `getFitnessSummary` drops `latencyEwmaMs` — the draw was
+  weighting a 5s pool equal to a 100ms one; `selection.syncSeams` now reads
+  the fleet's FULL rows from the globalThis anchor and aggregates to pool grain.
+- **The breaker's cooldowns were amnesia-prone** — `resetKey()` never
+  reached disk (the flush skipped healthy rows), so a restart resurrected
+  every cooldown the operator cleared. Migration 019 gives the breaker its
+  own ledger (`circuitBreakerKeys`, PK poolId|provider|model) + repo twins +
+  widen-only `hydrate()`; healthy rows persist as DELETEs.
+- **The W4 posture guard refused the mirror posture** — `mirror` is sqlite
+  primary + twin, so the raw adapter IS its primary harbor; the guard now
+  refuses only `mysql`, and the test that pinned the wrong law was rewritten.
+- **Two version pins were literals** — outbox/mirror suites pinned
+  `schemaVersion "10"`; re-derived through the registry's `latestVersion()`
+  (the count-discipline law).
+- **The breaker flush's re-dirty and `unfitUntil` wounds** (W1) — narrow
+  `upsertFitnessUnfit` writer in both twins; original-key re-dirty; healthy
+  early-return persists; Retry-After cooldowns no longer unfit forever.
+
+**🧪 Proof**
+- Full unit battery: **4,157 passed / 4,240** (50 pre-existing env-flakes,
+  zero rebirth-adjacent — proven by stash A/B against HEAD).
+- Wave suites: W1 5✓ · W4 4✓ · W6 ✓ · W7 ✓ · W8 wire 8✓ · W8 golden-parity
+  2✓ (the oracle witness, 11 recorded draw points) · W9 5✓ · W10 5✓ ·
+  W11 4✓ — plus bind/census/resilience/coherence green.
+- The golden fixture caught the weight-formula drift the day it shipped.
+- `eslint` on the touched area: 0 errors (the one `Sidebar.js:267`
+  set-state-in-effect error is pre-existing on HEAD — stash A/B proven).
+
+**⚓ What sailed**
+`package.json`, `package-lock.json`, `docker-compose.example.yml`,
+`docker-compose.yml` (gitignored), `CHANGELOG.md`,
+`src/lib/network/pipeline/stage.js` (new), `src/lib/network/pipeline/stages.js` (new),
+`src/lib/network/pipeline/registry.js` (new), `src/lib/network/pipeline/runner.js` (new),
+`src/lib/network/pipeline/wire.js` (new), `src/lib/network/pipeline/selection.js` (new),
+`src/lib/network/pipeline/ledger.js` (new),
+`src/lib/network/proxyFleet.js`, `src/lib/network/circuitBreaker.js`,
+`src/lib/network/connectionProxy.js`, `src/sse/services/auth.js`,
+`src/lib/db/schema.js`, `src/lib/db/repos/bind.js`,
+`src/lib/db/repos/settingsDefaults.js`,
+`src/lib/db/repos/proxyFitnessRepo.js`, `src/lib/db/repos/sqlite/proxyFitnessRepo.js`,
+`src/lib/db/repos/mysql/proxyFitnessRepo.js`,
+`src/lib/db/migrations/019-circuit-breaker-keys.js` (new),
+`src/lib/db/migrations/index.js`,
+`src/lib/db/repos/circuitBreakerRepo.js` (new),
+`src/lib/db/repos/sqlite/circuitBreakerRepo.js` (new),
+`src/lib/db/repos/mysql/circuitBreakerRepo.js` (new),
+`src/lib/db/mirror/replayRegistry.js`,
+`src/app/api/proxy-pools/routing-ledger/route.js` (new),
+`src/app/api/proxy-pools/stats/route.js`,
+`open-sse/utils/proxyFetch.js`, `open-sse/executors/freebuff.js`,
+`src/shared/components/NoAuthProxyCard.js`, `src/shared/components/Sidebar.js`,
+`src/app/globals.css`,
+`tests/unit/w1-breaker-persistence-fidelity.test.js` (new),
+`tests/unit/w4-mysql-posture-refusal.test.js` (new),
+`tests/unit/w6-pipeline-skeleton.test.js` (new),
+`tests/unit/w7-eight-stages.test.js` (new),
+`tests/unit/w8-pipeline-wire.test.js` (new),
+`tests/unit/w8-golden-parity.test.js` (new),
+`tests/unit/w9-break-table.test.js` (new),
+`tests/unit/w10-feature-waves.test.js` (new),
+`tests/unit/w11-routing-ledger.test.js` (new),
+`tests/unit/outbox-replay-registry.test.js`, `tests/unit/mirror-pump.test.js`,
+`tests/unit/proxy-stats-census.test.js`, `tests/unit/freebuff-cooldowns.test.js`,
+`tests/unit/freebuff-lockout.test.js`, `tests/unit/github-monthly-usage-lock.test.js`,
+`tests/unit/opencode-zen.test.js`, `tests/unit/search-lock-scope.test.js`
+
+**🌊 Recorded, not repeated**
+F5 (proxy-provider ingestion) and F6 (percentile latency fitness) remain
+deferred-and-named — the plan's own words, owed not dropped. The wave
+structure earns bounded, independently-reversible-per-wave risk; never zero.
+
 # v1.0.71 — The Closure Re-measured ⚓
 > *"I had fitted the hull for every file the worker knew — and then the tide
 > added one more, silently, and the ship sailed without it. A closure is not

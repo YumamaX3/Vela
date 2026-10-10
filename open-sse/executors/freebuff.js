@@ -363,8 +363,8 @@ export class FreebuffExecutor extends BaseExecutor {
         const poolId = credentials?.providerSpecificData?.connectionProxyPoolId;
         if (gate?.kind === "blocked" && FREEBUFF_REPICK_CODES.has(gate.code || "") && poolId) {
           const excludePoolIds = [poolId];
-          const { repick } = await import("@/lib/network/proxyFleet.js");
-          const result = await repick(model, excludePoolIds, FREEBUFF_REPICK_MAX_ATTEMPTS, FREEBUFF_REPICK_BUDGET_MS);
+          const { repickPool } = await import("@/lib/network/pipeline/selection.js");
+          const result = await repickPool(model, excludePoolIds, { maxAttempts: FREEBUFF_REPICK_MAX_ATTEMPTS, budgetMs: FREEBUFF_REPICK_BUDGET_MS });
           if (result) {
             // Rebuild proxyOptions from the new pool's config
             const { resolveConnectionProxyConfig } = await import("@/lib/network/connectionProxy.js");

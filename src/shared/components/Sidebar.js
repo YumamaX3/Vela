@@ -407,8 +407,9 @@ export default function Sidebar({ onClose, variant = "dock" }) {
           {/* Not a section — it is a link home, and an accordion group that
               contained it would be describing it as one. */}
           <Link href="/dashboard" onClick={onClose} className="nav-brand" aria-label="Vela home">
-            <img src="/vela-logo.svg" alt="" className="nav-brand-logo" width={28} height={28} />
+            <img src="/vela-logo.svg" alt="" className="nav-brand-logo" width={30} height={30} />
             <span className="nav-brand-name">{APP_CONFIG.name}</span>
+            <span className="nav-brand-version font-mono">v{APP_CONFIG.version}</span>
           </Link>
           {isDrawer && (
             <button
@@ -508,7 +509,9 @@ export default function Sidebar({ onClose, variant = "dock" }) {
                   title={translate(section.label)}
                   onClick={() => goToSection(section)}
                 >
-                  <span className="material-symbols-outlined nav-sec-icon" aria-hidden="true">{section.icon}</span>
+                  <span className="nav-sec-well" aria-hidden="true">
+                    <span className="material-symbols-outlined nav-sec-icon">{section.icon}</span>
+                  </span>
                   <span className="nav-sec-label">{translate(section.label)}</span>
                   <span className="nav-sec-count">{section.rooms.length}</span>
                   <span className="material-symbols-outlined nav-sec-chevron" aria-hidden="true">expand_more</span>

@@ -58,6 +58,38 @@ export async function upsertFitnessBatch(db, rows) {
 }
 
 /**
+ * Upsert ONLY the breaker-owned columns of proxyFitness (mysql twin).
+ * Mirrors the sqlite harbor's upsertFitnessUnfit — see that file's header for
+ * why the breaker must not route through upsertFitnessBatch.
+ *
+ * @param {DbClient} db - mysql2 adapter (wrapMysqlPool)
+ * @param {Array} rows - array of {poolId, provider, unfit, unfitReason, unfitUntil, updatedAt}
+ */
+export async function upsertFitnessUnfit(db, rows) {
+  if (!rows || rows.length === 0) return;
+  await db.transaction(async (tx) => {
+    for (const row of rows) {
+      await tx.run(
+        `INSERT INTO proxyFitness (
+          poolId, provider, successCount, failureCount, successEwma,
+          latencyEwmaMs, lastOutcomeAt, unfit, unfitReason, unfitUntil,
+          egressIp, egressCountry, updatedAt
+        ) VALUES (?, ?, 0, 0, 0, 0, NULL, ?, ?, ?, '', '', ?)
+        ON DUPLICATE KEY UPDATE
+          unfit = VALUES(unfit),
+          unfitReason = VALUES(unfitReason),
+          unfitUntil = VALUES(unfitUntil),
+          updatedAt = VALUES(updatedAt)`,
+        [
+          row.poolId, row.provider,
+          row.unfit, row.unfitReason, row.unfitUntil, row.updatedAt,
+        ]
+      );
+    }
+  });
+}
+
+/**
  * Reset fitness for a pool (optionally filtered by provider)
  * @param {DbClient} db - mysql2 adapter (wrapMysqlPool)
  * @param {string} poolId - pool ID to reset

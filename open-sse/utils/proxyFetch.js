@@ -352,11 +352,14 @@ function resolveConnectionProxyUrl(targetUrl, proxyOptions) {
  * Create proxy dispatcher lazily (undici-compatible)
  * SOCKS5 support via Socks5ProxyAgent (undici 7.29.0)
  */
-async function getDispatcher(proxyUrl) {
+async function getDispatcher(proxyUrl, pooling = null) {
   const normalized = normalizeProxyUrl(proxyUrl);
   if (!normalized) return null;
 
-  if (!proxyDispatchers.has(normalized)) {
+  // F9 — pooling knobs are part of the cache identity: two pools behind one
+  // proxy URL with different `connections` sizes are different undici pools.
+  const cacheKey = pooling ? `${normalized}|${JSON.stringify(pooling)}` : normalized;
+  if (!proxyDispatchers.has(cacheKey)) {
     // Evict oldest entry if max size reached.
     // v0.9.42: CLOSE the evicted dispatcher. An undici dispatcher owns a
     // connection pool and its sockets; deleting the Map entry drops the only
@@ -428,16 +431,16 @@ async function getDispatcher(proxyUrl) {
       // proxy; in proxyTest.js the same throw became status 400, which IS in
       // DETERMINISTIC_FAILURE_STATUSES, so the sweep disabled every socks5
       // pool as "dead".)
-      Dispatcher = new Socks5ProxyAgent(normalized);
+      Dispatcher = new Socks5ProxyAgent(normalized, pooling ?? undefined);
     } else {
       const ProxyAgent = undici.ProxyAgent;
       if (!ProxyAgent) {
         throw new Error(`unsupported proxy scheme for ${safeUrl}: ProxyAgent unavailable in this undici build`);
       }
-      Dispatcher = new ProxyAgent({ uri: normalized });
+      Dispatcher = new ProxyAgent({ uri: normalized, ...(pooling ?? {}) });
     }
 
-    proxyDispatchers.set(normalized, Dispatcher);
+    proxyDispatchers.set(cacheKey, Dispatcher);
   }
 
   return proxyDispatchers.get(normalized);
@@ -550,7 +553,7 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
     if (proxyUrl) {
       // Proxy resolves DNS externally (not affected by /etc/hosts) — use proxy directly
       try {
-        const dispatcher = await getDispatcher(proxyUrl);
+        const dispatcher = await getDispatcher(proxyUrl, proxyOptions?.pooling ?? null);
         return await originalFetch(url, { ...options, dispatcher });
       } catch (proxyError) {
         if (proxyOptions?.strictProxy === true) {
@@ -571,7 +574,7 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
 
   if (proxyUrl) {
     try {
-      const dispatcher = await getDispatcher(proxyUrl);
+      const dispatcher = await getDispatcher(proxyUrl, proxyOptions?.pooling ?? null);
       return await originalFetch(url, { ...options, dispatcher });
     } catch (proxyError) {
       // If strictProxy is enabled, fail hard instead of falling back to direct

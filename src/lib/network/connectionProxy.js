@@ -6,32 +6,11 @@ function normalizeString(value) {
   return String(value).trim();
 }
 
-// ─── Proxy pool rotation state (in-memory) ─────────────────────────
-const rotateState = new Map(); // providerId → { index }
-
-/**
- * Pick one proxy pool ID from a list based on strategy.
- * round-robin: cycle sequentially (in-memory, resets on restart)
- * random:      uniform random pick
- * none/single: return first entry
- */
-export function pickProxyPoolId(poolIds, strategy, providerId) {
-  if (!poolIds || poolIds.length === 0) return null;
-  if (poolIds.length === 1) return poolIds[0];
-
-  if (strategy === "round-robin") {
-    const state = rotateState.get(providerId) || { index: -1 };
-    state.index = (state.index + 1) % poolIds.length;
-    rotateState.set(providerId, state);
-    return poolIds[state.index];
-  }
-
-  if (strategy === "random") {
-    return poolIds[Math.floor(Math.random() * poolIds.length)];
-  }
-
-  return poolIds[0]; // "none" or unknown
-}
+// W8 cutover of the proxy control-plane rebirth: `pickProxyPoolId` and its
+// in-memory `rotateState` are DELETED — pool selection lives at
+// pipeline/selection.js (pickPool/repickPool), where the breaker pre-filter,
+// weighted draw, and hysteresis are the single truth. This module keeps the
+// ONE payload builder and the ONE resolver.
 
 /**
  * The unified proxyOptions payload, built in ONE place.
@@ -96,7 +75,38 @@ export function buildProxyOptionsPayload(cfg, { strictProxy } = {}) {
     // for the literals. Both halves are needed; either one alone undercounts.
     relayAuth,
     relayVersion: Number(cfg?.relayVersion) || 1,
+    // F9 of the proxy control-plane rebirth — pooling knobs. The pool row's
+    // `pooling` blob ({connections, keepAliveTimeout, keepAliveMaxTimeout})
+    // flows through the ONE builder so proxyFetch's dispatcher cache can size
+    // undici pools per pool. Closed allow-list, clamped to sane ceilings: the
+    // builder never forwards a knob it did not name, and a knob outside its
+    // range is dropped (never clamped INTO range — a misconfigured 0
+    // connections means "operator error", not "unlimited").
+    pooling: normalizePoolingKnobs(cfg?.proxyPool?.pooling),
   };
+}
+
+/**
+ * F9 — the closed pooling-knob allow-list. Undici ProxyAgent options; a value
+ * outside its ceiling is DROPPED (returns undefined for that key), not
+ * clamped — silently widening an operator's typo into "unlimited" is how a
+ * knob becomes a hole.
+ */
+const POOLING_CEILINGS = Object.freeze({
+  connections: 256,
+  keepAliveTimeout: 120_000,
+  keepAliveMaxTimeout: 600_000,
+});
+function normalizePoolingKnobs(raw) {
+  if (!raw || typeof raw !== "object") return undefined;
+  const out = {};
+  for (const [key, ceiling] of Object.entries(POOLING_CEILINGS)) {
+    const v = raw[key];
+    if (typeof v === "number" && Number.isFinite(v) && v > 0 && v <= ceiling) {
+      out[key] = Math.floor(v);
+    }
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /**

@@ -20,7 +20,6 @@ const dbMocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/localDb", () => dbMocks);
 vi.mock("@/lib/network/connectionProxy", () => ({
-  pickProxyPoolId: vi.fn(),
   resolveConnectionProxyConfig: vi.fn(async () => ({})),
 }));
 vi.mock("@/shared/constants/providers.js", () => ({

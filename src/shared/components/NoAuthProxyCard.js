@@ -11,6 +11,7 @@ const STRATEGIES = [
   { value: "none", label: "None (single pool)" },
   { value: "round-robin", label: "Round-robin" },
   { value: "random", label: "Random" },
+  { value: "smart", label: "Smart (fitness-weighted)" },
 ];
 
 export default function NoAuthProxyCard({ providerId }) {

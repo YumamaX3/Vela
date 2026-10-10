@@ -147,6 +147,21 @@ const AUTH_WAVE_NAMES = new Set([
   "setUserPassword", "touchUserLogin", "listUsers", "countUsers",
   "deleteAllUsers",
 ]);
+/** The proxy-fitness surface (migration 011). The twins exist and are
+ *  complete; they were simply never bound to a wave set, so under a mysql
+ *  posture every fitness call hit the fail-loud stub even though the harbor
+ *  answered. W1 of the proxy control-plane rebirth binds them. */
+const FITNESS_WAVE_NAMES = new Set([
+  "getFitnessRows", "upsertFitnessBatch", "resetFitness", "clearAllFitnessRows",
+  "upsertFitnessUnfit",
+]);
+/** The breaker's own ledger (migration 019, W9). The sqlite harbor is sync;
+ *  the mysql twin mirrors every export — bound so per-model breaker counts
+ *  round-trip under every posture. */
+const BREAKER_WAVE_NAMES = new Set([
+  "getBreakerRows", "upsertBreakerBatch", "deleteBreakerRow",
+  "deleteBreakerRowsByPool", "clearBreakerRows",
+]);
 
 /** Bind a facade barrel to its posture's harbor.
  *  @param sqliteRepo the sqlite harbor module (verbatim binding under sqlite)
@@ -166,7 +181,7 @@ export function bindFacade(sqliteRepo, mysqlLoader) {
   const bound = {};
   for (const [name, fn] of Object.entries(sqliteRepo)) {
     if (typeof fn !== "function") { bound[name] = fn; continue; }
-    if (!CONFIG_WAVE_NAMES.has(name) && !SECURITY_WAVE_NAMES.has(name) && !USAGE_WAVE_NAMES.has(name) && !OBSERVATORY_W3_NAMES.has(name) && !OBSERVATORY_W4_NAMES.has(name) && !AUTH_WAVE_NAMES.has(name)) {
+    if (!CONFIG_WAVE_NAMES.has(name) && !SECURITY_WAVE_NAMES.has(name) && !USAGE_WAVE_NAMES.has(name) && !OBSERVATORY_W3_NAMES.has(name) && !OBSERVATORY_W4_NAMES.has(name) && !AUTH_WAVE_NAMES.has(name) && !FITNESS_WAVE_NAMES.has(name) && !BREAKER_WAVE_NAMES.has(name)) {
       bound[name] = () => {
         throw new Error(`[DB] VELA_DB_MODE=mysql — repo fn "${name}" lands in a later Storage Covenant wave (Wave C mirror). Boot refusal (fail loud, never silent downgrade).`);
       };

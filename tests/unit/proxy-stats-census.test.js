@@ -81,6 +81,9 @@ describe("the census shape", () => {
         "fitness",
         "inactive",
         "lastTestedAt",
+        // W11 (F10) — the routing health score rides the census: per-provider
+        // success rate rolled from the 256-slot ledger ring.
+        "routingHealth",
         "relays",
         "tested",
         "total",

@@ -42,8 +42,52 @@ const MAX_BACKOFF_MS = 300_000;   // 5 minutes cap
 //   model: string
 // }
 
-const breakerStore = new Map();     // key → BreakerState
-const dirtyKeys = new Set();        // keys that need flush
+const BREAKER_STATE_KEY = '__velaCircuitBreakerState';
+// W2 of the proxy control-plane rebirth: the store, the dirty set, and BOTH
+// flush-latch fields move onto globalThis. They were module-level, and under
+// next.config.mjs `output: "standalone"` every API route is its own server
+// chunk — so networkStatus.js (one chunk) read a different Map than
+// proxyFleet.js (another chunk) wrote. proxyFleet fixed this exact wound for
+// its own store at v0.9.65 (FLEET_STATE_KEY); the breaker was never given the
+// same treatment. All four fields move together, because flushTimer and
+// flushArmed split across chunks exactly like the store did.
+const breakerState = globalThis[BREAKER_STATE_KEY] ??= {
+  store: new Map(),      // key → BreakerState
+  dirtyKeys: new Set(),  // keys that need flush
+  flushTimer: null,
+  flushArmed: false,
+};
+const breakerStore = breakerState.store;
+const dirtyKeys = breakerState.dirtyKeys;
+/**
+ * W9 — hydrate the breaker's memory from its own ledger.
+ *
+ * Called by proxyFleet.loadFitness() during init(): one extra SELECT on the
+ * adapter it already holds, zero extra queries at the call site. The law is
+ * the plan's own: hydrate must only WIDEN, never narrow — a row from the
+ * ledger fills a key the in-memory store lacks, and never overwrites a
+ * state a live recordOutcome() has already advanced (the in-memory copy is
+ * younger than any row on disk).
+ *
+ * @param {Array} rows - rows from circuitBreakerKeys (getBreakerRows)
+ */
+export function hydrate(rows) {
+  if (!Array.isArray(rows)) return;
+  for (const row of rows) {
+    const key = makeKey(row.poolId, row.provider, row.model ?? '');
+    if (breakerStore.has(key)) continue; // never narrow
+    breakerStore.set(key, {
+      failureCount: row.failureCount ?? 0,
+      lastFailureAt: row.lastFailureAt ?? null,
+      cooldownUntil: row.cooldownUntil ?? null,
+      retryAfterMs: row.retryAfterMs ?? null,
+      state: row.state ?? 'healthy',
+      poolId: row.poolId,
+      providerId: row.provider,
+      model: row.model ?? '',
+    });
+  }
+}
 
 /**
  * Build composite key matching fitness scope (poolId|providerId|model)
@@ -109,14 +153,19 @@ export async function flushNow() {
   if (dirtyKeys.size === 0) return;
   
   const rowsToFlush = [];
+  const rowsToDelete = [];
   const nowIso = new Date().toISOString();
   
   for (const key of dirtyKeys) {
     const state = breakerStore.get(key);
     if (!state) continue;
     
-    // Only flush if state is not healthy (nothing to persist)
+    // A healthy row with no cooldown is the ABSENCE of a cooldown — its
+    // persisted form is a DELETE from the ledger, not an upsert. (W9: the
+    // old fitness-view flush simply skipped healthy rows, which meant a
+    // resetKey() never reached disk and a restart resurrected the cooldown.)
     if (state.state === 'healthy' && !state.cooldownUntil && !state.retryAfterMs) {
+      rowsToDelete.push({ poolId: state.poolId, provider: state.providerId, model: state.model ?? '' });
       dirtyKeys.delete(key);
       continue;
     }
@@ -124,30 +173,49 @@ export async function flushNow() {
     rowsToFlush.push({
       poolId: state.poolId,
       provider: state.providerId,
-      unfit: state.state !== 'healthy' ? 1 : 0,
-      unfitReason: state.state === 'exhausted' ? 'breaker_exhausted' : 
-                   state.state === 'cooldown' ? 'breaker_cooldown' : null,
-      unfitUntil: state.cooldownUntil ? new Date(state.cooldownUntil).toISOString() : null,
+      model: state.model ?? '',
+      // The ledger's own vocabulary — the state machine verbatim, not the
+      // fitness view's unfit/0-1 reduction.
+      state: state.state,
+      failureCount: state.failureCount ?? 0,
+      lastFailureAt: state.lastFailureAt ? new Date(state.lastFailureAt).toISOString() : null,
+      cooldownUntil: state.cooldownUntil ?? null,
+      retryAfterMs: state.retryAfterMs ?? null,
       updatedAt: nowIso,
     });
     
     dirtyKeys.delete(key);
   }
   
-  if (rowsToFlush.length === 0) return;
+  if (rowsToFlush.length === 0 && rowsToDelete.length === 0) return;
   
   try {
     // The adapter comes through the harbour's own doorway (the Storage
     // Covenant's census forbids naming driver.js outside src/lib/db/).
     const { openStoreAdapter } = await import('../db/index.js');
     const db = await openStoreAdapter();
-    const { upsertFitnessBatch } = await import('../db/repos/proxyFitnessRepo.js');
-    await upsertFitnessBatch(db, rowsToFlush);
+    // W1 of the proxy control-plane rebirth: the breaker stopped routing
+    // through upsertFitnessBatch (13-column binds) and used the six-column
+    // upsertFitnessUnfit narrowing. W9 goes further — the breaker flushes
+    // HERE, to its own ledger (circuitBreakerKeys, migration 019), whose
+    // grain (poolId, provider, model) matches the breaker's key exactly, so
+    // per-model counts round-trip across restarts. proxyFitness.unfit stays
+    // the UI/draw view; the breaker's own state lives here.
+    const { upsertBreakerBatch, deleteBreakerRow } = await import('../db/repos/circuitBreakerRepo.js');
+    await upsertBreakerBatch(db, rowsToFlush);
+    for (const row of rowsToDelete) {
+      await deleteBreakerRow(db, row.poolId, row.provider, row.model);
+    }
   } catch (err) {
     console.warn('[circuitBreaker] flush failed:', err.message);
-    // On flush failure, keep keys dirty for retry
-    for (const key of rowsToFlush) {
-      dirtyKeys.add(makeKey(key.poolId, key.provider, ''));
+    // On flush failure, keep keys dirty for retry — under the ORIGINAL key.
+    // The previous code re-dirtied via makeKey(poolId, provider, '') with an
+    // empty model, which can never match a store keyed poolId|providerId|model
+    // (and rowsToFlush carries no model field), so every retried key was
+    // dropped on arrival and dirtyKeys grew unbounded while the persistence it
+    // represented never arrived.
+    for (const row of rowsToFlush) {
+      dirtyKeys.add(makeKey(row.poolId, row.provider, row.model ?? ''));
     }
   }
 }

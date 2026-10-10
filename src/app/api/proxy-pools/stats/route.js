@@ -50,6 +50,7 @@ import { getProviderConnections, getProxyPools } from "@/models";
 import fleet from "@/lib/network/proxyFleet.js";
 import { poolGeoSnapshot } from "@/lib/network/poolGeo.js";
 import { buildUsageMap } from "@/lib/network/poolUsage.js";
+import { healthScore } from "@/lib/network/pipeline/ledger.js";
 
 // force-dynamic: a census must describe the fleet NOW, never a build-time snapshot.
 export const dynamic = "force-dynamic";
@@ -145,6 +146,10 @@ export async function GET() {
       egress: { probed, unstable, countries: countries.size },
       tested,
       lastTestedAt: lastTestedMs === null ? null : new Date(lastTestedMs).toISOString(),
+      // W11 (F10) — the routing health score rolls the 256-slot ledger ring:
+      // per-provider success rate over the recorded window, null when a
+      // provider has no recorded traffic (never a fabricated 100).
+      routingHealth: healthScore(),
     });
   } catch (err) {
     // Loud, never a zeroed census — see the header. A zeroed body is the shape of an
