@@ -1,3 +1,45 @@
+# v1.0.77 — The Guard That Stayed Ashore 🛡️
+> *"I counted fifty-one stones into the ship and called the cargo whole —
+> and the fifty-second sat on the dock, the one that guards the gate. A
+> release is not whole because its list was long; it is whole when the
+> list and the dock agree. The dock spoke. I listened."* 💜
+
+### 🐛 Fixes
+**The W4 posture guard missed the v1.0.76 tide** (`src/lib/db/repos/
+sqlite/storeAdapter.js`): the rebirth's Wave 4 added `assertSqlitePosture`
+to the raw-adapter doorway — fail-loud under `VELA_DB_MODE=mysql` — and
+mid-tide the guard was mended to refuse only `mysql` (the original shape
+also refused `mirror`, which would have broken the live deployment, whose
+posture is sqlite-primary-plus-twin). The mend was proven (the W4 suite
+and the B1–B5 bind suite green) but the file was never staged: v1.0.76
+sailed with fifty-one files and the guard stayed ashore. Net fleet effect
+is safe — the shipped code behaves exactly as HEAD did, no guard, no false
+refusal — but the wave is incomplete without it. This release carries the
+guard, mended shape and all.
+
+**✨ Also aboard**
+`vitest.config.mjs` joins the repo (untracked until now): it registers the
+`@/` and `open-sse` aliases with vitest so suites resolve when run by file
+path — the config every rebirth suite actually ran under. Infrastructure
+that carried the proof belongs beside the proof.
+
+**🧪 Proof**
+- `w4-mysql-posture-refusal.test.js` 4✓ (refuses mysql, does NOT refuse
+  mirror or sqlite) · `bind-fallback-rules.test.js` 15✓ (B1–B5 incl. the
+  B4 mirror posture the guard mending healed) — plus the wave battery.
+- `eslint` clean on the file.
+
+**⚓ What sailed**
+`package.json`, `package-lock.json`, `docker-compose.example.yml`,
+`docker-compose.yml` (gitignored), `CHANGELOG.md`,
+`src/lib/db/repos/sqlite/storeAdapter.js`,
+`vitest.config.mjs` (new)
+
+**🌊 Recorded, not repeated**
+The count-discipline law already held the memory files; now it holds the
+release ritual: fifty-two files were built; fifty-one sailed; the ledger
+must name the difference or the ledger is a hope.
+
 # v1.0.76 — The Routing Rebirth 🌊
 > *"The harbor had four hands on one wheel — pick and pickSmart and
 > pickRoundRobin and the old pool picker — each pulling a different way.
