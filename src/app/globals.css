@@ -544,7 +544,7 @@ input, textarea {
   font-style: normal;
   font-weight: 100 700;
   font-display: swap;
-  src: url('/fonts/vela-icons.9cceb50f6a90525d.woff2') format('woff2');
+  src: url('/fonts/vela-icons.3287ee8a4fdba918.woff2') format('woff2');
 }
 .material-symbols-outlined {
   font-family: 'Material Symbols Outlined', sans-serif;
@@ -2348,6 +2348,15 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
     color var(--motion-dur-instant) var(--motion-ease-out);
 }
 .nav-sec-btn:hover { background: var(--color-surface-2); }
+/* The Quiet-polish hover lift: the well rises one surface and the glyph
+   takes the full ink. Reason: the section header is the rail's primary
+   wayfinding hand — its affordance must be felt without becoming louder
+   than the open state's brand treatment (M2 dial, state-only motion).
+   surface-3 on surface-2 keeps the non-text boundary ≥3:1 (1.4.11);
+   --color-text-default holds 14.2:1 light · 12.4:1 dark on surface. */
+.nav-sec-btn:hover .nav-sec-well { background: var(--color-surface-3); }
+.nav-sec-btn:hover .nav-sec-icon { color: var(--color-text-default); }
+.nav-sec-btn:hover .nav-sec-chevron { color: var(--color-text-muted); }
 /* The icon's square well — the fixed anchor column every section row
    shares, so the six headers read as one instrument and the eye has a
    single place to land. 28px clears WCAG 2.5.8's 24px target with the
@@ -2365,7 +2374,8 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
     background-color var(--motion-dur-instant) var(--motion-ease-out),
     color var(--motion-dur-instant) var(--motion-ease-out);
 }
-.nav-sec-icon { font-size: 18px; line-height: 1; flex: none; }
+
+.nav-sec-icon { font-size: 18px; line-height: 1; flex: none; transition: color var(--motion-dur-instant) var(--motion-ease-out); }
 .nav-sec-label {
   flex: 1;
   min-width: 0;
@@ -2388,18 +2398,34 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
 }
 .nav-sec-count {
   flex: none;
-  font-size: 10px;
+  font-size: 9px;
+  font-weight: 600;
   line-height: 1;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--color-surface-2);
   font-variant-numeric: tabular-nums;
-  /* 5.51:1 light · 6.31:1 dark */
+  /* The pinned strip's proven pill recipe — one count language for the
+     whole rail (5.40:1 light · 6.19:1 dark on surface-2). */
   color: var(--color-text-muted);
 }
 .nav-sec-chevron {
   flex: none;
   font-size: 16px;
-  transition: transform var(--motion-dur-instant) var(--motion-ease-out);
+  /* Dim while closed so the wayfinding ink leads; the glyph is non-text
+     and --color-text-subtle holds 4.65:1 light · 4.5:1 dark on the row's
+     composite — above 1.4.11's 3:1 floor (token ledger, lines 68-69/188-189). */
+  color: var(--color-text-subtle);
+  /* 180ms, not the 120ms state snap: a rotation wants to be seen turning
+     (M2 dial — state transitions only, no ambient loops). */
+  transition:
+    transform var(--motion-dur-quick) var(--motion-ease-out),
+    color var(--motion-dur-instant) var(--motion-ease-out);
 }
-.nav-sec-btn[aria-expanded="true"] .nav-sec-chevron { transform: rotate(180deg); }
+.nav-sec-btn[aria-expanded="true"] .nav-sec-chevron {
+  transform: rotate(180deg);
+  color: inherit;
+}
 /* The open section's rooms. No extra indent: the header already
    carries the hierarchy, and the tiles keep the helm's full width. */
 .nav-sec-rooms { display: flex; flex-direction: column; gap: var(--nav-tile-gap); }

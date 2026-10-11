@@ -27,6 +27,7 @@
     "block",
     "blur_on",
     "bolt",
+    "bookmark_add",
     "brush",
     "business",
     "call_merge",
@@ -243,6 +244,7 @@
     "verified",
     "verified_user",
     "vertical_align_bottom",
+    "view_timeline",
     "visibility",
     "visibility_off",
     "vpn_key",
@@ -257,9 +259,9 @@
     "wrap_text",
     "wrong_location"
   ],
-  "count": 256,
-  "sha256": "90ee4a4af2749dc18fe9809964f1dedd9e3de929f47ddb30dc7ae2c7060f6e69",
-  "identity": "9cceb50f6a90525d",
-  "file": "vela-icons.9cceb50f6a90525d.woff2",
+  "count": 258,
+  "sha256": "8c9644aa7d4c55eeb7bdc84a441854aee4f74f6c80e631d27e684035749b3ff4",
+  "identity": "3287ee8a4fdba918",
+  "file": "vela-icons.3287ee8a4fdba918.woff2",
   "source": "node_modules/material-symbols/material-symbols-outlined.woff2"
 }

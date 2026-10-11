@@ -24,6 +24,7 @@ bar_chart
 bedtime
 block
 blur_on
+bookmark_add
 bolt
 brush
 business
@@ -241,6 +242,7 @@ upload_file
 verified
 verified_user
 vertical_align_bottom
+view_timeline
 visibility
 visibility_off
 vpn_key

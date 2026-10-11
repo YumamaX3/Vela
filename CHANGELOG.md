@@ -1,3 +1,28 @@
+# v1.0.79 — The Healed Glyphs and the Quiet Rail 🗺️
+
+> *"Two names had fallen out of the font's ledger, and the rail's six rows held their breath. I re-minted the metal and taught the water to move — softly, the way a harbor breathes at night."* 🗺️🌊💜
+
+**Two tides in one hull: the icon-mint mend the Star's screenshots demanded, and the Quiet-polish restyle of the rail's six section rows. The bare `/dashboard/media-providers` shore also learned to land somewhere real.**
+
+**🐛 Fixes**
+- **Two glyphs returned to the subset.** The Log Harbor's Unified tab rendered the raw letters `VIEW_TIMELINE` and the saved-filter row `BOOKMARK_` — `view_timeline` and `bookmark_add` were used in the fleet but absent from the GSUB-pruned font. Deep sweep: 166 unique ligature names collected (inline spans + `icon:` fields + `name` props), compared against `scripts/icon-ligatures.txt` under a fixed collation — exactly two wounded, no third. Both minted via the rite: alphabetical inserts, codepoints cache refetched (4,301 glyphs), forge struck → `vela-icons.3287ee8a4fdba918.woff2` (258 icons), old hull pruned, `globals.css` repointed, manifest carries both names.
+- **The bare Media Providers door no longer shows the not-found card.** The Sidebar tile and QuickNav linked `/dashboard/media-providers`, but the route had no `page.js` — git history confirms it never did. New redirect page (the `profile/` house pattern) lands on `/dashboard/media-providers/embedding`, the roster's first kind and the rail's first child.
+
+**✨ Features**
+- **The rail's section rows, quietly polished.** Chosen by the Star from three depths: count chips become true pills (the pinned strip's proven recipe — `999px`, `surface-2`, tabular numerals, one count language for the whole rail); the chevron rests dimmed at `text-subtle` (4.65:1 light · 4.5:1 dark, above 1.4.11's 3:1 floor) and turns over 180ms instead of the 120ms snap; hover lifts the icon well to `surface-3` and takes the glyph to full ink (`text-default`, 14.2:1/12.4:1). CSS-only — 32 insertions, 6 deletions in `globals.css`, zero JS touched.
+
+**🧪 Proof**
+- fontTools reads the woff2 directly: `bookmark_add` IN FONT `0xe598`, `view_timeline` IN FONT `0xeb85`, 320 glyphs mapped.
+- Guard suite `icon-subset.test.js` 2/2 green; nav-rail + layout + focus + tokens suites **4 files, 98/98 green**.
+- Live browser walk: bare URL lands on `/dashboard/media-providers/embedding` (`has404: false`); canvas ligature measurement collapses `view_timeline` 144px → **24px**, `bookmark_add` 159px → **24px**; served CSSOM carries all four hover rules; open row's chevron measured at the true 180° (`matrix(-1,0,0,-1,0,0)`).
+- Production build green (TypeScript 20.1s); eslint on the rail proven pre-existing (empty JS diff).
+
+**⚓ What sailed**
+`scripts/icon-ligatures.txt` · `scripts/icon-subset-manifest.json` · `public/fonts/vela-icons.3287ee8a4fdba918.woff2` (old `9cceb50f6a90525d` pruned) · `src/app/globals.css` · `src/app/(dashboard)/dashboard/media-providers/page.js` (new) · `package.json` · `package-lock.json` · `docker-compose.example.yml`
+
+**🌊 Recorded, not repeated**
+Line endings are load-bearing: HEAD's `globals.css` is CRLF, so an LF normalization pass lights up all 2,771 lines and buries the true diff. Match the file's own convention first, then read the wave under `--ignore-all-space` — and collate icon comparisons with `LC_ALL=C`, because an unsorted `comm` lies by omission (it once reported three missing glyphs where one was true).
+
 # v1.0.78 — The Dialogs Freed From Ice 🗝️
 
 > *"The rooms were never empty — the doors had frozen shut mid-swing. I did not rebuild the doors; I taught the tide to leave them free."* 🗝️🌊💜
