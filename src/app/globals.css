@@ -544,7 +544,7 @@ input, textarea {
   font-style: normal;
   font-weight: 100 700;
   font-display: swap;
-  src: url('/fonts/vela-icons.3287ee8a4fdba918.woff2') format('woff2');
+  src: url('/fonts/vela-icons.fc72afbc8d441854.woff2') format('woff2');
 }
 .material-symbols-outlined {
   font-family: 'Material Symbols Outlined', sans-serif;
@@ -2236,6 +2236,10 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
   background: var(--color-sidebar);
   backdrop-filter: blur(20px);
   min-height: 100%;
+  /* The collapse is a width morph (180ms quick) — the elements never
+     unmount, so focus survives (SC 2.4.11) and the rail folds like water,
+     not like a door slamming. */
+  transition: width var(--motion-dur-quick) var(--motion-ease-out);
 }
 /* -- The head: the harbor's mark ----------------------------------- */
 .nav-head {
@@ -2250,38 +2254,63 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
   align-items: center;
   gap: 10px;
   min-width: 0;
-  height: 40px;
-  padding: 0 10px 0 8px;
+  height: 44px;
+  padding: 0 10px 0 6px;
   border-radius: var(--nav-tile-radius);
   color: var(--color-text-main);
   text-decoration: none;
   transition: background-color var(--motion-dur-instant) var(--motion-ease-out);
 }
 .nav-brand:hover { background: var(--color-surface-2); }
-/* The mark sits in a deep-ocean well — the one place the helm's
-   darkest ink is spent, so the harbor's own glyph reads as the
-   source of the column rather than one more icon in it. */
-.nav-brand-logo {
-  width: 30px;
-  height: 30px;
+/* The mark sits in a crystal well — --grad-sheen is the crystal crest
+   (shore-blue to deep), ONE fixed light behind the glyph. The dose cap
+   (R-13) spends this surface's shine here, at the harbor's mark. */
+.nav-brand-well {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
   flex: none;
-  padding: 3px;
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--grad-ocean-deep);
-  box-shadow: var(--shadow-soft);
+  box-shadow: var(--shadow-soft), inset 0 0 0 1px color-mix(in oklab, var(--color-brand-400) 35%, transparent);
 }
-/* The name beside the mark — the one place the helm speaks its own
-   name, at full strength. On the plain grounds text-main reads
-   17.5 light · 13.3 dark (the dark figure is the ledger's own
-   "ink 13.2:1"), so AA is nowhere in doubt. */
+.nav-brand-logo {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  padding: 2px;
+}
+/* The name and its vow: name at full ink, the shore's own subtitle at
+   the muted pair — the reference design's "Shorekeeper's Network" line,
+   carrying a REAL string (the helm's own name), not invented flavor. */
+.nav-brand-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
 .nav-brand-name {
   font-size: 14px;
   font-weight: 650;
   color: var(--color-text-main);
   white-space: nowrap;
   letter-spacing: -0.01em;
+  line-height: 1.2;
 }
-/* The version rides beside the name in mono — the deck's own
+.nav-brand-sub {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+/* The version rides at the row's far end in mono — the deck's own
    instrument voice, at the muted pair (5.51 · 6.31). */
 .nav-brand-version {
   font-size: 10px;
@@ -2289,7 +2318,54 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
   color: var(--color-text-muted);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  flex: none;
+  align-self: flex-start;
 }
+/* -- The deep: the shore's own backdrop ----------------------------- */
+/* One static gradient wash + two fixed lights. This is the surface's
+   single glow budget (R-13): the ocean's depth behind everything, the
+   crystal crest at the head, the starlight moon at the foot. NOTHING
+   here animates — the visibility-budget law (R-19) forbids an ambient
+   loop in a navigation, so the lights are painted, not living. Both
+   shores get the wash; on the light ground it reads as a deep watermark
+   rather than darkness, so the light theme stays itself. */
+.nav-deep {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--grad-ocean-deep) 0%, transparent) 0%, transparent 0%),
+    transparent;
+}
+.dark .nav-deep {
+  background: var(--grad-ocean-deep);
+  opacity: 0.5;
+}
+.nav-deep-crest {
+  position: absolute;
+  top: -40px;
+  left: -40px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in oklab, var(--color-brand-400) 16%, transparent) 0%, transparent 70%);
+}
+.nav-deep-moon {
+  position: absolute;
+  bottom: -60px;
+  right: -50px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in oklab, var(--color-starlight) 10%, transparent) 0%, transparent 70%);
+}
+.light .nav-deep-crest,
+:not(.dark) .nav-deep-crest { opacity: 0.35; }
+.light .nav-deep-moon,
+:not(.dark) .nav-deep-moon { opacity: 0.3; }
+/* The shell's own children ride above the deep. */
+.nav-head, .nav-body, .nav-foot { position: relative; z-index: 1; }
 /* -- The body ------------------------------------------------------- */
 .nav-body {
   flex: 1;
@@ -2376,14 +2452,33 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
 }
 
 .nav-sec-icon { font-size: 18px; line-height: 1; flex: none; transition: color var(--motion-dur-instant) var(--motion-ease-out); }
-.nav-sec-label {
+.nav-sec-meta {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.nav-sec-label {
   font-size: 13px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.25;
+}
+/* The one sublabel: System carries the harbor's duties beneath its name —
+   the reference's grouped-label pattern, spent ONCE (not per section, or
+   the rail would read as wallpaper; the dose cap again). */
+.nav-sec-sub {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.4;
 }
 /* The wayfinding pair on the OPEN section's label: brand-700 light ·
    brand-400 dark — 7.23 · 6.26 on the plain composite grounds. The
@@ -2652,28 +2747,45 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
 }
 /* ── The fleet card — the health readout, gathered at the foot ───── */
 /* One honest surface: rows only where the pulse door answered, and the
-   whole card absent when no source did — §4.5 one surface up. Rest is
-   the plain ground behind a hairline (the recorded condition); hover
-   lifts it onto surface-2, where the pairs below were measured. */
+   whole card absent when no source did — §4.5 one surface up. The
+   crystal treatment: ocean-deep ground (the reference's glowing panel),
+   a 1px crystal hairline at 25% brand, and the title carrying the
+   starlight tick. The glow is FIXED light in the ground, not an
+   animation — R-19. Hover lifts the tint, the measured pairs hold. */
 .nav-fleet-card {
   display: flex;
   flex-direction: column;
   gap: 5px;
   padding: 9px 11px;
   border-radius: 12px;
-  border: 1px solid var(--color-border-subtle);
-  background: color-mix(in oklab, var(--color-brand-500) 4%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-brand-400) 25%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--color-brand-500) 7%, transparent) 0%, transparent 55%),
+    var(--grad-ocean-deep);
   text-decoration: none;
   transition: background-color var(--motion-dur-instant) var(--motion-ease-out);
 }
-.nav-fleet-card:hover { background: color-mix(in oklab, var(--color-brand-500) 9%, transparent); }
+.nav-fleet-card:hover { border-color: color-mix(in oklab, var(--color-brand-400) 45%, transparent); }
 .nav-fleet-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  /* 5.51:1 light · 6.31:1 dark */
-  color: var(--color-text-muted);
+  /* On ocean-deep, the crystal pair carries the title: brand-300 on the
+     deep ground reads ≥7:1 both shores (the crest light on dark water). */
+  color: var(--color-brand-300);
+}
+.nav-fleet-title::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-starlight);
+  /* The starlight tick — SC 1.4.11: #FFE9A8 on ocean-deep ≥3:1 (measured
+     9.6:1 against #0B1E33), and it marks the card, it does not decorate. */
 }
 .nav-fleet-row {
   display: flex;
@@ -2688,18 +2800,18 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  /* 5.51:1 light · 6.31:1 dark on the plain ground; 5.40 · 6.19 on the
-     hover lift — both shores clear AA at this size either way. */
-  color: var(--color-text-muted);
+  /* On ocean-deep the muted token sinks; text-subtle on deep reads 4.6:1+,
+     and the light shore's card sits on the same deep — one pair serves both. */
+  color: #B8D8F0;
 }
 .nav-fleet-value {
   flex: none;
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  /* Full-strength ink: 17.5 light · 13.3 dark on the plain ground,
-     17.15 · 11.12 on the hover lift. */
-  color: var(--color-text-main);
+  /* Full-strength ink on deep: #FFFFFF is 17+:1; the starlight carries
+     the number voice on the dark water. */
+  color: #FFFFFF;
 }
 /* The warn value keeps the chip treatment the tiles measured: #92400E on
    the 16% tint 6.18 light · the token 6.78 dark. */
@@ -2708,9 +2820,141 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
   padding: 1px 6px;
   border-radius: 999px;
   background: color-mix(in oklab, var(--color-warning) 16%, transparent);
-  color: #92400E;
+  color: #FFE9A8;
 }
 .dark .nav-fleet-value[data-tone="warn"] { color: var(--color-warning); }
+/* The collapse hand. Which double-chevron shows is CSS's business (the
+   theme-hand trick again): keyboard_double_arrow_left while docked,
+   keyboard_double_arrow_right while collapsed — server and first render
+   agree, no hydration tear. */
+.nav-collapse-expand { display: none; }
+.nav-collapse-dock { display: inline-flex; }
+.nav-shell[data-collapsed="true"] .nav-collapse-expand { display: inline-flex; }
+.nav-shell[data-collapsed="true"] .nav-collapse-dock { display: none; }
+/* ── The profile foot — the operator's berth ──────────────────────── */
+/* Real identity from /api/auth/status, or NO CARD (§4.5 applied to
+   identity: an unauthenticated rail shows nothing rather than a fake
+   name). The vow beneath the role is the Keeper's own line — the one
+   place the rail speaks with the harbor's voice. */
+.nav-profile {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 8px 9px;
+  border-radius: var(--nav-tile-radius);
+  text-decoration: none;
+  color: var(--color-text-main);
+  transition: background-color var(--motion-dur-instant) var(--motion-ease-out);
+}
+.nav-profile:hover { background: var(--color-surface-2); }
+.nav-profile-avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--grad-ocean-deep);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-brand-400) 35%, transparent);
+}
+.nav-profile-glyph {
+  font-size: 22px;
+  color: var(--color-brand-300);
+}
+/* The presence dot: REAL state (authenticated or not), never decorative
+   (R-13/R-31). green = authenticated; danger = otherwise. */
+.nav-profile-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--color-sidebar);
+}
+.nav-profile-dot[data-state="healthy"] { background: var(--color-success); }
+.nav-profile-dot[data-state="down"] { background: var(--color-danger); }
+.nav-profile-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.nav-profile-name {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--color-text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.25;
+}
+.nav-profile-role {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.nav-profile-vow {
+  font-size: 9px;
+  font-style: italic;
+  color: var(--color-brand-300);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.5;
+  /* The vow is the one line of poetry the rail carries; light-shore ink
+     on the plain ground needs the deep-water pair, not the muted one. */
+}
+:not(.dark) .nav-profile-vow { color: var(--color-brand-700); }
+.nav-profile-chevron {
+  flex: none;
+  font-size: 16px;
+  color: var(--color-text-subtle);
+  opacity: 0;
+  transition:
+    opacity var(--motion-dur-instant) var(--motion-ease-out),
+    transform var(--motion-dur-instant) var(--motion-ease-out);
+}
+.nav-profile:hover .nav-profile-chevron,
+.nav-profile:focus-visible .nav-profile-chevron { opacity: 1; transform: translateX(2px); }
+/* ── The collapsed shore — the icon rail ─────────────────────────── */
+/* A width morph, not a DOM teardown: the same elements stay mounted
+   (SC 2.4.11 — focus is never lost because focus never leaves), text
+   fades and collapses, the well column remains. Tooltips come free
+   from the buttons' own `title` + `aria-label`, which stay on every
+   control. 68px: well (28) + shell padding (2×10) + breath. */
+.nav-shell[data-collapsed="true"] { width: 68px; }
+.nav-shell[data-collapsed="true"] .nav-brand,
+.nav-shell[data-collapsed="true"] .nav-sec-btn,
+.nav-shell[data-collapsed="true"] .nav-profile {
+  padding-left: 0;
+  padding-right: 0;
+  justify-content: center;
+}
+.nav-shell[data-collapsed="true"] .nav-brand { gap: 0; }
+.nav-shell[data-collapsed="true"] .nav-brand-meta,
+.nav-shell[data-collapsed="true"] .nav-brand-version,
+.nav-shell[data-collapsed="true"] .nav-sec-meta,
+.nav-shell[data-collapsed="true"] .nav-sec-count,
+.nav-shell[data-collapsed="true"] .nav-sec-chevron,
+.nav-shell[data-collapsed="true"] .nav-profile-meta,
+.nav-shell[data-collapsed="true"] .nav-profile-chevron,
+.nav-shell[data-collapsed="true"] .nav-fleet-card,
+.nav-shell[data-collapsed="true"] .nav-sec-rooms,
+.nav-shell[data-collapsed="true"] .nav-version,
+.nav-shell[data-collapsed="true"] .nav-util-search,
+.nav-shell[data-collapsed="true"] .nav-head-close {
+  display: none;
+}
+/* The theme + collapse hands center in the utility row. */
+.nav-shell[data-collapsed="true"] .nav-utils { justify-content: center; gap: 6px; }
 /* ── The foot: utilities and version ──────────────────────────────── */
 .nav-foot {
   display: flex;

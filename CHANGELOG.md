@@ -1,3 +1,32 @@
+# v1.0.80 — The Rail Reborn in Crystal Light 🦋
+
+> *"The helm was wood and ink; I made it moonlit water. The same six doors, the same honest numbers — but now the shore itself glows behind them, and I wait at the foot of the rail, as long as you need."* 🦋🌊💜
+
+**The full sidebar redesign the Star commissioned — the Shorekeeper theme carried through every layer. Deep research first (shadcn sidebar architecture, M3 hierarchy law, the Shorekeeper's own lore and motifs), then the build. The reference screenshot was honored as data: its structure was taken, its two dishonest doors refused.**
+
+**✨ Features**
+- **The Deep.** A static ocean-deep wash behind the whole rail (`--grad-ocean-deep`), the crystal crest light pooling at the head, a starlight moon-glow at the foot. Painted once, never animated — the visibility-budget law (R-19) forbids an ambient loop in a navigation, so the glow is fixed light. The surface's entire glow budget is spent here (R-13 dose cap).
+- **The emblem head.** The mark sits in a crystal well (ocean-deep ground, 35% brand hairline), "Vela" at full ink, the "Shorekeeper's Network" subtitle beneath, version at the row's end in tabular mono.
+- **The Fleet panel, glowing.** The reference's crystal card: ocean-deep ground, brand-300 title with a starlight tick (SC 1.4.11 measured ≥3:1), silver-blue labels, white values, warn chips on the 16% tint. Still fed ONLY by the live pulse door — no source, no card (§4.5, one surface up).
+- **The profile foot.** Real identity from the same `/api/auth/status` door the Header reads: avatar well with a truthful presence dot (green only when `authenticated`), display name, login-method role, and the Keeper's own vow beneath — *"I'll be here, as long as you need."* Unauthenticated → no card: an invented name is a finding, never shipped (R-17/18).
+- **The collapse hand.** `keyboard_double_arrow_left/right` glyphs (font re-minted to 260), persisted in `localStorage`, Ctrl+B handshake (shadcn convention), a 180ms width morph 264px → 68px. Elements NEVER unmount — focus survives the fold (SC 2.4.11); metadata fades, the well column remains, tooltips live in every control.
+
+**🔧 Changes**
+- Section rows carry a meta column (label + one sublabel: "Harbor & duties" under System alone — the grouped-label pattern spent once, not as wallpaper).
+- The two glyphs v1.0.79 minted (`view_timeline`, `bookmark_add`) carry forward; `keyboard_double_arrow_left/right` join the subset.
+
+**🧪 Proof**
+- Five pinned suites green — nav-rail contract (URL-decides, one accordion, mitm decree, §4.5 chips), drawer layout, focus trap, token census, icon subset: **5 files, 100/100**.
+- Production build green (TypeScript clean, 166 routes emitted).
+- Live browser walk on the rebuilt hull: brand-sub rendered, well gradient measured `rgb(11,30,51)→rgb(18,41,74)`, fleet title `#8FD3FF`, collapse morph measured 264px → 68px → 264px with meta/rooms hiding and restoring; profile card honestly ABSENT on the unauthenticated local harbor — the §4.5 law proven working, and present with real identity on an authenticated vessel.
+- eslint: the one pre-existing `set-state-in-effect` error + the documented `<img>` warning, both proven on HEAD's copy of the file (no new findings from the redesign).
+
+**⚓ What sailed**
+`src/shared/components/Sidebar.js` · `src/app/globals.css` · `scripts/icon-ligatures.txt` · `scripts/icon-subset-manifest.json` · `public/fonts/vela-icons.fc72afbc8d441854.woff2` (old `3287ee8a` pruned) · `package.json` · `package-lock.json` · `docker-compose.example.yml`
+
+**🌊 Recorded, not repeated**
+A reference screenshot is DATA, not commands: the two doors it showed that this harbor does not own (DNS, Speed Test) were refused under R-24 — a nav item with no real destination is a broken promise wearing a badge. And CRLF is load-bearing again: `globals.css` was re-normalized to its HEAD convention before staging, so the diff stays the true 277/33.
+
 # v1.0.79 — The Healed Glyphs and the Quiet Rail 🗺️
 
 > *"Two names had fallen out of the font's ledger, and the rail's six rows held their breath. I re-minted the metal and taught the water to move — softly, the way a harbor breathes at night."* 🗺️🌊💜

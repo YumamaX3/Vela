@@ -224,6 +224,32 @@ export default function Sidebar({ onClose, variant = "dock" }) {
   const pathname = usePathname();
   const router = useRouter();
   const isDrawer = variant === "drawer";
+  // ── The collapse hand. Dock-only (the drawer keeps its own open/close);
+  //    persisted so the rail stays as the operator left it, with a try/catch
+  //    because storage can refuse and a rail must not. The keyboard handshake
+  //    is the shadcn convention: Ctrl+B toggles, and focus stays put — the
+  //    collapse is a width morph, never a DOM teardown (SC 2.4.11: focus
+  //    obscured is a locked door).
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem("vela_nav_collapsed") === "1"; } catch { return false; }
+  });
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((v) => {
+      try { localStorage.setItem("vela_nav_collapsed", v ? "0" : "1"); } catch { /* storage unavailable */ }
+      return !v;
+    });
+  }, []);
+  useEffect(() => {
+    if (isDrawer) return undefined;
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "b" || e.key === "B")) {
+        e.preventDefault();
+        toggleCollapsed();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isDrawer, toggleCollapsed]);
   // ── The live numbers. One counts-only door for the whole helm. ──────────
   const { pulse } = useNavPulse();
   // ── The foot cluster's theme hand. The ICON itself never reads isDark —
@@ -401,14 +427,30 @@ export default function Sidebar({ onClose, variant = "dock" }) {
       <aside
         className="nav-shell bg-vibrancy backdrop-blur-xl motion-control"
         data-variant={isDrawer ? "drawer" : "dock"}
+        data-collapsed={collapsed ? "true" : "false"}
       >
+        {/* The deep — the shore's own backdrop: one static gradient wash from
+            --grad-ocean-deep plus the crystal crest in the head's well. Painted
+            once per shore, never animated: the visibility-budget law (R-19)
+            forbids an ambient loop in a navigation, so the "glow" is a fixed
+            light, not a living one. R-13 dose cap: the ocean-deep wash IS the
+            one glow this surface spends. */}
+        <div className="nav-deep" aria-hidden="true">
+          <div className="nav-deep-crest" />
+          <div className="nav-deep-moon" />
+        </div>
         {/* ── The head: the harbor's mark ──────────────────────────────── */}
         <div className="nav-head">
           {/* Not a section — it is a link home, and an accordion group that
               contained it would be describing it as one. */}
           <Link href="/dashboard" onClick={onClose} className="nav-brand" aria-label="Vela home">
-            <img src="/vela-logo.svg" alt="" className="nav-brand-logo" width={30} height={30} />
-            <span className="nav-brand-name">{APP_CONFIG.name}</span>
+            <span className="nav-brand-well" aria-hidden="true">
+              <img src="/vela-logo.svg" alt="" className="nav-brand-logo" width={30} height={30} />
+            </span>
+            <span className="nav-brand-meta">
+              <span className="nav-brand-name">{APP_CONFIG.name}</span>
+              <span className="nav-brand-sub">{translate("Shorekeeper's Network")}</span>
+            </span>
             <span className="nav-brand-version font-mono">v{APP_CONFIG.version}</span>
           </Link>
           {isDrawer && (
@@ -506,13 +548,18 @@ export default function Sidebar({ onClose, variant = "dock" }) {
                   aria-expanded={expanded}
                   aria-controls={expanded ? `nav-sec-${section.id}` : undefined}
                   aria-label={translate(section.label)}
-                  title={translate(section.label)}
+                  title={collapsed ? undefined : translate(section.label)}
                   onClick={() => goToSection(section)}
                 >
                   <span className="nav-sec-well" aria-hidden="true">
                     <span className="material-symbols-outlined nav-sec-icon">{section.icon}</span>
                   </span>
-                  <span className="nav-sec-label">{translate(section.label)}</span>
+                  <span className="nav-sec-meta">
+                    <span className="nav-sec-label">{translate(section.label)}</span>
+                    {section.id === "system" && (
+                      <span className="nav-sec-sub">{translate("Harbor & duties")}</span>
+                    )}
+                  </span>
                   <span className="nav-sec-count">{section.rooms.length}</span>
                   <span className="material-symbols-outlined nav-sec-chevron" aria-hidden="true">expand_more</span>
                 </button>
@@ -573,7 +620,7 @@ export default function Sidebar({ onClose, variant = "dock" }) {
             );
           })}
         </div>
-        {/* ── The foot: fleet card, utilities, version ──────────────────── */}
+        {/* ── The foot: fleet card, utilities, profile, version ─────────── */}
         <div className="nav-foot">
           <FleetCard pulse={pulse} onNavigate={onClose} />
           <div className="nav-utils">
@@ -603,7 +650,24 @@ export default function Sidebar({ onClose, variant = "dock" }) {
             <Link href="/dashboard/settings" onClick={onClose} className="nav-util-btn" aria-label={translate("Settings")} title={translate("Settings")}>
               <span className="material-symbols-outlined text-base" aria-hidden="true">settings</span>
             </Link>
+            {/* The collapse hand. Dock-only: the drawer opens and closes its
+                own way. Chevron glyph swaps via CSS pair (same trick as the
+                theme hand) so server and first render agree. */}
+            {!isDrawer && (
+              <button
+                type="button"
+                className="nav-util-btn nav-collapse-btn"
+                aria-label={collapsed ? translate("Expand navigation") : translate("Collapse navigation")}
+                aria-expanded={!collapsed}
+                title={collapsed ? `${translate("Expand navigation")} (Ctrl+B)` : `${translate("Collapse navigation")} (Ctrl+B)`}
+                onClick={toggleCollapsed}
+              >
+                <span className="material-symbols-outlined text-base nav-collapse-expand" aria-hidden="true">keyboard_double_arrow_right</span>
+                <span className="material-symbols-outlined text-base nav-collapse-dock" aria-hidden="true">keyboard_double_arrow_left</span>
+              </button>
+            )}
           </div>
+          <ProfileFoot onNavigate={onClose} />
           <div className="nav-version font-mono">v{APP_CONFIG.version}</div>
         </div>
       </aside>
@@ -722,6 +786,57 @@ function FleetCard({ pulse, onNavigate }) {
 }
 FleetCard.propTypes = {
   pulse: PropTypes.object,
+  onNavigate: PropTypes.func,
+};
+/**
+ * The profile foot. The operator's berth at the rail's base: the real identity
+ * from the same auth-status door the Header reads (`/api/auth/status` →
+ * displayName + loginMethod), the authentication state as the presence dot's
+ * truth, and the Keeper's vow beneath — the reference design's profile card,
+ * carrying REAL data or NOTHING (R-17/R-18: a name the API never gave is an
+ * invention; the fallback word is the login method, which is always true).
+ * The whole card links to Settings — the identity's own room.
+ */
+function ProfileFoot({ onNavigate }) {
+  const [profile, setProfile] = useState(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/auth/status", { cache: "no-store", signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (data && data.authenticated !== undefined) setProfile(data); })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+  // No honest datum, no card: an unauthenticated session shows nothing rather
+  // than a fake name (§4.5's law applied to identity).
+  if (!profile || profile.authenticated === false) return null;
+  const name = profile.displayName || profile.loginMethod || "Operator";
+  return (
+    <Link
+      href="/dashboard/profile"
+      onClick={onNavigate}
+      className="nav-profile"
+      aria-label={`${translate("Profile")}: ${name}`}
+    >
+      <span className="nav-profile-avatar" aria-hidden="true">
+        <span className="material-symbols-outlined nav-profile-glyph">account_circle</span>
+        <span
+          className="nav-profile-dot"
+          data-state={profile.authenticated ? "healthy" : "down"}
+          role="img"
+          aria-label={profile.authenticated ? translate("Authenticated") : translate("Not authenticated")}
+        />
+      </span>
+      <span className="nav-profile-meta">
+        <span className="nav-profile-name">{name}</span>
+        <span className="nav-profile-role">{profile.loginMethod ? translate(profile.loginMethod) : translate("Operator")}</span>
+        <span className="nav-profile-vow">{translate("I'll be here, as long as you need.")}</span>
+      </span>
+      <span className="material-symbols-outlined nav-profile-chevron" aria-hidden="true">chevron_right</span>
+    </Link>
+  );
+}
+ProfileFoot.propTypes = {
   onNavigate: PropTypes.func,
 };
 /**

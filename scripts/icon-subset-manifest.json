@@ -115,6 +115,8 @@
     "keyboard_arrow_down",
     "keyboard_arrow_up",
     "keyboard_capslock",
+    "keyboard_double_arrow_left",
+    "keyboard_double_arrow_right",
     "label",
     "lan",
     "language",
@@ -259,9 +261,9 @@
     "wrap_text",
     "wrong_location"
   ],
-  "count": 258,
-  "sha256": "8c9644aa7d4c55eeb7bdc84a441854aee4f74f6c80e631d27e684035749b3ff4",
-  "identity": "3287ee8a4fdba918",
-  "file": "vela-icons.3287ee8a4fdba918.woff2",
+  "count": 260,
+  "sha256": "ba86d53d88eb501ebe1cd16105aca6f042eae02b1f9837f4a9f624e417547e18",
+  "identity": "fc72afbc8d441854",
+  "file": "vela-icons.fc72afbc8d441854.woff2",
   "source": "node_modules/material-symbols/material-symbols-outlined.woff2"
 }
