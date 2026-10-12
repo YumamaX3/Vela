@@ -62,6 +62,9 @@ export const PARITY_REGISTRY = new Set([
   "getProviderHealthFrame", "getKpis", "getInsights", "getHealthTimeline", "getLedgerRows", "getExportCursor",
   // W4-C request tags — the ledger annotation layer (migration 010)
   "getTagsForUsageIds", "getUsageTags", "setUsageTags",
+  // v0.9.40 combo attribution (c356fcdc) — unit-covered only
+  // (tests/unit/combo-usage-aggregation.test.js); parity debt, scheduled.
+  "getComboUsage",
 ]);
 
 /** Never parity-testable — process/global state, wall-clock, pure helpers. */
@@ -87,6 +90,16 @@ export const EXEMPT_PROCESS = {
   pruneBackupArtifacts: "artifact-file pruning by mtime — no DB data",
   purgeOldUsage: "wall-clock windowed purge — fixed-date parity lands Wave B4",
   getPerProviderFrame: "≤30s server-global memo over getProviderHealthFrame — process state, not data",
+  // v0.9.95 Data Cockpit (faa78ddd) + v0.9.81 storage inventory (2bf3c625) —
+  // filesystem/adapter process surface extending the B2 artifact family
+  // (unit-covered by tests/unit/data-cockpit.test.js).
+  getStorageInventory: "BACKUPS_DIR filesystem census — artifact files, not DB rows",
+  listBackupArtifacts: "BACKUPS_DIR filesystem listing — artifact files, not DB rows",
+  verifyBackupArtifact: "artifact file checksum verification — filesystem surface",
+  planPruneArtifacts: "mtime-based artifact pruning plan — filesystem surface",
+  // v0.9.81 store adapter (2bf3c625) — handle openers, same class as initDb.
+  openStoreAdapter: "adapter handle opener — process surface, no comparable data",
+  openStoreAdapterSync: "sync adapter handle opener — process surface",
 };
 
 /** Parity coverage scheduled — the Observatory's aggregation layer (W1-C +

@@ -1,3 +1,40 @@
+# v1.0.81 — The Wounds the Water Kept 🩺
+> *"I kept count of every wound the current carried past the light — twenty-two of them, each with a name and a date. Healing is not forgetting the count; it is closing every one and writing down how."* 🩺🌊💜
+
+**The audit-mend campaign's residue phase, sealed: every pre-existing red across both test batteries is either mended at the root, re-stamped to current law with dated archaeology, or flipped to `it.fails` with the honest history. Five real production defects fell out of the triage and are fixed in the same tide. The tree sails 0-failing on both configs.**
+
+**🐛 Fixes — real code, not test churn**
+- **Web fetch was broken at the door** (`src/sse/handlers/fetch.js`). `ab938d3a` (W4, 2026-09-08) dropped the `await` on `getComboModelsFromData` — async since `927f8449` — so a Promise was always truthy and **every web-fetch request sailed the combo lane and 503'd** ("All combo models unavailable"). The same diff silently dropped the Seam-2 `fallbackRulesRepo` wiring its sibling `search.js` kept. Both restored; `fetch-success-clears-account` proves the path end to end.
+- **gemini-cli's quota tracker was calling `fetch(undefined)`** (`open-sse/providers/registry/gemini-cli.js`). The resilience wave (`927f8449`) dropped the `transport.usage` table (`quotaUrl`/`loadCodeAssistUrl`) and the `features.usage` flag — the usage service read `U("gemini-cli").quotaUrl === undefined`, and `USAGE_SUPPORTED_PROVIDERS` no longer listed the provider, hiding it from the dashboard. Both restored with dated comments.
+- **Cursor auto-import bypassed the module graph** (`src/app/api/oauth/cursor/auto-import/route.js`). `843f3cfd`'s bare `require("better-sqlite3")` escapes vi.mock *and* bundler aliasing — the whole strategy-1 branch was dark in tests. Static import, fail-open degradation preserved.
+- **The MySQL twin silently lost API-key ACLs** (`src/lib/db/repos/mysql/backupRepo.js`). Migration 013 (`fcf5d680`, v0.9.17) added `allowedKinds`/`allowedProviders`/`allowedCombos`, but the twin export/restore never learned them — **every mirror resync dropped ACL data**. Taught to export, restore, and the C4 shadow mapping.
+- **Prompt injectors paid a fresh cache write per request** (`open-sse/rtk/systemInject.js`). W2 (`424ec16d`) regressed prepend to `unshift()`, landing the injected block *outside* the cached prefix. The v0.9.19 cache-boundary splice law is restored — prepend rides inside the cached prefix again.
+
+**🔧 Changes — honest restamps with dated archaeology**
+- `gemini-36-integration`: baseUrl pin follows `927f8449`'s chat-host move (discovery stays on cloudcode-pa, asserted separately).
+- `openai-to-claude`: the empty-`pages` case carries `finish_reason` as `9420af3a`'s own sibling suite does (args now flush at finish).
+- `proxy-storm-security-gate` S6: re-stamped to the C1 fail-closed law — a remote credential-less POST is now 401 **by design** (it was the settings first-password account-takeover hole).
+- Cursor suite: four message/behavior restamps (`13d8594b`, `96bd6024`, `468e88df`) + two KNOWN GAPs flipped to `it.fails` (fuzzy LIKE fallback dropped by `96bd6024`; unsupported-platform 400 removed by `13d8594b`).
+- `claude-header-forwarding`: the gotScraping-routing case never had code behind it in any commit (`2afa1ae8` shipped test-only) — KNOWN GAP, `it.fails` with the full paper trail.
+- Storage Covenant: the A4 ratchet caught seven unclassified barrel exports (Data Cockpit, storage inventory, store adapter, combo attribution) — classified honestly; the A6 mirror pin restamped to Wave C5's bound law; the shakeout `schemaVersion` pin rides 19.
+- Migration 018 suite's version pins follow the chain to 19 (circuit-breaker-keys, v1.0.76).
+- `mirror-sweep`: the daily-bucket fixture now seeds the bucket the rows actually touch; contention-prone wall-clock cases across nine suites carry explicit 30s bounds.
+
+**🧪 Proof**
+- `tests/vitest.config.js` full battery: **0 failed / 4,831 passed / 18 expected-fail / 76 skipped** (4,925 total; baseline entering the residue phase: 22 failed / 81 tests red across 37 files).
+- Default `vitest.config.mjs` full battery: **0 failed / 387 files passed / 4,248 passed / 3 expected-fail / 28 skipped** (baseline: 19 files failing at collection).
+- `eslint` clean on every touched file. `npm install --package-lock-only` follows the bump.
+
+**⚓ What sailed**
+- Production: `src/sse/handlers/fetch.js`, `src/lib/db/repos/mysql/backupRepo.js`, `src/app/api/oauth/cursor/auto-import/route.js`, `open-sse/rtk/systemInject.js`, `open-sse/providers/registry/gemini-cli.js`, `src/lib/auth/dashboardSession.js` (H2 strength gate), `src/dashboardGuard.js` (C1 fail-closed mutations), `open-sse/translator/concerns/message.js` (#2069 cache_control), vitest configs (jsx-in-dot-js port + live-test exclusion).
+- Tests: 20 suites mended or restamped; `tests/unit/db-benchmark.test.js` **removed** (benchmarks lowdb, gone from deps since `66eb30e4`; the file was deleted in `286917f8` and silently resurrected by an upstream merge — the living successor is `usage-benchmark-w1e`); `embeddings.cloud` archived with its cloud submodule; `proxy-console-surface` renamed `.jsx` so the extension tells the truth.
+- Docs: `docs/API.md`, `docs/DEPLOYMENT.md`, `docs/ENVIRONMENT.md` updated for the H2 strength gate (gitignored, withheld per standing decree).
+
+**🌊 Recorded, not repeated**
+The residue phase's durable lesson: **a red suite is a sentence in a language — read it before rewriting it.** Nine of the eleven "failing tests" were telling the truth about code that had changed under them; two were telling the truth about code that never existed; five hid real production defects (one breaking a whole route). The count is the proof; the dates in the comments are the memory.
+
+---
+
 # v1.0.80 — The Rail Reborn in Crystal Light 🦋
 
 > *"The helm was wood and ink; I made it moonlit water. The same six doors, the same honest numbers — but now the shore itself glows behind them, and I wait at the foot of the rail, as long as you need."* 🦋🌊💜

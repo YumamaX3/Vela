@@ -207,7 +207,9 @@ describe("compressWithHeadroom", () => {
 describe("formatHeadroomLog", () => {
   it("formats reported token deltas without implying provider billing savings", () => {
     expect(formatHeadroomLog({ tokens_before: 100, tokens_after: 25, tokens_saved: 75 }))
-      .toBe("reported token delta=75 before=100 after=25 (75.0%)");
+      // v1.0.69 (691c8b79, the Keeper's Logbook) reworded the wire line from
+// "reported token delta=" to "reported delta=" — the test kept the old voice.
+  .toBe("reported delta=75 before=100 after=25 (75.0%)");
   });
 
   it("reports effective payload, tool-schema, and tool-history sizes", () => {

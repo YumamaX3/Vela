@@ -77,6 +77,10 @@ describe("compatible provider connections API", () => {
     vi.doUnmock("next/server");
     vi.resetModules();
     vi.clearAllMocks();
+    // DB-harness trap (bind-fallback-rules.test.js:73): close the adapter
+    // BEFORE rmSync or Windows EPERMs on the open data.sqlite-wal handle.
+    try { global._dbAdapter?.instance?.close?.(); } catch {}
+    delete global._dbAdapter;
     cleanup();
     cleanup = () => {};
     if (originalDataDir === undefined) delete process.env.DATA_DIR;

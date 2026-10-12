@@ -110,7 +110,7 @@ const LOG_INDEXES = ["ix_log_ts", "ix_log_req", "ix_log_up", "ix_log_provider"];
 const USAGE_INDEXES = ["idx_uh_reqId", "idx_uh_upstreamId"];
 
 describe("Migration 018 — the log ledger and its two join keys", () => {
-  it("sql.js adapter (production-crash driver) → chain reaches v18 and logEvents exists", async () => {
+  it("sql.js adapter (production-crash driver) → chain reaches v19 and logEvents exists", async () => {
     const db = await bootSqlJs();
     expect(db.driver).toBe("sql.js");
 
@@ -120,7 +120,7 @@ describe("Migration 018 — the log ledger and its two join keys", () => {
     );
     // The stamped version is what migrate.js believes it reached; a chain that
     // threw halfway would stamp lower and leave the table half-built.
-    expect(parseInt(db.get(`SELECT value FROM _meta WHERE key='schemaVersion'`).value, 10)).toBe(18);
+    expect(parseInt(db.get(`SELECT value FROM _meta WHERE key='schemaVersion'`).value, 10)).toBe(19);
   });
 
   it("declares every index the schema promised — four on logEvents, two on usageHistory", async () => {
@@ -145,11 +145,11 @@ describe("Migration 018 — the log ledger and its two join keys", () => {
     expect(defs.upstreamId.notnull).toBe(0);
   });
 
-  it("version coherence — SCHEMA_VERSION and the migration chain agree at 18", async () => {
+  it("version coherence — SCHEMA_VERSION and the migration chain agree at 19", async () => {
     const { SCHEMA_VERSION, TABLES } = await import("@/lib/db/schema.js");
     const { MIGRATIONS, latestVersion } = await import("@/lib/db/migrations/index.js");
     expect(latestVersion()).toBe(SCHEMA_VERSION);
-    expect(latestVersion()).toBe(18);
+    expect(latestVersion()).toBe(19);
     // The registry must stay contiguous — no missing migration between 17 and
     // 18, which is what a forgotten index import would look like.
     const versions = MIGRATIONS.map((m) => m.version).sort((a, b) => a - b);

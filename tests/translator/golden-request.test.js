@@ -28,9 +28,14 @@ function baseBody() {
 }
 
 // Khử field động: toolNameMap, kiro conversationId (uuid), timestamp trong content.
+// 2026-10-11 drift mend: 4200f2c6 (kiro session-cache reuse) added a per-session
+// `agentContinuationId` (uuid, rotates per session) and the top-level
+// `agentMode`/`agentTaskType: "vibe"` fields — the snapshot predates them.
+// The continuation id is scrubbed like conversationId; the two constant
+// "vibe" fields are part of the live shape and stay in the golden.
 function clean(body) {
   const s = JSON.stringify(body, (k, v) => {
-    if (k === "_toolNameMap" || k === "conversationId") return undefined;
+    if (k === "_toolNameMap" || k === "conversationId" || k === "agentContinuationId") return undefined;
     return v;
   }).replace(/Current time is [^"\\]+/g, "Current time is <TS>");
   return JSON.parse(s);

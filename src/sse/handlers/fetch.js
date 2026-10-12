@@ -14,6 +14,7 @@ import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
 import * as log from "../utils/logger.js";
 import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh.js";
 import { handleComboChat, getComboModelsFromData } from "open-sse/services/combo.js";
+import { getFallbackRulesRepo } from "@/lib/db/repos/bindFallbackRules.js"; // Seam 2 — operator fallback rules
 import { assertPublicUrlResolved } from "@/shared/utils/ssrfGuard.js";
 
 /**
@@ -87,7 +88,10 @@ export async function handleFetch(request) {
 
   // Combo expansion: providerInput may be a combo name → run fallback/round-robin across providers
   const combos = await getCombos();
-  const comboModels = getComboModelsFromData(providerInput, combos);
+  // 2026-10-11 mend: ab938d3a dropped the await 927f8449 introduced when the
+  // detection went async — the raw Promise is always truthy, so every fetch
+  // sailed the combo lane and 503'd ("All combo models unavailable").
+  const comboModels = await getComboModelsFromData(providerInput, combos);
   if (comboModels) {
     const comboStrategies = settings.comboStrategies || {};
     const comboStrategy = comboStrategies[providerInput]?.fallbackStrategy || settings.comboStrategy || "fallback";
@@ -100,7 +104,8 @@ export async function handleFetch(request) {
       log,
       comboName: providerInput,
       comboStrategy,
-      comboStickyLimit
+      comboStickyLimit,
+      fallbackRulesRepo: await getFallbackRulesRepo() // RESTORED 2026-10-11 — ab938d3a dropped it; search.js kept it
     });
   }
 

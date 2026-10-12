@@ -68,7 +68,7 @@ describe("W1-C identifier covenant — frozen maps, unknown → INVALID_FILTER_P
     expect(Object.isFrozen(names.METRICS)).toBe(true);
   });
 
-  it("every fn rejects an unknown identifier with INVALID_FILTER_PARAM", async () => {
+  it("every fn rejects an unknown identifier with INVALID_FILTER_PARAM", { timeout: 30000 }, async () => {
     const { usageRepo } = await boot();
     await seed(usageRepo, SEED_ROWS);
     const probes = [

@@ -15,7 +15,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const originalSecret = process.env.JWT_SECRET;
 beforeAll(() => {
-  process.env.JWT_SECRET = "cookie-maxage-test-secret";
+  // EXAMPLE fixture (never a credential): must pass the H2 strength gate (32+
+// chars, 12+ distinct chars) while staying obviously synthetic.
+process.env.JWT_SECRET = "cookie-maxage-test-secret-EXAMPLE-0123456789abcdef";
 });
 afterAll(() => {
   if (originalSecret === undefined) delete process.env.JWT_SECRET;

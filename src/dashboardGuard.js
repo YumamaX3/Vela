@@ -577,8 +577,29 @@ export async function proxy(request) {
   // Locality before credential: CLI-token admission requires locality; the
   // JWT/requireLogin posture (isAuthenticated) is unchanged. A remote caller
   // whose only credential is the machine token is forbidden, not unauthenticated.
+  //
+  // C1 MEND (full-deep audit, 2026-10-11) — mutations are fail-closed by CLASS:
+  // the method-aware shape the §5.1 proxy-pools gate already runs, extended to
+  // every /api/* route this branch reaches. requireLogin===false used to pass a
+  // remote unauthenticated PATCH straight through here, and the settings route's
+  // first-password branch (no currentPassword required when no hash is stored)
+  // let that PATCH mint the operator's dashboard password — account takeover on
+  // any exposed bind. The law is now the house's own: a mutation needs a REAL
+  // credential (JWT, gateway key path excluded here) or the box's own console —
+  // never bare requireLogin===false. Reads keep the posture-consistent pass so
+  // the documented no-login dashboard stays readable; remote ADMIN requires
+  // requireLogin=true + login, exactly as the login route's own remote refusals
+  // (NO_PASSWORD_REMOTE_MESSAGE) already state.
   if (pathname.startsWith("/api/")) {
     if (isPublicApi(pathname)) return NextResponse.next();
+    if (MUTATING_METHODS.has((request.method || "GET").toUpperCase())) {
+      if (await hasLocalCliToken(request) || await hasValidToken(request)
+          || (isLocalRequest(request) && await isAuthenticated(request)))
+        return NextResponse.next();
+      if (presentsRemoteCliToken(request))
+        return NextResponse.json({ error: "Forbidden: CLI token is only accepted from local origins" }, { status: 403 });
+      return NextResponse.json({ error: "Unauthorized: mutating /api routes require a session or the local console" }, { status: 401 });
+    }
     if (await hasLocalCliToken(request) || await isAuthenticated(request))
       return NextResponse.next();
     if (presentsRemoteCliToken(request))

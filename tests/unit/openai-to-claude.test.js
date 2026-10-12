@@ -189,7 +189,12 @@ describe("openaiToClaudeResponse", () => {
               })
             }
           }]
-        }
+        },
+        // 2026-10-11 drift mend: 9420af3a buffers tool args and emits them at
+        // finish — without finish_reason the buffer never flushes. The sibling
+        // suite written with that commit (openai-to-claude-response-tools.test.js)
+        // carries this exact field.
+        finish_reason: "tool_calls"
       }]
     };
 

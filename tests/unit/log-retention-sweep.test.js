@@ -68,7 +68,15 @@ afterEach(() => {
 });
 
 const DAY_MS = 86_400_000;
-const NOW = Date.UTC(2026, 9, 4, 12, 0, 0);
+// M1 MEND (full-deep audit, 2026-10-11): this anchor was frozen at
+// Date.UTC(2026, 9, 4) — a time bomb. The worker reads the REAL clock, so the
+// "recent" seeds (10 days before the frozen anchor) aged past the very 14-day
+// horizon under test on 2026-10-08 and the suite began failing on a DATE, not
+// on a bug. The anchor now floats with the clock: seeds are cut relative to
+// boot, so "recent" is genuinely 10 days old and the horizon math is
+// evergreen. The pure sweepOnce blocks below stay deterministic regardless —
+// they pass `now: NOW` explicitly, and an explicit clock overrides the anchor.
+const NOW = Date.now();
 
 const settle = (ms = 350) => new Promise((r) => setTimeout(r, ms));
 

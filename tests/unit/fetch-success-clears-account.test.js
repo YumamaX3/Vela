@@ -44,7 +44,11 @@ vi.mock("@/sse/utils/logger.js", () => ({
 }));
 
 vi.mock("@/shared/utils/ssrfGuard.js", () => ({
+  // ab938d3a upgraded the handler to the DNS-resolving guard; the suite's
+  // mock still bound only assertPublicUrl, so the real resolver ran and the
+  // happy path 400'd before reaching the account-state assertions.
   assertPublicUrl: vi.fn(),
+  assertPublicUrlResolved: vi.fn(async () => {}),
 }));
 
 import { handleFetch } from "@/sse/handlers/fetch.js";
@@ -82,9 +86,11 @@ describe("web fetch account state", () => {
     }));
 
     expect(response.status).toBe(200);
+    // ab938d3a added the capability-scoped lock key as the third argument.
     expect(mocks.clearAccountError).toHaveBeenCalledWith(
       "jina-connection",
       expect.objectContaining({ connectionName: "Jina Test" }),
+      "webfetch:jina-reader",
     );
     expect(mocks.markAccountUnavailable).not.toHaveBeenCalled();
   });

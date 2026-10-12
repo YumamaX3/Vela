@@ -64,7 +64,7 @@ services:
     # breaker, fallback-rules DB, per-key ACL, pool egress geo, prompt
     # injectors. v0.9.12+ carries the redesigned sidebar, single-page
     # usage, /quota.
-    image: ghcr.io/yumamax3/vela:1.0.80   # bump to the release you want
+    image: ghcr.io/yumamax3/vela:1.0.81   # bump to the release you want
     container_name: vela-gateway
     hostname: vela-gateway
     restart: unless-stopped
@@ -111,7 +111,13 @@ services:
       # MACHINE_ID_SALT salts the machine identity.
       # INITIAL_PASSWORD is the dashboard's FIRST-login password —
       #   walk through the door with it, then change it in Settings.
-      JWT_SECRET: "set-me-64-hex-chars"
+      #   Generate with:
+      #     node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+      #   Vela REFUSES TO BOOT with a placeholder or a too-short JWT_SECRET.
+      #   A known signing key makes every dashboard cookie forgeable.
+      # PLACEHOLDER, never a secret (the boot gate rejects placeholder
+      # shapes, so an unedited copy of this file fails loud, not open).
+      JWT_SECRET: "REPLACE-ME-PLACEHOLDER"
       INITIAL_PASSWORD: "set-me"
       API_KEY_SECRET: "set-me"
       MACHINE_ID_SALT: "set-me"

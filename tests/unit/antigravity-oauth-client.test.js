@@ -22,13 +22,22 @@ describe("antigravity oauth client (deduped)", () => {
     expect(ag.transport.clientSecret).toBe(EXPECTED.clientSecret);
   });
 
-  it("google client shared by gemini + gemini-cli", async () => {
+  it("google client shared by gemini; gemini-cli rides GEMINI_CONFIG's shared spread", async () => {
     const { GOOGLE_OAUTH_CLIENT } = await import("../../open-sse/providers/shared.js");
     expect(GOOGLE_OAUTH_CLIENT).toEqual(GOOGLE);
     const gemini = (await import("../../open-sse/providers/registry/gemini.js")).default;
-    const gc = (await import("../../open-sse/providers/registry/gemini-cli.js")).default;
     expect(gemini.transport.clientSecret).toBe(GOOGLE.clientSecret);
-    expect(gc.transport.clientSecret).toBe(GOOGLE.clientSecret);
+    // DRIFT MEND (2026-10-11): commit 927f8449 stripped the OAuth block from
+    // gemini-cli's registry entry (hidden provider, oauth.js:28 owns the law:
+    // "clientId/clientSecret from GOOGLE_OAUTH_CLIENT — not stored in
+    // registry"). The credential lives in src/lib/oauth/constants/oauth.js's
+    // GEMINI_CONFIG = { ...GOOGLE_OAUTH_CLIENT, ...PROVIDER_OAUTH["gemini-cli"] }
+    // — asserted below through the constant, not the registry transport.
+    const gc = (await import("../../open-sse/providers/registry/gemini-cli.js")).default;
+    expect(gc.transport?.clientSecret).toBeUndefined();
+    const { GEMINI_CONFIG } = await import("../../src/lib/oauth/constants/oauth.js");
+    expect(GEMINI_CONFIG.clientSecret).toBe(GOOGLE.clientSecret);
+    expect(GEMINI_CONFIG.clientId).toBe(GOOGLE.clientId);
   });
 
   // Guard: oauth.js must spread shared clients + derive from registry (PROVIDER_OAUTH).

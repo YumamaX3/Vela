@@ -116,6 +116,7 @@ function rebuildShadow(shadow, payload) {
     isActive: k.isActive ? 1 : 0, createdAt: k.createdAt,
     keyVersion: k.keyVersion ?? null, keyHash: k.keyHash ?? null, keyPrefix: k.keyPrefix ?? null,
     description: k.description ?? null, allowedModels: k.allowedModels ?? null,
+    allowedKinds: k.allowedKinds ?? null, allowedProviders: k.allowedProviders ?? null, allowedCombos: k.allowedCombos ?? null,
     isInternal: k.isInternal ? 1 : 0, deletedAt: k.deletedAt ?? null,
     expiresAt: k.expiresAt ?? null, lastUsedAt: k.lastUsedAt ?? null,
     rotatedFrom: k.rotatedFrom ?? null, rotationPrevHash: k.rotationPrevHash ?? null,
@@ -336,6 +337,12 @@ describe("Wave C4 — the usage-resync watermark (incremental, bounded, idempote
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
+  // The local calendar date the seeded rows land in — mirrors
+  // usageResyncRepo's getLocalDateKey applied to the fixture timestamp.
+  function seedDateKey() {
+    const d = new Date(`2026-08-16T06:00:00.000Z`);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
 
   async function seedUsage() {
     const usage = await import("@/lib/db/repos/sqlite/usageRepo.js");
@@ -351,8 +358,13 @@ describe("Wave C4 — the usage-resync watermark (incremental, bounded, idempote
       });
     }
     const db = await adapter();
-    // A deterministic day-aggregate for the touched bucket.
-    db.run(`INSERT OR REPLACE INTO usageDaily(dateKey, data) VALUES(?, ?)`, [todayKey(), JSON.stringify({ requests: 3 })]);
+    // A deterministic day-aggregate for the touched bucket. The seed stamps
+    // 2026-08-16T06:0xZ; getLocalDateKey buckets those rows by their LOCAL
+    // calendar date (stable 2026-08-16 for any host offset that keeps 06:0xZ
+    // on the 16th — the fixture's own premise). The old [todayKey()] pin
+    // disagreed with the fixture whenever the run date drifted; the resync
+    // aggregates the touched bucket, so the fixture must seed that bucket.
+    db.run(`INSERT OR REPLACE INTO usageDaily(dateKey, data) VALUES(?, ?)`, [seedDateKey(), JSON.stringify({ requests: 3 })]);
   }
 
   it("bounded batches drain beyond the watermark; daily + lifetime counter ride the pass; redelivery is a no-op", async () => {
@@ -375,7 +387,7 @@ describe("Wave C4 — the usage-resync watermark (incremental, bounded, idempote
     expect(pass.synced).toBe(true);
     expect(applied.flat()).toEqual([1, 2, 3]);
     expect(applied[0]).toEqual([1, 2]); // bounded
-    expect(dailies.map((d) => d.dateKey)).toEqual([todayKey()]);
+    expect(dailies.map((d) => d.dateKey)).toEqual([seedDateKey()]);
     const { fetchTotalRequestsLifetime } = await import("@/lib/db/repos/sqlite/usageResyncRepo.js");
     expect(lifetimes).toEqual([await fetchTotalRequestsLifetime()]);
 

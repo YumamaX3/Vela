@@ -195,7 +195,16 @@ describe("proxyAwareFetch — api.anthropic.com routing", () => {
     vi.restoreAllMocks();
   });
 
-  it("routes api.anthropic.com to gotScraping (non-streaming) and returns ok response", async () => {
+  // KNOWN GAP, flipped to it.fails 2026-10-11: authored with 2afa1ae8
+  // (2026-03-25), but api.anthropic.com→gotScraping routing never existed in
+  // proxyFetch.js — that commit's own tree has no got-scraping reference
+  // outside this test. The JA3 block later commits carry arrived (8ed899bd /
+  // df80ce63, 2026-05-26) already commented out, dependency removed from
+  // package.json; every version since reads "got-scraping disabled — use
+  // native fetch directly". Re-enable the JA3 block (and re-add the dep) if
+  // the fingerprint spoof is ever wanted for real; until then this documents
+  // the gap honestly instead of shipping a lying green.
+  it.fails("routes api.anthropic.com to gotScraping (non-streaming) and returns ok response", async () => {
     // Mock got-scraping before module load
     vi.doMock("got-scraping", () => {
       const mockGotScraping = vi.fn().mockResolvedValue({

@@ -165,7 +165,7 @@ describe("WindsurfExecutor class", () => {
     const ex = new WindsurfExecutor();
     expect(ex.provider).toBe("windsurf");
     expect(ex.config).toBeDefined();
-    expect(ex.config.baseUrl).toContain("server.self-serve.windsurf.com");
+    expect(ex.config.baseUrl).toContain("server.codeium.com");
     expect(typeof ex.execute).toBe("function");
   });
 
@@ -187,12 +187,16 @@ describe("WindsurfExecutor class", () => {
 
   it("buildUrl returns the GetChatMessage endpoint", () => {
     const ex = new WindsurfExecutor();
-    expect(ex.buildUrl()).toBe("https://server.self-serve.windsurf.com/exa.language_server_pb.LanguageServerService/GetChatMessage");
+    expect(ex.buildUrl()).toBe("https://server.codeium.com/exa.language_server_pb.LanguageServerService/GetChatMessage");
   });
 
-  it("PROVIDERS.windsurf baseUrl is the chat endpoint (registry in sync)", () => {
-    expect(PROVIDERS.windsurf.baseUrl).toBe(
-      "https://server.self-serve.windsurf.com/exa.language_server_pb.LanguageServerService/GetChatMessage"
+  it("registry windsurf stays hidden (no tool calling) but its file carries the chat endpoint", async () => {
+    // 2026-10-11 drift mend: windsurf is on the HIDDEN list (registry/index.js
+    // does not import it — gRPC skip ToolCallChunk), so PROVIDERS.windsurf is
+    // undefined at runtime. The sync assertion reads the registry FILE instead.
+    const reg = (await import("../../open-sse/providers/registry/windsurf.js")).default;
+    expect(reg.transport.baseUrl).toBe(
+      "https://server.codeium.com/exa.language_server_pb.LanguageServerService/GetChatMessage"
     );
   });
 });

@@ -22,14 +22,22 @@ beforeAll(async () => {
   vi.resetModules();
   db = await import("@/lib/db/index.js");
   await db.initDb();
-  await db.updateSettings({ enableObservability2: true, observabilityBatchSize: 1 });
+  // 2026-10-11 drift mend: 1e11ee38 renamed the UI flag
+  // enableObservability2 → enableObservability; the old key is dead and the
+  // gate silently dropped every saveRequestDetail.
+  await db.updateSettings({ enableObservability: true, observabilityBatchSize: 1 });
 
   const { getAdapter } = await import("@/lib/db/driver.js");
   adapter = await getAdapter();
 });
 
 afterAll(() => {
-  if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
+  // DB-harness trap (bind-fallback-rules.test.js:73): close the adapter
+  // BEFORE rmSync or Windows EPERMs on the open data.sqlite-wal handle.
+  try { adapter?.instance?.close?.(); } catch {}
+  try { global._dbAdapter?.instance?.close?.(); } catch {}
+  delete global._dbAdapter;
+  if (tempDir) { try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {} }
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
 });

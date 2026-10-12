@@ -16,7 +16,9 @@ vi.mock("@/lib/dataDir", () => ({ DATA_DIR: "/tmp/vela-test-no-such-dir" }));
 
 // JWT_SECRET must exist before the module's loadJwtSecret runs, so the
 // session module never touches the real DATA_DIR.
-process.env.JWT_SECRET = "test-jwt-secret";
+// EXAMPLE fixture (never a credential): must pass the H2 strength gate before
+// the module's loadJwtSecret runs.
+process.env.JWT_SECRET = "test-jwt-secret-EXAMPLE-0123456789abcdef-0123456789abcdef";
 
 const { verifyDashboardPassword } = await import("../../src/lib/auth/dashboardSession.js");
 

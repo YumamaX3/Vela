@@ -106,7 +106,11 @@ describe("the image pin follows the release (the Star's decree)", () => {
       mismatches,
       `release tags whose committed chart pin does not match their own version: ${mismatches.join("; ")} — every deployment from the example chart pulled the wrong image`
     ).toEqual([]);
-  });
+    // 30000 — the loop spawns ~13 git subprocesses; standalone it runs in
+    // ~1s, but under the full parallel battery FS/process contention has
+    // tripped vitest's 5s default. A generous explicit bound beats a flaky
+    // timeout masquerading as a pin violation.
+  }, 30000);
 
   it("the template is tracked, not ignored — it is the chart that ships", () => {
     expect(fs.existsSync(TEMPLATE)).toBe(true);

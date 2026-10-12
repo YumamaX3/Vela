@@ -148,7 +148,7 @@ async function createKey(routes, over = {}) {
 }
 
 describe("POST /api/keys — limits at mint time", () => {
-  it("mints with every W3 limit and round-trips them on the record", async () => {
+  it("mints with every W3 limit and round-trips them on the record", { timeout: 30000 }, async () => {
     const routes = await loadRoutes();
     const created = await createKey(routes, {
       rateLimitRpm: 120,

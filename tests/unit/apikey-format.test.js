@@ -1,6 +1,6 @@
 // Test covenant: apikey-format — round-trip, tamper, CRC timing-safe, sk- rejection.
 // Plan: plans/vela-key-governance.md §7.
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterAll, vi } from "vitest";
 
 const SECRET = "test-secret-for-format-suite";
 const originalEnv = process.env.API_KEY_SECRET;

@@ -81,11 +81,15 @@ describe("Storage Covenant A6 — fail-loud boot refusal", () => {
     await expect(assertHarborBound()).rejects.toThrow(/Wave B/);
   });
 
-  it("mirror mode refuses LOUD (binds in Wave C)", async () => {
+  it("mirror mode binds the sqlite PRIMARY behind the decorator (Wave C5 law)", async () => {
+    // 2026-10-11 restamp: eb7b40af (Wave C5) bound the mirror posture —
+    // the primary serves, the outbox pump carries writes to the twin, and
+    // the gate RESOLVES. The old "refuses LOUD" pin died with the wave
+    // that paid it.
     process.env.DATA_DIR = freshDir();
     process.env.VELA_DB_MODE = "mirror";
     const { assertHarborBound } = await import("@/lib/db/repos/bind.js");
-    await expect(assertHarborBound()).rejects.toThrow(/Wave C/);
+    await expect(assertHarborBound()).resolves.toBeUndefined();
   });
 
   it("sqlite mode passes the gate verbatim (today's harbor)", async () => {

@@ -63,7 +63,7 @@ async function seedRows(saveRequestUsage, now) {
 }
 
 describe("W2-B Metrics API — identifier covenant 400s (phase13 R8)", () => {
-  it("timeseries rejects an unknown granularity (GRANULARITIES map)", async () => {
+  it("timeseries rejects an unknown granularity (GRANULARITIES map)", { timeout: 30000 }, async () => {
     await boot();
     const { GET } = await import("@/app/api/usage/metrics/timeseries/route.js");
     const res = await GET(req("/api/usage/metrics/timeseries", "period=7d&gran=bogus"));

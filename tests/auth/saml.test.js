@@ -1,4 +1,7 @@
-import test from "node:test";
+// (Upstream shipped this suite on node:test — vitest 4 refuses a bare-test()
+// file with "No test suite found"; the assertions are theirs, the harness is
+// ours. Vela's house is vitest.)
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 import {
   formatX509Certificate,
@@ -8,7 +11,8 @@ import {
   pickSamlDisplayName,
 } from "../../src/lib/auth/saml.js";
 
-test("formatX509Certificate normalizes Base64 strings into PEM blocks", () => {
+describe("SAML SP auth helpers", () => {
+  it("formatX509Certificate normalizes Base64 strings into PEM blocks", () => {
   const rawBase64 = "MIIC1234567890123456789012345678901234567890123456789012345678901234567890";
   const formatted = formatX509Certificate(rawBase64);
   assert.match(formatted, /-----BEGIN CERTIFICATE-----/);
@@ -16,13 +20,13 @@ test("formatX509Certificate normalizes Base64 strings into PEM blocks", () => {
   assert.equal(formatX509Certificate(""), "");
 });
 
-test("isSamlConfigured checks required fields", () => {
+  it("isSamlConfigured checks required fields", () => {
   assert.equal(isSamlConfigured({ samlEntryPoint: "https://idp.com/sso", samlCert: "cert" }), true);
   assert.equal(isSamlConfigured({ samlEntryPoint: "https://idp.com/sso" }), false);
   assert.equal(isSamlConfigured({}), false);
 });
 
-test("generateSamlMetadata produces valid SP XML", () => {
+  it("generateSamlMetadata produces valid SP XML", () => {
   const settings = {
     samlEntryPoint: "https://idp.example.com/sso",
     samlIssuer: "urn:Vela:sp",
@@ -33,8 +37,9 @@ test("generateSamlMetadata produces valid SP XML", () => {
   assert.match(xml, /Location="https:\/\/localhost:20127\/api\/auth\/saml\/acs"/);
 });
 
-test("Claims Extraction pickSamlEmail & pickSamlDisplayName", () => {
+  it("Claims Extraction pickSamlEmail & pickSamlDisplayName", () => {
   const profile = { email: "test@example.com", name: "Test User" };
-  assert.equal(pickSamlEmail(profile, {}), "test@example.com");
-  assert.equal(pickSamlDisplayName(profile, {}), "Test User");
+    assert.equal(pickSamlEmail(profile, {}), "test@example.com");
+    assert.equal(pickSamlDisplayName(profile, {}), "Test User");
+  });
 });

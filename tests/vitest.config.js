@@ -45,7 +45,15 @@ export default defineConfig({
     // Don't scan into git worktrees nested under .claude/ — they carry their
     // own copies of the test files but lack an installed node_modules (open-sse,
     // etc.), which makes provider imports fail during collection.
-    exclude: ["**/node_modules/**", "**/.claude/**", "**/dist/**"],
+    exclude: [
+      "**/node_modules/**",
+      "**/.claude/**",
+      "**/dist/**",
+      // Live-network probes (e.g. mimo-free.live) hit real upstreams — they
+      // answer to outages and upstream route retirements, not to this repo's
+      // code, and must not gate the unit battery. Run them explicitly.
+      "tests/**/*.live.test.js",
+    ],
     // Allow many it.concurrent cases (real provider smoke runs ~50 providers in parallel)
     maxConcurrency: 60,
     // Real-adapter floor: the DB suites boot a real SQLite adapter and run the

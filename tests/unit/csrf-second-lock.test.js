@@ -44,6 +44,8 @@ const { proxy } = await import("../../src/dashboardGuard.js");
 
 const PEER_TOKEN = "peer-token-fixture";
 const REFUSAL = "Forbidden: cross-site mutation refused";
+// C1: the local console stamp a loopback browser carries through custom-server.js.
+const LOCAL_STAMP = { "x-9r-peer-token": PEER_TOKEN, "x-9r-real-ip": "127.0.0.1" };
 
 // `secFetchSite` is omitted entirely when undefined, so the "no header at all"
 // case is real rather than an empty-string stand-in. `extra` carries the
@@ -99,7 +101,13 @@ describe("CSRF second lock — a cross-site mutation never reaches a handler", (
   });
 
   it("lets a same-origin POST through untouched", async () => {
-    const response = await proxy(edgeRequest("/api/settings", { secFetchSite: "same-origin" }));
+    // C1 (2026-10-11): unauthenticated MUTATIONS are fail-closed by class, so
+    // this pass-through case rides the box's own console stamp — exactly what
+    // a real loopback browser carries through custom-server.js. The CSRF
+    // lock's pass-through (not authorization) is what is under test here.
+    const response = await proxy(
+      edgeRequest("/api/settings", { secFetchSite: "same-origin", extra: LOCAL_STAMP })
+    );
 
     expect(response).toBe(mocks.nextResponse);
   });
@@ -113,7 +121,10 @@ describe("CSRF second lock — a cross-site mutation never reaches a handler", (
   });
 
   it("lets a caller with no Sec-Fetch-Site through — curl, the CLI, another agent", async () => {
-    const response = await proxy(edgeRequest("/api/settings"));
+    // C1 (2026-10-11): the no-header pass-through now rides the local console
+    // stamp — a credential-less REMOTE caller is refused by the mutation gate,
+    // which is the class law this suite's lock sits above.
+    const response = await proxy(edgeRequest("/api/settings", { extra: LOCAL_STAMP }));
 
     expect(response).toBe(mocks.nextResponse);
   });

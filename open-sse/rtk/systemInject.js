@@ -231,17 +231,20 @@ function injectClaudeSystem(body, prompt, position) {
       try { if (sys.some(b => b && b.text === prompt)) return; } catch (_) {}
       const block = { type: CLAUDE_BLOCK.TEXT, text: prompt };
       try {
-        if (position === "prepend") sys.unshift(block);
-        else {
-          let lastCacheIdx = -1;
-          try {
-            for (let i = sys.length - 1; i >= 0; i--) {
-              if (sys[i]?.cache_control) { lastCacheIdx = i; break; }
-            }
-          } catch (_) {}
-          if (lastCacheIdx >= 0) sys.splice(lastCacheIdx, 0, block);
-          else sys.push(block);
-        }
+        let lastCacheIdx = -1;
+        try {
+          for (let i = sys.length - 1; i >= 0; i--) {
+            if (sys[i]?.cache_control) { lastCacheIdx = i; break; }
+          }
+        } catch (_) {}
+        if (lastCacheIdx >= 0) {
+          // BOTH positions splice at the cache boundary — the injected block
+          // rides inside the cached prefix, so the breakpoint still covers it
+          // (v0.9.19 law; 424ec16d's W2 rewrite regressed prepend to
+          // unshift(), paying a fresh cache write every request).
+          sys.splice(lastCacheIdx, 0, block);
+        } else if (position === "prepend") sys.unshift(block);
+        else sys.push(block);
       } catch (_) {}
       return;
     }

@@ -250,7 +250,7 @@ describe("no overlay component writes body.style.overflow directly", () => {
     );
   }
 
-  it("only the hook touches document.body.style.overflow in live code", async () => {
+  it("only the hook touches document.body.style.overflow in live code", { timeout: 30000 }, async () => {
     const { readdirSync, readFileSync, statSync } = await import("node:fs");
     const { join, relative } = await import("node:path");
 

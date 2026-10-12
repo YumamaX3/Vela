@@ -319,9 +319,13 @@ describe("S6 — preflight passes, and no other route changed posture", () => {
   // The Star's decree scoped the gate to /api/proxy-pools "so every other route
   // stays byte-identical". These pin that: surfaces with a posture BEFORE this
   // change must keep exactly that posture after it.
-  it("leaves the deny-by-default /api/* posture untouched", async () => {
-    // A mutation on an ordinary dashboard surface still rides requireLogin.
-    expect(passed(await proxy(buildRequest("/api/usage/budgets", "POST", { local: false })))).toBe(true);
+  it("keeps posture-consistent reads passing; remote mutations now fail closed (C1 law)", async () => {
+    // 2026-10-11 re-stamp: the old body pinned the pre-C1 law where a remote
+    // credential-less POST rode requireLogin===false through this branch.
+    // The C1 mend (full-deep audit) made mutations fail-closed by CLASS —
+    // that POST is now 401 by design (it was the settings first-password
+    // account-takeover hole). The local first-run flow is proven in S2.
+    expectRefused(await proxy(buildRequest("/api/usage/budgets", "POST", { local: false })), 401);
     expect(passed(await proxy(buildRequest("/api/usage/metrics/kpis", "GET", { local: false })))).toBe(true);
   });
 

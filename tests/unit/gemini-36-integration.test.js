@@ -43,7 +43,11 @@ describe("Gemini Cloud Code endpoint isolation", () => {
       "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
       expect.objectContaining({ method: "POST" })
     );
-    expect(geminiCli.transport.baseUrl).toBe("https://cloudcode-pa.googleapis.com/v1internal");
+    // 2026-10-11 drift mend: 927f8449 moved gemini-cli CHAT to the public
+    // generativelanguage host (format "openai"); project discovery
+    // (loadCodeAssist, asserted above) stays on cloudcode-pa. The old pin
+    // checked the chat transport against the discovery host.
+    expect(geminiCli.transport.baseUrl).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:chat");
     removeConnection(connectionId);
   });
 

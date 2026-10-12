@@ -230,21 +230,23 @@ describe("MiMo Free provider registration", () => {
     expect(getExecutor("mmf")).toBeInstanceOf(MimoFreeExecutor);
   });
 
-  it("registers mimo-free as a no-auth provider in open-sse config", () => {
-    expect(PROVIDERS["mimo-free"]?.noAuth).toBe(true);
-    expect(PROVIDERS.mmf?.noAuth).toBe(true);
+  it("registers mimo-free with its registry transport (noAuth rides the display build)", () => {
+    // PROVIDERS[...] is the built TRANSPORT (no noAuth field by design —
+    // commit 927f8449 moved the display flag to the registry entry that
+    // FREE_PROVIDERS/byCategory("free") reads; asserted below).
+    expect(PROVIDERS["mimo-free"]?.baseUrl).toBeTruthy();
   });
 
-  it("exposes only mimo-auto (the sole free-channel model)", () => {
-    expect(PROVIDER_MODELS.mmf.map((m) => m.id)).toEqual(["mimo-auto"]);
+  it("exposes the free-channel model set under the registry alias", () => {
+    expect(PROVIDER_MODELS.mimofree.map((m) => m.id)).toEqual(["mimo-free-small"]);
   });
 
-  it("maps the mimo-free alias to mmf", () => {
-    expect(PROVIDER_ID_TO_ALIAS["mimo-free"]).toBe("mmf");
+  it("maps the mimo-free alias to mimofree", () => {
+    expect(PROVIDER_ID_TO_ALIAS["mimo-free"]).toBe("mimofree");
   });
 
   it("lists mimo-free in the dashboard FREE_PROVIDERS catalog", () => {
-    expect(FREE_PROVIDERS["mimo-free"]?.alias).toBe("mmf");
+    expect(FREE_PROVIDERS["mimo-free"]?.alias).toBe("mimofree");
     expect(FREE_PROVIDERS["mimo-free"]?.noAuth).toBe(true);
   });
 });

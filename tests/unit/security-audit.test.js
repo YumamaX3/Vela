@@ -19,8 +19,12 @@ describe("AUDIT-002: API key masking", () => {
       path.resolve("src/lib/db/repos/sqlite/usageRepo.js"),
       "utf-8"
     );
+    // M4 (full-deep audit, 2026-10-11): the masking law moved from a
+    // maskApiKey() call at the read site to PREFIX-BASED attribution — the
+    // wire field is derived from the stored keyPrefix (set at key-mint time),
+    // and the ledger keys by the internal keyId, which is never a credential.
     // The REST response should use apiKeyMasked
-    expect(source).toContain("apiKeyMasked: maskApiKey(r.apiKey)");
+    expect(source).toContain("apiKeyMasked: r.keyPrefix || null");
     // The return mapping in getUsageHistory should not have raw apiKey
     // (The internal ring buffer still uses apiKey: r.apiKey for internal state - that's fine)
     const historyReturn = source.match(/return rows\.map\(\(r\)\s*=>\s*\(\{[\s\S]*?\}\)\);/);
@@ -53,10 +57,16 @@ describe("AUDIT-002: API key masking", () => {
       path.resolve("src/lib/db/repos/sqlite/usageRepo.js"),
       "utf-8"
     );
-    // The 24h path should use apiKeyMasked in the akKey template
-    expect(source).toContain("${apiKeyMasked}|${r.model}|${r.provider");
+    // M4 (full-deep audit, 2026-10-11): the ledger key law is now the INTERNAL
+    // keyId (a UUID that is never a credential) — strictly safer than the old
+    // masked-string key, because the aggregate map can no longer leak even a
+    // masked credential shape as its key. The display field apiKeyMasked
+    // carries the stored keyPrefix. Assert the current law:
+    expect(source).toContain("const akKey = `${r.keyId}|${r.model}|${r.provider");
     // Should NOT use raw r.apiKey in the key
     expect(source).not.toContain("${r.apiKey}|${r.model}|${r.provider");
+    // The display field still rides the prefix, not the raw key.
+    expect(source).toContain("apiKeyMasked = keyInfo?.keyPrefix || ak.keyPrefix");
   });
 });
 

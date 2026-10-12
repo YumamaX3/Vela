@@ -6,6 +6,9 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 
 const execFileAsync = promisify(execFile);
+// Static import (2026-10-11): see extractTokensViaBetterSqlite — bare require()
+// escaped the module graph and defeated both mocking and bundle aliasing.
+import BetterSqlite3 from "better-sqlite3";
 
 const ACCESS_TOKEN_KEYS = ["cursorAuth/accessToken", "cursorAuth/token"];
 const MACHINE_ID_KEYS = [
@@ -77,9 +80,13 @@ const normalize = (value) => {
  * This is the preferred strategy — no external CLI required.
  */
 function extractTokensViaBetterSqlite(dbPath) {
-  // Dynamic require so the route stays importable even if native bindings fail
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const Database = require("better-sqlite3");
+  // 2026-10-11 mend (843f3cfd regression): bare CJS require() bypassed the
+  // module graph — vitest's vi.mock (and any bundler alias) never saw it, so
+  // tests drove the REAL native driver and every extraction landed in the
+  // windowsManual branch. Static import participates in the graph; the
+  // try/catch at the call site still degrades to the sqlite3 CLI when the
+  // native bindings are unavailable.
+  const Database = BetterSqlite3;
   const db = new Database(dbPath, { readonly: true, fileMustExist: true });
 
   const query = (key) => {

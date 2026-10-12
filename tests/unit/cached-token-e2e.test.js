@@ -19,8 +19,12 @@ beforeAll(async () => {
   await db.initDb();
 });
 
-afterAll(() => {
-  if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
+afterAll(async () => {
+  // DB-harness trap (bind-fallback-rules.test.js:73): close the adapter
+  // BEFORE rmSync or Windows EPERMs on the open data.sqlite-wal handle.
+  try { global._dbAdapter?.instance?.close?.(); } catch {}
+  delete global._dbAdapter;
+  if (tempDir) { try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {} }
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
 });

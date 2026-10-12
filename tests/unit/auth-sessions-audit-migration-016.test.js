@@ -178,7 +178,8 @@ describe("Migration 016 — auth sessions, durable failures, audit log", () => {
 // delete `if (await isSessionRevoked(payload?.jti)) return false;` from
 // verifyDashboardAuthToken and the first case fails — the token comes back
 // admitted after a kill that supposedly happened.
-const LEDGER_SECRET = "auth-ledger-durability-secret";
+// EXAMPLE fixture (never a credential): must pass the H2 strength gate.
+const LEDGER_SECRET = "auth-ledger-durability-secret-EXAMPLE-0123456789abcdef-0123456789abcdef";
 let originalJwtSecret;
 
 describe("Auth Hardening W1 — the ledger survives a restart", () => {

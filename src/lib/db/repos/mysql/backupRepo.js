@@ -51,6 +51,9 @@ export async function exportDb({ includeRequestDetails = false, redact = false }
       id: r.id, key: null, name: r.name, machineId: r.machineId, isActive: r.isActive === 1 || r.isActive === true, createdAt: r.createdAt,
       keyVersion: r.keyVersion ?? null, keyHash: r.keyHash ?? null, keyPrefix: r.keyPrefix ?? null,
       description: r.description ?? null, allowedModels: r.allowedModels ?? null,
+      // fcf5d680 (013-key-acl) added the three ACL columns; the twin export
+      // never learned them (2026-10-11 mend) — ACL data died on resync.
+      allowedKinds: r.allowedKinds ?? null, allowedProviders: r.allowedProviders ?? null, allowedCombos: r.allowedCombos ?? null,
       isInternal: r.isInternal === 1 || r.isInternal === true, deletedAt: r.deletedAt ?? null,
       expiresAt: r.expiresAt ?? null, lastUsedAt: r.lastUsedAt ?? null,
       rotatedFrom: r.rotatedFrom ?? null, rotationPrevHash: r.rotationPrevHash ?? null,
@@ -332,7 +335,7 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
       await tx.run(
         `INSERT INTO apiKeys(
           id, \`key\`, name, machineId, isActive, createdAt,
-          keyVersion, keyHash, keyPrefix, description, allowedModels, isInternal, deletedAt,
+          keyVersion, keyHash, keyPrefix, description, allowedModels, allowedKinds, allowedProviders, allowedCombos, isInternal, deletedAt,
           expiresAt, lastUsedAt, rotatedFrom, rotationPrevHash, rotationPrevKeyId, rotationGraceUntil,
           tokenBudgetDaily, spendCapDailyCents, budgetScope, rateLimitRpm, ipAllowlist, category
         ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -342,6 +345,7 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
           k.isActive === false ? 0 : 1, k.createdAt || new Date().toISOString(),
           k.keyVersion ?? null, keyHash, k.keyPrefix ?? null,
           k.description ?? null, k.allowedModels ?? null,
+          k.allowedKinds ?? null, k.allowedProviders ?? null, k.allowedCombos ?? null,
           isInternal ? 1 : 0, deletedAt,
           k.expiresAt ?? null, k.lastUsedAt ?? null,
           k.rotatedFrom ?? null, k.rotationPrevHash ?? null, k.rotationPrevKeyId ?? null, k.rotationGraceUntil ?? null,

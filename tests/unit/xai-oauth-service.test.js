@@ -1,11 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("xai/oauth service", () => {
-  beforeEach(() => {
+  let fetchMock;
+  // Order matters (15ea1793 regression): the barrel's side-effect
+  // `import "open-sse/index.js"` loads proxyFetch, which REPLACES
+  // globalThis.fetch with its patched wrapper at module load. Stubbing
+  // before that import gets the stub silently overwritten. The barrel loads
+  // ONCE at module scope — its side effect is load-once by design — and the
+  // per-test stub is installed fresh after it. 30000: the barrel load runs
+  // ~5s standalone and has tripped the 10s hook default under full-battery
+  // parallel contention.
+  let barrelReady = null;
+  const ensureBarrel = () => (barrelReady ??= import("../../src/lib/oauth/providers.js"));
+  beforeEach(async () => {
     vi.resetModules();
     vi.restoreAllMocks();
-    vi.stubGlobal("fetch", vi.fn());
-  });
+    await ensureBarrel();
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+  }, 30000);
 
   it("validates discovered endpoints are https x.ai URLs", async () => {
     const { validateOAuthEndpoint } = await import("../../src/lib/oauth/services/xai.js");
@@ -85,7 +98,6 @@ describe("xai/oauth service", () => {
   });
 
   it("exchanges dashboard codes against the discovered xAI token endpoint", async () => {
-    const fetchMock = fetch;
     fetchMock
       .mockResolvedValueOnce({
         ok: true,

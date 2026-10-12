@@ -233,11 +233,13 @@ describe("Gate resolution latency — p99 < 1ms over 1,000 resolutions", () => {
     ).toBeLessThan(GATE_P99_CEILING_MS);
   }
 
-  it("default adapter (better-sqlite3 / node:sqlite)", async () => {
+  it("default adapter (better-sqlite3 / node:sqlite)", { timeout: 30000 }, async () => {
+    // 30000 — 3 best-of attempts × 2k awaits over the real adapter (~4s
+    // standalone) has tripped the 5s default under full-battery contention.
     await assertGateLatency();
   });
 
-  it("sql.js adapter (pure-JS fallback)", async () => {
+  it("sql.js adapter (pure-JS fallback)", { timeout: 30000 }, async () => {
     vi.doMock("@/lib/db/adapters/betterSqliteAdapter.js", () => {
       throw new Error("simulated unavailable");
     });

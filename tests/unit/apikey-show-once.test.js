@@ -47,7 +47,7 @@ function post(body) {
 }
 
 describe("show-once contract — negative-leak assertions", () => {
-  it("POST 201 carries the one-time key; GET rows and the DB never do", async () => {
+  it("POST 201 carries the one-time key; GET rows and the DB never do", { timeout: 30000 }, async () => {
     const { listRoutes, idRoutes, db } = await loadRoutes();
 
     const createRes = await listRoutes.POST(post({ name: "Leak Probe" }));

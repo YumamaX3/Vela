@@ -15,6 +15,7 @@ vi.mock("child_process", () => ({
   execFileSync: mocks.execFileSync,
 }));
 
+import { join } from "node:path";
 import { findPython310, getHeadroomStatus, getInstalledHeadroomExtras, isLoopbackHeadroomUrl } from "../../src/lib/headroom/detect.js";
 
 afterEach(() => {
@@ -39,7 +40,12 @@ describe("headroom detect", () => {
 
   it("prefers the interpreter that actually has headroom-ai installed", () => {
     // headroom binary lives in a bin dir; the python next to it has headroom-ai.
-    const binPython = "/opt/hr/bin/python3";
+    // Platform-aware (2026-10-11 mend): detect.js picks the neighbor name by
+    // IS_WIN — python.exe on Windows, python3 elsewhere. The test hard-coded
+    // the POSIX name and failed on Windows hosts. join() mirrors the source.
+    const binPython = process.platform === "win32"
+      ? join("\\opt\\hr\\bin", "python.exe")
+      : join("/opt/hr/bin", "python3");
     mocks.execSync.mockImplementation((cmd) => {
       if (String(cmd).includes("where") || String(cmd).includes("which")) return Buffer.from("/opt/hr/bin/headroom\n");
       if (String(cmd).includes("--version")) return Buffer.from("Python 3.13.0\n");

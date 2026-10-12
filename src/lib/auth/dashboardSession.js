@@ -22,8 +22,48 @@ export const AUTH_COOKIE_NAME = "vela_auth_token";
 // 628ff1ea fixed the cookie but left the two values to be edited in tandem).
 export const SESSION_MAX_AGE_SEC = 24 * 60 * 60; // 24h, in seconds
 
+// H2 MEND (full-deep audit, 2026-10-11): the env path used to accept ANY
+// non-empty JWT_SECRET — including the compose example's own
+// "set-me-64-hex-chars" placeholder. A publicly known signing key makes every
+// dashboard cookie forgeable, and the session-ledger veto cannot help a JWT
+// that verifies. The env value is now strength-checked at boot: placeholder
+// shapes and short secrets refuse LOUD (the process dies with a message naming
+// the env var and the fix), because a gateway that sails with a guessable
+// session secret is worse than a gateway that refuses to sail. The unset path
+// is unchanged: a random 32-byte secret written 0600 to DATA_DIR.
+const JWT_SECRET_PLACEHOLDERS = new Set([
+  "set-me",
+  "set-me-64-hex-chars",
+  "change-me",
+  "changeme",
+  "changeme-64-hex-chars",
+  "please-change-me",
+  "secret",
+  "test",
+]);
+function isStrongJwtSecret(value) {
+  const v = String(value);
+  if (v.length < 32) return false;
+  if (JWT_SECRET_PLACEHOLDERS.has(v.toLowerCase())) return false;
+  // A 64-hex secret is the documented shape; any 32+ char string with at
+  // least 12 distinct characters has real entropy for HS256. A repeated
+  // single character ("aaaaaaaa...") is a placeholder by construction.
+  const distinct = new Set(v).size;
+  return distinct >= 12;
+}
 function loadJwtSecret() {
-  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+  const envSecret = process.env.JWT_SECRET;
+  if (envSecret) {
+    if (!isStrongJwtSecret(envSecret)) {
+      throw new Error(
+        "[auth] JWT_SECRET was set but is too weak or a known placeholder " +
+        `(length ${envSecret.length}). Generate a real secret with: ` +
+        "`node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"` " +
+        "and set JWT_SECRET to the result. Refusing to start with a forgeable session key."
+      );
+    }
+    return envSecret;
+  }
   const file = path.join(DATA_DIR, "jwt-secret");
   try {
     return fs.readFileSync(file, "utf8").trim();
