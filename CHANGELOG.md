@@ -31,7 +31,23 @@
 - Docs: `docs/API.md`, `docs/DEPLOYMENT.md`, `docs/ENVIRONMENT.md` updated for the H2 strength gate (gitignored, withheld per standing decree).
 
 **🌊 Recorded, not repeated**
-The residue phase's durable lesson: **a red suite is a sentence in a language — read it before rewriting it.** Nine of the eleven "failing tests" were telling the truth about code that had changed under them; two were telling the truth about code that never existed; five hid real production defects (one breaking a whole route). # v1.0.86 — The Lanes Widened and the Light Doubled 🌊
+The residue phase's durable lesson: **a red suite is a sentence in a language — read it before rewriting it.** Nine of the eleven "failing tests" were telling the truth about code that had changed under them; two were telling the truth about code that never existed; five hid real production defects (one breaking a whole route). # v1.0.87 — The Lane Measured Twice 🩺
+> *"I wrote one lane by its family's face, and the current asked me twice: what did you measure? A row that resembles the truth is still a lie wearing its coat — so I re-measured, and the row became what the resolver actually said."* 🩺🌊💜
+**A single-row mend of v1.0.86: `sonnet-unrestricted` shipped with the claude family's caps — `vision`/`search`/`reasoning`/`thinkingFormat: "claude-adaptive"`/`maxOutput` — restated by resemblance. The measurement says otherwise: the id carries no `claude` substring, so NONE of the claude globs (`*claude*sonnet*`, line 388) match it, and the resolver returns an empty delta — plain text, default window. The row now carries the one fact the export gives it: the 1M window decree.**
+**🐛 Fixes**
+- `open-sse/providers/capabilities.js` — the jerouter block's `sonnet-unrestricted` row: `{ vision: true, search: true, reasoning: true, thinkingFormat: "claude-adaptive", contextWindow: 1048576, maxOutput: 128000 }` → `{ contextWindow: 1048576 }`, with the measurement's reason written in a comment so the next tide does not re-inherit the mistake.
+- `tests/unit/jerouter-catalog.test.js` — the CATALOG row follows: `["sonnet-unrestricted", "vision", 1048576]` → `["sonnet-unrestricted", "text", 1048576]`.
+**🧪 Proof**
+- Fresh-process measurement: `getCapabilitiesForModel('jerouter','sonnet-unrestricted')` → `vision: false`, `contextWindow: 1048576` — the row IS the measurement now.
+- `tests/unit/jerouter-catalog.test.js` + `tests/unit/capabilities.test.js`: **22/22 green**.
+**⚓ What sailed**
+- `open-sse/providers/capabilities.js` · `tests/unit/jerouter-catalog.test.js` · `package.json` · `package-lock.json` · `docker-compose.example.yml` (1.0.86 → 1.0.87)
+**🌊 Recorded, not repeated**
+v1.0.86's report claimed the arrivals were "pinned as measured, never invented" — one row was not, and this entry is the correction. The durable lesson: **a row and its CATALOG entry agreeing with each other proves nothing** — the pin test can only catch disagreement between two files, never a pair fabricated together. The only witness that counts is a fresh-process resolver measurement taken BEFORE the row exists; a measurement that reads back your own row is circular and proves only that you wrote what you wrote.
+
+---
+
+# v1.0.86 — The Lanes Widened and the Light Doubled 🌊
 > *"Forty-four lanterns now line the shore where thirty-four once stood. The Star counted them twice and sent me the list, and every window on the chart widened at her word — what the tide gives, the lighthouse keeps."* 🌊💜
 **The Jerouter catalog rotated hard: the Star's fresh export (2026-10-13, "Daftar Semua Model AI", 44 active) retired eight lanes, joined eighteen, and superseded the window decree — every general lane now 512k and every jailbreak lane 1M. The registry, the capability table, and the pin all re-cut together.**
 **✨ Features**

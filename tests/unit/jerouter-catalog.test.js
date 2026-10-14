@@ -68,7 +68,7 @@ const CATALOG = [
   ["jerouter", "text", 1048576],
   ["nemotron-3-ultra-unrestricted", "text", 1048576],
   ["glm-5.3-flash-unrestricted", "text", 1048576],
-  ["sonnet-unrestricted", "vision", 1048576],
+  ["sonnet-unrestricted", "text", 1048576],
 ];
 // Left on earlier tides — absent from this catalog, so absent here. The first
 // block retired on 2026-09-26; the second is the 2026-09-29 tide's own

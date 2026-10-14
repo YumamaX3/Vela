@@ -330,7 +330,12 @@ export const PROVIDER_CAPABILITIES = {
     "jerouter":                { contextWindow: 1048576 },
     "nemotron-3-ultra-unrestricted": { reasoning: true, contextWindow: 1048576 },
     "glm-5.3-flash-unrestricted": { reasoning: true, thinkingFormat: "zai", thinkingEffortSupported: true, contextWindow: 1048576, maxOutput: 128000 },
-    "sonnet-unrestricted":     { vision: true, search: true, reasoning: true, thinkingFormat: "claude-adaptive", contextWindow: 1048576, maxOutput: 128000 },
+    // Measured, not assumed: the id carries no "claude" substring, so NONE of
+    // the claude globs (*claude*sonnet*) match it — the resolver returned an
+    // empty delta (text, default window) on the 2026-10-13 measurement. The
+    // v1.0.86 row wrongly restated the claude caps by family resemblance; the
+    // window decree is the only fact this lane carries.
+    "sonnet-unrestricted":     { contextWindow: 1048576 },
   },
   // OpenCode Zen (keyless free lane) and OpenCode Go (paid) — Meta's muse-spark,
   // served by the Responses API. Upstream's caps table declares vision +
