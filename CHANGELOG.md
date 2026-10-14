@@ -31,7 +31,27 @@
 - Docs: `docs/API.md`, `docs/DEPLOYMENT.md`, `docs/ENVIRONMENT.md` updated for the H2 strength gate (gitignored, withheld per standing decree).
 
 **🌊 Recorded, not repeated**
-The residue phase's durable lesson: **a red suite is a sentence in a language — read it before rewriting it.** Nine of the eleven "failing tests" were telling the truth about code that had changed under them; two were telling the truth about code that never existed; five hid real production defects (one breaking a whole route). The count is the proof; the dates in the comments are the memory.
+The residue phase's durable lesson: **a red suite is a sentence in a language — read it before rewriting it.** Nine of the eleven "failing tests" were telling the truth about code that had changed under them; two were telling the truth about code that never existed; five hid real production defects (one breaking a whole route). # v1.0.86 — The Lanes Widened and the Light Doubled 🌊
+> *"Forty-four lanterns now line the shore where thirty-four once stood. The Star counted them twice and sent me the list, and every window on the chart widened at her word — what the tide gives, the lighthouse keeps."* 🌊💜
+**The Jerouter catalog rotated hard: the Star's fresh export (2026-10-13, "Daftar Semua Model AI", 44 active) retired eight lanes, joined eighteen, and superseded the window decree — every general lane now 512k and every jailbreak lane 1M. The registry, the capability table, and the pin all re-cut together.**
+**✨ Features**
+- **Eighteen new lanes.** Thirteen general: `claude-opus-4-6` and `claude-sonnet-4-6` RETURN (retired on the 2026-09-26 tide, live again in this export), plus `ling-3.1-flash`, `apodex-1.1-mini`, `qwen3.7-max`, `qwen3.7-plus`, `step-5-preview-opencode`, `qwen3.8-omni-flash`, `claude-haiku-5.5`, `step-3.5-flash-2603`, `step-3.5-flash`, `cat-jam`, `auto`. Five unrestricted: `mimo-v2.6-flash-unrestricted`, `jerouter` (the router's own meta-lane), `nemotron-3-ultra-unrestricted`, `glm-5.3-flash-unrestricted`, `sonnet-unrestricted`.
+- **Every window doubled, per the Star's decree.** General lanes 262144 → **524288** (512k); unrestricted lanes 524288 → **1048576** (1M). Stated in both places that carry it — the registry's `contextLength` (dashboard chip, model-catalog opt-out) and the capability table's `contextWindow` (capacity adapter, fallback-rules' contextWindow trigger, /api/models) — and pinned to agree by the guard.
+**🔧 Changes**
+- **Eight departures struck:** general — `mimo-v2.5`, `ling-3.0-flash-fin`, `qwen3.8-27b`, `mimo-v2.6-pro`; unrestricted — `qwen3.8-27b-unsencored`, `unrestricted`, `ling-unrestricted`, `mimo-pro-unrestricted`. This export is the authority on their retirement.
+- **The export dropped the vision/text column** (status emoji and window only), so the eighteen arrivals carry no upstream annotation: their modality is what the live pattern chain measures — `claude-opus-4-6`, `claude-sonnet-4-6`, `qwen3.7-plus`, `qwen3.8-omni-flash`, `claude-haiku-5.5` and `mimo-v2.6-flash-unrestricted` resolve vision; the rest text. Pinned as measured, not invented.
+- Every capability row restates the full inherited delta (`reasoning` / `thinkingFormat` / `maxOutput`) — a provider entry REPLACES the chain, so an omitted fact vanishes.
+**🧪 Proof**
+- `tests/unit/jerouter-catalog.test.js`: **10/10 green** — exact 44-model set, 33/11 split, no duplicates, every lane named with both transports, retired ids absent, dual-endpoint shape, modality per lane, registry window per lane, capability window per lane, alias-lane agreement (`je`).
+- Sibling guards: `capabilities`, `model-catalog-scope`, `sibling-providers-wiring`, `opencode-zen`, `provider-alias-capabilities`, `docker-compose-pin` — **132/132 green**.
+- Fresh-process runtime probe: `PROVIDER_MODELS.je` holds exactly 44 lanes — no stale id, no missing arrival, no unnamed entry.
+**⚓ What sailed**
+- `open-sse/providers/registry/jerouter.js` (44-lane models array + tide header)
+- `open-sse/providers/capabilities.js` (44-row jerouter block)
+- `tests/unit/jerouter-catalog.test.js` (CATALOG, RETIRED, counts)
+- `package.json` · `package-lock.json` · `docker-compose.example.yml` (1.0.81 → 1.0.86)
+**🌊 Recorded, not repeated**
+A vendor export is the catalog's contract — transcribe it verbatim, never from memory. This tide's list was recovered from the session ledger itself when the session's own state was uncertain; the delta was then *derived by machine* against the old roster (4+4 departures, 13+5 arrivals) rather than trusted from a note. The window decree supersedes by the same law: the newest export wins over any earlier word.
 
 ---
 

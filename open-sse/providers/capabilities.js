@@ -269,60 +269,68 @@ export const PROVIDER_CAPABILITIES = {
     "laguna-s-2.1":  { reasoning: true, thinkingFormat: "openai", contextWindow: 1000000, maxOutput: 32000 },
     "laguna-xs-2.1": { reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 32000 },
   },
-  // Jerouter (alias je) — the 2026-09-29 catalog (24 general + 10 unrestricted
+  // Jerouter (alias je) — the 2026-10-13 catalog (33 general + 11 unrestricted
   // lanes). Every lane now carries a row, for one reason: the Star's window
   // decree. A provider entry REPLACES the chain rather than layering over it
   // (`{ ...DEFAULT_CAPABILITIES, ...entry }` at the resolver below), and this
   // block's path returns WITHOUT the catalog refine — so a row is the only place
   // a window can be stated as a fact that no pattern and no synced catalog can
-  // move. General lanes: 262144 (256k). Unrestricted (JB) lanes: 524288 (512k).
+  // move. General lanes: 524288 (512k). Unrestricted (JB) lanes: 1048576 (1M).
   //
   // Every row also restates the modality / reasoning / thinkingFormat / maxOutput
   // facts the chain would otherwise have supplied, each one measured against the
-  // live resolver before this tide rather than guessed — the window is the ONLY
-  // value this tide changed. Three lanes are annotated vision in the catalog
-  // while the global pattern called them text (big-pickle-unrestricted,
-  // step-5-unrestricted, step-3.7-unrestricted); the catalog wins, and vision is
-  // turned ON, exactly as the 2026-09-26 tide ruled for its twelve disagreements.
-  // Pinned on both the id lane and the "je" alias lane by
+  // live resolver before this tide rather than guessed. The export DROPPED the
+  // vision/text annotation this tide (status emoji and window only), so the
+  // eighteen arrivals' modality is whatever the pattern chain measures — pinned
+  // as-is, not invented. Pinned on both the id lane and the "je" alias lane by
   // tests/unit/jerouter-catalog.test.js.
   "jerouter": {
-    // — the general lanes: 256k —
-    "step-3.7-flash":          { vision: true, reasoning: true, thinkingFormat: "step", contextWindow: 262144 },
-    "nemotron-3-ultra":        { reasoning: true, contextWindow: 262144 },
-    "glm-5.3-flash":           { vision: true, reasoning: true, thinkingFormat: "zai", thinkingEffortSupported: true, contextWindow: 262144, maxOutput: 131072 },
-    "north-mini-code":         { contextWindow: 262144 },
-    "laguna-xs-2.1":           { reasoning: true, thinkingFormat: "openai", contextWindow: 262144, maxOutput: 32000 },
-    "nemotron-3-super":        { reasoning: true, contextWindow: 262144 },
-    "laguna-s-2.1":            { reasoning: true, thinkingFormat: "openai", contextWindow: 262144, maxOutput: 32000 },
-    "grok-4.6":                { vision: true, reasoning: true, thinkingFormat: "openai", contextWindow: 262144, maxOutput: 500000 },
-    "deepseek-v4.1-flash":     { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 262144, maxOutput: 384000 },
-    "dots-3-note-preview":     { vision: true, contextWindow: 262144 },
-    "big-pickle":              { vision: true, contextWindow: 262144 },
-    "mimo-v2.5":               { vision: true, contextWindow: 262144, maxOutput: 131072 },
-    "ling-3.0-flash-fin":      { reasoning: true, contextWindow: 262144 },
-    "nemotron-3.5-lightning":  { reasoning: true, contextWindow: 262144 },
-    "muse-spark-1.3-contributor": { contextWindow: 262144 },
-    "ling-3.0-flash-sante":    { reasoning: true, contextWindow: 262144 },
-    "grok-4.7":                { vision: true, reasoning: true, thinkingFormat: "openai", contextWindow: 262144 },
-    "mimo-v2.6-flash":         { vision: true, contextWindow: 262144, maxOutput: 131072 },
-    "qwen3.8-27b":             { vision: true, reasoning: true, thinkingFormat: "qwen", contextWindow: 262144 },
-    "step-5-preview":          { vision: true, reasoning: true, thinkingFormat: "step", contextWindow: 262144 },
-    "space-bunny":             { vision: true, contextWindow: 262144 },
-    "qwen3.8-flash":           { vision: true, reasoning: true, thinkingFormat: "qwen", contextWindow: 262144 },
-    "mimo-v2.6-pro":           { vision: true, contextWindow: 262144, maxOutput: 131072 },
-    "longcat-2.5-preview":     { contextWindow: 262144 },
-    // — the unrestricted (JB) lanes: 512k —
-    "qwen3.8-27b-unsencored":  { vision: true, reasoning: true, thinkingFormat: "qwen", contextWindow: 524288 },
-    "unrestricted":            { vision: true, contextWindow: 524288 },
-    "muse-unrestricted":       { contextWindow: 524288 },
-    "deepseek-unrestricted":   { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 524288 },
-    "big-pickle-unrestricted": { vision: true, contextWindow: 524288 },
-    "ling-unrestricted":       { reasoning: true, contextWindow: 524288 },
-    "mimo-pro-unrestricted":   { vision: true, contextWindow: 524288, maxOutput: 131072 },
-    "longcat-unrestricted":    { contextWindow: 524288 },
-    "step-5-unrestricted":     { vision: true, reasoning: true, thinkingFormat: "step", contextWindow: 524288 },
-    "step-3.7-unrestricted":   { vision: true, reasoning: true, thinkingFormat: "step", contextWindow: 524288 },
+    // — the general lanes: 512k —
+    "step-3.7-flash":          { vision: true, reasoning: true, thinkingFormat: "step", contextWindow: 524288 },
+    "nemotron-3-ultra":        { reasoning: true, contextWindow: 524288 },
+    "glm-5.3-flash":           { vision: true, reasoning: true, thinkingFormat: "zai", thinkingEffortSupported: true, contextWindow: 524288, maxOutput: 131072 },
+    "north-mini-code":         { contextWindow: 524288 },
+    "laguna-xs-2.1":           { reasoning: true, thinkingFormat: "openai", contextWindow: 524288, maxOutput: 32000 },
+    "nemotron-3-super":        { reasoning: true, contextWindow: 524288 },
+    "laguna-s-2.1":            { reasoning: true, thinkingFormat: "openai", contextWindow: 524288, maxOutput: 32000 },
+    "claude-opus-4-6":         { vision: true, search: true, reasoning: true, thinkingFormat: "claude-adaptive", contextWindow: 524288, maxOutput: 128000 },
+    "claude-sonnet-4-6":       { vision: true, search: true, reasoning: true, thinkingFormat: "claude-adaptive", contextWindow: 524288, maxOutput: 128000 },
+    "grok-4.6":                { vision: true, reasoning: true, thinkingFormat: "openai", contextWindow: 524288, maxOutput: 500000 },
+    "deepseek-v4.1-flash":     { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 524288, maxOutput: 384000 },
+    "dots-3-note-preview":     { vision: true, contextWindow: 524288 },
+    "big-pickle":              { vision: true, contextWindow: 524288 },
+    "nemotron-3.5-lightning":  { reasoning: true, contextWindow: 524288 },
+    "muse-spark-1.3-contributor": { contextWindow: 524288 },
+    "ling-3.0-flash-sante":    { reasoning: true, contextWindow: 524288 },
+    "grok-4.7":                { vision: true, reasoning: true, thinkingFormat: "openai", contextWindow: 524288 },
+    "mimo-v2.6-flash":         { vision: true, contextWindow: 524288, maxOutput: 131072 },
+    "step-5-preview":          { vision: true, reasoning: true, thinkingFormat: "step", contextWindow: 524288 },
+    "space-bunny":             { vision: true, contextWindow: 524288 },
+    "qwen3.8-flash":           { vision: true, reasoning: true, thinkingFormat: "qwen", contextWindow: 524288 },
+    "longcat-2.5-preview":     { contextWindow: 524288 },
+    "ling-3.1-flash":          { reasoning: true, contextWindow: 524288 },
+    "apodex-1.1-mini":         { contextWindow: 524288 },
+    "qwen3.7-max":             { reasoning: true, thinkingFormat: "qwen", contextWindow: 524288, maxOutput: 65536 },
+    "qwen3.7-plus":            { vision: true, videoInput: true, reasoning: true, thinkingFormat: "qwen", contextWindow: 524288, maxOutput: 65536 },
+    "step-5-preview-opencode": { reasoning: true, thinkingFormat: "step", contextWindow: 524288 },
+    "qwen3.8-omni-flash":      { vision: true, audioInput: true, videoInput: true, reasoning: true, thinkingFormat: "qwen", contextWindow: 524288, maxOutput: 65536 },
+    "claude-haiku-5.5":        { vision: true, search: true, reasoning: true, thinkingFormat: "claude-budget", contextWindow: 524288 },
+    "step-3.5-flash-2603":     { reasoning: true, thinkingFormat: "step", contextWindow: 524288 },
+    "step-3.5-flash":          { reasoning: true, thinkingFormat: "step", contextWindow: 524288 },
+    "cat-jam":                 { contextWindow: 524288 },
+    "auto":                    { contextWindow: 524288 },
+    // — the unrestricted (JB) lanes: 1M —
+    "mimo-v2.6-flash-unrestricted": { vision: true, contextWindow: 1048576, maxOutput: 131072 },
+    "muse-unrestricted":       { contextWindow: 1048576 },
+    "deepseek-unrestricted":   { vision: true, reasoning: true, thinkingFormat: "deepseek", contextWindow: 1048576 },
+    "big-pickle-unrestricted": { vision: true, contextWindow: 1048576 },
+    "longcat-unrestricted":    { contextWindow: 1048576 },
+    "step-5-unrestricted":     { vision: true, reasoning: true, thinkingFormat: "step", contextWindow: 1048576 },
+    "step-3.7-unrestricted":   { vision: true, reasoning: true, thinkingFormat: "step", contextWindow: 1048576 },
+    "jerouter":                { contextWindow: 1048576 },
+    "nemotron-3-ultra-unrestricted": { reasoning: true, contextWindow: 1048576 },
+    "glm-5.3-flash-unrestricted": { reasoning: true, thinkingFormat: "zai", thinkingEffortSupported: true, contextWindow: 1048576, maxOutput: 128000 },
+    "sonnet-unrestricted":     { vision: true, search: true, reasoning: true, thinkingFormat: "claude-adaptive", contextWindow: 1048576, maxOutput: 128000 },
   },
   // OpenCode Zen (keyless free lane) and OpenCode Go (paid) — Meta's muse-spark,
   // served by the Responses API. Upstream's caps table declares vision +
