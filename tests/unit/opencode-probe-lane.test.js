@@ -15,9 +15,11 @@ describe("opencodeProbeLane", () => {
   it.each([undefined, null, "", "   "])("probes the public free tier for keyless %p", (apiKey) => {
     const lane = opencodeProbeLane(apiKey);
     expect(lane.keyed).toBe(false);
+    // The v2 gate moved free inference off /zen/v1 and rejects the v1 UA shape,
+    // so the keyless probe speaks the same v2 CLI identity the executor dials.
     expect(lane.headers).toEqual({
       Authorization: "Bearer public",
-      "User-Agent": "opencode/1.18.31",
+      "User-Agent": "opencode/latest/2.0.29/cli",
     });
   });
 

@@ -547,7 +547,10 @@ export function opencodeProbeLane(apiKey) {
       }
     : {
         keyed,
-        headers: { Authorization: "Bearer public", "User-Agent": "opencode/1.18.31" },
+        // The keyless lane speaks OpenCode's v2 CLI identity — the same one the
+        // executor dials the free tier with (2026-10-15, the v2 gate moved free
+        // inference off /zen/v1 and rejects the v1 UA shape).
+        headers: { Authorization: "Bearer public", "User-Agent": "opencode/latest/2.0.29/cli" },
       };
 }
 

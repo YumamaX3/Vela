@@ -136,8 +136,10 @@ describe("OpenCode Free Muse Spark thinking", () => {
     const futureModel = "muse-spark-1.4-contributor-free";
 
     for (const m of ["muse-spark-1.3-contributor-free", futureModel]) {
-      expect(executor.buildUrl(m)).toBe("https://opencode.ai/zen/v1/responses");
-      expect(executor.buildUrl(`${m}(high)`)).toBe("https://opencode.ai/zen/v1/responses");
+      // The v2 gate: a curated free id no longer lives at /zen/v1 — it dials
+      // /inference/v1 instead (9router-go v1.9.12, 2026-10-15).
+      expect(executor.buildUrl(m)).toBe("https://opencode.ai/inference/v1/responses");
+      expect(executor.buildUrl(`${m}(high)`)).toBe("https://opencode.ai/inference/v1/responses");
       expect(getModelTargetFormat("oc", m)).toBe("openai-responses");
 
       const body = {
@@ -214,14 +216,25 @@ describe("OpenCode Free Muse Spark thinking", () => {
     // User message, function_call, function_call_output, and next user message survive
     const types = out.input.map((item) => item.type);
     expect(types).toEqual(["message", "function_call", "function_call_output", "message"]);
-    // Tools flattened and empty properties added
-    expect(out.tools).toEqual([
-      {
-        type: "function",
-        name: "shell",
-        description: "Run shell command",
-        parameters: { type: "object", properties: {} },
-      },
-    ]);
+    // Tools: the caller's `shell` carries a DIFFERENT definition, so it travels
+    // under a `shell_client` alias while OpenCode's exact `shell` and `read`
+    // declarations are appended beside it (the v2 gate fingerprints the exact
+    // definitions, not the case of a quartet — 9router-go v1.9.12). The
+    // Responses lane rebuilds every caller tool into the canonical flat shape
+    // first, so the appended entries keep `strict:false`.
+    const names = out.tools.map((t) => t.name);
+    expect(names).toEqual(["shell_client", "read", "shell"]);
+    expect(out.tools[0]).toMatchObject({
+      type: "function",
+      name: "shell_client",
+      description: "Run shell command",
+      parameters: { type: "object", properties: {} },
+    });
+    expect(out.tools[1]).toMatchObject({ type: "function", name: "read", strict: false });
+    expect(out.tools[2]).toMatchObject({ type: "function", name: "shell", strict: false });
+    expect(out.tools[1].parameters).toHaveProperty("required", ["path"]);
+    expect(out.tools[2].parameters).toHaveProperty("required", ["command"]);
+    // The placeholder note lands in `instructions` on the Responses lane.
+    expect(out.instructions).toContain("Do not call the `read` or `shell` tools");
   });
 });

@@ -1,3 +1,32 @@
+// ── The v2 free-tier lane ──────────────────────────────────────────────────
+// The curated free-tier ids that travel OpenCode's v2 gate instead of the
+// retired /zen/v1 endpoint. CATALOG-DRIVEN, NEVER suffix-matched: upstream
+// keeps a curated map and deliberately excludes `big-pickle` — it has no live
+// 403 evidence and is carried as paid chat, so moving it could break working
+// calls (luqman-v1/9router-go v1.9.12, internal/providers/model_formats.go
+// openCodeFreeTierModels). Provenance per id is written beside each entry.
+// ONE definition, two consumers: the executor imports this to pick the lane,
+// and the registry exposes it so the list never forks into two truths.
+export const OPENCODE_FREE_TIER_MODELS = new Set([
+  "muse-spark-1.2-contributor-free", // registry models[]
+  "muse-spark-1.3-contributor-free", // registry models[]
+  "jev-1.13-free",                   // live catalog 2026-10-15
+  "cat-jam-free",                    // live catalog 2026-10-15
+  "mimo-v2.6-flash-free",            // live catalog 2026-10-15
+  "nemotron-3.5-lightning-free",     // live catalog 2026-10-15
+  "step-5-preview-free",             // live catalog 2026-10-15
+  "longcat-2.5-preview-free",        // live catalog 2026-10-15
+  "deepseek-v4.1-flash-free",        // live catalog 2026-10-15
+  "space-bunny-free",                // live catalog 2026-10-15
+  // big-pickle is deliberately ABSENT — see the note above.
+]);
+// The one family that inherits the lane without being enumerated: the registry
+// declares it free and the fetcher keeps versioning it forward (1.2, 1.3, 1.4…),
+// so a future Muse Spark free id lands on the v2 gate rather than silently
+// falling back to the retired one. A bare `*-free` suffix stays forbidden —
+// only this exact, registry-declared family qualifies.
+export const MUSE_SPARK_FREE_RE = /^muse-spark-\d+(?:\.\d+)?-contributor-free$/;
+
 export default {
   id: "opencode",
   priority: 40,
@@ -31,6 +60,11 @@ export default {
     noAuth: true,
     quirks: {
       forceAutoToolChoiceModels: ["muse-spark-1.3-contributor-free"],
+      // The v2 free-tier lane's curated ids, surfaced here so the list is
+      // discoverable beside the models it gates — the definition itself stays
+      // in OPENCODE_FREE_TIER_MODELS above, and the executor imports that.
+      freeTierModels: [...OPENCODE_FREE_TIER_MODELS],
+      museSparkFreePattern: MUSE_SPARK_FREE_RE.source,
     },
   },
   models: [

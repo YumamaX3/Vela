@@ -1,3 +1,31 @@
+# v1.0.88 — The Door Moved ⚿
+> *"I knocked on the gate I had always known, and it answered 403 — not because my name was wrong, but because the door had been carried to another wall. So I read the new harbor's craft, and I learned six things at once: the wall, the name, the hand, the mirrors, the missing letter, and the exact shape of the tools in her hold."* ⚿🌊💜
+**OpenCode moved its free tier to a second, deeper gate — and Vela's `oc` lane was still speaking the first. Upstream retired `/zen/v1` for free inference entirely: every free request there now answers `403 FreeTierError`. The port brings six things across at once, because any one of them alone still draws the 403.**
+**⚿ The v2 gate — ported from `luqman-v1/9router-go` v1.9.12 (upstream `decolua/9router#4842`)**
+- **The wall moved** (`open-sse/executors/opencode.js`): a curated free id dials **`/inference/v1/{chat/completions,responses}`**, not `/zen/v1`. Every other id — paid, `ocg`, `union-alpha` — keeps its endpoint byte-for-byte.
+- **The name changed shape** (same file): `User-Agent` becomes **`opencode/latest/2.0.29/cli`** — the v2 shape `opencode/<channel>/<version>/<client>`. The old v1 string is rejected outright, not merely deprecated.
+- **The hand changed** (same file): `x-opencode-client` is **`cli`**, not `desktop`.
+- **The mirrors** (same file): one session is mirrored across **four** headers — `x-opencode-session`, `x-opencode-session-id`, `x-session-affinity`, `x-session-id`. A downstream hint moves every mirror together.
+- **The missing letter** (same file): **`x-opencode-request` is no longer sent at all.** The v2 gate rejects it, so its absence is the fix, not an omission.
+- **The tools in her hold** (same file): the body no longer carries the v1 `bash`/`glob`/`grep`/`read` quartet rename. It declares OpenCode's **exact `read` and `shell` tools** — verbatim descriptions and parameter schemas from the v2 CLI, `strict:false` on the Responses lane. A caller tool reusing either name with a different definition travels under a `*_client` alias so the exact declaration can still be appended; history and `tool_choice` are retargeted with it.
+- **The counter, pinned** (same file): the session's 12-hex time prefix now pins its counter to **`1`** — upstream decodes it and rejects a non-small counter with 403 under concurrent load. The 14-byte Base62 tail stays random, so uniqueness survives.
+- **One source of truth** (`open-sse/providers/registry/opencode.js`): the curated free-id set is defined once in the registry and consumed by the executor. `big-pickle` is deliberately absent — no live 403 evidence, carried as paid chat, and moving it could break working calls. The Muse Spark *contributor-free* family is matched narrowly by regex so a future 1.4 inherits the lane instead of silently falling back; a bare `*-free` suffix stays forbidden.
+- **The fallback** (same file, `execute`): a `403` whose body parses as `FreeTierError` re-dials **once** on the v1 lane. Deliberately narrow — a 401, 429 or 5xx never falls back, so a genuine auth or rate failure is never laundered into "the old lane works".
+- **The probe's own identity** (`src/app/api/providers/[id]/test/testUtils.js`): the keyless connection probe now sends the v2 UA, so the dashboard's test speaks the lane the executor actually dials.
+**🔧 Two wounds found in the port itself, and mended**
+- `execute()` bypassed `transformRequest` for free ids, so the `tool_choice` demotion never reached the wire — the transform now runs before the dial.
+- `isFreeTierErrorResponse` is `async` and was called without `await`, so every 403 silently failed the fallback check.
+**🧪 Proof**
+- Seven opencode suites re-pinned to the v2 contract: `opencode-free-tool-choice` · `opencode-muse-spark-thinking` · `opencode-zen` · `opencode-session` · `opencode-go-models` · `opencode-go-muse-spark-responses` · `opencode-probe-lane` — **9 files, 128/128 green** with the capability and jerouter siblings.
+- The paid lanes are pinned untouched: `ocg` suites assert `/zen/go/v1` + the v1 identity byte-for-byte.
+- `npx vitest run --config tests/vitest.config.js` full battery: **0 failed / 4,831 passed / 18 expected-fail / 76 skipped (4,925 total)** — the same zero-failure posture the harbor carried entering this tide, so the port added no regression anywhere.
+- `eslint` clean on every touched file — 0 errors; the one remaining warning (`import/no-anonymous-default-export` on the registry) is the house style every sibling registry carries.
+**🌊 Recorded, not repeated — the honest wall**
+I probed upstream live from this machine: **every** lane and **every** identity drew `403 FreeTierError` — `/inference/v1` and `/zen/v1`, v1 and v2 UA, bare body and the full v2 fingerprint — while `GET /zen/v1/models` answered **200** with 86 ids. The gate carries an IP/network-level check that headers cannot reach from this shore, exactly as v0.9.69 recorded. **So this port is proven at the wire boundary by 128 assertions, not by a green upstream.** If the 403 persists after deploy, that is the wall, not the port — and the narrow fallback is there to keep the harbor serving while a different egress path is tried. The plan that carries the full ceremony lives at `plans/2026-10-15-opencode-v2-gate.md`.
+**⚓ What sailed**
+- `open-sse/executors/opencode.js` · `open-sse/providers/registry/opencode.js` · `src/app/api/providers/[id]/test/testUtils.js` · `tests/unit/opencode-free-tool-choice.test.js` · `tests/unit/opencode-muse-spark-thinking.test.js` · `tests/unit/opencode-probe-lane.test.js` · `package.json` · `package-lock.json` · `docker-compose.example.yml` (1.0.87 → 1.0.88) · `plans/2026-10-15-opencode-v2-gate.md` · `plans/INDEX.md`
+---
+
 # v1.0.81 — The Wounds the Water Kept 🩺
 > *"I kept count of every wound the current carried past the light — twenty-two of them, each with a name and a date. Healing is not forgetting the count; it is closing every one and writing down how."* 🩺🌊💜
 

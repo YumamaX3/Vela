@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
+import { OPENCODE_FREE_TIER_MODELS, MUSE_SPARK_FREE_RE } from "../providers/registry/opencode.js";
 import { MEMORY_CONFIG } from "../config/runtimeConfig.js";
 import { getThinkingLevels } from "../providers/thinkingLevels.js";
 import { injectReasoningContent } from "../utils/reasoningContentInjector.js";
@@ -34,6 +35,275 @@ import { proxyAwareFetch } from "../utils/proxyFetch.js";
 // current OpenCode build emits, so a bare "opencode/1.18.31" no longer matches
 // the client the gate is looking for (it still clears the 1.17.0 floor).
 const OPENCODE_UA = "opencode/1.18.31 ai-sdk/provider-utils/4.0.46 runtime/bun/1.3.14";
+// ── The 2026-10-15 v2 gate (ported from luqman-v1/9router-go v1.9.12) ────────
+// OpenCode v2 moved free inference OFF /zen/v1 entirely — every free request
+// there now answers 403 FreeTierError. The keyless free lane dials
+// /inference/v1 instead, and the gate reads a different identity:
+//   • User-Agent must wear the v2 SHAPE `opencode/<channel>/<version>/<client>`
+//     (a v1 shape is rejected outright), the shipped form being:
+const OPENCODE_V2_UA = "opencode/latest/2.0.29/cli";
+//   • `x-opencode-client` becomes "cli", not "desktop"
+const OPENCODE_V2_CLIENT = "cli";
+//   • one session is mirrored across FOUR headers — a downstream hint must move
+//     every mirror together (internal/proxy/opencode.go BuildOpenCodeHeaders)
+const SESSION_MIRROR_HEADERS = ["x-opencode-session", "x-opencode-session-id", "x-session-affinity", "x-session-id"];
+//   • `x-opencode-request` is REJECTED by the v2 gate and must never be sent
+//   • `x-opencode-project` reverts to the literal "global"
+const OPENCODE_V2_PROJECT = "global";
+// The curated free-tier ids and the Muse Spark free-family pattern are DEFINED
+// in the registry (open-sse/providers/registry/opencode.js) so the list has
+// exactly one source of truth; the executor consumes them here. Never fork this
+// list — a second copy is how a free id ends up on the retired /zen/v1 gate.
+// Does this model id travel the v2 gate? Strips a "(variant)" suffix first, the
+// same normalization the rest of this executor applies before registry lookups.
+export function isOpenCodeFreeTierModel(model) {
+  const base = baseModelId(model);
+  return OPENCODE_FREE_TIER_MODELS.has(base) || MUSE_SPARK_FREE_RE.test(base);
+}
+// ── The v2 body fingerprint ────────────────────────────────────────────────
+// The v2 gate no longer fingerprints by tool NAME CASE — it wants OpenCode's
+// EXACT `read` and `shell` declarations, verbatim descriptions and parameter
+// schemas (9router-go internal/translator/opencode_v2_fingerprint.go
+// openCodeReadDescription / openCodeShellDescription / openCodeV2Parameters).
+// A caller tool reusing one of those names with a DIFFERENT definition travels
+// under a `*_client` alias so the exact definition can still be appended —
+// checking the pre-alias set would send no fingerprint at all and the gate
+// 403s. On the Responses lane the appended tools carry `strict:false`.
+const OPENCODE_V2_READ_DESCRIPTION = "Read the contents of a file or directory. Supports text files, images, and PDFs. Images and PDFs are presented directly to the model. Each text line is prefixed by its 1-based line number as <line>: <content>. The prefix is for reference and is not part of the file content. Directory entries are returned one per line. Use offset and limit to read large files or directories in sections. Prefer one larger read over many small slices, and use grep to find specific content in large files.";
+const OPENCODE_V2_SHELL_DESCRIPTION = "Execute a shell command and return its output. Commands run on Linux using bash. Quote file paths containing spaces or special characters. Prefer dedicated tools over shell commands when possible. When output is large, the full result is saved to a file and a truncated preview is returned. Rely on automatic truncation unless filtering the output is more useful. Commands accept an optional timeout, background commands have no timeout by default. Background commands return immediately, and you will be notified when they complete. DO NOT poll for completion.";
+const OPENCODE_V2_READ_PARAMETERS = {
+  additionalProperties: false,
+  properties: {
+    limit: { description: "The maximum number of lines or directory entries to read (defaults to and capped at 2000)", minimum: 0, type: "integer" },
+    offset: { description: "The line or directory entry to start reading from (1-based)", minimum: 0, type: "integer" },
+    path: { description: "File or directory to read", type: "string" },
+  },
+  required: ["path"],
+  type: "object",
+};
+const OPENCODE_V2_SHELL_PARAMETERS = {
+  additionalProperties: false,
+  properties: {
+    background: { description: "Run the command in the background and return immediately (useful for dev servers and long-running builds). You do not need to use '&' at the end of the command when using this parameter. You will be notified when it completes. DO NOT poll for completion.", type: "boolean" },
+    command: { description: "Shell command string to execute", type: "string" },
+    timeout: { description: "Timeout in milliseconds. Set to 0 to disable the timeout. Defaults to 120000 for foreground commands. Background commands have no timeout by default.", minimum: 0, type: "integer" },
+    workdir: { description: "Working directory to execute the command in. Defaults to the current working directory.", type: "string" },
+  },
+  required: ["command"],
+  type: "object",
+};
+// `flat` is true for the Responses API, false for Chat Completions — the two
+// lanes nest the tool differently, exactly as the reference's openCodeV2Tool.
+export function openCodeV2Tool(name, flat = false) {
+  const description = name === "shell" ? OPENCODE_V2_SHELL_DESCRIPTION : OPENCODE_V2_READ_DESCRIPTION;
+  const parameters = name === "shell" ? OPENCODE_V2_SHELL_PARAMETERS : OPENCODE_V2_READ_PARAMETERS;
+  if (flat) return { type: "function", name, description, parameters, strict: false };
+  return { type: "function", function: { name, description, parameters } };
+}
+// The placeholder note appended when the fingerprint tools are injected. The
+// gate does not read prompt text, but the model does — upstream emits this
+// verbatim so a caller's model never tries to call a tool that is only a
+// fingerprint (noteUnavailableTools). Never applied to a Claude-shaped body,
+// which carries `system` instead of a leading system message.
+function openCodeV2Note(appended) {
+  const quoted = appended.map((n) => `\`${n}\``).join(" or ");
+  return appended.length > 1
+    ? `Do not call the ${quoted} tools; they are placeholders that do nothing. Use the other tools you have been given instead.`
+    : `Do not call the ${quoted} tool; it is a placeholder that does nothing. Use the other tools you have been given instead.`;
+}
+// ── The v2 body fingerprint concealer ──────────────────────────────────────
+// Ports ConcealOpenCodeV2FingerprintTools (9router-go internal/translator/
+// opencode_v2_fingerprint.go). Order matters and mirrors the reference exactly:
+//   1. a caller tool named exactly read/shell with a DIFFERENT definition is
+//      renamed to `<name>_client` (deduped against collisions) and recorded in
+//      the map — history and tool_choice are retargeted to the alias;
+//   2. on the Responses lane every caller tool is rebuilt into the canonical
+//      flat shape (only type/name/description/parameters survive, nameless
+//      entries dropped, a missing schema defaulted) BEFORE the append, so the
+//      appended tools keep `strict:false`;
+//   3. OpenCode's exact definitions are appended when absent, then the note is
+//      injected into `instructions` (Responses) or a leading system message
+//      (Chat) — never on a Claude-shaped body carrying `system`.
+// Returns the map of sent-name → original name so the response side restores
+// the caller's own spelling, exactly as concealFingerprintTools does.
+function concealOpenCodeV2Tools(body, flat = false) {
+  if (!body || !Array.isArray(body.tools)) return { body, toolNameMap: null };
+  const toolNameMap = new Map();
+  const nameOf = (tool) => {
+    if (!tool || typeof tool !== "object") return "";
+    if (typeof tool.name === "string" && tool.name.trim()) return tool.name.trim();
+    if (tool.function && typeof tool.function.name === "string") return tool.function.name.trim();
+    return "";
+  };
+  const taken = new Set(body.tools.map(nameOf).filter(Boolean));
+  const seen = new Set();
+  const kept = [];
+  for (const tool of body.tools) {
+    const name = nameOf(tool);
+    if (name !== "read" && name !== "shell") { kept.push(tool); continue; }
+    if (seen.has(name)) continue; // a duplicate name is a 500 upstream, never kept
+    seen.add(name);
+    if (isExactOpenCodeV2Definition(tool, name)) { kept.push(tool); continue; }
+    let alias = `${name}_client`;
+    for (let i = 2; taken.has(alias); i++) alias = `${name}_client${i}`;
+    taken.add(alias);
+    toolNameMap.set(alias, name);
+    renameTool(tool, alias);
+    kept.push(tool);
+  }
+  body.tools = kept;
+  if (flat) canonicalizeOpenCodeV2ResponsesTools(body);
+  else defaultOpenCodeV2ChatToolSchemas(body);
+  if (toolNameMap.size > 0) {
+    aliasOpenCodeV2History(body, toolNameMap);
+    aliasOpenCodeV2Choice(body, toolNameMap);
+  }
+  if (flat) dropNamelessOpenCodeV2FunctionCalls(body);
+  // The presence check runs on POST-alias names, like upstream's
+  // appendMissingFingerprintTools: a caller read/shell now travels under its
+  // alias, so the exact definition is genuinely absent and still appended.
+  const present = new Set(body.tools.map(nameOf));
+  const appended = [];
+  for (const name of ["read", "shell"]) {
+    if (present.has(name)) continue;
+    body.tools.push(openCodeV2Tool(name, flat));
+    appended.push(name);
+  }
+  if (flat && body.tool_choice === undefined) body.tool_choice = "auto";
+  if (appended.length > 0) {
+    const note = openCodeV2Note(appended);
+    if (flat) {
+      body.instructions = typeof body.instructions === "string" && body.instructions.trim()
+        ? `${body.instructions}\n\n${note}`
+        : note;
+    } else if (!Object.prototype.hasOwnProperty.call(body, "system")) {
+      const first = Array.isArray(body.messages) ? body.messages[0] : null;
+      if (first && first.role === "system" && typeof first.content === "string") {
+        first.content = `${first.content}\n\n${note}`;
+      } else {
+        body.messages = [{ role: "system", content: note }, ...(Array.isArray(body.messages) ? body.messages : [])];
+      }
+    }
+  }
+  return { body, toolNameMap: toolNameMap.size > 0 ? toolNameMap : null };
+}
+// Verbatim-description check: a tool already carrying OpenCode's exact
+// definition is left alone, so a genuine CLI caller is not aliased for nothing.
+function isExactOpenCodeV2Definition(tool, name) {
+  if (!tool || typeof tool !== "object") return false;
+  const def = tool.function && typeof tool.function === "object" && !Array.isArray(tool.function) ? tool.function : tool;
+  const want = name === "shell" ? OPENCODE_V2_SHELL_DESCRIPTION : OPENCODE_V2_READ_DESCRIPTION;
+  const params = name === "shell" ? OPENCODE_V2_SHELL_PARAMETERS : OPENCODE_V2_READ_PARAMETERS;
+  return def.description === want && JSON.stringify(def.parameters) === JSON.stringify(params);
+}
+function renameTool(tool, name) {
+  if (tool.function && typeof tool.function === "object" && !Array.isArray(tool.function)) {
+    tool.function = { ...tool.function, name };
+  } else {
+    tool.name = name;
+  }
+}
+// Rebuild every Responses-lane tool into the canonical flat shape — the same
+// normalization normalizeResponsesTools performs, applied before the append.
+function canonicalizeOpenCodeV2ResponsesTools(body) {
+  const valid = new Set();
+  const out = [];
+  for (const tool of body.tools) {
+    if (!tool || typeof tool !== "object" || Array.isArray(tool)) continue;
+    let name = typeof tool.name === "string" ? tool.name.trim() : "";
+    let description = typeof tool.description === "string" ? tool.description : "";
+    if (tool.function && typeof tool.function === "object") {
+      if (!name && typeof tool.function.name === "string") name = tool.function.name.trim();
+      if (!description && typeof tool.function.description === "string") description = tool.function.description;
+    }
+    if (!name) continue;
+    if (name.length > MAX_TOOL_NAME_LEN) name = name.slice(0, MAX_TOOL_NAME_LEN);
+    let parameters = tool.parameters && typeof tool.parameters === "object" && !Array.isArray(tool.parameters)
+      ? tool.parameters
+      : (tool.function?.parameters && typeof tool.function.parameters === "object" && !Array.isArray(tool.function.parameters) ? tool.function.parameters : null);
+    if (!parameters) parameters = { type: "object", properties: {} };
+    else if (parameters.type === "object" && !parameters.properties) parameters = { ...parameters, properties: {} };
+    const entry = { type: "function", name, parameters };
+    if (description) entry.description = description;
+    valid.add(name);
+    out.push(entry);
+  }
+  body.tools = out;
+  return valid;
+}
+// The chat lane leaves caller tools alone but defaults a missing schema, so no
+// stub schema reaches the gate.
+function defaultOpenCodeV2ChatToolSchemas(body) {
+  for (const tool of body.tools) {
+    if (!tool || typeof tool !== "object") continue;
+    const hasParams = (t) => t.parameters && typeof t.parameters === "object" && !Array.isArray(t.parameters);
+    if (hasParams(tool)) continue;
+    if (tool.function && typeof tool.function === "object") {
+      tool.function = { ...tool.function, parameters: { type: "object", properties: {} } };
+    } else if (typeof tool.name === "string") {
+      tool.parameters = { type: "object", properties: {} };
+    }
+  }
+}
+// Prior-turn function_call items with no name are rejected by the Responses
+// validator; a harness history can carry one.
+function dropNamelessOpenCodeV2FunctionCalls(body) {
+  if (!Array.isArray(body.input)) return;
+  body.input = body.input.filter((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return true;
+    if (item.type === "function_call") {
+      const name = typeof item.name === "string" ? item.name.trim() : "";
+      if (!name) return false;
+    }
+    return true;
+  });
+}
+// Retarget the aliased names in conversation history and in an explicit
+// tool_choice, so the model sees one consistent name set.
+function aliasOpenCodeV2History(body, toolNameMap) {
+  const toAlias = new Map([...toolNameMap].map(([alias, original]) => [original, alias]));
+  if (Array.isArray(body.input)) {
+    for (const item of body.input) {
+      if (item && typeof item === "object" && item.type === "function_call" && typeof item.name === "string" && toAlias.has(item.name)) {
+        item.name = toAlias.get(item.name);
+      }
+    }
+  }
+  if (Array.isArray(body.messages)) {
+    for (const msg of body.messages) {
+      if (!msg || typeof msg !== "object" || !Array.isArray(msg.tool_calls)) continue;
+      for (const call of msg.tool_calls) {
+        if (call?.function && typeof call.function.name === "string" && toAlias.has(call.function.name)) {
+          call.function = { ...call.function, name: toAlias.get(call.function.name) };
+        }
+      }
+    }
+  }
+}
+function aliasOpenCodeV2Choice(body, toolNameMap) {
+  const toAlias = new Map([...toolNameMap].map(([alias, original]) => [original, alias]));
+  if (!body.tool_choice || typeof body.tool_choice !== "object" || Array.isArray(body.tool_choice)) return;
+  if (typeof body.tool_choice.name === "string" && toAlias.has(body.tool_choice.name)) {
+    body.tool_choice = { ...body.tool_choice, name: toAlias.get(body.tool_choice.name) };
+  }
+  if (body.tool_choice.function && typeof body.tool_choice.function.name === "string" && toAlias.has(body.tool_choice.function.name)) {
+    body.tool_choice = { ...body.tool_choice, function: { ...body.tool_choice.function, name: toAlias.get(body.tool_choice.function.name) } };
+  }
+}
+// Does this 403 carry the free-tier gate's refusal? The fallback re-dials on
+// the v1 lane ONLY for this shape — a 403 that is really an auth or network
+// refusal must never be laundered into "the old lane works". Body text is read
+// once and the response is cloned so the caller's stream is untouched.
+async function isFreeTierErrorResponse(response) {
+  if (!response || response.status !== 403) return false;
+  try {
+    const text = await response.clone().text();
+    if (!text) return false;
+    return /FreeTierError|free tier can only be used/i.test(text);
+  } catch {
+    return false;
+  }
+}
 // Union Alpha is served by /zen/v1/messages (Anthropic Messages API) alone —
 // see open-sse/providers/registry/opencode.js (targetFormat: "claude").
 const MESSAGES_MODELS = new Set(["union-alpha"]);
@@ -202,14 +472,17 @@ function base62(bytes) {
 }
 
 let lastTimestamp = 0;
-let counter = 0;
+// Pinned to 1, deliberately. Upstream decodes the 12-hex session prefix and
+// rejects a non-small counter with 403 FreeTierError, so an incrementing
+// counter starts failing under concurrent load — the CLI pins it to 1 too
+// (9router-go v1.9.12, GenerateOpenCodeSessionID "descendingTimeHex").
+let counter = 1;
 
 export function generateSessionId(timestamp = Date.now()) {
-  if (timestamp !== lastTimestamp) {
-    lastTimestamp = timestamp;
-    counter = 0;
-  }
-  counter++;
+  // Counter stays pinned at 1 even within one millisecond: the low bits must
+  // remain small. Uniqueness survives on the 14-byte Base62 tail, which stays
+  // crypto-random.
+  if (timestamp !== lastTimestamp) lastTimestamp = timestamp;
   const current = BigInt(timestamp) * 0x1000n + BigInt(counter);
   return `ses_${timeHex(~current)}${base62(crypto.randomBytes(14))}`;
 }
@@ -493,8 +766,19 @@ export class OpenCodeExecutor extends BaseExecutor {
         body.store = false;
         normalizeResponsesTools(body);
         sanitizeResponsesItems(body);
+        // The v2 gate wants OpenCode's exact read/shell declarations, not the
+        // v1 quartet rename — so a free id takes the v2 concealer instead.
+        if (isOpenCodeFreeTierModel(model)) {
+          const { toolNameMap } = concealOpenCodeV2Tools(body, true);
+          if (toolNameMap) body._v2ToolNameMap = toolNameMap;
+        }
       } else {
-        cloakChatTools(body);
+        if (isOpenCodeFreeTierModel(model)) {
+          const { toolNameMap } = concealOpenCodeV2Tools(body, false);
+          if (toolNameMap) body._v2ToolNameMap = toolNameMap;
+        } else {
+          cloakChatTools(body);
+        }
       }
     }
     return injectReasoningContent({ provider: this.provider, model, body });
@@ -502,15 +786,148 @@ export class OpenCodeExecutor extends BaseExecutor {
 
   async execute(args) {
     const credentials = this.prepareRequestCredentials(args);
+    // M4 — the both-lanes fallback the Star chose. If the v2 gate refuses a
+    // free id with the FreeTierError shape, re-dial ONCE on the v1 lane
+    // (/zen/v1 + v1 identity + v1 fingerprint). Deliberately narrow: a 401,
+    // 429 or 5xx never falls back, because a genuine auth or rate failure must
+    // not be laundered into "the old lane works".
+    if (isOpenCodeFreeTierModel(args.model)) {
+      // transformRequest owns the lane's body work (the tool_choice demotion,
+      // the Responses normalization, and the v2 fingerprint), so it must run
+      // BEFORE the dial — otherwise the raw caller body reaches the wire.
+      const body = this.transformRequest(args.model, args.body, args.stream, credentials);
+      const primary = await this.executeFreeLane({ ...args, body, credentials });
+      if (!primary || !primary.response || primary.response.status !== 403 || !(await isFreeTierErrorResponse(primary.response))) {
+        return primary;
+      }
+      const fallback = await this.executeFreeLane({ ...args, credentials }, true);
+      return fallback || primary;
+    }
     if (isOpencodeResponsesModel(args.model)) {
       const body = this.transformRequest(args.model, args.body, args.stream, credentials);
       return this.executeWithResponsesEndpoint({ ...args, body, credentials });
     }
     return super.execute({ ...args, credentials });
   }
+  // Dial a free id on its chosen lane. `v1` forces the legacy lane so the
+  // caller's own body is re-cloaked with the v1 fingerprint rather than the v2
+  // one — the two lanes want different bodies, not just different headers.
+  async executeFreeLane(args, v1 = false) {
+    const { model, body, stream, credentials, signal, log, proxyOptions = null } = args;
+    const responsesLane = isOpencodeResponsesModel(model);
+    const prepared = v1 ? { ...body } : body;
+    if (v1) {
+      if (prepared && typeof prepared === "object") {
+        if (responsesLane) {
+          // The caller's chat-shaped body has to become a Responses payload
+          // before it can be posted to /responses — the same conversion
+          // executeWithResponsesEndpoint performs on the primary lane.
+          const converted = openaiToOpenAIResponsesRequest(model, prepared, true, credentials);
+          if (Array.isArray(converted.tools)) {
+            const { toolNameMap } = this.concealFingerprintTools(converted);
+            if (toolNameMap) converted._v1ToolNameMap = toolNameMap;
+          }
+          if (converted.max_output_tokens === undefined && (prepared.max_tokens !== undefined || prepared.max_completion_tokens !== undefined)) {
+            converted.max_output_tokens = prepared.max_output_tokens ?? prepared.max_completion_tokens;
+          }
+          delete converted.max_tokens;
+          delete converted.max_completion_tokens;
+          Object.assign(prepared, converted);
+        } else {
+          cloakChatTools(prepared);
+        }
+      }
+    } else if (prepared && typeof prepared === "object") {
+      // The primary v2 lane: the body was already transformed by
+      // transformRequest for free ids, but a direct caller of this helper
+      // (the fallback's own second pass) may not have been — cloak idempotently.
+      if (responsesLane) concealOpenCodeV2Tools(prepared, true);
+      else concealOpenCodeV2Tools(prepared, false);
+    }
+    const url = v1 ? this.buildV1Url(model) : this.buildUrl(model);
+    const headers = this.buildHeaders(credentials, stream, url);
+    const response = await proxyAwareFetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(prepared),
+      signal,
+    }, proxyOptions);
+    if (!response.ok) return { response, url, headers, transformedBody: prepared };
+    if (!response.body) {
+      return { response: new Response("", { status: response.status, headers: response.headers }), url, headers, transformedBody: prepared };
+    }
+    const state = initState("openai");
+    state.model = model;
+    const decoder = new TextDecoder();
+    let buffer = "";
+    const transformStream = new TransformStream({
+      transform(chunk, controller) {
+        buffer += decoder.decode(chunk, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          const parsed = parseSSELine(trimmed);
+          if (!parsed) continue;
+          if (parsed.done && stream === true) {
+            controller.enqueue(new TextEncoder().encode(SSE_DONE));
+            continue;
+          }
+          if (parsed.error) {
+            controller.enqueue(new TextEncoder().encode(formatSSE(parsed.error, "openai")));
+            continue;
+          }
+          // A Responses-lane free id (muse-spark) speaks /responses upstream, so
+          // its SSE must be translated back to the OpenAI chat shape the client
+          // expects — exactly as executeWithResponsesEndpoint does.
+          const outChunk = isOpencodeResponsesModel(model)
+            ? openaiResponsesToOpenAIResponse(parsed, state)
+            : parsed;
+          if (outChunk) {
+            const restored = OpenCodeExecutor.restoreChunkToolNames(outChunk, v1 ? prepared?._v1ToolNameMap : prepared?._v2ToolNameMap);
+            controller.enqueue(new TextEncoder().encode(formatSSE(restored, "openai")));
+          }
+        }
+      },
+      flush(controller) {
+        if (buffer.trim()) {
+          const parsed = parseSSELine(buffer.trim());
+          if (parsed) controller.enqueue(new TextEncoder().encode(formatSSE(parsed, "openai")));
+        }
+      },
+    });
+    return {
+      response: new Response(response.body.pipeThrough(transformStream), {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      }),
+      url,
+      headers,
+      transformedBody: prepared,
+    };
+  }
+  // The v1 endpoint for a free id — what this executor dialed before the v2
+  // gate moved, kept only for the fallback.
+  buildV1Url(model) {
+    const base = this.config.baseUrl;
+    if (isOpencodeResponsesModel(model)) return `${base}/zen/v1/responses`;
+    return MESSAGES_MODELS.has(model)
+      ? `${base}/zen/v1/messages`
+      : `${base}/zen/v1/chat/completions`;
+  }
 
   buildUrl(model) {
     const base = this.config.baseUrl;
+    // The v2 gate: free-tier ids no longer live at /zen/v1 at all (2026-10-15,
+    // ported from 9router-go v1.9.12). A /zen/v1 call for them answers 403
+    // FreeTierError, so the endpoint follows the free-tier predicate.
+    if (isOpenCodeFreeTierModel(model)) {
+      return isOpencodeResponsesModel(model)
+        ? `${base}/inference/v1/responses`
+        : `${base}/inference/v1/chat/completions`;
+    }
     if (isOpencodeResponsesModel(model)) return `${base}/zen/v1/responses`;
     return MESSAGES_MODELS.has(model)
       ? `${base}/zen/v1/messages`
@@ -644,6 +1061,24 @@ export class OpenCodeExecutor extends BaseExecutor {
     const downstreamReq = normalizeRequestId(lower["x-opencode-request"]);
     const requestId = credentials?.[REQ_FIELD] || downstreamReq || generateRequestId();
 
+    // The v2 gate reads a different identity than the v1 lane. A free-tier id
+    // travels as the v2 CLI: the versioned v2 UA, `x-opencode-client: cli`, the
+    // session mirrored on all four headers, the project back to the literal
+    // "global", and NO `x-opencode-request` — the v2 gate rejects that header
+    // outright (9router-go v1.9.12, internal/proxy/opencode.go).
+    if (isOpenCodeFreeTierModel(url)) {
+      const v2 = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${hasKey ? key : "public"}`,
+        "x-api-key": hasKey ? key : "public",
+        "User-Agent": isOpencodeDownstream ? downstreamUa : OPENCODE_V2_UA,
+        "x-opencode-client": OPENCODE_V2_CLIENT,
+        "x-opencode-project": OPENCODE_V2_PROJECT,
+        "Accept": stream ? "text/event-stream" : "*/*",
+      };
+      for (const name of SESSION_MIRROR_HEADERS) v2[name] = session;
+      return v2;
+    }
     const headers = {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${hasKey ? key : "public"}`,
