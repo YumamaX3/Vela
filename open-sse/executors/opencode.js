@@ -1,7 +1,16 @@
 import crypto from "crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
-import { OPENCODE_FREE_TIER_MODELS, MUSE_SPARK_FREE_RE } from "../providers/registry/opencode.js";
+import {
+  isFreeTierModel,
+  getModelFacts,
+  getEndpoints,
+  ensureFresh as ensureCatalogFresh,
+} from "../services/opencodeCatalog.js";
+import { getCliUserAgent, ensureCliVersionFresh } from "../services/opencodeIdentity.js";
 import { MEMORY_CONFIG } from "../config/runtimeConfig.js";
 import { getThinkingLevels } from "../providers/thinkingLevels.js";
 import { injectReasoningContent } from "../utils/reasoningContentInjector.js";
@@ -40,25 +49,34 @@ const OPENCODE_UA = "opencode/1.18.31 ai-sdk/provider-utils/4.0.46 runtime/bun/1
 // there now answers 403 FreeTierError. The keyless free lane dials
 // /inference/v1 instead, and the gate reads a different identity:
 //   • User-Agent must wear the v2 SHAPE `opencode/<channel>/<version>/<client>`
-//     (a v1 shape is rejected outright), the shipped form being:
-const OPENCODE_V2_UA = "opencode/latest/2.0.29/cli";
+//     (a v1 shape is rejected outright). The version is RESOLVED from the update
+//     API (opencodeIdentity.js), not remembered — see getCliUserAgent() below.
 //   • `x-opencode-client` becomes "cli", not "desktop"
 const OPENCODE_V2_CLIENT = "cli";
 //   • one session is mirrored across FOUR headers — a downstream hint must move
 //     every mirror together (internal/proxy/opencode.go BuildOpenCodeHeaders)
 const SESSION_MIRROR_HEADERS = ["x-opencode-session", "x-opencode-session-id", "x-session-affinity", "x-session-id"];
 //   • `x-opencode-request` is REJECTED by the v2 gate and must never be sent
-//   • `x-opencode-project` reverts to the literal "global"
-const OPENCODE_V2_PROJECT = "global";
-// The curated free-tier ids and the Muse Spark free-family pattern are DEFINED
-// in the registry (open-sse/providers/registry/opencode.js) so the list has
-// exactly one source of truth; the executor consumes them here. Never fork this
-// list — a second copy is how a free id ends up on the retired /zen/v1 gate.
+//   • `x-opencode-project` is a derived project id (sha1 of the checkout), not
+//     a constant — resolveProjectId() below; "global" is only the last resort
+
+// The free-tier ids are DERIVED from upstream's own catalog
+// (open-sse/services/opencodeCatalog.js) — the curated registry set survives
+// only as the cold-boot fallback. Measured 2026-10-20: of the 10 curated ids,
+// 5 were deprecated and 1 was absent upstream, while 6 live free ids could not
+// be named by the curated set at all. A hand-maintained set is stale in BOTH
+// directions by design, which is exactly why it is only the floor now.
 // Does this model id travel the v2 gate? Strips a "(variant)" suffix first, the
 // same normalization the rest of this executor applies before registry lookups.
 export function isOpenCodeFreeTierModel(model) {
-  const base = baseModelId(model);
-  return OPENCODE_FREE_TIER_MODELS.has(base) || MUSE_SPARK_FREE_RE.test(base);
+  return isFreeTierModel(model);
+}
+// The v2 lane is identified by its endpoint, not by the model that dials it: a
+// free id on the v1 fallback still needs v1 hands. `/inference/` is the v2 wall
+// (`/inference/v1/…` today, `/inference/openai/v1/…` in the catalog); `/zen/`
+// is the legacy lane kept only for the fallback and for paid ids.
+export function isV2Lane(url) {
+  return typeof url === "string" && /\/inference\//.test(url);
 }
 // ── The v2 body fingerprint ────────────────────────────────────────────────
 // The v2 gate no longer fingerprints by tool NAME CASE — it wants OpenCode's
@@ -127,7 +145,16 @@ function openCodeV2Note(appended) {
 // Returns the map of sent-name → original name so the response side restores
 // the caller's own spelling, exactly as concealFingerprintTools does.
 function concealOpenCodeV2Tools(body, flat = false) {
-  if (!body || !Array.isArray(body.tools)) return { body, toolNameMap: null };
+  if (!body || typeof body !== "object") return { body, toolNameMap: null };
+  // The gate anchors on a TOOL named `read` — not on the headers, not on the
+  // project id. Measured 2026-10-20, three interleaved rounds: the identical
+  // request answered 200 with `read` present and 403 FreeTierError without it,
+  // on both lanes and every identity shape. A caller that asks for no tools
+  // therefore still needs the anchor, or the v2 lane refuses and the request
+  // survives only by falling back to the retired v1 lane (which re-cloaks with
+  // the anchors, hiding the defect behind a second dial). Seeding an empty list
+  // is what lets the append loop below do its work.
+  if (!Array.isArray(body.tools)) body.tools = [];
   const toolNameMap = new Map();
   const nameOf = (tool) => {
     if (!tool || typeof tool !== "object") return "";
@@ -290,20 +317,29 @@ function aliasOpenCodeV2Choice(body, toolNameMap) {
     body.tool_choice = { ...body.tool_choice, function: { ...body.tool_choice.function, name: toAlias.get(body.tool_choice.function.name) } };
   }
 }
-// Does this 403 carry the free-tier gate's refusal? The fallback re-dials on
-// the v1 lane ONLY for this shape — a 403 that is really an auth or network
-// refusal must never be laundered into "the old lane works". Body text is read
-// once and the response is cloned so the caller's stream is untouched.
-async function isFreeTierErrorResponse(response) {
-  if (!response || response.status !== 403) return false;
+// What kind of 403 is this? Upstream answers ONE message — "OpenCode's free
+// tier can only be used from within OpenCode" — for at least four unrelated
+// causes: a refused egress IP, a missing `read` tool, a malformed User-Agent,
+// and a missing session header (measured by azrinaldi/opencode-free-bridge
+// 2026-10-18). The bridge's own lesson is that an explicit IP-ABUSE block is
+// terminal: retrying it amplifies the penalty and returns the same refusal.
+//
+// So this is a classifier, not a boolean. `"ip-abuse"` must NOT fall back,
+// `"free-tier"` may re-dial the legacy lane once, and `null` (auth, 5xx, a
+// network refusal) is never laundered into "the old lane works".
+async function classifyGateRejection(response) {
+  if (!response || response.status !== 403) return null;
   try {
     const text = await response.clone().text();
-    if (!text) return false;
-    return /FreeTierError|free tier can only be used/i.test(text);
+    if (!text) return null;
+    if (/abusive traffic|Detect Abuse Traffic|Abuse of traffic|abuse of traffic/i.test(text)) return "ip-abuse";
+    if (/FreeTierError|free tier can only be used/i.test(text)) return "free-tier";
+    return null;
   } catch {
-    return false;
+    return null;
   }
 }
+
 // Union Alpha is served by /zen/v1/messages (Anthropic Messages API) alone —
 // see open-sse/providers/registry/opencode.js (targetFormat: "claude").
 const MESSAGES_MODELS = new Set(["union-alpha"]);
@@ -533,12 +569,59 @@ export function deriveRequestId(sessionId, body) {
   const id = `msg_${secondsHex}${randomPart}`;
   return OPENCODE_REQUEST_RE.test(id) ? id : generateRequestId();
 }
-// A canonical 40-char hex project id (PR #4111). The literal "global" that the
-// older code sent is no longer a shape the gate accepts; it must look like a
-// per-project identifier. A raw client value still wins when it is not the
-// placeholder — see buildHeaders.
-export function generateProjectId() {
-  return crypto.randomBytes(20).toString("hex");
+// ── The project identity, derived exactly as the CLI derives it ─────────────
+// Ported from azrinaldi/opencode-free-bridge (`getProjectId`,
+// server.js:1024). The gate never sees a random id from a real client: the CLI
+// computes `sha1("git-remote:<host>/<path>")` for a checkout,
+// `sha1("directory:<abs path>")` otherwise, and an `opencode` marker file in the
+// directory overrides both. Measured 2026-10-20: the gate accepted BOTH this
+// derived value and the literal "global", so derivation is FIDELITY — a shape a
+// real client can emit — not the thing that opens the gate. What is not
+// cosmetic is the caching: a project id minted per request is itself a shape no
+// client emits, and the v1 lane used to do exactly that.
+let cachedProjectId = null;
+
+export function resolveProjectId(cwd = process.cwd()) {
+  if (cachedProjectId) return cachedProjectId;
+  try {
+    const marker = path.join(cwd, "opencode");
+    if (fs.existsSync(marker)) {
+      const value = fs.readFileSync(marker, "utf8").trim();
+      if (value) return (cachedProjectId = value);
+    }
+
+    let remote = "";
+    try {
+      remote = execFileSync("git", ["remote", "get-url", "origin"], {
+        cwd,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+        timeout: 2000,
+      }).trim();
+    } catch {
+      // No git, no remote, or a sandbox without the binary — directory below.
+    }
+
+    if (remote) {
+      const normalized = remote
+        .replace(/^[a-z]+:\/\//i, "")
+        .replace(/^git@([^:]+):/i, "$1/")
+        .replace(/\.git$/i, "")
+        .replace(/\/+$/, "");
+      if (normalized) {
+        return (cachedProjectId = crypto.createHash("sha1").update(`git-remote:${normalized}`).digest("hex"));
+      }
+    }
+
+    return (cachedProjectId = crypto.createHash("sha1").update(`directory:${cwd}`).digest("hex"));
+  } catch {
+    return (cachedProjectId = "global");
+  }
+}
+
+/** Test seam — forget the cached checkout identity. */
+export function __resetProjectId() {
+  cachedProjectId = null;
 }
 // Strip the thinking suffix "model(level)" so registry lookups hit the base id.
 function baseModelId(model) {
@@ -692,6 +775,57 @@ function sanitizeResponsesItems(body) {
   });
 }
 
+// ── The token-budget floor (ported from the bridge's token-budget.js) ───────
+// Reasoning models spend the SAME output budget on chain-of-thought as on the
+// visible answer. A client that sends max_tokens: 50 (a probe, a title, a health
+// check) can therefore receive finish_reason "length" with empty content — no
+// error, no text, tokens still billed. The bridge measured exactly that against
+// this gateway (50 → empty, 256 → empty for big-pickle) and adopted the additive
+// budget the wider ecosystem settled on: answer + thinking headroom.
+//
+// Vela diverges from the bridge in ONE place, deliberately: the bridge invents a
+// cap when the client sent none, while a multi-provider gateway must not. An
+// absent cap means "the provider's default", and inventing 131072 could exceed a
+// model's real ceiling for the 118 ids this executor also serves. So this only
+// RAISES a value the caller actually sent, and only clamps to a ceiling the
+// catalog states — never to a remembered one.
+const MIN_ANSWER_TOKENS = 1024;
+const THINKING_BUDGET = 4096;
+const MIN_PLAIN_TOKENS = 512;
+// The bridge's global ceiling. Without it, adding headroom to a request that
+// already asked for the maximum would ask for MORE than the maximum — a number
+// no client emits and no model accepts.
+const MAX_OUTPUT_TOKENS = 131072;
+
+function raiseTokenBudget(body, keys, model) {
+  if (!body || typeof body !== "object") return;
+  const present = keys.filter((k) => {
+    const v = body[k];
+    return v !== undefined && v !== null && typeof v !== "boolean";
+  });
+  if (!present.length) return;
+
+  const facts = getModelFacts(model);
+  const wantsReasoning = facts?.reasoning === true
+    || (typeof body.reasoning_effort === "string" && body.reasoning_effort !== "none");
+  const ceiling = Number(facts?.maxOutput) > 0
+    ? Math.min(MAX_OUTPUT_TOKENS, Number(facts.maxOutput))
+    : MAX_OUTPUT_TOKENS;
+
+  for (const key of present) {
+    const raw = Number(body[key]);
+    if (!Number.isFinite(raw) || raw < 0) continue;
+    const wanted = Math.floor(raw);
+    const effective = wantsReasoning
+      ? Math.max(wanted, MIN_ANSWER_TOKENS) + THINKING_BUDGET
+      : Math.max(wanted, MIN_PLAIN_TOKENS);
+    // Never lower a caller's request unless the catalog itself says the model
+    // cannot emit that many tokens.
+    const next = Math.min(effective, ceiling);
+    if (next !== wanted) body[key] = next;
+  }
+}
+
 function normalizeOpencodeReasoning(model, body) {
   const current = body.reasoning;
   const currentReasoning = current && typeof current === "object" && !Array.isArray(current)
@@ -759,6 +893,7 @@ export class OpenCodeExecutor extends BaseExecutor {
         }
         delete body.max_tokens;
         delete body.max_completion_tokens;
+        raiseTokenBudget(body, ["max_output_tokens"], model);
         normalizeOpencodeReasoning(model, body);
         // Pooled credentials: a reasoning item issued to one account cannot be
         // replayed by another, and the lane is stateless — strip the prior-turn
@@ -779,6 +914,7 @@ export class OpenCodeExecutor extends BaseExecutor {
         } else {
           cloakChatTools(body);
         }
+        raiseTokenBudget(body, ["max_completion_tokens", "max_tokens"], model);
       }
     }
     return injectReasoningContent({ provider: this.provider, model, body });
@@ -792,14 +928,26 @@ export class OpenCodeExecutor extends BaseExecutor {
     // 429 or 5xx never falls back, because a genuine auth or rate failure must
     // not be laundered into "the old lane works".
     if (isOpenCodeFreeTierModel(args.model)) {
+      // The free tier is a catalog fact (opencodeCatalog.js), and the refresh
+      // is LAZY — never a timer, exactly as the sibling bridge runs it. This
+      // request proceeds on the current snapshot; the next one sees the new
+      // catalog. The TTL and the in-flight dedupe make every call after the
+      // first free.
+      ensureCatalogFresh();
+      // The UA's version rots the day upstream ships — the same lazy, deduped
+      // refresh keeps the fingerprint current without a release.
+      ensureCliVersionFresh();
       // transformRequest owns the lane's body work (the tool_choice demotion,
       // the Responses normalization, and the v2 fingerprint), so it must run
       // BEFORE the dial — otherwise the raw caller body reaches the wire.
       const body = this.transformRequest(args.model, args.body, args.stream, credentials);
       const primary = await this.executeFreeLane({ ...args, body, credentials });
-      if (!primary || !primary.response || primary.response.status !== 403 || !(await isFreeTierErrorResponse(primary.response))) {
-        return primary;
-      }
+      // Classify, don't just test: an explicit IP-abuse block is terminal and
+      // a second dial only deepens the penalty (the bridge's measured lesson).
+      const rejection = primary?.response?.status === 403
+        ? await classifyGateRejection(primary.response)
+        : null;
+      if (rejection !== "free-tier") return primary;
       const fallback = await this.executeFreeLane({ ...args, credentials }, true);
       return fallback || primary;
     }
@@ -923,10 +1071,25 @@ export class OpenCodeExecutor extends BaseExecutor {
     // The v2 gate: free-tier ids no longer live at /zen/v1 at all (2026-10-15,
     // ported from 9router-go v1.9.12). A /zen/v1 call for them answers 403
     // FreeTierError, so the endpoint follows the free-tier predicate.
+    //
+    // The PATHS are catalog-derived (2026-10-20, ported from
+    // azrinaldi/opencode-free-bridge): upstream publishes its own base in
+    // `models.opencode.ai/api.json` as `opencode.api`, and today that base is
+    // `https://opencode.ai/inference/openai/v1` — one segment deeper than the
+    // hardcoded `/inference/v1`. Following the published base means a future
+    // migration is picked up without a release. The shipped fallback keeps
+    // `/inference/v1` for a cold, offline start.
+    //
+    // Measured the same day: the published base answers 200 for the catalog-free
+    // ids once the request carries the gate's `read` tool anchor, while a
+    // tool-less probe draws 403 FreeTierError from every endpoint alike. The
+    // endpoint choice follows upstream's own publication; the anchor is what
+    // opens the gate.
     if (isOpenCodeFreeTierModel(model)) {
-      return isOpencodeResponsesModel(model)
-        ? `${base}/inference/v1/responses`
-        : `${base}/inference/v1/chat/completions`;
+      const endpoints = getEndpoints();
+      if (isOpencodeResponsesModel(model)) return endpoints.responsesUrl;
+      if (MESSAGES_MODELS.has(model)) return `${base}/zen/v1/messages`;
+      return endpoints.chatUrl;
     }
     if (isOpencodeResponsesModel(model)) return `${base}/zen/v1/responses`;
     return MESSAGES_MODELS.has(model)
@@ -987,7 +1150,7 @@ export class OpenCodeExecutor extends BaseExecutor {
   // executor does for Copilot's /responses lane.
   async executeWithResponsesEndpoint({ model, body, stream, credentials, signal, log, proxyOptions = null }) {
     const url = this.buildUrl(model);
-    const headers = this.buildHeaders(credentials, stream);
+    const headers = this.buildHeaders(credentials, stream, url, model);
     const converted = openaiToOpenAIResponsesRequest(model, body, true, credentials);
     const { body: transformedBody, toolNameMap } = this.concealFingerprintTools(converted);
     log?.debug?.("OPENCODE", `Responses lane for ${model}`);
@@ -1042,7 +1205,7 @@ export class OpenCodeExecutor extends BaseExecutor {
     };
   }
 
-  buildHeaders(credentials, stream = true, url = "") {
+  buildHeaders(credentials, stream = true, url = "", model = null) {
     const raw = credentials?.rawHeaders || {};
     const lower = {};
     for (const [k, v] of Object.entries(raw)) lower[k.toLowerCase()] = v;
@@ -1066,14 +1229,33 @@ export class OpenCodeExecutor extends BaseExecutor {
     // session mirrored on all four headers, the project back to the literal
     // "global", and NO `x-opencode-request` — the v2 gate rejects that header
     // outright (9router-go v1.9.12, internal/proxy/opencode.go).
-    if (isOpenCodeFreeTierModel(url)) {
+    //
+    // THE LANE IS A PROPERTY OF THE URL, NOT THE MODEL. This branch used to test
+    // `isOpenCodeFreeTierModel(url)` — a model predicate fed a URL string, which
+    // is false for every input, so the v2 identity was dead code and every free
+    // request dialled /inference/… wearing v1 hands (desktop client,
+    // `x-opencode-request`, one session mirror). The v1 fallback
+    // (buildV1Url → /zen/v1) must still send v1 hands, which is exactly why the
+    // URL — not the free-tier predicate — has to decide.
+    //
+    // Measured 2026-10-20, and this is the correction worth keeping: a probe
+    // WITHOUT the gate's `read` tool draws the identical FreeTierError from both
+    // lanes and every identity shape — which is exactly why that message cannot be
+    // read as "bad headers". With `read` present, the same v2 identity answered
+    // 200 for 9 of the 10 catalog-free models (the tenth was a 429 throttle), and
+    // both `x-opencode-project: global` and a derived id were accepted. So this
+    // fix is a contract correction — the identity the code claimed was not the
+    // identity the wire carried — while the anchor that actually opens the gate
+    // is the tool, which concealOpenCodeV2Tools supplies.
+    if (isV2Lane(url)) {
       const v2 = {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${hasKey ? key : "public"}`,
         "x-api-key": hasKey ? key : "public",
-        "User-Agent": isOpencodeDownstream ? downstreamUa : OPENCODE_V2_UA,
+        "User-Agent": isOpencodeDownstream ? downstreamUa : getCliUserAgent(),
         "x-opencode-client": OPENCODE_V2_CLIENT,
-        "x-opencode-project": OPENCODE_V2_PROJECT,
+        // The CLI never emits the literal "global" — see resolveProjectId.
+        "x-opencode-project": resolveProjectId(),
         "Accept": stream ? "text/event-stream" : "*/*",
       };
       for (const name of SESSION_MIRROR_HEADERS) v2[name] = session;
@@ -1092,7 +1274,7 @@ export class OpenCodeExecutor extends BaseExecutor {
       // fresh canonical 40-char hex id (PR #4111).
       "x-opencode-project": (() => {
         const supplied = String(lower["x-opencode-project"] || "").trim();
-        return supplied && supplied !== "global" ? supplied : generateProjectId();
+        return supplied && supplied !== "global" ? supplied : resolveProjectId();
       })(),
       "Accept": stream ? "text/event-stream" : "*/*",
     };

@@ -46,5 +46,17 @@ export async function register() {
     } catch (err) {
       console.warn("[instrumentation] Model catalog sync failed:", err.message);
     }
+
+    // OpenCode free-tier catalog (fire-and-forget). The free lane's membership
+    // and endpoints are derived from models.opencode.ai/api.json — ported from
+    // azrinaldi/opencode-free-bridge, 2026-10-20. The service also refreshes
+    // lazily on the first free request, so this is a warm start, never a gate:
+    // a boot-time failure leaves the shipped fallback standing.
+    try {
+      const { refreshOpenCodeCatalog } = await import("open-sse/services/opencodeCatalog.js");
+      refreshOpenCodeCatalog().catch(() => {});
+    } catch (err) {
+      console.warn("[instrumentation] OpenCode catalog warm-up failed:", err.message);
+    }
   }
 }

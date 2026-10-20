@@ -163,7 +163,11 @@ describe("OpenCode Free Muse Spark thinking", () => {
       });
 
       expect(out.reasoning).toEqual({ effort: "high", summary: "auto" });
-      expect(out.max_output_tokens).toBe(2048);
+      // A reasoning request carries the additive budget (token-budget law ported
+      // from azrinaldi/opencode-free-bridge): max(2048, 1024) + 4096 = 6144.
+      // The routing assertion above is what this test guards; 2048 was the
+      // pre-headroom value and would let the model spend the whole cap thinking.
+      expect(out.max_output_tokens).toBe(6144);
       expect(out.max_tokens).toBeUndefined();
     }
   });
