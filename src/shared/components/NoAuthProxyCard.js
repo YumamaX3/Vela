@@ -5,6 +5,7 @@ import PropTypes from "prop-types";
 import Card from "./Card";
 import Select from "./Select";
 import Badge from "./Badge";
+import { mergeProviderStrategy } from "@/shared/utils/providerStrategy";
 
 const NONE_PROXY_POOL_VALUE = "__none__";
 const STRATEGIES = [
@@ -14,7 +15,7 @@ const STRATEGIES = [
   { value: "smart", label: "Smart (fitness-weighted)" },
 ];
 
-export default function NoAuthProxyCard({ providerId }) {
+export default function NoAuthProxyCard({ providerId, hybrid = false }) {
   const [proxyPools, setProxyPools] = useState([]);
   const [proxyPoolId, setProxyPoolId] = useState(NONE_PROXY_POOL_VALUE);
   const [rotateStrategy, setRotateStrategy] = useState("none");
@@ -42,14 +43,10 @@ export default function NoAuthProxyCard({ providerId }) {
       const res = await fetch("/api/settings", { cache: "no-store" });
       const data = res.ok ? await res.json() : {};
       const current = data.providerStrategies || {};
-      const override = { ...(current[providerId] || {}) };
-      if (poolId === NONE_PROXY_POOL_VALUE) delete override.proxyPoolId;
-      else override.proxyPoolId = poolId;
-      if (strategy === "none") delete override.rotateStrategy;
-      else override.rotateStrategy = strategy;
-      const updated = { ...current };
-      if (Object.keys(override).length === 0) delete updated[providerId];
-      else updated[providerId] = override;
+      const updated = mergeProviderStrategy(current, providerId, {
+        proxyPoolId: poolId === NONE_PROXY_POOL_VALUE ? null : poolId,
+        rotateStrategy: strategy === "none" ? null : strategy,
+      });
       await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -84,8 +81,12 @@ export default function NoAuthProxyCard({ providerId }) {
           <span className="material-symbols-outlined text-xl">lock_open</span>
         </div>
         <div className="flex-1">
-          <p className="text-sm font-medium">No authentication required</p>
-          <p className="text-xs text-text-muted">This provider is ready to use. Optionally route requests through a proxy pool to bypass IP-based limits.</p>
+          <p className="text-sm font-medium">{hybrid ? "Keyless lane proxy" : "No authentication required"}</p>
+          <p className="text-xs text-text-muted">
+            {hybrid
+              ? "With no API key connected, requests ride the keyless free lane. Route that lane through a proxy pool to bypass IP-based limits; adding a key later takes precedence."
+              : "This provider is ready to use. Optionally route requests through a proxy pool to bypass IP-based limits."}
+          </p>
         </div>
         {savedFlash && <Badge variant="success" size="sm">Saved</Badge>}
       </div>
@@ -132,4 +133,7 @@ export default function NoAuthProxyCard({ providerId }) {
 
 NoAuthProxyCard.propTypes = {
   providerId: PropTypes.string.isRequired,
+  // Rendered beneath a Connections card for hybrid freeTier providers whose
+  // keyless lane only engages while no connection exists.
+  hybrid: PropTypes.bool,
 };

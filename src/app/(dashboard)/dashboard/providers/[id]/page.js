@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
 import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, IFlowCookieModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
+import { mergeProviderStrategy } from "@/shared/utils/providerStrategy";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, getProviderAlias, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
@@ -378,19 +379,14 @@ export default function ProviderDetailPage() {
       const settingsData = settingsRes.ok ? await settingsRes.json() : {};
       const current = settingsData.providerStrategies || {};
 
-      // Build override: null strategy means remove override, use global
-      const override = {};
-      if (strategy) override.fallbackStrategy = strategy;
-      if (strategy === "round-robin" && stickyLimit !== "") {
-        override.stickyRoundRobinLimit = Number(stickyLimit) || 3;
-      }
-
-      const updated = { ...current };
-      if (Object.keys(override).length === 0) {
-        delete updated[providerId];
-      } else {
-        updated[providerId] = override;
-      }
+      // Merge, never replace: proxyPoolId/rotateStrategy belong to the keyless
+      // lane card and must survive a Round Robin toggle (and vice versa).
+      const updated = mergeProviderStrategy(current, providerId, {
+        fallbackStrategy: strategy || null,
+        stickyRoundRobinLimit: strategy === "round-robin" && stickyLimit !== ""
+          ? Number(stickyLimit) || 3
+          : null,
+      });
 
       await fetch("/api/settings", {
         method: "PATCH",
@@ -1508,6 +1504,7 @@ export default function ProviderDetailPage() {
       {isFreeNoAuth ? (
         <NoAuthProxyCard providerId={providerId} />
       ) : (
+        <>
         <Card>
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold">Connections</h2>
@@ -1726,6 +1723,13 @@ export default function ProviderDetailPage() {
             </>
           )}
         </Card>
+        {/* Hybrid keyless lane (OpenCode Zen et al.): with no active
+            connection the gateway rides the keyless lane, so its proxy pool
+            and rotation must be reachable without adding a fake key. */}
+        {hasKeylessTestLane && connections.length === 0 && (
+          <NoAuthProxyCard providerId={providerId} hybrid />
+        )}
+        </>
       )}
 
       {/* Models */}

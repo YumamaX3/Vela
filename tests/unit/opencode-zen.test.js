@@ -38,6 +38,7 @@ vi.mock("@/shared/constants/providers.js", () => ({
 vi.mock("@/sse/utils/logger.js", () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn() }));
 
 const { getProviderCredentials } = await import("../../src/sse/services/auth.js");
+const { resolveConnectionProxyConfig } = await import("@/lib/network/connectionProxy");
 
 describe("OpenCode Zen registry rebrand", () => {
   it("renames the provider and moves it into the freeTier category", () => {
@@ -234,6 +235,25 @@ describe("hybrid freeTier noAuth lane in getProviderCredentials", () => {
     dbMocks.getProviderConnections.mockResolvedValue([]);
     const creds = await getProviderCredentials("plain-tier");
     expect(creds).toBeNull();
+  });
+
+  it("applies the per-provider proxy pool to the virtual keyless lane", async () => {
+    // The UI now exposes the keyless proxy card; this is the contract it writes to.
+    dbMocks.getProviderConnections.mockResolvedValue([]);
+    dbMocks.getSettings.mockResolvedValue({ providerStrategies: { zen: { proxyPoolId: "pool-7" } } });
+    resolveConnectionProxyConfig.mockResolvedValueOnce({
+      connectionProxyEnabled: true,
+      connectionProxyUrl: "socks5://127.0.0.1:1080",
+      connectionNoProxy: "",
+      proxyPoolId: "pool-7",
+      vercelRelayUrl: "",
+    });
+    const creds = await getProviderCredentials("zen");
+    expect(resolveConnectionProxyConfig).toHaveBeenCalledWith({ proxyPoolId: "pool-7" });
+    expect(creds.providerSpecificData).toMatchObject({
+      connectionProxyEnabled: true,
+      connectionProxyPoolId: "pool-7",
+    });
   });
 
   it("keeps the category free lane unconditional (regression guard)", async () => {

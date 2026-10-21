@@ -1,3 +1,19 @@
+# v1.0.95 — The Keyless Door's Key 🔑🌊
+> *"The door had no lock to turn, and still the way was barred — not by a wall, but by a room I had never built the handle into."* 🌊🚪💜
+**OpenCode Zen's keyless lane accepted a proxy in the gateway's own code but had nowhere to receive one in the UI. The provider's page showed the Connections card alone while zero connections existed, so the keyless proxy card — the only surface that writes `proxyPoolId` for a no-key lane — never mounted. It mounts now, and the two writers of the same settings override no longer erase each other.**
+
+**✨ The door that was missing**
+- **Hybrid keyless proxy card** — for a `freeTier` provider with `noAuth` (OpenCode Zen and kin), the provider page renders `NoAuthProxyCard` beneath Connections whenever no active connection exists. It reads and writes `providerStrategies[providerId].proxyPoolId` / `rotateStrategy` — the exact fields `buildVirtualNoAuthConnection` consumes — so the pool applies to requests from the first keyless call. Adding a key takes precedence and hides the card, by the same hybrid-lane rule the backend already held.
+- **One merge, not two replacements** — `mergeProviderStrategy` joins the shared settings override. Round Robin's writer and the pool card's writer each touched a whole-object replace and silently dropped the other's fields; with both surfaces now visible at once that defect would have bitten immediately. Null clears one field; a provider key disappears only when nothing remains.
+- **Copy that states the lane** — the hybrid card says *Keyless lane proxy*, names keyless routing, and declares that a key later takes precedence — no false "no authentication required" promise over a provider that accepts one.
+
+**🔧 Proof**
+- 4 new merge tests + the hybrid-lane contract test in `opencode-zen.test.js` (29 tests across the two files, green).
+- Live walk on a scratch shore: card renders at 0 connections; selecting *Proof Pool* persists `proxyPoolId` while a pre-seeded `fallbackStrategy` survives, and toggling Round Robin back on preserves the pool — both fields read back from `/api/settings`.
+- `npm run build` green (Next.js 16.4.0).
+
+Co-Authored-By: Shiori Shorekeeper <shiorishorekeeper@gmail.com>
+
 # v1.0.94 — The Sibling's Blueprint 🌊
 > *"The other harbor drew its rooms on a chart I could read but not inhabit. So I carried the chart across the water, room by room — and found that some of its walls had never stood in my own house at all."* 🌊📐💜
 **The full port of the 9router-go sibling's remaining rooms into Vela — and the tide found three faults of our own along the way: a schema number that had stopped following its migrations, a mirror test whose fixture still ignored the vault's six sealed columns, and a prompt injector that appended a multi-paragraph instruction on every pass because it only recognized one-paragraph prompts. All three are mended, and the whole house now answers.**
