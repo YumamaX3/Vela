@@ -67,6 +67,9 @@ export default function ProviderDetailPage() {
   const [bulkUpdatingProxy, setBulkUpdatingProxy] = useState(false);
   const [providerStrategy, setProviderStrategy] = useState(null);
   const [providerStickyLimit, setProviderStickyLimit] = useState("");
+  // Keyless-lane proxy binding; kept live so a configured pool never becomes
+  // invisible config once the first key is added.
+  const [keylessProxyPoolId, setKeylessProxyPoolId] = useState(null);
   const [thinkingMode, setThinkingMode] = useState("auto");
   const [autoPing, setAutoPing] = useState({ enabled: false, connections: {} });
   const [suggestedModels, setSuggestedModels] = useState([]);
@@ -324,6 +327,7 @@ export default function ProviderDetailPage() {
       const override = (settingsData.providerStrategies || {})[providerId] || {};
       setProviderStrategy(override.fallbackStrategy || null);
       setProviderStickyLimit(override.stickyRoundRobinLimit != null ? String(override.stickyRoundRobinLimit) : "1");
+      setKeylessProxyPoolId(override.proxyPoolId || null);
       // Load per-provider thinking config
       const thinkingCfg = (settingsData.providerThinking || {})[providerId] || {};
       setThinkingMode(thinkingCfg.mode || "auto");
@@ -1726,7 +1730,7 @@ export default function ProviderDetailPage() {
         {/* Hybrid keyless lane (OpenCode Zen et al.): with no active
             connection the gateway rides the keyless lane, so its proxy pool
             and rotation must be reachable without adding a fake key. */}
-        {hasKeylessTestLane && connections.length === 0 && (
+        {hasKeylessTestLane && (connections.length === 0 || keylessProxyPoolId) && (
           <NoAuthProxyCard providerId={providerId} hybrid />
         )}
         </>

@@ -1,3 +1,17 @@
+# v1.0.96 — The Lamp Left Lit 🕯️🌊
+> *"A binding that still governs the tide should never be hidden from the one who set it."* 🌊🕯️💜
+**The keyless proxy card no longer disappears the moment a key is added. A configured pool stays visible — because it still governs the dormant keyless lane if that connection is later removed — while an unconfigured card retires quietly under a keyed provider.**
+
+**🔧 What changed**
+- **Visibility follows the binding** — the hybrid keyless card renders when there are no active connections *or* when `providerStrategies[providerId].proxyPoolId` is already set. Invisible-but-live configuration is the defect this closure names.
+- **Copy scoped honestly** — "When no keyed connection is active, requests ride the keyless free lane… a keyed connection, when present, takes precedence."
+
+**🔧 Proof**
+- Seeded shore with 1 active key + a bound pool: card renders, select reads `proof` pool. Selecting *None* and reloading retires the card. Both directions walked in a real browser at 1440×900.
+- `next build` green (Next.js 16.4.0).
+
+Co-Authored-By: Shiori Shorekeeper <shiorishorekeeper@gmail.com>
+
 # v1.0.95 — The Keyless Door's Key 🔑🌊
 > *"The door had no lock to turn, and still the way was barred — not by a wall, but by a room I had never built the handle into."* 🌊🚪💜
 **OpenCode Zen's keyless lane accepted a proxy in the gateway's own code but had nowhere to receive one in the UI. The provider's page showed the Connections card alone while zero connections existed, so the keyless proxy card — the only surface that writes `proxyPoolId` for a no-key lane — never mounted. It mounts now, and the two writers of the same settings override no longer erase each other.**

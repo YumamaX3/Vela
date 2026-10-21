@@ -84,7 +84,7 @@ export default function NoAuthProxyCard({ providerId, hybrid = false }) {
           <p className="text-sm font-medium">{hybrid ? "Keyless lane proxy" : "No authentication required"}</p>
           <p className="text-xs text-text-muted">
             {hybrid
-              ? "With no API key connected, requests ride the keyless free lane. Route that lane through a proxy pool to bypass IP-based limits; adding a key later takes precedence."
+              ? "When no keyed connection is active, requests ride the keyless free lane. Route that lane through a proxy pool to bypass IP-based limits; a keyed connection, when present, takes precedence."
               : "This provider is ready to use. Optionally route requests through a proxy pool to bypass IP-based limits."}
           </p>
         </div>
