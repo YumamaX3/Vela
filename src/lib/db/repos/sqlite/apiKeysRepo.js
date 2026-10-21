@@ -37,6 +37,7 @@ function rowToPublic(row) {
     rateLimitRpm: row.rateLimitRpm ?? null,
     ipAllowlist: safeParse(row.ipAllowlist),
     category: row.category || null,
+    planId: row.planId || null,
   };
 }
 
@@ -93,8 +94,8 @@ export async function createApiKey(name, opts = {}) {
   const createdAt = new Date().toISOString();
   const v = limits.values;
   db.run(
-    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, description, allowedModels, allowedKinds, allowedProviders, allowedCombos, isInternal, rateLimitRpm, tokenBudgetDaily, spendCapDailyCents, budgetScope, expiresAt, ipAllowlist, category)
-     VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, description, allowedModels, allowedKinds, allowedProviders, allowedCombos, isInternal, rateLimitRpm, tokenBudgetDaily, spendCapDailyCents, budgetScope, expiresAt, ipAllowlist, category, planId)
+     VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       `vela-minted-${id}`,
@@ -116,6 +117,7 @@ export async function createApiKey(name, opts = {}) {
       v.expiresAt ?? null,
       v.ipAllowlist != null ? JSON.stringify(v.ipAllowlist) : null,
       category,
+      opts.planId ?? null,
     ]
   );
   return { record: await getApiKeyById(id), key, keyId, keyPrefix };
@@ -143,7 +145,7 @@ export function getKeyHashForMirror(keyId) {
 const MUTABLE_FIELDS = new Set([
   "name", "description", "allowedModels", "allowedKinds", "allowedProviders", "allowedCombos", "isActive",
   "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
-  "budgetScope", "expiresAt", "ipAllowlist", "category",
+  "budgetScope", "expiresAt", "ipAllowlist", "category", "planId",
 ]);
 const LIMIT_FIELDS = new Set([
   "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",

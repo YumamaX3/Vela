@@ -48,7 +48,7 @@ export async function createNodeSqliteAdapter(filePath) {
   let checkpointTimer = null;
   if (!workerOwnsCheckpoints) {
     checkpointTimer = setInterval(() => {
-      try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch {}
+      try { db.exec("PRAGMA wal_checkpoint(PASSIVE)"); } catch {}
     }, CHECKPOINT_INTERVAL_MS);
     if (typeof checkpointTimer.unref === "function") checkpointTimer.unref();
   }
@@ -57,7 +57,9 @@ export async function createNodeSqliteAdapter(filePath) {
       try { db.exec("PRAGMA wal_autocheckpoint = 0"); } catch {}
       if (checkpointTimer) { clearInterval(checkpointTimer); checkpointTimer = null; }
     },
-    checkpointNow: () => { try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch {} },
+    // mode "truncate" is for a SOLE-WRITER flush (backup/close); the default
+    // PASSIVE never rewrites the WAL under another handle.
+    checkpointNow: (mode = "passive") => { try { db.exec(`PRAGMA wal_checkpoint(${mode === "truncate" ? "TRUNCATE" : "PASSIVE"})`); } catch {} },
   });
 
   function gracefulClose() {
@@ -66,9 +68,17 @@ export async function createNodeSqliteAdapter(filePath) {
     try { db.close(); } catch {}
   }
   const onShutdown = () => gracefulClose();
-  process.once("beforeExit", onShutdown);
-  process.once("SIGINT", () => { onShutdown(); process.exit(0); });
-  process.once("SIGTERM", () => { onShutdown(); process.exit(0); });
+  const onSigInt = () => { gracefulClose(); process.exit(0); };
+  const onSigTerm = () => { gracefulClose(); process.exit(0); };
+  const EXIT_HANDLERS = [
+    ["beforeExit", onShutdown],
+    ["SIGINT", onSigInt],
+    ["SIGTERM", onSigTerm],
+  ];
+  for (const [sig, fn] of EXIT_HANDLERS) process.once(sig, fn);
+  const detachExitHandlers = () => {
+    for (const [sig, fn] of EXIT_HANDLERS) process.removeListener(sig, fn);
+  };
 
   return {
     driver: "node:sqlite",
@@ -102,9 +112,10 @@ export async function createNodeSqliteAdapter(filePath) {
         throw e;
       }
     },
-    checkpoint() { try { db.exec("PRAGMA wal_checkpoint(TRUNCATE)"); } catch {} },
+    checkpoint() { try { db.exec("PRAGMA wal_checkpoint(PASSIVE)"); } catch {} },
     close() {
       clearInterval(checkpointTimer);
+      detachExitHandlers();
       gracefulClose();
     },
     raw: db,

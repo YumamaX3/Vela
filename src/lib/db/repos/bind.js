@@ -84,6 +84,9 @@ const CONFIG_WAVE_NAMES = new Set([
   "getProxyPools", "getProxyPoolById", "createProxyPool", "updateProxyPool", "deleteProxyPool",
   // combosRepo
   "getCombos", "getComboById", "getComboByName", "createCombo", "updateCombo", "deleteCombo",
+  "upsertComboWithId",
+  // plansRepo (migration 023) — key-policy templates
+  "listPlans", "getPlan", "createPlan", "updatePlan", "deletePlan", "countPlanKeys",
   // aliasRepo
   "getModelAliases", "setModelAlias", "deleteModelAlias", "getCustomModels",
   "addCustomModel", "deleteCustomModel", "getMitmAlias", "setMitmAliasAll",
@@ -105,6 +108,17 @@ const SECURITY_WAVE_NAMES = new Set([
   // fallbackRulesRepo
   "getFallbackRules", "getFallbackRuleById", "getRulesForSourceModel", "createFallbackRule",
   "updateFallbackRule", "deleteFallbackRule",
+  // guardrailsRepo (Security & governance — migration 020)
+  "listGuardrailPolicies", "getGuardrailPolicy", "upsertGuardrailPolicy", "deleteGuardrailPolicy",
+  "insertGuardrailLog", "listGuardrailLogs", "deleteGuardrailLogs",
+  // vaultRepo (Security & governance — migration 021)
+  "getVaultCounts", "listConnectionsNeedingSeal", "migratePlaintextCredentials",
+  "rewrapConnectionDEKs",
+  // deprecationsRepo (kv scope "modelDeprecations")
+  "deprecationKey", "listModelDeprecations", "getModelDeprecation",
+  "recordModelDeprecation", "clearModelDeprecation", "retainLiveModels",
+  // compressionAnalyticsRepo (read-only)
+  "getCompressionAnalyticsSummary",
 ]);
 
 /** The A9 usage-wave surface — the full usageRepo contract. W1-C adds the

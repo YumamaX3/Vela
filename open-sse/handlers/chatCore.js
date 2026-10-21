@@ -13,6 +13,15 @@ import { createErrorResult, parseUpstreamError, formatProviderError } from "../u
 import { HTTP_STATUS, TOKEN_SAVER_HEADER } from "../config/runtimeConfig.js";
 import { handleBypassRequest } from "../utils/bypassHandler.js";
 import { trackPendingRequest, appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
+import {
+  resolveGuardrail,
+  scanInboundBody,
+  scanOutboundPayload,
+  auditDecision,
+  BLOCK_STATUS,
+  BLOCKED_INBOUND,
+  BLOCKED_OUTBOUND,
+} from "@/lib/guardrails/pipeline.js";
 import { getExecutor } from "../executors/index.js";
 import { supportsGrokCliReasoningEffort } from "../config/grokCli.js";
 import { buildRequestDetail, extractRequestConfig } from "./chatCore/requestDetail.js";
@@ -24,6 +33,7 @@ import { dedupeTools } from "../utils/toolDeduper.js";
 import { detectLoop } from "../utils/loopGuard.js"; // W3 — loop discipline
 import { injectCaveman } from "../rtk/caveman.js";
 import { injectPonytail } from "../rtk/ponytail.js";
+import { injectADHD } from "../rtk/adhd.js";
 import { injectTerminationPrompt, injectToolProtocolPrompt, needsTerminationPrompt } from "../rtk/terminationPrompt.js"; // W3 — loop discipline
 import { applyUserInjectors } from "../rtk/userInjectors.js"; // v0.9.19 — operator injectors
 import { compressMessages, formatRtkLog } from "../rtk/index.js";
@@ -155,7 +165,7 @@ export function maskUrlForLog(raw) {
   }
 }
 
-export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, headroomTimeoutMs, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking, userInjectors = null, combo = null, loopGuardEnabled = true }) {
+export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, headroomTimeoutMs, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, adhdEnabled, adhdLevel, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking, userInjectors = null, combo = null, loopGuardEnabled = true }) {
   const { provider, model } = modelInfo;
   const requestStartTime = Date.now();
   // Stable per-session color so all lines of one CLI conversation share a tag
@@ -393,6 +403,11 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     injectPonytail(translatedBody, finalFormat, ponytailLevel);
     xf.push(`PONYTAIL:${ponytailLevel}`);
   }
+  // ADHD: action-first output style, injected last among the style prompts.
+  if (tokenSaverEnabled && adhdEnabled && adhdLevel) {
+    injectADHD(translatedBody, finalFormat, adhdLevel);
+    xf.push(`ADHD:${adhdLevel}`);
+  }
   // W3 · Loop discipline — after RTK compression, before dispatch.
   // Tool-protocol notice for providers that leak tool intent into content.
   if (TOOL_PROTOCOL_PROMPT_PROVIDERS.has(provider)) {
@@ -448,6 +463,34 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // Pin cache breakpoints to the final body — every saver above can reshape
   // system/tools/messages, and a stale anchor costs a full prefix rewrite.
   if (passthrough && clientTool === "claude") anchorClaudeCache(translatedBody);
+
+  // GUARDRAILS — INBOUND TAP (ported from 9router-go `internal/guardrails`).
+  //
+  // Scans the body that is about to cross the boundary — after every saver,
+  // after injectors, after pxpipe — because that final body is what the
+  // provider will actually read. A block returns 400 and never dispatches;
+  // a mask hands the executor the rewritten body; warn/log_only record the
+  // finding and leave the bytes untouched. The whole tap is fail-open: a
+  // policy table that cannot be read must not take the harbor down.
+  let inboundGuardrail = null;
+  try {
+    inboundGuardrail = await resolveGuardrail({ provider, model, chain: combo, apiKey, direction: "inbound" });
+    if (inboundGuardrail) {
+      const decision = scanInboundBody(inboundGuardrail, translatedBody);
+      if (decision.findings.length) {
+        auditDecision({ guardrail: inboundGuardrail, decision, direction: "inbound", provider, model, connectionId });
+      }
+      if (decision.action === "block") {
+        appendRequestLog({ model, provider, connectionId, status: `BLOCKED ${HTTP_STATUS.BAD_REQUEST}` }).catch(() => {});
+        if (log?.errorLine) log.errorLine(reqTag, "🛡", `guardrail blocked request · ${provider}/${model} · ${decision.findings.length} finding(s)`);
+        return createErrorResult(HTTP_STATUS.BAD_REQUEST, BLOCKED_INBOUND);
+      }
+      if (decision.mutated) {
+        translatedBody = decision.value;
+        if (log?.line) log.line(reqTag, "🛡", `guardrail masked ${decision.findings.length} value(s) · ${provider}/${model}`);
+      }
+    }
+  } catch { /* fail-open: guardrails never break a request */ }
 
   const executor = getExecutor(provider);
   trackPendingRequest(model, provider, connectionId, true);
@@ -646,16 +689,28 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     }
   } catch { /* fail-open: savings never break the request */ }
 
+  // GUARDRAILS — OUTBOUND POLICY, resolved once per request. The response
+  // handlers receive the engine in their shared context rather than resolving
+  // it themselves, so a buffered answer and a streamed one judge under the
+  // same policy. Fail-open: no policy means the response path is untouched.
+  let outboundGuardrail = null;
+  try {
+    outboundGuardrail = await resolveGuardrail({ provider, model, chain: combo, apiKey, direction: "outbound" });
+  } catch { /* fail-open */ }
+
   // Upstream HTTP status rides the success path (error paths return above and
   // never write usage — the dropped gateway_error stays unobserved by design).
-  const sharedCtx = { provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, rtk, httpStatus: providerResponse.status, reqTag, log, combo };
+  const sharedCtx = { provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, rtk, httpStatus: providerResponse.status, reqTag, log, combo, guardrail: outboundGuardrail };
   const appendLog = (extra) => appendRequestLog({ model, provider, connectionId, ...extra }).catch(() => { });
   const trackDone = () => trackPendingRequest(model, provider, connectionId, false);
 
   // Provider forced streaming but client wants JSON
   if (!clientRequestedStreaming && providerRequiresStreaming) {
     const result = await handleForcedSSEToJson({ ...sharedCtx, providerResponse, sourceFormat, targetFormat: providerResponseFormat, customToolNames, trackDone, appendLog });
-    if (result) { streamController.handleComplete(); return result; }
+    if (result) {
+      streamController.handleComplete();
+      return applyBufferedGuard(result, outboundGuardrail, { provider, model, connectionId });
+    }
   }
 
   // True non-streaming response
@@ -673,4 +728,34 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
 export function isTokenExpiringSoon(expiresAt, bufferMs = 5 * 60 * 1000) {
   if (!expiresAt) return false;
   return new Date(expiresAt).getTime() - Date.now() < bufferMs;
+}
+
+/**
+ * Apply the outbound policy to a response that was assembled as JSON by a
+ * handler we do not otherwise tap (the coerced SSE → JSON path). A block is
+ * still able to become a real 451 here: nothing has been written to the client
+ * yet, which is exactly the advantage the buffered half has over a stream.
+ */
+async function applyBufferedGuard(result, guardrail, { provider, model, connectionId }) {
+  if (!guardrail || !result?.success || !result.response) return result;
+  try {
+    const body = await result.response.clone().json();
+    const decision = scanOutboundPayload(guardrail, body);
+    if (decision.findings?.length) {
+      auditDecision({ guardrail, decision, direction: "outbound", provider, model, connectionId });
+    }
+    if (decision.action === "block" && decision.findings?.length) {
+      return createErrorResult(BLOCK_STATUS, BLOCKED_OUTBOUND);
+    }
+    if (decision.mutated) {
+      return {
+        ...result,
+        response: new Response(JSON.stringify(decision.value), {
+          status: result.response.status,
+          headers: result.response.headers,
+        }),
+      };
+    }
+  } catch { /* a body we cannot parse is a body we cannot judge — relay it */ }
+  return result;
 }

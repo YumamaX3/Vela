@@ -37,6 +37,24 @@ export {
   KeyLimitsValidationError, sanitizeCategory,
 } from "./repos/apiKeysRepo.js";
 
+// Guardrails (Security & governance — migration 020)
+export {
+  listGuardrailPolicies, getGuardrailPolicy, upsertGuardrailPolicy, deleteGuardrailPolicy,
+  insertGuardrailLog, listGuardrailLogs, deleteGuardrailLogs,
+} from "./repos/guardrailsRepo.js";
+
+// Credential vault (Security & governance — migration 021)
+export {
+  getVaultCounts, listConnectionsNeedingSeal, migratePlaintextCredentials,
+  rewrapConnectionDEKs,
+} from "./repos/vaultRepo.js";
+
+// Model deprecations (kv scope "modelDeprecations")
+export {
+  deprecationKey, listModelDeprecations, getModelDeprecation,
+  recordModelDeprecation, clearModelDeprecation, retainLiveModels,
+} from "./repos/deprecationsRepo.js";
+
 // Combos
 export {
   getCombos, getComboById, getComboByName,

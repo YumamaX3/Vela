@@ -114,6 +114,17 @@ export const RESTORE_QUARANTINED_SETTING_KEYS = [
   "oidcClientSecret",
   "oidcScopes",
   "oidcLoginLabel",
+  // S1/DLV-1 (CRITICAL) — mitmSudoEncrypted is in SECRET_SETTING_KEYS, so it is
+  // redacted to the "[REDACTED]" sentinel on EVERY export. Without it here, a
+  // default restore (adoptSecrets=false — the documented safe path) captured no
+  // current value, DELETEs the settings row, and writes the literal sentinel
+  // back over the live credential: the operator's MITM sudo password is gone.
+  // It is IRREVERSIBLE — the artifact never carried the real value, so
+  // adoptSecrets=true cannot bring it back, and decryptPassword("[REDACTED]")
+  // fails into the swallow-all catch at mitm/manager.js. mirrorSweep.js:24-28
+  // documents this exact hole and patches it there; the restore path never got
+  // the fix. This is that fix.
+  "mitmSudoEncrypted",
 ];
 
 /** S1 — apiKeys columns that restore only under adoptSecrets. */

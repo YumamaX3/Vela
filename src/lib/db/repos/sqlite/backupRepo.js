@@ -73,7 +73,15 @@ export async function exportDb({ includeRequestDetails = false, redact = false }
     tables = {
       providerConnections: db.all(`SELECT * FROM providerConnections`).map((r) => {
         const data = parseJson(r.data, {});
-        return { ...(redact ? redactSecretConnectionData(data) : data), id: r.id, provider: r.provider, authType: r.authType, name: r.name, email: r.email, priority: r.priority, isActive: r.isActive === 1, createdAt: r.createdAt, updatedAt: r.updatedAt };
+        // Full-fidelity exports carry the sealed pairs so a restore keeps
+        // working credentials; the plaintext export drops them (the ciphertext
+        // is useless without its key, but a plaintext surface has no business
+        // shipping key material of any kind).
+        const sealed = redact ? {} : Object.fromEntries(
+          ["secretWrappedDEK","secretCiphertext","tokenWrappedDEK","tokenCiphertext","refreshWrappedDEK","refreshCiphertext"]
+            .map((col) => [col, r[col] ?? ""])
+        );
+        return { ...(redact ? redactSecretConnectionData(data) : data), ...sealed, id: r.id, provider: r.provider, authType: r.authType, name: r.name, email: r.email, priority: r.priority, isActive: r.isActive === 1, createdAt: r.createdAt, updatedAt: r.updatedAt };
       }),
       providerNodes: db.all(`SELECT * FROM providerNodes`).map((r) => ({ ...parseJson(r.data, {}), id: r.id, type: r.type, name: r.name, createdAt: r.createdAt, updatedAt: r.updatedAt })),
       proxyPools: db.all(`SELECT * FROM proxyPools`).map((r) => {
@@ -344,10 +352,23 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
     }
 
     if (want("connections")) for (const c of payload.providerConnections || []) {
-      const { id, provider, authType, name, email, priority, isActive, createdAt, updatedAt, ...rest } = c;
+      const {
+        id, provider, authType, name, email, priority, isActive, createdAt, updatedAt,
+        secretWrappedDEK, secretCiphertext, tokenWrappedDEK, tokenCiphertext,
+        refreshWrappedDEK, refreshCiphertext, ...rest
+      } = c;
       db.run(
-        `INSERT OR REPLACE INTO providerConnections(id, provider, authType, name, email, priority, isActive, data, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [id, provider, authType || "oauth", name || null, email || null, priority || null, isActive === false ? 0 : 1, stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString()]
+        `INSERT OR REPLACE INTO providerConnections(
+          id, provider, authType, name, email, priority, isActive, data, createdAt, updatedAt,
+          secretWrappedDEK, secretCiphertext, tokenWrappedDEK, tokenCiphertext,
+          refreshWrappedDEK, refreshCiphertext
+        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id, provider, authType || "oauth", name || null, email || null, priority || null,
+          isActive === false ? 0 : 1, stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString(),
+          secretWrappedDEK || "", secretCiphertext || "", tokenWrappedDEK || "", tokenCiphertext || "",
+          refreshWrappedDEK || "", refreshCiphertext || "",
+        ]
       );
     }
     if (want("connections")) for (const n of payload.providerNodes || []) {
@@ -470,6 +491,27 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
 
 export async function initDb() {
   await getAdapter();
+  // F-5 — seal credentials left plaintext by a pre-vault install. Fail-safe:
+  // a row that cannot be sealed keeps working in plaintext, and the gateway
+  // still boots. No key configured = no work and no statement issued.
+  try {
+    const { getVault } = await import("../../../vault.js");
+    if (getVault().enabled) {
+      const { migratePlaintextCredentials } = await import("./vaultRepo.js");
+      const result = await migratePlaintextCredentials();
+      if (result.error) {
+        console.warn(`[vault] plaintext credential migration skipped: ${result.error}`);
+      } else if (result.sealed > 0 || result.skipped.length > 0) {
+        console.info(
+          `[vault] credential migration complete — sealed ${result.sealed}` +
+          (result.backup ? `, backup ${result.backup}` : "") +
+          (result.skipped.length ? `, skipped ${result.skipped.length}` : "")
+        );
+      }
+    }
+  } catch (e) {
+    console.warn(`[vault] plaintext credential migration skipped: ${e.message}`);
+  }
 }
 
 // ─── Storage footprint (the Data cockpit, v0.9.95) ───────────────────────

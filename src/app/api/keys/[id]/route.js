@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { deleteApiKey, getApiKeyById, updateApiKey, KeyLimitsValidationError, sanitizeCategory } from "@/lib/localDb";
+import { getPlan } from "@/lib/db/repos/plansRepo.js";
 
 // GET /api/keys/[id] — masked row (never the full key)
 export async function GET(request, { params }) {
@@ -52,6 +53,15 @@ export async function PUT(request, { params }) {
       }
     }
     if (body.isActive !== undefined) updateData.isActive = !!body.isActive;
+    if (body.planId !== undefined) {
+      if (body.planId == null || body.planId === "") {
+        updateData.planId = null;
+      } else {
+        const plan = await getPlan(body.planId);
+        if (!plan) return NextResponse.json({ error: "Plan not found" }, { status: 400 });
+        updateData.planId = plan.id;
+      }
+    }
     if (body.category !== undefined) {
       // null or empty-string clears the category (back to "Uncategorized").
       try {

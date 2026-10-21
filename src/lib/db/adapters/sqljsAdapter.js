@@ -23,7 +23,22 @@ export async function createSqlJsAdapter(filePath) {
 
   function persist() {
     const data = db.export();
-    fs.writeFileSync(filePath, Buffer.from(data));
+    // Atomic replace: write a sibling temp file, fsync it, then rename over the
+    // target. A direct writeFileSync truncates data.sqlite to zero BEFORE the
+    // new bytes land, so a crash / kill / full disk mid-write leaves a truncated
+    // or half-written database — and the next open reports SQLITE_CORRUPT
+    // ("database disk image is malformed") or silently starts from empty schema.
+    // rename() is atomic within a filesystem, so the target is either the old
+    // file or the new one, never a torn mixture.
+    const tmp = `${filePath}.tmp-${process.pid}`;
+    const fd = fs.openSync(tmp, "w");
+    try {
+      fs.writeSync(fd, Buffer.from(data));
+      fs.fsyncSync(fd);          // bytes must be on disk before the rename
+    } finally {
+      fs.closeSync(fd);
+    }
+    fs.renameSync(tmp, filePath);
     dirty = false;
   }
 
@@ -100,12 +115,21 @@ export async function createSqlJsAdapter(filePath) {
   }
 
   function close() {
-    if (saveTimer) clearTimeout(saveTimer);
+    clearTimeout(saveTimer);
     if (dirty) persist();
+    // Detach the shutdown handlers. They were registered with `process.on`
+    // (not `once`), so they survive their own firing and accumulate for the
+    // life of the process — every adapter opened added three more, until Node
+    // tripped MaxListenersExceededWarning (11 beforeExit/SIGINT/SIGTERM
+    // observed on a process holding three adapters plus the single-instance
+    // lock). A closed adapter must stop holding the process open.
+    for (const sig of ["beforeExit", "SIGINT", "SIGTERM"]) {
+      process.removeListener(sig, flush);
+    }
     db.close();
   }
 
-  // Flush on shutdown
+  // Flush on shutdown. Named (not inline) so close() can detach them.
   const flush = () => { if (dirty) try { persist(); } catch {} };
   process.on("beforeExit", flush);
   process.on("SIGINT", flush);

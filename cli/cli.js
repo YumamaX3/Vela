@@ -155,6 +155,14 @@ Options:
 
 Commands:
   doctor              Diagnose the local install (node, build, data dir, port)
+  start               Run the gateway as a background daemon
+  stop                Stop the background daemon (graceful, then forced)
+  restart             Stop and start the background daemon
+  status              Daemon health + autostart entry
+  logs [-n N]         Tail the daemon log (default 40 lines)
+  service install     Install the logon/boot autostart entry
+  service uninstall   Remove the autostart entry
+  service status      Report the autostart backend and entry
   xai video --prompt "..." --output video.mp4
                       Generate a Grok Imagine video via the running gateway
                       (see: ${APP_NAME} xai video --help)
@@ -607,14 +615,30 @@ if (isDoctor) {
   Promise.resolve(runDoctor()).finally(() => process.exit(0));
 }
 
-if (!isDoctor && !fs.existsSync(serverPath)) {
+// `vela start|stop|restart|status|logs|service` — daemon and autostart surface.
+// These run before the interactive launcher and never fall through to it.
+const SERVICE_COMMANDS = new Set(["start", "stop", "restart", "status", "logs", "service"]);
+const isServiceCommand = SERVICE_COMMANDS.has(args[0]);
+if (isServiceCommand) {
+  const { run } = require("./src/cli/serviceCommands");
+  Promise.resolve(run(args, {
+    port, host, appDir: standaloneDir, serverPath, runtime: RUNTIME, version: pkg.version,
+  }))
+    .then((code) => process.exit(code))
+    .catch((err) => {
+      console.error(`❌ ${err?.message || err}`);
+      process.exit(1);
+    });
+}
+
+if (!isDoctor && !isServiceCommand && !fs.existsSync(serverPath)) {
   console.error("Error: Standalone build not found.");
   console.error("Please run 'npm run build:cli' first.");
   process.exit(1);
 }
 
 // Start server immediately; run update check in parallel (not on the critical path).
-if (!isDoctor) {
+if (!isDoctor && !isServiceCommand) {
   const updatePromise = checkForUpdate();
   killAllAppProcesses(port)
     .then(() => killProcessOnPort(port))

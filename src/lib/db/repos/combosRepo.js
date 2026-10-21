@@ -12,3 +12,4 @@ export const getComboByName = bound.getComboByName;
 export const createCombo = bound.createCombo;
 export const updateCombo = bound.updateCombo;
 export const deleteCombo = bound.deleteCombo;
+export const upsertComboWithId = bound.upsertComboWithId;

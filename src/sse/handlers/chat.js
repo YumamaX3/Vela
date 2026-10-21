@@ -10,6 +10,8 @@ import { authorizeApiRequest } from "../services/keyGate.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo, getComboModels } from "../services/model.js";
 import { handleChatCore } from "open-sse/handlers/chatCore.js";
+import { metrics } from "@/lib/metrics.js";
+import { recordSpan } from "@/lib/tracing.js";
 import { DEFAULT_HEADROOM_URL } from "@/lib/headroom/detect";
 import { getTransform as getPxpipeTransform } from "@/lib/pxpipe/loader.js";
 import { appendPxpipeEvent } from "@/lib/pxpipe/events.js";
@@ -356,6 +358,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
     }
     // Use shared chatCore
     const providerThinking = (chatSettings.providerThinking || {})[provider] || null;
+    const upstreamStartedAt = Date.now();
     let result;
     try {
       result = await handleChatCore({
@@ -377,6 +380,8 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
         cavemanLevel: chatSettings.cavemanLevel || "full",
         ponytailEnabled: !!chatSettings.ponytailEnabled,
         ponytailLevel: chatSettings.ponytailLevel || "full",
+        adhdEnabled: !!chatSettings.adhdEnabled,
+        adhdLevel: chatSettings.adhdLevel || "full",
         userInjectors: chatSettings.userInjectors || null,
         pxpipeEnabled: !!chatSettings.pxpipeEnabled,
         pxpipeMinChars: chatSettings.pxpipeMinChars,
@@ -406,6 +411,21 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       semaphoreRelease();
     }
 
+    // Observability (F-8/F-9): one completed upstream attempt. Duration is
+    // recorded only for non-streaming turns — handleChatCore returns as soon as
+    // a stream opens, so timing it here would label TTFT as end-to-end.
+    const attemptStatus = result.success ? 200 : (result.status || 502);
+    const elapsedMs = Date.now() - upstreamStartedAt;
+    metrics.recordRequest({
+      provider, model, endpoint: "chat", status: attemptStatus,
+      durationMs: body.stream === true ? 0 : elapsedMs,
+    });
+    recordSpan({
+      provider, model, status: String(attemptStatus),
+      durationMs: body.stream === true ? 0 : elapsedMs,
+    });
+    if (!result.success) metrics.recordUpstreamError({ provider, model, status: attemptStatus });
+
     if (result.success) return result.response;
 
     // Antigravity 409/429: refresh live quota to get exact resetAt before locking
@@ -426,6 +446,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       : (await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model, resetsAtMs)).shouldFallback;
 
     if (shouldFallback) {
+      metrics.recordFallback({ provider, model, reason: result.status === 429 ? "rate_limited" : "upstream_error" });
       log.warn("FALLBACK", `${credentials.connectionName} unavailable (${result.status}) — bearing for the next harbor`);
       excludeConnectionIds.add(credentials.connectionId);
       lastError = result.error;

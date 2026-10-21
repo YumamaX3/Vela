@@ -20,8 +20,12 @@ import m016 from "./016-auth-sessions-audit.js";
 import m017 from "./017-auth-users.js";
 import m018 from "./018-log-events.js";
 import m019 from "./019-circuit-breaker-keys.js";
+import m020 from "./020-guardrails.js";
+import m021 from "./021-credential-vault.js";
+import m022 from "./022-semantic-cache.js";
+import m023 from "./023-plans.js";
 
-export const MIGRATIONS = [m001, m002, m003, m004, m005, m006, m007, m008, m009, m010, m011.default || m011, m012.default || m012, m013.default || m013, m014.default || m014, m015.default || m015, m016.default || m016, m017.default || m017, m018.default || m018, m019.default || m019].sort((a, b) => a.version - b.version);
+export const MIGRATIONS = [m001, m002, m003, m004, m005, m006, m007, m008, m009, m010, m011.default || m011, m012.default || m012, m013.default || m013, m014.default || m014, m015.default || m015, m016.default || m016, m017.default || m017, m018.default || m018, m019.default || m019, m020.default || m020, m021.default || m021, m022.default || m022, m023.default || m023].sort((a, b) => a.version - b.version);
 
 export function latestVersion() {
   return MIGRATIONS.length ? MIGRATIONS[MIGRATIONS.length - 1].version : 0;

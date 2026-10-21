@@ -135,7 +135,20 @@ async function flushToDatabase() {
       });
     }
   } catch (e) {
-    console.error("[requestDetailsRepo] Batch write failed:", e);
+    // Observe-and-continue: a malformed image must not turn into a per-batch
+    // stack storm. The guardian reports once and counts; the buffer stays
+    // drained so a later repair does not replay thousands of stale rows.
+    const { isCorruptionError, noteRuntimeCorruption } = await import("../../integrity.js");
+    if (isCorruptionError(e)) {
+      if (noteRuntimeCorruption(e, "requestDetails batch write")) {
+        console.error(
+          "[DB] requestDetails batch write hit a MALFORMED database image — request details are NOT being recorded.\n" +
+          "     Gateway keeps serving. Repair: POST /api/settings/database/repair, then restart."
+        );
+      }
+    } else {
+      console.error("[requestDetailsRepo] Batch write failed:", e);
+    }
   } finally {
     isFlushing = false;
   }

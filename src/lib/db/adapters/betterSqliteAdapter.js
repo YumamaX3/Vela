@@ -30,12 +30,16 @@ export function createBetterSqliteAdapter(filePath) {
     return stmt;
   }
 
-  // Truncate WAL periodically so file stays small for backup/copy. Suppressed
-  // entirely when the worker owns checkpointing.
+  // Checkpoint WAL periodically so the file stays small for backup/copy.
+  // PASSIVE, never TRUNCATE: a periodic TRUNCATE rewrites the WAL file while
+  // another handle may still hold frames, and that is one of the shapes behind
+  // "database disk image is malformed". PASSIVE copies what it safely can and
+  // leaves the file intact. TRUNCATE survives only in gracefulClose, where the
+  // single-instance lock proves this process is the sole writer.
   let checkpointTimer = null;
   if (!workerOwnsCheckpoints) {
     checkpointTimer = setInterval(() => {
-      try { db.pragma("wal_checkpoint(TRUNCATE)"); } catch {}
+      try { db.pragma("wal_checkpoint(PASSIVE)"); } catch {}
     }, CHECKPOINT_INTERVAL_MS);
     if (typeof checkpointTimer.unref === "function") checkpointTimer.unref();
   }
@@ -44,7 +48,9 @@ export function createBetterSqliteAdapter(filePath) {
       try { db.pragma("wal_autocheckpoint = 0"); } catch {}
       if (checkpointTimer) { clearInterval(checkpointTimer); checkpointTimer = null; }
     },
-    checkpointNow: () => { try { db.pragma("wal_checkpoint(TRUNCATE)"); } catch {} },
+    // mode "truncate" is for a SOLE-WRITER flush (backup/close); the default
+    // PASSIVE never rewrites the WAL under another handle.
+    checkpointNow: (mode = "passive") => { try { db.pragma(`wal_checkpoint(${mode === "truncate" ? "TRUNCATE" : "PASSIVE"})`); } catch {} },
   });
 
   function gracefulClose() {
@@ -55,9 +61,17 @@ export function createBetterSqliteAdapter(filePath) {
 
   // Ensure WAL is flushed and -wal/-shm files removed on shutdown
   const onShutdown = () => gracefulClose();
-  process.once("beforeExit", onShutdown);
-  process.once("SIGINT", () => { onShutdown(); process.exit(0); });
-  process.once("SIGTERM", () => { onShutdown(); process.exit(0); });
+  const onSigInt = () => { gracefulClose(); process.exit(0); };
+  const onSigTerm = () => { gracefulClose(); process.exit(0); };
+  const EXIT_HANDLERS = [
+    ["beforeExit", onShutdown],
+    ["SIGINT", onSigInt],
+    ["SIGTERM", onSigTerm],
+  ];
+  for (const [sig, fn] of EXIT_HANDLERS) process.once(sig, fn);
+  const detachExitHandlers = () => {
+    for (const [sig, fn] of EXIT_HANDLERS) process.removeListener(sig, fn);
+  };
 
   return {
     driver: "better-sqlite3",
@@ -66,9 +80,10 @@ export function createBetterSqliteAdapter(filePath) {
     all(sql, params = []) { return prepare(sql).all(...params); },
     exec(sql) { return db.exec(sql); },
     transaction(fn) { return db.transaction(fn)(); },
-    checkpoint() { try { db.pragma("wal_checkpoint(TRUNCATE)"); } catch {} },
+    checkpoint() { try { db.pragma("wal_checkpoint(PASSIVE)"); } catch {} },
     close() {
       clearInterval(checkpointTimer);
+      detachExitHandlers();
       gracefulClose();
     },
     raw: db,

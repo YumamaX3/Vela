@@ -14,6 +14,7 @@ import { resolveKey, getApiKeyById } from "@/lib/db/repos/apiKeysRepo.js";
 import { touchKeyLastUsed, getUsageDailySince } from "@/lib/db/repos/usageRepo.js";
 import { parseModel } from "./model.js";
 import { budgetStage } from "./budgetGate.js";
+import { applyPlanDefaults } from "./planDefaults.js";
 import { resolveProviderId, AI_PROVIDERS } from "@/shared/constants/providers.js";
 
 export const GATE_CODES = {
@@ -56,6 +57,7 @@ function toResolvedKey(row) {
     spendCapDailyCents: row.spendCapDailyCents ?? null,
     budgetScope: row.budgetScope || null,
     ipAllowlist: safeParse(row.ipAllowlist),
+    planId: row.planId || null,
   };
 }
 
@@ -456,7 +458,7 @@ export async function authorizeApiRequest(
   if (!(row.isActive === 1 || row.isActive === true)) {
     return deny(HTTP_STATUS.FORBIDDEN, GATE_CODES.KEY_PAUSED, "API key is paused");
   }
-  const key = toResolvedKey(row);
+  const key = await applyPlanDefaults(toResolvedKey(row));
   if (key.isInternal && !allowInternal) {
     return deny(HTTP_STATUS.FORBIDDEN, GATE_CODES.INVALID_KEY, "Invalid API key");
   }
@@ -544,7 +546,7 @@ export async function scopeModelsForRequest(request, models) {
     if (!token) return models; // missing-key policy belongs to the guard
     const row = await resolveKey(token);
     if (!row || !(row.isActive === 1 || row.isActive === true)) return models;
-    return filterModelsByScope(models, toResolvedKey(row));
+    return filterModelsByScope(models, await applyPlanDefaults(toResolvedKey(row)));
   } catch {
     return models;
   }

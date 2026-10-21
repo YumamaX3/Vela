@@ -72,3 +72,22 @@ export async function deleteCombo(id) {
   const res = await db.run(`DELETE FROM combos WHERE id = ?`, [id]);
   return (res?.changes ?? 0) > 0;
 }
+
+/** Upsert with a caller-chosen id — the mysql twin of the same writer. */
+export async function upsertComboWithId(id, { name, kind = null, models = [] }) {
+  const db = await getMysqlAdapter();
+  const now = new Date().toISOString();
+  const existing = await db.get(`SELECT id FROM combos WHERE id = ?`, [id]);
+  if (existing) {
+    await db.run(
+      `UPDATE combos SET name = ?, kind = ?, models = ?, updatedAt = ? WHERE id = ?`,
+      [name, kind, stringifyJson(models), now, id]
+    );
+  } else {
+    await db.run(
+      `INSERT INTO combos(id, name, kind, models, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?)`,
+      [id, name, kind, stringifyJson(models), now, now]
+    );
+  }
+  return getComboById(id);
+}

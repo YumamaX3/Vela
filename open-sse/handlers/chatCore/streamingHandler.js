@@ -10,6 +10,8 @@ import { buildCoercedSSEResponse } from "./coercedSseHandler.js";
 import { normalizeKimiToolCalls } from "../../utils/kimiToolParser.js";
 import { buildRequestDetail, extractRequestConfig, saveUsageStats, formatDoneLine } from "./requestDetail.js";
 import { saveRequestDetail } from "@/lib/usageDb.js";
+import { guardOutboundStream, scanOutboundPayload, auditDecision, BLOCK_STATUS, BLOCKED_OUTBOUND } from "@/lib/guardrails/pipeline.js";
+import { createErrorResult } from "../../utils/error.js";
 import { SSE_HEADERS_CORS as SSE_HEADERS } from "../../utils/sseConstants.js";
 
 // Codex returns Responses API SSE → which client format to translate INTO, by request sourceFormat.
@@ -46,7 +48,7 @@ function buildTransformStream({ provider, sourceFormat, targetFormat, userAgent,
 /**
  * Handle streaming response — pipe provider SSE through transform stream to client.
  */
-export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, streamDetailId, pxpipe, reqTag, log, combo }) {
+export async function handleStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, userAgent, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, streamController, onStreamComplete, streamDetailId, pxpipe, reqTag, log, combo, guardrail }) {
   if (onRequestSuccess) {
     Promise.resolve()
       .then(onRequestSuccess)
@@ -107,6 +109,25 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
           if (hasTools) choice.message = normalized;
         }
       }
+
+      // GUARDRAILS — this upstream answered JSON to a streaming request, so
+      // there is no stream to tap: the body is buffered and judged whole,
+      // exactly like the buffered half of the non-streaming path.
+      if (guardrail) {
+        try {
+          const decision = scanOutboundPayload(guardrail, jsonBody);
+          if (decision.findings.length) {
+            auditDecision({ guardrail, decision, direction: "outbound", provider, model, connectionId });
+          }
+          if (decision.action === "block") {
+            streamController?.handleComplete?.();
+            if (log?.errorLine) log.errorLine(reqTag, "🛡", `guardrail blocked response · ${provider}/${model} · ${decision.findings.length} finding(s)`);
+            return createErrorResult(BLOCK_STATUS, BLOCKED_OUTBOUND);
+          }
+          if (decision.mutated) jsonBody = decision.value;
+        } catch { /* fail-open */ }
+      }
+
       streamController?.handleComplete?.();
       return { success: true, response: buildCoercedSSEResponse(jsonBody) };
     }
@@ -125,6 +146,23 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
   const stallTimeoutMs = PROVIDERS[provider]?.stallTimeoutMs || STREAM_STALL_TIMEOUT_MS;
   const transformedBody = pipeWithDisconnect(providerResponse, transformStream, streamController, onAbortTerminal, stallTimeoutMs);
 
+  // GUARDRAILS — OUTBOUND (streamed). The tap sits after translation, on the
+  // bytes the client will actually read. It holds a 512-char window so a value
+  // split across two deltas is caught as one value, masks only the text nodes,
+  // and ends a blocked turn with the client format's own terminal frames.
+  const guardedBody = guardrail
+    ? guardOutboundStream(transformedBody, {
+        guardrail,
+        format: targetFormat,
+        provider,
+        model,
+        connectionId,
+        onBlock: ({ count }) => {
+          if (log?.errorLine) log.errorLine(reqTag, "🛡", `guardrail blocked stream · ${provider}/${model} · ${count} finding(s)`);
+        },
+      })
+    : transformedBody;
+
   saveRequestDetail(buildRequestDetail({
     provider, model, connectionId, combo,
     latency: { ttft: 0, total: Date.now() - requestStartTime },
@@ -141,7 +179,7 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
 
   return {
     success: true,
-    response: new Response(transformedBody, { headers: SSE_HEADERS })
+    response: new Response(guardedBody, { headers: SSE_HEADERS })
   };
 }
 

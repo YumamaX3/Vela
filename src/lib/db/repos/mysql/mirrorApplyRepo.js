@@ -15,6 +15,7 @@
 // Census ratchet honored: this file lives under repos/mysql/ and reaches the
 // twin only through getMysqlAdapter().
 import { getMysqlAdapter } from "../../mysql/adapter.js";
+import { sealConnection, SEALED_SLOTS, SLOT_COLUMNS } from "../../connectionVault.js";
 import { parseJson, stringifyJson } from "../../helpers/jsonCol.js";
 import { validateKeyLimits } from "../../keyLimits.js";
 import { sanitizeCategory } from "./apiKeysRepo.js";
@@ -57,19 +58,36 @@ async function replayCreateProviderConnection(tx, op) {
   const [data = {}] = op.args;
   const id = op.identity?.id;
   if (!id) return "poison";
-  const { provider, authType, name, email, priority, isActive, createdAt, updatedAt, ...rest } = data;
+  // Seal on the twin too: the outbox carries the create payload (with fresh
+  // credentials) so the twin must not store them in plaintext. A twin without
+  // VELA_MASTER_KEY gets the old passthrough behavior by construction.
+  const { conn: sealedData, slots } = sealConnection(data);
+  const { provider, authType, name, email, priority, isActive, createdAt, updatedAt, ...rest } = sealedData;
+  const columns = ["id", "provider", "authType", "name", "email", "priority", "isActive", "data", "createdAt", "updatedAt"];
+  const values = [
+    id, provider, authType ?? "oauth", name ?? null, email ?? null,
+    priority ?? null, isActive === false ? 0 : 1, stringifyJson(rest),
+    op.identity.createdAt, op.identity.updatedAt,
+  ];
+  const updates = [
+    "provider=VALUES(provider)", "authType=VALUES(authType)", "name=VALUES(name)",
+    "email=VALUES(email)", "priority=VALUES(priority)", "isActive=VALUES(isActive)",
+    "data=VALUES(data)", "updatedAt=VALUES(updatedAt)",
+  ];
+  if (slots) {
+    for (const slot of SEALED_SLOTS) {
+      if (!(slot in slots)) continue;
+      const [wrappedCol, cipherCol] = SLOT_COLUMNS[slot];
+      columns.push(wrappedCol, cipherCol);
+      values.push(slots[slot]?.wrappedDEK ?? "", slots[slot]?.ciphertext ?? "");
+      updates.push(`${wrappedCol}=VALUES(${wrappedCol})`, `${cipherCol}=VALUES(${cipherCol})`);
+    }
+  }
   await tx.run(
-    `INSERT INTO providerConnections(id, provider, authType, name, email, priority, isActive, data, createdAt, updatedAt)
-     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE
-       provider=VALUES(provider), authType=VALUES(authType), name=VALUES(name),
-       email=VALUES(email), priority=VALUES(priority), isActive=VALUES(isActive),
-       data=VALUES(data), updatedAt=VALUES(updatedAt)`,
-    [
-      id, provider, authType ?? "oauth", name ?? null, email ?? null,
-      priority ?? null, isActive === false ? 0 : 1, stringifyJson(rest),
-      op.identity.createdAt, op.identity.updatedAt,
-    ]
+    `INSERT INTO providerConnections(${columns.join(", ")})
+     VALUES(${columns.map(() => "?").join(", ")})
+     ON DUPLICATE KEY UPDATE ${updates.join(", ")}`,
+    values
   );
   await reorderProvider(tx, provider);
   return "applied";
@@ -186,14 +204,16 @@ const IDENTITY_REPLAYS = {
 const LAZY = {
   combos: null, connections: null, nodes: null, pools: null,
   apiKeys: null, settings: null, alias: null, pricing: null, disabled: null,
+  guardrails: null,
 };
 async function repos() {
   if (!LAZY.combos) {
     [LAZY.combos, LAZY.connections, LAZY.nodes, LAZY.pools, LAZY.apiKeys,
-     LAZY.settings, LAZY.alias, LAZY.pricing, LAZY.disabled] = await Promise.all([
+     LAZY.settings, LAZY.alias, LAZY.pricing, LAZY.disabled, LAZY.guardrails] = await Promise.all([
       import("./combosRepo.js"), import("./connectionsRepo.js"), import("./nodesRepo.js"),
       import("./proxyPoolsRepo.js"), import("./apiKeysRepo.js"), import("./settingsRepo.js"),
       import("./aliasRepo.js"), import("./pricingRepo.js"), import("./disabledModelsRepo.js"),
+      import("./guardrailsRepo.js"),
     ]);
   }
   return LAZY;
@@ -206,6 +226,7 @@ async function dispatchRepoWriter(fnName, args, redacted) {
   const SURFACE = {
     ...r.combos, ...r.connections, ...r.nodes, ...r.pools,
     ...r.apiKeys, ...r.settings, ...r.alias, ...r.pricing, ...r.disabled,
+    ...r.guardrails,
     touchKeyLastUsed: (await import("./usageRepo.js")).touchKeyLastUsed,
   };
   const fn = SURFACE[fnName];

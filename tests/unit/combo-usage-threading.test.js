@@ -19,6 +19,13 @@ beforeEach(async () => {
   const usageDb = await import("@/lib/usageDb");
   saveRequestUsage = usageDb.saveRequestUsage;
   saveRequestDetail = usageDb.saveRequestDetail;
+  // SETTLE BARRIER — saveUsageStats fires saveRequestUsage WITHOUT awaiting it
+  // (by design: the API must not block on the ledger). So a case's write can
+  // resolve AFTER its assertions, and `vi.clearAllMocks()` in the NEXT case's
+  // beforeEach cannot retract a call that has not happened yet — the following
+  // case then sees 2 calls instead of 1. Draining the microtask queue here makes
+  // each case start from a genuinely empty mock rather than a pending promise.
+  await new Promise((r) => setTimeout(r, 0));
 });
 
 describe("combo threading — saveUsageStats → saveRequestUsage", () => {

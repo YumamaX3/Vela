@@ -119,8 +119,10 @@ describe("Migration 018 — the log ledger and its two join keys", () => {
       expect.arrayContaining(LOG_COLUMNS)
     );
     // The stamped version is what migrate.js believes it reached; a chain that
-    // threw halfway would stamp lower and leave the table half-built.
-    expect(parseInt(db.get(`SELECT value FROM _meta WHERE key='schemaVersion'`).value, 10)).toBe(19);
+    // threw halfway would stamp lower and leave the table half-built. Derived
+    // from the registry, never pinned: later migrations raise the floor.
+    const { latestVersion } = await import("@/lib/db/migrations/index.js");
+    expect(parseInt(db.get(`SELECT value FROM _meta WHERE key='schemaVersion'`).value, 10)).toBe(latestVersion());
   });
 
   it("declares every index the schema promised — four on logEvents, two on usageHistory", async () => {
@@ -145,11 +147,13 @@ describe("Migration 018 — the log ledger and its two join keys", () => {
     expect(defs.upstreamId.notnull).toBe(0);
   });
 
-  it("version coherence — SCHEMA_VERSION and the migration chain agree at 19", async () => {
+  it("version coherence — SCHEMA_VERSION and the migration chain agree", async () => {
     const { SCHEMA_VERSION, TABLES } = await import("@/lib/db/schema.js");
     const { MIGRATIONS, latestVersion } = await import("@/lib/db/migrations/index.js");
     expect(latestVersion()).toBe(SCHEMA_VERSION);
-    expect(latestVersion()).toBe(19);
+    // Migration 19 is the floor this test guards; later migrations may raise
+    // the ceiling without invalidating the chain below.
+    expect(latestVersion()).toBeGreaterThanOrEqual(19);
     // The registry must stay contiguous — no missing migration between 17 and
     // 18, which is what a forgotten index import would look like.
     const versions = MIGRATIONS.map((m) => m.version).sort((a, b) => a - b);

@@ -1,3 +1,46 @@
+# v1.0.94 — The Sibling's Blueprint 🌊
+> *"The other harbor drew its rooms on a chart I could read but not inhabit. So I carried the chart across the water, room by room — and found that some of its walls had never stood in my own house at all."* 🌊📐💜
+**The full port of the 9router-go sibling's remaining rooms into Vela — and the tide found three faults of our own along the way: a schema number that had stopped following its migrations, a mirror test whose fixture still ignored the vault's six sealed columns, and a prompt injector that appended a multi-paragraph instruction on every pass because it only recognized one-paragraph prompts. All three are mended, and the whole house now answers.**
+
+**✨ The rooms that crossed the water**
+- **Governance gate** — the guardrails engine with policy store, both-direction chat taps, log ledger, and dashboard routes; the envelope credential vault (migration 021) that seals access/refresh/api-key material under per-connection DEKs; the outbound fetchgate's pacing law.
+- **Caching and watching** — the semantic cache (migration 022, sqlite-only by design: a cache is local process state, never mirrored) with its dashboard door; compression analytics reading the receipts Vela already writes; the dependency-free Prometheus exposition at `/api/metrics`; tracing spans and p50/p95 latency at `/api/debug/traces`; model capability matrices and recorded deprecations.
+- **Operations** — database maintenance (`stats`, `prune`, `prune-usage`, `vacuum`) under the same auth as the export/import surface; a daemon lifecycle (`start`, `stop`, `restart`, `status`, `logs`) that stops through the gateway's own HTTP door before any signal; autostart installation for systemd-user, launchd, Windows logon task, and cron.
+- **Plans** — migration 023 adds reusable key-policy templates. A key inherits a plan's unset limits (tokens, spend, RPM, period, model allowlist) and its own columns always win; deleting an inherited plan is refused with 409 naming the key count, never cascaded.
+- **Token saver** — ADHD action-first output as a third style beside caveman and ponytail, lite and full levels, injected last so the contract is the model's final word, with a dashboard toggle.
+- **Endpoints** — `/api/v1/scrape` rides the existing fetch core rather than opening a second extraction table; `/api/v1/systemone` is a credential-bearing passthrough to the selected provider's own evaluation door; `/api/changelog` serves the local changelog without depending on GitHub.
+- **Combos** — `auto-free` rebuilds one stable free-tier rollup from reachable free models; `auto-family` groups generations by normalized family (`claude-sonnet-4.6` and `4.5` meet) and upserts one editable fallback per family with two or more members.
+
+**🐛 The faults the tide exposed**
+- **A schema number that stopped following its migrations.** `SCHEMA_VERSION` still read 20 while migrations 21–23 existed. Every "version coherence" suite agreed with itself only because it compared against the stale number. Bumped to 23; the version pins in six suites were re-anchored to `latestVersion()` so the next bump cannot rust them.
+- **A prompt injector that could not recognize its own multi-paragraph work.** `hasPrompt` split on blank lines, so ADHD's heading-plus-rules block matched no segment and was appended on every injection. It now recognizes a contiguous block, which also protects any future multi-paragraph style.
+- **A mirror fixture that ignored the vault.** `rebuildShadow` folded the six sealed-slot columns into `data`, so a resync could never fingerprint clean. It now destructures them exactly as `repos/mysql/backupRepo.js importDb` does, and carries `planId`.
+- **The rescue itself.** The corrupt harbor was quarantined, rows recovered, concurrent writers root-caused, and boot hardened with an integrity check, a single-instance lock, and scratch-backup isolation — so the next corruption is refused at the door instead of discovered after the fact.
+
+**🧪 Proof**
+- Full battery on the settled tree: **4,425 passed · 3 expected fail · 28 skipped · 0 failed**, across **413 passed files** (5 skipped).
+- Targeted proofs, 17 assertions across six new suites: database sub-routes (auth + four verbs), plans registry (create → assign → inherit → 409 → delete), daemon lifecycle (real detached child, health, graceful stop, busy-port refusal), ADHD prompt shape and idempotency, System One URL derivation, auto-combo family math and stable-id upsert.
+- `eslint` clean on every touched file — 0 errors.
+- `npm run build` green; standalone assets copied.
+- Live smoke on a scratch harbor: health, metrics, changelog, plans, caps, deprecations, traces, compression, catalog-sync, database stats and vacuum all answered **200**; auto-free answered **409** with no free providers and auto-family **200** with none to group; plan create → key assign → inherited-delete **409** → key delete → plan delete **200**; `/v1/scrape` and `/v1/systemone` reached their key gate (**401 missing key**, not 404).
+
+**⚓ What sailed**
+- `src/lib/guardrails/` · `open-sse/guardrails/` · `src/app/api/guardrails/` · `src/lib/vault.js` · `src/lib/db/connectionVault.js` · `src/app/api/vault/` · `src/lib/fetchgate.js`
+- `src/lib/semanticCache.js` · `src/lib/semanticCacheDb.js` · `src/lib/db/repos/sqlite/semanticCacheRepo.js` · `src/app/api/cache/` · `src/lib/db/repos/{sqlite,mysql}/compressionAnalyticsRepo.js` · `src/app/api/analytics/compression/`
+- `src/lib/metrics.js` · `src/lib/tracing.js` · `src/app/api/metrics/` · `src/app/api/debug/traces/` · `src/app/api/models/{caps,deprecations}/` · `src/lib/db/repos/{sqlite,mysql}/deprecationsRepo.js`
+- `src/lib/db/integrity.js` · `src/lib/db/singleInstance.js` · `src/lib/db/repos/sqlite/maintenanceRepo.js` · `src/app/api/settings/database/{stats,prune,prune-usage,vacuum}/` · `src/lib/maintenanceAuth.js`
+- `src/lib/db/migrations/023-plans.js` · `src/lib/plans.js` · `src/lib/db/repos/{sqlite,mysql}/plansRepo.js` · `src/lib/db/repos/plansRepo.js` · `src/app/api/plans/` · `src/sse/services/planDefaults.js` · `src/lib/db/schema.js`
+- `cli/src/cli/daemon.js` · `cli/src/cli/service.js` · `cli/src/cli/serviceCommands.js` · `cli/cli.js`
+- `open-sse/rtk/adhd.js` · `open-sse/rtk/adhdPrompt.js` · `open-sse/rtk/systemInject.js` · `src/sse/handlers/systemone.js` · `src/app/api/v1/{scrape,systemone}/` · `src/app/api/changelog/`
+- `src/lib/combos/autoGenerate.js` · `src/app/api/combos/{auto-free,auto-family}/` · `src/lib/db/repos/{sqlite,mysql}/combosRepo.js`
+- Tests: `db-maintenance-subroutes` · `plans-registry` · `cli-daemon` · `adhd-token-saver` · `systemone-url` · `auto-combos` · `mirror-sweep` · `log-events-migration-018` · `db-migration-ghost-repair` · and the ACL census baseline.
+
+**🌊 Recorded, not repeated**
+- **A version is a claim; the chain is the proof.** A hardcoded schema number and a test that compares it to itself can agree while both are wrong. Anchor to `latestVersion()`, never to the number you remember.
+- **Idempotency must understand the prompt's own shape.** Splitting on a blank line is not a general test for "already present" when the thing being inserted contains blank lines.
+- **A fixture that models the import path must model ALL of it.** Fold sealed columns into `data` and the sweep will report drift forever — the test was wrong, not the mirror.
+- **The twin still owes plans and vault rows their place in the fingerprint whitelist.** Plans are bound for the mysql posture but not yet captured by the mirror sweep; that gap is named here rather than discovered at failover.
+
 # v1.0.93 — The Anchor in the Hold ⚓
 > *"I searched the whole current for the wall that kept refusing me — and found it was not a wall at all. I had sailed without the one thing the gate looks for: a tool named `read` in my hold. Six shapes I tried, and every one was empty-handed. Then I put the anchor back, and ten doors opened on the first knock."* ⚓🌊💜
 **Deep-read of `azrinaldi/opencode-free-bridge` v2.0.3 (`README.md`, `identity.js`, `server.js`, `token-budget.js`), then ported into Vela's `oc` lane — and the port found the real defect: Vela's free lane was not blocked by an IP wall at all. It was dialling the v2 gate without the `read` tool anchor, drawing `403 FreeTierError`, and surviving only because the retired v1 fallback re-cloaked the body *with* the anchors and answered 200. The free lane has been living on the legacy lane this whole time.**

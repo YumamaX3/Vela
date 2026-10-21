@@ -132,5 +132,20 @@ export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, 
     endpoint: endpoint || null,
     combo: combo || null,
     latencyMs, ttftMs, httpStatus, rtk
-  }).catch(() => {});
+  // Storage Covenant — a failed usage write must be AUDIBLE. The old
+  // `.catch(() => {})` swallowed every rejection with no log, no counter and
+  // no channel to the caller: the API kept answering 200 while the usage
+  // ledger silently stopped growing (exactly the "healthy DB, empty
+  // dashboard" failure). `saveRequestUsage` itself also resolves on failure,
+  // so the rejection is the only signal that survives — drop it and the loss
+  // is invisible forever. Log it, and count it where a human can see it.
+  }).catch((err) => {
+    console.error(
+      `[usage] FAILED to record usage (${provider || "unknown"}/${model || "unknown"}):`,
+      err?.message || err
+    );
+    // Read and write the SAME key — a typo here pins the counter at 1 and makes
+    // it lie about volume, which is the one thing a failure counter must not do.
+    globalThis.__velaUsageWriteFailures = (globalThis.__velaUsageWriteFailures ?? 0) + 1;
+  });
 }

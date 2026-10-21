@@ -264,7 +264,24 @@ async function tick() {
     state.degraded = true;
     state.failures++;
     state.lastError = e?.message || String(e);
-    console.warn(`[mirror] pump run failed (fail-open, primary keeps serving): ${state.lastError}`);
+    // Dedupe: a corrupt image fails EVERY tick (default 1s–5s). Printing the
+    // same line forever buries the one message that tells the operator what to
+    // do, so report the first occurrence, then only on a change of reason or
+    // every 60th consecutive failure.
+    const { isCorruptionError, noteRuntimeCorruption } = await import("../integrity.js");
+    if (isCorruptionError(e)) {
+      const first = noteRuntimeCorruption(e, "mirror pump");
+      if (first) {
+        console.error(
+          "[mirror] the primary harbor image is MALFORMED — the pump cannot drain.\n" +
+          "     Primary keeps serving. Repair: POST /api/settings/database/repair, then restart."
+        );
+      } else if (state.failures % 60 === 0) {
+        console.warn(`[mirror] still malformed (${state.failures} consecutive ticks) — repair not yet run`);
+      }
+    } else if (state.failures === 1 || state.failures % 60 === 0) {
+      console.warn(`[mirror] pump run failed (fail-open, primary keeps serving): ${state.lastError}`);
+    }
   } finally {
     state.running = false;
     if (!state.stopped) {

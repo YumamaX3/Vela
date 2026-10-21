@@ -99,10 +99,19 @@ async function snapshotShadow() {
 /** Rebuild the shadow twin from an export payload EXACTLY the way
  *  repos/mysql/backupRepo.js importDb maps payload rows onto table rows. */
 function rebuildShadow(shadow, payload) {
-  shadow.providerConnections = (payload.providerConnections || []).map(({ id, provider, authType, name, email, priority, isActive, createdAt, updatedAt, ...rest }) => ({
+  shadow.providerConnections = (payload.providerConnections || []).map(({
+    id, provider, authType, name, email, priority, isActive, createdAt, updatedAt,
+    secretWrappedDEK, secretCiphertext, tokenWrappedDEK, tokenCiphertext,
+    refreshWrappedDEK, refreshCiphertext, ...rest
+  }) => ({
     id, provider, authType: authType || "oauth", name: name || null, email: email || null,
     priority: priority || null, isActive: isActive === false ? 0 : 1,
     data: JSON.stringify(rest), createdAt, updatedAt,
+    // The vault's six slot columns are named identity, never part of `data` —
+    // the same destructure repos/mysql/backupRepo.js importDb performs.
+    secretWrappedDEK: secretWrappedDEK || "", secretCiphertext: secretCiphertext || "",
+    tokenWrappedDEK: tokenWrappedDEK || "", tokenCiphertext: tokenCiphertext || "",
+    refreshWrappedDEK: refreshWrappedDEK || "", refreshCiphertext: refreshCiphertext || "",
   }));
   shadow.providerNodes = (payload.providerNodes || []).map(({ id, type, name, createdAt, updatedAt, ...rest }) => ({
     id, type: type || null, name: name || null, data: JSON.stringify(rest), createdAt, updatedAt,
@@ -124,6 +133,7 @@ function rebuildShadow(shadow, payload) {
     tokenBudgetDaily: k.tokenBudgetDaily ?? null, spendCapDailyCents: k.spendCapDailyCents ?? null,
     budgetScope: k.budgetScope ?? null, rateLimitRpm: k.rateLimitRpm ?? null,
     ipAllowlist: k.ipAllowlist ?? null, category: k.category ?? null,
+    planId: k.planId ?? null,
   }));
   shadow.combos = (payload.combos || []).map((c) => ({
     id: c.id, name: c.name, kind: c.kind || null, models: JSON.stringify(c.models || []),

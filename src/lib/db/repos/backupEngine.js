@@ -412,19 +412,68 @@ export async function runRestoreDrill() {
     );
     const missingTables = expectedTables.filter((t) => !have.has(t));
     scratch.get(`SELECT data FROM settings WHERE id = 1`);
-    scratch.get(`SELECT COUNT(*) AS c FROM apiKeys`);
-
     if (missingTables.length > 0) {
       throw new Error(`scratch DB missing tables: ${missingTables.join(", ")}`);
     }
 
+    // DLV-6 — THE DRILL MUST ACTUALLY RESTORE.
+    //
+    // The previous body stopped here: it decrypted the payload, migrated a
+    // FRESH scratch DB, asserted every table exists (always true on a fresh
+    // DB — the assertion was self-satisfying), read two EMPTY tables, discarded
+    // the results, and returned ok:true. An artifact whose rows would fail
+    // importDb — shape, NOT NULL, or UNIQUE violations — reported as verified.
+    // "A backup never restored is a hope", and this drill still never restored.
+    //
+    // The payload is now imported into the scratch adapter and the restored row
+    // counts are asserted. A dry run first (importDb's own shape gate, no
+    // writes), then the real import, then a census. The live DB is still never
+    // touched: scratch is a throwaway file in a temp dir.
     const repo = await facade();
+
+    // 1. Dry run — the S1 shape gate, no writes. A malformed payload fails here.
+    await repo.importDb(envelope.payload, { dryRun: true });
+
+    // 2. The real import into scratch.
+    const applied = await repo.importDb(envelope.payload);
+
+    // 3. Census the restored rows. Zero rows means the artifact carries nothing
+    //    restorable — which is a FAILED drill, not a passing one.
+    const census = {};
+    for (const t of expectedTables) {
+      try {
+        census[t] = scratch.get(`SELECT COUNT(*) AS c FROM "${t}"`)?.c ?? 0;
+      } catch {
+        census[t] = 0;
+      }
+    }
+    const restoredRows = Object.values(census).reduce((a, b) => a + b, 0);
+    if (restoredRows === 0) {
+      throw new Error(
+        "drill restored ZERO rows — the artifact carries no restorable data " +
+        "(or every section was rejected by shape validation)"
+      );
+    }
+
     await repo.writeLedger("drill", {
       artifactId: path.basename(latest.full, ".velabak"),
       schemaVersion: envelope.payload?._meta?.schemaVersion ?? null,
-      meta: { tableCensus: expectedTables.length },
+      meta: {
+        tableCensus: expectedTables.length,
+        restoredRows,
+        appliedSections: applied?.appliedSections ?? null,
+        appliedRows: applied?.appliedRows ?? null,
+        drill: "import-verified",
+      },
     });
-    return { ok: true, artifactId: path.basename(latest.full, ".velabak"), tableCensus: expectedTables.length };
+    return {
+      ok: true,
+      artifactId: path.basename(latest.full, ".velabak"),
+      tableCensus: expectedTables.length,
+      restoredRows,
+      appliedSections: applied?.appliedSections ?? null,
+      drill: "import-verified",
+    };
   } catch (err) {
     try {
       const repo = await facade();

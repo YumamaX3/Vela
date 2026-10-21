@@ -10,6 +10,7 @@ import { unwrapClineEnvelope } from "../../shared/clineEnvelope.js";
 import { normalizeKimiToolCalls } from "../../utils/kimiToolParser.js";
 import { buildRequestDetail, extractRequestConfig, extractUsageFromResponse, saveUsageStats, formatDoneLine } from "./requestDetail.js";
 import { appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
+import { scanOutboundPayload, auditDecision, BLOCK_STATUS, BLOCKED_OUTBOUND } from "@/lib/guardrails/pipeline.js";
 import { decloakToolNames } from "../../utils/claudeCloaking.js";
 import { ROLE, RESPONSES_ITEM } from "../../translator/schema/index.js";
 
@@ -283,7 +284,7 @@ export function translateNonStreamingResponse(responseBody, targetFormat, source
 /**
  * Handle non-streaming response from provider.
  */
-export async function handleNonStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, trackDone, appendLog, pxpipe, rtk, httpStatus, reqTag, log, combo }) {
+export async function handleNonStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, customToolNames, trackDone, appendLog, pxpipe, rtk, httpStatus, reqTag, log, combo, guardrail }) {
   trackDone();
   const contentType = providerResponse.headers.get("content-type") || "";
   let responseBody;
@@ -322,6 +323,28 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
 
   // Decloak tool_use names once on raw Claude body, before any translation (INPUT side)
   responseBody = decloakToolNames(responseBody, toolNameMap);
+
+  // GUARDRAILS — OUTBOUND (buffered). The answer is complete before a byte is
+  // written, so a block can still become a real 451 and a mask can rewrite the
+  // document once, before usage is metered or anything is persisted. A policy
+  // that only logs or warns leaves the body untouched.
+  if (guardrail) {
+    try {
+      const decision = scanOutboundPayload(guardrail, responseBody);
+      if (decision.findings.length) {
+        auditDecision({ guardrail, decision, direction: "outbound", provider, model, connectionId });
+      }
+      if (decision.action === "block") {
+        appendLog({ status: `FAILED ${BLOCK_STATUS}` });
+        if (log?.errorLine) log.errorLine(reqTag, "🛡", `guardrail blocked response · ${provider}/${model} · ${decision.findings.length} finding(s)`);
+        return createErrorResult(BLOCK_STATUS, BLOCKED_OUTBOUND);
+      }
+      if (decision.mutated) {
+        responseBody = decision.value;
+        if (log?.line) log.line(reqTag, "🛡", `guardrail masked ${decision.findings.length} value(s) · ${provider}/${model}`);
+      }
+    } catch { /* fail-open: a scan that throws must not break the answer */ }
+  }
 
   const usage = extractUsageFromResponse(responseBody);
   appendLog({ tokens: usage, status: "200 OK" });

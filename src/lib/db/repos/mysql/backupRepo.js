@@ -38,7 +38,11 @@ export async function exportDb({ includeRequestDetails = false, redact = false }
   const tables = {
     providerConnections: (await db.all(`SELECT * FROM providerConnections`)).map((r) => {
       const data = parseJson(r.data, {});
-      return { ...(redact ? redactSecretConnectionData(data) : data), id: r.id, provider: r.provider, authType: r.authType, name: r.name, email: r.email, priority: r.priority, isActive: r.isActive === 1 || r.isActive === true, createdAt: r.createdAt, updatedAt: r.updatedAt };
+      const sealed = redact ? {} : Object.fromEntries(
+        ["secretWrappedDEK","secretCiphertext","tokenWrappedDEK","tokenCiphertext","refreshWrappedDEK","refreshCiphertext"]
+          .map((col) => [col, r[col] ?? ""])
+      );
+      return { ...(redact ? redactSecretConnectionData(data) : data), ...sealed, id: r.id, provider: r.provider, authType: r.authType, name: r.name, email: r.email, priority: r.priority, isActive: r.isActive === 1 || r.isActive === true, createdAt: r.createdAt, updatedAt: r.updatedAt };
     }),
     providerNodes: (await db.all(`SELECT * FROM providerNodes`)).map((r) => ({ ...parseJson(r.data, {}), id: r.id, type: r.type, name: r.name, createdAt: r.createdAt, updatedAt: r.updatedAt })),
     proxyPools: (await db.all(`SELECT * FROM proxyPools`)).map((r) => {
@@ -307,10 +311,28 @@ export async function importDb(payload, { adoptSecrets = false, adoptKeys = fals
     }
 
     if (want("connections")) for (const c of payload.providerConnections || []) {
-      const { id, provider, authType, name, email, priority, isActive, createdAt, updatedAt, ...rest } = c;
+      const {
+        id, provider, authType, name, email, priority, isActive, createdAt, updatedAt,
+        secretWrappedDEK, secretCiphertext, tokenWrappedDEK, tokenCiphertext,
+        refreshWrappedDEK, refreshCiphertext, ...rest
+      } = c;
       await tx.run(
-        `INSERT INTO providerConnections(id, provider, authType, name, email, priority, isActive, data, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data)`,
-        [id, provider, authType || "oauth", name || null, email || null, priority || null, isActive === false ? 0 : 1, stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString()]
+        `INSERT INTO providerConnections(
+          id, provider, authType, name, email, priority, isActive, data, createdAt, updatedAt,
+          secretWrappedDEK, secretCiphertext, tokenWrappedDEK, tokenCiphertext,
+          refreshWrappedDEK, refreshCiphertext
+        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          data = VALUES(data),
+          secretWrappedDEK = VALUES(secretWrappedDEK), secretCiphertext = VALUES(secretCiphertext),
+          tokenWrappedDEK = VALUES(tokenWrappedDEK), tokenCiphertext = VALUES(tokenCiphertext),
+          refreshWrappedDEK = VALUES(refreshWrappedDEK), refreshCiphertext = VALUES(refreshCiphertext)`,
+        [
+          id, provider, authType || "oauth", name || null, email || null, priority || null,
+          isActive === false ? 0 : 1, stringifyJson(rest), createdAt || new Date().toISOString(), updatedAt || new Date().toISOString(),
+          secretWrappedDEK || "", secretCiphertext || "", tokenWrappedDEK || "", tokenCiphertext || "",
+          refreshWrappedDEK || "", refreshCiphertext || "",
+        ]
       );
     }
     if (want("connections")) for (const n of payload.providerNodes || []) {

@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 19;
+export const SCHEMA_VERSION = 23;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -41,6 +41,15 @@ export const TABLES = {
       priority: "INTEGER",
       isActive: "INTEGER DEFAULT 1",
       data: "TEXT NOT NULL",
+      // Migration 021 — envelope-sealed credential slots. Empty means the row
+      // is either unsealed (plaintext install) or has no credential for that
+      // slot; the vault helpers treat both the same on read.
+      secretWrappedDEK: "TEXT NOT NULL DEFAULT ''",
+      secretCiphertext: "TEXT NOT NULL DEFAULT ''",
+      tokenWrappedDEK: "TEXT NOT NULL DEFAULT ''",
+      tokenCiphertext: "TEXT NOT NULL DEFAULT ''",
+      refreshWrappedDEK: "TEXT NOT NULL DEFAULT ''",
+      refreshCiphertext: "TEXT NOT NULL DEFAULT ''",
       createdAt: "TEXT NOT NULL",
       updatedAt: "TEXT NOT NULL",
     },
@@ -108,6 +117,8 @@ export const TABLES = {
       ipAllowlist: "TEXT",
       // Free-form key category (migration 003; mirrored here for fresh installs + auto-sync)
       category: "TEXT",
+      // Plans (migration 023) — the template this key inherits defaults from.
+      planId: "TEXT",
     },
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)",
@@ -117,6 +128,23 @@ export const TABLES = {
       // Migration 003's partial index — declared here so auto-sync can heal it
       // if it is ever dropped (plain TEXT column in TABLES cannot carry WHERE).
       "CREATE INDEX IF NOT EXISTS idx_ak_category ON apiKeys(category) WHERE category IS NOT NULL",
+    ],
+  },
+  plans: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      name: "TEXT NOT NULL",
+      description: "TEXT",
+      limitTokens: "INTEGER",
+      spendCapCents: "INTEGER",
+      rpmLimit: "INTEGER",
+      period: "TEXT NOT NULL DEFAULT 'monthly'",
+      allowedModels: "TEXT",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE UNIQUE INDEX IF NOT EXISTS uq_plan_name ON plans(name)",
     ],
   },
   combos: {
@@ -346,6 +374,58 @@ export const TABLES = {
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_cbk_pool ON circuitBreakerKeys(poolId)",
       "CREATE INDEX IF NOT EXISTS idx_cbk_state ON circuitBreakerKeys(state)",
+    ],
+  },
+  // Security & governance (migration 020, ported from 9router-go) — WHAT to
+  // scan and WHAT to do. Declared here so the additive auto-sync, the backup
+  // export, and the MariaDB twin's bootstrap diff all see it: a policy table
+  // missing from this census would vanish on restore while the audit log
+  // survived, which is the one asymmetry a security feature must never have.
+  guardrailPolicies: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      name: "TEXT NOT NULL",
+      enabled: "INTEGER NOT NULL DEFAULT 1",
+      scope: "TEXT NOT NULL DEFAULT 'global'",
+      target: "TEXT",
+      direction: "TEXT NOT NULL DEFAULT 'both'",
+      detectors: "TEXT NOT NULL DEFAULT '[]'",
+      action: "TEXT NOT NULL DEFAULT 'log_only'",
+      priority: "INTEGER NOT NULL DEFAULT 100",
+      notes: "TEXT",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_gp_scope ON guardrailPolicies(scope, target)",
+      "CREATE INDEX IF NOT EXISTS idx_gp_enabled ON guardrailPolicies(enabled, priority)",
+    ],
+  },
+  // Security & governance (migration 020) — WHAT MATCHED. One row per
+  // (decision, entity); never the matched value itself. createdAtMs is the
+  // range-queried integer, createdAt the human-facing ISO stamp.
+  guardrailLogs: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      policyId: "TEXT",
+      scope: "TEXT",
+      direction: "TEXT NOT NULL",
+      action: "TEXT NOT NULL",
+      detector: "TEXT",
+      entity: "TEXT",
+      severity: "TEXT",
+      provider: "TEXT",
+      model: "TEXT",
+      connectionId: "TEXT",
+      matchCount: "INTEGER NOT NULL DEFAULT 0",
+      excerpt: "TEXT",
+      createdAt: "TEXT NOT NULL",
+      createdAtMs: "INTEGER NOT NULL",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_gl_created ON guardrailLogs(createdAtMs)",
+      "CREATE INDEX IF NOT EXISTS idx_gl_action ON guardrailLogs(action, createdAtMs)",
+      "CREATE INDEX IF NOT EXISTS idx_gl_entity ON guardrailLogs(entity, createdAtMs)",
     ],
   },
   // Auth Hardening W1 (migration 016) — the session ledger. One row per issued

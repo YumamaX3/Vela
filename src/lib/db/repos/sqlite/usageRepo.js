@@ -465,7 +465,19 @@ export async function saveRequestUsage(entry) {
       scheduleStatsEvent("update", 250);
     }
   } catch (e) {
-    console.error("Failed to save usage stats:", e);
+    // A malformed image is a STORAGE fault, not a stats bug: report it through
+    // the integrity guardian (loudly once, then counted) instead of re-printing
+    // the same stack on every single request.
+    const { isCorruptionError, noteRuntimeCorruption } = await import("../../integrity.js");
+    if (!isCorruptionError(e)) {
+      console.error("Failed to save usage stats:", e);
+    } else if (noteRuntimeCorruption(e, "usage write")) {
+      console.error(
+        "[DB] usage write hit a MALFORMED database image — usage history is NOT being recorded.\n" +
+          "     The gateway keeps serving (fail-open). Repair it: POST /api/settings/database/repair," +
+          " then restart. Detail: " + String(e.message || e).slice(0, 160)
+      );
+    }
   }
 }
 

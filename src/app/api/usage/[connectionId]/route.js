@@ -6,6 +6,7 @@ import { getUsageForProvider } from "open-sse/services/usage.js";
 import { getExecutor } from "open-sse/executors/index.js";
 import { resolveConnectionProxyConfig, buildProxyOptionsPayload } from "@/lib/network/connectionProxy";
 import { USAGE_APIKEY_PROVIDERS } from "@/shared/constants/providers";
+import { quotaFetchGate } from "@/lib/fetchgate.js";
 
 // Detect auth-expired messages returned by usage providers instead of throwing
 const AUTH_EXPIRED_PATTERNS = ["expired", "authentication", "unauthorized", "401", "re-authorize"];
@@ -143,6 +144,20 @@ export async function GET(request, { params }) {
 
     if (!isOAuth && !isApikeyEligible) {
       return Response.json({ message: "Usage not available for this connection" });
+    }
+
+    // F-6 — pace the upstream read. The dashboard refreshes every visible
+    // connection in one tick; without this gate ten accounts behind one egress
+    // IP fire in the same millisecond and the provider's 429 is misread as real
+    // quota exhaustion. A caller that navigated away while queued gives up its
+    // request without spending an upstream call.
+    try {
+      await quotaFetchGate.acquire(request.signal);
+    } catch (e) {
+      if (e?.name === "AbortError") {
+        return Response.json({ error: "Request aborted while queued" }, { status: 499 });
+      }
+      throw e;
     }
 
     // Resolve connection proxy config; force strictProxy=false so quota/refresh fall back to direct on failure

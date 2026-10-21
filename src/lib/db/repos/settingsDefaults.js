@@ -71,6 +71,11 @@ export const DEFAULT_SETTINGS = {
   mitmRouterBaseUrl: DEFAULT_MITM_ROUTER_BASE,
   dnsToolEnabled: {},
   rtkEnabled: true,
+  // Guardrails kill switch (ported from 9router-go). ON by default, but an
+  // install with no policies pays one cached lookup and nothing else: the
+  // resolver returns null and every tap is skipped. Turning this off silences
+  // BOTH directions at once, so neither tap can outlive the other's decision.
+  guardrailsEnabled: true,
   headroomEnabled: false,
   headroomUrl: DEFAULT_HEADROOM_URL,
   headroomTimeoutMs: 3000,
@@ -79,6 +84,8 @@ export const DEFAULT_SETTINGS = {
   cavemanLevel: "full",
   ponytailEnabled: false,
   ponytailLevel: "full",
+  adhdEnabled: false,
+  adhdLevel: "full",
   pxpipeEnabled: false,
   pxpipeAutoInstall: true,
   pxpipeMinChars: 25000,

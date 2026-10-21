@@ -71,3 +71,23 @@ export async function deleteCombo(id) {
   const res = db.run(`DELETE FROM combos WHERE id = ?`, [id]);
   return (res?.changes ?? 0) > 0;
 }
+
+/** Upsert with a caller-chosen id — auto-generated combos keep one stable row
+ *  across rebuilds instead of stacking a new uuid each time. */
+export async function upsertComboWithId(id, { name, kind = null, models = [] }) {
+  const db = await getAdapter();
+  const now = new Date().toISOString();
+  const existing = db.get(`SELECT id FROM combos WHERE id = ?`, [id]);
+  if (existing) {
+    db.run(
+      `UPDATE combos SET name = ?, kind = ?, models = ?, updatedAt = ? WHERE id = ?`,
+      [name, kind, stringifyJson(models), now, id]
+    );
+  } else {
+    db.run(
+      `INSERT INTO combos(id, name, kind, models, createdAt, updatedAt) VALUES(?, ?, ?, ?, ?, ?)`,
+      [id, name, kind, stringifyJson(models), now, now]
+    );
+  }
+  return getComboById(id);
+}

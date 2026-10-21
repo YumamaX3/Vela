@@ -88,7 +88,11 @@ async function resolveDriver(filePath) {
 export async function getScratchAdapter(filePath) {
   const adapter = await resolveDriver(filePath);
   const { runMigrationOnce } = await import("./migrate.js");
-  await runMigrationOnce(adapter);
+  // skipBackup: a scratch file is not the operator's database. Without this the
+  // chain wrote a `schema-N-to-M` snapshot into the real backups dir and pruned
+  // real history to KEEP_BACKUPS — a restore drill silently destroying recovery
+  // points it was supposed to be proving.
+  await runMigrationOnce(adapter, { skipBackup: true });
   return adapter;
 }
 
@@ -102,12 +106,93 @@ async function initAdapter() {
   // Storage Covenant A4/A10). When set, ONLY that driver is tried and failure
   // is LOUD: the matrix must be able to force the fragile corners (e.g. the
   // sql.js SAVEPOINT path in CI) instead of silently falling through the chain.
-  const adapter = await resolveDriver(DATA_FILE);
+  // WR-a1 — single-instance guard, acquired BEFORE the file is opened. Four
+  // worktrees share this database on this machine with nothing between them;
+  // a second writer's exit-time wal_checkpoint(TRUNCATE) is the documented
+  // 5,495 ms freeze, and that shape is what produces the boot-time
+  // SQLITE_CORRUPT. Fail LOUD here rather than race silently.
+  //
+  // PER-INSTANCE, NOT PER-PROCESS: a suite that simulates a fresh boot does
+  // `delete global._dbAdapter; vi.resetModules()` and re-imports — the lockfile
+  // would survive that reset and the second boot would find a lock held by a
+  // still-living PID (itself) and throw. So the lock is released when the
+  // singleton is torn down, and re-acquired on the next initAdapter(). A real
+  // second PROCESS still cannot acquire it: it has a different PID, and the
+  // lockfile outlives this process's teardown.
+  const { acquireSingleInstanceLock } = await import("./singleInstance.js");
+  const lock = acquireSingleInstanceLock(DATA_FILE);
+  if (!lock.ok) {
+    const h = lock.holder;
+    throw new Error(
+      `[DB] ${lock.reason} (pid ${h?.pid ?? "?"}, since ${h?.at ?? "?"}). ` +
+      `Refusing to open a second writer — set VELA_DB_SINGLE_INSTANCE=0 to override ` +
+      `(the parity harness drives multiple handles at one file deliberately).`
+    );
+  }
+  // Release on every clean exit path. A hard kill leaves the lockfile behind,
+  // which the staleness rule (dead PID / stale mtime) recovers on next boot.
+  // The handlers are REMOVED on release: the drill and the parity harness open
+  // adapters repeatedly in one process, and each initAdapter() would otherwise
+  // add three more listeners until Node's ceiling trips
+  // (MaxListenersExceededWarning — 11 beforeExit/SIGINT/SIGTERM observed).
+  const releaseLock = () => {
+    for (const sig of ["beforeExit", "SIGINT", "SIGTERM"]) {
+      process.removeListener(sig, releaseLock);
+    }
+    try { lock.release(); } catch {}
+  };
+  process.once("beforeExit", releaseLock);
+  process.once("SIGINT", releaseLock);
+  process.once("SIGTERM", releaseLock);
+  // Tear-down seam: a caller that discards the singleton (test re-boot, drill)
+  // releases the lock so the next initAdapter() can acquire it. Without this,
+  // an in-process re-boot deadlocks against its own lockfile.
+  state.releaseLock = releaseLock;
+
+  let adapter = await resolveDriver(DATA_FILE);
   if (!state.logged) {
     const forced = (process.env.VELA_DB_DRIVER || "").toLowerCase().trim();
     console.log(`[DB] Driver: ${adapter.driver}${forced ? " (forced)" : ""} | file: ${DATA_FILE}`);
     state.logged = true;
   }
+
+  // INTEGRITY GATE — the harbor is inspected at the door.
+  //
+  // Before this, a malformed image booted happily, migrated over the damage,
+  // and only surfaced as a wall of fail-open runtime noise ("database disk
+  // image is malformed" on every usage write) while usage history and request
+  // details were silently lost. A corrupt image must be found HERE.
+  //
+  // Ordering matters: probe and heal BEFORE the migration chain runs, because
+  // a migration writing into a damaged b-tree is how a partial wound becomes a
+  // total one. VELA_DB_SKIP_INTEGRITY=1 opts out (the parity harness and a
+  // restore drill deliberately drive odd files).
+  if ((process.env.VELA_DB_SKIP_INTEGRITY || "") !== "1") {
+    const integrity = await import("./integrity.js");
+    const heal = integrity.healAtBoot(adapter, DATA_FILE);
+    if (heal.reopen) {
+      // Reopen with the SAME driver the first resolve chose. Re-rolling the
+      // chain here would be exactly the two-driver interop on one image that
+      // the single-instance guard exists to prevent.
+      const driverBefore = adapter.driver;
+      adapter = await resolveDriver(DATA_FILE);
+      if (adapter.driver !== driverBefore) {
+        console.warn(
+          `[DB] driver changed across recovery (${driverBefore} → ${adapter.driver}); ` +
+            `the recovered image is fine, but report this if it repeats.`
+        );
+      }
+      const recheck = integrity.probeIntegrity(adapter);
+      if (!recheck.ok) {
+        throw new Error(
+          `[DB] The database image is still malformed after recovery: ${recheck.messages.join("; ")}. ` +
+            `The original was quarantined; restore a backup from the backups/ directory or start fresh.`
+        );
+      }
+      console.warn(`[DB] recovered harbor reopened cleanly (${heal.action})`);
+    }
+  }
+
   const { runMigrationOnce } = await import("./migrate.js");
   await runMigrationOnce(adapter);
   return adapter;
@@ -115,8 +200,22 @@ async function initAdapter() {
 
 export async function getAdapter() {
   if (state.instance) return state.instance;
-  if (!state.initPromise) state.initPromise = initAdapter().then((a) => { state.instance = a; return a; });
+  if (!state.initPromise) {
+    state.initPromise = initAdapter().then((a) => { state.instance = a; return a; });
+  }
   return state.initPromise;
+}
+
+/** Discard the singleton (test re-boot, drill, forced re-init). Releases the
+ *  single-instance lock FIRST, so the next getAdapter() can acquire it — an
+ *  in-process re-boot must not deadlock against its own lockfile. */
+export function resetAdapter() {
+  try { state.releaseLock?.(); } catch {}
+  try { state.instance?.close?.(); } catch {}
+  state.instance = null;
+  state.initPromise = null;
+  state.releaseLock = null;
+  state.logged = false;
 }
 
 export function getAdapterSync() {

@@ -471,7 +471,16 @@ export async function saveRequestUsage(entry) {
       scheduleStatsEvent("update", 250);
     }
   } catch (e) {
-    console.error("Failed to save usage stats:", e);
+    // Mirror of the sqlite writer's law: corruption is a storage fault, not a
+    // stats bug. Report once through the shared counter, then stay quiet.
+    const { isCorruptionError, noteRuntimeCorruption } = await import("../../integrity.js");
+    if (!isCorruptionError(e)) {
+      console.error("Failed to save usage stats:", e);
+    } else if (noteRuntimeCorruption(e, "mysql usage write")) {
+      console.error(
+        "[DB] mysql usage write hit a MALFORMED database — usage history is NOT being recorded (fail-open)."
+      );
+    }
   }
 }
 

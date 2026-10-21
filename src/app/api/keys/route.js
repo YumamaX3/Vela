@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getApiKeys, createApiKey, KeyLimitsValidationError, sanitizeCategory } from "@/lib/localDb";
+import { getPlan } from "@/lib/db/repos/plansRepo.js";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,13 @@ export async function POST(request) {
       return NextResponse.json({ error: e.message }, { status: 400 });
     }
 
+    let planId = null;
+    if (body.planId != null) {
+      const plan = await getPlan(body.planId);
+      if (!plan) return NextResponse.json({ error: "Plan not found" }, { status: 400 });
+      planId = plan.id;
+    }
+
     const created = await createApiKey(name.trim(), {
       description: typeof description === "string" ? description.trim() || null : null,
       allowedModels: scope,
@@ -60,6 +68,7 @@ export async function POST(request) {
       budgetScope: body.budgetScope,
       expiresAt: body.expiresAt,
       ipAllowlist: body.ipAllowlist,
+      planId,
     });
 
     return NextResponse.json({

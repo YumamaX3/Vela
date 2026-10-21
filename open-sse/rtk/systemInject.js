@@ -71,11 +71,15 @@ function isKiroBody(body) {
   return historyTurn || !!(cs.currentMessage && cs.currentMessage.userInputMessage);
 }
 
-// Exact idempotency: prompt present as its own SEP-delimited segment (or the
-// whole string), not as a substring of unrelated text.
+// Exact idempotency: prompt present as its own SEP-delimited segment, the
+// whole string, or a contiguous block of its own text. The last case is what
+// multi-paragraph prompts (ADHD's heading + rules) need: splitting them by a
+// blank line makes no single segment equal the prompt, so a segment-only test
+// appended the same block on every injection.
 function hasPrompt(haystack, prompt) {
   if (!haystack || typeof haystack !== "string") return false;
   if (haystack === prompt) return true;
+  if (haystack.includes(prompt)) return true;
   return haystack.split(SEP).includes(prompt);
 }
 

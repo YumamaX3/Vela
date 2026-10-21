@@ -54,6 +54,15 @@ export const REPLAY_CLASSES = {
   clearSyncedPricing: REPLAY_CLASS.IDEMPOTENT_UPSERT,
   disableModels: REPLAY_CLASS.IDEMPOTENT_UPSERT,
   enableModels: REPLAY_CLASS.IDEMPOTENT_UPSERT,
+  // Security & governance (migration 020). The policy store always passes the
+  // FULL merged row, so REPLACE/INSERT OR REPLACE converges on replay. Audit
+  // rows carry the id the store minted, so a replay rewrites the same line;
+  // the clear is a predicate delete whose terminal state is the same whether
+  // it runs once or five times. No matched value ever rides these args.
+  upsertGuardrailPolicy: REPLAY_CLASS.IDEMPOTENT_UPSERT,
+  deleteGuardrailPolicy: REPLAY_CLASS.IDEMPOTENT_UPSERT,
+  insertGuardrailLog: REPLAY_CLASS.IDEMPOTENT_UPSERT,
+  deleteGuardrailLogs: REPLAY_CLASS.IDEMPOTENT_UPSERT,
 
   // ─── identity-carrying ─────────────────────────────────────────────────
   createCombo: REPLAY_CLASS.IDENTITY_CARRYING, // mints uuid + createdAt/updatedAt

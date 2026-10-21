@@ -55,13 +55,58 @@ function isFreshDb(adapter) {
 }
 
 // ─── Versioned migrations runner (skip-version safe) ─────────────────────
+function tableExists(adapter, name) {
+  try {
+    return !!adapter.get(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name = ?`,
+      [name]
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Ghost-slot repair — a stored version can be AHEAD of the DDL it claims.
+ *
+ * The live harbor proved it: 020-guardrails.js was written onto a database
+ * whose `_meta.schemaVersion` already read 20 from an earlier build that never
+ * created the tables. `current >= target` short-circuits the chain, so the
+ * migration would never run — a version number is a claim, not a measurement.
+ *
+ * A migration that declares `tables` is re-applied when any of them is absent.
+ * The call must be idempotent (every 020 statement is `IF NOT EXISTS`), and a
+ * repair NEVER rewrites the version: the number was already spent, and only
+ * the missing structure is owed.
+ */
+function repairMissingDeclaredTables(adapter) {
+  let repaired = 0;
+  for (const m of MIGRATIONS) {
+    const tables = Array.isArray(m.tables) ? m.tables : [];
+    if (!tables.length) continue;
+    if (tables.every((t) => tableExists(adapter, t))) continue;
+    try {
+      adapter.transaction(() => m.up(adapter));
+      repaired++;
+      console.log(`[DB][migrate] repaired missing tables for #${m.version} ${m.name} — the stored version was ahead of its DDL`);
+    } catch (e) {
+      console.warn(`[DB][migrate] repair of #${m.version} failed: ${e.message}`);
+    }
+  }
+  return repaired;
+}
+
 function runVersionedMigrations(adapter) {
   // Bootstrap _meta first so we can read schemaVersion
   adapter.exec(buildCreateTableSql("_meta", TABLES._meta));
 
   const current = parseInt(getMetaSync(adapter, "schemaVersion", "0"), 10) || 0;
   const target = latestVersion();
-  if (current >= target) return { applied: 0, from: current, to: current };
+  if (current >= target) {
+    // The slot is spent. Before trusting it, verify the structure it claims.
+    repairMissingDeclaredTables(adapter);
+    return { applied: 0, from: current, to: current };
+  }
 
   const pending = MIGRATIONS.filter((m) => m.version > current);
   let lastApplied = current;
@@ -73,6 +118,9 @@ function runVersionedMigrations(adapter) {
     lastApplied = m.version;
     console.log(`[DB][migrate] applied #${m.version} ${m.name}`);
   }
+  // Defensive: a chain that half-applied (crash between DDL and version stamp)
+  // is repaired on the next boot instead of waiting for a version bump.
+  repairMissingDeclaredTables(adapter);
   return { applied: pending.length, from: current, to: lastApplied };
 }
 
@@ -214,16 +262,21 @@ function importLegacyDetails(adapter, data) {
 }
 
 // ─── Main entry ──────────────────────────────────────────────────────────
-export async function runMigrationOnce(adapter) {
+export async function runMigrationOnce(adapter, opts = {}) {
   if (_migratedAdapters.has(adapter)) return;
   _migratedAdapters.add(adapter);
+  // Scratch adapters (the restore drill, parity harness) run the chain against a
+  // throwaway file. They must never write into the operator's real backups dir —
+  // doing so pruned real recovery history down to KEEP_BACKUPS, and the missing
+  // schema-19-to-20 snapshot was a drill casualty, not a backup that never ran.
+  const isScratch = opts?.skipBackup === true;
 
   // Capture freshness BEFORE migrations stamp _meta (otherwise we'd misclassify
   // a brand-new DB as non-fresh once schemaVersion is written).
   const fresh = isFreshDb(adapter);
 
   // Prune stale backups every boot so old oversized backups shrink to KEEP.
-  pruneOldBackups();
+  if (!isScratch) pruneOldBackups();
 
   // Bootstrap _meta so we can read the stored backup schema version below
   // (runVersionedMigrations also ensures this, but we need it earlier here).
@@ -232,8 +285,19 @@ export async function runMigrationOnce(adapter) {
   // Detect a pending schema change via the central SCHEMA_VERSION const.
   // A lightweight backup is taken BEFORE any schema mutation below.
   const storedSchemaVer = parseInt(getMetaSync(adapter, "backupSchemaVersion", "0"), 10) || 0;
-  const schemaChanging = !fresh && storedSchemaVer < SCHEMA_VERSION;
-  if (schemaChanging) {
+  // DLV-3 — the snapshot that stands between the operator and a data-wiping
+  // migration was gated ONLY on `backupSchemaVersion < SCHEMA_VERSION`. That
+  // counter tracks the TABLES constant, NOT the pending migration list, so the
+  // documented easy mistake (add a migration, forget to bump SCHEMA_VERSION —
+  // schema.js:1-6 says "Forgetting to bump only skips that backup") left
+  // `schemaChanging` false while `pending.length > 0`: migrations that UPDATE or
+  // DROP data ran with no safety net at all. Gate on the REAL question — is
+  // there work to do? — and keep the counter as a secondary signal so a bumped
+  // SCHEMA_VERSION with no migration still takes its snapshot.
+  const dbSchemaVer = parseInt(getMetaSync(adapter, "schemaVersion", "0"), 10) || 0;
+  const pendingCount = MIGRATIONS.filter((m) => m.version > dbSchemaVer).length;
+  const schemaChanging = !fresh && (storedSchemaVer < SCHEMA_VERSION || pendingCount > 0);
+  if (schemaChanging && !isScratch) {
     try {
       const backupDir = makeBackupDir(`schema-${storedSchemaVer}-to-${SCHEMA_VERSION}`);
       backupDbLite(adapter, backupDir);
@@ -261,7 +325,7 @@ export async function runMigrationOnce(adapter) {
   const legacyDetails = readJsonSafe(LEGACY_FILES.details);
   const hasLegacy = !!(legacyMain || legacyUsage || legacyDisabled || legacyDetails);
 
-  if (fresh && hasLegacy && !alreadyImported) {
+  if (fresh && hasLegacy && !alreadyImported && !isScratch) {
     const t0 = Date.now();
     const backupDir = makeBackupDir("migrate-from-json");
     for (const f of Object.values(LEGACY_FILES)) backupFile(f, backupDir);

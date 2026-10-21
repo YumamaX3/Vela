@@ -6,6 +6,9 @@
 import { v4 as uuidv4 } from "uuid";
 import { getMysqlAdapter } from "../../mysql/adapter.js";
 import { parseJson, stringifyJson } from "../../helpers/jsonCol.js";
+import {
+  sealConnection, openConnectionData, SEALED_SLOTS, SLOT_COLUMNS,
+} from "../../connectionVault.js";
 
 const OPTIONAL_FIELDS = [
   "displayName", "email", "globalPriority", "defaultModel",
@@ -48,9 +51,16 @@ function resetHealthStateOnActivation(existing, patch) {
   return normalized;
 }
 
-function rowToConn(row) {
+function rowToConn(row, { hydrate = true } = {}) {
   if (!row) return null;
-  const extra = parseJson(row.data, {});
+  let extra = parseJson(row.data, {});
+  if (hydrate) {
+    extra = openConnectionData(extra, row, {
+      onError: (slot, err) => console.warn(
+        `[vault] sealed ${slot} credential could not be opened for ${row.id}; row left untouched: ${err.message}`
+      ),
+    });
+  }
   return {
     ...extra,
     id: row.id,
@@ -81,16 +91,34 @@ function connToRow(c) {
   };
 }
 
-async function upsert(db, c) {
-  const r = connToRow(c);
+async function upsert(db, c, patch = null) {
+  // Mirrors the sqlite harbor exactly: seal first, and never write a slot the
+  // caller did not re-seal (so an unrelated update keeps the ciphertext).
+  const { conn: sealedConn, slots } = sealConnection(c, patch);
+  const r = connToRow(sealedConn);
+  const columns = ["id", "provider", "authType", "name", "email", "priority", "isActive", "data", "createdAt", "updatedAt"];
+  const values = [r.id, r.provider, r.authType, r.name, r.email, r.priority, r.isActive, r.data, r.createdAt, r.updatedAt];
+  const updates = [
+    "provider=VALUES(provider)", "authType=VALUES(authType)", "name=VALUES(name)",
+    "email=VALUES(email)", "priority=VALUES(priority)", "isActive=VALUES(isActive)",
+    "data=VALUES(data)", "updatedAt=VALUES(updatedAt)",
+  ];
+
+  if (slots) {
+    for (const slot of SEALED_SLOTS) {
+      if (!(slot in slots)) continue;
+      const [wrappedCol, cipherCol] = SLOT_COLUMNS[slot];
+      columns.push(wrappedCol, cipherCol);
+      values.push(slots[slot]?.wrappedDEK ?? "", slots[slot]?.ciphertext ?? "");
+      updates.push(`${wrappedCol}=VALUES(${wrappedCol})`, `${cipherCol}=VALUES(${cipherCol})`);
+    }
+  }
+
   await db.run(
-    `INSERT INTO providerConnections(id, provider, authType, name, email, priority, isActive, data, createdAt, updatedAt)
-     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE
-       provider=VALUES(provider), authType=VALUES(authType), name=VALUES(name),
-       email=VALUES(email), priority=VALUES(priority), isActive=VALUES(isActive),
-       data=VALUES(data), updatedAt=VALUES(updatedAt)`,
-    [r.id, r.provider, r.authType, r.name, r.email, r.priority, r.isActive, r.data, r.createdAt, r.updatedAt]
+    `INSERT INTO providerConnections(${columns.join(", ")})
+     VALUES(${columns.map(() => "?").join(", ")})
+     ON DUPLICATE KEY UPDATE ${updates.join(", ")}`,
+    values
   );
 }
 
@@ -127,7 +155,7 @@ export async function getProviderConnectionById(id) {
 // Internal sync reorder — called INSIDE a connection-bound transaction.
 async function reorderInTx(db, providerId) {
   const rows = await db.all(`SELECT * FROM providerConnections WHERE provider = ?`, [providerId]);
-  const list = rows.map(rowToConn);
+  const list = rows.map((r) => rowToConn(r, { hydrate: false }));
   list.sort((a, b) => {
     const pDiff = (a.priority || 0) - (b.priority || 0);
     if (pDiff !== 0) return pDiff;
@@ -237,7 +265,7 @@ export async function updateProviderConnection(id, data) {
     if (!row) { result = null; return; }
     const existing = rowToConn(row);
     const merged = { ...existing, ...resetHealthStateOnActivation(existing, data), updatedAt: new Date().toISOString() };
-    await upsert(tx, merged);
+    await upsert(tx, merged, data);
     if (data.priority !== undefined) await reorderInTx(tx, existing.provider);
     result = merged;
   });

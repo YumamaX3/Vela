@@ -41,6 +41,17 @@ export function backupDbLite(adapter, destDir, destName = "data.sqlite") {
   try { fs.rmSync(dest, { force: true }); } catch {}
   const escaped = dest.replace(/'/g, "''");
 
+  // Flush the WAL first. ATTACH copies committed MAIN-DB content, so any frames
+  // still sitting in -wal are invisible to the copy — a backup taken a minute
+  // after the last write silently loses those rows. TRUNCATE is correct HERE
+  // because this path runs with checkpoint ownership and before the copy, not
+  // on a timer beside another handle. Superseded by `adapter.checkpointNow`
+  // where an adapter exposes it.
+  try {
+    if (typeof adapter.checkpointNow === "function") adapter.checkpointNow("truncate");
+    else adapter.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+  } catch { /* best effort — the copy still proceeds */ }
+
   adapter.exec(`ATTACH DATABASE '${escaped}' AS bak`);
   try {
     const excluded = new Set(BACKUP_EXCLUDE_TABLES);

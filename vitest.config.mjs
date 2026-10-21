@@ -41,6 +41,16 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // TEST-ENVIRONMENT ISOLATION — runs inside EACH WORKER, before that
+    // worker's test modules import. Required, not optional: src/lib/dataDir.js
+    // does `export const DATA_DIR = getDataDir()` at MODULE LOAD, so a suite's
+    // own beforeEach assignment is only honoured for modules loaded after it.
+    // Measured damage without this: logEvents ids 2 and 4000-19000 in the LIVE
+    // %APPDATA%\vela store were byte-matches of logshipper-degraded.test.js:81
+    // and :185, and providerConnections rows named `guard-<Date.now()>` were
+    // created there by zed-live-models.test.js:156. Suites that set their own
+    // DATA_DIR still override this — it is a floor, not a ceiling.
+    setupFiles: ["./tests/setup/isolate-data-dir.mjs"],
     // .test.js + .test.jsx — the JSX suites (log-render-law, page renders)
     // are first-class; a .js file carrying JSX (proxy-console-surface, 2026-10-11
     // rename) parses only when the extension tells the truth.

@@ -5,6 +5,8 @@
 import { withVoyage } from "@/lib/logContext.js";
 import { handleChat } from "@/sse/handlers/chat.js";
 import { initTranslators } from "open-sse/translator/index.js";
+import { semanticCache, extractSessionId } from "@/lib/semanticCache.js";
+import { ensureSemanticCacheHydrated } from "@/lib/semanticCacheDb.js";
 
 let initialized = false;
 
@@ -35,6 +37,40 @@ export const POST = withVoyage(async function POST(request) {
   // Fallback to local handling
   await ensureInitialized();
 
-  return await handleChat(request);
+  // F-7 — exact-key semantic cache. Disabled by default; when enabled, only
+  // non-streaming requests are eligible (a stream is not a body until it
+  // ends). The key carries the session header when one is present, so two
+  // callers behind the same gateway never read each other's answers.
+  if (!semanticCache.enabled) return await handleChat(request);
+
+  let body = null;
+  try { body = await request.clone().json(); } catch { /* non-JSON: not cacheable */ }
+  if (!body || body.stream === true) return await handleChat(request);
+
+  await ensureSemanticCacheHydrated();
+  const sessionId = extractSessionId(request);
+  const hit = semanticCache.lookup(sessionId, body);
+  if (hit) {
+    return new Response(hit.responseBody, {
+      status: 200,
+      headers: {
+        "content-type": hit.contentType || "application/json",
+        "x-vela-semantic-cache": "hit",
+        "access-control-allow-origin": "*",
+      },
+    });
+  }
+
+  const response = await handleChat(request);
+  if (response.ok) {
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      try {
+        // clone() means the caller still receives the untouched body.
+        semanticCache.storeResponse(sessionId, body, await response.clone().text(), contentType);
+      } catch { /* a cache write must never break a live response */ }
+    }
+  }
+  return response;
 });
 
