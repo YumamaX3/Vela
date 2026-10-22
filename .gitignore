@@ -106,3 +106,4 @@ scripts/*
 
 # Verification builds — never committed
 .next-verify/
+.next-backup-*/
