@@ -1,3 +1,23 @@
+# v1.1.02 — The Gate With No Account 📮🌊
+> *"A door that opens without a key should not vanish because no key was ever cut."* 🌊🚪💜
+**OpenCode Zen's free lanes answered on the request path and showed on the dashboard, yet a coding agent asking `/v1/models` saw none of them. The endpoint walked only stored connections — and a keyless lane has no row to walk. The virtual "Public" connection the request path already builds is now built here too, and the live free catalogue is read from the same `modelsFetcher` the dashboard uses. Beside it, Jerouter's catalogue was transcribed to the 2026-10-23 export: 39 general lanes + 11 unrestricted, 50 in all.**
+
+**✨ The door that had no row**
+- **Keyless lanes enter `/v1/models`** — `buildModelsList` injects a virtual `noauth` lane for `FREE_PROVIDERS` and, mirroring `auth.js`, for `FREE_TIER_PROVIDERS` only while no real key exists. Requests and listings now agree on who can answer.
+- **The live catalogue, cached** — a keyless provider's `modelsFetcher` is read server-side with the dashboard's own filter, cached for ten minutes, bounded at five seconds. The registry's static `models[]` remains the floor when upstream is silent.
+- **Nine free OpenCode lanes appear keyless** — big-pickle, beam-free, flint-40b-free, mimo-v2.6-flash-free, nemotron-3.5-super-vl-free, nemotron-3.5-lightning-free, jev-1.13-free, deepseek-v4.1-flash-free, glm-5.3-flash-free.
+
+**🔧 Jerouter's roster, transcribed**
+- **39 general + 11 unrestricted = 50 lanes**, in the export's own order. Thirteen general lanes joined (ten new, plus mimo-v2.5, jev-1.13 and deepseek-v4-flash returning); minimax-m3.1-flash-unrestricted joined; seven general lanes and muse-unrestricted left.
+- **The window column is the contract, not the summary** — jev-1.13 16k, mimo-v2.6-flash and step-5-preview 1M, claude-haiku-5.5 and auto 256k, beam 1M; every unrestricted lane 512k on this export. Both halves (`contextLength` + `contextWindow`) carry the same numbers.
+
+**🔧 Proof**
+- `jerouter-catalog.test.js` green: 11 tests, 50 lanes, window distribution 44×512k / 3×1M / 2×256k / 1×16k, modality and alias lanes agreeing.
+- Isolated-DB smoke probe: with one real Jerouter connection and zero OpenCode rows, `/v1/models` returned 9 `oc/*` lanes and 50 `je/*` lanes (62 total).
+- Live upstream probe: `https://opencode.ai/zen/v1/models` answered with the free catalogue.
+
+Co-Authored-By: Shiori Shorekeeper <shiorishorekeeper@gmail.com>
+
 # v1.0.97 — The Endpoint That Was Never Carried 🌉🌊
 > *"The button was built, wired, and patient — and it had nothing to hold. A control waiting on a field that never arrives is a door painted on a wall."* 🌊🖤💜
 **The providers page promised a copy-endpoint action and a duplicate-endpoint badge. Both were gated on a row's `baseUrl`, and no stored connection carries one — of 178 rows in the harbor's own database, zero held the field. The registry knew every endpoint all along; the UI layer simply never carried it. Both controls render now.**

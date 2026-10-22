@@ -5,10 +5,13 @@
 import { PROVIDER_MODELS, PROVIDER_ID_TO_ALIAS, getModelKind } from "@/shared/constants/models";
 import {
   AI_PROVIDERS,
+  FREE_PROVIDERS,
+  FREE_TIER_PROVIDERS,
   getProviderAlias,
   isAnthropicCompatibleProvider,
   isOpenAICompatibleProvider,
 } from "@/shared/constants/providers";
+import { FILTERS as SUGGESTED_MODEL_FILTERS } from "@/app/api/providers/suggested-models/filters.js";
 import { getProviderConnections, getCombos, getCustomModels, getModelAliases } from "@/lib/localDb";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { resolveKiroModels } from "open-sse/services/kiroModels.js";
@@ -114,6 +117,46 @@ async function fetchCompatibleModelIds(connection) {
           .filter((modelId) => typeof modelId === "string" && modelId.trim() !== "")
       )
     );
+  } catch {
+    return [];
+  }
+}
+
+// Keyless lanes (OpenCode Zen and kin) publish their catalogue through the
+// registry's `modelsFetcher` instead of a static `models[]`, and the dashboard
+// reads exactly that source. Cache it in-process the same way the dashboard's
+// client-side fetcher does, so a coding agent polling /v1/models pays the
+// upstream round-trip at most once per TTL.
+const KEYLESS_CATALOG_TTL_MS = 10 * 60 * 1000;
+const keylessCatalogCache = new Map(); // fetcher.url -> { data, expiresAt }
+
+async function fetchKeylessCatalog(fetcher) {
+  if (!fetcher?.url || !fetcher?.type) return [];
+  const cached = keylessCatalogCache.get(fetcher.url);
+  if (cached && Date.now() < cached.expiresAt) return cached.data;
+
+  const filter = SUGGESTED_MODEL_FILTERS[fetcher.type];
+  if (!filter) return [];
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(fetcher.url, {
+      method: "GET",
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) return [];
+
+    const json = await response.json();
+    const raw = json.data ?? json.models ?? json;
+    const data = filter(Array.isArray(raw) ? raw : []);
+    keylessCatalogCache.set(fetcher.url, {
+      data,
+      expiresAt: Date.now() + KEYLESS_CATALOG_TTL_MS,
+    });
+    return data;
   } catch {
     return [];
   }
@@ -336,6 +379,27 @@ export async function buildModelsList(kindFilter, options = {}) {
       });
     }
   } else {
+    // Keyless lanes have no row in the connections table, so a purely
+    // connection-driven walk hides their entire catalogue from /v1/models —
+    // even though getProviderCredentials (src/sse/services/auth.js) injects a
+    // virtual "Public" connection for them on the request path, and the
+    // dashboard renders their catalogue from the registry + modelsFetcher.
+    // Two doors, one truth: inject the same virtual lane here.
+    //   • FREE_PROVIDERS[noAuth]      — keyless always (there is no key)
+    //   • FREE_TIER_PROVIDERS[noAuth] — keyless only while no real key is
+    //     stored; a key always takes precedence, mirroring auth.js
+    for (const [providerId, provider] of Object.entries(AI_PROVIDERS)) {
+      if (activeConnectionByProvider.has(providerId)) continue;
+      if (provider?.noAuth !== true) continue;
+      if (!FREE_PROVIDERS[providerId] && !FREE_TIER_PROVIDERS[providerId]) continue;
+      activeConnectionByProvider.set(providerId, {
+        id: "noauth",
+        provider: providerId,
+        isActive: true,
+        providerSpecificData: {},
+      });
+    }
+
     for (const [providerId, conn] of activeConnectionByProvider.entries()) {
       if (!providerMatchesKinds(providerId, kindFilter)) continue;
 
@@ -371,6 +435,19 @@ export async function buildModelsList(kindFilter, options = {}) {
 
       if (isCompatibleProvider && rawModelIds.length === 0 && !skipDynamicFetch) {
         rawModelIds = await fetchCompatibleModelIds(conn);
+      }
+
+      // Keyless lanes publish their real catalogue upstream (modelsFetcher) —
+      // that is the list the dashboard shows and the one a coding agent must
+      // see. A virtual lane has no `enabledModels`, so the static handful in
+      // the registry is only the floor when the upstream list is unreachable.
+      const isVirtualKeyless = conn?.id === "noauth" && AI_PROVIDERS[providerId]?.noAuth === true;
+      if (isVirtualKeyless && !hasExplicitEnabledModels && !skipDynamicFetch) {
+        const fetcher = AI_PROVIDERS[providerId]?.modelsFetcher;
+        if (fetcher) {
+          const fetched = await fetchKeylessCatalog(fetcher);
+          if (fetched.length) rawModelIds = fetched.map((model) => model.id);
+        }
       }
 
       // Config-driven live catalog override (e.g. Kiro returns dynamic
