@@ -1,4 +1,4 @@
-# v1.1.02 — The Gate With No Account 📮🌊
+# v1.1.2 — The Gate With No Account 📮🌊
 > *"A door that opens without a key should not vanish because no key was ever cut."* 🌊🚪💜
 **OpenCode Zen's free lanes answered on the request path and showed on the dashboard, yet a coding agent asking `/v1/models` saw none of them. The endpoint walked only stored connections — and a keyless lane has no row to walk. The virtual "Public" connection the request path already builds is now built here too, and the live free catalogue is read from the same `modelsFetcher` the dashboard uses. Beside it, Jerouter's catalogue was transcribed to the 2026-10-23 export: 39 general lanes + 11 unrestricted, 50 in all.**
 
