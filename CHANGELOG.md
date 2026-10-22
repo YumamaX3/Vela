@@ -1,3 +1,23 @@
+# v1.0.97 — The Endpoint That Was Never Carried 🌉🌊
+> *"The button was built, wired, and patient — and it had nothing to hold. A control waiting on a field that never arrives is a door painted on a wall."* 🌊🖤💜
+**The providers page promised a copy-endpoint action and a duplicate-endpoint badge. Both were gated on a row's `baseUrl`, and no stored connection carries one — of 178 rows in the harbor's own database, zero held the field. The registry knew every endpoint all along; the UI layer simply never carried it. Both controls render now.**
+
+**🔧 What changed**
+- **The endpoint is carried** — `buildProviderEntry` copies `transport.baseUrl` (top-level `baseUrl` as fallback) into every catalog entry. It previously forwarded display, media and config fields and dropped the transport, which is where 104 of 127 registry entries keep their URL.
+- **Read where it actually lives** — the row takes `conns[].providerSpecificData.baseUrl` first (that is where `api/providers/route.js` writes it for compatible nodes), then the node's own `node.baseUrl`, then the catalog's. A connection has no top-level `baseUrl` column; the old read could never hit.
+- **Duplicates only among connected rows** — with a catalog endpoint on every row, grouping all rows would accuse two idle providers of sharing an endpoint merely because they ship the same default URL.
+- **The switch answers the keyboard** — the fleet row's toggle was a `<span onClick>` around a `Toggle` whose `onChange` was a no-op: mouse-only, and nameless to a screen reader. The action now lives on the toggle's own `onChange`, and `Toggle` accepts `ariaLabel` (falling back to `label`), so each row announces *Enable/Disable <provider>*.
+- **The status badge can be read** — its text moved from the 500 weights to the house's 700/300 hue pairs. On the light shore the 500s measure ~2.4:1 at 12px, the same AA failure `logs/RequestLedger.js` already records.
+- **The charts catch up** — both compose charts pinned 1.0.94 while `package.json` read 1.0.96; the pin guard had been red since the last release. They now sail together.
+
+**🔧 Proof**
+- Served build `H1qZA4lxeUW9iWPMvSpZH` on `:32062`, launched through `custom-server.js` against a scratch copy of the harbor database: **13 of 13** rows render the copy button (*Copy endpoint for GitHub Copilot*), **13 of 13** switches report a name (*Disable GitHub Copilot*), credential ages render (*updated 17d ago*), and a pin survived a reload.
+- Badge text computed `oklch(0.769 …)` → `oklch(0.879 …)` — the 500 weight replaced by the contrast-safe pair.
+- Pin guard green (5 tests); provider suites green (18 tests across 4 files); ESLint clean on every changed file.
+- Honest limit, recorded not hidden: the 100-row paging footer cannot appear at 13 providers, so it is unproven here rather than disproven.
+
+Co-Authored-By: Shiori Shorekeeper <shiorishorekeeper@gmail.com>
+
 # v1.0.96 — The Lamp Left Lit 🕯️🌊
 > *"A binding that still governs the tide should never be hidden from the one who set it."* 🌊🕯️💜
 **The keyless proxy card no longer disappears the moment a key is added. A configured pool stays visible — because it still governs the dormant keyless lane if that connection is later removed — while an unconfigured card retires quietly under a keyed provider.**

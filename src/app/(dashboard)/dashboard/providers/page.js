@@ -51,6 +51,23 @@ const STATE_TOKEN = {
   unconfigured: "var(--color-text-subtle)",
 };
 
+// 100 rows is a scan, not a scroll. The catalogue is ~150 providers today;
+// the page keeps one screenful of work and a named remainder rather than
+// rendering every row at once.
+const PAGE_SIZE = 100;
+
+function relativeAge(iso) {
+  if (!iso) return null;
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return null;
+  const days = Math.floor((Date.now() - then) / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "1d ago";
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  return `${months}mo ago`;
+}
+
 function getConnectionErrorTag(connection) {
   if (!connection) return null;
   const explicitType = connection.lastErrorType;
@@ -129,10 +146,13 @@ export default function ProvidersPage() {
   const [stateFilter, setStateFilter] = useState("all");
   const [authFilter, setAuthFilter] = useState("all");
   const [sortBy, setSortBy] = useState("health");
+  const [favorites, setFavorites] = useState([]);
+  const [page, setPage] = useState(0);
   const [testing, setTesting] = useState(false);
   const [testResults, setTestResults] = useState(null);
   const notify = useNotificationStore();
   const searchQuery = useHeaderSearchStore((s) => s.query);
+  const setSearchQuery = useHeaderSearchStore((s) => s.setQuery);
   const registerSearch = useHeaderSearchStore((s) => s.register);
   const unregisterSearch = useHeaderSearchStore((s) => s.unregister);
 
@@ -152,11 +172,12 @@ export default function ProvidersPage() {
     let alive = true;
     const fetchData = async () => {
       try {
-        const [connRes, nodeRes, modelRes, actRes] = await Promise.all([
+        const [connRes, nodeRes, modelRes, actRes, settingsRes] = await Promise.all([
           fetch("/api/providers"),
           fetch("/api/provider-nodes"),
           fetch("/api/models"),
           fetch("/api/usage/providers/activity"),
+          fetch("/api/settings"),
         ]);
         if (!alive) return;
         if (!connRes.ok) throw new Error("provider list unavailable");
@@ -181,6 +202,12 @@ export default function ProvidersPage() {
           const actData = await actRes.json();
           if (alive) setActivity(actData.perProvider || {});
         }
+        if (settingsRes.ok) {
+          const settings = await settingsRes.json();
+          if (alive && Array.isArray(settings.favoriteProviders)) {
+            setFavorites(settings.favoriteProviders.filter((id) => typeof id === "string"));
+          }
+        }
         if (alive) setLoadError(null);
       } catch (err) {
         if (alive) setLoadError(err.message || "Could not load providers");
@@ -198,6 +225,36 @@ export default function ProvidersPage() {
     setLoading(true);
     setLoadError(null);
     setReloadKey((k) => k + 1);
+  };
+
+  const toggleFavorite = async (providerId) => {
+    const wasFavorite = favorites.includes(providerId);
+    const next = wasFavorite
+      ? favorites.filter((id) => id !== providerId)
+      : [...favorites, providerId];
+    setFavorites(next);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ favoriteProviders: next }),
+      });
+      if (!res.ok) throw new Error("settings unavailable");
+      notify.success(wasFavorite ? "Provider unpinned" : "Provider pinned");
+    } catch {
+      setFavorites(favorites);
+      notify.error("Could not save the pin");
+    }
+  };
+
+  const copyEndpoint = async (baseUrl) => {
+    if (!baseUrl) return;
+    try {
+      await navigator.clipboard.writeText(baseUrl);
+      notify.success("Endpoint copied");
+    } catch {
+      notify.error("Clipboard unavailable");
+    }
   };
 
   // ── Provider registry → one flat list ────────────────────────────────────
@@ -219,6 +276,10 @@ export default function ProvidersPage() {
         name: info.name || key,
         color: info.color,
         textIcon: info.textIcon,
+        // The catalog's own endpoint. A stored connection holds a baseUrl only
+        // for compatible nodes; catalog providers keep theirs in the registry,
+        // so without this the row had no endpoint to show or copy.
+        baseUrl: info.baseUrl || null,
         noAuth: !!info.noAuth,
         auth,
       });
@@ -243,6 +304,9 @@ export default function ProvidersPage() {
         color: node.type === "anthropic-compatible" ? "#D97757" : "#10A37F",
         textIcon: node.type === "anthropic-compatible" ? "AC" : "OC",
         apiType: node.apiType,
+        // A compatible node's endpoint is its own — the only record that has
+        // one for a custom provider.
+        baseUrl: node.baseUrl || null,
         isCompatible: true,
         auth: "custom",
       });
@@ -258,11 +322,24 @@ export default function ProvidersPage() {
         .filter((c) => c.lastError)
         .sort((a, b) => new Date(b.lastErrorAt || 0) - new Date(a.lastErrorAt || 0))[0];
       const act = activity[p.id] || {};
+      const lastTouch = conns[0]?.updatedAt || conns[0]?.createdAt;
       return {
         ...p,
         state,
         connections: conns,
         connectionCount: conns.length,
+        // The endpoint, in the order the data actually keeps it: a compatible
+        // node writes it into the connection's providerSpecificData at create
+        // time (api/providers/route.js:136-160), a custom node keeps it on the
+        // node record, and a catalog provider keeps it in the registry — which
+        // buildProviderEntry now carries through as `baseUrl`. Connections have
+        // no top-level baseUrl column, so reading only conns[0].baseUrl left
+        // the copy action unreachable on every row.
+        baseUrl:
+          conns.find((c) => c.providerSpecificData?.baseUrl)?.providerSpecificData.baseUrl ||
+          p.baseUrl ||
+          null,
+        credentialAge: relativeAge(lastTouch),
         modelCount: modelCounts[p.id] ?? 0,
         errorTag: latestError ? getConnectionErrorTag(latestError) : null,
         errorAt: latestError?.lastErrorAt || null,
@@ -272,6 +349,31 @@ export default function ProvidersPage() {
       };
     });
   }, [providers, connections, modelCounts, activity]);
+
+  // Two providers sharing one upstream endpoint is a configuration mistake
+  // that a row cannot see by looking at itself. Group by the connection's
+  // baseUrl and name the sibling; no credential is compared or exposed.
+  //
+  // Only CONNECTED rows take part: a catalog endpoint is now carried for every
+  // provider, connected or not, so grouping all rows would flag two idle
+  // providers that merely ship the same default URL — a false accusation of a
+  // mistake nobody made. The duplicate that matters needs two live configs.
+  const duplicateByProvider = useMemo(() => {
+    const byBase = new Map();
+    for (const row of rows) {
+      if (!row.connectionCount) continue;
+      const base = typeof row.baseUrl === "string" ? row.baseUrl.trim().toLowerCase().replace(/\/+$/, "") : "";
+      if (!base) continue;
+      if (!byBase.has(base)) byBase.set(base, []);
+      byBase.get(base).push(row.id);
+    }
+    const duplicates = new Map();
+    for (const ids of byBase.values()) {
+      if (ids.length < 2) continue;
+      for (const id of ids) duplicates.set(id, ids.filter((other) => other !== id));
+    }
+    return duplicates;
+  }, [rows]);
 
   const summary = useMemo(() => {
     const s = {
@@ -308,6 +410,11 @@ export default function ProvidersPage() {
       return r.state === stateFilter;
     });
     list = [...list].sort((a, b) => {
+      // A pin is an operator's explicit priority; it outranks every derived
+      // sort, including health, until the pin is removed.
+      const favA = favorites.includes(a.id) ? 0 : 1;
+      const favB = favorites.includes(b.id) ? 0 : 1;
+      if (favA !== favB) return favA - favB;
       if (sortBy === "name") return a.name.localeCompare(b.name);
       if (sortBy === "models") return b.modelCount - a.modelCount;
       if (sortBy === "activity") return b.requests - a.requests;
@@ -328,7 +435,18 @@ export default function ProvidersPage() {
       return a.name.localeCompare(b.name);
     });
     return list;
-  }, [rows, searchQuery, authFilter, stateFilter, sortBy, showUnconfigured]);
+  }, [rows, searchQuery, authFilter, stateFilter, sortBy, showUnconfigured, favorites]);
+
+  // A new lens starts at the first page; a clamped index is not a reset.
+  // Deferred one tick to keep the effect body free of synchronous setState.
+  useEffect(() => {
+    const reset = setTimeout(() => setPage(0), 0);
+    return () => clearTimeout(reset);
+  }, [searchQuery, authFilter, stateFilter, sortBy, showUnconfigured]);
+
+  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const paged = visible.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
 
   // One sweep for the whole fleet, replacing the old page's three per-section
   // "Test All" buttons. The route already accepts mode "all"; the console has
@@ -606,8 +724,16 @@ export default function ProvidersPage() {
             <span>Priority</span>
             <span />
           </div>
-          {visible.map((r) => (
-            <FleetRow key={r.id} row={r} onToggle={handleToggleProvider} />
+          {paged.map((r) => (
+            <FleetRow
+              key={r.id}
+              row={r}
+              onToggle={handleToggleProvider}
+              isFavorite={favorites.includes(r.id)}
+              onToggleFavorite={toggleFavorite}
+              duplicates={duplicateByProvider.get(r.id)}
+              onCopyEndpoint={copyEndpoint}
+            />
           ))}
           {/* "No match" is only true when a lens is actually narrowing. With
               no search and no filter, an empty list means the fleet itself
@@ -621,6 +747,21 @@ export default function ProvidersPage() {
               <p className="mx-auto mt-1 max-w-[42ch] text-xs text-text-muted">
                 Nothing matches the current search and filters. Clear the search or pick another filter.
               </p>
+              <div className="mt-3.5">
+                <Button
+                  size="sm"
+                  icon="filter_alt_off"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setAuthFilter("all");
+                    setStateFilter("all");
+                    setSortBy("health");
+                    setShowUnconfigured(false);
+                  }}
+                >
+                  Clear search and filters
+                </Button>
+              </div>
             </div>
           )}
           {/* No lens, nothing configured, and no catalogue to reveal: the
@@ -664,6 +805,34 @@ export default function ProvidersPage() {
               </span>
               Show {summary.unconfigured} providers not yet connected
             </button>
+          )}
+          {visible.length > 0 && pageCount > 1 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-3 py-2.5 text-xs text-text-muted">
+              <span className="tabular-nums">
+                Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, visible.length)} of {visible.length}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                  className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-[8px] border border-border bg-surface px-2.5 font-medium text-text-muted motion-control hover:text-text-main focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <span className="material-symbols-outlined text-sm" aria-hidden="true">chevron_left</span>
+                  Previous
+                </button>
+                <span className="tabular-nums px-1">{currentPage + 1} / {pageCount}</span>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                  disabled={currentPage >= pageCount - 1}
+                  className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-[8px] border border-border bg-surface px-2.5 font-medium text-text-muted motion-control hover:text-text-main focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Next
+                  <span className="material-symbols-outlined text-sm" aria-hidden="true">chevron_right</span>
+                </button>
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -805,7 +974,7 @@ TestResultsView.propTypes = {
 };
 
 // ── One fleet row ──────────────────────────────────────────────────────────
-function FleetRow({ row, onToggle }) {
+function FleetRow({ row, onToggle, isFavorite, onToggleFavorite, duplicates, onCopyEndpoint }) {
   const r = row;
   const isCompatible = r.id.startsWith(OPENAI_COMPATIBLE_PREFIX) || r.id.startsWith(ANTHROPIC_COMPATIBLE_PREFIX);
   const isAnthropicCompatible = r.id.startsWith(ANTHROPIC_COMPATIBLE_PREFIX);
@@ -870,11 +1039,46 @@ function FleetRow({ row, onToggle }) {
             fallbackColor={r.color}
           />
         </span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleFavorite(r.id);
+          }}
+          aria-pressed={isFavorite}
+          aria-label={isFavorite ? `Unpin ${r.name}` : `Pin ${r.name}`}
+          title={isFavorite ? "Unpin provider" : "Pin provider to the top"}
+          className={`inline-flex min-h-6 min-w-6 shrink-0 cursor-pointer items-center justify-center rounded-[6px] motion-control focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)] ${
+            isFavorite ? "text-warning" : "text-text-subtle hover:text-text-main"
+          }`}
+        >
+          <span
+            className="material-symbols-outlined text-base"
+            style={{ fontVariationSettings: isFavorite ? "'FILL' 1" : "'FILL' 0" }}
+            aria-hidden="true"
+          >
+            star
+          </span>
+        </button>
         <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold">{r.name}</span>
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="block truncate text-sm font-semibold">{r.name}</span>
+            {duplicates?.length > 0 && (
+              <span
+                className="inline-flex shrink-0 items-center gap-0.5 rounded bg-amber-500/15 px-1 py-0.5 text-3xs font-medium text-warning"
+                title={`Same endpoint as ${duplicates.join(", ")}`}
+              >
+                <span className="material-symbols-outlined text-[11px]" aria-hidden="true">content_copy</span>
+                dup
+              </span>
+            )}
+          </span>
           <span className="block truncate text-xs text-text-muted">
             {r.connectionCount > 0
-              ? `${r.connectionCount} ${r.connectionCount === 1 ? "connection" : "connections"}`
+              ? `${r.connectionCount} ${r.connectionCount === 1 ? "connection" : "connections"}${
+                  r.credentialAge ? ` · updated ${r.credentialAge}` : ""
+                }`
               : r.noAuth
                 ? "no key needed"
                 : "not connected"}
@@ -935,20 +1139,38 @@ function FleetRow({ row, onToggle }) {
         {r.connections[0]?.priority != null ? `P${r.connections[0].priority}` : "·"}
       </span>
 
-      <span className="fleet-col-toggle flex items-center justify-end">
+      <span className="fleet-col-toggle flex items-center justify-end gap-1">
+        {r.baseUrl && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onCopyEndpoint(r.baseUrl);
+            }}
+            aria-label={`Copy endpoint for ${r.name}`}
+            title="Copy endpoint"
+            className="inline-flex min-h-7 min-w-7 cursor-pointer items-center justify-center rounded-[6px] text-text-subtle motion-control hover:bg-bg-alt hover:text-text-main focus-visible:outline-none focus-visible:shadow-[var(--shadow-focus)]"
+          >
+            <span className="material-symbols-outlined text-base" aria-hidden="true">link</span>
+          </button>
+        )}
         {r.connectionCount > 0 && (
           <span
             onClick={(e) => {
-              // The row is the link; the switch must not follow it.
+              // The row is the link; the switch must not follow it. This span
+              // only contains the click — the action lives on the switch's own
+              // onChange below, so a keyboard Enter/Space on the focused button
+              // toggles the provider instead of doing nothing.
               e.preventDefault();
               e.stopPropagation();
-              onToggle(r.id, !anyActive);
             }}
           >
             <Toggle
               size="sm"
               checked={anyActive}
-              onChange={() => {}}
+              onChange={() => onToggle(r.id, !anyActive)}
+              ariaLabel={`${anyActive ? "Disable" : "Enable"} ${r.name}`}
               title={anyActive ? "Disable provider" : "Enable provider"}
             />
           </span>
@@ -973,7 +1195,13 @@ FleetRow.propTypes = {
     errors: PropTypes.number,
     errorTag: PropTypes.string,
     errorTime: PropTypes.string,
+    baseUrl: PropTypes.string,
+    credentialAge: PropTypes.string,
     connections: PropTypes.array,
   }).isRequired,
   onToggle: PropTypes.func.isRequired,
+  isFavorite: PropTypes.bool,
+  onToggleFavorite: PropTypes.func.isRequired,
+  duplicates: PropTypes.arrayOf(PropTypes.string),
+  onCopyEndpoint: PropTypes.func.isRequired,
 };

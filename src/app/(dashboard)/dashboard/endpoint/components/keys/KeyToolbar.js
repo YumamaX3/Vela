@@ -120,7 +120,7 @@ export default function KeyToolbar({ deck }) {
         value={lens}
         onChange={setLens}
         size="md"
-        className="h-[var(--bar-h)] p-[var(--bar-pad)]"
+        className="key-toolbar-segmented"
         ariaLabel={translate("View")}
       />
       {posture && (

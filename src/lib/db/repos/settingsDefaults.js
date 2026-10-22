@@ -16,6 +16,10 @@ export const DEFAULT_SETTINGS = {
   tailscaleUrl: "",
   stickyRoundRobinLimit: 3,
   providerStrategies: {},
+  // W2 of the sibling-constellation plan: the operator's pinned providers.
+  // The writable roster derives from DEFAULT_SETTINGS, so a pin key that is
+  // not declared here would be dropped by the settings route.
+  favoriteProviders: [],
   // W10 (proxy control-plane rebirth, F1) — route rules: destination → egress.
   // Shape: [{id, enabled, match:{hostSuffix?, provider?, modelPrefix?},
   //          action:{poolId?|poolIds?}}]. FIRST match wins (stage order). The

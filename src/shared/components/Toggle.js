@@ -10,6 +10,12 @@ export default function Toggle({
   disabled = false,
   size = "md",
   className,
+  // The accessible name. `label` renders visible text beside the switch; a
+  // switch used inside a table row has no room for that text, and a bare
+  // role="switch" announces only "switch, on" — no word for WHICH thing is
+  // being switched. ariaLabel carries that word without drawing it.
+  ariaLabel,
+  title,
 }) {
   const sizes = {
     sm: { track: "w-8 h-4", thumb: "size-3", translate: "translate-x-4" },
@@ -33,6 +39,8 @@ export default function Toggle({
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-label={ariaLabel || label}
+        title={title}
         disabled={disabled}
         onClick={handleClick}
         className={cn(

@@ -103,3 +103,6 @@ scripts/*
 
 # the blast-radius rig writes its name-lists here (regenerable output, never source)
 .blast-radius/
+
+# Verification builds — never committed
+.next-verify/

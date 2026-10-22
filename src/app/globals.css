@@ -3039,3 +3039,12 @@ html:not(.dark) .login-status-dot.ok { background: #047857; }
 /* Drawer variant: the same single column as the dock — the whole helm,
    no second shape to keep in step. The close button is the one
    drawer-only control, and it shares the utility row's measured pair. */
+
+/* The keys toolbar's segmented control sizes itself from the toolbar's own
+   custom properties. A static class keeps the CSS parser away from Tailwind's
+   arbitrary-value escape for var(--...), which this build mis-tokenizes. */
+.key-toolbar-segmented {
+  height: var(--bar-h);
+  padding: var(--bar-pad);
+}
+

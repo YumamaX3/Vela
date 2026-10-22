@@ -5,6 +5,8 @@ import {
 } from "@/lib/localDb";
 
 const MODEL_LOCK_PREFIX = "modelLock_";
+const CACHE_MS = 5000;
+let availabilityCache = { at: 0, body: null };
 
 function getActiveModelLocks(connection) {
   const now = Date.now();
@@ -19,7 +21,14 @@ function getActiveModelLocks(connection) {
     .filter((lock) => lock.active);
 }
 
-export async function GET() {
+export async function GET(request) {
+  const fresh = new URL(request.url).searchParams.get("fresh") === "1";
+  if (!fresh && availabilityCache.body && Date.now() - availabilityCache.at < CACHE_MS) {
+    return NextResponse.json(
+      { ...availabilityCache.body, cached: true },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
   try {
     const connections = await getProviderConnections();
     const models = [];
@@ -50,10 +59,12 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({
+    const body = {
       models,
       unavailableCount: models.length,
-    });
+    };
+    availabilityCache = { at: Date.now(), body };
+    return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("[API] Failed to get model availability:", error);
     return NextResponse.json(
@@ -92,6 +103,7 @@ export async function POST(request) {
         ),
     );
 
+    availabilityCache = { at: 0, body: null };
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("[API] Failed to clear model cooldown:", error);

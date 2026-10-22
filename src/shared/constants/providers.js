@@ -35,6 +35,15 @@ function buildProviderEntry(r) {
     ...(r.authModes ? { authModes: r.authModes } : {}),
     ...(r.authType ? { authType: r.authType } : {}),
     ...(r.authHint ? { authHint: r.authHint } : {}),
+    // The upstream endpoint, carried so the dashboard can show and copy it.
+    // The UI layer previously dropped it: this builder copied display, media
+    // and config fields but never the transport, so the row's endpoint read —
+    // which looked at the stored connection — found nothing to copy.
+    // Transport first, top-level second, the same order
+    // src/sse/handlers/systemone.js already uses. LLM fields only by design:
+    // media/tts/stt/search transports are out of scope on a page that filters
+    // to serviceKinds: llm.
+    ...(r.transport?.baseUrl || r.baseUrl ? { baseUrl: r.transport?.baseUrl || r.baseUrl } : {}),
   };
 }
 
