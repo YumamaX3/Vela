@@ -1,3 +1,12 @@
+# v1.1.5 — The Ledger Stops Counting A Ghost 📜
+> *"A function nobody calls is still a claim the file makes — and a claim that cannot resolve its own argument is a lie waiting for its first caller."* 📜💜
+**`applyErrorState` was exported and never called. It classified errors without a provider id, so the provider-scoped rules v1.1.4 added could never reach it — and the v1.1.4 changelog named it as a call site that passed the id. It did not, and it could not. The function is deleted rather than repaired: the two live call sites (`combo.js`, `auth.js`) both pass the canonical id, and a third that cannot is worse than none.**
+**🔧 What changed**
+- **`applyErrorState` removed** from `open-sse/services/accountFallback.js` — 21 lines of dead code whose `checkFallbackError` call could never resolve a provider-scoped rule.
+- **The v1.1.4 entry corrected** — the claim now names the two live call sites and records the deletion, so the log does not carry a false belief forward.
+**🧪 Proof**
+- `account-fallback-4xx`, `codebuddy-block-backoff`, `combo-routing` green (13 assertions); `eslint` clean on the touched file.
+Co-Authored-By: Shiori Shorekeeper <shiorishorekeeper@gmail.com>
 # v1.1.4 — The Gate That Spoke In Numbers 📮🚪
 > *"A limit that arrives as a business code is still a limit — and a harbor that cannot read it keeps sailing into the same wind."* 📮🚪💜
 **CodeBuddy answers a frequency limit with business code 6004, sometimes inside a 200 body. The taxonomy had no entry for it, so the gate emitted a Response with status 6004 — an invalid HTTP status — and the limit never reached the classifier as a 429. The account was never cooled down. Beside it, the intl gateway's block wording (`request illegal`, `conversation id missing`) read as a request-scoped 4xx instead of an account fault, so a blocked connection stayed in rotation with zero cooldown.**
@@ -6,7 +15,7 @@
 - **Both executors translate the envelope** — `parseError` turns code 6004 (or the wording `超出频率限制` / `frequency limit` / `限额`) into `{ status: 429, resetsAtMs }` — the shape the classifier already understands from Codex's `usage_limit_reached`. The reset instant is parsed out of the message, defaulting to UTC+8 when the gateway names no offset.
 **⚖️ The block that read as a request fault**
 - **Provider-scoped rules** — `ERROR_RULES` gains `{ provider: "codebuddy-intl", text: "request illegal" }` and `conversation id missing`, both with exponential backoff, so a blocked connection backs off instead of being handed a zero cooldown.
-- **The canonical id travels** — `checkFallbackError` takes a fourth `provider` argument and skips a rule whose provider does not match. All three call sites pass it now: `combo.js` (the member's own id, so `cbai` resolves), `accountFallback.applyErrorState`, and `auth.js`.
+- **The canonical id travels** — `checkFallbackError` takes a fourth `provider` argument and skips a rule whose provider does not match. Both live call sites pass it now: `combo.js` (the member's own id, so `cbai` resolves) and `auth.js`. The exported-but-uncalled `applyErrorState` was deleted rather than left carrying a call that could never resolve a provider.
 **🔧 The rename that was too wide**
 - **`max_tokens` → `max_completion_tokens` only where it is owed** — the rule is scoped to the gpt-5 / o-series families. The 4-series and the embedding / tts / stt / image lanes still take `max_tokens` only, and an explicit `max_completion_tokens` from the client always wins.
 **🧪 Proof**
