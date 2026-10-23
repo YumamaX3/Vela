@@ -1,3 +1,21 @@
+# v1.1.3 — The Ledger That Holds Its Tongue 📮🌪
+> *"A refusal that names the wrong fault is a lie the harbor repeats forever."* 📮🚪💜
+**Four defects from the upstream tide, carried across the water. A streamed tool call that opened a new index without an id aborted strict OpenAI-compatible clients mid-turn; the fingerprint's renamed tool (`read` → `read_client`) was never restored on the passthrough path, so the client was asked to call a tool it never declared; a request-scoped 4xx (context overflow, unsupported parameter) ended the whole combo instead of letting the next member try; and an out-of-credits answer read as a request fault rather than a credit one. Beside them, the harbor's own hygiene: NUL bytes are stripped at the binding boundary so a raw byte in telemetry can no longer abort the flush worker, `undici` moves to 7.30.1, the headroom sidecar binds to loopback, and Node is pinned to 22.23.4.**
+**✨ The streamed tool call that had no name to answer**
+- **Every fragment carries an id** — `ensureStreamToolCallIds` (`open-sse/utils/streamHelpers.js`) remembers the id per tool-call index and mints one when a fragment opens an index the client has not seen. The id is stable for the rest of the call, so a later fragment reuses it.
+- **The caller's own tool name comes back** — `restoreStreamToolNames` walks the OpenAI-shaped `delta.tool_calls` and maps the alias back through the request-side map. The passthrough stream now receives that map (`createPassthroughStreamWithLogger`'s eighth argument), and the same-format translate branch mints ids through the state it already carried.
+**🔧 The combo that gave up too early**
+- **A request-scoped 4xx advances, it does not end** ─ `checkFallbackError` now reports `requestScoped: true` for an unmatched 4xx, and `handleComboChat` advances to the next member without a cooldown and without waiting. The credential is healthy; the request is what this member rejected. When no member serves it, the member that named the real cause is handed back — status and body — instead of a synthesized 200 carrying an error object.
+- **Credits out is not a request fault** — `insufficient credit` and `credit balance is too low` join the backoff rules, so a 400 for an empty balance advances the combo instead of ending it.
+- **`max_tokens` is renamed, not dropped** ─ a `renameParams` rule on the `openai` provider turns the field current models reject into the one they accept, keeping an explicit `max_completion_tokens` when the client already sent it.
+**🛡️ The harbor's own hull**
+- **NUL bytes never reach the driver** ─ `stripNullBytes` (`src/lib/db/helpers/nullBytes.js`) wraps every SQLite adapter once at the binding boundary — `run`/`get`/`all`, and `transaction`, whose callback would otherwise receive the unwrapped statements. MySQL is untouched: it accepts NUL in a text column.
+- **`undici` 7.30.1**, headroom bound to `127.0.0.1:8787`, and `node:22.23.4-alpine` pinned (with `.nvmrc`) against the October 2026 advisories.
+**🧪 Proof**
+- New suites: `stream-tool-call-id` (7 assertions — mint, reuse, keep, no-op) · `db-null-byte-params` (3 — strip, clean, non-string).
+- `account-fallback-4xx` re-anchored to the new `requestScoped` field (4 assertions); `param-support` 4 green; combo suites 28 green; translator suites 25 green.
+- `eslint` clean on all nine touched files — 0 errors.
+Co-Authored-By: Shiori Shorekeeper <shiorishorekeeper@gmail.com>
 # v1.1.2 — The Gate With No Account 📮🌊
 > *"A door that opens without a key should not vanish because no key was ever cut."* 🌊🚪💜
 **OpenCode Zen's free lanes answered on the request path and showed on the dashboard, yet a coding agent asking `/v1/models` saw none of them. The endpoint walked only stored connections — and a keyless lane has no row to walk. The virtual "Public" connection the request path already builds is now built here too, and the live free catalogue is read from the same `modelsFetcher` the dashboard uses. Beside it, Jerouter's catalogue was transcribed to the 2026-10-23 export: 39 general lanes + 11 unrestricted, 50 in all.**

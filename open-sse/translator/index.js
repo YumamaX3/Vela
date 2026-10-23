@@ -6,6 +6,7 @@ import { filterToOpenAIFormat } from "./formats/openai.js";
 import { normalizeThinkingConfig } from "../services/provider.js";
 import { applyThinking, captureThinking } from "./concerns/thinkingUnified.js";
 import { captureSessionId } from "../utils/sessionManager.js";
+import { ensureStreamToolCallIds } from "../utils/streamHelpers.js";
 import { AntigravityExecutor } from "../executors/antigravity.js";
 import { PROVIDERS } from "../providers/index.js";
 
@@ -167,6 +168,13 @@ export function translateResponse(targetFormat, sourceFormat, chunk, state) {
   // be decloaked here or the client sees an unknown (suffixed) tool.
   // (ported from upstream 9router eb312bd4 — ADR-004 M1)
   if (sourceFormat === targetFormat) {
+    // Same-format (openai→openai) passthrough: a fragment that opens a new
+    // tool-call index without an id aborts strict OpenAI-compatible clients
+    // (#4992) — mint/reuse one first.
+    if (state && chunk && typeof chunk === "object") {
+      if (!state.streamToolCallIds) state.streamToolCallIds = new Map();
+      ensureStreamToolCallIds(chunk, state.streamToolCallIds);
+    }
     return [decloakStreamChunk(chunk, state?.toolNameMap)];
   }
 
@@ -235,6 +243,10 @@ export function initState(sourceFormat) {
     inThinkingBlock: false,
     currentBlockIndex: null,
     toolCalls: new Map(),
+    // Tool-call ids already emitted to the client, keyed by tool-call index.
+    // A fragment that opens a NEW index without an id breaks strict
+    // OpenAI-compatible clients (#4992).
+    streamToolCallIds: new Map(),
     finishReason: null,
     finishReasonSent: false,
     usage: null,

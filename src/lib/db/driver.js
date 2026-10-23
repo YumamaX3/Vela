@@ -1,4 +1,5 @@
 import { ensureDirs, DATA_FILE } from "./paths.js";
+import { stripNullBytes } from "./helpers/nullBytes.js";
 
 // Use global to survive Next.js dev hot-reload (module state resets on reload)
 if (!global._dbAdapter) global._dbAdapter = { instance: null, initPromise: null, logged: false };
@@ -52,6 +53,32 @@ async function trySqlJs(filePath = DATA_FILE) {
   }
 }
 
+// Make every bound string NUL-safe, once, for all SQLite drivers.
+//
+// SQLite stores TEXT as a NUL-terminated C string, so a bound string with an
+// embedded NUL is rejected by better-sqlite3 ("String contains null byte") and
+// silently truncated by node:sqlite. Values that carry raw bytes — a model id
+// or endpoint from the request, tool output, a diff — can contain one, and the
+// write then either aborts the flush worker or loses the tail without a trace.
+// Sanitising at the binding boundary covers every driver and every column type
+// with a single rule, instead of one call site at a time. MySQL is untouched:
+// it accepts NUL in a text column, so the twin keeps its bytes.
+function withNullByteSafeParams(adapter) {
+  const clean = (params) => (Array.isArray(params) ? params.map(stripNullBytes) : params);
+  const wrapped = {
+    ...adapter,
+    run: (sql, params = []) => adapter.run(sql, clean(params)),
+    get: (sql, params = []) => adapter.get(sql, clean(params)),
+    all: (sql, params = []) => adapter.all(sql, clean(params)),
+  };
+  // better-sqlite3 / bun:sqlite hand the callback their own bound statements,
+  // so a transaction body that calls db.run() would bypass the wrapper above.
+  // Hand the callback the wrapped methods instead; the mysql twin already
+  // returns a connection-scoped adapter and needs no change.
+  wrapped.transaction = (fn) => adapter.transaction((...args) => fn(wrapped, ...args));
+  return wrapped;
+}
+
 // Resolve the driver chain against one explicit file path. Honors
 // VELA_DB_DRIVER when set (fail loud), else the runtime fallback chain.
 async function resolveDriver(filePath) {
@@ -71,14 +98,14 @@ async function resolveDriver(filePath) {
     if (!adapter) {
       throw new Error(`[DB] VELA_DB_DRIVER="${forced}" is not available in this runtime`);
     }
-    return adapter;
+    return withNullByteSafeParams(adapter);
   }
   let adapter = await tryBunSqlite(filePath);
   if (!adapter) adapter = await tryBetterSqlite(filePath);
   if (!adapter) adapter = await tryNodeSqlite(filePath);
   if (!adapter) adapter = await trySqlJs(filePath);
   if (!adapter) throw new Error("[DB] No SQLite driver available (bun/better/node/sql.js all failed)");
-  return adapter;
+  return withNullByteSafeParams(adapter);
 }
 
 /** Storage Covenant Wave B2 — a SCRATCH adapter on an explicit file path.
