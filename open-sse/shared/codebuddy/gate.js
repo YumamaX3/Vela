@@ -31,15 +31,17 @@ export const CODEBUDDY_BUSINESS_CODE_HTTP = {
   11128: 400, // moderation / unapproved-channel content filter
   11140: 403, // banned credential
   14018: 429, // quota exhausted
+  6004: 429, // frequency limit — a rate limit wearing a business code
 };
 
-export const CODEBUDDY_RETRYABLE_CODES = new Set([401, 403, 429, 500, 502, 503, 504, 11140, 14018]);
+export const CODEBUDDY_RETRYABLE_CODES = new Set([401, 403, 429, 500, 502, 503, 504, 11140, 14018, 6004]);
 
 const CODEBUDDY_BUSINESS_LABELS = {
   11101: "missing-system",
   11128: "moderation",
   11140: "banned",
   14018: "quota",
+  6004: "frequency",
 };
 
 /** Map a business code to its honest HTTP status (unknown codes → 502). */

@@ -7,6 +7,7 @@ import { unavailableResponse } from "../utils/error.js";
 import { getCapabilitiesForModel } from "../providers/capabilities.js";
 import { extractTextContent } from "../translator/formats/gemini.js";
 import { buildFallbackChain } from "./fallbackRuleMatcher.js";
+import { parseModel } from "./model.js";
 
 // Conservative pre-call token estimate — chars / 4 (en-ish worst case).
 // Only catches gross context overflows; never blocks borderline requests.
@@ -439,8 +440,11 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
         try { errorText = JSON.stringify(errorText); } catch { errorText = String(errorText); }
       }
 
-      // Check if should fallback to next model
-      const { shouldFallback, cooldownMs, requestScoped } = checkFallbackError(result.status, errorText);
+      // Check if should fallback to next model. The member's canonical provider
+      // id is passed through so provider-scoped rules (codebuddy-intl's block
+      // wording) resolve instead of reading as a request fault.
+      const { provider } = parseModel(modelStr);
+      const { shouldFallback, cooldownMs, requestScoped } = checkFallbackError(result.status, errorText, 0, provider);
 
       if (!shouldFallback && !requestScoped) {
         log.warn("COMBO", `ran aground — no next in the chain · ${modelStr}`, { status: result.status });

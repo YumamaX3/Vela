@@ -21,9 +21,11 @@ const STRIP_RULES = [
   // "integer above maximum value, expected <= 32768". Pin an explicit endpoint cap;
   // min() with the model ceiling still applies if a variant's own limit is lower.
   { provider: "volcengine-ark", match: /kimi/i, maxOutputCap: 32768, clampToModelMaxOutput: true },
-  // Current OpenAI models (gpt-5.x / gpt-6.x) reject `max_tokens` with HTTP 400
-  // ("Use 'max_completion_tokens' instead"). Clients send `max_tokens`, so rename it.
-  { provider: "openai", renameParams: { max_tokens: "max_completion_tokens" } },
+  // Current OpenAI models (gpt-5.x / o-series) reject `max_tokens` with HTTP 400
+  // ("Use 'max_completion_tokens' instead"). The 4-series and the embedding /
+  // tts / stt / image lanes still take only `max_tokens`, so the rename is
+  // scoped to the modern families rather than the whole provider.
+  { provider: "openai", match: /gpt-5|o[134](-|\b|$)/i, renameParams: { max_tokens: "max_completion_tokens" } },
 ];
 
 // Test a rule's match (regex or predicate) against the model id.

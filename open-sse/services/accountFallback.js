@@ -19,9 +19,10 @@ export function getQuotaCooldown(backoffLevel = 0) {
  * @param {number} status - HTTP status code
  * @param {string} errorText - Error message text
  * @param {number} backoffLevel - Current backoff level for exponential backoff
- * @returns {{ shouldFallback: boolean, cooldownMs: number, newBackoffLevel?: number }}
+ * @param {string} [provider] - Canonical provider id, for provider-scoped rules
+ * @returns {{ shouldFallback: boolean, cooldownMs: number, newBackoffLevel?: number, requestScoped?: boolean }}
  */
-export function checkFallbackError(status, errorText, backoffLevel = 0) {
+export function checkFallbackError(status, errorText, backoffLevel = 0, provider = null) {
   const lowerError = errorText
     ? (typeof errorText === "string" ? errorText : JSON.stringify(errorText)).toLowerCase()
     : "";
@@ -40,6 +41,11 @@ export function checkFallbackError(status, errorText, backoffLevel = 0) {
     }
   }
   for (const rule of ERROR_RULES) {
+    // Provider-scoped rule: a gateway that blocks the account or the IP answers
+    // with wording that would otherwise read as request-scoped (a bare 400).
+    // Resolving the member's canonical id here lets `cbai` and `codebuddy-intl`
+    // both hit the same rule.
+    if (rule.provider && rule.provider !== provider) continue;
     // Text-based rule: match substring in error message
     if (rule.text && lowerError && lowerError.includes(rule.text)) {
       if (rule.backoff) {

@@ -1,3 +1,19 @@
+# v1.1.4 — The Gate That Spoke In Numbers 📮🚪
+> *"A limit that arrives as a business code is still a limit — and a harbor that cannot read it keeps sailing into the same wind."* 📮🚪💜
+**CodeBuddy answers a frequency limit with business code 6004, sometimes inside a 200 body. The taxonomy had no entry for it, so the gate emitted a Response with status 6004 — an invalid HTTP status — and the limit never reached the classifier as a 429. The account was never cooled down. Beside it, the intl gateway's block wording (`request illegal`, `conversation id missing`) read as a request-scoped 4xx instead of an account fault, so a blocked connection stayed in rotation with zero cooldown.**
+**🔍 The code that had no status**
+- **6004 joins the taxonomy as 429 `frequency`** — `CODEBUDDY_BUSINESS_CODE_HTTP`, `CODEBUDDY_RETRYABLE_CODES` and the label table all learn it, so the honest gate emits a real rate limit instead of a status the fetch layer would mangle.
+- **Both executors translate the envelope** — `parseError` turns code 6004 (or the wording `超出频率限制` / `frequency limit` / `限额`) into `{ status: 429, resetsAtMs }` — the shape the classifier already understands from Codex's `usage_limit_reached`. The reset instant is parsed out of the message, defaulting to UTC+8 when the gateway names no offset.
+**⚖️ The block that read as a request fault**
+- **Provider-scoped rules** — `ERROR_RULES` gains `{ provider: "codebuddy-intl", text: "request illegal" }` and `conversation id missing`, both with exponential backoff, so a blocked connection backs off instead of being handed a zero cooldown.
+- **The canonical id travels** — `checkFallbackError` takes a fourth `provider` argument and skips a rule whose provider does not match. All three call sites pass it now: `combo.js` (the member's own id, so `cbai` resolves), `accountFallback.applyErrorState`, and `auth.js`.
+**🔧 The rename that was too wide**
+- **`max_tokens` → `max_completion_tokens` only where it is owed** — the rule is scoped to the gpt-5 / o-series families. The 4-series and the embedding / tts / stt / image lanes still take `max_tokens` only, and an explicit `max_completion_tokens` from the client always wins.
+**🧪 Proof**
+- New suites: `codebuddy-parse-error` (3 — 6004-in-200, wording match, unrelated fall-through) · `codebuddy-frequency-gate` (3 — taxonomy, retryable, intact neighbours) · `codebuddy-block-backoff` (5 — backoff, alias, other-provider isolation, escalation, scoping) · `openai-max-tokens-rename` (5 — families, 4-series, explicit target, other providers).
+- CodeBuddy suites: **46 green across six files**. `account-fallback-4xx`, `param-support`, `combo-routing`, `combo-autoswitch` green.
+- `eslint` clean on every touched file — 0 errors.
+Co-Authored-By: Shiori Shorekeeper <shiorishorekeeper@gmail.com>
 # v1.1.3 — The Ledger That Holds Its Tongue 📮🌪
 > *"A refusal that names the wrong fault is a lie the harbor repeats forever."* 📮🚪💜
 **Four defects from the upstream tide, carried across the water. A streamed tool call that opened a new index without an id aborted strict OpenAI-compatible clients mid-turn; the fingerprint's renamed tool (`read` → `read_client`) was never restored on the passthrough path, so the client was asked to call a tool it never declared; a request-scoped 4xx (context overflow, unsupported parameter) ended the whole combo instead of letting the next member try; and an out-of-credits answer read as a request fault rather than a credit one. Beside them, the harbor's own hygiene: NUL bytes are stripped at the binding boundary so a raw byte in telemetry can no longer abort the flush worker, `undici` moves to 7.30.1, the headroom sidecar binds to loopback, and Node is pinned to 22.23.4.**

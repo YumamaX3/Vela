@@ -81,6 +81,10 @@ export const ERROR_RULES = [
   // advancing to the next member.
   { text: "insufficient credit",       backoff: true },
   { text: "credit balance is too low", backoff: true },
+  // CodeBuddy Intl blocks affect the account/IP, so let the connection back off
+  // instead of reading the 400 as a request fault.
+  { provider: "codebuddy-intl", text: "request illegal",        backoff: true },
+  { provider: "codebuddy-intl", text: "conversation id missing", backoff: true },
   { text: "capacity",                 backoff: true },
   { text: "overloaded",               backoff: true },
 
