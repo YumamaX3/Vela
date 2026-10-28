@@ -11,10 +11,11 @@
 - The coverage gap named honestly: v1.2.4's 19 codebuddy suites proved wiring (`hasSpecializedExecutor`), identities, gates, ledgers and persistence — none ever *called* `execute()`. This suite is that call.
 
 **🧪 Proof**
-- `tests/unit/codebuddy-breaker-key-binding.test.js` — **3/3 green** (with the mend).
+- `tests/unit/codebuddy-breaker-key-binding.test.js` — **3/3 green** (with the mend) — and **proven red first**: with the binding reverted from `execute()`, the suite fails with exactly `codebuddy-intl.execute threw ReferenceError: key is not defined` (1 failed / 2 passed), restored to green after. The instrument catches its own defect, not just its neighborhood.
 - The full codebuddy fleet: **20 suites — 196/196 green** with the fix aboard. `codebuddy-four-products` (13), `codebuddy-gate`, `-breaker-boot` (boot binding, real sqlite adapter), `-breaker-ledger`, `-breaker-store`, `-door-leak`, `-intl-identity` all green.
 - `npx eslint` on the mended executor + new suite — **0 errors**.
 - `npm run build` green — static assets, public assets and `custom-server.js` copied to standalone; the boot bundle compiled with the fix inside it.
+- **Hull proven on GHCR**: `ghcr.io/yumamax3/vela:1.2.5` OCI index answers HTTP 200, `linux/amd64` + `linux/arm64`; immutable digest for the re-lift pin: **`sha256:cc2a1dbcf9cf08c458467e3ca88ef50e7047a9ca1ae08e5927da73662cd8f1e9`**.
 
 **🌊 Recorded, not repeated**
 - **A wiring test is not a request test.** `hasSpecializedExecutor` proves a lane is *wired*; only driving `execute()` proves the lane *sails*. The distinction cost a production lane; the new suite holds it.
