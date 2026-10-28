@@ -2,7 +2,7 @@
 
 > *Every harbor needs a chart. These are the Shores' navigational papers — where the currents run, which rocks to mind, how the fleet sails. Read them before you touch the helm.* 🪞💜
 
-**Vela** (v1.2.4) — a local AI routing gateway + dashboard. One OpenAI-compatible endpoint (`/v1`) routing traffic across a provider registry of **189 files on disk → 186 imported by the generated index → 145 dialable chat transports** (the other 41 are media/search/embedding providers that legitimately carry no chat transport). Format translation, model-combo fallback (with operator fallback rules), multi-account fallback, OAuth credential management, token refresh, quota tracking, per-key ACL, and prompt injectors.
+**Vela** (v1.2.5) — a local AI routing gateway + dashboard. One OpenAI-compatible endpoint (`/v1`) routing traffic across a provider registry of **189 files on disk → 186 imported by the generated index → 145 dialable chat transports** (the other 41 are media/search/embedding providers that legitimately carry no chat transport). Format translation, model-combo fallback (with operator fallback rules), multi-account fallback, OAuth credential management, token refresh, quota tracking, per-key ACL, and prompt injectors.
 
 > ⚠️ **Count discipline (2026-09-04):** this chart once claimed "143 upstream providers", which
 > matched *no* measurement. Every number above was measured at runtime, not grepped — and the three
@@ -42,7 +42,7 @@ vela/
 ├── Dockerfile                # Multi-stage, multi-arch (amd64 + arm64), HEALTHCHECK
 ├── docker-compose.yml        # Live chart (gitignored — holds the Shores' secrets)
 ├── docker-compose.example.yml# Template chart (tracked)
-├── package.json              # v1.2.4 — bump with every release
+├── package.json              # v1.2.5 — bump with every release
 ├── CHANGELOG.md              # Every minor's covenant entry
 ├── cli/                      # The `vela` npm CLI — bin `vela`, full purge
 ├── open-sse/                 # The gateway engine — providers, RTK, executors, handlers

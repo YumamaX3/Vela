@@ -76,14 +76,14 @@ docker run -d --name vela \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 Luego abre **http://localhost:32060/dashboard**.
 
 - La imagen es **pública**. No necesitas un inicio de sesión de GitHub, un token de acceso personal ni credencial alguna para descargarla.
 - La imagen es multiarquitectura: se ejecuta de forma nativa tanto en servidores corrientes (`linux/amd64`) como en máquinas ARM, como una Raspberry Pi o un host Docker con Apple Silicon (`linux/arm64`).
-- **Fija la etiqueta.** `ghcr.io/yumamax3/vela:1.2.4` es la versión actual. `:latest` se mueve cada vez que se publica una nueva versión, y entonces un reinicio puede colocarte en silencio en una versión que no elegiste.
+- **Fija la etiqueta.** `ghcr.io/yumamax3/vela:1.2.5` es la versión actual. `:latest` se mueve cada vez que se publica una nueva versión, y entonces un reinicio puede colocarte en silencio en una versión que no elegiste.
 - **Monta siempre `/app/data`.** Sin el volumen, tu base de datos vive dentro del contenedor y desaparece con él.
 
 La [guía de despliegue en la nube](../deployment/cloud.md) cubre Compose, los proxies inversos y las variables de entorno en profundidad.
@@ -110,7 +110,7 @@ npm run start      # run the production build
 
 `npm run dev` es para trabajar sobre Vela mismo. `npm run build` seguido de `npm run start` es lo que debe ejecutar un despliegue.
 
-> ⚠️ **Una nota sobre las versiones:** si lo que compilaste se comporta distinto de esta documentación, comprueba `package.json` — su campo `version` es la verdad. Esta documentación describe la **1.2.4**.
+> ⚠️ **Una nota sobre las versiones:** si lo que compilaste se comporta distinto de esta documentación, comprueba `package.json` — su campo `version` es la verdad. Esta documentación describe la **1.2.5**.
 
 ---
 
@@ -344,7 +344,7 @@ docker run -d --name vela --restart unless-stopped \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="choose-a-password" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 Escuchar en `127.0.0.1` significa que solo un proxy inverso en la misma máquina puede alcanzar el dashboard — la opción segura por defecto para un host expuesto a internet. [Despliegue en la nube](../deployment/cloud.md) tiene la configuración completa de Nginx, con los ajustes de transmisión que importan.
@@ -380,7 +380,7 @@ Si en cambio usaste Docker:
 
 ```bash
 docker stop vela && docker rm vela
-docker rmi ghcr.io/yumamax3/vela:1.2.4
+docker rmi ghcr.io/yumamax3/vela:1.2.5
 # and remove the volume or host directory you mounted
 ```
 

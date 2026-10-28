@@ -48,7 +48,7 @@ npx vela
 ```bash
 docker run -d --name vela -p 32060:32060 \
   -v "$HOME/.vela:/app/data" -e DATA_DIR=/app/data \
-  ghcr.io/yumamax3/vela:1.2.4   # pin a tag — :latest moves without asking you
+  ghcr.io/yumamax3/vela:1.2.5   # pin a tag — :latest moves without asking you
 ```
 
 The dashboard opens at `http://localhost:32060` (there is **no default password** — set one under Settings → Access before opening remote logins).

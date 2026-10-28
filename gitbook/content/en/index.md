@@ -74,7 +74,7 @@ The [cheap providers page](providers/cheap.md) works through these numbers line 
 
 ## How many providers does Vela support?
 
-The honest answer is three numbers, because they measure three different things. All three were measured on 2026-10-28 at version 1.2.4, and you can re-derive them at any time:
+The honest answer is three numbers, because they measure three different things. All three were measured on 2026-10-28 at version 1.2.5, and you can re-derive them at any time:
 
 | Count | What it means | How to check it yourself |
 |-|-|-|

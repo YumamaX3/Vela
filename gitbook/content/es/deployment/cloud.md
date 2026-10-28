@@ -110,11 +110,11 @@ docker run -d --name vela --restart unless-stopped \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="set-me-by-you" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 - `ghcr.io/yumamax3/vela` es una imagen **pública**. Cualquiera puede descargarla sin iniciar sesión; no se requiere ningún token. No contiene secretos — cada secreto se pasa como variable de entorno en tiempo de ejecución, que es justo por lo que es seguro que sea pública.
-- **Fija la etiqueta** (`:1.2.4`). `:latest` sigue a las versiones y puede cambiar bajo un reinicio.
+- **Fija la etiqueta** (`:1.2.5`). `:latest` sigue a las versiones y puede cambiar bajo un reinicio.
 - **Publica en `127.0.0.1`** cuando un proxy inverso sea la entrada prevista. Así el puerto crudo no está en internet en absoluto.
 - **Monta `/app/data`.** Sin el volumen, todo desaparece cuando se reemplaza el contenedor.
 
@@ -133,7 +133,7 @@ Un gráfico mínimo propio tiene este aspecto:
 ```yaml
 services:
   vela:
-    image: ghcr.io/yumamax3/vela:1.2.4
+    image: ghcr.io/yumamax3/vela:1.2.5
     container_name: vela
     restart: unless-stopped
     ports:
@@ -184,12 +184,12 @@ CMD ["npm", "run", "start"]
 ```
 
 ```bash
-docker build -t vela-local:1.2.4 .
+docker build -t vela-local:1.2.5 .
 docker run -d --name vela -p 127.0.0.1:32060:32060 \
   -v vela-data:/app/data \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
-  vela-local:1.2.4
+  vela-local:1.2.5
 ```
 
 Compilar desde el código fuente es más lento y más pesado que la imagen publicada, y hereda lo que haya en tu máquina. La imagen publicada se compila desde commits etiquetados; la tuya se compila desde los tuyos.

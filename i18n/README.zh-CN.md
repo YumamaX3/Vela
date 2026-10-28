@@ -5,7 +5,7 @@
 
   Vela(薇拉)将你的 AI 编程工具(Claude Code、Codex、Cursor、Cline、OpenCode……)统一接入一个本地网关:格式转换、模型组合回退、多账号轮换、配额追踪、按密钥访问控制,外加一个 RTK token 节省器 —— 在请求出港之前先削掉 20–40% 的工具输出 token。
 
-  [![Version](https://img.shields.io/badge/version-1.2.4-blue?style=flat-square)](../CHANGELOG.md)
+  [![Version](https://img.shields.io/badge/version-1.2.5-blue?style=flat-square)](../CHANGELOG.md)
   [![Providers](https://img.shields.io/badge/providers-145%20dialable-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
   [![License](https://img.shields.io/badge/license-see%20LICENSE-gray?style=flat-square)](../LICENSE)
@@ -42,7 +42,7 @@ Vela 是一个**本地 AI 路由网关 + 仪表盘**。你把所有 AI 工具指
 
 > 📌 **注意:** Vela 自成航路 —— 一片开源水域锻造的 AI 网关,存储、备份、定价与分类体系皆为自铸。CLI 以 `vela` 之名从 npm 安装(应用本体是私有包 `vela-app`)。血统:自 v0.6.0 起网关以 MIT 许可完全自铸,见[起源与许可](#-起源与许可)。
 
-> 🔢 **计数纪律**(于 2026-10-28、v1.2.4 实测)。供应商注册表报出**三个诚实的数字,而且它们各不相同**:磁盘上 **189** 个注册表文件 → 生成的索引实际导入 **186** 个 → 运行时可拨通聊天传输 **145** 条(其余 41 条被导入的航道承运的是媒体、搜索与嵌入传输,本就不说聊天)。另有 3 个文件刻意留在索引之外(`trae`、`devin-cli`、`windsurf`)。永远不要把三个数字折成一个 —— 说出你指哪一个,并重新推导而非轻信这一行:
+> 🔢 **计数纪律**(于 2026-10-28、v1.2.5 实测)。供应商注册表报出**三个诚实的数字,而且它们各不相同**:磁盘上 **189** 个注册表文件 → 生成的索引实际导入 **186** 个 → 运行时可拨通聊天传输 **145** 条(其余 41 条被导入的航道承运的是媒体、搜索与嵌入传输,本就不说聊天)。另有 3 个文件刻意留在索引之外(`trae`、`devin-cli`、`windsurf`)。永远不要把三个数字折成一个 —— 说出你指哪一个,并重新推导而非轻信这一行:
 > ```bash
 > ls open-sse/providers/registry/*.js | grep -v index.js | wc -l      # 189 个磁盘文件
 > node -e "import('./open-sse/providers/registry/index.js').then(m=>console.log(m.default.length))"   # 186 个被导入
@@ -113,14 +113,14 @@ Vela 是一个**本地 AI 路由网关 + 仪表盘**。你把所有 AI 工具指
 ### 方案 A —— Docker(推荐)
 
 ```bash
-docker pull ghcr.io/yumamax3/vela:1.2.4
+docker pull ghcr.io/yumamax3/vela:1.2.5
 docker run -d --name vela \
   -p 32060:32060 \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 镜像**公开** —— 无需登录 registry —— 且多架构(`linux/amd64` + `linux/arm64`)。完整海图 —— MariaDB 孪生库、mirror 姿态、备份引擎、Headroom 边车 —— 见 [DOCKER.md](../DOCKER.md)、[部署海图](../docs/DEPLOYMENT.md)与 [`docker-compose.example.yml`](../docker-compose.example.yml) 模板。

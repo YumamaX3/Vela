@@ -4,7 +4,7 @@ Bạn đang trả tiền cho Claude Code, hoặc Codex, hoặc Copilot. Tầng s
 
 Trang này bao quát năm nhà cung cấp mà người ta kết nối trước tiên, mỗi cái tốn bao nhiêu ở phía thượng nguồn, những model nào bạn có thể gọi hôm nay, và cách đưa chúng vào việc.
 
-> **Ngày tháng quan trọng ở đây.** Các gói subscription, giá và tên model do Anthropic, OpenAI, GitHub và Google đặt ra — không phải Vela. Những con số trên trang này là sự thật phía thượng nguồn tính đến **2026-10-28** (Vela 1.2.4). Các nhà cung cấp thay đổi chúng thường xuyên.
+> **Ngày tháng quan trọng ở đây.** Các gói subscription, giá và tên model do Anthropic, OpenAI, GitHub và Google đặt ra — không phải Vela. Những con số trên trang này là sự thật phía thượng nguồn tính đến **2026-10-28** (Vela 1.2.5). Các nhà cung cấp thay đổi chúng thường xuyên.
 
 ---
 

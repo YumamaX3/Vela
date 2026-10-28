@@ -7,7 +7,7 @@
 
   Vela ابزارهای کدنویسی هوش مصنوعی شما (Claude Code، Codex، Cursor، Cline، OpenCode و…) را از طریق یک دروازهٔ محلی واحد عبور می‌دهد؛ با ترجمهٔ قالب، بازگشت از طریق ترکیب مدل‌ها، چرخش چندحسابی، ردیابی سهمیه، ACL به‌ازای هر کلید، و صرفه‌جوی توکن RTK که ۲۰ تا ۴۰٪ از توکن‌های خروجی ابزارها را پیش از آن‌که بندر را ترک کنند می‌کاهد.
 
-  [![Version](https://img.shields.io/badge/version-1.2.4-blue?style=flat-square)](../CHANGELOG.md)
+  [![Version](https://img.shields.io/badge/version-1.2.5-blue?style=flat-square)](../CHANGELOG.md)
   [![Providers](https://img.shields.io/badge/providers-145%20dialable-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
   [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
@@ -47,7 +47,7 @@ Vela یک **دروازهٔ مسیریابی هوش مصنوعی محلی + دا�
 
 > 📌 **توجه:** Vela مسیر خودش را می‌رود — دروازه‌ای هوش مصنوعی که در آب‌های باز ساخته شده، با همهٔ سیستم‌های خودش: ذخیره‌سازی، پشتیبان‌گیری، قیمت‌گذاری و دسته‌بندی. CLI با نام `vela` از npm نصب می‌شود. تبار فورک: از v0.6.0 به بعد دروازه تحت مجوز MIT است و کاملاً مستقل (به [خاستگاه و پروانه](#-خاستگاه-و-پروانه) نگاه کنید).
 
-> 🔢 **انضباط شمارش** (اندازه‌گیری‌شده در 2026-10-28، در v1.2.4). رجیستری ارائه‌دهندگان **سه عدد صادقانه گزارش می‌دهد، و آن‌ها متفاوت‌اند**: **۱۸۹** فایل رجیستری روی دیسک → **۱۸۶** فایل واردشده توسط اندیس تولیدشده → **۱۴۵** ترابری گفت‌وگوی قابل اتصال (۴۱ مسیر واردشدهٔ دیگر، ترابری‌های رسانه، جستجو و جاسازی را حمل می‌کنند که به‌حق به زبان چت سخن نمی‌گویند). سه فایل عامدانه روی دیسک و پنهان از اندیس نشسته‌اند (`trae`، `devin-cli`، `windsurf`). هرگز آن سه عدد را در یکی ادغام نکنید — بنامید که کدام عدد را می‌گویید، و بازمحاسبه کنید تا به این خط اتکا نکنید:
+> 🔢 **انضباط شمارش** (اندازه‌گیری‌شده در 2026-10-28، در v1.2.5). رجیستری ارائه‌دهندگان **سه عدد صادقانه گزارش می‌دهد، و آن‌ها متفاوت‌اند**: **۱۸۹** فایل رجیستری روی دیسک → **۱۸۶** فایل واردشده توسط اندیس تولیدشده → **۱۴۵** ترابری گفت‌وگوی قابل اتصال (۴۱ مسیر واردشدهٔ دیگر، ترابری‌های رسانه، جستجو و جاسازی را حمل می‌کنند که به‌حق به زبان چت سخن نمی‌گویند). سه فایل عامدانه روی دیسک و پنهان از اندیس نشسته‌اند (`trae`، `devin-cli`، `windsurf`). هرگز آن سه عدد را در یکی ادغام نکنید — بنامید که کدام عدد را می‌گویید، و بازمحاسبه کنید تا به این خط اتکا نکنید:
 > ```bash
 > ls open-sse/providers/registry/*.js | grep -v index.js | wc -l      # 189 files on disk
 > node -e "import('./open-sse/providers/registry/index.js').then(m=>console.log(m.default.length))"   # 186 imported
@@ -118,14 +118,14 @@ Vela یک **دروازهٔ مسیریابی هوش مصنوعی محلی + دا�
 ### گزینهٔ الف — Docker (پیشنهاد می‌شود)
 
 ```bash
-docker pull ghcr.io/yumamax3/vela:1.2.4
+docker pull ghcr.io/yumamax3/vela:1.2.5
 docker run -d --name vela \
   -p 32060:32060 \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 ایمیج **عمومی** است — به ورود به رجیستری نیازی نیست — و چندمعماری (<bdi>`linux/amd64`</bdi> + <bdi>`linux/arm64`</bdi>). برای نمودار کامل — دوقلوی <bdi>MariaDB</bdi>، حالت <bdi>mirror</bdi>، موتور پشتیبان‌گیری، سایدکار <bdi>Headroom</bdi> — به [DOCKER.md](../DOCKER.md)، [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md) و قالب <bdi>[`docker-compose.example.yml`](../docker-compose.example.yml)</bdi> نگاه کنید.

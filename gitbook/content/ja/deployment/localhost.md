@@ -121,7 +121,7 @@ npm list -g vela
 Dockerの道なら、新しいタグを明示的にpullします:
 
 ```bash
-docker pull ghcr.io/yumamax3/vela:1.2.4
+docker pull ghcr.io/yumamax3/vela:1.2.5
 docker stop vela && docker rm vela
 # re-run the same docker run command with the new tag
 ```

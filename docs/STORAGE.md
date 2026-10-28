@@ -11,7 +11,7 @@ migrations & the additive sync · `001`–`023` · the mirror pump & divergence 
 the backup engine · restore & drill · S3 off-site · recovery · trust boundaries ·
 operating the harbors.
 
-**Counts in this chart were sounded on 2026-10-28 at v1.2.4.** Each carries the
+**Counts in this chart were sounded on 2026-10-28 at v1.2.5.** Each carries the
 command that re-derives it; re-run the command rather than trusting the prose
 after a tide.
 
@@ -134,7 +134,7 @@ ls src/lib/db/repos/mysql/ | wc -l      # 28
 > ⚠️ **`fallbackRules` alone throws.** Every reader and writer in
 > `repos/mysql/fallbackRulesRepo.js` throws
 > `[DB] VELA_DB_MODE=mysql — fallbackRulesRepo mysql twin not yet implemented`
-> — measured at v1.2.4: **6** throws in that file, and no other twin repository
+> — measured at v1.2.5: **6** throws in that file, and no other twin repository
 > carries an "unimplemented" throw.
 
 ```bash
@@ -439,7 +439,7 @@ posture has no outbox to drain (`mirrorStartup.js:28–40`). Nothing in that pat
 probes the twin: starting the rhythms must never block boot on a remote server.
 Each rhythm exposes a status reader (`getMirrorPumpStatus()`,
 `getMirrorSweepStatus()`, `getUsageResyncStatus()`); none is wired to an HTTP
-route at v1.2.4 — the mirror's evidence lives in the console and the ledger.
+route at v1.2.5 — the mirror's evidence lives in the console and the ledger.
 
 ---
 
@@ -611,7 +611,7 @@ plaintext export and the mirror resync all redact through **one** source.
 
 ## 📊 Operating the Harbors
 
-Every backup route below was measured at v1.2.4 (`ls src/app/api/backup/`):
+Every backup route below was measured at v1.2.5 (`ls src/app/api/backup/`):
 
 | Surface | Method | What it answers |
 |-|-|-|

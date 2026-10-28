@@ -41,7 +41,7 @@
 
 ## Vela 支持多少提供商？
 
-三个诚实的数字，于 2026-10-28 在 1.2.4 版本上测得：
+三个诚实的数字，于 2026-10-28 在 1.2.5 版本上测得：
 
 - 注册表中 **189** 个提供商文件
 - 由索引导入的 **186** 个（有三个被刻意注释掉：`devin-cli`、`trae`、`windsurf`）
@@ -141,7 +141,7 @@ docker run -d --name vela \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 镜像是公开的 —— 拉取无需登录或令牌 —— 且支持多架构（amd64 与 arm64）。请固定标签，而不是使用 `:latest`。
@@ -198,7 +198,7 @@ npm update -g vela
 npm list -g vela        # 你正在运行的版本
 
 # Docker —— 刻意固定更新的标签
-docker pull ghcr.io/yumamax3/vela:1.2.4
+docker pull ghcr.io/yumamax3/vela:1.2.5
 docker stop vela && docker rm vela
 # 用新标签重新运行你的 docker run 命令
 

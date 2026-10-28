@@ -11,7 +11,7 @@ docs-only exception · package identities · golden snapshots.
 
 **Fleet:** [README.md](./README.md) (the harbor map) ·
 [ARCHITECTURE.md](./ARCHITECTURE.md) (what the hull carries). Current hull:
-**1.2.4** (`node -p "require('./package.json').version"`, 2026-10-28).
+**1.2.5** (`node -p "require('./package.json').version"`, 2026-10-28).
 
 ---
 
@@ -51,13 +51,13 @@ git commit -F msg.txt                  # deep themed body
 git push origin main
 
 # 3. tag with the same depth
-git tag -a v1.2.4 -F tag.txt
-git push origin v1.2.4
+git tag -a v1.2.5 -F tag.txt
+git push origin v1.2.5
 
 # 4. PUBLISH THE RELEASE — a tag alone is NOT a release
-git tag -l --format='%(contents)' v1.2.4 > .release-notes.md
-gh release create v1.2.4 --repo YumamaX3/Vela \
-  --title "v1.2.4 — The Themed Name <emoji>" \
+git tag -l --format='%(contents)' v1.2.5 > .release-notes.md
+gh release create v1.2.5 --repo YumamaX3/Vela \
+  --title "v1.2.5 — The Themed Name <emoji>" \
   --notes-file .release-notes.md
 rm -f .release-notes.md
 
@@ -68,7 +68,7 @@ gh run list --repo YumamaX3/Vela --workflow "Build and Push Docker Image"
 TOKEN=$(curl -sS "https://ghcr.io/token?scope=repository:yumamax3/vela:pull&service=ghcr.io" | jq -r '.token')
 curl -sS -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer $TOKEN" \
   -H "Accept: application/vnd.oci.image.index.v1+json" \
-  "https://ghcr.io/v2/yumamax3/vela/manifests/1.2.4"     # expect 200
+  "https://ghcr.io/v2/yumamax3/vela/manifests/1.2.5"     # expect 200
 ```
 
 > 🧭 **Why the numbers are in this order.** Steps 1–2 make the ship true; steps
@@ -88,7 +88,7 @@ form is how a value is *written*; the value itself is `1.0.0`.
 
 | Tide | Rule | Example |
 |-|-|-|
-| **Small change** 🐚 | the last number ticks up by one | `1.2.3 → 1.2.4` |
+| **Small change** 🐚 | the last number ticks up by one | `1.2.4 → 1.2.5` |
 | **Big change** 🌊 | the last number leaps five | `1.2.3 → 1.2.8` |
 
 The carry rules, when rounding crosses a boundary:
@@ -196,18 +196,18 @@ one.
 ```bash
 # Reuse the tag's own deep description verbatim — never write a thinner note.
 # ⚠️ Project-local scratch only: /tmp/ resolves to C:\tmp\ on Windows and ENOENTs.
-git tag -l --format='%(contents)' v1.2.4 > .release-notes.md
-gh release create v1.2.4 --repo YumamaX3/Vela \
-  --title "v1.2.4 — The Themed Name <emoji>" \
+git tag -l --format='%(contents)' v1.2.5 > .release-notes.md
+gh release create v1.2.5 --repo YumamaX3/Vela \
+  --title "v1.2.5 — The Themed Name <emoji>" \
   --notes-file .release-notes.md
 rm -f .release-notes.md
 # Verify it landed:
-gh api "repos/YumamaX3/Vela/releases/tags/v1.2.4" --jq '.html_url'
+gh api "repos/YumamaX3/Vela/releases/tags/v1.2.5" --jq '.html_url'
 ```
 
 | Rule | The Law |
 |-|-|
-| **Name convention** 🏷️ | `v1.2.4 — The Themed Name <emoji>`. Strip a leading `⛵` from the tag subject so it matches the existing list (`v0.9.40 — The Combo Harbor ✨`) |
+| **Name convention** 🏷️ | `v1.2.5 — The Themed Name <emoji>`. Strip a leading `⛵` from the tag subject so it matches the existing list (`v0.9.40 — The Combo Harbor ✨`) |
 | **Body** 📜 | The tag's deep description, **verbatim** via `--notes-file`. A Release that paraphrases the tag loses the proof |
 | **Never draft** | Publish it — a draft Release is invisible |
 | **Both places** 📝 | The deep description goes in **both** the commit body and the annotated tag, because a thin tag body is a thin Release |
@@ -244,10 +244,10 @@ the rite was sound and only the instrument was missing. Now the instrument
 exists; use it.)
 
 ```yaml
-image: ghcr.io/yumamax3/vela:1.2.4   # bump to the release you want
+image: ghcr.io/yumamax3/vela:1.2.5   # bump to the release you want
 ```
 
-The two lines that must move together — at v1.2.4 both read `1.2.4`:
+The two lines that must move together — at v1.2.5 both read `1.2.5`:
 
 ```bash
 grep -n 'image: ghcr.io/yumamax3/vela:' docker-compose.example.yml docker-compose.yml
@@ -290,15 +290,15 @@ The tag triggers `.github/workflows/docker-publish.yml` → GHCR
 gh run list --repo YumamaX3/Vela --workflow "Build and Push Docker Image" -L 4
 
 # Alignment: HEAD = origin/main = the tag's commit = the remote tag object
-git rev-parse HEAD; git rev-parse origin/main; git rev-list -n1 v1.2.4
-git ls-remote --tags origin v1.2.4
+git rev-parse HEAD; git rev-parse origin/main; git rev-list -n1 v1.2.5
+git ls-remote --tags origin v1.2.5
 
 # The hull itself — an anonymous token, expecting 200 and a real OCI index
 TOKEN=$(curl -sS "https://ghcr.io/token?scope=repository:yumamax3/vela:pull&service=ghcr.io" | jq -r '.token')
 curl -sS -o .man.json -w "http=%{http_code} type=%{content_type}\n" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Accept: application/vnd.oci.image.index.v1+json" \
-  "https://ghcr.io/v2/yumamax3/vela/manifests/1.2.4"
+  "https://ghcr.io/v2/yumamax3/vela/manifests/1.2.5"
 jq -r '.mediaType, (.manifests[]? | "\(.platform.os)/\(.platform.architecture)")' .man.json
 rm -f .man.json
 ```

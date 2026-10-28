@@ -203,7 +203,7 @@ netstat -ano | findstr :32060   # Windows
 
 ## まだ詰まっている
 
-- バージョンを確かめる: `npm list -g vela`(このドキュメントは1.2.4を扱っています)。
+- バージョンを確かめる: `npm list -g vela`(このドキュメントは1.2.5を扱っています)。
 - **Log Harbor**で、正確なリクエストとそのエラーを見る。
 - [issues](https://github.com/YumamaX3/Vela/issues)を検索し、バージョン、エラーの文言、そこに至った手順とともに開く。
 

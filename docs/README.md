@@ -12,7 +12,7 @@ covenants · where to find a number.
 **Fleet:** [README.md](./README.md) (this map) · [VERSIONING.md](./VERSIONING.md)
 (the release rite) · [ARCHITECTURE.md](./ARCHITECTURE.md) (the ship's shape) —
 three charts that must agree, so every number below carries the command that
-derives it. This chart was re-measured at **v1.2.4**, **2026-10-28**.
+derives it. This chart was re-measured at **v1.2.5**, **2026-10-28**.
 
 ---
 
@@ -149,7 +149,7 @@ about to touch.
 
 ## 🗂️ The Repository Map
 
-The shape of the tree, with the density measured at **v1.2.4, 2026-10-28**.
+The shape of the tree, with the density measured at **v1.2.5, 2026-10-28**.
 Every count carries its command — re-derive rather than trust the line.
 
 ```
@@ -158,8 +158,8 @@ vela/
 ├── next.config.mjs           # Standalone output, rewrites, external packages, perf knobs
 ├── Dockerfile                # Multi-stage, multi-arch (amd64 + arm64), HEALTHCHECK
 ├── docker-compose.yml        # Live chart (gitignored — holds real secrets)
-├── docker-compose.example.yml# Template chart (tracked), pin 1.2.4 — guarded by a test
-├── package.json              # v1.2.4 — bump with every release (VERSIONING §1)
+├── docker-compose.example.yml# Template chart (tracked), pin 1.2.5 — guarded by a test
+├── package.json              # v1.2.5 — bump with every release (VERSIONING §1)
 ├── CHANGELOG.md              # Every tide's covenant entry (VERSIONING §2)
 ├── CLAUDE.md                 # The crew's papers — the repo-wide rules
 ├── AGENTS.md                 # Vendor harness block (Hydra + nextjs rules) — governs nothing here
@@ -184,7 +184,7 @@ vela/
 
 | Figure | Value | Derive |
 |-|-|-|
-| Version | **1.2.4** | `node -p "require('./package.json').version"` |
+| Version | **1.2.5** | `node -p "require('./package.json').version"` |
 | Dashboard pages | **36** | `find src/app -name 'page.js' \| wc -l` |
 | API routes | **255 tracked** (258 on disk — the `src/app/api/plans/` lanes sit behind the bare `plans/` gitignore rule) | `git ls-files \| grep -E '^src/app/.*route\.js$' \| wc -l` |
 | Test files | **480** (460 `.test.js` + 19 `.test.jsx` + 1 `.test.cjs`) | `find tests -name '*.test.js' -o -name '*.test.jsx' -o -name '*.test.cjs' \| wc -l` |
@@ -225,11 +225,11 @@ entry behind it.
 
 When someone asks "how many?", the answer is a command, not a memory. These are
 the canonical derivations — re-run them rather than trusting a line in a doc
-that may have drifted. **Measured 2026-10-28 at v1.2.4.**
+that may have drifted. **Measured 2026-10-28 at v1.2.5.**
 
 ```bash
 # Version — the number every other figure is dated against
-node -p "require('./package.json').version"                             # 1.2.4
+node -p "require('./package.json').version"                             # 1.2.5
 
 # Providers — three honest numbers, never collapsed into one
 ls open-sse/providers/registry/*.js | grep -v index.js | wc -l          # 189 — files on disk

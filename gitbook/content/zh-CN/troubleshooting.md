@@ -203,7 +203,7 @@ netstat -ano | findstr :32060   # Windows
 
 ## 仍然卡住
 
-- 确认你的版本：`npm list -g vela`（本文档涵盖 1.2.4）。
+- 确认你的版本：`npm list -g vela`（本文档涵盖 1.2.5）。
 - 在 **日志港** 查看确切的请求及其错误。
 - 搜索 [issues](https://github.com/YumamaX3/Vela/issues)，并开一个，附上你的版本、错误文本和产生它的步骤。
 

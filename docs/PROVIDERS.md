@@ -7,7 +7,7 @@
 
 **Covers:** the three counts · the registry entry · the roster by lane · wire
 formats · executors · adding a provider · where pricing lives. Measured
-**2026-10-28, at v1.2.4** — every figure below carries the command that produced
+**2026-10-28, at v1.2.5** — every figure below carries the command that produced
 it.
 
 ---
@@ -26,7 +26,7 @@ it.
 
 ## 🔢 The Three Counts
 
-At **v1.2.4**, measured **2026-10-28**:
+At **v1.2.5**, measured **2026-10-28**:
 
 | # | Count | What it means |
 |-|-|-|
@@ -154,7 +154,7 @@ scans `registry/*.js` and would otherwise import the template as a provider.)
 | `PROVIDER_OAUTH` | `oauth` | `id` |
 | `PROVIDER_MEDIA` | the media keys (`serviceKinds`, `ttsConfig`, `searchConfig`, …) | `id` |
 
-At v1.2.4 the maps stand at **145** dialable · **1,978 models across 165 keys** ·
+At v1.2.5 the maps stand at **145** dialable · **1,978 models across 165 keys** ·
 **26** OAuth · **103** media keys. The model count includes the TTS voice
 tables, keyed by synthetic names (`openai-tts-models`, `openai-tts-voices`,
 `gemini-tts-voices`, `elevenlabs-tts-models`, …) rather than provider ids.
@@ -395,7 +395,7 @@ differs. Two more fields, both measured on the 145:
 
 > 📌 **`transport.executor` is not how routing happens.** The field exists in the
 > schema and `PROVIDER_DEFAULTS` pins it to `"default"` — but **no registry entry
-> sets it** (0 of 186 at v1.2.4), and `getExecutor(provider)` keys on the
+> sets it** (0 of 186 at v1.2.5), and `getExecutor(provider)` keys on the
 > **provider id**. Leave it alone; reach for `executors/index.js` instead.
 
 ---

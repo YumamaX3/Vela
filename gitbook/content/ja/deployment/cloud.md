@@ -110,11 +110,11 @@ docker run -d --name vela --restart unless-stopped \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="set-me-by-you" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 - `ghcr.io/yumamax3/vela`は**公開**イメージです。誰でもログインせずにpullできます。トークンは要りません。秘密は何も含まれていません — 秘密はすべて実行時に環境として与えられる、だからこそ公開されていても安全なのです。
-- **タグを固定してください**(`:1.2.4`)。`:latest`はリリースについていき、再起動の下で変わることがあります。
+- **タグを固定してください**(`:1.2.5`)。`:latest`はリリースについていき、再起動の下で変わることがあります。
 - リバースプロキシが玄関なら、**`127.0.0.1`へ公開してください**。そうすれば、素のポートはインターネットにはまったく出ません。
 - **`/app/data`をマウントしてください。** ボリュームがなければ、コンテナが入れ替わったときすべてが消えます。
 
@@ -133,7 +133,7 @@ docker compose up -d
 ```yaml
 services:
   vela:
-    image: ghcr.io/yumamax3/vela:1.2.4
+    image: ghcr.io/yumamax3/vela:1.2.5
     container_name: vela
     restart: unless-stopped
     ports:
@@ -184,12 +184,12 @@ CMD ["npm", "run", "start"]
 ```
 
 ```bash
-docker build -t vela-local:1.2.4 .
+docker build -t vela-local:1.2.5 .
 docker run -d --name vela -p 127.0.0.1:32060:32060 \
   -v vela-data:/app/data \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
-  vela-local:1.2.4
+  vela-local:1.2.5
 ```
 
 ソースからのビルドは、公開されたイメージより遅く、大きく、あなたのマシンにあるものをそのまま引き継ぎます。公開されたイメージはタグのついたコミットからビルドされ、あなたのイメージはあなたのものからビルドされます。

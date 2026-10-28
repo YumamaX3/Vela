@@ -5,7 +5,7 @@
 
   Vela định tuyến các công cụ lập trình AI của bạn (Claude Code, Codex, Cursor, Cline, OpenCode…) qua một gateway cục bộ duy nhất, với chuyển đổi định dạng, fallback theo tổ hợp model, luân phiên đa tài khoản, theo dõi hạn mức, ACL theo từng key, và trình tiết kiệm token RTK cắt giảm 20–40% token đầu ra của công cụ trước khi chúng rời bến.
 
-  [![Version](https://img.shields.io/badge/version-1.2.4-blue?style=flat-square)](../CHANGELOG.md)
+  [![Version](https://img.shields.io/badge/version-1.2.5-blue?style=flat-square)](../CHANGELOG.md)
   [![Providers](https://img.shields.io/badge/providers-145%20dialable-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
   [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
@@ -45,7 +45,7 @@ Một tiến trình Node phục vụ cả hai engine: **bảng điều khiển +
 
 > 📌 **Ghi chú:** Vela dong buồm theo hải trình riêng — một cổng AI được rèn từ vùng nước mở, với mọi hệ thống là của riêng mình: lưu trữ, sao lưu, định giá và phân loại. CLI cài đặt dưới tên `vela` từ npm. Dòng dõi fork: từ v0.6.0 trở đi, gateway được cấp phép MIT và hoàn toàn là của riêng mình (xem [Nguồn gốc](#-provenance--license)).
 
-> 🔢 **Kỷ luật con số** (đo ngày 2026-10-28, tại v1.2.4). Registry nhà cung cấp báo **ba con số trung thực, và chúng khác nhau**: **189** tệp registry trên đĩa → **186** được chỉ mục sinh tự động nhập → **145** kênh chat có thể quay số (41 kênh đã nhập còn lại mang các transport media, search và embedding vốn dĩ không nói chat). Ba tệp nằm trên đĩa nhưng cố ý bị ẩn khỏi chỉ mục (`trae`, `devin-cli`, `windsurf`). Đừng bao giờ gộp ba con số thành một — hãy nêu rõ bạn muốn nói con số nào, và tự tính lại thay vì tin dòng này:
+> 🔢 **Kỷ luật con số** (đo ngày 2026-10-28, tại v1.2.5). Registry nhà cung cấp báo **ba con số trung thực, và chúng khác nhau**: **189** tệp registry trên đĩa → **186** được chỉ mục sinh tự động nhập → **145** kênh chat có thể quay số (41 kênh đã nhập còn lại mang các transport media, search và embedding vốn dĩ không nói chat). Ba tệp nằm trên đĩa nhưng cố ý bị ẩn khỏi chỉ mục (`trae`, `devin-cli`, `windsurf`). Đừng bao giờ gộp ba con số thành một — hãy nêu rõ bạn muốn nói con số nào, và tự tính lại thay vì tin dòng này:
 > ```bash
 > ls open-sse/providers/registry/*.js | grep -v index.js | wc -l      # 189 tệp trên đĩa
 > node -e "import('./open-sse/providers/registry/index.js').then(m=>console.log(m.default.length))"   # 186 đã nhập
@@ -116,14 +116,14 @@ Một tiến trình Node phục vụ cả hai engine: **bảng điều khiển +
 ### Lựa chọn A — Docker (khuyến nghị)
 
 ```bash
-docker pull ghcr.io/yumamax3/vela:1.2.4
+docker pull ghcr.io/yumamax3/vela:1.2.5
 docker run -d --name vela \
   -p 32060:32060 \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 Image là **công khai** — không cần đăng nhập registry — và đa kiến trúc (`linux/amd64` + `linux/arm64`). Để xem hải đồ đầy đủ — bản song sinh MariaDB, tư thế mirror, engine sao lưu, sidecar Headroom — hãy xem [DOCKER.md](../DOCKER.md), [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md), và mẫu [`docker-compose.example.yml`](../docker-compose.example.yml).

@@ -74,7 +74,7 @@ La [página de proveedores baratos](providers/cheap.md) desarrolla estos número
 
 ## ¿Cuántos proveedores soporta Vela?
 
-La respuesta honesta son tres números, porque miden tres cosas distintas. Los tres se midieron el 2026-10-28 en la versión 1.2.4, y puedes volver a derivarlos en cualquier momento:
+La respuesta honesta son tres números, porque miden tres cosas distintas. Los tres se midieron el 2026-10-28 en la versión 1.2.5, y puedes volver a derivarlos en cualquier momento:
 
 | Cantidad | Qué significa | Cómo comprobarlo tú mismo |
 |-|-|-|

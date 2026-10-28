@@ -76,14 +76,14 @@ docker run -d --name vela \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 Sau đó mở **http://localhost:32060/dashboard**.
 
 - Ảnh này là **công khai**. Bạn không cần đăng nhập GitHub, personal access token, hay bất kỳ thông tin xác thực nào để kéo nó.
 - Ảnh hỗ trợ nhiều kiến trúc: nó chạy gốc trên cả server thông thường (`linux/amd64`) lẫn các máy ARM như Raspberry Pi hay máy chủ Docker Apple Silicon (`linux/arm64`).
-- **Ghim thẻ phiên bản.** `ghcr.io/yumamax3/vela:1.2.4` là bản phát hành hiện tại. `:latest` di chuyển mỗi khi một phiên bản mới được phát hành, và một lần khởi động lại có thể lặng lẽ đưa bạn sang một phiên bản bạn không chọn.
+- **Ghim thẻ phiên bản.** `ghcr.io/yumamax3/vela:1.2.5` là bản phát hành hiện tại. `:latest` di chuyển mỗi khi một phiên bản mới được phát hành, và một lần khởi động lại có thể lặng lẽ đưa bạn sang một phiên bản bạn không chọn.
 - **Luôn mount `/app/data`.** Không có volume, cơ sở dữ liệu của bạn sống trong container và biến mất cùng nó.
 
 [Hướng dẫn triển khai cloud](../deployment/cloud.md) bao quát Compose, reverse proxy và các biến môi trường một cách sâu sắc.
@@ -110,7 +110,7 @@ npm run start      # run the production build
 
 `npm run dev` để làm việc trên chính Vela. `npm run build` rồi `npm run start` là thứ một bản triển khai nên chạy.
 
-> ⚠️ **Một lưu ý về phiên bản:** nếu bản bạn build có hành vi khác với tài liệu này, hãy kiểm tra `package.json` — trường `version` của nó là sự thật. Tài liệu này mô tả **1.2.4**.
+> ⚠️ **Một lưu ý về phiên bản:** nếu bản bạn build có hành vi khác với tài liệu này, hãy kiểm tra `package.json` — trường `version` của nó là sự thật. Tài liệu này mô tả **1.2.5**.
 
 ---
 
@@ -344,7 +344,7 @@ docker run -d --name vela --restart unless-stopped \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="choose-a-password" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 Gắn vào `127.0.0.1` nghĩa là chỉ một reverse proxy trên cùng máy mới chạm tới dashboard — mặc định an toàn cho một máy chủ phơi ra internet. [Triển khai cloud](../deployment/cloud.md) có cấu hình Nginx đầy đủ, với các thiết lập streaming quan trọng.
@@ -380,7 +380,7 @@ Nếu bạn đã chạy Docker thay vào đó:
 
 ```bash
 docker stop vela && docker rm vela
-docker rmi ghcr.io/yumamax3/vela:1.2.4
+docker rmi ghcr.io/yumamax3/vela:1.2.5
 # and remove the volume or host directory you mounted
 ```
 

@@ -41,7 +41,7 @@ Consulta [Enrutamiento inteligente](features/smart-routing.md) y [Combos](featur
 
 ## ¿Cuántos proveedores soporta Vela?
 
-Tres números honestos, medidos el 2026-10-28 en la versión 1.2.4:
+Tres números honestos, medidos el 2026-10-28 en la versión 1.2.5:
 
 - **186** archivos de proveedor en el registro
 - **186** importados por el índice (hoy cada archivo está conectado)
@@ -141,7 +141,7 @@ docker run -d --name vela \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 La imagen es pública — no requiere inicio de sesión ni token para descargarla — y es multiarquitectura (amd64 y arm64). Fija la etiqueta en lugar de usar `:latest`.
@@ -198,7 +198,7 @@ npm update -g vela
 npm list -g vela        # what you are running now
 
 # Docker — pin the newer tag deliberately
-docker pull ghcr.io/yumamax3/vela:1.2.4
+docker pull ghcr.io/yumamax3/vela:1.2.5
 docker stop vela && docker rm vela
 # re-run your docker run command with the new tag
 

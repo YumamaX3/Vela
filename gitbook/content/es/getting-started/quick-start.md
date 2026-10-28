@@ -215,7 +215,7 @@ Las páginas de [Proveedores baratos](../providers/cheap.md) y [Proveedores grat
 - **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues**: [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
 
-Vela es la versión 1.2.4. Comprueba qué estás ejecutando con:
+Vela es la versión 1.2.5. Comprueba qué estás ejecutando con:
 
 ```bash
 npm list -g vela

@@ -12,7 +12,7 @@ channel refusal (11128) · a content-filter refusal · breaker cooling · a
 degraded mirror · a backup that will not restore · usage and logs after a move ·
 the DB driver falling back.
 
-**Every count below was sounded on 2026-10-28 at v1.2.4.** File and line
+**Every count below was sounded on 2026-10-28 at v1.2.5.** File and line
 references are the evidence; re-derive rather than trust the prose after a tide.
 
 ---
@@ -487,7 +487,7 @@ stale subset.
   **Settings → Billing → Custom Pricing**, under the "Custom Pricing: You can
   override default pricing for specific models" panel. The same room carries
   **Sync Prices** (pull catalog rates from models.dev) and **Clear Synced
-  Prices**. Their route contracts (measured at v1.2.4):
+  Prices**. Their route contracts (measured at v1.2.5):
 
 ```text
 GET    /api/pricing          → merged user + default pricing

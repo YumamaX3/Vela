@@ -2,7 +2,7 @@
 
 When subscription quota runs out, a good cheap model costs a few dollars a day instead of a few dollars an hour. This page covers the three cheap providers Vela ships with, the exact rates Vela uses to estimate cost, and how to place them behind your subscriptions.
 
-> **About the numbers.** Every rate on this page comes from `open-sse/providers/pricing.js` in this release (Vela 1.2.4). It is what Vela itself charges against in its cost estimates. Your provider's invoice is still the final word — rates are set upstream and change without notice.
+> **About the numbers.** Every rate on this page comes from `open-sse/providers/pricing.js` in this release (Vela 1.2.5). It is what Vela itself charges against in its cost estimates. Your provider's invoice is still the final word — rates are set upstream and change without notice.
 
 ---
 

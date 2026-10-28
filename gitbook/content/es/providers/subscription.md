@@ -4,7 +4,7 @@ Ya estás pagando Claude Code, o Codex, o Copilot. El nivel de suscripción trat
 
 Esta página cubre los cinco proveedores que la gente conecta primero, cuánto cuesta cada uno aguas arriba, qué modelos puedes llamar hoy y cómo ponerlos a trabajar.
 
-> **Aquí las fechas importan.** Los niveles de suscripción, los precios y los nombres de modelo los fijan Anthropic, OpenAI, GitHub y Google — no Vela. Las cifras de esta página son datos upstream a fecha de **2026-10-28** (Vela 1.2.4). Los proveedores los cambian a menudo.
+> **Aquí las fechas importan.** Los niveles de suscripción, los precios y los nombres de modelo los fijan Anthropic, OpenAI, GitHub y Google — no Vela. Las cifras de esta página son datos upstream a fecha de **2026-10-28** (Vela 1.2.5). Los proveedores los cambian a menudo.
 
 ---
 

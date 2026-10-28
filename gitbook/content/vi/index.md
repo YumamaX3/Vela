@@ -74,7 +74,7 @@ Một lập trình viên dùng 100M tokens mỗi tháng, phần lớn qua quota 
 
 ## Vela hỗ trợ bao nhiêu nhà cung cấp?
 
-Câu trả lời trung thực là ba con số, bởi chúng đo ba thứ khác nhau. Cả ba được đo vào ngày 2026-10-28 tại phiên bản 1.2.4, và bạn có thể tự suy ra chúng bất cứ lúc nào:
+Câu trả lời trung thực là ba con số, bởi chúng đo ba thứ khác nhau. Cả ba được đo vào ngày 2026-10-28 tại phiên bản 1.2.5, và bạn có thể tự suy ra chúng bất cứ lúc nào:
 
 | Số lượng | Ý nghĩa | Cách tự kiểm tra |
 |-|-|-|

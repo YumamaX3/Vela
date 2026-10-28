@@ -215,7 +215,7 @@ Một nếp thực hành thiết thực, không cần bảng tính:
 - **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues**: [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
 
-Vela là phiên bản 1.2.4. Kiểm tra bạn đang chạy bản nào với:
+Vela là phiên bản 1.2.5. Kiểm tra bạn đang chạy bản nào với:
 
 ```bash
 npm list -g vela

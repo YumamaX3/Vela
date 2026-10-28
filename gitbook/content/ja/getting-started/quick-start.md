@@ -215,7 +215,7 @@ Dashboard → Combos → Create
 - **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues**: [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
 
-Velaはバージョン1.2.4です。いま動いているものを確かめるには:
+Velaはバージョン1.2.5です。いま動いているものを確かめるには:
 
 ```bash
 npm list -g vela

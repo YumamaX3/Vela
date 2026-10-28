@@ -5,7 +5,7 @@
 
   Vela routes your AI coding tools (Claude Code, Codex, Cursor, Cline, OpenCode…) through a single local gateway with format translation, model-combo fallback, multi-account rotation, quota tracking, per-key ACL, and an RTK token saver that trims 20–40% of tool-output tokens before they leave the harbor.
 
-  [![Version](https://img.shields.io/badge/version-1.2.4-blue?style=flat-square)](./CHANGELOG.md)
+  [![Version](https://img.shields.io/badge/version-1.2.5-blue?style=flat-square)](./CHANGELOG.md)
   [![Providers](https://img.shields.io/badge/providers-145%20dialable-0ea5e9?style=flat-square)](./docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
   [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
@@ -43,7 +43,7 @@ One Node process serves both engines: the **dashboard + API** (`src/`, a Next.js
 
 > 📌 **Note:** Vela sails its own course — an AI gateway forged from open waters, with every system its own: storage, backup, pricing, and category. The CLI installs as `vela` from npm. Fork lineage: from v0.6.0 onward the gateway is MIT licensed and fully its own (see [Provenance](#-provenance--license)).
 
-> 🔢 **Count discipline** (measured 2026-10-28, at v1.2.4). The provider registry reports **three honest numbers, and they differ**: **189** registry files on disk → **186** imported by the generated index → **145** dialable chat transports (the other 41 imported lanes carry media, search, and embedding transports that legitimately speak no chat). Three files sit on disk deliberately hidden from the index (`trae`, `devin-cli`, `windsurf`). Never collapse the three into one — name which number you mean, and re-derive rather than trusting this line:
+> 🔢 **Count discipline** (measured 2026-10-28, at v1.2.5). The provider registry reports **three honest numbers, and they differ**: **189** registry files on disk → **186** imported by the generated index → **145** dialable chat transports (the other 41 imported lanes carry media, search, and embedding transports that legitimately speak no chat). Three files sit on disk deliberately hidden from the index (`trae`, `devin-cli`, `windsurf`). Never collapse the three into one — name which number you mean, and re-derive rather than trusting this line:
 > ```bash
 > ls open-sse/providers/registry/*.js | grep -v index.js | wc -l      # 189 files on disk
 > node -e "import('./open-sse/providers/registry/index.js').then(m=>console.log(m.default.length))"   # 186 imported
@@ -114,14 +114,14 @@ One Node process serves both engines: the **dashboard + API** (`src/`, a Next.js
 ### Option A — Docker (recommended)
 
 ```bash
-docker pull ghcr.io/yumamax3/vela:1.2.4
+docker pull ghcr.io/yumamax3/vela:1.2.5
 docker run -d --name vela \
   -p 32060:32060 \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 The image is **public** — no registry login needed — and multi-arch (`linux/amd64` + `linux/arm64`). For the full chart — MariaDB twin, mirror posture, backup engine, Headroom sidecar — see [DOCKER.md](./DOCKER.md), [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md), and the [`docker-compose.example.yml`](./docker-compose.example.yml) template.

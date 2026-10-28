@@ -2,7 +2,7 @@
 
 Cuando se agota la cuota de suscripción, un buen modelo barato cuesta unos pocos dólares al día en lugar de unos pocos dólares a la hora. Esta página cubre los tres proveedores baratos que incluye Vela, las tarifas exactas que Vela usa para estimar el costo, y cómo colocarlos detrás de tus suscripciones.
 
-> **Sobre los números.** Toda tarifa de esta página procede de `open-sse/providers/pricing.js` en esta versión (Vela 1.2.4). Es contra lo que Vela mismo calcula sus estimaciones de costo. La factura de tu proveedor sigue siendo la palabra final — las tarifas las fija el upstream y cambian sin aviso.
+> **Sobre los números.** Toda tarifa de esta página procede de `open-sse/providers/pricing.js` en esta versión (Vela 1.2.5). Es contra lo que Vela mismo calcula sus estimaciones de costo. La factura de tu proveedor sigue siendo la palabra final — las tarifas las fija el upstream y cambian sin aviso.
 
 ---
 

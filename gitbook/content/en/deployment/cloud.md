@@ -110,11 +110,11 @@ docker run -d --name vela --restart unless-stopped \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="set-me-by-you" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 - `ghcr.io/yumamax3/vela` is a **public** image. Anybody can pull it without logging in; no token is required. It contains no secrets — every secret is supplied as environment at run time, which is exactly why it is safe to be public.
-- **Pin the tag** (`:1.2.4`). `:latest` follows releases and can change under a restart.
+- **Pin the tag** (`:1.2.5`). `:latest` follows releases and can change under a restart.
 - **Publish to `127.0.0.1`** when a reverse proxy is the intended entrance. That way the raw port is not on the internet at all.
 - **Mount `/app/data`.** Without the volume, everything vanishes when the container is replaced.
 
@@ -133,7 +133,7 @@ A minimal chart of your own looks like this:
 ```yaml
 services:
   vela:
-    image: ghcr.io/yumamax3/vela:1.2.4
+    image: ghcr.io/yumamax3/vela:1.2.5
     container_name: vela
     restart: unless-stopped
     ports:
@@ -184,12 +184,12 @@ CMD ["npm", "run", "start"]
 ```
 
 ```bash
-docker build -t vela-local:1.2.4 .
+docker build -t vela-local:1.2.5 .
 docker run -d --name vela -p 127.0.0.1:32060:32060 \
   -v vela-data:/app/data \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
-  vela-local:1.2.4
+  vela-local:1.2.5
 ```
 
 Building from source is slower and larger than the published image, and it inherits whatever is on your machine. The published image is built from tagged commits; your own image is built from yours.

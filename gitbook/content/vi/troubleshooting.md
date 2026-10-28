@@ -203,7 +203,7 @@ Kiểm tra trang trạng thái của nhà cung cấp, kết nối lại nó tron
 
 ## Vẫn còn bế tắc
 
-- Xác nhận phiên bản của bạn: `npm list -g vela` (tài liệu này bao quát 1.2.4).
+- Xác nhận phiên bản của bạn: `npm list -g vela` (tài liệu này bao quát 1.2.5).
 - Xem **Log Harbor** cho đúng request và lỗi của nó.
 - Tìm trong [issues](https://github.com/YumamaX3/Vela/issues), và mở một issue kèm phiên bản của bạn, nội dung lỗi, và các bước đã tạo ra nó.
 

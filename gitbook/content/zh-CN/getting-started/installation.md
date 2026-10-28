@@ -76,14 +76,14 @@ docker run -d --name vela \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 然后打开 **http://localhost:32060/dashboard**。
 
 - 镜像**公开**。拉取它不需要 GitHub 登录、个人访问令牌或任何凭据。
 - 镜像支持多架构：在普通服务器（`linux/amd64`）和 Raspberry Pi、Apple Silicon 上的 Docker 主机等 ARM 机器（`linux/arm64`）上都能原生运行。
-- **固定标签。** `ghcr.io/yumamax3/vela:1.2.4` 是当前版本。`:latest` 会随新版本发布而移动，一次重启就可能悄悄把你换到并未选择的版本上。
+- **固定标签。** `ghcr.io/yumamax3/vela:1.2.5` 是当前版本。`:latest` 会随新版本发布而移动，一次重启就可能悄悄把你换到并未选择的版本上。
 - **务必挂载 `/app/data`。** 没有这个卷，你的数据库就生活在容器内部，会随之消失。
 
 [云端部署指南](../deployment/cloud.md)深入讲解了 Compose、反向代理和环境变量。
@@ -110,7 +110,7 @@ npm run start      # 运行生产构建
 
 `npm run dev` 用于开发 Vela 本身。部署时应当运行的是 `npm run build` 之后再 `npm run start`。
 
-> ⚠️ **关于版本的说明：** 如果你构建出的版本行为与本文档不符，请查看 `package.json` —— 其中的 `version` 字段才是真相。本文档描述的是 **1.2.4**。
+> ⚠️ **关于版本的说明：** 如果你构建出的版本行为与本文档不符，请查看 `package.json` —— 其中的 `version` 字段才是真相。本文档描述的是 **1.2.5**。
 
 ---
 
@@ -344,7 +344,7 @@ docker run -d --name vela --restart unless-stopped \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="choose-a-password" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 绑定到 `127.0.0.1` 意味着只有同一台机器上的反向代理才能访问仪表盘 —— 这是面向互联网的主机的安全默认值。[云端部署](../deployment/cloud.md)提供了完整的 Nginx 配置，以及关键的流式传输设置。
@@ -380,7 +380,7 @@ rm -rf ~/.vela             # 移除数据、密钥与设置 —— 此操作不�
 
 ```bash
 docker stop vela && docker rm vela
-docker rmi ghcr.io/yumamax3/vela:1.2.4
+docker rmi ghcr.io/yumamax3/vela:1.2.5
 # 并移除你挂载的卷或宿主机目录
 ```
 

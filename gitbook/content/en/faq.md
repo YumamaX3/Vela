@@ -41,7 +41,7 @@ See [Smart Routing](features/smart-routing.md) and [Combos](features/combos.md).
 
 ## How many providers does Vela support?
 
-Three honest numbers, measured on 2026-10-28 at version 1.2.4:
+Three honest numbers, measured on 2026-10-28 at version 1.2.5:
 
 - **189** provider files in the registry
 - **186** imported by the index (three are deliberately commented out: `devin-cli`, `trae`, `windsurf`)
@@ -141,7 +141,7 @@ docker run -d --name vela \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 The image is public — no login or token required to pull it — and multi-architecture (amd64 and arm64). Pin the tag rather than using `:latest`.
@@ -198,7 +198,7 @@ npm update -g vela
 npm list -g vela        # what you are running now
 
 # Docker — pin the newer tag deliberately
-docker pull ghcr.io/yumamax3/vela:1.2.4
+docker pull ghcr.io/yumamax3/vela:1.2.5
 docker stop vela && docker rm vela
 # re-run your docker run command with the new tag
 

@@ -31,7 +31,7 @@ npx vitest run unit/some-suite.test.js      # one suite alone
 | `contract/` | 10 | Route contracts — the surface the gateway promises |
 | `auth/` | 1 | The auth gates |
 
-**480 live test files** (measured 2026-10-28, at v1.2.4). Re-derive, never quote:
+**480 live test files** (measured 2026-10-28, at v1.2.5). Re-derive, never quote:
 
 ```bash
 git ls-files tests | grep -E '\.test\.(js|jsx|cjs)$' | grep -v archived | wc -l   # 480

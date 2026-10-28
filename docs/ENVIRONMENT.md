@@ -409,7 +409,7 @@ when a specific hunt calls for one:
 
 ## 🔎 Where These Facts Come From
 
-Every row was verified against the tree at **v1.2.4** (`package.json`, measured
+Every row was verified against the tree at **v1.2.5** (`package.json`, measured
 2026-10-28). The census — **50 distinct `VELA_*` names read from the environment**
 anywhere in the tree (server, CLI and entry files, including the helper-argument
 and alias call sites a naive `process.env` grep misses) — was derived by scanning

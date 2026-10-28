@@ -5,7 +5,7 @@
 
   Vela กำหนดเส้นทางให้เครื่องมือเขียนโค้ด AI ของคุณ (Claude Code, Codex, Cursor, Cline, OpenCode…) ผ่านเกตเวย์ในเครื่องเพียงจุดเดียว พร้อมการแปลงฟอร์แมต การสำรองผ่านใช้ชุดโมเดล การสลับหลายบัญชี การติดตามโควตา ACL ต่อคีย์ และ RTK token saver ที่ตัดทอนโทเค็นจากผลลัพธ์ของเครื่องมือได้ ๒๐–๔๐% ก่อนที่มันจะออกจากท่าเรือ
 
-  [![Version](https://img.shields.io/badge/version-1.2.4-blue?style=flat-square)](../CHANGELOG.md)
+  [![Version](https://img.shields.io/badge/version-1.2.5-blue?style=flat-square)](../CHANGELOG.md)
   [![Providers](https://img.shields.io/badge/providers-145%20dialable-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
   [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
@@ -45,7 +45,7 @@ Vela คือ **เกตเวย์กำหนดเส้นทาง AI �
 
 > 📌 **หมายเหตุ:** Vela แล่นตามเส้นทางของตัวเอง — เกตเวย์ AI ที่ตีขึ้นจากน่านน้ำเปิด ด้วยระบบทุกส่วนที่เป็นของตัวเอง: การจัดเก็บ การสำรองข้อมูล การตั้งราคา และหมวดหมู่ CLI ติดตั้งในชื่อ `vela` จาก npm สายเชื้อสายของ fork: ตั้งแต่ v0.6.0 เป็นต้นมา เกตเวย์อยู่ภายใต้สัญญาอนุญาต MIT และเป็นของตัวเองเต็มที่ (ดูที่ [ที่มาและลิขสิทธิ์](#-ที่มาและลิขสิทธิ์))
 
-> 🔢 **วินัยของการนับ** (วัดเมื่อ 2026-10-28 ที่ v1.2.4) รีจิสทรีผู้ให้บริการรายงาน **ตัวเลขซื่อสัตย์สามตัว และทั้งสามต่างกัน**: ไฟล์รีจิสทรี **๑๘๙** ไฟล์บนดิสก์ → **๑๘๖** ไฟล์ที่ดัชนีที่สร้างขึ้นนำเข้า → **๑๔๕** ช่องทางการสนทนา (chat transports) ที่เชื่อมต่อได้ (อีก ๔๑ เส้นทางที่นำเข้าจะบรรทุกการขนส่งสื่อ ค้นหา และ embedding ซึ่งไม่พูดภาษาแชทโดยชอบธรรม) มีสามไฟล์วางอยู่บนดิสก์โดยจงใจซ่อนจากดัชนี (`trae`, `devin-cli`, `windsurf`) อย่ารวมทั้งสามตัวเลขเป็นหนึ่ง — จงระบุว่าคุณหมายถึงตัวเลขใด และคำนวณใหม่แทนการเชื่อถือบรรทัดนี้:
+> 🔢 **วินัยของการนับ** (วัดเมื่อ 2026-10-28 ที่ v1.2.5) รีจิสทรีผู้ให้บริการรายงาน **ตัวเลขซื่อสัตย์สามตัว และทั้งสามต่างกัน**: ไฟล์รีจิสทรี **๑๘๙** ไฟล์บนดิสก์ → **๑๘๖** ไฟล์ที่ดัชนีที่สร้างขึ้นนำเข้า → **๑๔๕** ช่องทางการสนทนา (chat transports) ที่เชื่อมต่อได้ (อีก ๔๑ เส้นทางที่นำเข้าจะบรรทุกการขนส่งสื่อ ค้นหา และ embedding ซึ่งไม่พูดภาษาแชทโดยชอบธรรม) มีสามไฟล์วางอยู่บนดิสก์โดยจงใจซ่อนจากดัชนี (`trae`, `devin-cli`, `windsurf`) อย่ารวมทั้งสามตัวเลขเป็นหนึ่ง — จงระบุว่าคุณหมายถึงตัวเลขใด และคำนวณใหม่แทนการเชื่อถือบรรทัดนี้:
 > ```bash
 > ls open-sse/providers/registry/*.js | grep -v index.js | wc -l      # 189 files on disk
 > node -e "import('./open-sse/providers/registry/index.js').then(m=>console.log(m.default.length))"   # 186 imported
@@ -116,14 +116,14 @@ Vela คือ **เกตเวย์กำหนดเส้นทาง AI �
 ### ตัวเลือก A — Docker (แนะนำ)
 
 ```bash
-docker pull ghcr.io/yumamax3/vela:1.2.4
+docker pull ghcr.io/yumamax3/vela:1.2.5
 docker run -d --name vela \
   -p 32060:32060 \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 อิมเมจเป็นแบบ **สาธารณะ** — ไม่ต้องเข้าสู่ระบบรีจิสทรี — และรองรับหลายสถาปัตยกรรม (`linux/amd64` + `linux/arm64`) สำหรับแผนที่ฉบับเต็ม — คู่แฝด MariaDB, รูปแบบ mirror, เอนจินสำรองข้อมูล, sidecar Headroom — ดูที่ [DOCKER.md](../DOCKER.md), [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md) และเทมเพลต [`docker-compose.example.yml`](../docker-compose.example.yml)

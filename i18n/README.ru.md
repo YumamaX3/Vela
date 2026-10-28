@@ -5,7 +5,7 @@
 
   Vela проводит ваши AI-инструменты для разработки (Claude Code, Codex, Cursor, Cline, OpenCode…) через единый локальный шлюз: трансляция форматов, резервирование по комбинациям моделей, ротация нескольких аккаунтов, отслеживание квот, ACL на каждый ключ и RTK-экономитель токенов, который срезает 20–40% токенов в выводах инструментов ещё до того, как они покинут гавань.
 
-  [![Version](https://img.shields.io/badge/version-1.2.4-blue?style=flat-square)](../CHANGELOG.md)
+  [![Version](https://img.shields.io/badge/version-1.2.5-blue?style=flat-square)](../CHANGELOG.md)
   [![Providers](https://img.shields.io/badge/providers-145%20dialable-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
   [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
@@ -45,7 +45,7 @@ Vela — это **локальный шлюз маршрутизации AI + п
 
 > 📌 **Примечание:** Vela идёт собственным курсом — AI-шлюз, выкованный в открытых водах, со всеми собственными системами: хранение, резервное копирование, ценообразование и категории. CLI устанавливается как `vela` из npm. Линия форка: начиная с v0.6.0 шлюз распространяется под лицензией MIT и полностью автономен (см. [Происхождение](#-происхождение-и-лицензия)).
 
-> 🔢 **Дисциплина счёта** (измерено 2026-10-28, на v1.2.4). Реестр провайдеров сообщает **три честных числа, и они различаются**: **189** файлов реестра на диске → **186** импортированы сгенерированным индексом → **145** подключаемых чат-транспортов (остальные 41 импортированных маршрута несут транспорты медиа, поиска и эмбеддингов, которые законно не говорят на языке чата). Три файла лежат на диске намеренно скрытыми от индекса (`trae`, `devin-cli`, `windsurf`). Никогда не сливайте эти три числа в одно — называйте, какое именно имеете в виду, и пересчитывайте, а не доверяйте этой строке:
+> 🔢 **Дисциплина счёта** (измерено 2026-10-28, на v1.2.5). Реестр провайдеров сообщает **три честных числа, и они различаются**: **189** файлов реестра на диске → **186** импортированы сгенерированным индексом → **145** подключаемых чат-транспортов (остальные 41 импортированных маршрута несут транспорты медиа, поиска и эмбеддингов, которые законно не говорят на языке чата). Три файла лежат на диске намеренно скрытыми от индекса (`trae`, `devin-cli`, `windsurf`). Никогда не сливайте эти три числа в одно — называйте, какое именно имеете в виду, и пересчитывайте, а не доверяйте этой строке:
 > ```bash
 > ls open-sse/providers/registry/*.js | grep -v index.js | wc -l      # 189 files on disk
 > node -e "import('./open-sse/providers/registry/index.js').then(m=>console.log(m.default.length))"   # 186 imported
@@ -116,14 +116,14 @@ Vela — это **локальный шлюз маршрутизации AI + п
 ### Вариант A — Docker (рекомендуется)
 
 ```bash
-docker pull ghcr.io/yumamax3/vela:1.2.4
+docker pull ghcr.io/yumamax3/vela:1.2.5
 docker run -d --name vela \
   -p 32060:32060 \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 Образ **публичный** — вход в реестр не нужен — и мультиархитектурный (`linux/amd64` + `linux/arm64`). Для полной карты — близнец MariaDB, режим mirror, движок резервного копирования, сайдкар Headroom — смотрите [DOCKER.md](../DOCKER.md), [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md) и шаблон [`docker-compose.example.yml`](../docker-compose.example.yml).

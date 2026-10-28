@@ -121,7 +121,7 @@ npm list -g vela
 对于 Docker 路线，请显式拉取更新的标签：
 
 ```bash
-docker pull ghcr.io/yumamax3/vela:1.2.4
+docker pull ghcr.io/yumamax3/vela:1.2.5
 docker stop vela && docker rm vela
 # 用新标签重新运行同一条 docker run 命令
 ```

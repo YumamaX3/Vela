@@ -121,7 +121,7 @@ npm list -g vela
 Với cách dùng Docker, hãy kéo thẻ mới hơn một cách tường minh:
 
 ```bash
-docker pull ghcr.io/yumamax3/vela:1.2.4
+docker pull ghcr.io/yumamax3/vela:1.2.5
 docker stop vela && docker rm vela
 # re-run the same docker run command with the new tag
 ```

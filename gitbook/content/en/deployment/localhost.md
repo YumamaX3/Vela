@@ -121,7 +121,7 @@ npm list -g vela
 For the Docker route, pull the newer tag explicitly:
 
 ```bash
-docker pull ghcr.io/yumamax3/vela:1.2.4
+docker pull ghcr.io/yumamax3/vela:1.2.5
 docker stop vela && docker rm vela
 # re-run the same docker run command with the new tag
 ```

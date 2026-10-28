@@ -5,7 +5,7 @@
 
   O Vela roteia suas ferramentas de código com IA (Claude Code, Codex, Cursor, Cline, OpenCode…) por um único gateway local com tradução de formatos, fallback por combo de modelos, rotação entre múltiplas contas, rastreamento de cota, ACL por chave e um economizador de tokens RTK que corta 20–40% dos tokens de saída das ferramentas antes que eles deixem o porto.
 
-  [![Version](https://img.shields.io/badge/version-1.2.4-blue?style=flat-square)](../CHANGELOG.md)
+  [![Version](https://img.shields.io/badge/version-1.2.5-blue?style=flat-square)](../CHANGELOG.md)
   [![Provedores](https://img.shields.io/badge/providers-145%20dialable-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
   [![Imagem](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
   [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
@@ -45,7 +45,7 @@ Um único processo Node serve os dois motores: o **painel + API** (`src/`, um ap
 
 > 📌 **Nota:** O Vela navega seu próprio rumo — um gateway de IA forjado em águas abertas, com todos os sistemas próprios: armazenamento, backup, preços e categoria. O CLI instala como `vela` pelo npm. Linhagem do fork: a partir da v0.6.0 o gateway é licenciado sob MIT e plenamente próprio (veja [Origem e licença](#-origem-e-licença)).
 
-> 🔢 **Disciplina de números** (medido em 2026-10-28, na v1.2.4). O registro de provedores reporta **três números honestos, e eles diferem**: **189** arquivos de registro no disco → **186** importados pelo índice gerado → **145** transportes de chat conectáveis (as outras 41 rotas importadas carregam transportes de mídia, busca e embeddings que, com razão, não falam chat). Três arquivos ficam no disco deliberadamente ocultos do índice (`trae`, `devin-cli`, `windsurf`). Nunca junte os três em um — nomeie qual número você quer dizer, e re-derive em vez de confiar nesta linha:
+> 🔢 **Disciplina de números** (medido em 2026-10-28, na v1.2.5). O registro de provedores reporta **três números honestos, e eles diferem**: **189** arquivos de registro no disco → **186** importados pelo índice gerado → **145** transportes de chat conectáveis (as outras 41 rotas importadas carregam transportes de mídia, busca e embeddings que, com razão, não falam chat). Três arquivos ficam no disco deliberadamente ocultos do índice (`trae`, `devin-cli`, `windsurf`). Nunca junte os três em um — nomeie qual número você quer dizer, e re-derive em vez de confiar nesta linha:
 > ```bash
 > ls open-sse/providers/registry/*.js | grep -v index.js | wc -l      # 189 files on disk
 > node -e "import('./open-sse/providers/registry/index.js').then(m=>console.log(m.default.length))"   # 186 imported
@@ -116,14 +116,14 @@ Um único processo Node serve os dois motores: o **painel + API** (`src/`, um ap
 ### Opção A — Docker (recomendada)
 
 ```bash
-docker pull ghcr.io/yumamax3/vela:1.2.4
+docker pull ghcr.io/yumamax3/vela:1.2.5
 docker run -d --name vela \
   -p 32060:32060 \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 A imagem é **pública** — não é preciso login em nenhum registro — e é multi-arquitetura (`linux/amd64` + `linux/arm64`). Para a carta completa — gêmeo MariaDB, postura mirror, motor de backup, sidecar Headroom — veja [DOCKER.md](../DOCKER.md), [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md) e o modelo [`docker-compose.example.yml`](../docker-compose.example.yml).

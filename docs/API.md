@@ -7,7 +7,7 @@
 
 **Covers:** the OpenAI-compatible gateway surface · the rewrite map · model
 addressing · API-key authentication and the gate pipeline · the dashboard REST
-surface (**255 routes, 38 groups**, measured 2026-10-28, at **v1.2.4**) · the
+surface (**255 routes, 38 groups**, measured 2026-10-28, at **v1.2.5**) · the
 settings write door · error shapes.
 
 ---
@@ -335,7 +335,7 @@ are refused for video (**400**); a prefix-less model id falls back to `xai`.
 ## 🗄️ The Dashboard REST Surface
 
 **255 route files** under `src/app/`, across **38 top-level groups** under
-`src/app/api/` (measured **2026-10-28, at v1.2.4**). Every `/api/*` route is
+`src/app/api/` (measured **2026-10-28, at v1.2.5**). Every `/api/*` route is
 covered by `dashboardGuard.proxy()`; the counts below sum to **255**.
 
 Two notes before the table. The 255 is taken from the **tracked** files
@@ -412,7 +412,7 @@ New since then: `logs` (5) · `guardrails` (3) · `cache` (3) · `vault` (2) ·
 Re-derive whenever a chart and a command disagree — **the command wins**:
 
 ```bash
-# 255 — every tracked route file under src/app/ (measured 2026-10-28, v1.2.4)
+# 255 — every tracked route file under src/app/ (measured 2026-10-28, v1.2.5)
 git ls-files | grep -E '^src/app/.*route\.js$' | wc -l
 
 # 38 — the top-level groups under src/app/api/, with their route counts

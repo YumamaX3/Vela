@@ -13,7 +13,7 @@ the systems around the ship · directory map.
 
 **Fleet:** [README.md](./README.md) (the harbor map) ·
 [VERSIONING.md](./VERSIONING.md) (the release rite). Every count below was
-measured **2026-10-28 at v1.2.4** and carries its derivation inline.
+measured **2026-10-28 at v1.2.5** and carries its derivation inline.
 
 ---
 
@@ -140,7 +140,7 @@ the matrix automatically.
 ## 🌐 The Provider Registry
 
 `open-sse/providers/registry/` — **one file per provider.** Measured
-**2026-10-28 at v1.2.4**:
+**2026-10-28 at v1.2.5**:
 
 | # | Count | What it means | Derive |
 |-|-|-|-|
@@ -339,7 +339,7 @@ the `repos/mysql/` twin. `src/lib/localDb.js` is a backward-compat shim —
 new code imports `@/lib/db/index.js`.
 
 **Schema** — `src/lib/db/migrations/` runs **23** migrations
-(`001-initial` → `023-plans`); `SCHEMA_VERSION = 23`. At v1.2.4, measured
+(`001-initial` → `023-plans`); `SCHEMA_VERSION = 23`. At v1.2.5, measured
 2026-10-28:
 
 ```bash
@@ -434,7 +434,7 @@ rate or a pattern to fix.
   Password reset is its own route (`/api/auth/reset-password`).
 - **Dashboard SSO — OIDC and SAML.** Both are first-class, each with a
   start route, a callback/ACS route, a discovery/metadata route, and a **test**
-  route (verified 2026-10-28 at v1.2.4):
+  route (verified 2026-10-28 at v1.2.5):
 
   | Realm | Routes under `src/app/api/auth/` |
   |-|-|

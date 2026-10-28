@@ -4,7 +4,7 @@ You are already paying for Claude Code, or Codex, or Copilot. The subscription l
 
 This page covers the five providers people connect first, what each costs upstream, which models you can call today, and how to put them to work.
 
-> **Dates matter here.** Subscription tiers, prices and model names are set by Anthropic, OpenAI, GitHub and Google — not by Vela. The figures on this page are upstream facts as of **2026-10-28** (Vela 1.2.4). Providers change them often.
+> **Dates matter here.** Subscription tiers, prices and model names are set by Anthropic, OpenAI, GitHub and Google — not by Vela. The figures on this page are upstream facts as of **2026-10-28** (Vela 1.2.5). Providers change them often.
 
 ---
 

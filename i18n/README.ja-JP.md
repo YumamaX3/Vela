@@ -5,7 +5,7 @@
 
   VelaはあなたのAIコーディングツール(Claude Code、Codex、Cursor、Cline、OpenCode…)を、単一のローカルゲートウェイへと導きます。フォーマット変換、モデルコンボのフォールバック、マルチアカウントのローテーション、クォータ追跡、キーごとのACL、そしてツール出力のトークンを港から出港する前に20~40%削減するRTKトークンセーバーを備えています。
 
-  [![Version](https://img.shields.io/badge/version-1.2.4-blue?style=flat-square)](../CHANGELOG.md)
+  [![Version](https://img.shields.io/badge/version-1.2.5-blue?style=flat-square)](../CHANGELOG.md)
   [![Providers](https://img.shields.io/badge/providers-145%20dialable-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
   [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
@@ -45,7 +45,7 @@ Velaは**ローカルAIルーティングゲートウェイ + ダッシュボー
 
 > 📌 **注記:** Velaは独自の航路を進みます — 開かれた海から鍛えられたAIゲートウェイであり、ストレージ、バックアップ、価格設定、カテゴリの各システムはすべて自前です。CLIはnpmから `vela` としてインストールします。フォークの来歴: v0.6.0以降、ゲートウェイはMITライセンスのもと完全に自前のものとなっています([来歴](#-provenance--license)を参照)。
 
-> 🔢 **カウントの規律**(2026-10-28、v1.2.4時点の実測)。プロバイダーレジストリは**3つの正直な数字を報告しており、これらは異なります**: ディスク上の**189**レジストリファイル → 生成インデックスが**186**を読み込み → ダイヤル可能なチャットトランスポートは**145**(残る41の読み込み済みレーンは、正当にチャットを話さないメディア・検索・埋め込みトランスポートです)。3つのファイルは意図的にインデックスから隠されてディスク上に置かれています(`trae`、`devin-cli`、`windsurf`)。3つをひとつに潰さないこと — どの数字を指しているのかを明示し、この行を信じるのではなく再導出してください:
+> 🔢 **カウントの規律**(2026-10-28、v1.2.5時点の実測)。プロバイダーレジストリは**3つの正直な数字を報告しており、これらは異なります**: ディスク上の**189**レジストリファイル → 生成インデックスが**186**を読み込み → ダイヤル可能なチャットトランスポートは**145**(残る41の読み込み済みレーンは、正当にチャットを話さないメディア・検索・埋め込みトランスポートです)。3つのファイルは意図的にインデックスから隠されてディスク上に置かれています(`trae`、`devin-cli`、`windsurf`)。3つをひとつに潰さないこと — どの数字を指しているのかを明示し、この行を信じるのではなく再導出してください:
 > ```bash
 > ls open-sse/providers/registry/*.js | grep -v index.js | wc -l      # ディスク上 189 ファイル
 > node -e "import('./open-sse/providers/registry/index.js').then(m=>console.log(m.default.length))"   # 読み込み済み 186
@@ -116,14 +116,14 @@ Velaは**ローカルAIルーティングゲートウェイ + ダッシュボー
 ### 選択肢A — Docker(推奨)
 
 ```bash
-docker pull ghcr.io/yumamax3/vela:1.2.4
+docker pull ghcr.io/yumamax3/vela:1.2.5
 docker run -d --name vela \
   -p 32060:32060 \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 イメージは**公開**されています — レジストリへのログインは不要です — そしてマルチアーキテクチャ対応(`linux/amd64` + `linux/arm64`)。詳細な海図 — MariaDBの双子、mirror姿勢、バックアップエンジン、Headroomサイドカー — は[DOCKER.md](../DOCKER.md)、[docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md)、そして[`docker-compose.example.yml`](../docker-compose.example.yml)テンプレートを参照してください。

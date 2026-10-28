@@ -203,7 +203,7 @@ Check the provider's status page, reconnect it under **Providers**, and let a co
 
 ## Still stuck
 
-- Confirm your version: `npm list -g vela` (this documentation covers 1.2.4).
+- Confirm your version: `npm list -g vela` (this documentation covers 1.2.5).
 - Look at **Log Harbor** for the exact request and its error.
 - Search the [issues](https://github.com/YumamaX3/Vela/issues), and open one with your version, the error text, and the steps that produced it.
 

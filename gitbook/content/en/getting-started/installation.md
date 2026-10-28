@@ -76,14 +76,14 @@ docker run -d --name vela \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 Then open **http://localhost:32060/dashboard**.
 
 - The image is **public**. You do not need a GitHub login, a personal access token, or any credentials to pull it.
 - The image is multi-architecture: it runs natively on both ordinary servers (`linux/amd64`) and ARM machines such as a Raspberry Pi or an Apple Silicon Docker host (`linux/arm64`).
-- **Pin the tag.** `ghcr.io/yumamax3/vela:1.2.4` is the current release. `:latest` moves whenever a new version is published, and a restart can then silently put you on a version you did not choose.
+- **Pin the tag.** `ghcr.io/yumamax3/vela:1.2.5` is the current release. `:latest` moves whenever a new version is published, and a restart can then silently put you on a version you did not choose.
 - **Always mount `/app/data`.** Without the volume, your database lives inside the container and disappears with it.
 
 The [cloud deployment guide](../deployment/cloud.md) covers Compose, reverse proxies and the environment variables in depth.
@@ -110,7 +110,7 @@ npm run start      # run the production build
 
 `npm run dev` is for working on Vela itself. `npm run build` followed by `npm run start` is what a deployment should run.
 
-> ⚠️ **A note on versions:** if what you built behaves differently from this documentation, check `package.json` — its `version` field is the truth. This documentation describes **1.2.4**.
+> ⚠️ **A note on versions:** if what you built behaves differently from this documentation, check `package.json` — its `version` field is the truth. This documentation describes **1.2.5**.
 
 ---
 
@@ -344,7 +344,7 @@ docker run -d --name vela --restart unless-stopped \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="choose-a-password" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 Binding to `127.0.0.1` means only a reverse proxy on the same machine can reach the dashboard — the safe default for an internet-facing host. [Cloud deployment](../deployment/cloud.md) has the full Nginx configuration, with the streaming settings that matter.
@@ -380,7 +380,7 @@ If you ran Docker instead:
 
 ```bash
 docker stop vela && docker rm vela
-docker rmi ghcr.io/yumamax3/vela:1.2.4
+docker rmi ghcr.io/yumamax3/vela:1.2.5
 # and remove the volume or host directory you mounted
 ```
 

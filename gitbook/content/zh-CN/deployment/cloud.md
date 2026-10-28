@@ -110,11 +110,11 @@ docker run -d --name vela --restart unless-stopped \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="set-me-by-you" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 - `ghcr.io/yumamax3/vela` 是一个**公开**镜像。任何人都可以在不登录的情况下拉取；无需令牌。它不包含任何密钥 —— 每一个密钥都在运行时以环境变量提供，这正是它公开也安全的原因。
-- **固定标签**（`:1.2.4`）。`:latest` 跟随发布变化，可能在某次重启后悄悄改变。
+- **固定标签**（`:1.2.5`）。`:latest` 跟随发布变化，可能在某次重启后悄悄改变。
 - **发布到 `127.0.0.1`**，当反向代理才是预期的入口时。这样原始端口根本不暴露在互联网上。
 - **挂载 `/app/data`。** 没有这个卷，容器一旦被替换，一切都会消失。
 
@@ -133,7 +133,7 @@ docker compose up -d
 ```yaml
 services:
   vela:
-    image: ghcr.io/yumamax3/vela:1.2.4
+    image: ghcr.io/yumamax3/vela:1.2.5
     container_name: vela
     restart: unless-stopped
     ports:
@@ -184,12 +184,12 @@ CMD ["npm", "run", "start"]
 ```
 
 ```bash
-docker build -t vela-local:1.2.4 .
+docker build -t vela-local:1.2.5 .
 docker run -d --name vela -p 127.0.0.1:32060:32060 \
   -v vela-data:/app/data \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
-  vela-local:1.2.4
+  vela-local:1.2.5
 ```
 
 从源码构建比已发布镜像更慢、更大，而且会继承你机器上的一切。已发布的镜像由带标签的提交构建；你自己的镜像则由你自己的构成。

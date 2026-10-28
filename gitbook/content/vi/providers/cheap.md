@@ -2,7 +2,7 @@
 
 Khi quota subscription cạn, một model giá rẻ tốt chỉ tốn vài đô mỗi ngày thay vì vài đô mỗi giờ. Trang này bao quát ba nhà cung cấp giá rẻ đi kèm Vela, đúng những mức giá Vela dùng để ước tính chi phí, và cách đặt chúng phía sau các subscription của bạn.
 
-> **Về các con số.** Mọi mức giá trên trang này đều đến từ `open-sse/providers/pricing.js` trong bản phát hành này (Vela 1.2.4). Đó là mức Vela dùng để tính chi phí trong các ước tính của nó. Hoá đơn từ nhà cung cấp của bạn vẫn là tiếng nói cuối cùng — giá do thượng nguồn đặt ra và thay đổi mà không báo trước.
+> **Về các con số.** Mọi mức giá trên trang này đều đến từ `open-sse/providers/pricing.js` trong bản phát hành này (Vela 1.2.5). Đó là mức Vela dùng để tính chi phí trong các ước tính của nó. Hoá đơn từ nhà cung cấp của bạn vẫn là tiếng nói cuối cùng — giá do thượng nguồn đặt ra và thay đổi mà không báo trước.
 
 ---
 

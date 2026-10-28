@@ -41,7 +41,7 @@ Xem [Định tuyến thông minh](features/smart-routing.md) và [Combos](featur
 
 ## Vela hỗ trợ bao nhiêu nhà cung cấp?
 
-Ba con số trung thực, được đo vào ngày 2026-10-28 tại phiên bản 1.2.4:
+Ba con số trung thực, được đo vào ngày 2026-10-28 tại phiên bản 1.2.5:
 
 - **189** tệp nhà cung cấp trong registry
 - **186** được index import (hôm nay mọi tệp đều đã được nối vào)
@@ -141,7 +141,7 @@ docker run -d --name vela \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 Ảnh này công khai — không cần đăng nhập hay token để kéo nó — và hỗ trợ nhiều kiến trúc (amd64 và arm64). Hãy ghim thẻ phiên bản thay vì dùng `:latest`.
@@ -198,7 +198,7 @@ npm update -g vela
 npm list -g vela        # what you are running now
 
 # Docker — pin the newer tag deliberately
-docker pull ghcr.io/yumamax3/vela:1.2.4
+docker pull ghcr.io/yumamax3/vela:1.2.5
 docker stop vela && docker rm vela
 # re-run your docker run command with the new tag
 

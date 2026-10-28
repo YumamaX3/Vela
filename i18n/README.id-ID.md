@@ -5,7 +5,7 @@
 
   Vela merutekan perkakas coding AI Anda (Claude Code, Codex, Cursor, Cline, OpenCode…) melalui satu gateway lokal dengan terjemahan format, fallback model-combo, rotasi multi-akun, pelacakan kuota, ACL per-key, dan penghemat token RTK yang memangkas 20–40% token hasil perkakas sebelum meninggalkan pelabuhan.
 
-  [![Version](https://img.shields.io/badge/version-1.2.4-blue?style=flat-square)](../CHANGELOG.md)
+  [![Version](https://img.shields.io/badge/version-1.2.5-blue?style=flat-square)](../CHANGELOG.md)
   [![Providers](https://img.shields.io/badge/providers-145%20dialable-0ea5e9?style=flat-square)](../docs/PROVIDERS.md)
   [![Image](https://img.shields.io/badge/image-ghcr.io%2Fyumamax3%2Fvela-181717?style=flat-square&logo=github)](https://github.com/YumamaX3/Vela/pkgs/container/vela)
   [![CLI](https://img.shields.io/npm/v/vela?style=flat-square&label=cli%20%22vela%22)](https://www.npmjs.com/package/vela)
@@ -45,7 +45,7 @@ Satu proses Node melayani kedua engine: **dashboard + API** (`src/`, aplikasi Ne
 
 > 📌 **Catatan:** Vela berlayar dengan haluannya sendiri — gerbang AI yang ditempa dari perairan terbuka, dengan seluruh sistem miliknya sendiri: storage, backup, pricing, dan kategori. CLI terpasang sebagai `vela` dari npm. Garis keturunan fork: sejak v0.6.0, gateway ini berlisensi MIT dan sepenuhnya miliknya sendiri (lihat [Asal-Usul](#-provenance--license)).
 
-> 🔢 **Disiplin angka** (diukur 2026-10-28, pada v1.2.4). Registry penyedia melaporkan **tiga angka jujur, dan ketiganya berbeda**: **189** file registry di disk → **186** diimpor oleh index yang dihasilkan → **145** transport chat yang dapat didial (41 jalur terimpor lainnya membawa transport media, search, dan embedding yang secara sah tidak berbicara chat). Tiga file sengaja diletakkan di disk namun disembunyikan dari index (`trae`, `devin-cli`, `windsurf`). Jangan pernah melebur ketiganya menjadi satu — sebutkan angka mana yang Anda maksud, dan turunkan ulang alih-alih memercayai baris ini:
+> 🔢 **Disiplin angka** (diukur 2026-10-28, pada v1.2.5). Registry penyedia melaporkan **tiga angka jujur, dan ketiganya berbeda**: **189** file registry di disk → **186** diimpor oleh index yang dihasilkan → **145** transport chat yang dapat didial (41 jalur terimpor lainnya membawa transport media, search, dan embedding yang secara sah tidak berbicara chat). Tiga file sengaja diletakkan di disk namun disembunyikan dari index (`trae`, `devin-cli`, `windsurf`). Jangan pernah melebur ketiganya menjadi satu — sebutkan angka mana yang Anda maksud, dan turunkan ulang alih-alih memercayai baris ini:
 > ```bash
 > ls open-sse/providers/registry/*.js | grep -v index.js | wc -l      # 189 file di disk
 > node -e "import('./open-sse/providers/registry/index.js').then(m=>console.log(m.default.length))"   # 186 diimpor
@@ -116,14 +116,14 @@ Satu proses Node melayani kedua engine: **dashboard + API** (`src/`, aplikasi Ne
 ### Opsi A — Docker (disarankan)
 
 ```bash
-docker pull ghcr.io/yumamax3/vela:1.2.4
+docker pull ghcr.io/yumamax3/vela:1.2.5
 docker run -d --name vela \
   -p 32060:32060 \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 Image-nya **publik** — tanpa perlu login registry — dan multi-arch (`linux/amd64` + `linux/arm64`). Untuk peta lengkapnya — kembaran MariaDB, postur mirror, engine backup, sidecar Headroom — lihat [DOCKER.md](../DOCKER.md), [docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md), dan templat [`docker-compose.example.yml`](../docker-compose.example.yml).

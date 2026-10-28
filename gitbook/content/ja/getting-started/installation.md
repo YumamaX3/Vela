@@ -76,14 +76,14 @@ docker run -d --name vela \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 そのあと**http://localhost:32060/dashboard**を開きます。
 
 - イメージは**公開**です。pullするのにGitHubのログインも、パーソナルアクセストークンも、資格情報も要りません。
 - イメージはマルチアーキテクチャです。ふつうのサーバー(`linux/amd64`)でも、Raspberry PiやApple SiliconのDockerホストのようなARMマシン(`linux/arm64`)でも、ネイティブに動きます。
-- **タグを固定してください。** `ghcr.io/yumamax3/vela:1.2.4`が現在のリリースです。`:latest`は新しいバージョンが出るたびに動くので、再起動したら選んだ覚えのないバージョンになっていた、ということが黙って起こりえます。
+- **タグを固定してください。** `ghcr.io/yumamax3/vela:1.2.5`が現在のリリースです。`:latest`は新しいバージョンが出るたびに動くので、再起動したら選んだ覚えのないバージョンになっていた、ということが黙って起こりえます。
 - **つねに`/app/data`をマウントしてください。** ボリュームがなければ、データベースはコンテナの中に住み、コンテナとともに消えます。
 
 Compose、リバースプロキシ、環境変数の詳細は[クラウドへのデプロイのガイド](../deployment/cloud.md)にあります。
@@ -110,7 +110,7 @@ npm run start      # run the production build
 
 `npm run dev`はVela本体をいじるときのものです。デプロイで走らせるのは`npm run build`のあとの`npm run start`です。
 
-> ⚠️ **バージョンについて:** 自分でビルドしたものがこのドキュメントと違う動きをしたら、`package.json`を確かめてください — その`version`フィールドが真実です。このドキュメントは**1.2.4**を説明しています。
+> ⚠️ **バージョンについて:** 自分でビルドしたものがこのドキュメントと違う動きをしたら、`package.json`を確かめてください — その`version`フィールドが真実です。このドキュメントは**1.2.5**を説明しています。
 
 ---
 
@@ -344,7 +344,7 @@ docker run -d --name vela --restart unless-stopped \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="choose-a-password" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 `127.0.0.1`に束ねるというのは、同じマシン上のリバースプロキシだけがダッシュボードに届けるということです — インターネットに面したホストにとって安全なデフォルトです。[クラウドへのデプロイ](../deployment/cloud.md)には、大事なストリーミングの設定も含めた、Nginxの完全な設定があります。
@@ -380,7 +380,7 @@ Dockerで動かしていたなら:
 
 ```bash
 docker stop vela && docker rm vela
-docker rmi ghcr.io/yumamax3/vela:1.2.4
+docker rmi ghcr.io/yumamax3/vela:1.2.5
 # and remove the volume or host directory you mounted
 ```
 

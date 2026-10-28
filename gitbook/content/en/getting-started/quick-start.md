@@ -215,7 +215,7 @@ The [Cheap Providers](../providers/cheap.md) and [Free Providers](../providers/f
 - **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues**: [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
 
-Vela is version 1.2.4. Check what you are running with:
+Vela is version 1.2.5. Check what you are running with:
 
 ```bash
 npm list -g vela

@@ -203,7 +203,7 @@ Consulta la página de estado del proveedor, reconéctalo en **Providers**, y de
 
 ## Todavía bloqueado
 
-- Confirma tu versión: `npm list -g vela` (esta documentación cubre la 1.2.4).
+- Confirma tu versión: `npm list -g vela` (esta documentación cubre la 1.2.5).
 - Mira **Log Harbor** para ver la solicitud exacta y su error.
 - Busca en los [issues](https://github.com/YumamaX3/Vela/issues), y abre uno con tu versión, el texto del error y los pasos que lo produjeron.
 

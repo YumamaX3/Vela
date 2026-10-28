@@ -110,11 +110,11 @@ docker run -d --name vela --restart unless-stopped \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="set-me-by-you" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 - `ghcr.io/yumamax3/vela` là một ảnh **công khai**. Bất kỳ ai cũng kéo được mà không cần đăng nhập; không cần token. Nó không chứa bí mật nào — mọi bí mật được cấp như biến môi trường lúc chạy, đó chính là lý do nó an toàn khi công khai.
-- **Ghim thẻ phiên bản** (`:1.2.4`). `:latest` đi theo các bản phát hành và có thể thay đổi dưới một lần khởi động lại.
+- **Ghim thẻ phiên bản** (`:1.2.5`). `:latest` đi theo các bản phát hành và có thể thay đổi dưới một lần khởi động lại.
 - **Công bố ra `127.0.0.1`** khi một reverse proxy là cửa vào dự định. Như vậy cổng thô hoàn toàn không nằm trên internet.
 - **Mount `/app/data`.** Không có volume, mọi thứ biến mất khi container bị thay thế.
 
@@ -133,7 +133,7 @@ Một bảng tối giản của riêng bạn trông như thế này:
 ```yaml
 services:
   vela:
-    image: ghcr.io/yumamax3/vela:1.2.4
+    image: ghcr.io/yumamax3/vela:1.2.5
     container_name: vela
     restart: unless-stopped
     ports:
@@ -184,12 +184,12 @@ CMD ["npm", "run", "start"]
 ```
 
 ```bash
-docker build -t vela-local:1.2.4 .
+docker build -t vela-local:1.2.5 .
 docker run -d --name vela -p 127.0.0.1:32060:32060 \
   -v vela-data:/app/data \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
-  vela-local:1.2.4
+  vela-local:1.2.5
 ```
 
 Build từ mã nguồn chậm hơn và lớn hơn ảnh được phát hành, và nó kế thừa mọi thứ trên máy của bạn. Ảnh được phát hành được build từ các commit đã gắn thẻ; ảnh của bạn được build từ commit của bạn.

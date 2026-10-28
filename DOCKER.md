@@ -9,7 +9,7 @@
 **Covers:** quick start · GHCR access · the image · volumes & `DATA_DIR` ·
 compose · storage postures · Headroom · upgrades · local builds.
 
-**Pinned at `1.2.4`** — the version in `package.json` (measured 2026-10-28,
+**Pinned at `1.2.5`** — the version in `package.json` (measured 2026-10-28,
 `grep '"version"' package.json`). Tags map 1:1 to releases; the compose template
 already carries this pin (`docker-compose.example.yml:67`).
 
@@ -43,7 +43,7 @@ docker run -d --name vela \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 Then open **http://localhost:32060/dashboard**.
@@ -71,7 +71,7 @@ docker rm -f vela          # remove (the volume survives — that is its purpose
 - **Registry:** `ghcr.io/yumamax3/vela:<tag>` — **PUBLIC**; built by
   `.github/workflows/docker-publish.yml` on every `v*` git tag
   (multi-arch `linux/amd64` + `linux/arm64`), with `:latest` emitted alongside.
-- **Pin a tag, not `latest`.** Current release: **`1.2.4`**. `latest` follows the
+- **Pin a tag, not `latest`.** Current release: **`1.2.5`**. `latest` follows the
   newest build and can surprise you on a restart. The pin is guarded —
   `tests/unit/docker-compose-pin.test.js` fails if the tracked chart's tag drifts
   from `package.json`.
@@ -149,7 +149,7 @@ The repo ships a **template**, not a live chart:
 
 | File | Tracked in git? | Purpose |
 |-|-|-|
-| `docker-compose.example.yml` | ✅ yes | Sanitized template — every knob documented, `set-me` placeholders, image pinned `1.2.4` |
+| `docker-compose.example.yml` | ✅ yes | Sanitized template — every knob documented, `set-me` placeholders, image pinned `1.2.5` |
 | `docker-compose.yml` | ❌ no (gitignored) | **Your** live chart — real secrets inline, no `.env` indirection |
 
 First deploy:
@@ -164,7 +164,7 @@ The template defines up to three services:
 
 | Service | In the template | Image | Notes |
 |-|-|-|-|
-| ⛵ **`vela-gateway`** | **active** | `ghcr.io/yumamax3/vela:1.2.4` | Gateway + dashboard; publishes `32060` |
+| ⛵ **`vela-gateway`** | **active** | `ghcr.io/yumamax3/vela:1.2.5` | Gateway + dashboard; publishes `32060` |
 | 🪞 **`vela-twin`** | **commented out** | `mariadb:11` | Optional bundled MariaDB for `mysql`/`mirror`; internal-only |
 | 💨 **`vela-headroom`** | **active** | `ghcr.io/headroomlabs-ai/headroom:0.35.0-slim-nonroot` | Optional compression sidecar; internal-only, fail-open |
 
@@ -246,7 +246,7 @@ below is illustrative; substitute your own *current → next*.
 
 ```bash
 # 1. Bump the pinned tag in docker-compose.yml
-#    image: ghcr.io/yumamax3/vela:1.2.4   →  ghcr.io/yumamax3/vela:<next>
+#    image: ghcr.io/yumamax3/vela:1.2.5   →  ghcr.io/yumamax3/vela:<next>
 # 2. Pull and recreate (up -d alone reuses the local image)
 docker compose pull
 docker compose up -d
@@ -320,6 +320,6 @@ minutes/month — a multi-arch build costs roughly 16 minutes).
 - [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) — the four berths, exposure, the reverse proxy, upgrades
 - [docs/STORAGE.md](./docs/STORAGE.md) — the Storage Covenant
 - [docs/ENVIRONMENT.md](./docs/ENVIRONMENT.md) — the complete env contract
-- [docker-compose.example.yml](./docker-compose.example.yml) — the template chart, pinned `1.2.4`
+- [docker-compose.example.yml](./docker-compose.example.yml) — the template chart, pinned `1.2.5`
 
 — *Vela · The Sail of the Ship* ⛵

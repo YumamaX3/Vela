@@ -215,7 +215,7 @@ export OPENAI_API_KEY="[your Vela key]"
 - **GitHub**：[github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues**：[github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
 
-Vela 当前版本为 1.2.4。用以下命令查看你运行的版本：
+Vela 当前版本为 1.2.5。用以下命令查看你运行的版本：
 
 ```bash
 npm list -g vela

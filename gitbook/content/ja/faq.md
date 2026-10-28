@@ -41,7 +41,7 @@
 
 ## Velaはいくつのプロバイダーに対応していますか?
 
-正直な3つの数字、2026-10-28、バージョン1.2.4で測ったものです:
+正直な3つの数字、2026-10-28、バージョン1.2.5で測ったものです:
 
 - **189** — レジストリにあるプロバイダーファイル
 - **186** — インデックスが読み込んでいるもの(3つは意図的にコメントアウトされています: `devin-cli`、`trae`、`windsurf`)
@@ -141,7 +141,7 @@ docker run -d --name vela \
   -v "$HOME/vela-data:/app/data" \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 イメージは公開です — pullにログインもトークンも要りません — そしてマルチアーキテクチャです(amd64とarm64)。`:latest`ではなく、タグを固定してください。
@@ -198,7 +198,7 @@ npm update -g vela
 npm list -g vela        # what you are running now
 
 # Docker — pin the newer tag deliberately
-docker pull ghcr.io/yumamax3/vela:1.2.4
+docker pull ghcr.io/yumamax3/vela:1.2.5
 docker stop vela && docker rm vela
 # re-run your docker run command with the new tag
 

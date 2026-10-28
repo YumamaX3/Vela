@@ -3,13 +3,13 @@
 > *"Every harbor is entered by a channel, and every channel is marked. This chart
 > names the four berths — the published image, the npm launcher, the raw source,
 > exposed front door — and what each demands before you tie off. Eight pins,
-> one version: `1.2.4`, weighed against `package.json` on 2026-10-28."*
+> one version: `1.2.5`, weighed against `package.json` on 2026-10-28."*
 
 **Covers:** the four berths · image pin discipline · volumes & `DATA_DIR` · the
 compose chart · storage posture · the security gate · the reverse-proxy contract ·
 the upgrade rite · verification.
 
-**Pinned at `1.2.4`** — measured 2026-10-28, `grep '"version"' package.json`.
+**Pinned at `1.2.5`** — measured 2026-10-28, `grep '"version"' package.json`.
 The image is **PUBLIC**; the pin is guarded by
 `tests/unit/docker-compose-pin.test.js`, which fails if a tracked chart's tag
 drifts from `package.json`.
@@ -35,7 +35,7 @@ drifts from `package.json`.
 
 | Berth | Best for | Entry command | Data lives in |
 |-|-|-|-|
-| **A · Published image** | Servers, VPS, NAS, any container runtime | `docker run … ghcr.io/yumamax3/vela:1.2.4` | A mounted volume at `/app/data` |
+| **A · Published image** | Servers, VPS, NAS, any container runtime | `docker run … ghcr.io/yumamax3/vela:1.2.5` | A mounted volume at `/app/data` |
 | **B · npm CLI** | A desktop box where you want one command | `npm install -g vela && vela` | `~/.vela` · `%APPDATA%\vela` on Windows |
 | **C · From source** | Development, patching, air-gapped builds | `npm install && npm run dev` | `$DATA_DIR`, else the same as B |
 | **D · Exposed** | Reaching the dashboard from outside | *(any of A–C, plus the gate)* | — |
@@ -62,7 +62,7 @@ docker run -d --name vela \
   -e DATA_DIR=/app/data \
   -e JWT_SECRET="$(openssl rand -hex 32)" \
   -e INITIAL_PASSWORD="change-me" \
-  ghcr.io/yumamax3/vela:1.2.4
+  ghcr.io/yumamax3/vela:1.2.5
 ```
 
 Then open **http://localhost:32060/dashboard**. The image is **PUBLIC** — it
@@ -70,7 +70,7 @@ inherits the Vela repository's visibility, so anonymous pulls work, and it
 carries no secrets: every secret arrives as environment, which is why the
 compose chart is the only place credentials live.
 
-**Pin the tag, never `latest`.** `ghcr.io/yumamax3/vela:1.2.4` is production;
+**Pin the tag, never `latest`.** `ghcr.io/yumamax3/vela:1.2.5` is production;
 `:latest` moves, and a restart on it can land you on a version you never chose.
 Tags map 1:1 to git tags, cut by `.github/workflows/docker-publish.yml` on every
 `v*` tag, multi-arch (`linux/amd64` + `linux/arm64`), with `:latest` emitted
@@ -131,7 +131,7 @@ backups** — keep it offline, with the same care as the database.
 
 | File | Tracked? | Purpose |
 |-|-|-|
-| `docker-compose.example.yml` | ✅ yes | Sanitized template — every knob documented, `set-me` placeholders, image pinned `1.2.4` (`:67`) |
+| `docker-compose.example.yml` | ✅ yes | Sanitized template — every knob documented, `set-me` placeholders, image pinned `1.2.5` (`:67`) |
 | `docker-compose.yml` | ❌ no (`gitignore` line 44) | **Your** live chart — real secrets inline, no `.env` indirection |
 
 ```bash
@@ -142,7 +142,7 @@ docker compose up -d
 
 | Service | In the template | Image | Notes |
 |-|-|-|-|
-| ⛵ **`vela-gateway`** | **active** | `ghcr.io/yumamax3/vela:1.2.4` | The gateway + dashboard — always present |
+| ⛵ **`vela-gateway`** | **active** | `ghcr.io/yumamax3/vela:1.2.5` | The gateway + dashboard — always present |
 | 🪞 **`vela-twin`** | **commented out** | `mariadb:11` | Optional bundled MariaDB for `mysql`/`mirror`; internal-only, no host port |
 | 💨 **`vela-headroom`** | **active** | `ghcr.io/headroomlabs-ai/headroom:0.35.0-slim-nonroot` | Optional compression sidecar; internal-only, fail-open |
 
@@ -388,7 +388,7 @@ The pair below is illustrative — substitute your own *current → next*.
 
 ```bash
 # compose — bump the pin in docker-compose.yml first
-#   image: ghcr.io/yumamax3/vela:1.2.4  →  ghcr.io/yumamax3/vela:<next>
+#   image: ghcr.io/yumamax3/vela:1.2.5  →  ghcr.io/yumamax3/vela:<next>
 docker compose pull && docker compose up -d
 
 # plain docker — pull, remove, then re-run the quick-start command with the new tag
