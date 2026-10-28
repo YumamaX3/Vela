@@ -8,6 +8,7 @@ import { getCapabilitiesForModel } from "../providers/capabilities.js";
 import { extractTextContent } from "../translator/formats/gemini.js";
 import { buildFallbackChain } from "./fallbackRuleMatcher.js";
 import { parseModel } from "./model.js";
+import { peekStreamForContent, reconstructStream, isNoRetryFinish } from "./emptyFailover.js";
 
 // Conservative pre-call token estimate — chars / 4 (en-ish worst case).
 // Only catches gross context overflows; never blocks borderline requests.
@@ -325,7 +326,39 @@ export async function getComboModelsFromData(modelStr, combosData, fallbackRules
   
   return baseModels;
 }
-
+/**
+ * Detect whether a 2xx JSON response contains zero usable content
+ * (e.g. empty assistant message with in_progress/incomplete)
+ * so combo fallback can continue to the next model.
+ */
+export function isZeroContentResponse(data) {
+  if (!data || typeof data !== "object") return false;
+  // OpenAI chat format
+  if (Array.isArray(data.choices)) {
+    if (data.choices.length === 0) return true;
+    const choice = data.choices[0];
+    if (!choice) return true;
+    const msg = choice.message || choice.delta;
+    const content = msg?.content;
+    const hasContent = typeof content === "string" ? content.trim().length > 0 : (Array.isArray(content) && content.length > 0);
+    const hasToolCalls = (Array.isArray(msg?.tool_calls) && msg.tool_calls.length > 0) || Boolean(msg?.function_call);
+    const hasReasoning = typeof msg?.reasoning_content === "string" ? msg.reasoning_content.trim().length > 0 : false;
+    const finish = choice.finish_reason;
+    const isNormalFinish = finish === "stop" || finish === "length" || finish === "tool_calls" || finish === "function_call";
+    if (!hasContent && !hasToolCalls && !hasReasoning && (!isNormalFinish || finish === "in_progress" || finish === "incomplete")) {
+      return true;
+    }
+  }
+  // Anthropic messages format
+  if (Array.isArray(data.content)) {
+    const hasContent = data.content.some((c) => (c.type === "text" && c.text?.trim().length > 0) || c.type === "tool_use");
+    const stopReason = data.stop_reason;
+    if (!hasContent && (!stopReason || stopReason === "in_progress" || stopReason === "incomplete")) {
+      return true;
+    }
+  }
+  return false;
+}
 /**
  * Handle combo chat with fallback
  * @param {Object} options
@@ -415,17 +448,101 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
       
       // Success (2xx) - return response
       if (result.ok) {
-        log.info("COMBO", `anchored · ${modelStr}`);
-        return result;
+        // A 2xx that carries nothing is not a success. Gemini aborts a generation with
+        // finishReason MALFORMED_FUNCTION_CALL (and any future abort reason) while still
+        // returning HTTP 200 and a terminal frame with empty content, which the translator
+        // maps to finish_reason "stop". The status check alone would log "anchored" and
+        // hand the client an empty answer.
+        //
+        // Streaming: peek the CLIENT-format stream for its first content frame. The peek
+        // replays every byte it buffered, so the committed stream is byte-identical to the
+        // original. Non-streaming (or non-SSE) responses fall to the JSON check below.
+        const contentType = result.headers?.get?.("content-type") || "";
+        const isEventStream = contentType.includes("text/event-stream");
+        let peeked = null;
+        if (isEventStream && result.body) {
+          try {
+            const peek = await peekStreamForContent(result.body);
+            if (peek.outcome === "content") {
+              const rebuilt = reconstructStream(peek.head, peek.reader, peek.pendingRead);
+              const headers = new Headers(result.headers);
+              return new Response(rebuilt, { status: result.status, statusText: result.statusText, headers });
+            }
+            peeked = peek;
+          } catch (peekErr) {
+            // The peek itself failed. Degrade to a clean, valid (empty) SSE stream instead
+            // of surfacing a broken half-stream to the client.
+            log.warn("COMBO", `empty-peek error on ${modelStr}, returning empty SSE: ${peekErr?.message || peekErr}`);
+            return new Response("data: [DONE]\n\n", {
+              status: 200,
+              headers: { "Content-Type": "text/event-stream" },
+            });
+          }
+        }
+
+        if (!peeked) {
+          // Non-streaming (or non-SSE) response — not the peek's job. The zero-content
+          // JSON check still applies on a non-final seat.
+          const isLastModel = i === rotatedModels.length - 1;
+          if (!isLastModel && contentType.includes("application/json")) {
+            try {
+              const peekBody = await result.clone().json();
+              if (isZeroContentResponse(peekBody)) {
+                log.warn("COMBO", `Model ${modelStr} returned HTTP 200 with zero usable content, falling back to next model`);
+                lastError = "Zero usable content";
+                lastStatus = 200;
+                continue;
+              }
+            } catch {
+              // Ignore JSON parse errors
+            }
+          }
+          log.info("COMBO", `anchored · ${modelStr}`);
+          return result;
+        }
+
+        if (peeked.outcome === "content") {
+          log.info("COMBO", `anchored · ${modelStr}${peeked.timedOut ? " (peek deadline; committed)" : ""}`);
+          return result;
+        }
+
+        // Empty generation. Fall through to the next candidate unless this is a
+        // legitimately empty class (content filter) or the last candidate — in which
+        // case return the (empty) response as-is, preserving prior behaviour rather
+        // than manufacturing a 5xx.
+        const reasonLabel = peeked.finishReason || "no-content";
+        const isLast = i === rotatedModels.length - 1;
+        if (isNoRetryFinish(peeked.finishReason) || isLast) {
+          log.warn("COMBO", `Model ${modelStr} returned empty (${reasonLabel}) — ${isNoRetryFinish(peeked.finishReason) ? "no-retry class" : "last candidate"}, returning as-is`);
+          const rebuilt = reconstructStream(peeked.head, peeked.reader, peeked.pendingRead);
+          const headers = new Headers(result.headers);
+          return new Response(rebuilt, { status: result.status, statusText: result.statusText, headers });
+        }
+        log.warn("COMBO", `Model ${modelStr} returned empty (${reasonLabel}) — falling through to next candidate`);
+        // Drain/close the discarded stream in the background so its usage logging still runs.
+        peeked.response?.body?.cancel?.().catch(() => {});
+        lastError = `empty generation (${reasonLabel})`;
+        if (!lastStatus) lastStatus = 502;
+        continue;
       }
 
-      // Extract error info from response
+      // Extract error info from response.
+      //
+      // The envelope is not always OpenAI-shaped. CodeBuddy (both shores) answers
+      // `{ code, msg }`, and its block wording — "request illegal", "conversation id
+      // missing" — lives in `msg`. Reading only `error.message` / `error` / `message`
+      // left those rules present, tested, and unreachable in the live path: the text
+      // arrived empty, the 400 read as request-scoped, and the account never backed off.
       let errorText = result.statusText || "";
       let retryAfter = null;
       try {
         const errorBody = await result.clone().json();
-        errorText = errorBody?.error?.message || errorBody?.error || errorBody?.message || errorText;
-        retryAfter = errorBody?.retryAfter || null;
+        errorText = errorBody?.error?.message
+          || errorBody?.error
+          || errorBody?.message
+          || errorBody?.msg
+          || errorText;
+        retryAfter = errorBody?.retryAfter || errorBody?.resetsAtMs || null;
       } catch {
         // Ignore JSON parse errors
       }

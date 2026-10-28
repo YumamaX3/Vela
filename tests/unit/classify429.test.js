@@ -139,7 +139,7 @@ describe("checkFallbackError — 429 wiring", () => {
       shouldFallback: true, cooldownMs: getQuotaCooldown(1), newBackoffLevel: 1,
     });
     expect(checkFallbackError(400, "maximum context length exceeded")).toEqual({
-      shouldFallback: false, cooldownMs: 0,
+      shouldFallback: false, cooldownMs: 0, requestScoped: true,
     });
     expect(checkFallbackError(503, "upstream exploded").cooldownMs).toBe(30 * 1000);
     expect(checkFallbackError(401, "nope")).toEqual({ shouldFallback: true, cooldownMs: 2 * 60 * 1000 });

@@ -15,6 +15,8 @@ export const DEVICE_CODE_PROVIDERS = [
   "kilocode",
   "codebuddy-cn",
   "codebuddy-intl",
+  "workbuddy-cn",
+  "workbuddy-intl",
   "qoder",
   "grok-cli",
   "freebuff",
@@ -30,5 +32,7 @@ export const NO_PKCE_POLL_PROVIDERS = [
   "kilocode",
   "codebuddy-cn",
   "codebuddy-intl",
+  "workbuddy-cn",
+  "workbuddy-intl",
   "freebuff",
 ];

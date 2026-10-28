@@ -31,6 +31,34 @@ export async function getIflowUsage(accessToken) {
  * POST https://ollama.com/api/me — plan label (fail-open).
  * Auth: Authorization: Bearer <apiKey>
  */
+// The free plan's monthly window rolls on the account's signup day. Ollama reports no
+// reset instant, so derive it: the next occurrence of that day-of-month at the signup
+// time-of-day, clamped to the last valid day when the month is shorter. Non-free plans
+// get null — their window is not anchored to a signup date.
+function freeMonthlyResetAt(me) {
+  const plan = typeof me?.Plan === "string" ? me.Plan.toLowerCase() : "";
+  if (plan !== "free") return null;
+  const createdRaw = me?.CreatedAt;
+  if (typeof createdRaw !== "string" || !createdRaw) return null;
+  const created = new Date(createdRaw);
+  if (Number.isNaN(created.getTime())) return null;
+  const now = new Date();
+  const day = created.getUTCDate();
+  const at = (y, m) => {
+    const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    const d = Math.min(day, lastDay);
+    return new Date(Date.UTC(y, m, d, created.getUTCHours(), created.getUTCMinutes(), created.getUTCSeconds()));
+  };
+  // This month's occurrence; if it has already passed, roll to next month.
+  const thisMonth = at(now.getUTCFullYear(), now.getUTCMonth());
+  // Strictly-greater-or-equal: the signup instant itself belongs to the current window,
+  // not the next one. Date.UTC(...) with no ms argument already yields .000Z.
+  const next = thisMonth.getTime() >= now.getTime()
+    ? thisMonth
+    : at(now.getUTCFullYear(), now.getUTCMonth() + 1);
+  return next.toISOString();
+}
+
 export async function getOllamaUsage(apiKey, providerSpecificData, proxyOptions = null) {
   if (!apiKey) {
     return { message: "Ollama Cloud API key not available." };
@@ -84,6 +112,13 @@ export async function getOllamaUsage(apiKey, providerSpecificData, proxyOptions 
       return { used: usedPct, total: 100, remainingPercentage: 100 - usedPct, resetAt, unlimited: false };
     }
 
+    // The free plan reports a monthly window, not the session/weekly pair. Ollama
+    // exposes no reset timestamp for it, so the signup day from /api/me is the only
+    // anchor available: the window rolls on that day each month, clamped to the
+    // last valid day of a shorter month.
+    const monthlyRaw = limits.monthly?.usage;
+    const monthlyNum = Number(monthlyRaw);
+    const hasMonthly = monthlyRaw !== undefined && monthlyRaw !== null && !Number.isNaN(monthlyNum);
     const sessionRaw = limits.session?.usage;
     const weeklyRaw = limits.weekly?.usage;
     const sessionNum = Number(sessionRaw);
@@ -91,17 +126,91 @@ export async function getOllamaUsage(apiKey, providerSpecificData, proxyOptions 
     const hasSession = sessionRaw !== undefined && sessionRaw !== null && !Number.isNaN(sessionNum);
     const hasWeekly = weeklyRaw !== undefined && weeklyRaw !== null && !Number.isNaN(weeklyNum);
 
-    if (!hasSession && !hasWeekly) {
+    const quotas = {};
+    if (hasMonthly) quotas["Monthly"] = { ...ratioQuota(monthlyNum), resetAt: freeMonthlyResetAt(me) };
+    if (hasSession) quotas["Session (5h)"] = ratioQuota(sessionNum);
+    if (hasWeekly) quotas["Weekly (7d)"] = ratioQuota(weeklyNum);
+
+    // Ollama Cloud migrated its live limits from /api/usage to /api/balance: the usage
+    // endpoint now reports only activity history, so a key with no limits block there
+    // still has a quota — read it from the balance door instead.
+    if (Object.keys(quotas).length === 0) {
+      let balanceResponse = null;
+      try {
+        balanceResponse = await proxyAwareFetch("https://ollama.com/api/balance", {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            Accept: "application/json",
+          },
+        }, proxyOptions);
+      } catch {
+        balanceResponse = null;
+      }
+
+      if (balanceResponse && balanceResponse.ok) {
+        let balanceData = null;
+        try {
+          balanceData = await balanceResponse.json();
+        } catch {
+          balanceData = null;
+        }
+        const inc = balanceData?.included;
+
+        if (inc?.session) {
+          const rem = Number(inc.session.remaining_percent);
+          const remPct = Number.isFinite(rem) ? Math.max(0, Math.min(100, rem)) : 100;
+          quotas["Session (5h)"] = {
+            used: Math.round((100 - remPct) * 100) / 100,
+            total: 100,
+            remainingPercentage: remPct,
+            resetAt: inc.session.resets_at || null,
+            unlimited: false,
+          };
+        }
+        if (inc?.weekly) {
+          const rem = Number(inc.weekly.remaining_percent);
+          const remPct = Number.isFinite(rem) ? Math.max(0, Math.min(100, rem)) : 100;
+          quotas["Weekly (7d)"] = {
+            used: Math.round((100 - remPct) * 100) / 100,
+            total: 100,
+            remainingPercentage: remPct,
+            resetAt: inc.weekly.resets_at || null,
+            unlimited: false,
+          };
+        }
+        if (inc?.allowance_usd !== undefined && inc?.balance_usd !== undefined) {
+          const allowance = Number(inc.allowance_usd) || 0;
+          const balance = Number(inc.balance_usd) || 0;
+          const used = Math.max(0, Math.round((allowance - balance) * 100) / 100);
+          const remPct = allowance > 0 ? Math.round((balance / allowance) * 10000) / 100 : 0;
+          quotas["Allowance ($)"] = {
+            used,
+            total: allowance,
+            remainingPercentage: remPct,
+            resetAt: inc.period?.until || null,
+            unlimited: false,
+            unit: "USD",
+          };
+        }
+        if (Number(balanceData?.purchased?.balance_usd) > 0) {
+          quotas["Purchased Credits"] = {
+            used: 0,
+            total: Number(balanceData.purchased.balance_usd),
+            remainingPercentage: 100,
+            isCreditBalance: true,
+            currency: "$",
+          };
+        }
+      }
+    }
+
+    if (Object.keys(quotas).length === 0) {
       return {
         plan,
         message: "Ollama Cloud connected. No usage limits reported.",
         quotas: {},
       };
     }
-
-    const quotas = {};
-    if (hasSession) quotas["Session (5h)"] = ratioQuota(sessionNum);
-    if (hasWeekly) quotas["Weekly (7d)"] = ratioQuota(weeklyNum);
 
     return { plan, quotas };
   } catch (error) {

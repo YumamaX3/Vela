@@ -1,4 +1,14 @@
 import { AntigravityExecutor } from "./antigravity.js";
+import { BedrockExecutor } from "./bedrock.js";
+import { MinimaxCodeExecutor } from "./minimax-code.js";
+import { OpenCodeZenExecutor } from "./opencode-zen.js";
+import { XiaomiMimoExecutor } from "./xiaomi-mimo.js";
+import { ChatGptWebExecutor } from "./chatgpt-web.js";
+import { DeepSeekWebExecutor } from "./deepseek-web.js";
+import { GeminiWebExecutor } from "./gemini-web.js";
+import { MuseWebExecutor } from "./muse-web.js";
+import { UcWebExecutor } from "./uc-web.js";
+import { VeoAiFreeWebExecutor } from "./veoaifree-web.js";
 import { AzureExecutor } from "./azure.js";
 import { GeminiCLIExecutor } from "./gemini-cli.js";
 import { GithubExecutor } from "./github.js";
@@ -21,6 +31,8 @@ import { MimoFreeExecutor } from "./mimo-free.js";
 import { FreebuffExecutor } from "./freebuff.js";
 import { CodeBuddyExecutor } from "./codebuddy-cn.js";
 import { CodeBuddyIntlExecutor } from "./codebuddy-intl.js";
+import { WorkBuddyCnExecutor } from "./workbuddy-cn.js";
+import { WorkBuddyIntlExecutor } from "./workbuddy-intl.js";
 import TraeExecutor from "./trae.js";
 import ZedExecutor from "./zed.js";
 import WindsurfExecutor from "./windsurf.js";
@@ -29,6 +41,19 @@ import { DevinCliExecutor } from "./devin-cli.js";
 
 const executors = {
   antigravity: new AntigravityExecutor(),
+  bedrock: new BedrockExecutor(),
+  "minimax-code": new MinimaxCodeExecutor(),
+  "minimax-code-global": new MinimaxCodeExecutor(),
+  "opencode-zen": new OpenCodeZenExecutor(),
+  ocz: new OpenCodeZenExecutor(),
+  "xiaomi-mimo": new XiaomiMimoExecutor(),
+  "chatgpt-web": new ChatGptWebExecutor(),
+  "deepseek-web": new DeepSeekWebExecutor(),
+  "gemini-web": new GeminiWebExecutor(),
+  "muse-web": new MuseWebExecutor(),
+  "uc-web": new UcWebExecutor(),
+  "veoaifree-web": new VeoAiFreeWebExecutor(),
+  "bedrock-xai": new BedrockExecutor(),
   azure: new AzureExecutor(),
   "gemini-cli": new GeminiCLIExecutor(),
   github: new GithubExecutor(),
@@ -58,6 +83,8 @@ const executors = {
   fb: new FreebuffExecutor(), // Alias for freebuff
   "codebuddy-cn": new CodeBuddyExecutor(),
   "codebuddy-intl": new CodeBuddyIntlExecutor(),
+  "workbuddy-cn": new WorkBuddyCnExecutor(),
+  "workbuddy-intl": new WorkBuddyIntlExecutor(),
   trae: new TraeExecutor(),
   zed: new ZedExecutor(),
   windsurf: new WindsurfExecutor(),

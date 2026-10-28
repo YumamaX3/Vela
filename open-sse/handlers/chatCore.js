@@ -218,7 +218,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     if (targetTransport) credentials.runtimeTransport = targetTransport;
   }
   const stripList = getModelStrip(alias, model);
-  const upstreamModel = getModelUpstreamId(alias, model);
+  const upstreamModel = getModelUpstreamId(alias, model, body);
 
   // Inject provider-level thinking config override (only if client hasn't set)
   // on/off → extended type (body.thinking), none/low/medium/high → effort type (body.reasoning_effort)

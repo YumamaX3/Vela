@@ -12,6 +12,12 @@ import blackForestLabs from "./blackForestLabs.js";
 import runwayml from "./runwayml.js";
 import cloudflareAi from "./cloudflareAi.js";
 import antigravity from "./antigravity.js";
+import museWeb from "./muse-web.js";
+import chatgptWeb from "./chatgpt-web.js";
+import geminiWeb from "./gemini-web.js";
+import grokWeb from "./grok-web.js";
+import veoAiFreeWeb from "./veoaifree-web.js";
+import ucWeb from "./uc-web.js";
 
 const ADAPTERS = {
   openai: createOpenAIAdapter("openai"),
@@ -32,6 +38,13 @@ const ADAPTERS = {
   "black-forest-labs": blackForestLabs,
   runwayml,
   "cloudflare-ai": cloudflareAi,
+  sensenova: createOpenAIAdapter("sensenova"),
+  "muse-web": museWeb,
+  "chatgpt-web": chatgptWeb,
+  "gemini-web": geminiWeb,
+  "grok-web": grokWeb,
+  "veoaifree-web": veoAiFreeWeb,
+  "uc-web": ucWeb,
 };
 
 export function getImageAdapter(provider) {

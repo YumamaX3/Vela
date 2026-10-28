@@ -16,6 +16,15 @@ import github from "./github.js";
 import kiro from "./kiro.js";
 import cursor from "./cursor.js";
 import kimi from "./kimi.js";
+import nous from "./nous.js";
+import muse from "./muse.js";
+import qoderCn from "./qoder-cn.js";
+import xiaomiMimo from "./xiaomi-mimo.js";
+import glm from "./glm.js";
+import minimaxCode from "./minimax-code.js";
+import minimaxCodeGlobal from "./minimax-code-global.js";
+import workbuddyCn from "./workbuddy-cn.js";
+import workbuddyIntl from "./workbuddy-intl.js";
 import kilocode from "./kilocode.js";
 import cline from "./cline.js";
 import clinepass from "./clinepass.js";
@@ -42,6 +51,15 @@ const PROVIDERS = {
   kiro,
   cursor,
   kimi,
+  nous,
+  muse,
+  "qoder-cn": qoderCn,
+  "xiaomi-mimo": xiaomiMimo,
+  glm,
+  "minimax-code": minimaxCode,
+  "minimax-code-global": minimaxCodeGlobal,
+  "workbuddy-cn": workbuddyCn,
+  "workbuddy-intl": workbuddyIntl,
   kilocode,
   cline,
   clinepass,

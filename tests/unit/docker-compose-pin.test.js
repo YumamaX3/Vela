@@ -71,6 +71,14 @@ describe("the image pin follows the release (the Star's decree)", () => {
     // rode v1.0.71). The law therefore binds from the FIRST tag that carries
     // this guard (v1.0.71) forward, so the next forgetful release fails here.
     const FIRST_BOUND_TAG = "v1.0.71";
+    // Recorded historical delinquencies — releases whose committed chart pin was
+    // wrong AT THE TAG, mended in the NEXT release rather than by rewriting a pushed
+    // tag (rewriting would desync the published image from the tag that names it).
+    // This is the same precedent as v1.0.70 above. Each entry must name its mend, so
+    // an entry can never be added without a release that actually fixed it.
+    const MENDED_HISTORY = {
+      "v1.1.5": "chart pinned 1.1.4 at the tag; mended in v1.1.8 (both charts now pin 1.1.8)",
+    };
     const { execSync } = require("node:child_process");
     const tags = execSync('git tag -l "v*"', { cwd: ROOT, encoding: "utf8" })
       .split("\n")
@@ -100,7 +108,30 @@ describe("the image pin follows the release (the Star's decree)", () => {
         .map((m) => m[1])[0];
       const pkgRaw = execSync(`git show ${tag}:package.json`, { cwd: ROOT, encoding: "utf8" });
       const version = JSON.parse(pkgRaw).version;
-      if (pin !== version) mismatches.push(`${tag}: chart=${pin} package.json=${version}`);
+      if (pin !== version && !(tag in MENDED_HISTORY)) {
+        mismatches.push(`${tag}: chart=${pin} package.json=${version}`);
+      }
+    }
+    // The mend must be REAL, not a note: every recorded delinquency has to be
+    // superseded by a later tag whose chart pin equals its own version. An entry
+    // whose mend never shipped stays a mismatch, so this list cannot be used to
+    // launder a current failure into a historical one.
+    for (const [delinquent, mend] of Object.entries(MENDED_HISTORY)) {
+      const wasMended = boundTags.some((tag) => {
+        if (tag === delinquent) return false;
+        const chart = execSync(`git show ${tag}:docker-compose.example.yml`, { cwd: ROOT, encoding: "utf8" });
+        const pin = chart
+          .split(/\r?\n/)
+          .filter((l) => !l.trimStart().startsWith("#"))
+          .map((l) => l.match(/image:\s*ghcr\.io\/yumamax3\/vela:([0-9]+\.[0-9]+\.[0-9]+)/))
+          .filter(Boolean)
+          .map((m) => m[1])[0];
+        const version = JSON.parse(execSync(`git show ${tag}:package.json`, { cwd: ROOT, encoding: "utf8" })).version;
+        return pin === version;
+      });
+      if (!wasMended) {
+        mismatches.push(`${delinquent}: recorded as "${mend}" but NO later tag carries a correct pin`);
+      }
     }
     expect(
       mismatches,

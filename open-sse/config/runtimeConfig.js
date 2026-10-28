@@ -63,6 +63,11 @@ export let STREAM_FIRST_CHUNK_TIMEOUT_MS = STREAM_FIRST_CHUNK_TIMEOUT_DEFAULT;
 const FETCH_CONNECT_TIMEOUT_DEFAULT = envMs("FETCH_CONNECT_TIMEOUT_MS", 60 * 1000);
 export let FETCH_CONNECT_TIMEOUT_MS = FETCH_CONNECT_TIMEOUT_DEFAULT;
 
+// Combo empty-content failover: how long a 2xx stream may be held while waiting for its
+// first content-bearing frame before committing to that model (fail-open on expiry).
+// Env: EMPTY_PEEK_DEADLINE_MS.
+export const EMPTY_PEEK_DEADLINE_MS = envMs("EMPTY_PEEK_DEADLINE_MS", 45 * 1000);
+
 // The env/default values, frozen — the lens shows these as the "inherit" floor.
 export const NETWORK_TIMEOUT_DEFAULTS = Object.freeze({
   streamStallTimeoutMs: STREAM_STALL_TIMEOUT_DEFAULT,

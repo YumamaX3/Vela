@@ -117,6 +117,12 @@ export const CODEBUDDY_CONFIG = { ...PROVIDER_OAUTH["codebuddy-cn"] };
 // CodeBuddy International — same shape as CN, .ai domain (mirror of codebuddy-cn).
 export const CODEBUDDY_INTL_CONFIG = { ...PROVIDER_OAUTH["codebuddy-intl"] };
 
+// WorkBuddy — the same browser poll flow as CodeBuddy, on its own two hosts. The
+// strap reads the REGISTRY's oauth block, so the platform value ("workbuddy",
+// lowercase on both shores) and the identity headers stay single-sourced.
+export const WORKBUDDY_CN_CONFIG = { ...PROVIDER_OAUTH["workbuddy-cn"] };
+export const WORKBUDDY_INTL_CONFIG = { ...PROVIDER_OAUTH["workbuddy-intl"] };
+
 // Kimchi OAuth Configuration (Browser token callback flow)
 export const KIMCHI_CONFIG = { ...PROVIDER_OAUTH["kimchi"] };
 
@@ -193,6 +199,55 @@ export const ZED_HOSTED_CONFIG = {
   llmBaseUrl: "https://cloud.zed.dev",
   defaultNativeAppPort: 58443,
   oauthTimeoutMs: 600_000,
+};
+
+// Nous Research OAuth Configuration (Device Code Flow + agent-key mint)
+// The device flow yields an access token; a second call to the agent-key door
+// mints the inference key the chat lane actually uses.
+export const NOUS_CONFIG = {
+  clientId: "hermes-cli",
+  portalBaseUrl: "https://portal.nousresearch.com",
+  deviceCodeUrl: "https://portal.nousresearch.com/api/oauth/device/code",
+  tokenUrl: "https://portal.nousresearch.com/api/oauth/token",
+  agentKeyUrl: "https://portal.nousresearch.com/api/oauth/agent-key",
+  inferenceBaseUrl: "https://inference-api.nousresearch.com/v1",
+  scope: "inference:invoke inference:mint_agent_key",
+};
+
+// Qoder CN — the .com.cn shore's own OAuth lane (COSY protocol, CN gateway).
+export const QODER_CN_CONFIG = { ...PROVIDER_OAUTH["qoder-cn"] };
+
+// Muse (Meta Model API) — device-code subscription flow. Meta issues no refresh
+// token, so an expired key means re-login.
+export const MUSE_CONFIG = { ...PROVIDER_OAUTH["muse"] };
+
+// Xiaomi MiMo — server-assisted desktop login. The platform URL and the callback
+// path are the contract; the region is chosen per connection.
+export const XIAOMI_MIMO_CONFIG = {
+  platformUrl: process.env.MIMO_PLATFORM_URL || "https://platform.xiaomimimo.com",
+  defaultBaseUrl: "https://api.xiaomimimo.com/v1",
+  kn: "mimocode",
+  callbackPath: "/",
+  timeoutMs: 300000, // 5 minutes
+};
+
+// GLM Coding (Z.ai) — dual auth. OAuth mints a long-lived coding-plan key;
+// there is no refresh grant, so expiry means re-login.
+// GLM Coding (Z.ai) — dual auth: paste an API key, or OAuth-login with the Z.ai
+// account to auto-mint a coding-plan key (no refresh grant). Polling flow from
+// apps/zcode-cli cli-oauth.ts; browser redirect is server-generated, poll carries
+// tokens exchanged for the long-lived business JWT.
+export const GLM_OAUTH_CONFIG = {
+  platformUrl: process.env.GLM_PLATFORM_URL || "https://zcode.z.ai",
+  apiBaseUrl: "https://api.z.ai/v1", // not baseApiUrl — matches glm.js usage
+  kn: "glmcode",
+  callbackPath: "/",
+  timeoutMs: 300000, // 5 minutes
+  cliInitUrl: "https://zcode.z.ai/api/v1/oauth/cli/init",
+  cliPollUrl: "https://zcode.z.ai/api/v1/oauth/cli/poll",
+  providerId: "zai",
+  planApiKeyName: "zcode-api-key", // exact name glm.js lists/creates
+  businessLoginUrl: "https://zcode.z.ai/business/login",
 };
 
 // OAuth timeout (5 minutes)

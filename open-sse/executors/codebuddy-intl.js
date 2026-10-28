@@ -6,6 +6,7 @@ import {
   breakerRecordSuccess,
   refreshCodeBuddyToken,
 } from "../shared/codebuddy/gate.js";
+import { shouldChannelFallback, channelFallbackUrl } from "../shared/codebuddy/channelCheck.js";
 
 /**
  * CodeBuddyIntlExecutor — talks to https://www.codebuddy.ai/v2/chat/completions
@@ -24,6 +25,16 @@ import {
 export class CodeBuddyIntlExecutor extends DefaultExecutor {
   constructor() {
     super("codebuddy-intl");
+    // Set only for the single console-door retry; null on every other path.
+    this._forcedUrl = null;
+  }
+
+  // The base executor builds the URL from the registry every call. A confirmed
+  // channel rejection needs exactly one dial against the console door, so the URL
+  // is diverted here rather than invented at the call site.
+  buildUrl(model, stream, urlIndex = 0, credentials = null) {
+    if (this._forcedUrl) return this._forcedUrl;
+    return super.buildUrl(model, stream, urlIndex, credentials);
   }
 
   // Same frequency-limit envelope as the CN gateway: code 6004 or plain
@@ -51,6 +62,12 @@ export class CodeBuddyIntlExecutor extends DefaultExecutor {
             message: msg || "CodeBuddy frequency limit (6004)",
             resetsAtMs,
           };
+        }
+        // Account/IP block wording. Both messages arrive as HTTP 400 and read
+        // request-scoped to the generic classifier, so they are named here — the
+        // bare envelope would only match by substring inside raw JSON.
+        if (/request illegal|conversation id missing/i.test(msg)) {
+          return { status: response.status, message: msg };
         }
       } catch { /* fall through to default */ }
     }
@@ -116,6 +133,28 @@ export class CodeBuddyIntlExecutor extends DefaultExecutor {
     const result = await super.execute(opts);
 
     if (!result.response.ok) {
+      // The primary `v2/chat/completions` door fronts a client-identity check and
+      // rejects an unrecognised caller with business code 11128 — as HTTP 400, which
+      // the generic classifier would read as a request fault and never cool down.
+      // The console door carries no such check, so a CONFIRMED channel rejection
+      // earns exactly one retry there. Anything else falls through untouched.
+      const fallbackUrl = channelFallbackUrl(result.url || this.config?.baseUrl || "");
+      if (shouldChannelFallback(fallbackUrl, result.response.status, await result.response.clone().text())) {
+        log?.info?.("CODEBUDDY", "channel verification refused — one retry on the console door");
+        try {
+          this._forcedUrl = fallbackUrl;
+          const retried = await super.execute(opts);
+          this._forcedUrl = null;
+          if (retried.response.ok) {
+            const wrappedRetry = await wrapCodeBuddyStream(retried.response, opts.model);
+            if (wrappedRetry.ok) breakerRecordSuccess(key);
+            return { ...retried, response: wrappedRetry };
+          }
+        } catch {
+          // The console door failed too — report the ORIGINAL refusal, which names
+          // the channel check the caller actually hit.
+        }
+      }
       breakerRecordFailure(key);
       return result;
     }

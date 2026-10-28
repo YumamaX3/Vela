@@ -53,6 +53,23 @@ async function fetchWithTimeout(url, init = {}) {
 
 export class QoderService {
   /**
+   * The region a login belongs to. Qoder runs two shores — qoder.com (intl)
+   * and qoder.com.cn (CN) — with identical flow shapes and different hosts.
+   * The registry's oauth block carries the region's own URLs, so this class
+   * takes it and falls back to the module constants only when a caller passes
+   * nothing (every pre-existing intl call site).
+   */
+  constructor(config = null) {
+    this.config = config || null;
+  }
+
+  /** Region-aware endpoint, falling back to the intl constant. */
+  _endpoint(field, fallback) {
+    const value = this.config?.[field];
+    return typeof value === "string" && value ? value : fallback;
+  }
+
+  /**
    * Generate a PKCE verifier + S256 challenge pair.
    * Uses 32 random bytes (matches qodercli/Veria).
    */
@@ -78,8 +95,9 @@ export class QoderService {
       nonce,
     });
 
+    const loginUrl = this._endpoint("loginUrl", QODER_LOGIN_URL);
     return {
-      verificationUriComplete: `${QODER_LOGIN_URL}?${params.toString()}`,
+      verificationUriComplete: `${loginUrl}?${params.toString()}`,
       codeVerifier: verifier,
       nonce,
       machineId,
@@ -98,7 +116,8 @@ export class QoderService {
     if (!nonce || !codeVerifier) {
       throw new Error("pollDeviceToken: missing nonce or code verifier");
     }
-    const url = `${QODER_DEVICE_TOKEN_URL}?nonce=${encodeURIComponent(nonce)}&verifier=${encodeURIComponent(codeVerifier)}&challenge_method=S256`;
+    const deviceTokenUrl = this._endpoint("deviceTokenUrl", QODER_DEVICE_TOKEN_URL);
+    const url = `${deviceTokenUrl}?nonce=${encodeURIComponent(nonce)}&verifier=${encodeURIComponent(codeVerifier)}&challenge_method=S256`;
 
     const response = await fetchWithTimeout(url, {
       method: "GET",
@@ -155,7 +174,7 @@ export class QoderService {
    */
   async fetchUserInfo(accessToken) {
     try {
-      const response = await fetchWithTimeout(QODER_USERINFO_URL, {
+      const response = await fetchWithTimeout(this._endpoint("userInfoUrl", QODER_USERINFO_URL), {
         method: "GET",
         headers: {
           Authorization: `Bearer ${accessToken}`,

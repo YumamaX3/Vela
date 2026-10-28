@@ -536,8 +536,11 @@ export function parseQuotaData(provider, data) {
         break;
 
       case "ollama":
-        // Session (5h) / Weekly (7d) usage % from ollama.com/api/usage.
-        // remainingPercentage only — no absolute remaining (UI treats remaining as %).
+        // Session (5h) / Weekly (7d) usage % from ollama.com/api/usage, the free plan's
+        // monthly window, and — since Ollama Cloud moved its live limits there — the
+        // allowance / purchased-credit rows from /api/balance. The window rows carry
+        // remainingPercentage only (the UI reads it as %); a credit row carries the
+        // currency metadata the QuotaTable renders as a balance instead of a bar.
         if (data.quotas) {
           Object.entries(data.quotas).forEach(([name, quota]) => {
             normalizedQuotas.push({
@@ -546,6 +549,9 @@ export function parseQuotaData(provider, data) {
               total: quota.total || 0,
               resetAt: quota.resetAt || null,
               remainingPercentage: quota.remainingPercentage,
+              isCreditBalance: quota.isCreditBalance ?? false,
+              ...(quota.unit ? { unit: quota.unit } : {}),
+              ...(quota.currency ? { currency: quota.currency } : {}),
             });
           });
         }
