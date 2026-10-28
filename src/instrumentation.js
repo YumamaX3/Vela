@@ -58,5 +58,20 @@ export async function register() {
     } catch (err) {
       console.warn("[instrumentation] OpenCode catalog warm-up failed:", err.message);
     }
+
+    // M4 (plans/2026-10-28-codebuddy-family.md) — bind the CodeBuddy family's
+    // circuit breaker to the persistent ledger, so its open windows survive a
+    // restart. Fire-and-forget inside the same nodejs guard: a binding failure
+    // degrades to memory-only (the breaker guards, it simply forgets), never
+    // to a boot failure. Dynamic import for the same reason as the Fleet
+    // Captain above — keep the db/better-sqlite3 tree out of the Edge bundle.
+    try {
+      const { openStoreAdapter } = await import("@/lib/db/repos/sqlite/storeAdapter.js");
+      const { bindCodeBuddyBreaker } = await import("open-sse/shared/codebuddy/breakerBinding.js");
+      void bindCodeBuddyBreaker(await openStoreAdapter());
+    } catch {
+      // Memory-only. The next CodeBuddy request still guards; a harbour that
+      // has not booted its db yet has nothing to persist either.
+    }
   }
 }

@@ -48,7 +48,10 @@ beforeEach(() => {
   storage = createLedgerStorage(db);
 });
 
-const KEY = "conn-42";
+// The family keys a breaker `<providerId>:<connectionId>` — the ledger reads its
+// product from that prefix, so a bare connection id would be refused as
+// unattributable and never round-trip.
+const KEY = "codebuddy-cn:conn-42";
 const rows = () => db.all("SELECT * FROM circuitBreakerKeys");
 
 describe("nothing known reads as nothing", () => {
@@ -100,11 +103,11 @@ describe("a cooldown written survives a restart", () => {
   it("removes a row the snapshot no longer names, so it cannot resurrect", () => {
     const store = new PersistentBreakerStore({ storage });
     store.fail(KEY, { until: Date.now() + 30_000 });
-    store.fail("conn-99", { until: Date.now() + 30_000 });
+    store.fail("codebuddy-cn:conn-99", { until: Date.now() + 30_000 });
     expect(rows().length).toBe(2);
     store.succeed(KEY);
     expect(rows().length).toBe(1);
-    expect(rows()[0].model).toBe("conn-99");
+    expect(rows()[0].model).toBe("codebuddy-cn:conn-99");
   });
 });
 

@@ -29,10 +29,8 @@ import { CommandCodeExecutor } from "./commandcode.js";
 import { XiaomiTokenplanExecutor } from "./xiaomi-tokenplan.js";
 import { MimoFreeExecutor } from "./mimo-free.js";
 import { FreebuffExecutor } from "./freebuff.js";
-import { CodeBuddyExecutor } from "./codebuddy-cn.js";
-import { CodeBuddyIntlExecutor } from "./codebuddy-intl.js";
-import { WorkBuddyCnExecutor } from "./workbuddy-cn.js";
-import { WorkBuddyIntlExecutor } from "./workbuddy-intl.js";
+import { CodeBuddyFamilyExecutor } from "./codebuddy-family.js";
+import { CODEBUDDY_PROFILES } from "../shared/codebuddy/profiles.js";
 import TraeExecutor from "./trae.js";
 import ZedExecutor from "./zed.js";
 import WindsurfExecutor from "./windsurf.js";
@@ -81,10 +79,10 @@ const executors = {
   mmf: new MimoFreeExecutor(), // Alias for mimo-free
   freebuff: new FreebuffExecutor(),
   fb: new FreebuffExecutor(), // Alias for freebuff
-  "codebuddy-cn": new CodeBuddyExecutor(),
-  "codebuddy-intl": new CodeBuddyIntlExecutor(),
-  "workbuddy-cn": new WorkBuddyCnExecutor(),
-  "workbuddy-intl": new WorkBuddyIntlExecutor(),
+  "codebuddy-cn": new CodeBuddyFamilyExecutor("codebuddy-cn"),
+  "codebuddy-intl": new CodeBuddyFamilyExecutor("codebuddy-intl"),
+  "workbuddy-cn": new CodeBuddyFamilyExecutor("workbuddy-cn"),
+  "workbuddy-intl": new CodeBuddyFamilyExecutor("workbuddy-intl"),
   trae: new TraeExecutor(),
   zed: new ZedExecutor(),
   windsurf: new WindsurfExecutor(),
@@ -125,8 +123,8 @@ export { CommandCodeExecutor } from "./commandcode.js";
 export { XiaomiTokenplanExecutor } from "./xiaomi-tokenplan.js";
 export { MimoFreeExecutor } from "./mimo-free.js";
 export { FreebuffExecutor } from "./freebuff.js";
-export { CodeBuddyExecutor } from "./codebuddy-cn.js";
-export { CodeBuddyIntlExecutor } from "./codebuddy-intl.js";
+export { CodeBuddyFamilyExecutor } from "./codebuddy-family.js";
+export { CODEBUDDY_PROFILES, profileFor } from "../shared/codebuddy/profiles.js";
 export { default as TraeExecutor } from "./trae.js";
 export { default as ZedExecutor } from "./zed.js";
 export { default as WindsurfExecutor } from "./windsurf.js";

@@ -4,12 +4,12 @@
 // now translate that envelope into a 429 carrying the reset instant, which the
 // classifier already understands through `resetsAtMs`.
 import { describe, expect, it } from "vitest";
-import { CodeBuddyExecutor } from "../../open-sse/executors/codebuddy-cn.js";
-import { CodeBuddyIntlExecutor } from "../../open-sse/executors/codebuddy-intl.js";
+import { CodeBuddyFamilyExecutor as CodeBuddyExecutor } from "../../open-sse/executors/codebuddy-family.js";
+import { CodeBuddyFamilyExecutor as CodeBuddyIntlExecutor } from "../../open-sse/executors/codebuddy-family.js";
 
 describe("CodeBuddy parseError", () => {
   it("parses code 6004 frequency limit with timestamp into 429 and resetsAtMs on codebuddy-cn", () => {
-    const executor = new CodeBuddyExecutor();
+    const executor = new CodeBuddyExecutor("codebuddy-cn");
     const bodyText = JSON.stringify({
       code: 6004,
       message: "当前模型超出频率限制，请于 2026-09-28 14:30:00 后重试",
@@ -27,7 +27,7 @@ describe("CodeBuddy parseError", () => {
   });
 
   it("parses frequency limit text match without code 6004 on codebuddy-intl", () => {
-    const executor = new CodeBuddyIntlExecutor();
+    const executor = new CodeBuddyIntlExecutor("codebuddy-intl");
     const bodyText = JSON.stringify({
       code: 11000,
       msg: "frequency limit exceeded, please retry after 2026-09-28 12:00:00 UTC+0",
@@ -41,7 +41,7 @@ describe("CodeBuddy parseError", () => {
   });
 
   it("falls back to super.parseError for unrelated errors", () => {
-    const executor = new CodeBuddyExecutor();
+    const executor = new CodeBuddyExecutor("codebuddy-cn");
     const bodyText = JSON.stringify({
       code: 11101,
       message: "Non-stream chat request is currently not supported",

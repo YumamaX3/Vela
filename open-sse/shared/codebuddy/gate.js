@@ -339,6 +339,59 @@ const BREAKER_RESET_MS = 60_000;  // open-window before the half-open probe
 // key -> { failures, openUntil, probeInFlight }
 const breakers = new Map();
 
+// M4 — the breaker that survives a restart. The in-memory Map is the truth the
+// request path reads; the bound store is where its open windows persist. A
+// storage failure degrades to memory-only, never to lockout: the store's own
+// laws (breakerStore.js) clamp ceilings at read and refuse a half-understood
+// snapshot, so a hostile or corrupt file cannot park an account forever.
+let breakerPersistence = null;
+
+/**
+ * Bind a PersistentBreakerStore as this gate's persistence. Called once at boot.
+ * Restored rows seed the Map; every later state change is written through.
+ *
+ * @param {import("./breakerStore.js").PersistentBreakerStore} store
+ */
+export function bindBreakerPersistence(store) {
+  breakerPersistence = store;
+  if (!store) return;
+  const now = Date.now();
+  // Hydrate from the store's own Map (`data`) — the store sweeps its own expiry
+  // on load, so anything it still holds is live. Expired rows are forgotten,
+  // never restored: a deadline is a cooldown, not a sentence.
+  for (const [key, row] of store.data.entries()) {
+    if (!row || typeof row !== "object") continue;
+    const failUntil = Number(row.failUntil);
+    // Seed at the threshold so ONE fresh failure re-arms the window, matching
+    // the in-process semantics: a breaker that opened held failures >= 5, and
+    // restoring it any lower would leave the account unprotected for four
+    // more hits after the window expires.
+    breakers.set(key, { failures: BREAKER_THRESHOLD, openUntil: failUntil, probeInFlight: false });
+  }
+}
+
+/** Write the current open windows through to the bound store, if any. */
+function persistBreakers() {
+  if (!breakerPersistence) return;
+  try {
+    const now = Date.now();
+    // A window the current process already closed is succeeded on the store,
+    // so a restart cannot resurrect it.
+    for (const [key, row] of breakerPersistence.data.entries()) {
+      if (Number(row?.failUntil) > now) continue;
+      breakerPersistence.succeed(key);
+    }
+    // Every open window in memory is written per-key through the store's own
+    // fail() — which clamps the deadline to its ceiling and bounds the table.
+    for (const [key, b] of breakers) {
+      if (b.openUntil > now) {
+        breakerPersistence.fail(key, { until: b.openUntil, reason: "breaker-open" });
+      }
+    }
+    breakerPersistence.save();
+  } catch { /* a write failure degrades to memory-only, never to lockout */ }
+}
+
 function breakerFor(key) {
   let b = breakers.get(key);
   if (!b) {
@@ -368,15 +421,35 @@ export function breakerRecordFailure(key) {
   b.probeInFlight = false;
   if (b.failures >= BREAKER_THRESHOLD) {
     b.openUntil = Date.now() + BREAKER_RESET_MS;
+    persistBreakers();
   }
 }
 
-/** Record a success — closes the breaker. */
 export function breakerRecordSuccess(key) {
   const b = breakerFor(key);
   b.failures = 0;
   b.openUntil = 0;
   b.probeInFlight = false;
+  persistBreakers();
+}
+
+/**
+ * Record that the credential ANSWERED — the request was refused, but not because
+ * the account was dead.
+ *
+ * The harm this closes (M1b): a channel refusal (11128) or any other 4xx the BODY
+ * earned was recorded through breakerRecordFailure, so `failures` never dropped
+ * below the threshold and every probe re-armed `openUntil` for another window.
+ * One probe a minute, forever, blaming the account for a body it never caused.
+ *
+ * An answer clears the probe and resets the consecutive count, but keeps an
+ * already-open window running: a credential that has been failing should still
+ * sit its cooldown even if one probe came back as a refusal rather than a fault.
+ */
+export function breakerRecordAnswered(key) {
+  const b = breakerFor(key);
+  if (b.openUntil <= Date.now()) b.openUntil = 0;
+  persistBreakers();
 }
 
 // ── one-shot token recovery (codebuffy refresh.ts port) ─────────────────────

@@ -16,7 +16,7 @@
 // This file is the ADAPTER; the laws live in breakerStore.js so they stay provable
 // without a database.
 
-import { getBreakerRows, upsertBreakerBatch, deleteBreakerRow } from "@/lib/db/repos/circuitBreakerRepo.js";
+import { getBreakerRows, upsertBreakerBatch, deleteBreakerRow } from "../../../src/lib/db/repos/circuitBreakerRepo.js";
 
 /** The pool the CodeBuddy lanes write under. One ember for the whole family. */
 export const CODEBUDDY_BREAKER_POOL = "codebuddy";
@@ -28,6 +28,24 @@ export const CODEBUDDY_BREAKER_PROVIDERS = Object.freeze([
   "workbuddy-cn",
   "workbuddy-intl",
 ]);
+
+/**
+ * The product a breaker key names, or null when it names none this family owns.
+ *
+ * A family key is `<providerId>:<connectionId>`. The prefix is looked up in the
+ * closed provider list — never parsed by position, never defaulted — because a
+ * cooldown filed under the wrong lane is a cooldown that cools the wrong account.
+ *
+ * @param {string} key
+ * @returns {string|null}
+ */
+export function providerForKey(key) {
+  if (typeof key !== "string" || key.length === 0) return null;
+  const cut = key.indexOf(":");
+  if (cut <= 0) return null;
+  const provider = key.slice(0, cut);
+  return CODEBUDDY_BREAKER_PROVIDERS.includes(provider) ? provider : null;
+}
 
 /**
  * Build a `storage` adapter over the breaker ledger.
@@ -84,9 +102,13 @@ export function createLedgerStorage(db) {
       );
       const rows = [];
       for (const [key, row] of Object.entries(accounts)) {
-        // The provider is unknown at this layer; every family provider shares the
-        // credential key, so the first one carries the row and the rest are cleared.
-        const provider = CODEBUDDY_BREAKER_PROVIDERS[0];
+        // The key carries its own product — `<providerId>:<connectionId>`. Stamping
+        // every row with the first family provider would write a WorkBuddy cooldown
+        // as a CodeBuddy one, and a cooldown that names the wrong lane is a cooldown
+        // that cools the wrong account. A key with no recognised prefix is refused
+        // rather than guessed: a row we cannot attribute is not a row we should keep.
+        const provider = providerForKey(key);
+        if (!provider) continue;
         existing.delete(`${provider}\u0000${key}`);
         rows.push({
           poolId: CODEBUDDY_BREAKER_POOL,

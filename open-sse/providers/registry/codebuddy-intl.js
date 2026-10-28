@@ -70,7 +70,10 @@ export default {
     tokenUrl: "https://www.codebuddy.ai/v2/plugin/auth/token",
     refreshUrl: "https://www.codebuddy.ai/v2/plugin/auth/token/refresh",
     userAgent: "IDE/2.63.2 CodeBuddy/2.63.2",
-    platform: "ide",
+    // The identity law (shared/codebuddy/identity.js) states CodeBuddy's international
+    // site requires uppercase CLI; lowercase "workbuddy" belongs to the WorkBuddy shores
+    // alone. This drift sat unseen because the oauth-seam suite pins intl platform null.
+    platform: "CLI",
     pollInterval: 5000,
   },
   features: {

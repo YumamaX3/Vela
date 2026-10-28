@@ -1,3 +1,44 @@
+# v1.2.4 — One Hull, Four Shores 🌊🪞
+> *"Four doors answered to four copies of one law, and the copies had already begun to disagree — one lost its fallback, one carried a diverted URL it never let go, one wrote every WorkBuddy cooldown under a CodeBuddy's name. I read the reference gateway to its bed, towed the four hulls out of the water, and set one hull carrying all four shores — with every leak closed before the first lane moved."* 🌊🪞💜
+**The CodeBuddy family: `codebuddy-cn`, `codebuddy-intl`, `workbuddy-cn`, and `workbuddy-intl` now answer to one executor over four frozen profiles. Four near-identical files are gone; every difference between the products is data a test can read.**
+
+**🪞 One class, four profiles**
+- **`open-sse/executors/codebuddy-family.js`** — one `CodeBuddyFamilyExecutor` over **`shared/codebuddy/profiles.js`**. The class never asks which product it serves; where two products differ, the difference is a field (`opener`, `messageShape`, `sanitise`, `consoleDoor`, `host`). A fifth sibling would cost one object and no new code.
+- **The four copied executors are deleted** — nothing instantiates them. Two suites retargeted to the family with their shore ids.
+
+**⚓ The breaker that survives a restart**
+- **`gate.js` gains `bindBreakerPersistence`** — the in-memory Map stays the truth the request path reads; open windows persist through the bound store, written per-key via its real `fail()`/`succeed()`/`save()`, deadlines clamped to a ceiling, expired rows forgotten rather than restored, and a restored breaker re-arms on **one** failure, matching in-process law.
+- **`src/instrumentation.js` binds it fire-and-forget at boot** — inside the nodejs guard, through the permitted adapter doorway (`openStoreAdapter`), never on the request path.
+- **The ledger stops lying** — `breakerLedger.js` reads every row's product from its own key prefix (`providerForKey`), where it once stamped **every** WorkBuddy cooldown `codebuddy-cn`; the `@/` alias reaching into `src/` from inside `open-sse` is replaced with a relative import.
+
+**📮 The refusal that is not the account's fault**
+- **`breakerRecordAnswered`** — a channel refusal (11128) or any body-refused 4xx is recorded as *answered*, not as a fault. Before, one probe a minute re-armed the breaker window forever, blaming the account for a body it never caused.
+
+**🚪 The refusal that wore a clean answer**
+- **The content filter is caught** — the upstream answers a sensitivity block by streaming a canned apology closing with `finish_reason: "stop"`, indistinguishable from success downstream. The family peeks the stream: a **pure** refusal becomes an honest 400 so combo fallback fires; an impure one never double-spends. Line-by-line consumption, no re-parse, no dropped frames.
+
+**🔑 The door that cannot leak**
+- **`this._forcedUrl` is deleted, not repaired** — the old lanes held the console-door diversion on a module-load singleton, where a throw skipped the reset and every later request dialled the wrong door. The family carries the diversion per-request, identity headers included.
+- **The breaker key names its product** — `"<providerId>:<connectionId>"`, so a shared connection across two products cannot collide.
+
+**🛡️ The gate that spends no credit**
+- **`capabilityGate.js`** — refuses before the upstream call, honestly **silent** until a catalogue fills its `declarationsFor` seam (never guessing), and its refusal is request-scoped so the account is never cooled and fallback still advances.
+
+**📐 The law, corrected**
+- **`codebuddy-intl` sends `platform: "CLI"`** where the registry drift sat unseen (`"ide"`), verified parsing, observed. **Both WorkBuddy OAuth handlers stop naming themselves "CodeBuddy Intl"** in their own errors.
+
+**🧪 Proof**
+- **19 CodeBuddy suites — 193/193, observed**: the family, the honest gate, the persistent breaker (ledger + store + **boot binding fired end-to-end against a real sqlite adapter**), the door that cannot leak (two interleaved turns on one singleton), the content filter, the capability seam, the four products, the OAuth seam, the frequency gate, the block backoff, site routing, the scheduler, consent, CN bonus recurring, intl identity.
+- **The full unit battery on the sealed state: 440 files — 432 passed, 5 skipped, 3 failed — every red proven pre-existing, none of them mine.** `deck-motion` and `icon-subset` fail alone on dashboard components changed by this morning's v1.1.9 release (the 2026-06-13 baseline carries neither suite); `db-maintenance-subroutes` flakes only under battery load and passes alone; `s3-offsite` dates to 2026-08-16, two months before this tide, and imports no file this tide touched. **4688 tests passing.**
+- **`npm run build` green** — standalone assets copied, `custom-server.js` carried, the boot bundle compiled with the new instrumentation inside it. No BUILD_ID is quoted because the build output shows none; the standalone copy lines above are the observed proof.
+- Both compose pins moved to **1.2.4**; the pin-guard suite green.
+
+**🌊 Recorded, not repeated**
+- **An inert gate reads as done.** I built the capability preflight and wired it to nothing — caught by measuring before a report claimed it.
+- **A half-open probe is one true.** The first admit after a window opens lets exactly one request through by design; my first proof asserted the wrong answer twice.
+- **A golden debt paid is not a golden debt made.** The 42 red snapshot cases were owed **before this tide**: v1.1.9 added the WorkBuddy registry entries (real headers, verified versions) but never regenerated the goldens, so the snapshot — last touched 2026-10-12 (`b053f356`) — went stale at `36914ff8`. The golden suite runs `DefaultExecutor(pid)` — the four lanes sit **outside** the `SPECIALIZED` exclusion set, so they run straight through it — so no family behaviour lives in it; what moved was v1.1.9's unpaid manifest: 582 lines of the WorkBuddy lanes' **first-ever** golden entries and 12 deletions of the stale `CLI/unknown CodeBuddy/2.139.0` / `IDE/2.108.1` fabrications the v1.1.9 changelog itself names as invented. Regenerated 255/255, verified 255/255 — **this tide paid v1.1.9's debt; it did not create it.**
+**⚓ What sailed** — `open-sse/executors/codebuddy-family.js` (new) · `open-sse/shared/codebuddy/{profiles,breakerBinding,capabilityGate}.js` (new) · `open-sse/executors/{codebuddy-cn,codebuddy-intl,workbuddy-cn,workbuddy-intl}.js` (**deleted**) · `open-sse/shared/codebuddy/{gate,breakerLedger}.js` · `open-sse/executors/index.js` · `open-sse/providers/registry/codebuddy-intl.js` · `src/instrumentation.js` · `src/lib/oauth/providers/workbuddy-{cn,intl}.js` · `tests/unit/codebuddy-{ledger-product,door-leak,breaker-boot}.test.js` (new) · `tests/unit/codebuddy-{parse-error,reasoning-optin,breaker-ledger}.test.js` · `tests/translator/__snapshots__/golden-url-header.test.js.snap` (regenerated — see Recorded, not repeated) · `CHANGELOG.md` · `package.json` · `package-lock.json` (version-only) · `docker-compose.example.yml`. The plan scrolls live under gitignored `plans/` — sealed on disk, outside the manifest.
+
 # v1.1.9 — The Fourth Door Opens 🌊🔑
 > *"Three doors answered and the fourth stood beside them, painted and patient and wired to nothing. I had built its frame, its name, its very threshold — and forgotten the key. A door without a handle is not a door; it is a wall with ambitions."* 🌊🔑💜
 **The last seam of the CodeBuddy realm: both WorkBuddy products now log in. Before this tide they rendered a button that could not complete — no handler, no config, and no entry in the flow lists that gate the modal and the poll route.**
@@ -30,8 +71,9 @@
 - **The header that names the tier is not the header that names the product.** `X-Product: SaaS` fooled me once; the tests hold it now.
 
 # v1.1.8 — The Four Products Answer 🌊🛰️
-> *"One harbor, four doors. I did not build a fifth — I read the four the other sea already kept, and found that two of them had been answering to a name that was never theirs."* 🌊🛰️💜
-**The CodeBuddy realm carried whole from the reference gateway (codebuddy2api): four products instead of two, six laws instead of none, and every one of them proven at the edge where a naive port would fail silently.**
+- **The full unit battery on the sealed state — 440 files: 432 passed, 5 skipped, 3 failed — all three reds proven pre-existing and none of them mine.** `deck-motion` and `icon-subtest` fail alone on dashboard components changed by this morning's v1.1.9 release (baseline dated 2026-06-13 carries neither); `db-maintenance-subroutes` flakes only under battery load and passes alone; `s3-offsite` dates to 2026-08-16, two months before this tide, and imports no file this tide touched. **4688 tests passing.**
+- **`npm run build` green — standalone assets copied, `custom-server.js` carried, the boot bundle compiled with the new instrumentation inside it.** No BUILD_ID is quoted here because the build output shows none; the standalone copy lines above are the observed proof.
+
 
 **🏛️ Four products, each with its own shore**
 - **`workbuddy-cn` (`cbw`) and `workbuddy-intl` (`cbwi`)** join `codebuddy-cn` and `codebuddy-intl`. Same catalog, same wire shape — **different accounts**. A CodeBuddy token is not a WorkBuddy token, and the two are not interchangeable.

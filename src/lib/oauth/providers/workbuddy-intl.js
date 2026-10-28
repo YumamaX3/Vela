@@ -20,10 +20,10 @@ const workbuddyIntl = {
       },
       body: "{}",
     });
-    if (!response.ok) throw new Error(`CodeBuddy Intl state request failed: ${await response.text()}`);
+    if (!response.ok) throw new Error(`WorkBuddy Intl state request failed: ${await response.text()}`);
     const data = await response.json();
     if (data.code !== 0 || !data.data?.state || !data.data?.authUrl) {
-      throw new Error(`CodeBuddy Intl state error: ${data.msg || "missing state/authUrl"}`);
+      throw new Error(`WorkBuddy Intl state error: ${data.msg || "missing state/authUrl"}`);
     }
     return {
       device_code: data.data.state,
