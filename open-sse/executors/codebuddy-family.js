@@ -168,6 +168,9 @@ export class CodeBuddyFamilyExecutor extends DefaultExecutor {
 
   async execute(opts) {
     const { credentials, log } = opts;
+    // The breaker key is derived per request from the credential — every breaker
+    // call in this method reads it, so it binds at the head, before any return.
+    const key = this.breakerKey(credentials);
     // M5 — the capability gate refuses BEFORE a credit is spent, and before the
     // breaker is touched. A refusal here is the request's fault, not the account's.
     // It is a 400 matching no ERROR_RULES text entry, so it classifies as

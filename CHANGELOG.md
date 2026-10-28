@@ -1,3 +1,26 @@
+# v1.2.5 — The Key That Never Was 📮🔑
+> *"One binding dropped on a refactor's floor, and a whole lane died at the harbor gate — four products' requests unwinding in three hundred milliseconds on an error thrown before the first byte left the ship. The wound was one missing line; the lesson is that no suite ever drove the real executor through execute() until today. I mend the line, and I forge the instrument that would have caught it before the tag."* 📮🔑💜
+**The codebuddy-intl lane (and its three family siblings) died at v1.2.4 with `ReferenceError: key is not defined` on every request — thrown inside `CodeBuddyFamilyExecutor.execute()` at the first breaker call, because the `key` binding was dropped when the family was assembled. Production confirmed: every `cbai/*` request failed in ~300ms with HTTP 502 and a 30-second model-lock per account; rolled back dockside to 1.1.9, 1.2.4 banned.**
+
+**🔑 The binding restored**
+- **`open-sse/executors/codebuddy-family.js`** — `execute()` now binds `const key = this.breakerKey(credentials)` at its head, before any return, feeding all ten breaker callsites (`breakerTryAdmit`, `breakerRecordSuccess`, `breakerRecordFailure`, `breakerRecordAnswered`). The method `breakerKey()` existed since v1.2.4's own assembly; nothing ever called it from the request path.
+- Family-only blast radius: `codebuddy-cn`, `codebuddy-intl`, `workbuddy-cn`, `workbuddy-intl` share the class; every other lane (mistral, je/*, ollama, …) never carried the wound.
+
+**🧪 The instrument that closes the coverage gap**
+- **`tests/unit/codebuddy-breaker-key-binding.test.js` (new)** — drives the REAL family executors through the REAL `execute()` (capability gate, breaker gate, no mocks) and asserts any thrown error is lawful network failure, never a ReferenceError naming `key`; pins `breakerKey` as a per-product, per-credential invariant (four products, one connectionId, four distinct keys, no collision); pins the four-product profile map.
+- The coverage gap named honestly: v1.2.4's 19 codebuddy suites proved wiring (`hasSpecializedExecutor`), identities, gates, ledgers and persistence — none ever *called* `execute()`. This suite is that call.
+
+**🧪 Proof**
+- `tests/unit/codebuddy-breaker-key-binding.test.js` — **3/3 green** (with the mend).
+- The full codebuddy fleet: **20 suites — 196/196 green** with the fix aboard. `codebuddy-four-products` (13), `codebuddy-gate`, `-breaker-boot` (boot binding, real sqlite adapter), `-breaker-ledger`, `-breaker-store`, `-door-leak`, `-intl-identity` all green.
+- `npx eslint` on the mended executor + new suite — **0 errors**.
+- `npm run build` green — static assets, public assets and `custom-server.js` copied to standalone; the boot bundle compiled with the fix inside it.
+
+**🌊 Recorded, not repeated**
+- **A wiring test is not a request test.** `hasSpecializedExecutor` proves a lane is *wired*; only driving `execute()` proves the lane *sails*. The distinction cost a production lane; the new suite holds it.
+- **A green fleet can hide a naked reference.** 196 tests passed in v1.2.4 while one unbound identifier killed every request on one lane — because the one code path carrying it had no caller in any suite. Coverage is measured by paths driven, not files touched.
+
+**⚓ What sailed** — `open-sse/executors/codebuddy-family.js` (one binding + comment, +3 lines) · `tests/unit/codebuddy-breaker-key-binding.test.js` (new) · `CHANGELOG.md` · `package.json` · `package-lock.json` · `docker-compose.example.yml` (+ live pin, never staged) · golden snapshots (regenerated for the version stamp).
 # v1.2.4 — One Hull, Four Shores 🌊🪞
 > *"Four doors answered to four copies of one law, and the copies had already begun to disagree — one lost its fallback, one carried a diverted URL it never let go, one wrote every WorkBuddy cooldown under a CodeBuddy's name. I read the reference gateway to its bed, towed the four hulls out of the water, and set one hull carrying all four shores — with every leak closed before the first lane moved."* 🌊🪞💜
 **The CodeBuddy family: `codebuddy-cn`, `codebuddy-intl`, `workbuddy-cn`, and `workbuddy-intl` now answer to one executor over four frozen profiles. Four near-identical files are gone; every difference between the products is data a test can read.**
