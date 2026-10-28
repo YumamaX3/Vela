@@ -58,6 +58,16 @@ source/*
 docs/*
 !docs/ARCHITECTURE.md
 !docs/VERSIONING.md
+# The charts sail with the fleet — the Star's decree, 2026-10-28: every README
+# link must resolve on a fresh clone. Only the seven root charts unbar here;
+# design/, images/ and superpowers/ stay withheld with the rest of docs/*.
+!docs/README.md
+!docs/DEPLOYMENT.md
+!docs/ENVIRONMENT.md
+!docs/STORAGE.md
+!docs/API.md
+!docs/PROVIDERS.md
+!docs/TROUBLESHOOTING.md
 test/*
 open-sse/test/*
 RM.vn.md

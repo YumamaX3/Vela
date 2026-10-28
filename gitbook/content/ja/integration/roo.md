@@ -1,127 +1,120 @@
-# Roo AIアシスタント統合
+# Roo AIアシスタントとの連携
 
-VelaをRoo AIアシスタントと統合し、統一インターフェイスから複数のAIモデルにアクセスします。
+Rooは、サイドバーに住むVS Codeのエージェントです。Velaに向ければ、接続したモデルすべてに、ひとつのキーとひとつのアドレスで届きます。
 
 ## 前提条件
 
-- Roo AIアシスタントがインストール済み
-- [ダッシュボード](https://vela.my.id/dashboard)からのVela APIキー
-- Velaが動作中 (ローカルまたはクラウド)
+- RooがVS Codeにインストール済み
+- Velaがローカルで動いているか、届くクラウドのエンドポイントがある
+- Velaのダッシュボード(**Endpoint & Key → Create Key**)で作ったAPIキー
 
 ## 設定手順
 
-### 1. Roo設定を開く
+### 1. Rooの設定を開く
 
-Roo AIアシスタントを起動し、設定パネルを開きます。
+Rooを起動し、サイドバーから設定パネルを開きます。
 
-### 2. APIプロバイダーを設定
+### 2. プロバイダーの種類を選ぶ
 
-1. **API Provider** 設定へ移動
-2. プロバイダータイプとして **Ollama** を選択
-3. 以下の設定を行う:
+**API Provider**で、**OpenAI Compatible**を選びます。VelaはOpenAI APIを話すので、それが正しい形です — RooはベースURLと、キーと、モデルIDを尋ねてきます。
 
-**ローカルVela用:**
+### 3. 3つのフィールドを埋める
+
+**ローカルのVela:**
+
 ```
-Base URL: http://localhost:32060/v1
-API Key: your-api-key-from-dashboard
-```
-
-**クラウドVela用:**
-```
-Base URL: https://vela.my.id/v1
-API Key: your-api-key-from-dashboard
+Base URL:  http://localhost:32060/v1
+API Key:   vela-v1-<id>-<checksum>
+Model:     cc/claude-opus-5
 ```
 
-### 3. モデルを選択
+**デプロイしたVela:**
 
-利用可能なVelaモデルから選択:
+```
+Base URL:  https://your-domain.example/v1
+API Key:   [your Vela key]
+Model:     cc/claude-opus-5
+```
 
-**Claudeモデル:**
-- `cc/claude-opus-4-5-20251101` - 最も高性能
-- `cc/claude-sonnet-4-20250514` - バランス
-- `cc/claude-haiku-4-20250514` - 高速
+### 4. 試す
 
-**DeepSeekモデル:**
-- `cx/deepseek-chat` - 汎用
-- `cx/deepseek-reasoner` - 複雑な推論
-
-**GLMモデル:**
-- `glm/glm-4-plus` - 高度
-- `glm/glm-4-flash` - 高速応答
-
-### 4. 接続をテスト
-
-統合を確認するためにテストメッセージを送信:
+これを送ります:
 
 ```
 Hello! Can you confirm you're connected through Vela?
 ```
 
+そのあとダッシュボードの**Usage**を見てください — リクエストが出ていて、そのキーに帰されているはずです。
+
+## モデルを選ぶ
+
+| モデル | レーン | 向いていること |
+|-------|------|------------|
+| `cc/claude-opus-5` | Claudeサブスクリプション | 最も難しい作業 |
+| `cc/claude-sonnet-5` | Claudeサブスクリプション | バランスのとれた日常の仕事 |
+| `cc/claude-haiku-4-5-20251001` | Claudeサブスクリプション | 手早い編集 |
+| `cx/gpt-5.6-sol` | Codexサブスクリプション | コーディングの重い問題 |
+| `glm/glm-4.7` | 格安 | 予算を抑えた長いセッション |
+| `kr/claude-sonnet-4.5` | 無料 | 有料のレーンを使い切ったとき |
+
+> **`cc/`のレーンについて。** Claude Codeのプロバイダー(`claude`、別名`cc`)には、このリリースで**非推奨**の印とリスクの注意書きがついています: 予告なく変わりうる文書化されていないClaude Codeのインターフェースに乗っているのです。今日は動き、Anthropicのサブスクリプションには自然な選択ですが、壊れたときのために`cx/`と無料の`kr/`のClaudeモデルを覚えておいてください。
+
 ## 使用例
 
-### 基本チャット
 ```
-Rooに質問: "Explain quantum computing in simple terms"
-Model: cc/claude-sonnet-4-20250514
-```
-
-### コード生成
-```
-Rooに質問: "Write a Python function to calculate Fibonacci numbers"
-Model: cx/deepseek-chat
-```
-
-### 複雑な推論
-```
-Rooに質問: "Analyze the trade-offs between microservices and monolithic architecture"
-Model: cx/deepseek-reasoner
+Quick tasks       : cc/claude-haiku-4-5-20251001  or  glm/glm-4.7
+Balanced work     : cc/claude-sonnet-5  or  cx/gpt-5.6-sol
+Hard reasoning    : cc/claude-opus-5
+Cost-sensitive    : glm/glm-4.7  →  kr/claude-sonnet-4.5
 ```
 
 ## モデル選択のヒント
 
-- **クイックタスク**: `cc/claude-haiku-4-20250514` または `glm/glm-4-flash` を使用
-- **バランスのとれたパフォーマンス**: `cc/claude-sonnet-4-20250514` または `cx/deepseek-chat` を使用
-- **複雑な推論**: `cc/claude-opus-4-5-20251101` または `cx/deepseek-reasoner` を使用
-- **コスト最適化**: DeepSeekまたはGLMモデルを使用
+- **速くて安い**ものを、名前の変更、コメントの修正、小さな編集に。
+- **Sonnet級**を、ふつうの機能の仕事に。
+- **Opus級**を、作業が多くのファイルにまたがるとき、論理が繊細なときに。
+- **コンボ**を、セッションがクォータの窓を越えて続くかもしれないときに — 終えられるか終えられないかの違いです。
 
 ## トラブルシューティング
 
-### 接続失敗
-- Velaが動作中か確認: `curl http://localhost:32060/health`
-- APIキーが正しいか確認
-- Base URLに `/v1` サフィックスが含まれていることを確認
+### 接続に失敗する
 
-### モデルが利用不可
-- モデル名が正確に一致するか確認 (大文字小文字を区別)
-- Velaプランでモデルが有効か確認
-- リストから別のモデルを試す
+1. `curl http://localhost:32060/api/health` → `{"ok":true}`。
+2. ベースURLが`/v1`で終わるか確かめてください。
+3. キーが完全か確かめてください。
+4. VS Codeのウィンドウを再読み込みしてください。
+
+### モデルが利用できない
+
+- IDは、大文字小文字も含めて、正確に一致しなければなりません。
+- **Providers**でプロバイダーが接続済みか確かめてください。
+- ゲートウェイ自身の一覧を確かめてください: `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`。
 
 ### 応答が遅い
-- より高速なモデルへ切替 (haiku、flash)
-- ネットワーク接続を確認
-- 問題についてVelaログをモニター
+
+- より軽いモデルへ移ってください(`cc/claude-haiku-4-5-20251001`、`glm/glm-4.7`)。
+- コンテキストを削ってください — 添えるファイルを減らす。
+- プロバイダーが劣化していないか確かめてください。
 
 ## 高度な設定
 
-### カスタムモデルエイリアス
+### 短いエイリアス
 
-Roo設定で頻繁に使うモデルのショートカットを作成:
+Rooが名前つきのモデルプリセットを保存できるなら、モデルではなく仕事の名で名づけてください:
 
 ```
-エイリアス: "fast" → cc/claude-haiku-4-20250514
-エイリアス: "smart" → cc/claude-opus-4-5-20251101
-エイリアス: "code" → cx/deepseek-chat
+"fast"  → cc/claude-haiku-4-5-20251001
+"smart" → cc/claude-opus-5
+"cheap" → glm/glm-4.7
+"chain" → never-stuck
 ```
 
-### 複数のプロファイル
+### 別々のプロファイル
 
-異なるユースケース用の異なるプロファイルをセットアップ:
-- **開発**: コード用のDeepSeekモデル
-- **執筆**: コンテンツ用のClaudeモデル
-- **リサーチ**: 分析用のReasonerモデル
+仕事の種類ごとに別のプロファイルを — コーディング、文章、調査 — それぞれに自分のモデルと自分のVelaキーを持たせ、利用が然るべき枠に落ちるように。
 
 ## 次のステップ
 
-- [Cursorを設定](cursor.md) IDE統合用
-- [Continueをセットアップ](continue.md) VSCode用
-- [CLI使用法を確認](../cli/basic-usage.md)
+- [Cursor](cursor.md) — IDEとの連携のための
+- [Continue](continue.md) — VS Codeのための
+- [コンボ](../features/combos.md) — 使う価値のあるフォールバックの鎖のための

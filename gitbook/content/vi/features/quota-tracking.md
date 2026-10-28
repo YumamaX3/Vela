@@ -1,687 +1,193 @@
-# Quota Tracking & Giám sát Usage
+# Theo dõi Quota & Giám sát mức dùng
 
-Theo dõi tiêu thụ token thời gian thực, giám sát giới hạn quota, ước tính chi phí và nhận cảnh báo trước khi hết. Không bao giờ lãng phí quota subscription hoặc vượt giới hạn ngân sách.
+Vela giữ lại một biên lai cho mọi thứ. Trang này nói về việc đọc những biên lai ấy: còn bao nhiêu hạn mức mỗi loại, khi nào nó reset, tiền đang đi đâu, và cách đặt một ngưỡng cứng lên đó.
 
 ---
 
 ## Tổng quan
 
-Vela cung cấp quota tracking toàn diện cho mọi provider:
-
-- **Tiêu thụ token thời gian thực** - Xem tokens dùng mỗi request
-- **Giới hạn quota & còn lại** - Theo dõi usage so với giới hạn
-- **Đếm ngược Reset** - Biết khi nào quota refresh
-- **Ước tính chi phí** - Tính chi tiêu cho tier trả phí
-- **Báo cáo hàng tháng** - Phân tích pattern sử dụng
-- **Cảnh báo & thông báo** - Nhận cảnh báo trước giới hạn
+- **Tiêu thụ trực tiếp** — token và chi phí theo từng request, từng model, từng key
+- **Quota và phần còn lại** — bạn đã dùng bao nhiêu trong hạn mức của mỗi nhà cung cấp
+- **Đồng hồ đếm ngược reset** — khi nào cửa sổ mở lại
+- **Ước tính chi phí** — tính từ các mức giá đi kèm Vela
+- **Ngưỡng ngân sách** — điểm dừng cứng, theo từng API key
+- **Lịch sử** — hôm nay, 7, 14, 30, 60 ngày, hoặc toàn bộ thời gian
 
 ---
 
-## Tổng quan Dashboard
-
-### Tóm tắt Quota
+## Các phòng của dashboard
 
 ```
-Dashboard → Home → Quota Overview
-
-┌─────────────────────────────────────────────┐
-│ Claude Code (cc/)                           │
-│ ████████████░░░░░░░░ 2.5h / 5h (50%)       │
-│ Resets in: 2h 30m                           │
-│ Cost: $0 (subscription)                     │
-└─────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────┐
-│ Gemini CLI (gc/)                            │
-│ ████████░░░░░░░░░░░░ 450 / 1000 (45%)      │
-│ Daily reset in: 18h 30m                     │
-│ Monthly: 45K / 180K (25%)                   │
-│ Cost: $0 (free tier)                        │
-└─────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────┐
-│ GLM-4.7 (glm/)                              │
-│ ██████████████░░░░░░ 7M / 10M tokens (70%)  │
-│ Resets: Daily 10:00 AM (in 5h 35m)         │
-│ Cost today: $4.20                           │
-└─────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────┐
-│ MiniMax M2.1 (minimax/)                     │
-│ ████████████████░░░░ 4M / 5M tokens (80%)   │
-│ Rolling 5h window                           │
-│ Cost (5h): $0.80                            │
-└─────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────┐
-│ iFlow (if/)                                 │
-│ ████████████████████ Unlimited              │
-│ Cost: $0 (free forever)                     │
-└─────────────────────────────────────────────┘
+Quota     per-provider allowances and reset times
+Usage     requests, tokens, cost, by period, model, combo and key
+Log Harbor   the request ledger, for when you need a single request
 ```
+
+### Trang Quota hiển thị gì
+
+Với mỗi nhà cung cấp đã kết nối, một hàng gồm:
+
+- **Đã dùng / tổng** — dưới dạng thanh và phần trăm, khi nhà cung cấp công bố một giới hạn
+- **Reset** — một đồng hồ đếm ngược đến cửa sổ kế tiếp
+- **Chi phí đến nay** — cho các tầng tính theo mức dùng
+
+Dữ liệu quota đến từ từng nhà cung cấp. Ở nơi nhà cung cấp không công bố một con số dùng được, Vela hiển thị những gì nó đo được (mức dùng của chính bạn) và nói rõ điều đó, thay vì bịa ra một phần trăm.
+
+### Trang Usage hiển thị gì
+
+- Các request và token của khoảng thời gian đã chọn
+- Chi phí chia theo model, combo và API key
+- Model nào thực sự đã trả lời (qua **Routed by Combo**)
 
 ---
 
-## Tiêu thụ Token Thời gian thực
+## Theo dõi từng request
 
-### Theo dõi từng Request
+Mọi request được ghi lại cùng model, số token, thời lượng, kết quả và chi phí. Khi một hoá đơn làm bạn bất ngờ, đây là nơi bạn tìm thấy request đã gây ra nó.
 
-Mỗi request hiển thị usage token chi tiết:
-
-```
-Dashboard → Activity → Recent Requests
-
-Request #1234
-Model: cc/claude-opus-4-5-20251101
-Timestamp: 2026-02-04 04:15:32
-
-Tokens:
-  Input: 1,250 tokens
-  Output: 850 tokens
-  Total: 2,100 tokens
-
-Cost: $0 (subscription quota)
-Duration: 3.2s
-Status: ✅ Success
-```
-
-### Live Usage Monitor
-
-```
-Dashboard → Live Monitor
-
-Current request:
-  Model: glm/glm-4.7
-  Tokens streamed: 450 / ~800 estimated
-  Cost so far: $0.0009
-  Duration: 1.8s
-```
-
-### Phân tích Token theo Model
-
-```
-Dashboard → Analytics → Token Usage
-
-Today (Feb 4, 2026):
-  cc/claude-opus-4-5: 15M tokens ($0, subscription)
-  glm/glm-4.7: 8M tokens ($4.80)
-  if/kimi-k2-thinking: 3M tokens ($0, free)
-  
-Total: 26M tokens
-Cost: $4.80
-```
+Nếu bạn muốn toàn văn các request và phản hồi, hãy bật `ENABLE_REQUEST_LOGS` — nó mặc định tắt vì dung lượng lớn và chứa bất cứ thứ gì bạn đã gửi.
 
 ---
 
-## Giới hạn Quota & Thời gian Reset
+## Các hình dạng quota hành xử thế nào
 
-### Subscription Providers
+Quota không phải một thứ duy nhất. Các nhà cung cấp dùng nhiều hình dạng, và chúng reset khác nhau:
 
-**Claude Code (Pro/Max)**
-```
-Quota type: Time-based (5-hour rolling)
-Limit: 5 hours of usage
-Reset: Rolling 5-hour window + Weekly refresh
-Tracking: Usage time per model
+| Hình dạng | Nhà cung cấp điển hình | Cách reset |
+|-------|-------------------|---------------|
+| **Cửa sổ cuốn chiếu** | Claude Code, Codex | cửa sổ trượt; hạn mức trở lại khi mức dùng cũ già đi |
+| **Ngày cố định** | một số tầng giá rẻ | vào một giờ cố định, theo múi giờ của nhà cung cấp |
+| **Hàng tháng** | Copilot, các gói | vào một ngày, thường là ngày 1 hoặc ngày thanh toán của bạn |
+| **Credit tính theo mức dùng** | GLM, MiniMax, phần lớn API key | không bao giờ "reset" — nó là một số dư |
 
-Dashboard shows:
-  Opus: 2.5h / 5h used
-  Sonnet: 1.2h / 5h used
-  Haiku: 0.8h / 5h used
-  
-Weekly reset: Every Monday 00:00 UTC
-```
-
-**OpenAI Codex (Plus/Pro)**
-```
-Quota type: Time-based (5-hour rolling)
-Limit: 5 hours (Plus) / 10 hours (Pro)
-Reset: Rolling 5-hour window + Weekly refresh
-
-Dashboard shows:
-  GPT-5.2 Codex: 3.5h / 5h used
-  Resets in: 1h 30m
-```
-
-**Gemini CLI (MIỄN PHÍ)**
-```
-Quota type: Request count + Monthly tokens
-Daily limit: 1,000 requests
-Monthly limit: 180,000 completions
-Reset: Daily 00:00 UTC + Monthly 1st
-
-Dashboard shows:
-  Today: 450 / 1,000 requests (45%)
-  This month: 45K / 180K completions (25%)
-  Daily reset in: 18h 30m
-  Monthly reset in: 26 days
-```
-
-**GitHub Copilot**
-```
-Quota type: Monthly usage
-Limit: Varies by plan
-Reset: 1st of each month
-
-Dashboard shows:
-  Usage: 60% of monthly quota
-  Resets: March 1, 2026 (in 25 days)
-```
-
-### Cheap Providers
-
-**GLM-4.7**
-```
-Quota type: Daily token limit
-Limit: 10M tokens/day (Coding Plan)
-Reset: Daily 10:00 AM Beijing Time (UTC+8)
-
-Dashboard shows:
-  Used: 7M / 10M tokens (70%)
-  Remaining: 3M tokens
-  Resets in: 5h 35m
-  Cost today: $4.20
-```
-
-**MiniMax M2.1**
-```
-Quota type: Rolling 5-hour window
-Limit: 5M tokens per 5 hours
-Reset: Continuous rolling window
-
-Dashboard shows:
-  Used (5h): 4M / 5M tokens (80%)
-  Oldest usage expires in: 45m
-  Cost (5h): $0.80
-```
-
-**Kimi K2**
-```
-Quota type: Monthly subscription
-Limit: 10M tokens/month ($9 flat)
-Reset: Monthly on subscription date
-
-Dashboard shows:
-  Used: 6M / 10M tokens (60%)
-  Resets: Feb 15, 2026 (in 11 days)
-  Cost: $9/month (prepaid)
-```
-
-### Free Providers
-
-**iFlow / Qwen / Kiro**
-```
-Quota type: Unlimited (rate-limited)
-Limit: No hard limit
-Reset: N/A
-
-Dashboard shows:
-  Used today: 5M tokens
-  Cost: $0 (free forever)
-  Status: ✅ Available
-```
+Hệ quả thực tế: trên một cửa sổ cuốn chiếu, chờ một giờ có thể đủ; trên một cửa sổ ngày cố định, có thể đáng đi ngủ; trên một số dư, chỉ việc trả tiền mới giúp.
 
 ---
 
-## Ước tính Chi phí
+## Ước tính chi phí
 
-### Theo dõi Chi phí Thời gian thực
+Vela ước tính chi phí từ `open-sse/providers/pricing.js`. Hai mức giá quan trọng nhất ở đây:
 
-```
-Dashboard → Costs → Today
+| Model | Input /1M | Output /1M |
+|-------|-----------|------------|
+| `glm/glm-4.7` | $0.60 | $2.20 |
+| `minimax/MiniMax-M2.1` | $0.30 | $1.20 |
 
-Subscription providers: $0
-  Claude Code: 15M tokens ($0, included)
-  Gemini CLI: 3M tokens ($0, free tier)
+Bởi output có giá gấp ba đến bốn lần input, một cuộc trò chuyện nặng về output tốn nhiều hơn hẳn một prompt dài với câu trả lời ngắn. Khi một con số có vẻ cao, hãy nhìn vào tỉ lệ chia trước khi đi tìm lỗi.
 
-Paid providers: $4.80
-  GLM-4.7: 8M tokens ($4.80)
-    Input: 6M × $0.60/1M = $3.60
-    Output: 2M × $2.20/1M = $4.40
-    Total: $4.80
-
-Free providers: $0
-  iFlow: 3M tokens ($0)
-
-Total today: $4.80
-```
-
-### Báo cáo Chi tiêu Hàng tháng
-
-```
-Dashboard → Costs → This Month (February 2026)
-
-Week 1 (Feb 1-7):
-  Subscription: $0 (80M tokens)
-  Paid: $15.20 (25M tokens)
-  Free: $0 (10M tokens)
-  Total: $15.20
-
-Week 2 (Feb 8-14):
-  Subscription: $0 (75M tokens)
-  Paid: $12.80 (20M tokens)
-  Free: $0 (8M tokens)
-  Total: $12.80
-
-Month to date: $28.00
-Projected (30 days): ~$120
-
-Breakdown by provider:
-  GLM-4.7: $22.00 (78%)
-  MiniMax M2.1: $6.00 (22%)
-  
-Average cost per 1M tokens: $0.62
-Savings vs ChatGPT API: 97% ($4,000 → $120)
-```
-
-### Dự kiến Chi phí
-
-```
-Dashboard → Costs → Projections
-
-Based on last 7 days usage:
-  Daily average: 50M tokens
-  Daily cost: $4.50
-
-Monthly projection:
-  Tokens: 1,500M (1.5B)
-  Cost: $135
-  
-Breakdown:
-  Subscription: 900M tokens ($0)
-  GLM-4.7: 450M tokens ($90)
-  MiniMax: 120M tokens ($24)
-  Free: 30M tokens ($0)
-
-Budget status:
-  Daily limit: $5 → 90% used today
-  Monthly limit: $150 → 90% projected
-  ⚠️ Warning: May exceed monthly budget
-```
+Ước tính vẫn chỉ là ước tính: một nhà cung cấp có thể đổi giá bán lẻ trước khi bảng của Vela theo kịp. Hoá đơn của bạn là thẩm quyền.
 
 ---
 
-## Dashboard Usage
+## Ngân sách và ngưỡng
 
-### Thống kê Tổng quan
+Có hai loại điều khiển khác nhau, và chúng hành xử khác nhau. Đáng biết bạn đã bật cái nào.
 
-```
-Dashboard → Analytics → Overview
-
-Today (Feb 4, 2026):
-  Requests: 1,234
-  Tokens: 26M
-  Cost: $4.80
-  Avg response time: 2.1s
-
-This week:
-  Requests: 8,456
-  Tokens: 180M
-  Cost: $28.00
-  Success rate: 99.2%
-
-This month:
-  Requests: 15,234
-  Tokens: 320M
-  Cost: $52.00
-  Top model: cc/claude-opus-4-5 (45%)
-```
-
-### Usage theo Model
+### Ngân sách theo key (điểm dừng cứng)
 
 ```
-Dashboard → Analytics → Models
-
-Top models (this month):
-1. cc/claude-opus-4-5: 145M tokens (45%)
-2. glm/glm-4.7: 95M tokens (30%)
-3. if/kimi-k2-thinking: 50M tokens (16%)
-4. minimax/MiniMax-M2.1: 20M tokens (6%)
-5. gc/gemini-3-flash: 10M tokens (3%)
-
-Cost breakdown:
-  cc/claude-opus: $0 (subscription)
-  glm/glm-4.7: $45.00
-  if/kimi-k2-thinking: $0 (free)
-  minimax/MiniMax-M2.1: $7.00
-  gc/gemini-3-flash: $0 (free)
+Dashboard → Endpoint & Key → Create Key (or edit one)
+  token budget:  daily / weekly / monthly / yearly
+  spend cap:     in currency
 ```
 
-### Usage theo Thời gian
+Khi một key chạm ngưỡng của nó, các request qua key đó bị từ chối:
 
 ```
-Dashboard → Analytics → Timeline
-
-Hourly usage (today):
-00:00 - 01:00: 0.5M tokens
-01:00 - 02:00: 0.2M tokens
-...
-08:00 - 09:00: 3.2M tokens (peak)
-09:00 - 10:00: 2.8M tokens
-...
-23:00 - 00:00: 0.8M tokens
-
-Peak hours: 08:00 - 12:00 (morning coding)
-Low hours: 00:00 - 06:00 (night)
+HTTP 429 — "Monthly spend cap exceeded: $20.00 of $20.00 used (budget_exceeded)"
 ```
 
-### Usage theo Combo
+Đó là một lần từ chối, không phải một lần chuyển hướng. Vela không đưa bạn sang một model rẻ hơn để ở dưới ngưỡng; nó dừng lại, bởi "dừng" chính là điều bạn đã yêu cầu.
 
-```
-Dashboard → Analytics → Combos
+### Ngân sách gateway (ngưỡng mềm và trần cứng)
 
-premium-coding:
-  Requests: 456
-  Tokens: 12M
-  Cost: $2.40
-  
-  Breakdown:
-    cc/claude-opus: 8M tokens (67%, $0)
-    glm/glm-4.7: 3M tokens (25%, $1.80)
-    minimax/MiniMax-M2.1: 1M tokens (8%, $0.20)
+Ngân sách mức dùng có thể được đặt ở phạm vi gateway, key hoặc model, với các cửa sổ ngày, tuần hoặc tháng. Chúng phát cảnh báo ở 50%, 80% và 100%, và từ chối thẳng một khi vượt trần cứng — bằng một mã nêu rõ phạm vi.
 
-budget-combo:
-  Requests: 234
-  Tokens: 6M
-  Cost: $1.20
-  
-  Breakdown:
-    glm/glm-4.7: 4M tokens (67%, $2.40)
-    if/kimi-k2-thinking: 2M tokens (33%, $0)
-```
+### Khác biệt với fallback
+
+Một combo chuyển sang model kế tiếp khi một request **thất bại**. Một ngân sách từ chối khi bạn đã **tiêu đủ**. Không cái nào xảy ra ngoài ý muốn, và không cái nào đoán thay bạn.
 
 ---
 
-## Cảnh báo & Thông báo
+## Đọc mức dùng của chính bạn qua API
 
-### Cảnh báo Quota
-
-```
-Dashboard → Settings → Alerts
-
-Quota warnings:
-  ✅ Alert at 80% quota used
-  ✅ Alert at 90% quota used
-  ✅ Alert when quota exhausted
-  ✅ Notify when quota resets
-
-Delivery:
-  ✅ Dashboard notification
-  ✅ Email (optional)
-  ✅ Webhook (optional)
-```
-
-**Ví dụ thông báo:**
-```
-⚠️ Claude Code quota 80% used
-   2.5h remaining (resets in 1h 30m)
-   
-⚠️ GLM-4.7 quota 90% used
-   1M tokens remaining (resets in 5h)
-   
-✅ Gemini CLI quota reset
-   1,000 requests available (daily limit)
-```
-
-### Cảnh báo Ngân sách
-
-```
-Dashboard → Settings → Budget Alerts
-
-Daily budget: $5
-  ✅ Alert at 80% ($4)
-  ✅ Alert at 100% ($5)
-  ✅ Auto-switch to free tier when exceeded
-
-Monthly budget: $150
-  ✅ Alert at 50% ($75)
-  ✅ Alert at 80% ($120)
-  ✅ Alert at 100% ($150)
-```
-
-**Ví dụ thông báo:**
-```
-⚠️ Daily budget 80% used
-   $4.00 / $5.00 spent today
-   
-⚠️ Monthly budget 50% reached
-   $75 / $150 spent this month
-   Projected: $135 (within budget)
-   
-🚨 Daily budget exceeded
-   $5.20 / $5.00 spent today
-   Auto-switched to free tier
-```
-
-### Phát hiện Bất thường Chi phí
-
-```
-Dashboard → Settings → Anomaly Detection
-
-✅ Detect unusual spending patterns
-✅ Alert on cost spikes (>2× daily average)
-✅ Warn on quota exhaustion patterns
-
-Example alert:
-⚠️ Cost spike detected
-   Today: $12.50 (2.5× daily average)
-   Reason: High GLM-4.7 usage (20M tokens)
-   Suggestion: Check if primary models quota-exhausted
-```
-
----
-
-## Best Practices
-
-### 1. Theo dõi Quota Hàng ngày
-
-```
-Daily routine:
-1. Check dashboard quota overview (30 seconds)
-2. Review reset times
-3. Plan usage around quota availability
-```
-
-**Ví dụ:**
-```
-Morning check:
-  ✅ Claude Code: 5h available (fresh reset)
-  ✅ Gemini CLI: 1K requests available
-  ⚠️ GLM-4.7: 2M tokens left (resets 10AM)
-  
-Action: Use Claude Code for morning work
-```
-
-### 2. Đặt Giới hạn Ngân sách
-
-```
-Dashboard → Settings → Budget:
-  Daily: $5 (prevents overspending)
-  Monthly: $150 (aligns with budget)
-```
-
-**Kết quả**: Auto-switch sang free tier khi đạt giới hạn.
-
-### 3. Tối ưu Combo Usage
-
-```
-Dashboard → Analytics → Combos:
-  Review which models are used most
-  Adjust combo order to minimize costs
-```
-
-**Ví dụ:**
-```
-Current: cc/claude-opus → glm/glm-4.7
-  80% via Claude (good)
-  20% via GLM ($12/month)
-
-Optimized: gc/gemini-3-flash → cc/claude-opus → glm/glm-4.7
-  50% via Gemini (free)
-  40% via Claude (subscription)
-  10% via GLM ($6/month)
-  
-Savings: $6/month
-```
-
-### 4. Theo dõi Thời gian Reset
-
-```
-Dashboard → Quota → Reset Schedule:
-  Claude Code: 5h rolling + Weekly Monday
-  Gemini CLI: Daily 00:00 UTC + Monthly 1st
-  GLM-4.7: Daily 10:00 AM Beijing Time
-  MiniMax: Rolling 5h window
-```
-
-**Chiến lược**: Dùng provider khi quota mới reset.
-
-### 5. Xem Báo cáo Hàng tháng
-
-```
-Dashboard → Analytics → Monthly Report:
-  Total tokens: 1.5B
-  Total cost: $120
-  Savings: 97% vs ChatGPT API
-  
-Insights:
-  - 60% usage via subscriptions ($0)
-  - 30% via GLM ($90)
-  - 10% via free tier ($0)
-  
-Optimization:
-  - Increase Gemini CLI usage (free)
-  - Reduce GLM usage (expensive)
-```
-
----
-
-## Truy cập API
-
-### Lấy trạng thái Quota
+Dashboard đọc từ chính những endpoint mà bạn cũng dùng được:
 
 ```bash
-GET http://localhost:32060/api/quota
-Authorization: Bearer your-api-key
+# Usage summary
+curl "http://localhost:32060/api/usage/stats?period=7d" \
+  -H "Authorization: Bearer <key>"
 
-Response:
-{
-  "providers": [
-    {
-      "id": "cc",
-      "name": "Claude Code",
-      "quota": {
-        "used": 2.5,
-        "limit": 5,
-        "unit": "hours",
-        "percentage": 50
-      },
-      "reset": {
-        "type": "rolling",
-        "window": "5h",
-        "nextReset": "2026-02-04T06:45:00Z"
-      },
-      "cost": {
-        "today": 0,
-        "month": 0,
-        "currency": "USD"
-      }
-    },
-    {
-      "id": "glm",
-      "name": "GLM-4.7",
-      "quota": {
-        "used": 7000000,
-        "limit": 10000000,
-        "unit": "tokens",
-        "percentage": 70
-      },
-      "reset": {
-        "type": "daily",
-        "time": "10:00 AM UTC+8",
-        "nextReset": "2026-02-04T10:00:00+08:00"
-      },
-      "cost": {
-        "today": 4.20,
-        "month": 52.00,
-        "currency": "USD"
-      }
-    }
-  ]
-}
+# Request metrics over time (for charts)
+curl "http://localhost:32060/api/usage/metrics/timeseries?period=7d" \
+  -H "Authorization: Bearer <key>"
+
+# Budget definitions
+curl "http://localhost:32060/api/usage/budgets" \
+  -H "Authorization: Bearer <key>"
 ```
 
-### Lấy Usage Stats
-
-```bash
-GET http://localhost:32060/api/usage?period=today
-Authorization: Bearer your-api-key
-
-Response:
-{
-  "period": "today",
-  "date": "2026-02-04",
-  "summary": {
-    "requests": 1234,
-    "tokens": 26000000,
-    "cost": 4.80
-  },
-  "byModel": [
-    {
-      "model": "cc/claude-opus-4-5",
-      "requests": 456,
-      "tokens": 15000000,
-      "cost": 0
-    },
-    {
-      "model": "glm/glm-4.7",
-      "requests": 234,
-      "tokens": 8000000,
-      "cost": 4.80
-    }
-  ]
-}
-```
+Các khoảng thời gian hợp lệ: `today`, `24h`, `7d`, `14d`, `30d`, `60d`, `all`. Đây chính là những cửa sổ mà bộ chọn khoảng thời gian của dashboard dùng, khiến chúng tiện cho một script hàng tuần.
 
 ---
 
-## Troubleshooting
+## Cảnh báo
 
-**Issue: Quota hiển thị 0% nhưng request thất bại**
+Các bản ghi cảnh báo được tạo ra khi một ngân sách vượt một ngưỡng, và có thể được gửi đến một banner trong dashboard, một webhook Discord hoặc một webhook n8n, tuỳ vào những gì bạn đã cấu hình.
 
-**Giải pháp:**
-1. Kiểm tra kết nối provider (Dashboard → Providers)
-2. Xác minh API keys hợp lệ
-3. Kiểm tra provider có down không (trang status)
-4. Thử kết nối lại OAuth providers
+Một email tóm tắt hàng tháng không phải thứ Vela tự gửi; nếu bạn muốn, API trên cùng một cron job là một script mười dòng.
 
-**Issue: Ước tính chi phí sai**
+---
 
-**Giải pháp:**
-1. Dashboard → Settings → Pricing
-2. Xác minh giá mỗi provider khớp với mức hiện tại
-3. Cập nhật giá nếu provider thay đổi
-4. Liên hệ support nếu vẫn lệch
+## Thói quen tốt
 
-**Issue: Thời gian reset không cập nhật**
+### 1. Nhìn một lần mỗi ngày
 
-**Giải pháp:**
-1. Refresh dashboard (F5)
-2. Kiểm tra thời gian hệ thống đúng
-3. Xác minh cài đặt timezone
-4. Khởi động lại Vela nếu vẫn lỗi
+Trang **Quota** mất mười giây. Nó cho bạn biết nhiều về tuần của bạn hơn bất kỳ công cụ năng suất nào.
 
-**Issue: Không nhận được cảnh báo**
+### 2. Đặt ngưỡng cho các key chạy không người trông
 
-**Giải pháp:**
-1. Dashboard → Settings → Alerts
-2. Xác minh địa chỉ email đúng
-3. Kiểm tra folder spam
-4. Test notification (nút Send Test)
+Agent, job nền, bất cứ thứ gì lặp đi lặp lại. Một ngưỡng bạn đặt một lần tốt hơn một hoá đơn bạn đọc một lần.
+
+### 3. Mỗi công cụ một key riêng
+
+Khi ấy báo cáo mức dùng theo key mới thực sự có nghĩa.
+
+### 4. Ưu tiên model rẻ hơn cho công việc nhàm chán
+
+Một combo đặt GLM trước cho "viết một commit message" tốn ít hơn nhiều so với một combo gửi nó cho Opus, và trả lời tốt y như vậy.
+
+### 5. Xem các ước tính đúng như chúng là
+
+Chúng được suy ra từ những mức giá được công bố và số token. Đủ chính xác để lập ngân sách, không đủ chính xác để cãi với một hoá đơn.
+
+---
+
+## Khắc phục sự cố
+
+### Quota hiển thị đã dùng, nhưng request thất bại
+
+Nhà cung cấp có thể đang áp một giới hạn Vela không nhìn thấy (một trần cấp tài khoản, một rate limit theo phút). Con số quota là một chỉ dẫn, không phải một lời hứa. Hãy thử một model khác hoặc kiểm tra trang trạng thái của nhà cung cấp.
+
+### Chi phí có vẻ sai
+
+1. Kiểm tra các mức giá: **Nhà cung cấp giá rẻ** liệt kê những mức Vela đi kèm.
+2. Kiểm tra tỉ lệ chia — token output chiếm phần lớn.
+3. Kiểm tra model — các biến thể `-highspeed` và lớn hơn tốn nhiều hơn.
+4. Nếu một nhà cung cấp đã đổi giá, ước tính sẽ lệch cho đến khi bảng được cập nhật.
+
+### Đồng hồ đếm ngược reset có vẻ đứng yên
+
+Tải lại trang; dữ liệu quota được lấy khi trang tải. Nếu bản thân đồng hồ đếm ngược sai với một nhà cung cấp có công bố thời điểm reset, đó là một chi tiết thượng nguồn mà Vela đang hiển thị, không phải đang tính toán.
+
+### Đã chạm ngân sách, nhưng tôi muốn tiếp tục
+
+Sửa ngân sách của key trong **Endpoint & Key**, hoặc dùng một key khác. Việc từ chối chính là ngưỡng đang làm đúng việc của nó.
 
 ---
 
 ## Liên quan
 
-- [Smart Routing](./smart-routing.md) - Auto fallback dựa trên quota
-- [Combos](./combos.md) - Tạo chuỗi fallback tùy chỉnh
+- [Định tuyến thông minh](smart-routing.md) — request đi đâu, và tại sao
+- [Combos](combos.md) — những chuỗi đằng sau các chi phí
+- [Nhà cung cấp giá rẻ](../providers/cheap.md) — các mức giá chi tiết

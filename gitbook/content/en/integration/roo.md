@@ -1,127 +1,120 @@
 # Roo AI Assistant Integration
 
-Integrate Vela with Roo AI Assistant to access multiple AI models through a unified interface.
+Roo is a VS Code agent that lives in the sidebar. Point it at Vela and it reaches every model you have connected, with one key and one address.
 
 ## Prerequisites
 
-- Roo AI Assistant installed
-- Vela API key from [dashboard](https://vela.my.id/dashboard)
-- Vela running (local or cloud)
+- Roo installed in VS Code
+- Vela running locally, or a reachable cloud endpoint
+- An API key from the Vela dashboard (**Endpoint & Key → Create Key**)
 
-## Configuration Steps
+## Configuration steps
 
-### 1. Open Roo Settings
+### 1. Open Roo's settings
 
-Launch Roo AI Assistant and open the settings panel.
+Launch Roo and open its settings panel from the sidebar.
 
-### 2. Configure API Provider
+### 2. Choose the provider type
 
-1. Navigate to **API Provider** settings
-2. Select **Ollama** as the provider type
-3. Configure the following settings:
+Under **API Provider**, choose **OpenAI Compatible**. Vela speaks the OpenAI API, so that is the right shape — Roo will ask for a base URL, a key and a model id.
 
-**For Local Vela:**
+### 3. Fill in the three fields
+
+**Local Vela:**
+
 ```
-Base URL: http://localhost:32060/v1
-API Key: your-api-key-from-dashboard
-```
-
-**For Cloud Vela:**
-```
-Base URL: https://vela.my.id/v1
-API Key: your-api-key-from-dashboard
+Base URL:  http://localhost:32060/v1
+API Key:   vela-v1-<id>-<checksum>
+Model:     cc/claude-opus-5
 ```
 
-### 3. Select Model
+**Deployed Vela:**
 
-Choose from available Vela models:
+```
+Base URL:  https://your-domain.example/v1
+API Key:   [your Vela key]
+Model:     cc/claude-opus-5
+```
 
-**Claude Models:**
-- `cc/claude-opus-4-5-20251101` - Most capable
-- `cc/claude-sonnet-4-20250514` - Balanced
-- `cc/claude-haiku-4-20250514` - Fast
+### 4. Test it
 
-**DeepSeek Models:**
-- `cx/deepseek-chat` - General purpose
-- `cx/deepseek-reasoner` - Complex reasoning
-
-**GLM Models:**
-- `glm/glm-4-plus` - Advanced
-- `glm/glm-4-flash` - Fast responses
-
-### 4. Test Connection
-
-Send a test message to verify the integration:
+Send:
 
 ```
 Hello! Can you confirm you're connected through Vela?
 ```
 
-## Usage Examples
+Then look under **Usage** in the dashboard — the request should be there, attributed to that key.
 
-### Basic Chat
+## Choosing a model
+
+| Model | Lane | Use it for |
+|-------|------|------------|
+| `cc/claude-opus-5` | Claude subscription | the hardest tasks |
+| `cc/claude-sonnet-5` | Claude subscription | balanced everyday work |
+| `cc/claude-haiku-4-5-20251001` | Claude subscription | quick edits |
+| `cx/gpt-5.6-sol` | Codex subscription | coding-heavy problems |
+| `glm/glm-4.7` | cheap | long sessions on a budget |
+| `kr/claude-sonnet-4.5` | free | when paid lanes are spent |
+
+> **A note on the `cc/` lane.** The Claude Code provider (`claude`, alias `cc`) carries a **deprecated** marker with a risk notice in this release: it rides an undocumented Claude Code interface that can change without notice. It works today and it is the natural choice for an Anthropic subscription — keep `cx/` and the free `kr/` Claude models in mind if it breaks.
+
+## Usage examples
+
 ```
-Ask Roo: "Explain quantum computing in simple terms"
-Model: cc/claude-sonnet-4-20250514
+Quick tasks       : cc/claude-haiku-4-5-20251001  or  glm/glm-4.7
+Balanced work     : cc/claude-sonnet-5  or  cx/gpt-5.6-sol
+Hard reasoning    : cc/claude-opus-5
+Cost-sensitive    : glm/glm-4.7  →  kr/claude-sonnet-4.5
 ```
 
-### Code Generation
-```
-Ask Roo: "Write a Python function to calculate Fibonacci numbers"
-Model: cx/deepseek-chat
-```
+## Model selection tips
 
-### Complex Reasoning
-```
-Ask Roo: "Analyze the trade-offs between microservices and monolithic architecture"
-Model: cx/deepseek-reasoner
-```
-
-## Model Selection Tips
-
-- **Quick tasks**: Use `cc/claude-haiku-4-20250514` or `glm/glm-4-flash`
-- **Balanced performance**: Use `cc/claude-sonnet-4-20250514` or `cx/deepseek-chat`
-- **Complex reasoning**: Use `cc/claude-opus-4-5-20251101` or `cx/deepseek-reasoner`
-- **Cost optimization**: Use DeepSeek or GLM models
+- **Fast and cheap** for renames, comment fixes and small edits.
+- **Sonnet-class** for ordinary feature work.
+- **Opus-class** when a task spans many files or the logic is subtle.
+- **A combo** when the session may outlive a quota window — it is the difference between finishing and not.
 
 ## Troubleshooting
 
-### Connection Failed
-- Verify Vela is running: `curl http://localhost:32060/health`
-- Check API key is correct
-- Ensure Base URL includes `/v1` suffix
+### Connection failed
 
-### Model Not Available
-- Check model name matches exactly (case-sensitive)
-- Verify model is enabled in your Vela plan
-- Try a different model from the list
+1. `curl http://localhost:32060/api/health` → `{"ok":true}`.
+2. Check the base URL ends in `/v1`.
+3. Check the key is complete.
+4. Reload the VS Code window.
 
-### Slow Responses
-- Switch to faster models (haiku, flash)
-- Check network connection
-- Monitor Vela logs for issues
+### Model not available
 
-## Advanced Configuration
+- The id must match exactly, case included.
+- Confirm the provider is connected in **Providers**.
+- Check the gateway's own list: `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`.
 
-### Custom Model Aliases
+### Slow responses
 
-You can create shortcuts for frequently used models in Roo settings:
+- Move to a lighter model (`cc/claude-haiku-4-5-20251001`, `glm/glm-4.7`).
+- Trim the context — fewer attached files.
+- Check the provider is not degraded.
+
+## Advanced
+
+### Short aliases
+
+If Roo lets you save named model presets, name them after the job rather than the model:
 
 ```
-Alias: "fast" → cc/claude-haiku-4-20250514
-Alias: "smart" → cc/claude-opus-4-5-20251101
-Alias: "code" → cx/deepseek-chat
+"fast"  → cc/claude-haiku-4-5-20251001
+"smart" → cc/claude-opus-5
+"cheap" → glm/glm-4.7
+"chain" → never-stuck
 ```
 
-### Multiple Profiles
+### Separate profiles
 
-Set up different profiles for different use cases:
-- **Development**: DeepSeek models for code
-- **Writing**: Claude models for content
-- **Research**: Reasoner models for analysis
+Different profiles for different kinds of work — coding, writing, research — each with its own model and its own Vela key, so usage lands in the right bucket.
 
-## Next Steps
+## Next steps
 
-- [Configure Cursor](cursor.md) for IDE integration
-- [Set up Continue](continue.md) for VSCode
-- [Explore CLI usage](../cli/basic-usage.md)
+- [Cursor](cursor.md) for IDE integration
+- [Continue](continue.md) for VS Code
+- [Combos](../features/combos.md) for the fallback chains worth using

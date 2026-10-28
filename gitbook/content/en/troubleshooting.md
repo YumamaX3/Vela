@@ -1,350 +1,215 @@
 # Troubleshooting
 
-Common issues and solutions when using Vela.
+Most problems with Vela are one of five things: it is not running, the key is wrong, the model name does not exist, a provider is out of quota, or a network in between is in the way.
+
+This page takes them in the order you are likely to meet them. Every fix is something you can check in under a minute.
+
+---
+
+## First, two checks that solve half of everything
+
+```bash
+# 1. Is the gateway alive?
+curl http://localhost:32060/api/health
+# → {"ok":true}
+
+# 2. Can it see any models?
+curl http://localhost:32060/v1/models -H "Authorization: Bearer <your key>"
+```
+
+- **No answer at all** → it is not running, or it is on a different port. See [Connection refused](#connection-refused).
+- **An answer, but an empty model list** → no provider is connected. See [Model not found](#model-not-found).
+- **A `401`** → the key. See [API key invalid](#api-key-invalid).
+- **A `429`** → quota, rate limit or a budget you set. See [Rate limiting](#rate-limiting).
 
 ---
 
 ## "Language model did not provide messages"
 
-**Problem:** Request fails with empty response or error message.
+**What it means:** the request reached a provider and came back empty or refused.
 
-**Causes:**
-- Provider quota exhausted
-- API key invalid or expired
-- Model not available
+**Causes:** exhausted quota, an expired connection, or a model that the upstream no longer serves.
 
-**Solutions:**
+**Fixes:**
 
-1. **Check quota status:**
-   ```
-   Dashboard → Providers → View quota tracker
-   ```
-   If quota is exhausted, wait for reset or switch provider.
+1. **Check the allowance** — **Quota**, for this provider's remaining amount and reset countdown.
+2. **Check the connection** — **Providers**: an expired OAuth connection shows as needing attention. Disconnect, then Connect again.
+3. **Use a combo** so the next model answers while you investigate:
 
-2. **Use combo fallback:**
    ```
-   Dashboard → Combos → Create fallback chain
-   Example: cc/claude-opus → glm/glm-4.7 → if/kimi-k2
-   ```
-
-3. **Verify provider connection:**
-   ```
-   Dashboard → Providers → Reconnect if needed
+   cc/claude-opus-5 → glm/glm-4.7 → if/qwen3-coder-plus
    ```
 
 ---
 
-## Rate Limiting
+## Rate limiting
 
-**Problem:** "Rate limit exceeded" or "Too many requests" errors.
+**What it means:** `429 Too Many Requests`, often with a retry hint.
 
-**Causes:**
-- Subscription quota depleted (5-hour/daily/weekly limits)
-- API rate limits hit
-- Too many concurrent requests
+**Causes:** the subscription window is closed, a per-minute limit was hit by a burst, or a budget ceiling on your key was reached.
 
-**Solutions:**
+**Fixes:**
 
-1. **Check reset time:**
-   ```
-   Dashboard → Quota Tracking → View reset countdown
-   ```
-
-2. **Switch to cheap tier:**
-   ```
-   Use: glm/glm-4.7 ($0.6/1M tokens)
-        minimax/MiniMax-M2.1 ($0.20/1M tokens)
-   ```
-
-3. **Add fallback combo:**
-   ```
-   Dashboard → Combos → Add backup models
-   Primary: cc/claude-opus (subscription)
-   Backup: glm/glm-4.7 (cheap)
-   Emergency: if/kimi-k2 (free)
-   ```
+1. **Read the code in the response.** A `budget_exceeded` code means you set a ceiling and reached it — edit it under **Endpoint & Key**. A bare rate limit means waiting or switching.
+2. **Check the reset countdown** on **Quota**.
+3. **Spread the load** — **Settings → Routing → Round robin** across several accounts of the same provider.
+4. **Use the cheap lane** while the subscription recovers: `glm/glm-4.7`, `minimax/MiniMax-M2.1`.
+5. **Retry with backoff** in your own code — respect the retry hint, do not hammer.
 
 ---
 
-## OAuth Token Expired
+## OAuth token expired
 
-**Problem:** "Unauthorized" or "Token expired" errors.
+**What it means:** `Unauthorized`, or a provider that worked yesterday and does not today.
 
-**Causes:**
-- OAuth token expired (auto-refresh failed)
-- Provider session invalidated
-- Network issues during refresh
+**Causes:** the refresh failed (the provider invalidated the session, the network was down mid-refresh, or you changed the account's password).
 
-**Solutions:**
+**Fixes:**
 
-1. **Auto-refresh (default):**
-   Vela automatically refreshes tokens. Wait 30 seconds and retry.
-
-2. **Manual reconnect:**
-   ```
-   Dashboard → Providers → [Provider Name] → Reconnect
-   → Complete OAuth flow again
-   ```
-
-3. **Check provider status:**
-   Verify provider service is online (Claude Code, Codex, etc.)
+1. **Reconnect:** **Providers → [provider] → Disconnect → Connect**, and complete the login again.
+2. If the provider shows several accounts, check the right one is enabled.
+3. For a headless server, complete the OAuth flow on another machine and paste the callback back, if the provider allows it.
 
 ---
 
-## High Costs
+## Connection refused
 
-**Problem:** Unexpected high usage or costs.
+**What it means:** `ECONNREFUSED`, or "Cannot connect to localhost:32060".
 
-**Causes:**
-- Using expensive models unnecessarily
-- No fallback to cheaper tiers
-- Large context windows
+**Causes:** Vela is not running, it is on a different port, or a firewall is in the way.
 
-**Solutions:**
+**Fixes:**
 
-1. **Check usage stats:**
-   ```
-   Dashboard → Usage Stats → View token consumption
-   → Identify high-cost models
-   ```
+```bash
+# Start it
+vela
 
-2. **Switch to cheaper models:**
-   ```
-   Replace: cc/claude-opus ($20-100/month subscription)
-   With: glm/glm-4.7 ($0.6/1M tokens)
-         minimax/MiniMax-M2.1 ($0.20/1M tokens)
-   ```
+# or, if it is running elsewhere
+vela --port 8080
 
-3. **Use free tier:**
-   ```
-   if/kimi-k2-thinking (FREE)
-   qw/qwen3-coder-plus (FREE)
-   kr/claude-sonnet-4.5 (FREE)
-   gc/gemini-3-flash-preview (FREE 180K/month)
-   ```
+# Is anything listening?
+lsof -i :32060            # macOS / Linux
+netstat -ano | findstr :32060   # Windows
+```
 
-4. **Optimize prompts:**
-   - Reduce context size
-   - Use streaming for long responses
-   - Cache common prompts
+Check your tool's base URL ends in `/v1` — `http://localhost:32060` without it will hit the dashboard, not the API.
+
+If you are connecting from another machine, remember the default bind is `0.0.0.0` but a firewall may still block it; and if you started with `--host 127.0.0.1`, only that machine can reach it.
 
 ---
 
-## Connection Refused
+## Dashboard does not open
 
-**Problem:** "ECONNREFUSED" or "Cannot connect to localhost:32060".
+**What it means:** `http://localhost:32060/dashboard` is blank, spinning, or unreachable.
 
-**Causes:**
-- Vela not running
-- Port 32060 blocked
-- Firewall blocking connection
+**Causes:** the port is taken, Vela crashed, or a browser cache is stale.
 
-**Solutions:**
+**Fixes:**
 
-1. **Start Vela:**
+1. **Check the process** — `vela --log` shows its output. If nothing is running, start it.
+2. **Check the port**:
    ```bash
-   vela
-   ```
-   Dashboard should open at http://localhost:3000
-
-2. **Verify port 32060:**
-   ```bash
-   # Check if port is listening
-   lsof -i :32060
-   
-   # Or on Windows
-   netstat -ano | findstr :32060
-   ```
-
-3. **Check firewall:**
-   - macOS: System Settings → Network → Firewall
-   - Windows: Windows Defender Firewall → Allow app
-   - Linux: `sudo ufw allow 32060`
-
-4. **Use cloud endpoint:**
-   If localhost doesn't work (e.g., Cursor IDE):
-   ```
-   Endpoint: https://vela.my.id/v1
-   ```
-
----
-
-## Dashboard Not Opening
-
-**Problem:** Dashboard doesn't load at http://localhost:3000.
-
-**Causes:**
-- Port 3000 already in use
-- Vela crashed
-- Browser cache issues
-
-**Solutions:**
-
-1. **Check if Vela is running:**
-   ```bash
-   # Check process
-   ps aux | grep Vela
-   
-   # Check port 3000
-   lsof -i :3000
-   ```
-
-2. **Kill conflicting process:**
-   ```bash
-   # macOS/Linux
-   lsof -ti:3000 | xargs kill -9
-   
-   # Windows
-   netstat -ano | findstr :3000
+   lsof -i :32060                               # macOS / Linux
+   lsof -ti:32060 | xargs kill -9               # stop the squatter
+   netstat -ano | findstr :32060                # Windows
    taskkill /PID <PID> /F
    ```
-
-3. **Restart Vela:**
-   ```bash
-   # Stop
-   pkill -f Vela
-   
-   # Start
-   vela
-   ```
-
-4. **Clear browser cache:**
-   - Chrome: Ctrl+Shift+Delete → Clear cache
-   - Try incognito mode
-
-5. **Check firewall settings:**
-   Ensure port 3000 is not blocked.
+3. **Try a private window** to rule out cache or an extension.
+4. **From another machine?** That is the password gate. Local access is open; remote access is refused until you set a password under **Settings → Access**.
 
 ---
 
-## Model Not Found
+## Model not found
 
-**Problem:** "Model not found" or "Invalid model" errors.
+**What it means:** `404` or "model not found".
 
-**Causes:**
-- Provider not connected
-- Model ID typo
-- Provider inactive
+**Causes:** a typo, a provider that is not connected, or a model id that was renamed upstream.
 
-**Solutions:**
+**Fixes:**
 
-1. **Verify provider connection:**
-   ```
-   Dashboard → Providers → Check status (green = active)
-   ```
-
-2. **Check model ID format:**
-   ```
-   Correct: cc/claude-opus-4-5-20251101
-   Wrong: claude-opus-4-5-20251101
-   
-   Format: [provider-prefix]/[model-name]
-   ```
-
-3. **List available models:**
+1. **Ask the gateway what it has:**
    ```bash
-   curl http://localhost:32060/v1/models \
-     -H "Authorization: Bearer your-api-key"
+   curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"
    ```
-
-4. **Reconnect provider:**
-   ```
-   Dashboard → Providers → [Provider] → Reconnect
-   ```
+2. **Check the format** — `prefix/model`, for example `glm/glm-4.7`, not `glm-4.7` on its own.
+3. **Connect the provider** the model belongs to.
+4. **Model lists move.** If a model worked last month and not today, the provider probably retired the id. Pick a current one from the list above.
 
 ---
 
-## Slow Response
+## Slow responses
 
-**Problem:** Requests take too long or timeout.
+**What it means:** requests take a long time to start streaming, or time out.
 
-**Causes:**
-- Provider latency
-- Network issues
-- Large context/response
-- Provider rate limiting
+**Causes:** provider latency, large contexts, free-tier priority, or a proxy buffering the stream.
 
-**Solutions:**
+**Fixes:**
 
-1. **Check provider status:**
+1. **Try a faster model** — `cc/claude-haiku-4-5-20251001`, `minimax/MiniMax-M2.5-highspeed`, `qwen/qwen-turbo`.
+2. **Reduce the context** — trim the history, send the relevant file rather than the repository.
+3. **Free tiers are slow under load**, by design. Move up a lane if it matters.
+4. **Behind a proxy?** Streaming needs buffering off:
+   ```nginx
+   proxy_buffering off;
+   proxy_read_timeout 86400;
    ```
-   Dashboard → Providers → View latency stats
-   ```
-
-2. **Switch to faster model:**
-   ```
-   Fast: cc/claude-haiku-4-5 (Haiku is faster than Opus)
-         gc/gemini-3-flash-preview
-         qw/qwen3-coder-flash
-   ```
-
-3. **Use streaming:**
-   ```json
-   {
-     "model": "cc/claude-opus-4-5",
-     "messages": [...],
-     "stream": true
-   }
-   ```
-
-4. **Check network:**
-   ```bash
-   # Test latency
-   ping api.anthropic.com
-   ping api.openai.com
-   ```
-
-5. **Reduce context size:**
-   - Trim message history
-   - Use smaller prompts
-   - Enable context pruning in CLI tool
+5. **Check the network** between you and the provider.
 
 ---
 
-## API Key Invalid
+## API key invalid
 
-**Problem:** "Invalid API key" or "Authentication failed" errors.
+**What it means:** `401 Unauthorized`.
 
-**Causes:**
-- Wrong API key copied
-- API key expired
-- API key not generated
+**Causes:** a wrong key, a truncated paste, a key that was deleted, or `REQUIRE_API_KEY` on with no key sent.
 
-**Solutions:**
+**Fixes:**
 
-1. **Regenerate API key:**
-   ```
-   Dashboard → Settings → API Keys → Generate New Key
-   → Copy and use new key
-   ```
-
-2. **Verify key format:**
-   ```
-   Correct: 9r_xxxxxxxxxxxxxxxxxxxxxxxx
-   Wrong: Missing 9r_ prefix
-   ```
-
-3. **Check key in CLI config:**
+1. **Create a fresh key:** **Endpoint & Key → Create Key**. Keys are shown once at creation and stored only as a hash; there is no way to look an old one up.
+2. **Check the format** — Vela keys look like `vela-v1-<id>-<checksum>`. A key in an old `sk-...` style predates this format and is no longer accepted.
+3. **Check the header** — `Authorization: Bearer <key>`, with no stray spaces or line breaks.
+4. **Test it:**
    ```bash
-   # Cursor
-   Settings → Models → OpenAI API Key
-   
-   # Cline
-   Settings → API Key
-   
-   # Environment variable
-   export OPENAI_API_KEY="9r_your_key"
+   curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"
    ```
-
-4. **Test API key:**
-   ```bash
-   curl http://localhost:32060/v1/models \
-     -H "Authorization: Bearer 9r_your_key"
-   ```
+5. **If the key has a scope**, confirm the model you are asking for is inside it.
 
 ---
 
-## Need More Help?
+## "Invalid API key" from the provider, not from Vela
+
+**What it means:** Vela accepted your key, but the upstream rejected the provider credential.
+
+**Fixes:**
+
+1. Re-check the provider's API key or login under **Providers**.
+2. Confirm the upstream account has credit.
+3. Regenerate the upstream key if it may have been exposed.
+
+---
+
+## Everything worked yesterday
+
+This is the most common shape of trouble, and almost always upstream:
+
+- a free tier tightened its limits
+- a provider retired a model id
+- an OAuth session was invalidated
+- a provider had an outage
+
+Check the provider's status page, reconnect it under **Providers**, and let a combo carry you until it recovers.
+
+---
+
+## Still stuck
+
+- Confirm your version: `npm list -g vela` (this documentation covers 1.2.4).
+- Look at **Log Harbor** for the exact request and its error.
+- Search the [issues](https://github.com/YumamaX3/Vela/issues), and open one with your version, the error text, and the steps that produced it.
+
+---
+
+## Need more help?
 
 - **GitHub Issues:** [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
 - **Documentation:** [vela.my.id/docs](https://vela.my.id/docs)

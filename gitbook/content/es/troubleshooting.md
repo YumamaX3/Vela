@@ -1,346 +1,211 @@
 # Solución de problemas
 
-Problemas comunes y soluciones al usar Vela.
+La mayoría de los problemas con Vela son una de cinco cosas: no está en ejecución, la clave es incorrecta, el nombre del modelo no existe, un proveedor se quedó sin cuota, o hay una red en medio estorbando.
+
+Esta página los toma en el orden en que probablemente te los encuentres. Cada arreglo es algo que puedes comprobar en menos de un minuto.
+
+---
+
+## Primero, dos comprobaciones que resuelven la mitad de todo
+
+```bash
+# 1. Is the gateway alive?
+curl http://localhost:32060/api/health
+# → {"ok":true}
+
+# 2. Can it see any models?
+curl http://localhost:32060/v1/models -H "Authorization: Bearer <your key>"
+```
+
+- **Ninguna respuesta** → no está en ejecución, o está en otro puerto. Consulta [Conexión rechazada](#connection-refused).
+- **Una respuesta, pero una lista de modelos vacía** → ningún proveedor está conectado. Consulta [Modelo no encontrado](#model-not-found).
+- **Un `401`** → la clave. Consulta [Clave de API inválida](#api-key-invalid).
+- **Un `429`** → cuota, límite de tasa o un presupuesto que tú fijaste. Consulta [Límites de tasa](#rate-limiting).
 
 ---
 
 ## "Language model did not provide messages"
 
-**Problema:** La solicitud falla con una respuesta vacía o un mensaje de error.
+**Qué significa:** la solicitud llegó a un proveedor y volvió vacía o rechazada.
 
-**Causas:**
-- Cuota del proveedor agotada
-- API key inválida o expirada
-- Modelo no disponible
+**Causas:** cuota agotada, una conexión caducada, o un modelo que el servicio upstream ya no atiende.
 
 **Soluciones:**
 
-1. **Verifica el estado de la cuota:**
-   ```
-   Dashboard → Providers → Ver el rastreador de cuota
-   ```
-   Si la cuota está agotada, espera el reinicio o cambia de proveedor.
+1. **Comprueba la asignación** — **Quota**, para ver la cantidad restante de este proveedor y la cuenta regresiva del reinicio.
+2. **Comprueba la conexión** — **Providers**: una conexión OAuth caducada aparece como necesitada de atención. Desconecta, y luego vuelve a Conectar.
+3. **Usa un combo** para que el siguiente modelo responda mientras investigas:
 
-2. **Usa el fallback con combo:**
    ```
-   Dashboard → Combos → Crea cadena de fallback
-   Ejemplo: cc/claude-opus → glm/glm-4.7 → if/kimi-k2
-   ```
-
-3. **Verifica la conexión del proveedor:**
-   ```
-   Dashboard → Providers → Reconecta si es necesario
+   cc/claude-opus-5 → glm/glm-4.7 → if/qwen3-coder-plus
    ```
 
 ---
 
-## Rate Limiting
+## Límites de tasa {#rate-limiting}
 
-**Problema:** Errores "Rate limit exceeded" o "Too many requests".
+**Qué significa:** `429 Too Many Requests`, a menudo con una pista de reintento.
 
-**Causas:**
-- Cuota de suscripción agotada (límites de 5 horas/diario/semanal)
-- Límites de tasa de API alcanzados
-- Demasiadas solicitudes concurrentes
+**Causas:** la ventana de la suscripción está cerrada, se alcanzó un límite por minuto por una ráfaga, o se alcanzó un techo de presupuesto en tu clave.
 
 **Soluciones:**
 
-1. **Verifica el tiempo de reinicio:**
-   ```
-   Dashboard → Quota Tracking → Ver cuenta regresiva
-   ```
-
-2. **Cambia al nivel barato:**
-   ```
-   Usa: glm/glm-4.7 ($0.6/1M tokens)
-        minimax/MiniMax-M2.1 ($0.20/1M tokens)
-   ```
-
-3. **Agrega un combo de fallback:**
-   ```
-   Dashboard → Combos → Agrega modelos de respaldo
-   Principal: cc/claude-opus (suscripción)
-   Respaldo: glm/glm-4.7 (barato)
-   Emergencia: if/kimi-k2 (gratis)
-   ```
+1. **Lee el código de la respuesta.** Un código `budget_exceeded` significa que fijaste un techo y lo alcanzaste — edítalo en **Endpoint & Key**. Un límite de tasa simple significa esperar o cambiar.
+2. **Comprueba la cuenta regresiva del reinicio** en **Quota**.
+3. **Reparte la carga** — **Settings → Routing → Round robin** entre varias cuentas del mismo proveedor.
+4. **Usa el nivel barato** mientras la suscripción se recupera: `glm/glm-4.7`, `minimax/MiniMax-M2.1`.
+5. **Reintenta con espera progresiva** en tu propio código — respeta la pista de reintento, no insistas a ciegas.
 
 ---
 
-## Token OAuth expirado
+## Token OAuth caducado
 
-**Problema:** Errores "Unauthorized" o "Token expired".
+**Qué significa:** `Unauthorized`, o un proveedor que funcionaba ayer y hoy no.
 
-**Causas:**
-- Token OAuth expirado (refresh automático falló)
-- Sesión del proveedor invalidada
-- Problemas de red durante el refresh
+**Causas:** la renovación falló (el proveedor invalidó la sesión, la red se cayó a mitad de la renovación, o cambiaste la contraseña de la cuenta).
 
 **Soluciones:**
 
-1. **Refresh automático (por defecto):**
-   Vela refresca automáticamente los tokens. Espera 30 segundos y reintenta.
-
-2. **Reconexión manual:**
-   ```
-   Dashboard → Providers → [Nombre del proveedor] → Reconnect
-   → Completa el flujo OAuth de nuevo
-   ```
-
-3. **Verifica el estado del proveedor:**
-   Verifica que el servicio del proveedor esté en línea (Claude Code, Codex, etc.)
+1. **Reconecta:** **Providers → [proveedor] → Disconnect → Connect**, y completa el inicio de sesión de nuevo.
+2. Si el proveedor muestra varias cuentas, comprueba que la correcta esté habilitada.
+3. Para un servidor sin interfaz gráfica, completa el flujo OAuth en otra máquina y pega la llamada de vuelta (callback), si el proveedor lo permite.
 
 ---
 
-## Costos altos
+## Conexión rechazada {#connection-refused}
 
-**Problema:** Uso o costos altos inesperados.
+**Qué significa:** `ECONNREFUSED`, o "Cannot connect to localhost:32060".
 
-**Causas:**
-- Uso de modelos costosos innecesariamente
-- Sin fallback a niveles más baratos
-- Ventanas de contexto grandes
+**Causas:** Vela no está en ejecución, está en otro puerto, o hay un cortafuegos en medio.
 
 **Soluciones:**
 
-1. **Verifica las estadísticas de uso:**
-   ```
-   Dashboard → Usage Stats → Ver consumo de tokens
-   → Identifica modelos de alto costo
-   ```
+```bash
+# Start it
+vela
 
-2. **Cambia a modelos más baratos:**
-   ```
-   Reemplaza: cc/claude-opus (suscripción $20-100/mes)
-   Con: glm/glm-4.7 ($0.6/1M tokens)
-        minimax/MiniMax-M2.1 ($0.20/1M tokens)
-   ```
+# or, if it is running elsewhere
+vela --port 8080
 
-3. **Usa el nivel gratis:**
-   ```
-   if/kimi-k2-thinking (GRATIS)
-   qw/qwen3-coder-plus (GRATIS)
-   kr/claude-sonnet-4.5 (GRATIS)
-   gc/gemini-3-flash-preview (GRATIS 180K/mes)
-   ```
+# Is anything listening?
+lsof -i :32060            # macOS / Linux
+netstat -ano | findstr :32060   # Windows
+```
 
-4. **Optimiza los prompts:**
-   - Reduce el tamaño del contexto
-   - Usa streaming para respuestas largas
-   - Cachea prompts comunes
+Comprueba que la URL base de tu herramienta termine en `/v1` — `http://localhost:32060` sin eso llegará al dashboard, no a la API.
+
+Si te conectas desde otra máquina, recuerda que la escucha por defecto es `0.0.0.0`, pero un cortafuegos puede seguir bloqueándola; y si arrancaste con `--host 127.0.0.1`, solo esa máquina puede alcanzarla.
 
 ---
 
-## Connection Refused
+## El dashboard no se abre
 
-**Problema:** "ECONNREFUSED" o "Cannot connect to localhost:32060".
+**Qué significa:** `http://localhost:32060/dashboard` está en blanco, girando, o inalcanzable.
 
-**Causas:**
-- Vela no está ejecutándose
-- Puerto 32060 bloqueado
-- Firewall bloqueando la conexión
+**Causas:** el puerto está ocupado, Vela se cayó, o la caché del navegador está obsoleta.
 
 **Soluciones:**
 
-1. **Inicia Vela:**
+1. **Comprueba el proceso** — `vela --log` muestra su salida. Si no hay nada en ejecución, arráncalo.
+2. **Comprueba el puerto**:
    ```bash
-   vela
-   ```
-   El dashboard debe abrir en http://localhost:3000
-
-2. **Verifica el puerto 32060:**
-   ```bash
-   # Verifica si el puerto está escuchando
-   lsof -i :32060
-   
-   # O en Windows
-   netstat -ano | findstr :32060
-   ```
-
-3. **Revisa el firewall:**
-   - macOS: System Settings → Network → Firewall
-   - Windows: Windows Defender Firewall → Allow app
-   - Linux: `sudo ufw allow 32060`
-
-4. **Usa el endpoint en la nube:**
-   Si localhost no funciona (ej. Cursor IDE):
-   ```
-   Endpoint: https://vela.my.id/v1
-   ```
-
----
-
-## El dashboard no abre
-
-**Problema:** El dashboard no carga en http://localhost:3000.
-
-**Causas:**
-- Puerto 3000 ya en uso
-- Vela crasheó
-- Problemas de caché del navegador
-
-**Soluciones:**
-
-1. **Verifica si Vela está ejecutándose:**
-   ```bash
-   # Verifica el proceso
-   ps aux | grep Vela
-   
-   # Verifica el puerto 3000
-   lsof -i :3000
-   ```
-
-2. **Mata el proceso en conflicto:**
-   ```bash
-   # macOS/Linux
-   lsof -ti:3000 | xargs kill -9
-   
-   # Windows
-   netstat -ano | findstr :3000
+   lsof -i :32060                               # macOS / Linux
+   lsof -ti:32060 | xargs kill -9               # stop the squatter
+   netstat -ano | findstr :32060                # Windows
    taskkill /PID <PID> /F
    ```
-
-3. **Reinicia Vela:**
-   ```bash
-   # Detener
-   pkill -f Vela
-   
-   # Iniciar
-   vela
-   ```
-
-4. **Limpia la caché del navegador:**
-   - Chrome: Ctrl+Shift+Delete → Limpiar caché
-   - Prueba en modo incógnito
-
-5. **Verifica la configuración del firewall:**
-   Asegúrate de que el puerto 3000 no esté bloqueado.
+3. **Prueba una ventana privada** para descartar la caché o una extensión.
+4. **¿Desde otra máquina?** Esa es la puerta de la contraseña. El acceso local está abierto; el acceso remoto se rechaza hasta que configures una contraseña en **Settings → Access**.
 
 ---
 
-## Modelo no encontrado
+## Modelo no encontrado {#model-not-found}
 
-**Problema:** Errores "Model not found" o "Invalid model".
+**Qué significa:** `404` o "model not found".
 
-**Causas:**
-- Proveedor no conectado
-- Error tipográfico en el ID del modelo
-- Proveedor inactivo
+**Causas:** un error de escritura, un proveedor que no está conectado, o un id de modelo que se renombró aguas arriba.
 
 **Soluciones:**
 
-1. **Verifica la conexión del proveedor:**
-   ```
-   Dashboard → Providers → Verifica estado (verde = activo)
-   ```
-
-2. **Revisa el formato del ID del modelo:**
-   ```
-   Correcto: cc/claude-opus-4-5-20251101
-   Incorrecto: claude-opus-4-5-20251101
-   
-   Formato: [prefijo-proveedor]/[nombre-modelo]
-   ```
-
-3. **Lista los modelos disponibles:**
+1. **Pregunta a la puerta de enlace qué tiene:**
    ```bash
-   curl http://localhost:32060/v1/models \
-     -H "Authorization: Bearer your-api-key"
+   curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"
    ```
-
-4. **Reconecta el proveedor:**
-   ```
-   Dashboard → Providers → [Proveedor] → Reconnect
-   ```
+2. **Comprueba el formato** — `prefijo/modelo`, por ejemplo `glm/glm-4.7`, no `glm-4.7` a solas.
+3. **Conecta el proveedor** al que pertenece el modelo.
+4. **Las listas de modelos cambian.** Si un modelo funcionaba el mes pasado y hoy no, probablemente el proveedor retiró ese id. Elige uno actual de la lista de arriba.
 
 ---
 
-## Respuesta lenta
+## Respuestas lentas
 
-**Problema:** Las solicitudes tardan demasiado o hacen timeout.
+**Qué significa:** las solicitudes tardan mucho en empezar a transmitir, o agotan el tiempo.
 
-**Causas:**
-- Latencia del proveedor
-- Problemas de red
-- Contexto/respuesta grande
-- Rate limiting del proveedor
+**Causas:** latencia del proveedor, contextos grandes, prioridad del nivel gratuito, o un proxy almacenando la transmisión en búfer.
 
 **Soluciones:**
 
-1. **Verifica el estado del proveedor:**
+1. **Prueba un modelo más rápido** — `cc/claude-haiku-4-5-20251001`, `minimax/MiniMax-M2.5-highspeed`, `qwen/qwen-turbo`.
+2. **Reduce el contexto** — recorta el historial, envía el archivo relevante en lugar del repositorio entero.
+3. **Los niveles gratuitos son lentos bajo carga**, por diseño. Sube de nivel si importa.
+4. **¿Detrás de un proxy?** La transmisión necesita el búfer desactivado:
+   ```nginx
+   proxy_buffering off;
+   proxy_read_timeout 86400;
    ```
-   Dashboard → Providers → Ver estadísticas de latencia
-   ```
-
-2. **Cambia a un modelo más rápido:**
-   ```
-   Rápidos: cc/claude-haiku-4-5 (Haiku es más rápido que Opus)
-         gc/gemini-3-flash-preview
-         qw/qwen3-coder-flash
-   ```
-
-3. **Usa streaming:**
-   ```json
-   {
-     "model": "cc/claude-opus-4-5",
-     "messages": [...],
-     "stream": true
-   }
-   ```
-
-4. **Verifica la red:**
-   ```bash
-   # Prueba la latencia
-   ping api.anthropic.com
-   ping api.openai.com
-   ```
-
-5. **Reduce el tamaño del contexto:**
-   - Recorta el historial de mensajes
-   - Usa prompts más pequeños
-   - Habilita el pruning de contexto en la herramienta CLI
+5. **Comprueba la red** entre tú y el proveedor.
 
 ---
 
-## API Key inválida
+## Clave de API inválida {#api-key-invalid}
 
-**Problema:** Errores "Invalid API key" o "Authentication failed".
+**Qué significa:** `401 Unauthorized`.
 
-**Causas:**
-- API key incorrecta copiada
-- API key expirada
-- API key no generada
+**Causas:** una clave equivocada, un pegado truncado, una clave que fue eliminada, o `REQUIRE_API_KEY` activado sin enviar ninguna clave.
 
 **Soluciones:**
 
-1. **Regenera la API key:**
-   ```
-   Dashboard → Settings → API Keys → Generate New Key
-   → Copia y usa la nueva key
-   ```
-
-2. **Verifica el formato de la key:**
-   ```
-   Correcto: 9r_xxxxxxxxxxxxxxxxxxxxxxxx
-   Incorrecto: Falta el prefijo 9r_
-   ```
-
-3. **Verifica la key en la configuración del CLI:**
+1. **Crea una clave nueva:** **Endpoint & Key → Create Key**. Las claves se muestran una sola vez al crearlas y se almacenan solo como hash; no hay forma de consultar una antigua.
+2. **Comprueba el formato** — las claves de Vela tienen la forma `vela-v1-<id>-<checksum>`. Una clave con el estilo antiguo `sk-...` es anterior a este formato y ya no se acepta.
+3. **Comprueba la cabecera** — `Authorization: Bearer <key>`, sin espacios ni saltos de línea sueltos.
+4. **Pruébala:**
    ```bash
-   # Cursor
-   Settings → Models → OpenAI API Key
-   
-   # Cline
-   Settings → API Key
-   
-   # Variable de entorno
-   export OPENAI_API_KEY="9r_your_key"
+   curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"
    ```
+5. **Si la clave tiene un ámbito**, confirma que el modelo que pides está dentro de él.
 
-4. **Prueba la API key:**
-   ```bash
-   curl http://localhost:32060/v1/models \
-     -H "Authorization: Bearer 9r_your_key"
-   ```
+---
+
+## "Invalid API key" del proveedor, no de Vela
+
+**Qué significa:** Vela aceptó tu clave, pero el servicio upstream rechazó la credencial del proveedor.
+
+**Soluciones:**
+
+1. Vuelve a comprobar la clave de API o el inicio de sesión del proveedor en **Providers**.
+2. Confirma que la cuenta upstream tiene crédito.
+3. Regenera la clave upstream si pudo quedar expuesta.
+
+---
+
+## Todo funcionaba ayer
+
+Es la forma más común de problema, y casi siempre está aguas arriba:
+
+- un nivel gratuito endureció sus límites
+- un proveedor retiró un id de modelo
+- una sesión OAuth quedó invalidada
+- un proveedor tuvo una caída
+
+Consulta la página de estado del proveedor, reconéctalo en **Providers**, y deja que un combo te lleve hasta que se recupere.
+
+---
+
+## Todavía bloqueado
+
+- Confirma tu versión: `npm list -g vela` (esta documentación cubre la 1.2.4).
+- Mira **Log Harbor** para ver la solicitud exacta y su error.
+- Busca en los [issues](https://github.com/YumamaX3/Vela/issues), y abre uno con tu versión, el texto del error y los pasos que lo produjeron.
 
 ---
 
@@ -348,4 +213,4 @@ Problemas comunes y soluciones al usar Vela.
 
 - **GitHub Issues:** [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
 - **Documentación:** [vela.my.id/docs](https://vela.my.id/docs)
-- **FAQ:** [faq.md](faq.md)
+- **Preguntas frecuentes:** [faq.md](faq.md)

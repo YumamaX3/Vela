@@ -1,6 +1,6 @@
 # Instalación
 
-Guía detallada de instalación de Vela con consejos de solución de problemas.
+Todo lo que necesitas para poner Vela en marcha: los requisitos, cuatro formas de instalarlo, cómo verificar que funciona y cómo quitarlo de nuevo. Si solo quieres tenerlo corriendo en dos minutos, [Inicio rápido](quick-start.md) es el camino más corto.
 
 ---
 
@@ -8,176 +8,188 @@ Guía detallada de instalación de Vela con consejos de solución de problemas.
 
 ### Requisitos del sistema
 
-- **Node.js**: Versión 20.0.0 o superior
-- **npm**: Versión 10.0.0 o superior (viene con Node.js)
-- **OS**: macOS, Linux, Windows (WSL recomendado)
-- **Espacio en disco**: ~200MB para la instalación
+- **Node.js**: versión 20 o superior si lo instalas con npm. La imagen oficial de Docker incluye Node 22, así que los usuarios de Docker pueden saltarse esto.
+- **npm**: versión 10 o superior (viene con Node.js).
+- **Sistema operativo**: macOS, Linux o Windows (Windows funciona de forma nativa; WSL también sirve).
+- **Disco**: unos 500MB para la aplicación, más para tus datos a medida que crece el historial de uso.
+- **Memoria**: alrededor de 1GB es cómodo. La imagen de Docker fija un techo de 1GB de heap por defecto.
 
-### Verifica tu versión
+Comprueba lo que tienes:
 
 ```bash
 node --version
-# Debería mostrar v20.x.x o superior
+# v20.x.x or newer
 
 npm --version
-# Debería mostrar 10.x.x o superior
+# 10.x.x or newer
 ```
 
-**¿No tienes Node.js?** Instálalo desde [nodejs.org](https://nodejs.org/)
+Si te falta Node.js, instálalo desde [nodejs.org](https://nodejs.org/) o con un gestor de versiones como `nvm`.
 
 ---
 
 ## Métodos de instalación
 
-### Método 1: Instalación global (Recomendado)
-
-Instala Vela globalmente para usar desde cualquier lugar:
+### Método 1: instalación global con npm (recomendado)
 
 ```bash
 npm install -g vela
-```
-
-**Iniciar Vela:**
-
-```bash
 vela
 ```
 
-**Beneficios:**
-- ✅ Ejecuta desde cualquier directorio
-- ✅ Comando simple: `Vela`
-- ✅ Auto-actualizaciones con `npm update -g vela`
-
-### Método 2: Instalación local
-
-Instala en un proyecto específico:
+El comando `vela` es un lanzador. Inicia la puerta de enlace, espera a que el puerto responda y abre el dashboard. Opciones que vale la pena conocer:
 
 ```bash
-mkdir my-Vela
-cd my-Vela
-npm install -g vela
+vela                    # start on the default port, open the browser
+vela --port 8080        # a different port
+vela --host 127.0.0.1   # this machine only (the default binds 0.0.0.0)
+vela --no-browser       # do not open a browser
+vela --log              # show server logs in the terminal
+vela --tray             # run in the system tray
+vela --skip-update      # skip the update check on start
+vela --help             # everything else
 ```
 
-**Iniciar Vela:**
+**Por qué es la opción por defecto:**
+- ✅ Ejecútalo desde cualquier directorio
+- ✅ Un solo comando: `vela`
+- ✅ `npm update -g vela` lo mantiene al día
+- ✅ El lanzador reinicia un servidor caído y guarda sus binarios de ejecución en `~/.vela/runtime`, lejos del directorio de instalación
+
+### Método 2: ejecutar sin instalar
+
+Si solo quieres probarlo:
 
 ```bash
-npx Vela
+npx vela
 ```
 
-**Beneficios:**
-- ✅ Aislado por proyecto
-- ✅ Control de versiones por proyecto
-- ✅ Sin contaminación del namespace global
+Esto descarga el lanzador a la caché de npm y lo ejecuta. Nada se instala globalmente, pero el directorio de datos (`~/.vela`) sí se crea, y tus ajustes sobreviven entre ejecuciones.
 
-### Método 3: Desde el código fuente (Desarrollo)
+### Método 3: Docker
 
-Clona y compila desde GitHub:
+Bueno para un servidor, un NAS, o cualquier cosa donde prefieras no instalar Node.js.
+
+```bash
+docker run -d --name vela \
+  -p 32060:32060 \
+  -v "$HOME/vela-data:/app/data" \
+  -e DATA_DIR=/app/data \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  ghcr.io/yumamax3/vela:1.2.4
+```
+
+Luego abre **http://localhost:32060/dashboard**.
+
+- La imagen es **pública**. No necesitas un inicio de sesión de GitHub, un token de acceso personal ni credencial alguna para descargarla.
+- La imagen es multiarquitectura: se ejecuta de forma nativa tanto en servidores corrientes (`linux/amd64`) como en máquinas ARM, como una Raspberry Pi o un host Docker con Apple Silicon (`linux/arm64`).
+- **Fija la etiqueta.** `ghcr.io/yumamax3/vela:1.2.4` es la versión actual. `:latest` se mueve cada vez que se publica una nueva versión, y entonces un reinicio puede colocarte en silencio en una versión que no elegiste.
+- **Monta siempre `/app/data`.** Sin el volumen, tu base de datos vive dentro del contenedor y desaparece con él.
+
+La [guía de despliegue en la nube](../deployment/cloud.md) cubre Compose, los proxies inversos y las variables de entorno en profundidad.
+
+### Método 4: desde el código fuente
+
+Para desarrollo, parches o para compilar tu propia imagen.
 
 ```bash
 git clone https://github.com/YumamaX3/Vela.git
-cd Vela/app
+cd Vela
 npm install
 npm run build
-npm start
+npm run start
 ```
 
-**Beneficios:**
-- ✅ Últimas características de desarrollo
-- ✅ Contribuir al desarrollo
-- ✅ Modificaciones personalizadas
+El proyecto está en la raíz del clon — no hay una carpeta `app/` anidada. Los scripts son:
+
+```bash
+npm run dev        # development server with hot reload, port 32060
+npm run build      # production build
+npm run start      # run the production build
+```
+
+`npm run dev` es para trabajar sobre Vela mismo. `npm run build` seguido de `npm run start` es lo que debe ejecutar un despliegue.
+
+> ⚠️ **Una nota sobre las versiones:** si lo que compilaste se comporta distinto de esta documentación, comprueba `package.json` — su campo `version` es la verdad. Esta documentación describe la **1.2.4**.
 
 ---
 
 ## Primera ejecución
 
-### Iniciar el servidor
+### Arrancar el servidor
 
 ```bash
 vela
 ```
 
-**Qué sucede:**
-1. El servidor inicia en `http://localhost:32060`
-2. El dashboard se abre automáticamente en el navegador
-3. Se crea el directorio de datos en `~/.vela`
-4. API key generada automáticamente
+Qué ocurre:
 
-### Login del dashboard
+1. La puerta de enlace arranca en `http://localhost:32060`.
+2. El dashboard se abre en tu navegador en `/dashboard`.
+3. Se crea un directorio de datos — `~/.vela` en macOS y Linux, `%APPDATA%\vela` en Windows — o el que nombre `DATA_DIR` si lo configuraste.
+4. Nada más. **No hay contraseña por defecto** ni clave pregenerada.
 
-**Credenciales por defecto:**
-- Contraseña: `123456`
+### La contraseña del dashboard
 
-**⚠️ Cambia la contraseña inmediatamente:**
-1. Inicia sesión en el dashboard
-2. Settings → Change Password
-3. Usa una contraseña fuerte
+Aquí es donde los tutoriales antiguos discrepan con Vela moderno, así que vale la pena decirlo sin rodeos:
 
-### Obtén tu API key
+- **No hay contraseña por defecto.** Ni `123456`, ni `admin`, ni ninguna otra.
+- **El acceso local está abierto.** Desde la máquina que ejecuta Vela, el dashboard carga sin pedir nada. Es deliberado: no deberías tener que iniciar sesión en tu propio portátil.
+- **El acceso remoto se rechaza hasta que la configures.** Si alguien abre el dashboard desde otra máquina de la red, Vela no le dejará entrar con una contraseña que nunca se eligió.
+
+Para configurar una contraseña: abre el dashboard **desde la máquina que ejecuta Vela**, ve a **Settings → Access**, y configúrala allí. La misma pantalla te permite exigir un inicio de sesión para el dashboard, alternar si las solicitudes a la API deben llevar una clave, y ver de un vistazo si la puerta de enlace está "gated" — la marca que quieres antes de exponerla a una red.
+
+Alternativamente, configura `INITIAL_PASSWORD` en el entorno antes del primer arranque; Vela lo aceptará como contraseña de inicio de sesión.
+
+### Obtener una clave de API para tus herramientas
 
 ```
-Dashboard → Settings → API Keys
-→ Copia tu API key
-→ Úsala en herramientas CLI
+Dashboard → Endpoint & Key → Create Key
+→ copy the key that appears (it is shown once)
 ```
 
-**Ejemplo de formato de API key:**
-```
-9r_1234567890abcdef1234567890abcdef
-```
+Una clave tiene la forma `vela-v1-<random>-<checksum>`. En el mismo diálogo puedes darle un ámbito más estrecho: a qué proveedores, modelos o combos puede llegar; un límite de tasa; un presupuesto de tokens diario/semanal/mensual; y un techo de gasto. Para una configuración compartida o de larga duración, fija un techo — Vela responde con un 429 claro al alcanzarlo, en lugar de gastar en silencio.
 
 ---
 
 ## Verificar la instalación
 
-### Verifica el estado del servidor
+### Comprobar que el servidor está vivo
 
 ```bash
-curl http://localhost:32060/health
+curl http://localhost:32060/api/health
 ```
 
-**Respuesta esperada:**
+Esperado:
+
 ```json
-{
-  "status": "ok",
-  "version": "1.0.0"
-}
+{"ok":true}
 ```
 
-### Lista los modelos disponibles
+La ruta de salud es intencionadamente sin autenticación, así que responde incluso cuando `REQUIRE_API_KEY` está activado.
+
+### Listar los modelos a los que puedes llegar
 
 ```bash
 curl http://localhost:32060/v1/models \
-  -H "Authorization: Bearer your-api-key"
+  -H "Authorization: Bearer vela-v1-your-key-here"
 ```
 
-**Respuesta esperada:**
-```json
-{
-  "object": "list",
-  "data": [
-    {
-      "id": "cc/claude-opus-4-5-20251101",
-      "object": "model",
-      "created": 1234567890,
-      "owned_by": "claude-code"
-    }
-  ]
-}
-```
+Obtendrás todos los modelos de todos los proveedores que hayas conectado. Si la lista está vacía, todavía no hay ningún proveedor conectado — consulta el paso 3 de [Inicio rápido](quick-start.md).
 
-### Prueba el chat completion
+### Enviar una solicitud real
 
 ```bash
 curl http://localhost:32060/v1/chat/completions \
-  -H "Authorization: Bearer your-api-key" \
+  -H "Authorization: Bearer vela-v1-your-key-here" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "cc/claude-opus-4-5-20251101",
-    "messages": [
-      {"role": "user", "content": "Hello!"}
-    ]
+    "model": "glm/glm-4.7",
+    "messages": [{"role": "user", "content": "Say hello in five words."}]
   }'
 ```
+
+Una respuesta significa que todo — puerta de enlace, clave, proveedor, enrutamiento — está funcionando. Si falla, el texto del error indica el motivo; [Solución de problemas](../troubleshooting.md) relaciona los habituales con sus soluciones.
 
 ---
 
@@ -185,183 +197,128 @@ curl http://localhost:32060/v1/chat/completions \
 
 ### Variables de entorno
 
-Crea un archivo `.env` o establece variables de entorno:
+Puedes configurarlas en tu shell, en un archivo `.env` junto a la aplicación, o como entorno del contenedor. Las que importan primero:
 
 ```bash
-# Security (REQUIRED in production)
-export JWT_SECRET="your-secure-secret-change-this"
-export INITIAL_PASSWORD="your-password"
+# Security — set these for any non-local deployment
+export JWT_SECRET="$(openssl rand -hex 32)"   # signs dashboard sessions
+export INITIAL_PASSWORD="your-password"       # optional first login password
 
 # Storage
-export DATA_DIR="~/.vela"
+export DATA_DIR="$HOME/.vela"                 # where the database lives
 
 # Server
-export PORT="32060"
+export PORT="32060"                           # the default
 export NODE_ENV="production"
-
-# Logging
-export ENABLE_REQUEST_LOGS="false"
 ```
+
+`JWT_SECRET` merece una advertencia: desde octubre de 2026, Vela **se niega a arrancar** si se deja en un valor de ejemplo o tiene menos de 32 caracteres. Genera uno real. La lista completa de variables está en el `.env.example` del repositorio y en `docs/ENVIRONMENT.md`.
 
 ### Directorio de datos
 
-**Ubicación por defecto:** `~/.vela`
+Por defecto: `~/.vela` (macOS/Linux) o `%APPDATA%\vela` (Windows).
 
-**Contenido:**
-```
+```text
 ~/.vela/
-  ├── db/
-  │   └── data.sqlite   # Database (providers, combos, usage)
-  └── logs/             # Request logs (if enabled)
+  db/
+    data.sqlite        # providers, combos, keys, settings
+    backups/           # pre-migration safety copies and scheduled backups
+  logs/                # request logs, if enabled
+  runtime/             # launcher-managed binaries
 ```
 
-**Cambiar ubicación:**
+Para moverlo:
 
 ```bash
-export DATA_DIR="/custom/path"
+export DATA_DIR="/srv/vela-data"
 vela
 ```
 
-### Configuración de puerto
+En Windows, una ruta estilo Unix (que empiece por `/`) se ignora con una advertencia y se usa la predeterminada — esa ruta no puede existir allí.
 
-**Puerto por defecto:** `32060`
+### Configuración del puerto
 
-**Cambiar puerto:**
-
-```bash
-export PORT="3000"
-vela
-```
-
-**O usa la línea de comandos:**
+El valor por defecto es `32060`. Cámbialo con la opción o con el entorno:
 
 ```bash
-Vela --port 3000
+vela --port 8080
+# or
+PORT=8080 vela
 ```
+
+Si usas otro puerto, actualiza cada herramienta que apunte a `/v1` — y conserva el `/v1` final en la URL base.
 
 ---
 
-## Solución de problemas
+## Solución de problemas de la instalación
 
-### Puerto ya en uso
+### El puerto ya está en uso
 
-**Error:**
 ```
 Error: listen EADDRINUSE: address already in use :::32060
 ```
 
-**Solución 1: Mata el proceso existente**
+Encuentra y detén el proceso, o elige otro puerto:
 
 ```bash
-# Encuentra proceso usando el puerto 32060
+# macOS / Linux
 lsof -i :32060
+kill <PID>
 
-# Mata el proceso
-kill -9 <PID>
-```
+# Windows
+netstat -ano | findstr :32060
+taskkill /PID <PID> /F
 
-**Solución 2: Usa otro puerto**
-
-```bash
-Vela --port 3000
+# or simply start elsewhere
+vela --port 8080
 ```
 
 ### Permiso denegado
 
-**Error:**
 ```
-Error: EACCES: permission denied, mkdir '/usr/local/lib/node_modules/Vela'
+Error: EACCES: permission denied, mkdir '/usr/local/lib/node_modules/...'
 ```
 
-**Solución: Usa sudo (no recomendado) o corrige los permisos de npm**
+La solución es dar a npm un directorio que posea, no usar `sudo`:
 
 ```bash
-# Corregir permisos de npm (recomendado)
 mkdir ~/.npm-global
 npm config set prefix '~/.npm-global'
 echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
-
-# Luego instalar nuevamente
 npm install -g vela
 ```
 
-### Versión de Node.js muy antigua
+### Node.js demasiado antiguo
 
-**Error:**
 ```
 Error: The engine "node" is incompatible with this module
 ```
 
-**Solución: Actualizar Node.js**
+Actualiza Node.js — con `nvm` si lo tienes, o si no desde [nodejs.org](https://nodejs.org/):
 
 ```bash
-# Usando nvm (recomendado)
 nvm install 20
 nvm use 20
-
-# O descargar desde nodejs.org
 ```
 
 ### El dashboard no se abre
 
-**Problema:** El dashboard no se abre automáticamente
+Abre `http://localhost:32060/dashboard` tú mismo. Si tampoco carga, comprueba que el proceso está en ejecución (`vela --log` muestra su salida) y revisa tu cortafuegos: en macOS, permite el proceso de Node en Ajustes del Sistema → Red → Cortafuegos; en Linux, revisa `ufw` o `iptables`; en Windows, permítelo en el Firewall de Windows Defender.
 
-**Solución 1: Abrir manualmente**
+### Un proveedor no se conecta
 
-```
-http://localhost:32060
-```
+- Comprueba que tienes conexión (`ping 1.1.1.1`).
+- Revisa la página de estado del proveedor antes de suponer un fallo local.
+- Para proveedores OAuth, prueba **Providers → [proveedor] → Disconnect → Connect** de nuevo; una sesión caducada a menudo se parece exactamente a una instalación rota.
 
-**Solución 2: Verifica el firewall**
+### Uso elevado de memoria
 
-```bash
-# macOS: Permitir Node.js en System Preferences → Security
-# Linux: Verificar iptables
-# Windows: Verificar Windows Firewall
-```
-
-### No se puede conectar a proveedores
-
-**Problema:** El login OAuth falla o la API key es inválida
-
-**Solución 1: Verifica la conexión a internet**
-
-```bash
-ping google.com
-```
-
-**Solución 2: Verifica el estado del proveedor**
-
-- Claude Code: [status.anthropic.com](https://status.anthropic.com)
-- OpenAI: [status.openai.com](https://status.openai.com)
-- Gemini: [status.cloud.google.com](https://status.cloud.google.com)
-
-**Solución 3: Regenera la API key**
-
-```
-Dashboard → Provider → Disconnect → Reconnect
-```
-
-### Uso alto de memoria
-
-**Problema:** Vela usa demasiada RAM
-
-**Solución: Reinicia el servidor**
-
-```bash
-# Detener
-pkill -f Vela
-
-# Iniciar
-vela
-```
-
-**O usa PM2 para auto-reinicio:**
+Reinicia la puerta de enlace (`Ctrl+C`, y luego `vela`). Para una instalación de larga duración, usa un gestor de procesos:
 
 ```bash
 npm install -g pm2
-pm2 start Vela --name Vela
+pm2 start vela --name vela
 pm2 save
 ```
 
@@ -369,105 +326,72 @@ pm2 save
 
 ## Opciones de despliegue
 
-### Desarrollo local
+### En tu propia máquina
 
 ```bash
 npm install -g vela
 vela
 ```
 
-**Caso de uso:** Codificación personal, pruebas
+**Bueno para:** programación personal, probar proveedores, mantenerlo todo local.
 
-### Servidor VPS/Cloud
-
-```bash
-# Instalar
-npm install -g vela
-
-# Configurar
-export JWT_SECRET="your-secure-secret"
-export INITIAL_PASSWORD="your-password"
-export NODE_ENV="production"
-
-# Iniciar con PM2
-npm install -g pm2
-pm2 start Vela --name Vela
-pm2 save
-pm2 startup
-```
-
-**Caso de uso:** Acceso de equipo, codificación remota
-
-### Docker
+### En un servidor
 
 ```bash
-docker pull Vela/Vela:latest
-
-docker run -d \
-  -p 32060:32060 \
-  -e JWT_SECRET="your-secure-secret" \
-  -e INITIAL_PASSWORD="your-password" \
-  -v Vela-data:/root/.Vela \
-  --name Vela \
-  Vela/Vela:latest
+docker run -d --name vela --restart unless-stopped \
+  -p 127.0.0.1:32060:32060 \
+  -v "$HOME/vela-data:/app/data" \
+  -e DATA_DIR=/app/data \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  -e INITIAL_PASSWORD="choose-a-password" \
+  ghcr.io/yumamax3/vela:1.2.4
 ```
 
-**Caso de uso:** Despliegue containerizado, Kubernetes
+Escuchar en `127.0.0.1` significa que solo un proxy inverso en la misma máquina puede alcanzar el dashboard — la opción segura por defecto para un host expuesto a internet. [Despliegue en la nube](../deployment/cloud.md) tiene la configuración completa de Nginx, con los ajustes de transmisión que importan.
 
-### Proxy reverso (Nginx)
+### Detrás de un proxy inverso
+
+Las respuestas en transmisión (server-sent events) necesitan el búfer desactivado, o llegarán de golpe al final:
 
 ```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    location / {
-        proxy_pass http://localhost:32060;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        
-        # SSE support for streaming
-        proxy_buffering off;
-        proxy_read_timeout 86400;
-    }
+location / {
+    proxy_pass http://127.0.0.1:32060;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;
+    proxy_read_timeout 86400;
 }
 ```
 
-**Caso de uso:** HTTPS, dominio personalizado, balanceo de carga
-
 ---
 
-## Desinstalación
-
-### Eliminar instalación global
+## Desinstalar
 
 ```bash
-npm uninstall -g vela
+npm uninstall -g vela      # remove the launcher
+rm -rf ~/.vela             # remove data, keys and settings — this is irreversible
 ```
 
-### Eliminar el directorio de datos
+En Windows el directorio de datos es `%APPDATA%\vela`. Después, elimina cualquier exportación que hayas añadido al perfil de tu shell.
+
+Si en cambio usaste Docker:
 
 ```bash
-rm -rf ~/.vela
-```
-
-### Eliminar la configuración
-
-```bash
-# Eliminar variables de entorno del archivo de configuración del shell
-nano ~/.bashrc  # o ~/.zshrc
-# Eliminar exports relacionados con Vela
+docker stop vela && docker rm vela
+docker rmi ghcr.io/yumamax3/vela:1.2.4
+# and remove the volume or host directory you mounted
 ```
 
 ---
 
-## Próximos pasos
+## A dónde ir después
 
-- [Guía para empezar](../getting-started.md) - Conecta proveedores y comienza a codificar
-- [Características](../features/) - Explora seguimiento de cuota, combos, despliegue
-- [Solución de problemas](../troubleshooting.md) - Resuelve problemas comunes
+- [Inicio rápido](quick-start.md) — conectar proveedores y apuntar tus herramientas a Vela
+- [Proveedores](../providers/subscription.md) — qué nivel usar y cuándo
+- [Funciones](../features/smart-routing.md) — enrutamiento, combos, seguimiento de cuota
+- [Solución de problemas](../troubleshooting.md) — cuando algo no se conecta
 
 ---
 

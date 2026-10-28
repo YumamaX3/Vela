@@ -1,404 +1,295 @@
-# サブスクリプションプロバイダー - 価値を最大化
+# サブスクリプションプロバイダー - 価値を最大化する
 
-スマートクォータトラッキングと自動フォールバックで既存のAIサブスクリプションを最大化。リセット前にサブスクリプションを余すことなく使用しましょう!
+あなたはすでにClaude Codeか、Codexか、Copilotに払っています。サブスクリプションのレーンは、そのすべてを手に入れるための話です: どれだけ残っているかを知り、リセットされる前に使い切り、尽きたらきれいに次へ移る。
+
+このページでは、最初に接続される5つのプロバイダーと、それぞれの上流での価格、今日呼べるモデル、そしてそれらを働かせる方法を扱います。
+
+> **ここでは日付がものを言います。** サブスクリプションの階層、価格、モデル名はAnthropic、OpenAI、GitHub、Googleが決めるもので — Velaが決めるものではありません。このページの数字は**2026-10-28**(Vela 1.2.4)時点の上流の事実です。プロバイダーはしばしばそれを変えます。
 
 ---
 
 ## 概要
 
-サブスクリプション階層プロバイダーは**プライマリ**選択です - すでに支払っているので、完全な価値を引き出しましょう:
+お金はすでに払われているので、サブスクリプションのレーンは**最初**に来ます:
 
-- ✅ **Claude Code** (Pro/Max) - Claude 4.5 Opus/Sonnet/Haiku
-- ✅ **OpenAI Codex** (Plus/Pro) - GPT 5.2 Codex、GPT 5.1 Codex Max
-- ✅ **Gemini CLI** (無料階層!) - 月18万コンプリーション
-- ✅ **GitHub Copilot** - GPT-5、Claude 4.5、Gemini 3
-- ✅ **Antigravity** (Google) - Gemini 3 Pro、Claude Sonnet 4.5
+- ✅ **Claude Code**(Pro/Max) — Anthropicのサブスクリプションを通してClaudeファミリーを
+- ✅ **OpenAI Codex**(Plus/Pro) — ChatGPTのプランを通してGPT-5.xファミリーを
+- ✅ **GitHub Copilot** — ひとつのサブスクリプションで、いくつものベンダーのモデルを
+- ✅ **Antigravity**(Google) — GoogleアカウントでGeminiとClaudeのモデルを
+- ✅ **Kimi** — Moonshot自身のコーディングプランを、APIキーかログインで
 
-**戦略:** これらを最初に使用、クォータをリアルタイムで追跡、消費時に低価格/無料へフォールバック。
+**考え方:** まずこれらを使い、クォータをリアルタイムで眺め、その背後に格安か無料のプロバイダーを待たせておく。
 
 ---
 
 ## Claude Code (Pro/Max)
 
-### 料金
+### 上流での価格
 
-| プラン | 月額コスト | クォータリセット | モデル |
-|------|--------------|-------------|--------|
-| Pro | $20 | 5時間 + 週次 | Opus、Sonnet、Haiku |
-| Max | $100 | 5時間 + 週次 | Opus、Sonnet、Haiku |
+| プラン | 月額の目安 | クォータの形 | モデル |
+|------|----------------------|-------------|--------|
+| Pro | 約$20 | ローリングウィンドウに週次の更新 | Opus、Sonnet、Haiku |
+| Max | 約$100 | より大きいローリングウィンドウに週次の更新 | Opus、Sonnet、Haiku |
+
+これらはAnthropicが公表している消費者向けの価格です。あなたに当てはまるものは、自分のプランのページで確かめてください。
 
 ### セットアップ
 
-**ステップ1: ダッシュボード経由で接続**
+> ⚠️ **先に言っておくべき但し書き。** このリリースでは、Claude Codeのプロバイダー(`claude`、別名`cc`)はレジストリで**非推奨**、しかも**リスクの注意書きつき**と記されています。文書化されていないClaude Codeのインターフェースに乗っており、Anthropicは予告なくそれを変えられます。今日は動きます — ただし、保証ではなく、いつか手を入れる必要があるかもしれないレーンとして扱ってください。
 
-```bash
-vela
-# Dashboard開く → Providers → Connect Claude Code
-```
-
-**ステップ2: OAuthログイン**
-
-- 「Connect Claude Code」をクリック
-- ブラウザが開く → Claude.aiにログイン
-- 自動トークン更新有効化
-- クォータトラッキング開始
-
-**ステップ3: CLIで使用**
+**ステップ1: 接続する**
 
 ```
-Model: cc/claude-opus-4-5-20251101
-       cc/claude-sonnet-4-5-20250929
-       cc/claude-haiku-4-5-20251001
+Dashboard → Providers → Claude → Connect
 ```
 
-### 利用可能なモデル
+**ステップ2: ログインする**
 
-| モデルID | 説明 | 最適用途 |
-|----------|-------------|----------|
-| `cc/claude-opus-4-5-20251101` | Claude 4.5 Opus | 複雑なタスク、アーキテクチャ |
-| `cc/claude-sonnet-4-5-20250929` | Claude 4.5 Sonnet | バランスのとれた速度/品質 |
-| `cc/claude-haiku-4-5-20251001` | Claude 4.5 Haiku | 高速応答 |
+ブラウザの窓がClaudeのサインインページで開きます。接続を承認してください。それ以降、トークンは自分で更新され、クォータ追跡がすぐに始まります。
 
-### プロのヒント
+**ステップ3: 使う**
 
-- **複雑なタスクにOpusを使用** - アーキテクチャ決定、リファクタリング
-- **速度にSonnetを使用** - クイック編集、コード生成
-- **モデルごとのクォータを追跡** - ダッシュボードがモデルごとの使用量を表示
-- **5時間リセット** - 5時間ごとの新鮮なクォータ + 週次リセット
+モデルは`cc/<model-id>`と名づけられます。このリリースで入っているもの:
+
+| モデル | 向いていること |
+|-------|----------|
+| `cc/claude-opus-5` | 難しい問題、設計、長いリファクタリング |
+| `cc/claude-sonnet-5` | 日常の仕事、賢明なデフォルト |
+| `cc/claude-fable-5` | 文章寄りの仕事 |
+| `cc/claude-haiku-4-5-20251001` | 速い編集、小さな質問 |
+
+> モデルの一覧は、ドキュメントより速く動きます。`curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`を走らせるか、**Providers → Claude**を開いて、いまのあなたのインストールが何を提供しているかを確かめてください。
+
+### 最大限に引き出す
+
+- 本番の仕事ではOpusを、それ以外ではSonnetを、コンボの先頭に置く。
+- アカウントが複数あるなら足してください。Velaはそのあいだを回せます。
+- リセットのカウントダウンは、推測ではなく**Quota**ページで見ること。
 
 ---
 
 ## OpenAI Codex (Plus/Pro)
 
-### 料金
+### 上流での価格
 
-| プラン | 月額コスト | クォータリセット | モデル |
-|------|--------------|-------------|--------|
-| Plus | $20 | 5時間 + 週次 | GPT 5.2、GPT 5.1 |
-| Pro | $200 | 5時間 + 週次 | GPT 5.2 Codex、GPT 5.1 Max |
-
-### セットアップ
-
-**ステップ1: ダッシュボード経由で接続**
-
-```bash
-vela
-# Dashboard → Providers → Connect Codex
-```
-
-**ステップ2: OAuthログイン**
-
-- 「Connect Codex」をクリック
-- ブラウザが `http://localhost:1455` を開く
-- OpenAIアカウントにログイン
-- 自動トークン更新有効化
-
-**ステップ3: CLIで使用**
-
-```
-Model: cx/gpt-5.2-codex
-       cx/gpt-5.1-codex-max
-       cx/gpt-5.2
-       cx/gpt-5.1-codex
-```
-
-### 利用可能なモデル
-
-| モデルID | 説明 | 最適用途 |
-|----------|-------------|----------|
-| `cx/gpt-5.2-codex` | GPT 5.2 Codex | 最新コーディングモデル |
-| `cx/gpt-5.1-codex-max` | GPT 5.1 Codex Max | 最大コンテキスト |
-| `cx/gpt-5.2` | GPT 5.2 | 汎用タスク |
-| `cx/gpt-5.1-codex` | GPT 5.1 Codex | 安定したコーディング |
-
-### プロのヒント
-
-- **5時間ローリングクォータ** - 5時間ごとに新鮮なクォータ
-- **週次リセット** - 週次フルクォータリセット
-- **Pro階層** - Plusの10倍のクォータ
-
----
-
-## Gemini CLI (月18万無料!)
-
-### 料金
-
-| プラン | 月額コスト | クォータ | リセット |
-|------|--------------|-------|-------|
-| FREE | $0 | 月18万コンプリーション + 1K/日 | 日次 + 月次 |
-
-**最高の価値:** 巨大な無料階層! 有料階層の前にこれを使用。
+| プラン | 月額の目安 | クォータの形 | モデル |
+|------|----------------------|-------------|--------|
+| Plus | 約$20 | ローリングウィンドウに週次の更新 | GPT-5.xファミリー |
+| Pro | 約$200 | はるかに大きい割り当て | GPT-5.xファミリー |
 
 ### セットアップ
 
-**ステップ1: ダッシュボード経由で接続**
-
-```bash
-vela
-# Dashboard → Providers → Connect Gemini CLI
-```
-
-**ステップ2: Google OAuth**
-
-- 「Connect Gemini CLI」をクリック
-- ブラウザが開く → Googleアカウントにログイン
-- 権限を付与
-- 自動トークン更新有効化
-
-**ステップ3: CLIで使用**
+**ステップ1: 接続する**
 
 ```
-Model: gc/gemini-3-flash-preview
-       gc/gemini-3-pro-preview
-       gc/gemini-2.5-pro
-       gc/gemini-2.5-flash
+Dashboard → Providers → Codex → Connect
 ```
 
-### 利用可能なモデル
+**ステップ2: サインインする**
 
-| モデルID | 説明 | 最適用途 |
-|----------|-------------|----------|
-| `gc/gemini-3-flash-preview` | Gemini 3 Flash Preview | 高速応答 |
-| `gc/gemini-3-pro-preview` | Gemini 3 Pro Preview | 複雑なタスク |
-| `gc/gemini-2.5-pro` | Gemini 2.5 Pro | 安定した本番 |
-| `gc/gemini-2.5-flash` | Gemini 2.5 Flash | クイックタスク |
+OAuthの流れがブラウザで開きます(ループバック上。ヘッドレスのサーバーでブラウザが立ち上がらない場合は、URLをコピーしてノートPCで完了し、コールバックを貼り付け直してください)。トークンは自動で更新されます。
 
-### プロのヒント
+**ステップ3: 使う**
 
-- **月18万コンプリーション** - 巨大な無料階層
-- **1K/日制限** - 日次クォータは深夜にリセット
-- **最初に使用** - 無料階層、有料サブスクリプションの前に使用
-- **クレジットカード不要** - Googleアカウントで完全無料
+| モデル | 向いていること |
+|-------|----------|
+| `cx/gpt-5.6-sol` | コーディングの現在の旗艦 |
+| `cx/gpt-5.6-terra` | もうひとつの現代的選択肢 |
+| `cx/gpt-5.6-luna` | 速く、軽い仕事 |
+| `cx/gpt-5.5`、`cx/gpt-5.4` | 安定したフォールバック |
+
+各モデルには`-review`の兄弟(たとえば`cx/gpt-5.6-sol-review`)もあり、別系統のクォータから引きます。主のレーンが苦しいときに知っておくと役立ちます。
+
+### 最大限に引き出す
+
+- CodexとClaudeは、得意な問いの種類が違います。`cc/claude-opus-5 → cx/gpt-5.6-sol`のコンボは強い組み合わせです。
+- Proの階層はPlusのおおよそ10倍の割り当てです — Plusを定期的に使い切るのでなければ、そこまで要りません。
 
 ---
 
 ## GitHub Copilot
 
-### 料金
+### 上流での価格
 
-| プラン | 月額コスト | クォータリセット | モデル |
-|------|--------------|-------------|--------|
-| Individual | $10 | 月次 (1日) | GPT-5、Claude 4.5、Gemini 3 |
-| Business | $19 | 月次 (1日) | GPT-5、Claude 4.5、Gemini 3 |
+| プラン | 月額の目安 | リセット | モデル |
+|------|----------------------|-------|--------|
+| Individual | 約$10 | 毎月 | 複数のベンダー |
+| Business | 1シートあたり約$19 | 毎月 | 複数のベンダー |
 
 ### セットアップ
 
-**ステップ1: ダッシュボード経由で接続**
-
-```bash
-vela
-# Dashboard → Providers → Connect GitHub
-```
-
-**ステップ2: GitHub経由のOAuth**
-
-- 「Connect GitHub」をクリック
-- ブラウザが開く → GitHubにログイン
-- GitHub Copilotを認可
-- 自動トークン更新有効化
-
-**ステップ3: CLIで使用**
+**ステップ1: 接続する**
 
 ```
-Model: gh/gpt-5
-       gh/gpt-5.1-codex-max
-       gh/claude-4.5-sonnet
-       gh/gemini-3-pro
+Dashboard → Providers → GitHub → Connect
 ```
 
-### 利用可能なモデル
+**ステップ2: 認可する**
 
-| モデルID | 説明 | 最適用途 |
-|----------|-------------|----------|
-| `gh/gpt-5` | GPT-5 | 最新OpenAIモデル |
-| `gh/gpt-5.1-codex-max` | GPT-5.1 Codex Max | 最大コンテキスト |
-| `gh/claude-4.5-sonnet` | Claude 4.5 Sonnet | Anthropic品質 |
-| `gh/gemini-3-pro` | Gemini 3 Pro | Google品質 |
+GitHubにサインインし、Copilotの認可を承認してください。Velaはトークンを新しく保ちます。
 
-### プロのヒント
+**ステップ3: 使う**
 
-- **月次リセット** - 月1日にフルクォータリセット
-- **複数モデル** - 一つのサブスクリプションでGPT、Claude、Geminiにアクセス
-- **Business階層** - チーム用の高クォータ
+モデルは`gh/<model-id>`と名づけられます。たとえば:
+
+- `gh/claude-sonnet-4.6`、`gh/claude-opus-4.7`、`gh/claude-haiku-4.5`
+- `gh/gpt-5.4`、`gh/gpt-5.3-codex`、`gh/gpt-5.2-codex`
+- `gh/gemini-3.1-pro-preview`、`gh/gemini-3-flash-preview`
+
+### 最大限に引き出す
+
+- Copilotは異色です: **ひとつのサブスクリプションで、複数のベンダー**。ふたつめの請求書なしに多様性が欲しいとき、コンボの2番目や3番目の枠として良い選択です。
+- リセットが毎月ということは、ほかのレーンが乾いた月末のために取っておくのが向いているということです。
 
 ---
 
 ## Antigravity (Googleアカウント)
 
-### 料金
+### 上流での価格
 
-| プラン | 月額コスト | クォータ | モデル |
-|------|--------------|-------|--------|
-| FREE | $0 | Gemini CLIと同様 | Gemini 3 Pro、Claude Sonnet 4.5 |
+AntigravityはGoogleのエージェント型コーディング環境です。Googleアカウントがあれば無料で、独自のクォータを持ち、GeminiとClaudeの両方のモデルを出します。
 
 ### セットアップ
 
-**ステップ1: ダッシュボード経由で接続**
-
-```bash
-vela
-# Dashboard → Providers → Connect Antigravity
-```
-
-**ステップ2: Google OAuth**
-
-- 「Connect Antigravity」をクリック
-- ブラウザが開く → Googleアカウントにログイン
-- 権限を付与
-- 自動トークン更新有効化
-
-**ステップ3: CLIで使用**
+**ステップ1: 接続する**
 
 ```
-Model: ag/gemini-3-pro-high
-       ag/claude-sonnet-4-5
-       ag/claude-opus-4-5-thinking
+Dashboard → Providers → Antigravity → Connect
 ```
 
-### 利用可能なモデル
+**ステップ2: Googleでサインインする**
 
-| モデルID | 説明 | 最適用途 |
-|----------|-------------|----------|
-| `ag/gemini-3-pro-high` | Gemini 3 Pro High | 高品質応答 |
-| `ag/claude-sonnet-4-5` | Claude Sonnet 4.5 | Anthropic品質 |
-| `ag/claude-opus-4-5-thinking` | Claude Opus 4.5 Thinking | 複雑な推論 |
+接続を承認し、`ag/<model-id>`と名づけられたモデルを使います:
 
-### プロのヒント
+- `ag/gemini-4-argon-high`(安く速い変種として`-medium`、`-low`も)
+- `ag/gemini-3.8-flash`、`ag/gemini-3.7-flash`、そのほかのGeminiの世代
+- Claudeのモデル(あなたのアカウントが提供する場合)
 
-- **無料階層** - Googleアカウントでコストなし
-- **Claudeアクセス** - 無料Claude Sonnet/Opus
-- **Gemini CLIと同様のクォータ** - 日次/月次制限
+### 最大限に引き出す
+
+- `-high`/`-medium`/`-low`の接尾辞は、実際のコストのレバーです: 同じモデルファミリーで、トークンの消費はまるで違います。
+- 無料なので、何か試験的なことをするときはコンボの先頭に置くべきです。
 
 ---
 
-## 料金比較
+## Kimi (Moonshot)
 
-| プロバイダー | 月額コスト | クォータリセット | 価値 |
-|----------|--------------|-------------|-------|
-| **Claude Code Pro** | $20 | 5時間 + 週次 | ⭐⭐⭐⭐⭐ 最高品質 |
-| **Claude Code Max** | $100 | 5時間 + 週次 | ⭐⭐⭐⭐⭐ 最高クォータ |
-| **Codex Plus** | $20 | 5時間 + 週次 | ⭐⭐⭐⭐ 良い価値 |
-| **Codex Pro** | $200 | 5時間 + 週次 | ⭐⭐⭐⭐⭐ 10×クォータ |
-| **Gemini CLI** | **$0** | 日次 + 月次 | ⭐⭐⭐⭐⭐ 月18万無料! |
-| **GitHub Copilot** | $10〜19 | 月次 (1日) | ⭐⭐⭐⭐ マルチモデル |
-| **Antigravity** | **$0** | 日次 + 月次 | ⭐⭐⭐⭐ 無料Claude! |
+### 上流での価格
+
+Moonshotはコーディングプランを直接売っています。VelaはログインでもAPIキーでも、あなたのアカウントが対応するほうで届けます。
+
+### セットアップ
+
+```
+Dashboard → Providers → Kimi → Connect (login)   — or —   Add API key
+```
+
+モデルは`kimi/<model-id>`と名づけられます: `kimi/kimi-latest`、`kimi/kimi-k2.5`、`kimi/k3`、`kimi/kimi-for-coding`。
 
 ---
 
-## 使用例
+## 並べて見る
 
-### Cursor IDEセットアップ
-
-```
-Settings → Models → Advanced:
-  OpenAI API Base URL: http://localhost:32060/v1
-  OpenAI API Key: [Velaダッシュボードから取得]
-  Model: cc/claude-opus-4-5-20251101
-```
-
-### コンボを作成 (推奨)
-
-```
-Dashboard → Combos → Create New
-
-Name: premium-coding
-Models:
-  1. gc/gemini-3-flash-preview (無料、最初に使用)
-  2. cc/claude-opus-4-5-20251101 (サブスクリプション)
-  3. cx/gpt-5.2-codex (サブスクリプションバックアップ)
-
-CLIで使用: premium-coding
-```
-
-**結果:** 無料階層を最大化 → サブスクリプションを使用 → 自動フォールバック
+| プロバイダー | 月額(上流) | ログイン方法 | リセット | 際立つところ |
+|----------|--------------------|----------------|-------|----------|
+| **Claude Code Pro** | 約$20 | OAuth | ローリング + 週次 | 長いコードの品質で最良 |
+| **Claude Code Max** | 約$100 | OAuth | ローリング + 週次 | Claudeの最大の割り当て |
+| **Codex Plus** | 約$20 | OAuth | ローリング + 週次 | 単機能のコーディングモデルとして最強 |
+| **Codex Pro** | 約$200 | OAuth | ローリング + 週次 | Plusの約10倍 |
+| **GitHub Copilot** | 約$10〜19 | OAuth | 毎月 | 複数のベンダーをひとつの請求で |
+| **Antigravity** | **無料** | Google OAuth | 独自 | GeminiとClaudeをコストなしで |
+| **Kimi** | プラン次第 | ログインまたはキー | 毎月 | 長いコンテキストのコーディング |
 
 ---
 
-## クォータトラッキング
+## 実例
 
-Velaはクォータをリアルタイムで追跡:
+**Cursor、Cline、あるいはほかのOpenAI互換ツール。**
 
-- **トークン消費** - リクエストごとの入出力トークン
-- **リセットカウントダウン** - 次のクォータリセットまでの時間
-- **使用量パーセンテージ** - クォータの使用量
-- **自動フォールバック** - 消費時に次の階層へ切替
-
-**ダッシュボード表示:**
+`premium-coding`というコンボがあるなら(Claudeが先、GLMが2番目、Kiroが最後):
 
 ```
-Claude Code Pro
-├─ Quota: 75% used
-├─ Reset: 2h 15m (5-hour)
-├─ Weekly reset: 3 days
-└─ Fallback: glm/glm-4.7 (cheap tier)
+Settings → Models
+  Base URL: http://localhost:32060/v1
+  API Key:  [your Vela key]
+  Model:    premium-coding
 ```
+
+サブスクリプションだけを使いたいなら、コンボを飛ばして`cc/claude-opus-5`を直接使ってください。
+
+**コンボを組む:**
+
+```
+Dashboard → Combos → Create
+  Name:   premium-coding
+  Models: 1. cc/claude-opus-5      ← subscription
+          2. glm/glm-4.7           ← cheap
+          3. kr/claude-sonnet-4.5  ← free last line
+```
+
+---
+
+## クォータを見守る
+
+**Quota**ページは、プロバイダーごとに示します:
+
+- ウィンドウのどれだけが使われたかを、バーとパーセントで
+- いつリセットされるかを、カウントダウンで
+- 有料のレーンでは、これまでにいくらかかったかを
+
+**Usage**ページは、同じ支出をモデル、コンボ、APIキーごとに、今日、7日、14日、30日、60日、あるいはすべての期間にわたって示します。
 
 ---
 
 ## ベストプラクティス
 
-### 1. 無料階層を最初に使用
+### 1. 目的がコストなら、無料と格安を先に
 
 ```
-優先順位:
-1. Gemini CLI (月18万無料)
-2. Antigravity (無料Claude)
-3. Claude Code/Codex (有料サブスクリプション)
+1. Antigravity (free Claude / Gemini)
+2. Claude Code or Codex (you already pay)
+3. GLM-4.7 (cheap)
+4. iFlow or Kiro (free)
 ```
 
-### 2. クォータを毎日追跡
+目的が「難しい問題での品質」なら、かわりにサブスクリプションを先に置いてください — 普遍的に正しい順番はなく、今週のあなたがしていることに合う順番があるだけです。
 
-- 毎朝ダッシュボードを確認
-- クォータリセットに合わせて重いタスクを計画
-- クリティカルでないタスクには低価格/無料階層を使用
+### 2. リセットの時刻を見る
 
-### 3. スマートコンボを作成
+ローリングウィンドウは最初に使ってから数時間後に戻り、日次と月次のウィンドウは決まった時刻に戻ります。月次のリセット前日に重い仕事をするのは、何のためにもならないクォータの消費です。
 
-```
-コンボ例:
-1. gc/gemini-3-flash-preview (無料プライマリ)
-2. cc/claude-opus-4-5 (複雑なタスク)
-3. glm/glm-4.7 (低価格バックアップ)
-4. if/kimi-k2-thinking (無料フォールバック)
-```
+### 3. コンボを使い、最後に無料プロバイダーを置く
 
-### 4. 時間別に最適化
-
-```
-朝: 新鮮な5時間クォータ (Claude/Codex)
-午後: Gemini CLI (1K/日)
-夕方: サブスクリプションクォータ
-夜: 低価格/無料階層
-```
+無料のレーンで終わるコンボは、考えの途中であなたを立ち往生させません。
 
 ---
 
 ## トラブルシューティング
 
-### 「クォータ消費」
+### 「Quota exhausted」
 
-**解決策:**
-- ダッシュボードクォータトラッカーを確認
-- リセットを待つ (5時間または日次)
-- 低価格/無料階層へのコンボフォールバックを使用
+リセットを待つ(カウントダウンを見てください)、あるいはコンボを次のモデルに落とす。ほかは壊れていません。
 
-### 「OAuthトークン期限切れ」
+### 「OAuth token expired」
 
-**解決策:**
-- Velaにより自動更新
-- 問題がある場合: Dashboard → Provider → Reconnect
+Velaはトークンを自動で更新します。期限切れのメッセージはたいてい、更新そのものが失敗したという意味です。**Providers → [provider] → Disconnect**へ行き、もう一度**Connect**してください。
 
-### 「レート制限」
+### クォータはありそうなのにレート制限される
 
-**解決策:**
-- サブスクリプションクォータ切れ
-- フォールバックを追加: `cc/claude-opus → glm/glm-4.7`
-- 無料階層を使用: `if/kimi-k2-thinking`
+レート制限とクォータは別の制限です。割り当てが残っていても、プロバイダーはバーストに対してリクエストを断れます。答えは待つのではなくフォールバックの鎖です。
+
+### モデル名が拒否される
+
+上流で名前が変わったのかもしれません。ゲートウェイに、実際に何を持っているかを尋ねてください:
+
+```bash
+curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>" | grep claude
+```
 
 ---
 
 ## 次のステップ
 
-- **低価格バックアップをセットアップ:** [低価格プロバイダー](./cheap.md)
-- **無料フォールバックを追加:** [無料プロバイダー](./free.md)
-- **コンボを作成:** Dashboard → Combos → Create New
+- **格安のバックアップ:** [格安プロバイダー](cheap.md)
+- **無料のフォールバック:** [無料プロバイダー](free.md)
+- **鎖を組む:** [コンボ](../features/combos.md)

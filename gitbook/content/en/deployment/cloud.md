@@ -1,236 +1,220 @@
 # ☁️ Cloud Deployment
 
-Deploy Vela on VPS or Docker for remote access and production use.
+Running Vela on a server changes one thing and one thing only: it is now reachable by other machines, which means it needs a password and a front door. Everything else — providers, combos, keys — works exactly as it does locally.
+
+This guide covers the published Docker image (the recommended path), a VPS install, a reverse proxy, and the security checklist that matters before you open the port.
 
 ---
 
-## 🖥️ VPS Deployment
+## 🖥️ On a VPS
 
 ### Prerequisites
 
-- Ubuntu 20.04+ or similar Linux distribution
-- Node.js 20+
-- Git
-- Root or sudo access
+- Ubuntu 22.04 or newer, or any comparable Linux
+- Node.js 20 or newer (skip this if you use Docker)
+- `git`
+- A user with `sudo`
 
-### Step 1: Clone Repository
+### Step 1: install Node.js, then Vela
+
+```bash
+# Node.js 20+ — the official NodeSource script is one option
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Vela
+npm install -g vela
+```
+
+If you would rather build from source:
 
 ```bash
 git clone https://github.com/YumamaX3/Vela.git
-cd Vela/app
-```
-
-### Step 2: Install Dependencies
-
-```bash
+cd Vela
 npm install
-```
-
-### Step 3: Build Application
-
-```bash
 npm run build
-```
-
-### Step 4: Configure Environment Variables
-
-Create a `.env` file or export variables:
-
-```bash
-export JWT_SECRET="your-secure-secret-change-this-to-random-string"
-export INITIAL_PASSWORD="your-secure-password"
-export DATA_DIR="/var/lib/Vela"
-export NODE_ENV="production"
-```
-
-**Environment Variables:**
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `JWT_SECRET` | Auto-generated | **MUST change in production!** Used for JWT token signing |
-| `INITIAL_PASSWORD` | `123456` | Dashboard login password |
-| `DATA_DIR` | `~/.vela` | Database and data storage path |
-| `NODE_ENV` | `development` | Set to `production` for deployment |
-| `ENABLE_REQUEST_LOGS` | `false` | Enable debug request/response logs |
-
-### Step 5: Create Data Directory
-
-```bash
-sudo mkdir -p /var/lib/Vela
-sudo chown $USER:$USER /var/lib/Vela
-```
-
-### Step 6: Start Application
-
-```bash
 npm run start
 ```
 
-### Step 7: Setup PM2 for Production
+The repository root **is** the app. There is no nested `app/` directory.
 
-PM2 keeps your application running and restarts it on crashes:
+### Step 2: configure the environment
+
+Put these in a shell profile, a systemd unit, or a `.env` file beside the app:
 
 ```bash
-# Install PM2 globally
-npm install -g pm2
-
-# Start Vela with PM2
-pm2 start npm --name Vela -- start
-
-# Save PM2 configuration
-pm2 save
-
-# Setup PM2 to start on system boot
-pm2 startup
-# Follow the instructions printed by the command above
+export JWT_SECRET="$(openssl rand -hex 32)"   # signs dashboard sessions
+export INITIAL_PASSWORD="set-me-by-you"       # placeholder, not a secret
+export DATA_DIR="/var/lib/vela"
+export NODE_ENV="production"
+export PORT="32060"
 ```
 
-**PM2 Management Commands:**
+`JWT_SECRET` must be freshly generated and at least 32 characters; a placeholder makes Vela refuse to boot.
+
+| Variable | What it does |
+|----------|--------------|
+| `JWT_SECRET` | Signs dashboard sessions. Generate it; never reuse one from a tutorial. |
+| `INITIAL_PASSWORD` | The first dashboard login password. Optional, but expected on a server. It is a credential: supply it at run time, never commit it. |
+| `DATA_DIR` | Where the database lives. Default `~/.vela`. |
+| `NODE_ENV` | Set to `production` for anything real. |
+| `ENABLE_REQUEST_LOGS` | `false` by default; turn on only while debugging. |
+| `REQUIRE_API_KEY` | When on, requests without a valid key are rejected. |
+| `VELA_BACKUP_*` | The optional encrypted backup engine; all off by default. |
+
+The complete list is in the repository's `.env.example` and `docs/ENVIRONMENT.md`.
+
+### Step 3: the data directory
 
 ```bash
-# View logs
-pm2 logs Vela
+sudo mkdir -p /var/lib/vela
+sudo chown $USER:$USER /var/lib/vela
+```
 
-# Restart application
-pm2 restart Vela
+### Step 4: run it under a process manager
 
-# Stop application
-pm2 stop Vela
+```bash
+sudo npm install -g pm2
 
-# View status
+pm2 start vela --name vela
+pm2 save
+pm2 startup      # follow the line it prints, so it survives a reboot
+```
+
+Useful PM2 commands:
+
+```bash
+pm2 logs vela          # follow the output
+pm2 restart vela
+pm2 stop vela
 pm2 status
-
-# Monitor resources
 pm2 monit
 ```
 
+### Step 5: set the dashboard password
+
+Open the dashboard **from the server** — for example through an SSH tunnel (see below) — go to **Settings → Access**, and set a password. Until you do, remote browsers are refused, by design.
+
 ---
 
-## 🐳 Docker Deployment
+## 🐳 Docker deployment
 
-### Option 1: Using Dockerfile
+The published image is the shortest road, and it is the one to prefer.
 
-Create a `Dockerfile` in the `app` directory:
+### The published image
+
+```bash
+docker run -d --name vela --restart unless-stopped \
+  -p 127.0.0.1:32060:32060 \
+  -v "$HOME/vela-data:/app/data" \
+  -e DATA_DIR=/app/data \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  -e INITIAL_PASSWORD="set-me-by-you" \
+  ghcr.io/yumamax3/vela:1.2.4
+```
+
+- `ghcr.io/yumamax3/vela` is a **public** image. Anybody can pull it without logging in; no token is required. It contains no secrets — every secret is supplied as environment at run time, which is exactly why it is safe to be public.
+- **Pin the tag** (`:1.2.4`). `:latest` follows releases and can change under a restart.
+- **Publish to `127.0.0.1`** when a reverse proxy is the intended entrance. That way the raw port is not on the internet at all.
+- **Mount `/app/data`.** Without the volume, everything vanishes when the container is replaced.
+
+### Docker Compose
+
+The repository ships a documented template, `docker-compose.example.yml`. Copy it, fill in the placeholders, and start:
+
+```bash
+cp docker-compose.example.yml docker-compose.yml
+# edit docker-compose.yml: every `set-me` and every secret
+docker compose up -d
+```
+
+A minimal chart of your own looks like this:
+
+```yaml
+services:
+  vela:
+    image: ghcr.io/yumamax3/vela:1.2.4
+    container_name: vela
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:32060:32060"
+    environment:
+      - NODE_ENV=production
+      - DATA_DIR=/app/data
+      - JWT_SECRET=set-me-from-openssl-rand-hex-32   # placeholder, not a secret
+      - INITIAL_PASSWORD=set-me-by-you               # placeholder, not a secret
+    volumes:
+      - vela-data:/app/data
+    stop_grace_period: 30s
+
+volumes:
+  vela-data:
+```
+
+```bash
+docker compose up -d          # start
+docker compose logs -f        # follow
+docker compose down           # stop
+docker compose pull && docker compose up -d   # update
+```
+
+> The example chart also offers an optional MariaDB "twin" for the `mysql` / `mirror` storage modes and an optional compression sidecar. Both are commented or internal-only; you do not need either to run Vela.
+
+### Building your own image
+
+Only if you need to modify the code:
 
 ```dockerfile
-FROM node:20-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
+RUN npm ci
 
-# Install dependencies
-RUN npm ci --only=production
-
-# Copy application files
 COPY . .
-
-# Build application
 RUN npm run build
 
-# Expose ports
-EXPOSE 3000 32060
-
-# Set environment variables
 ENV NODE_ENV=production
 ENV DATA_DIR=/app/data
-
-# Create data directory
 RUN mkdir -p /app/data
 
-# Start application
+EXPOSE 32060
 CMD ["npm", "run", "start"]
 ```
 
-**Build and Run:**
-
 ```bash
-# Build image
-docker build -t Vela .
-
-# Run container
-docker run -d \
-  --name Vela \
-  -p 3000:3000 \
-  -p 32060:32060 \
-  -e JWT_SECRET="your-secure-secret-change-this" \
-  -e INITIAL_PASSWORD="your-secure-password" \
-  -v Vela-data:/app/data \
-  vela
+docker build -t vela-local:1.2.4 .
+docker run -d --name vela -p 127.0.0.1:32060:32060 \
+  -v vela-data:/app/data \
+  -e DATA_DIR=/app/data \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  vela-local:1.2.4
 ```
 
-### Option 2: Docker Compose
-
-Create `docker-compose.yml`:
-
-```yaml
-version: '3.8'
-
-services:
-  Vela:
-    build: .
-    container_name: Vela
-    ports:
-      - "3000:3000"
-      - "32060:32060"
-    environment:
-      - NODE_ENV=production
-      - JWT_SECRET=your-secure-secret-change-this
-      - INITIAL_PASSWORD=your-secure-password
-      - DATA_DIR=/app/data
-    volumes:
-      - Vela-data:/app/data
-    restart: unless-stopped
-
-volumes:
-  Vela-data:
-```
-
-**Run with Docker Compose:**
-
-```bash
-# Start services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
-
-# Rebuild and restart
-docker-compose up -d --build
-```
+Building from source is slower and larger than the published image, and it inherits whatever is on your machine. The published image is built from tagged commits; your own image is built from yours.
 
 ---
 
-## 🌐 Reverse Proxy with Nginx
+## 🌐 A reverse proxy (Nginx)
 
-### Why Use Nginx?
+Why bother: TLS, a real domain name, and a single well-configured entrance that can cap request sizes and add headers.
 
-- SSL/TLS termination
-- Domain name mapping
-- Load balancing
-- Better security
-
-### Step 1: Install Nginx
+### Install
 
 ```bash
 sudo apt update
-sudo apt install nginx
+sudo apt install -y nginx
 ```
 
-### Step 2: Configure Nginx
+### Configure
 
-Create `/etc/nginx/sites-available/Vela`:
+Create `/etc/nginx/sites-available/vela`:
 
 ```nginx
 server {
     listen 80;
     server_name your-domain.com;
-
-    # Redirect HTTP to HTTPS
     return 301 https://$server_name$request_uri;
 }
 
@@ -238,18 +222,16 @@ server {
     listen 443 ssl http2;
     server_name your-domain.com;
 
-    # SSL certificates (use certbot to generate)
-    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+    ssl_certificate     /etc/letsencrypt/live/your-domain.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
-
-    # SSL configuration
     ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
 
-    # Proxy to Vela
+    # Vela caps request bodies at 32 MB by default
+    client_max_body_size 32m;
+
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://127.0.0.1:32060;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -258,216 +240,160 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
-        
-        # SSE support - CRITICAL for streaming
-        proxy_buffering off;
-        proxy_read_timeout 86400;
-    }
 
-    # API endpoint
-    location /v1 {
-        proxy_pass http://localhost:32060;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        
-        # SSE support - CRITICAL for streaming
+        # Streaming (SSE) — without these, replies arrive in one lump at the end
         proxy_buffering off;
         proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
     }
 }
 ```
 
-### Step 3: Enable Site
+Both the dashboard and `/v1` live on the same port, so one `location` covers them.
+
+### Enable it and get a certificate
 
 ```bash
-# Create symbolic link
-sudo ln -s /etc/nginx/sites-available/Vela /etc/nginx/sites-enabled/
-
-# Test configuration
+sudo ln -s /etc/nginx/sites-available/vela /etc/nginx/sites-enabled/
 sudo nginx -t
-
-# Reload Nginx
 sudo systemctl reload nginx
-```
 
-### Step 4: Setup SSL with Let's Encrypt
-
-```bash
-# Install certbot
-sudo apt install certbot python3-certbot-nginx
-
-# Obtain SSL certificate
+sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d your-domain.com
-
-# Auto-renewal is configured automatically
-# Test renewal
 sudo certbot renew --dry-run
 ```
 
+Then point your tools at `https://your-domain.com/v1`.
+
 ---
 
-## 🔒 Security Considerations
+## 🔒 Security checklist
 
-### 1. Change Default Credentials
+Everything on this list takes a minute and prevents the worst day.
 
-**CRITICAL:** Change `JWT_SECRET` and `INITIAL_PASSWORD` before deployment:
+### 1. A real `JWT_SECRET`, and a real password
 
 ```bash
-# Generate secure JWT secret
-openssl rand -base64 32
-
-# Use this value for JWT_SECRET
-export JWT_SECRET="generated-secret-here"
+openssl rand -hex 32        # paste into JWT_SECRET
 ```
 
-### 2. Firewall Configuration
+Then set a dashboard password under **Settings → Access** and turn on **Require dashboard login**. Also consider **Require API key** so that anything reaching `/v1` must present a key.
+
+### 2. A firewall
 
 ```bash
-# Allow SSH
 sudo ufw allow 22/tcp
-
-# Allow HTTP/HTTPS (if using Nginx)
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
-
-# If NOT using reverse proxy, allow Vela ports
-sudo ufw allow 3000/tcp
-sudo ufw allow 32060/tcp
-
-# Enable firewall
+# only if you are NOT behind a proxy:
+# sudo ufw allow 32060/tcp
 sudo ufw enable
 ```
 
-### 3. Restrict Dashboard Access
+### 3. Keep the raw port private
 
-If you only need API access, restrict dashboard port:
+If Nginx is the front door, Vela should listen only on loopback — publish with `127.0.0.1:32060:32060` as in the examples above. To reach the dashboard on a box that has no public proxy:
 
 ```bash
-# Only allow localhost access to dashboard
-sudo ufw deny 3000/tcp
+ssh -L 32060:localhost:32060 you@your-server
+# then open http://localhost:32060/dashboard on your own machine
 ```
 
-Access dashboard via SSH tunnel:
+### 4. Per-key spend ceilings
+
+Hand out one API key per person or per tool (**Endpoint & Key → Create Key**) and set a token budget or spend cap on each. When a cap is reached, Vela answers with a clear `429` rather than quietly spending more.
+
+### 5. Update deliberately
 
 ```bash
-ssh -L 3000:localhost:3000 user@your-server.com
-# Then open http://localhost:3000 in your browser
-```
-
-### 4. Regular Updates
-
-```bash
-# Update system packages
+# Packages you depend on
 sudo apt update && sudo apt upgrade -y
 
-# Update Vela
-cd /path/to/Vela/app
-git pull
-npm install
-npm run build
-pm2 restart Vela
+# From a git checkout
+cd Vela && git pull && npm install && npm run build && pm2 restart vela
+
+# Docker
+docker compose pull && docker compose up -d
 ```
 
-### 5. Backup Strategy
+### 6. Back up the data directory
 
 ```bash
-# Backup data directory
-tar -czf Vela-backup-$(date +%Y%m%d).tar.gz /var/lib/Vela
-
-# Automated daily backup (add to crontab)
-0 2 * * * tar -czf /backups/Vela-$(date +\%Y\%m\%d).tar.gz /var/lib/Vela
+tar -czf vela-backup-$(date +%Y%m%d).tar.gz -C /var/lib vela
 ```
+
+Add it to cron for a nightly copy. If you enable the built-in encrypted backups, remember that losing `VELA_BACKUP_ENCRYPTION_KEY` loses the backups too.
 
 ---
 
 ## 📊 Monitoring
 
-### Check Application Status
-
 ```bash
-# PM2 status
 pm2 status
-
-# View logs
-pm2 logs Vela --lines 100
-
-# Monitor resources
+pm2 logs vela --lines 100
 pm2 monit
-```
 
-### Nginx Logs
+docker compose logs -f --tail 100
 
-```bash
-# Access logs
 sudo tail -f /var/log/nginx/access.log
-
-# Error logs
 sudo tail -f /var/log/nginx/error.log
+
+curl -s http://127.0.0.1:32060/api/health      # {"ok":true}
 ```
 
-### System Resources
-
-```bash
-# CPU and memory usage
-htop
-
-# Disk usage
-df -h
-
-# Network connections
-netstat -tulpn | grep -E '3000|32060'
-```
+The container ships with a health check that polls `/api/health`, so `docker ps` will show `healthy` once it is up.
 
 ---
 
 ## 🚨 Troubleshooting
 
-### Application Won't Start
+### It will not start
 
 ```bash
-# Check logs
-pm2 logs Vela
-
-# Check if ports are in use
-sudo lsof -i :3000
-sudo lsof -i :32060
-
-# Check environment variables
-pm2 env Vela
+pm2 logs vela          # or: docker compose logs
+ss -tlnp | grep 32060  # is something else on the port?
 ```
 
-### Nginx 502 Bad Gateway
+A refusal to boot that mentions `JWT_SECRET` means exactly that: generate a long random secret.
+
+### Nginx returns 502
+
+Nginx cannot reach Vela. Check Vela is running (`curl`, above), that the `proxy_pass` port matches, and the error log:
 
 ```bash
-# Check if Vela is running
-pm2 status
-
-# Check Nginx error logs
 sudo tail -f /var/log/nginx/error.log
-
-# Test Nginx configuration
-sudo nginx -t
 ```
 
-### SSE Streaming Not Working
+### Streaming does not stream
 
-Ensure `proxy_buffering off` is set in Nginx configuration for SSE support.
+`proxy_buffering off` is missing, or a CDN or WAF in front is buffering. Both must pass events through.
 
-### Permission Denied Errors
+### Remote login is refused
+
+That is the password gate. Set a password from the Vela machine (**Settings → Access**), or provide `INITIAL_PASSWORD` and restart.
+
+### Permission denied on the data directory
 
 ```bash
-# Fix data directory permissions
-sudo chown -R $USER:$USER /var/lib/Vela
-chmod 755 /var/lib/Vela
+sudo chown -R $USER:$USER /var/lib/vela
+chmod 755 /var/lib/vela
 ```
+
+In Docker, make sure the mounted host directory is writable by the container's `node` user (uid 1000).
 
 ---
 
-## 🔗 Next Steps
+## 📱 About the hosted endpoints
 
-- [Connect Providers](/providers/subscription.md)
-- [Setup Combos](/features/combos.md)
-- [Integrate with Tools](/integration/cursor.md)
+You may see `https://vela.my.id` and `https://vela.ai` mentioned in older pages of this documentation as a hosted Vela instance. Those are **the project owner's own deployments**, noted here as an upstream fact, not a service this documentation can promise you. Treat anything you read about them with a date in mind.
+
+For anything you care about, self-host (this page) — or reach the hosted instance your provider gave you, with the API key they issued. The tool configuration is identical either way; only the base URL changes.
+
+---
+
+## 🔗 Next steps
+
+- [Connect providers](../providers/subscription.md)
+- [Build combos](../features/combos.md)
+- [Point Cursor at your server](../integration/cursor.md)
+- [Troubleshooting](../troubleshooting.md)

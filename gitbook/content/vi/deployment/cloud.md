@@ -1,236 +1,220 @@
 # ☁️ Triển khai Cloud
 
-Triển khai Vela trên VPS hoặc Docker để truy cập từ xa và dùng trong production.
+Chạy Vela trên một server thay đổi đúng một điều duy nhất: nó giờ có thể được các máy khác chạm tới, nghĩa là nó cần một mật khẩu và một cửa trước. Mọi thứ khác — nhà cung cấp, combos, key — hoạt động y hệt như khi chạy cục bộ.
+
+Hướng dẫn này bao quát ảnh Docker được phát hành (con đường khuyến nghị), một bản cài trên VPS, một reverse proxy, và danh sách kiểm tra bảo mật quan trọng trước khi bạn mở cổng.
 
 ---
 
-## 🖥️ Triển khai VPS
+## 🖥️ Trên một VPS
 
-### Yêu cầu
+### Điều kiện tiên quyết
 
-- Ubuntu 20.04+ hoặc distro Linux tương tự
-- Node.js 20+
-- Git
-- Quyền root hoặc sudo
+- Ubuntu 22.04 trở lên, hoặc bất kỳ Linux tương đương
+- Node.js 20 trở lên (bỏ qua nếu bạn dùng Docker)
+- `git`
+- Một người dùng có `sudo`
 
-### Bước 1: Clone Repository
+### Bước 1: cài Node.js, rồi cài Vela
+
+```bash
+# Node.js 20+ — the official NodeSource script is one option
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Vela
+npm install -g vela
+```
+
+Nếu bạn muốn build từ mã nguồn:
 
 ```bash
 git clone https://github.com/YumamaX3/Vela.git
-cd Vela/app
-```
-
-### Bước 2: Cài đặt Dependencies
-
-```bash
+cd Vela
 npm install
-```
-
-### Bước 3: Build Application
-
-```bash
 npm run build
-```
-
-### Bước 4: Cấu hình biến môi trường
-
-Tạo file `.env` hoặc export biến:
-
-```bash
-export JWT_SECRET="your-secure-secret-change-this-to-random-string"
-export INITIAL_PASSWORD="your-secure-password"
-export DATA_DIR="/var/lib/Vela"
-export NODE_ENV="production"
-```
-
-**Biến môi trường:**
-
-| Biến | Mặc định | Mô tả |
-|----------|---------|-------------|
-| `JWT_SECRET` | Auto-generated | **PHẢI đổi trong production!** Dùng để ký JWT token |
-| `INITIAL_PASSWORD` | `123456` | Mật khẩu đăng nhập Dashboard |
-| `DATA_DIR` | `~/.vela` | Đường dẫn lưu database và data |
-| `NODE_ENV` | `development` | Đặt `production` cho deployment |
-| `ENABLE_REQUEST_LOGS` | `false` | Bật debug request/response logs |
-
-### Bước 5: Tạo Data Directory
-
-```bash
-sudo mkdir -p /var/lib/Vela
-sudo chown $USER:$USER /var/lib/Vela
-```
-
-### Bước 6: Khởi động Application
-
-```bash
 npm run start
 ```
 
-### Bước 7: Setup PM2 cho Production
+Gốc repository **chính là** ứng dụng. Không có thư mục `app/` lồng bên trong.
 
-PM2 giữ application chạy và tự khởi động lại khi crash:
+### Bước 2: cấu hình môi trường
+
+Đặt những dòng này trong một hồ sơ shell, một unit systemd, hoặc một tệp `.env` cạnh ứng dụng:
 
 ```bash
-# Install PM2 globally
-npm install -g pm2
-
-# Start Vela with PM2
-pm2 start npm --name Vela -- start
-
-# Save PM2 configuration
-pm2 save
-
-# Setup PM2 to start on system boot
-pm2 startup
-# Follow the instructions printed by the command above
+export JWT_SECRET="$(openssl rand -hex 32)"   # signs dashboard sessions
+export INITIAL_PASSWORD="set-me-by-you"       # placeholder, not a secret
+export DATA_DIR="/var/lib/vela"
+export NODE_ENV="production"
+export PORT="32060"
 ```
 
-**Lệnh quản lý PM2:**
+`JWT_SECRET` phải được tạo mới và dài ít nhất 32 ký tự; một giá trị giữ chỗ khiến Vela từ chối khởi động.
+
+| Biến | Nó làm gì |
+|----------|--------------|
+| `JWT_SECRET` | Ký các phiên dashboard. Hãy tạo nó; không bao giờ dùng lại một cái từ hướng dẫn. |
+| `INITIAL_PASSWORD` | Mật khẩu đăng nhập dashboard đầu tiên. Tuỳ chọn, nhưng được kỳ vọng trên một server. Đó là thông tin xác thực: hãy cấp nó lúc chạy, không bao giờ commit nó. |
+| `DATA_DIR` | Nơi cơ sở dữ liệu sống. Mặc định `~/.vela`. |
+| `NODE_ENV` | Đặt thành `production` cho mọi thứ thực sự. |
+| `ENABLE_REQUEST_LOGS` | Mặc định `false`; chỉ bật khi gỡ lỗi. |
+| `REQUIRE_API_KEY` | Khi bật, các request không có key hợp lệ bị từ chối. |
+| `VELA_BACKUP_*` | Engine sao lưu mã hoá tuỳ chọn; mặc định đều tắt. |
+
+Danh sách đầy đủ nằm trong `.env.example` của repository và `docs/ENVIRONMENT.md`.
+
+### Bước 3: thư mục dữ liệu
 
 ```bash
-# View logs
-pm2 logs Vela
+sudo mkdir -p /var/lib/vela
+sudo chown $USER:$USER /var/lib/vela
+```
 
-# Restart application
-pm2 restart Vela
+### Bước 4: chạy dưới một trình quản lý tiến trình
 
-# Stop application
-pm2 stop Vela
+```bash
+sudo npm install -g pm2
 
-# View status
+pm2 start vela --name vela
+pm2 save
+pm2 startup      # follow the line it prints, so it survives a reboot
+```
+
+Các lệnh PM2 hữu ích:
+
+```bash
+pm2 logs vela          # follow the output
+pm2 restart vela
+pm2 stop vela
 pm2 status
-
-# Monitor resources
 pm2 monit
 ```
+
+### Bước 5: đặt mật khẩu dashboard
+
+Mở dashboard **từ chính server** — ví dụ qua một đường hầm SSH (xem bên dưới) — vào **Settings → Access**, và đặt một mật khẩu. Cho đến khi bạn làm thế, trình duyệt từ xa bị từ chối, theo thiết kế.
 
 ---
 
 ## 🐳 Triển khai Docker
 
-### Cách 1: Dùng Dockerfile
+Ảnh được phát hành là con đường ngắn nhất, và là con đường nên ưu tiên.
 
-Tạo `Dockerfile` trong thư mục `app`:
+### Ảnh được phát hành
+
+```bash
+docker run -d --name vela --restart unless-stopped \
+  -p 127.0.0.1:32060:32060 \
+  -v "$HOME/vela-data:/app/data" \
+  -e DATA_DIR=/app/data \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  -e INITIAL_PASSWORD="set-me-by-you" \
+  ghcr.io/yumamax3/vela:1.2.4
+```
+
+- `ghcr.io/yumamax3/vela` là một ảnh **công khai**. Bất kỳ ai cũng kéo được mà không cần đăng nhập; không cần token. Nó không chứa bí mật nào — mọi bí mật được cấp như biến môi trường lúc chạy, đó chính là lý do nó an toàn khi công khai.
+- **Ghim thẻ phiên bản** (`:1.2.4`). `:latest` đi theo các bản phát hành và có thể thay đổi dưới một lần khởi động lại.
+- **Công bố ra `127.0.0.1`** khi một reverse proxy là cửa vào dự định. Như vậy cổng thô hoàn toàn không nằm trên internet.
+- **Mount `/app/data`.** Không có volume, mọi thứ biến mất khi container bị thay thế.
+
+### Docker Compose
+
+Repository đi kèm một mẫu có tài liệu, `docker-compose.example.yml`. Hãy sao chép nó, điền các giá trị giữ chỗ, và khởi động:
+
+```bash
+cp docker-compose.example.yml docker-compose.yml
+# edit docker-compose.yml: every `set-me` and every secret
+docker compose up -d
+```
+
+Một bảng tối giản của riêng bạn trông như thế này:
+
+```yaml
+services:
+  vela:
+    image: ghcr.io/yumamax3/vela:1.2.4
+    container_name: vela
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:32060:32060"
+    environment:
+      - NODE_ENV=production
+      - DATA_DIR=/app/data
+      - JWT_SECRET=set-me-from-openssl-rand-hex-32   # placeholder, not a secret
+      - INITIAL_PASSWORD=set-me-by-you               # placeholder, not a secret
+    volumes:
+      - vela-data:/app/data
+    stop_grace_period: 30s
+
+volumes:
+  vela-data:
+```
+
+```bash
+docker compose up -d          # start
+docker compose logs -f        # follow
+docker compose down           # stop
+docker compose pull && docker compose up -d   # update
+```
+
+> Bảng mẫu còn đưa ra một "người anh em song sinh" MariaDB tuỳ chọn cho các chế độ lưu trữ `mysql` / `mirror` và một sidecar nén tuỳ chọn. Cả hai đều bị comment hoặc chỉ dùng nội bộ; bạn không cần cái nào để chạy Vela.
+
+### Tự build ảnh của bạn
+
+Chỉ khi bạn cần sửa mã nguồn:
 
 ```dockerfile
-FROM node:20-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
+RUN npm ci
 
-# Install dependencies
-RUN npm ci --only=production
-
-# Copy application files
 COPY . .
-
-# Build application
 RUN npm run build
 
-# Expose ports
-EXPOSE 3000 32060
-
-# Set environment variables
 ENV NODE_ENV=production
 ENV DATA_DIR=/app/data
-
-# Create data directory
 RUN mkdir -p /app/data
 
-# Start application
+EXPOSE 32060
 CMD ["npm", "run", "start"]
 ```
 
-**Build và Run:**
-
 ```bash
-# Build image
-docker build -t Vela .
-
-# Run container
-docker run -d \
-  --name Vela \
-  -p 3000:3000 \
-  -p 32060:32060 \
-  -e JWT_SECRET="your-secure-secret-change-this" \
-  -e INITIAL_PASSWORD="your-secure-password" \
-  -v Vela-data:/app/data \
-  vela
+docker build -t vela-local:1.2.4 .
+docker run -d --name vela -p 127.0.0.1:32060:32060 \
+  -v vela-data:/app/data \
+  -e DATA_DIR=/app/data \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  vela-local:1.2.4
 ```
 
-### Cách 2: Docker Compose
-
-Tạo `docker-compose.yml`:
-
-```yaml
-version: '3.8'
-
-services:
-  Vela:
-    build: .
-    container_name: Vela
-    ports:
-      - "3000:3000"
-      - "32060:32060"
-    environment:
-      - NODE_ENV=production
-      - JWT_SECRET=your-secure-secret-change-this
-      - INITIAL_PASSWORD=your-secure-password
-      - DATA_DIR=/app/data
-    volumes:
-      - Vela-data:/app/data
-    restart: unless-stopped
-
-volumes:
-  Vela-data:
-```
-
-**Chạy với Docker Compose:**
-
-```bash
-# Start services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
-
-# Rebuild and restart
-docker-compose up -d --build
-```
+Build từ mã nguồn chậm hơn và lớn hơn ảnh được phát hành, và nó kế thừa mọi thứ trên máy của bạn. Ảnh được phát hành được build từ các commit đã gắn thẻ; ảnh của bạn được build từ commit của bạn.
 
 ---
 
-## 🌐 Reverse Proxy với Nginx
+## 🌐 Một reverse proxy (Nginx)
 
-### Tại sao dùng Nginx?
+Vì sao phải bận tâm: TLS, một tên miền thật, và một cửa vào duy nhất được cấu hình tốt, có thể giới hạn kích thước request và thêm header.
 
-- Terminate SSL/TLS
-- Map domain
-- Load balancing
-- Bảo mật tốt hơn
-
-### Bước 1: Cài đặt Nginx
+### Cài đặt
 
 ```bash
 sudo apt update
-sudo apt install nginx
+sudo apt install -y nginx
 ```
 
-### Bước 2: Cấu hình Nginx
+### Cấu hình
 
-Tạo `/etc/nginx/sites-available/Vela`:
+Tạo `/etc/nginx/sites-available/vela`:
 
 ```nginx
 server {
     listen 80;
     server_name your-domain.com;
-
-    # Redirect HTTP to HTTPS
     return 301 https://$server_name$request_uri;
 }
 
@@ -238,18 +222,16 @@ server {
     listen 443 ssl http2;
     server_name your-domain.com;
 
-    # SSL certificates (use certbot to generate)
-    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+    ssl_certificate     /etc/letsencrypt/live/your-domain.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
-
-    # SSL configuration
     ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
 
-    # Proxy to Vela
+    # Vela caps request bodies at 32 MB by default
+    client_max_body_size 32m;
+
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://127.0.0.1:32060;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -258,216 +240,160 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
-        
-        # SSE support - CRITICAL for streaming
-        proxy_buffering off;
-        proxy_read_timeout 86400;
-    }
 
-    # API endpoint
-    location /v1 {
-        proxy_pass http://localhost:32060;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        
-        # SSE support - CRITICAL for streaming
+        # Streaming (SSE) — without these, replies arrive in one lump at the end
         proxy_buffering off;
         proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
     }
 }
 ```
 
-### Bước 3: Enable Site
+Cả dashboard lẫn `/v1` đều nằm trên cùng một cổng, nên một `location` bao trùm cả hai.
+
+### Bật nó và lấy một chứng chỉ
 
 ```bash
-# Create symbolic link
-sudo ln -s /etc/nginx/sites-available/Vela /etc/nginx/sites-enabled/
-
-# Test configuration
+sudo ln -s /etc/nginx/sites-available/vela /etc/nginx/sites-enabled/
 sudo nginx -t
-
-# Reload Nginx
 sudo systemctl reload nginx
-```
 
-### Bước 4: Setup SSL với Let's Encrypt
-
-```bash
-# Install certbot
-sudo apt install certbot python3-certbot-nginx
-
-# Obtain SSL certificate
+sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d your-domain.com
-
-# Auto-renewal is configured automatically
-# Test renewal
 sudo certbot renew --dry-run
 ```
 
+Sau đó hướng các công cụ của bạn về `https://your-domain.com/v1`.
+
 ---
 
-## 🔒 Cân nhắc về Bảo mật
+## 🔒 Danh sách kiểm tra bảo mật
 
-### 1. Đổi credentials mặc định
+Mọi mục trong danh sách này mất một phút và ngăn được ngày tồi tệ nhất.
 
-**QUAN TRỌNG:** Đổi `JWT_SECRET` và `INITIAL_PASSWORD` trước khi deploy:
+### 1. Một `JWT_SECRET` thật, và một mật khẩu thật
 
 ```bash
-# Generate secure JWT secret
-openssl rand -base64 32
-
-# Use this value for JWT_SECRET
-export JWT_SECRET="generated-secret-here"
+openssl rand -hex 32        # paste into JWT_SECRET
 ```
 
-### 2. Cấu hình Firewall
+Sau đó đặt một mật khẩu dashboard trong **Settings → Access** và bật **Require dashboard login**. Cũng nên cân nhắc **Require API key** để mọi thứ chạm tới `/v1` đều phải xuất trình một key.
+
+### 2. Một tường lửa
 
 ```bash
-# Allow SSH
 sudo ufw allow 22/tcp
-
-# Allow HTTP/HTTPS (if using Nginx)
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
-
-# If NOT using reverse proxy, allow Vela ports
-sudo ufw allow 3000/tcp
-sudo ufw allow 32060/tcp
-
-# Enable firewall
+# only if you are NOT behind a proxy:
+# sudo ufw allow 32060/tcp
 sudo ufw enable
 ```
 
-### 3. Giới hạn truy cập Dashboard
+### 3. Giữ cổng thô riêng tư
 
-Nếu chỉ cần truy cập API, giới hạn port dashboard:
+Nếu Nginx là cửa trước, Vela chỉ nên lắng nghe trên loopback — công bố với `127.0.0.1:32060:32060` như trong các ví dụ trên. Để chạm tới dashboard trên một máy không có proxy công khai:
 
 ```bash
-# Only allow localhost access to dashboard
-sudo ufw deny 3000/tcp
+ssh -L 32060:localhost:32060 you@your-server
+# then open http://localhost:32060/dashboard on your own machine
 ```
 
-Truy cập dashboard qua SSH tunnel:
+### 4. Ngưỡng chi tiêu theo từng key
+
+Phát cho mỗi người hoặc mỗi công cụ một API key riêng (**Endpoint & Key → Create Key**) và đặt một ngân sách token hoặc ngưỡng chi tiêu cho từng cái. Khi chạm ngưỡng, Vela trả lời bằng một `429` rõ ràng thay vì lặng lẽ tiêu thêm.
+
+### 5. Cập nhật một cách có chủ ý
 
 ```bash
-ssh -L 3000:localhost:3000 user@your-server.com
-# Then open http://localhost:3000 in your browser
-```
-
-### 4. Cập nhật định kỳ
-
-```bash
-# Update system packages
+# Packages you depend on
 sudo apt update && sudo apt upgrade -y
 
-# Update Vela
-cd /path/to/Vela/app
-git pull
-npm install
-npm run build
-pm2 restart Vela
+# From a git checkout
+cd Vela && git pull && npm install && npm run build && pm2 restart vela
+
+# Docker
+docker compose pull && docker compose up -d
 ```
 
-### 5. Chiến lược Backup
+### 6. Sao lưu thư mục dữ liệu
 
 ```bash
-# Backup data directory
-tar -czf Vela-backup-$(date +%Y%m%d).tar.gz /var/lib/Vela
-
-# Automated daily backup (add to crontab)
-0 2 * * * tar -czf /backups/Vela-$(date +\%Y\%m\%d).tar.gz /var/lib/Vela
+tar -czf vela-backup-$(date +%Y%m%d).tar.gz -C /var/lib vela
 ```
+
+Thêm nó vào cron để có một bản sao hằng đêm. Nếu bạn bật các bản sao lưu mã hoá dựng sẵn, hãy nhớ rằng mất `VELA_BACKUP_ENCRYPTION_KEY` là mất luôn các bản sao lưu.
 
 ---
 
 ## 📊 Giám sát
 
-### Kiểm tra trạng thái Application
-
 ```bash
-# PM2 status
 pm2 status
-
-# View logs
-pm2 logs Vela --lines 100
-
-# Monitor resources
+pm2 logs vela --lines 100
 pm2 monit
-```
 
-### Nginx Logs
+docker compose logs -f --tail 100
 
-```bash
-# Access logs
 sudo tail -f /var/log/nginx/access.log
-
-# Error logs
 sudo tail -f /var/log/nginx/error.log
+
+curl -s http://127.0.0.1:32060/api/health      # {"ok":true}
 ```
 
-### Tài nguyên hệ thống
-
-```bash
-# CPU and memory usage
-htop
-
-# Disk usage
-df -h
-
-# Network connections
-netstat -tulpn | grep -E '3000|32060'
-```
+Container đi kèm một health check gọi `/api/health`, nên `docker ps` sẽ hiển thị `healthy` một khi nó đã lên.
 
 ---
 
-## 🚨 Troubleshooting
+## 🚨 Khắc phục sự cố
 
-### Application không khởi động
+### Nó không khởi động
 
 ```bash
-# Check logs
-pm2 logs Vela
-
-# Check if ports are in use
-sudo lsof -i :3000
-sudo lsof -i :32060
-
-# Check environment variables
-pm2 env Vela
+pm2 logs vela          # or: docker compose logs
+ss -tlnp | grep 32060  # is something else on the port?
 ```
 
-### Nginx 502 Bad Gateway
+Một lần từ chối khởi động có nhắc đến `JWT_SECRET` nghĩa đúng như thế: hãy tạo một bí mật ngẫu nhiên dài.
+
+### Nginx trả về 502
+
+Nginx không chạm tới được Vela. Kiểm tra Vela đang chạy (`curl`, ở trên), rằng cổng `proxy_pass` khớp, và error log:
 
 ```bash
-# Check if Vela is running
-pm2 status
-
-# Check Nginx error logs
 sudo tail -f /var/log/nginx/error.log
-
-# Test Nginx configuration
-sudo nginx -t
 ```
 
-### SSE Streaming không hoạt động
+### Streaming không stream
 
-Đảm bảo `proxy_buffering off` được set trong cấu hình Nginx để hỗ trợ SSE.
+Thiếu `proxy_buffering off`, hoặc một CDN hay WAF phía trước đang buffer. Cả hai đều phải cho các event đi qua.
 
-### Lỗi Permission Denied
+### Đăng nhập từ xa bị từ chối
+
+Đó là cổng mật khẩu. Hãy đặt một mật khẩu từ máy chạy Vela (**Settings → Access**), hoặc cung cấp `INITIAL_PASSWORD` và khởi động lại.
+
+### Permission denied trên thư mục dữ liệu
 
 ```bash
-# Fix data directory permissions
-sudo chown -R $USER:$USER /var/lib/Vela
-chmod 755 /var/lib/Vela
+sudo chown -R $USER:$USER /var/lib/vela
+chmod 755 /var/lib/vela
 ```
+
+Trong Docker, hãy chắc chắn thư mục trên host được mount là nơi người dùng `node` của container (uid 1000) ghi được.
+
+---
+
+## 📱 Về các endpoint được host
+
+Bạn có thể thấy `https://vela.my.id` và `https://vela.ai` được nhắc đến trong những trang cũ hơn của tài liệu này như một phiên bản Vela được host. Đó là **các bản triển khai của chính chủ dự án**, được ghi ở đây như một sự thật thượng nguồn, không phải một dịch vụ mà tài liệu này có thể hứa với bạn. Hãy xem mọi thứ bạn đọc về chúng kèm một ngày tháng trong đầu.
+
+Với bất cứ thứ gì bạn quan tâm, hãy tự host (trang này) — hoặc chạm tới phiên bản được host mà nhà cung cấp của bạn đã trao, với API key họ đã phát hành. Cấu hình công cụ giống hệt trong cả hai cách; chỉ base URL thay đổi.
 
 ---
 
 ## 🔗 Bước tiếp theo
 
-- [Kết nối Providers](/providers/subscription.md)
-- [Setup Combos](/features/combos.md)
-- [Tích hợp với Tools](/integration/cursor.md)
+- [Kết nối nhà cung cấp](../providers/subscription.md)
+- [Dựng combos](../features/combos.md)
+- [Hướng Cursor về server của bạn](../integration/cursor.md)
+- [Khắc phục sự cố](../troubleshooting.md)

@@ -1,249 +1,197 @@
 # Continue VSCode 扩展集成
 
-将 Vela 与 Continue 扩展集成,直接在 Visual Studio Code 中获得 AI 协助。
+Continue 是一款面向 VS Code 和 JetBrains 的开源 AI 助手。它读取一个 `config.json`，仅凭这个文件，你就能让它经由 Vela 路由。
 
-## 前置要求
+## 前提条件
 
-- 已安装 Visual Studio Code
-- 从 VSCode 市场安装了 Continue 扩展
-- 来自 [仪表盘](https://vela.my.id/dashboard) 的 Vela API key
-- Vela 正在运行(本地或云端)
+- 已安装 Continue 扩展的 VS Code
+- 本地运行着 Vela，或有一个可访问的云端端点
+- 来自 Vela 仪表盘的 API Key（**端点与密钥 → 创建密钥**）
 
 ## 配置步骤
 
-### 1. 打开 Continue 配置
+### 1. 打开 Continue 的配置
 
-1. 打开 VSCode
-2. 按 `Cmd+Shift+P` (Mac) 或 `Ctrl+Shift+P` (Windows/Linux)
-3. 输入 "Continue: Open Config" 并选择
-4. 这会打开 `~/.continue/config.json`
+- `Cmd+Shift+P`（macOS）或 `Ctrl+Shift+P`（Windows/Linux）
+- 运行 **Continue: Open Config**
+- 这会打开 `~/.continue/config.json`
 
-### 2. 添加 Vela 模型配置
+### 2. 添加 Vela 模型
 
-将以下配置添加到 `config.json`:
+Continue 当前的配置格式使用 `models` 数组：
 
-**单模型设置:**
+**单模型：**
+
 ```json
 {
   "models": [
     {
-      "title": "Vela - Claude Opus",
+      "title": "Vela — Claude Opus",
       "provider": "openai",
-      "model": "cc/claude-opus-4-5-20251101",
-      "apiKey": "your-api-key-from-dashboard",
+      "model": "cc/claude-opus-5",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1"
     }
   ]
 }
 ```
 
-**多模型设置:**
+**多模型，便于在下拉菜单中切换：**
+
 ```json
 {
   "models": [
     {
-      "title": "Vela - Claude Opus (Best)",
+      "title": "Vela — Opus（困难任务）",
       "provider": "openai",
-      "model": "cc/claude-opus-4-5-20251101",
-      "apiKey": "your-api-key-from-dashboard",
+      "model": "cc/claude-opus-5",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1"
     },
     {
-      "title": "Vela - Claude Sonnet (Balanced)",
+      "title": "Vela — Sonnet（日常）",
       "provider": "openai",
-      "model": "cc/claude-sonnet-4-20250514",
-      "apiKey": "your-api-key-from-dashboard",
+      "model": "cc/claude-sonnet-5",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1"
     },
     {
-      "title": "Vela - DeepSeek Chat (Code)",
+      "title": "Vela — GLM（低价）",
       "provider": "openai",
-      "model": "cx/deepseek-chat",
-      "apiKey": "your-api-key-from-dashboard",
-      "apiBase": "http://localhost:32060/v1"
-    },
-    {
-      "title": "Vela - Claude Haiku (Fast)",
-      "provider": "openai",
-      "model": "cc/claude-haiku-4-20250514",
-      "apiKey": "your-api-key-from-dashboard",
+      "model": "glm/glm-4.7",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1"
     }
   ]
 }
 ```
 
-**云端 Vela:**
-将 `apiBase` 替换为:
+**对于已部署的 Vela**，修改 `apiBase`：
+
 ```json
-"apiBase": "https://vela.my.id/v1"
+"apiBase": "https://your-domain.example/v1"
 ```
+
+> 如果你的 Continue 版本仍使用此处所示的旧式 `models`/`apiBase` 结构，它照此书写即可工作。较新的构建可能在首次启动时让你运行一个小型配置向导；同样的三个值 —— 提供商 `openai`、模型 id、基础 URL —— 填写在同样的位置。
 
 ### 3. 保存并重新加载
 
-1. 保存配置文件
-2. 重新加载 VSCode 窗口:`Cmd+Shift+P` → "Developer: Reload Window"
-3. Continue 扩展会加载新配置
+保存文件，然后执行 **Developer: Reload Window**。Continue 会在加载时读取配置。
 
-### 4. 选择模型
+### 4. 选择一个模型
 
-1. 打开 Continue 侧边栏(点击左侧 Continue 图标)
-2. 点击顶部模型选择下拉菜单
-3. 选择你偏好的 Vela 模型
+打开 Continue 侧边栏，从顶部下拉菜单中选择模型。
 
 ## 可用模型
 
-### Claude 模型(Anthropic)
-- `cc/claude-opus-4-5-20251101` - 最强,适合复杂任务
-- `cc/claude-sonnet-4-20250514` - 性能与速度平衡
-- `cc/claude-haiku-4-20250514` - 最快,适合简单任务
+网关列出的任何模型 —— 用以下命令查看：
 
-### DeepSeek 模型
-- `cx/deepseek-chat` - 出色的代码生成
-- `cx/deepseek-reasoner` - 复杂问题求解
+```bash
+curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"
+```
 
-### GLM 模型(Zhipu AI)
-- `glm/glm-4-plus` - 高级中文与英文
-- `glm/glm-4-flash` - 快速响应
+| 模型 | 通道 |
+|-------|------|
+| `cc/claude-opus-5` | Claude 订阅 |
+| `cc/claude-sonnet-5` | Claude 订阅 |
+| `cc/claude-haiku-4-5-20251001` | Claude 订阅 |
+| `cx/gpt-5.6-sol` | Codex 订阅 |
+| `cx/gpt-5.4` | Codex 订阅 |
+| `glm/glm-4.7` | 低价 |
+| `minimax/MiniMax-M2.1` | 最便宜 |
+| `kr/claude-sonnet-4.5` | 免费 |
 
-## 使用示例
+组合也可以作为模型 id 使用。
 
-### 代码解释
-1. 在编辑器中选中代码
-2. 打开 Continue 侧边栏
-3. 输入:"Explain this code"
-4. 模型:`cc/claude-sonnet-4-20250514`
+## 用法示例
 
-### 代码生成
-1. 打开 Continue 侧边栏
-2. 输入:"Create a React component for user profile card"
-3. 模型:`cx/deepseek-chat`
+- **解释：** 选中代码，打开侧边栏，提问"解释一下这段"。
+- **生成：** 请求"一个用于用户资料的 React 卡片组件"。
+- **重构：** 选中代码，提问"把这段重构为 async/await"。
+- **调试：** 粘贴堆栈跟踪，问哪里出了问题。
 
-### 重构
-1. 选中要重构的代码
-2. 输入:"Refactor this to use async/await"
-3. 模型:`cc/claude-sonnet-4-20250514`
+## 进阶
 
-### Bug 修复
-1. 选中有问题的代码
-2. 输入:"Find and fix the bug in this code"
-3. 模型:`cx/deepseek-reasoner`
-
-## 高级配置
-
-### 自定义系统 Prompt
-
-为特定行为添加自定义系统 prompt:
+### 系统提示词
 
 ```json
 {
   "models": [
     {
-      "title": "Vela - Code Expert",
+      "title": "Vela — 代码专家",
       "provider": "openai",
-      "model": "cx/deepseek-chat",
-      "apiKey": "your-api-key",
+      "model": "cc/claude-sonnet-5",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1",
-      "systemMessage": "You are an expert programmer. Always provide clean, well-documented code with best practices."
+      "systemMessage": "你是一名资深工程师。偏好小而可审阅的改动，并解释权衡。"
     }
   ]
 }
 ```
 
-### Temperature 与参数
-
-通过参数调整模型行为:
+### 温度
 
 ```json
-{
-  "models": [
-    {
-      "title": "Vela - Creative Writer",
-      "provider": "openai",
-      "model": "cc/claude-opus-4-5-20251101",
-      "apiKey": "your-api-key",
-      "apiBase": "http://localhost:32060/v1",
-      "temperature": 0.9,
-      "topP": 0.95
-    }
-  ]
-}
+"temperature": 0.9,
+"topP": 0.95
 ```
 
-### Context Provider
+对于代码，温度通常越低越好；对于写作，越高越好。
 
-配置 Continue 发送给模型的上下文:
+### 上下文提供者
+
+Continue 决定随提示词一并发送什么。对 Continue 用户而言，收紧这一点是成本方面最大的杠杆：
 
 ```json
 {
   "contextProviders": [
-    {
-      "name": "code",
-      "params": {
-        "maxLines": 100
-      }
-    },
-    {
-      "name": "diff",
-      "params": {}
-    },
-    {
-      "name": "terminal",
-      "params": {}
-    }
+    { "name": "code", "params": { "maxLines": 100 } },
+    { "name": "diff", "params": {} }
   ]
 }
 ```
 
 ## 键盘快捷键
 
-- `Cmd+L` (Mac) / `Ctrl+L` (Windows/Linux) - 打开 Continue 聊天
-- `Cmd+I` (Mac) / `Ctrl+I` (Windows/Linux) - 内联编辑
-- `Cmd+Shift+R` (Mac) / `Ctrl+Shift+R` (Windows/Linux) - 重新生成响应
+- `Cmd/Ctrl + L` —— 打开聊天
+- `Cmd/Ctrl + I` —— 行内编辑
+- `Cmd/Ctrl + Shift + R` —— 重新生成
 
-## 故障排除
+（快捷键因版本而异；VS Code 的键盘快捷方式面板会列出你当前的。）
 
-### 模型无响应
-- 确认 Vela 正在运行:`curl http://localhost:32060/health`
-- 检查 config.json 中的 API key
-- 查看 VSCode 开发者控制台错误:`Help` → `Toggle Developer Tools`
+## 故障排查
 
-### 选错模型
-- 点击 Continue 侧边栏的模型下拉菜单
-- 选择正确的 Vela 模型
-- 模型名必须完全匹配(大小写敏感)
+### 模型没有响应
+
+1. `curl http://localhost:32060/api/health` → `{"ok":true}`。
+2. 检查 `config.json` 中的密钥。
+3. 打开 VS Code 的开发者控制台（**Help → Toggle Developer Tools**）并读取错误。
+
+### 应答的是错误的模型
+
+- 检查侧边栏的下拉菜单 —— Continue 会记住上次的选择。
+- 模型 id 区分大小写。
 
 ### 配置未加载
-- 确认 JSON 语法有效(使用 JSON 验证工具)
-- 检查文件位置:`~/.continue/config.json`
-- 修改后重新加载 VSCode 窗口
 
-### 性能缓慢
-- 切换到更快的模型(haiku、flash)
-- 在 contextProviders 中减少上下文大小
-- 检查到 Vela 的网络延迟
+- 校验 JSON（多余的尾逗号通常是罪魁祸首）。
+- 确认路径是 `~/.continue/config.json`。
+- 保存后重新加载窗口。
+
+### 慢
+
+- 使用更轻的模型。
+- 裁剪上下文：更少的 `maxLines`、更少的附加文件。
+- 检查到 Vela 的网络延迟。
 
 ## 最佳实践
 
-### 模型选择策略
-- **快速编辑**:使用 `cc/claude-haiku-4-20250514`
-- **代码生成**:使用 `cx/deepseek-chat`
-- **复杂重构**:使用 `cc/claude-opus-4-5-20251101`
-- **问题求解**:使用 `cx/deepseek-reasoner`
-
-### 上下文管理
-- 提问前只选中相关代码
-- 使用具体、清晰的 prompt
-- 将复杂任务拆分为小步骤
-
-### 成本优化
-- 简单任务使用更快/更便宜的模型
-- 尽可能限制上下文大小
-- 缓存常用响应
+1. **三个模型，三档价格** —— Opus 用于思考，Sonnet 用于写作，GLM 用于杂活。切换只需一次点击。
+2. **先选中，再提问** —— 发送整个文件是昂贵的习惯。
+3. **如果 Continue 运行在共享机器上，请为密钥设置上限**。
 
 ## 下一步
 
-- [配置 Cursor](cursor.md) 以增强 IDE 集成
-- [设置 Roo](roo.md) AI 助手
-- [探索 CLI 用法](../cli/basic-usage.md)
-- [了解模型选择](../models/overview.md)
+- [Cursor](cursor.md) 用于 IDE
+- [Roo](roo.md) 用于另一个智能体
+- [组合](../features/combos.md) 了解回退链

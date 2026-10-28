@@ -1,385 +1,253 @@
 # Câu hỏi thường gặp
 
-Những câu hỏi phổ biến về Vela.
+Những câu hỏi người ta hỏi trước tiên, trả lời thẳng thắn. Nếu không có gì ở đây khớp, [Khắc phục sự cố](troubleshooting.md) là trạm dừng kế tiếp.
 
 ---
 
 ## Vela là gì?
 
-**Vela là bộ định tuyến mô hình AI giúp tối đa hóa giá trị subscription và giảm chi phí.**
+**Một gateway giữa các công cụ lập trình của bạn và các nhà cung cấp AI của bạn.**
 
-Nó định tuyến request thông minh qua nhiều provider AI bằng hệ thống fallback 3 tầng:
-1. **Tầng Subscription** - Tối đa quota Claude Code, Codex, Gemini bạn đang trả tiền
-2. **Tầng Cheap** - Lựa chọn siêu rẻ ($0.20-$0.60 per 1M tokens)
-3. **Tầng Free** - Backup khẩn cấp với model miễn phí không giới hạn
+Bạn hướng mọi công cụ về một địa chỉ — `http://localhost:32060/v1` — và Vela định tuyến mỗi request đến một nhà cung cấp bạn đã kết nối. Nó theo dõi quota, giữ cho token OAuth luôn mới, và có thể fallback sang một model khác khi một cái từ chối.
 
-**Lợi ích chính:**
-- Không bao giờ lãng phí quota subscription
-- Fallback tự động khi hết quota
-- Theo dõi quota thời gian thực
-- Tiết kiệm 90% chi phí so với dùng API trực tiếp
-
----
-
-## Pricing hoạt động thế nào?
-
-**Vela dùng chiến lược pricing 3 tầng:**
-
-### Tier 1: Subscription (Dùng đầu tiên)
-- **Claude Code** (Pro/Max): $20-100/tháng - Quota 5 giờ + hàng tuần
-- **OpenAI Codex** (Plus/Pro): $20-200/tháng - Quota 5 giờ + hàng tuần
-- **Gemini CLI**: MIỄN PHÍ - 180K completions/tháng + 1K/ngày
-- **GitHub Copilot**: $10-19/tháng - Reset hàng tháng
-- **Antigravity**: MIỄN PHÍ - Tương tự Gemini
-
-**Mục tiêu:** Dùng hết mọi quota trước khi reset!
-
-### Tier 2: Cheap (Backup)
-- **GLM-4.7**: $0.60/$2.20 per 1M tokens - Reset 10AM hàng ngày
-- **MiniMax M2.1**: $0.20/$1.00 per 1M tokens - 5 giờ rolling
-- **Kimi K2**: $9/tháng cố định (10M tokens)
-
-**Mục tiêu:** Rẻ hơn 90% so với ChatGPT API ($20/1M)!
-
-### Tier 3: Free (Khẩn cấp)
-- **iFlow**: 8 model MIỄN PHÍ (Kimi K2, Qwen3, GLM, MiniMax...)
-- **Qwen**: 3 model MIỄN PHÍ (Qwen3 Coder Plus/Flash, Vision)
-- **Kiro**: 2 model MIỄN PHÍ (Claude Sonnet 4.5, Haiku 4.5)
-
-**Mục tiêu:** Fallback chi phí 0 khi mọi thứ khác bị giới hạn quota!
+Nó không phải một model, và nó không làm model trở nên miễn phí. Nó là bảng chuyển mạch giữa những model bạn đã có quyền truy cập.
 
 ---
 
 ## Vela có miễn phí không?
 
-**Có, Vela hoàn toàn miễn phí và mã nguồn mở 100%.**
+**Bản thân Vela miễn phí và là mã nguồn mở (MIT).**
 
-**Provider free tier có sẵn:**
-- **Gemini CLI** - 180K completions/tháng (MIỄN PHÍ tài khoản Google)
-- **iFlow** - 8 model không giới hạn (MIỄN PHÍ OAuth)
-- **Qwen** - 3 model không giới hạn (MIỄN PHÍ OAuth)
-- **Kiro** - Claude Sonnet/Haiku (MIỄN PHÍ AWS Builder ID)
+Thứ tốn tiền là những gì xảy ra ở thượng nguồn: một subscription Claude Code, một gói Codex, hoặc các nhà cung cấp tính theo token như GLM và MiniMax. Vela không cộng thêm phí nào.
 
-**Bạn có thể code MIỄN PHÍ mãi mãi chỉ dùng provider free tier!**
-
-**Provider trả phí tùy chọn:**
-- Dịch vụ subscription bạn có thể đã có (Claude Code, Codex, Copilot)
-- Lựa chọn siêu rẻ ($0.20-$0.60 per 1M tokens)
+Bạn có thể chạy hoàn toàn trên các nhà cung cấp miễn phí — iFlow, Qwen, Kiro, Antigravity — nếu bạn chấp nhận giới hạn của họ. Kết hợp ấy không tốn gì.
 
 ---
 
-## Provider nào được hỗ trợ?
+## Định tuyến hoạt động thế nào?
 
-### Subscription Providers
-- **Claude Code** (Pro/Max) - Claude 4.5 Opus/Sonnet/Haiku
-- **OpenAI Codex** (Plus/Pro) - GPT 5.2 Codex, GPT 5.1 Codex Max
-- **Gemini CLI** (MIỄN PHÍ) - Gemini 3 Flash/Pro, 2.5 Pro/Flash
-- **GitHub Copilot** - GPT-5, Claude 4.5, Gemini 3
-- **Antigravity** (Google) - Gemini 3 Pro, Claude Sonnet 4.5
+Có hai cơ chế, và chúng khác nhau:
 
-### Cheap Providers
-- **GLM** (Zhipu AI) - GLM 4.7, GLM 4.6V Vision
-- **MiniMax** - MiniMax M2.1
-- **Kimi** (Moonshot AI) - Kimi Latest
-- **OpenRouter** - Passthrough đến mọi model OpenRouter
+1. **Một combo** là một chuỗi bạn định nghĩa: model 1, rồi model 2, rồi model 3. Khi một request đến một model *thất bại* — lỗi quota, rate limit, timeout, prompt bị từ chối, model không xác định — Vela thử cái kế tiếp.
+2. **Round-robin** (theo nhà cung cấp, hoặc theo combo) trải các request qua nhiều tài khoản của cùng nhà cung cấp, để một tài khoản không bị dồn dập.
 
-### Free Providers
-- **iFlow** - 8 models (Kimi K2, Qwen3, GLM, MiniMax, DeepSeek...)
-- **Qwen** - 3 models (Qwen3 Coder Plus/Flash, Vision)
-- **Kiro** - 2 models (Claude Sonnet 4.5, Haiku 4.5)
+Không cái nào chuyển bạn sang một model rẻ hơn chỉ vì một hạn mức ngày đang cạn dần. Làm vậy là tiêu tiền bạn không đồng ý tiêu.
 
-**Tổng: 15+ providers, 50+ models**
+Để có một ngưỡng cứng, hãy dùng ngân sách theo từng key: khi chạm ngưỡng, Vela từ chối bằng một 429 nói rõ điều đó.
 
-Xem [tài liệu providers](providers/subscription.md) để biết chi tiết.
+Xem [Định tuyến thông minh](features/smart-routing.md) và [Combos](features/combos.md).
 
 ---
 
-## Tôi có thể dùng nhiều provider không?
+## Vela hỗ trợ bao nhiêu nhà cung cấp?
 
-**Có! Đây là tính năng cốt lõi của Vela.**
+Ba con số trung thực, được đo vào ngày 2026-10-28 tại phiên bản 1.2.4:
 
-**Combo cho phép bạn nối nhiều provider với fallback tự động:**
+- **189** tệp nhà cung cấp trong registry
+- **186** được index import (hôm nay mọi tệp đều đã được nối vào)
+- **145** có một transport mà một request thực sự chạm tới được
 
-```
-Example combo: "premium-coding"
-1. cc/claude-opus-4-5 (Subscription primary)
-2. glm/glm-4.7 (Cheap backup)
-3. if/kimi-k2 (Free emergency)
+Bạn có thể tự suy ra chúng trong bản clone của mình:
 
-→ Auto-switches when quota exhausted
-→ Never stops coding
-→ Minimal extra cost
-```
-
-**Cách tạo combo:**
-```
-Dashboard → Combos → Create New
-→ Add models in priority order
-→ Use combo name in CLI: "premium-coding"
+```bash
+ls open-sse/providers/registry/*.js | grep -v index.js | wc -l
+node -e "import('./open-sse/providers/registry/index.js').then(m=>console.log(m.default.length))"
+node -e "import('./open-sse/providers/index.js').then(m=>console.log(Object.keys(m.PROVIDERS).length))"
 ```
 
-**Lợi ích:**
-- Zero downtime khi hết quota
-- Tối ưu chi phí tự động
-- Một tên model cho mọi công cụ
+Những cái được tài liệu hoá từng tầng ở đây:
 
-Xem [tài liệu combos](features/combos.md) để biết ví dụ.
+- **Subscription:** Claude Code, Codex, GitHub Copilot, Antigravity, Kimi
+- **Giá rẻ:** GLM, MiniMax, Kimi
+- **Miễn phí:** iFlow, Qwen, Kiro
 
 ---
 
-## Quota tracking hoạt động thế nào?
+## Hôm nay tôi có thể dùng những model nào?
 
-**Vela theo dõi quota thời gian thực cho tất cả provider:**
+Id model có dạng `prefix/model`. Một vài cái đáng tin trong bản phát hành này:
 
-**Tính năng:**
-- **Token consumption** - Tokens input/output mỗi request
-- **Reset countdown** - Thời gian đến khi quota refresh
-- **Usage stats** - Báo cáo hàng ngày/tuần/tháng
-- **Cost estimation** - Dự kiến chi tiêu (tier trả phí)
-- **Quota alerts** - Thông báo khi quota thấp
+| Model | Tầng |
+|-------|------|
+| `cc/claude-opus-5`, `cc/claude-sonnet-5` | subscription Claude Code |
+| `cx/gpt-5.6-sol`, `cx/gpt-5.5` | subscription Codex |
+| `gh/claude-sonnet-4.6`, `gh/gpt-5.4` | GitHub Copilot |
+| `ag/gemini-4-argon-high` | Antigravity (miễn phí) |
+| `glm/glm-4.7` | giá rẻ — $0.60 / $2.20 mỗi 1M |
+| `minimax/MiniMax-M2.1` | giá rẻ — $0.30 / $1.20 mỗi 1M |
+| `kr/claude-sonnet-4.5` | miễn phí |
+| `if/qwen3-coder-plus` | miễn phí |
+| `qwen/qwen-plus` | miễn phí |
 
-**Loại quota:**
-- **5 giờ rolling** - Claude Code, Codex, MiniMax
-- **Reset hàng ngày** - Gemini CLI (1K/ngày), GLM (10AM)
-- **Reset hàng tuần** - Claude Code, Codex (quota thêm)
-- **Reset hàng tháng** - Gemini CLI (180K), GitHub Copilot (ngày 1)
+Đừng tin tài liệu hơn gateway đang chạy:
 
-**Xem quota:**
+```bash
+curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"
 ```
-Dashboard → Providers → Quota Tracking
-→ Real-time usage + reset countdown
+
+Danh sách ấy là sự thật cho bản cài của bạn.
+
+---
+
+## Tôi có thể dùng nhiều nhà cung cấp cùng lúc không?
+
+**Có — đó chính là mục đích.** Dựng một combo:
+
+```
+Dashboard → Combos → Create
+  Name:   premium-coding
+  Models: 1. cc/claude-opus-5       ← subscription
+          2. glm/glm-4.7            ← cheap
+          3. kr/claude-sonnet-4.5   ← free
 ```
 
-Xem [tài liệu quota tracking](features/quota-tracking.md) để biết chi tiết.
+Sau đó dùng `premium-coding` làm tên model trong bất kỳ công cụ nào. Tên combo được phân giải trước mọi thứ khác, nên trên đường truyền nó trông như một model bình thường.
 
 ---
 
 ## Vela có hoạt động với Cursor không?
 
-**Có, nhưng Cursor yêu cầu endpoint cloud.**
-
-**Vấn đề:** Cursor IDE không hỗ trợ endpoint localhost.
-
-**Giải pháp:** Dùng Vela cloud deployment:
+**Có.** Cursor nhận một base URL và key tương thích OpenAI. Nếu Vela chạy trên máy của bạn:
 
 ```
-Cursor Settings → Models → Advanced:
-  OpenAI API Base URL: https://vela.my.id/v1
-  OpenAI API Key: [from dashboard]
-  Model: cc/claude-opus-4-5-20251101
+Cursor → Settings → Models → OpenAI API
+  Base URL: http://localhost:32060/v1
+  API Key:  [your Vela key]
+  Model:    your model or combo name (add it as a custom model)
 ```
 
-**Thay thế:** Self-host trên VPS với domain công khai:
-```bash
-# Deploy to VPS
-git clone https://github.com/YumamaX3/Vela.git
-cd Vela/app
-npm install && npm run build
-npm start
+Một số phiên bản Cursor giới hạn endpoint tuỳ chỉnh trong các gói trả phí, và một số cấu hình đi qua chính server của Cursor, khi ấy `localhost` không chạm tới được từ phía họ. Trong tình huống đó, hãy triển khai Vela trên một server có địa chỉ công khai (xem [Triển khai cloud](deployment/cloud.md)) và dùng `https://your-domain/v1` thay vào đó.
 
-# Configure Nginx reverse proxy
-# Point Cursor to: https://your-domain.com/v1
-```
-
-**Công cụ CLI khác hoạt động với localhost:**
-- Cline ✅
-- Claude Desktop ✅
-- Codex CLI ✅
-- Continue ✅
-- RooCode ✅
-
-Xem [hướng dẫn tích hợp Cursor](integration/cursor.md) để biết chi tiết.
+Các công cụ khác nhận một base URL hoạt động y như vậy: Cline, Roo, Continue, Claude Code, Codex CLI, và bất cứ thứ gì khác tương thích OpenAI. Xem [Tích hợp](integration/claude-code.md).
 
 ---
 
-## Tôi có thể self-host Vela không?
+## Tôi có thể tự host Vela không?
 
-**Có! Vela hỗ trợ nhiều tùy chọn deployment:**
+**Có, và đó là cách dự định để chạy nó.** Ba con đường:
 
-### Localhost (Mặc định)
+**Trên máy của bạn:**
 ```bash
 npm install -g vela
 vela
-→ Dashboard: http://localhost:3000
-→ API: http://localhost:32060/v1
+# dashboard: http://localhost:32060/dashboard
+# API:       http://localhost:32060/v1
 ```
 
-### VPS/Cloud
+**Với Docker, trên bất kỳ server nào:**
+```bash
+docker run -d --name vela \
+  -p 127.0.0.1:32060:32060 \
+  -v "$HOME/vela-data:/app/data" \
+  -e DATA_DIR=/app/data \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  ghcr.io/yumamax3/vela:1.2.4
+```
+
+Ảnh này công khai — không cần đăng nhập hay token để kéo nó — và hỗ trợ nhiều kiến trúc (amd64 và arm64). Hãy ghim thẻ phiên bản thay vì dùng `:latest`.
+
+**Từ mã nguồn:**
 ```bash
 git clone https://github.com/YumamaX3/Vela.git
-cd Vela/app
-npm install && npm run build
-
-export JWT_SECRET="your-secure-secret"
-export INITIAL_PASSWORD="your-password"
-export NODE_ENV="production"
-
-npm start
+cd Vela
+npm install
+npm run build
+npm run start
 ```
 
-### Docker
-```bash
-docker build -t Vela .
-docker run -d \
-  -p 3000:3000 \
-  -e JWT_SECRET="your-secret" \
-  -v Vela-data:/app/data \
-  vela
-```
+Gốc repository là ứng dụng; không có thư mục `app/` lồng bên trong. Các script có sẵn là `dev`, `build`, `start` (cùng các biến thể Bun của chúng) — không có script test và không có script triển khai Cloudflare.
 
-### Cloudflare Workers
-```bash
-cd Vela/app
-npm run deploy:cloudflare
-```
-
-**Biến môi trường:**
-- `JWT_SECRET` - **PHẢI đổi trong production!**
-- `DATA_DIR` - Đường dẫn lưu database (mặc định: `~/.vela`)
-- `INITIAL_PASSWORD` - Đăng nhập Dashboard (mặc định: `123456`)
-- `NODE_ENV` - Đặt `production` để deploy
-
-Xem [hướng dẫn deployment](getting-started/installation.md#deployment) để biết chi tiết.
+Chi tiết đầy đủ: [Localhost](deployment/localhost.md) · [Cloud](deployment/cloud.md).
 
 ---
 
 ## Dữ liệu của tôi có an toàn không?
 
-**Có, Vela ưu tiên bảo mật và quyền riêng tư:**
+**Nó nằm trên máy của bạn, theo mặc định.**
 
-**Local storage:**
-- Mọi dữ liệu lưu cục bộ tại `~/.vela` (hoặc `DATA_DIR` tùy chỉnh)
-- Không gửi data đến server Vela
-- OAuth tokens mã hóa bằng JWT
+- Mọi thứ sống trong thư mục dữ liệu — `~/.vela` trên macOS/Linux, `%APPDATA%\vela` trên Windows, hoặc bất cứ đâu `DATA_DIR` chỉ định.
+- Token OAuth và API key của các nhà cung cấp đã kết nối được lưu trong cơ sở dữ liệu cục bộ ấy.
+- Vela chỉ gửi request đến những nhà cung cấp bạn đã kết nối; không có gì được báo về cho dự án Vela.
 
-**Không telemetry:**
-- Không tracking sử dụng
-- Không analytics
-- Không phone-home
+**Nó giữ gì:** các kết nối và token của nhà cung cấp, API key của bạn (lưu dưới dạng hash — key đầy đủ chỉ được hiển thị một lần khi tạo), thống kê mức dùng, combos, cài đặt và nhật ký request (chỉ khi bạn bật).
 
-**Mã nguồn mở:**
-- Toàn bộ source code có trên GitHub
-- Tự audit bảo mật
-- Community review
+**Nó không giữ gì:** một bản sao các prompt hay code được tạo của bạn ngoài nhật ký request, vốn mặc định tắt.
 
-**Best practice:**
-- Đổi `JWT_SECRET` trong production
-- Dùng `INITIAL_PASSWORD` mạnh
-- Bật HTTPS cho cloud deployment
-- Xoay API key định kỳ
-
-**Vela lưu gì:**
-- Tokens OAuth của provider (mã hóa)
-- API keys (mã hóa)
-- Thống kê sử dụng (chỉ cục bộ)
-- Cấu hình combo
-
-**Vela KHÔNG lưu:**
-- Prompts hoặc responses của bạn
-- Code bạn tạo
-- Thông tin cá nhân
+**Trước khi phơi nó ra một mạng lưới:** đặt một mật khẩu dashboard trong **Settings → Access**, bật **Require dashboard login**, cân nhắc **Require API key**, và đặt nó sau HTTPS. Danh sách kiểm tra nằm trong [Triển khai cloud](deployment/cloud.md).
 
 ---
 
-## Làm thế nào để cập nhật Vela?
+## Mật khẩu mặc định là gì?
 
-**Phương thức cập nhật phụ thuộc loại cài đặt:**
+**Không có.**
 
-### Global NPM Install
+Các hướng dẫn cũ có nhắc `123456`; mặc định ấy đã bị khai tử. Vela hiện tại hoàn toàn không có mật khẩu mặc định:
+
+- Từ máy đang chạy Vela, dashboard mở mà không hỏi gì.
+- Từ bất cứ đâu khác, các lần đăng nhập bị **từ chối** cho đến khi bạn đặt một mật khẩu trong **Settings → Access**.
+
+Cùng màn hình ấy hiển thị một phán quyết "gated" màu xanh một khi các điều khiển đã vào chỗ — đáng kiểm tra trước khi bạn mở một cổng.
+
+---
+
+## Làm sao để cập nhật Vela?
+
 ```bash
+# npm install
 npm update -g vela
+npm list -g vela        # what you are running now
+
+# Docker — pin the newer tag deliberately
+docker pull ghcr.io/yumamax3/vela:1.2.4
+docker stop vela && docker rm vela
+# re-run your docker run command with the new tag
+
+# From a git checkout
+cd Vela && git pull && npm install && npm run build && npm run start
 ```
 
-### Local Install
-```bash
-cd Vela/app
-git pull origin main
-npm install
-npm run build
-npm start
-```
-
-### Docker
-```bash
-docker pull Vela:latest
-docker stop Vela
-docker rm Vela
-docker run -d \
-  -p 3000:3000 \
-  -v Vela-data:/app/data \
-  Vela:latest
-```
-
-**Kiểm tra version:**
-```bash
-Vela --version
-```
-
-**Breaking changes:**
-- Xem [CHANGELOG.md](https://github.com/YumamaX3/Vela/blob/main/CHANGELOG.md)
-- Backup `~/.vela` trước khi update lớn
-- Xem hướng dẫn migration cho major version
+Hãy sao lưu thư mục dữ liệu trước với các phiên bản lớn. Các migration cơ sở dữ liệu chạy tự động khi khởi động, với một bản sao an toàn được chụp trước khi chúng chạy.
 
 ---
 
-## Tôi có thể đóng góp như thế nào?
+## Làm sao để đóng góp?
 
-**Chúng tôi hoan nghênh đóng góp!**
+Rất được hoan nghênh.
 
-### Các cách đóng góp:
-
-1. **Report bugs:**
-   - [GitHub Issues](https://github.com/YumamaX3/Vela/issues)
-   - Bao gồm error logs, các bước reproduce
-
-2. **Request features:**
-   - [GitHub Discussions](https://github.com/YumamaX3/Vela/discussions)
-   - Mô tả use case và lợi ích
-
-3. **Submit code:**
+1. **Báo lỗi** — [GitHub Issues](https://github.com/YumamaX3/Vela/issues), kèm lỗi, các bước, và phiên bản của bạn.
+2. **Yêu cầu tính năng** — [GitHub Discussions](https://github.com/YumamaX3/Vela/discussions).
+3. **Gửi code:**
    ```bash
-   # Fork repo
    git clone https://github.com/YOUR_USERNAME/Vela.git
    cd Vela
-   
-   # Create branch
    git checkout -b feature/your-feature
-   
-   # Make changes
    npm install
    npm run dev
-   
-   # Test
-   npm test
-   
-   # Commit and push
-   git add .
-   git commit -m "Add your feature"
-   git push origin feature/your-feature
-   
-   # Create Pull Request on GitHub
    ```
-
-4. **Cải thiện docs:**
-   - Sửa lỗi chính tả, thêm ví dụ
-   - Dịch sang ngôn ngữ khác
-   - Viết tutorial
-
-5. **Thêm provider:**
-   - Triển khai adapter provider mới
-   - Xem `app/lib/providers/` để có ví dụ
-
-**Hướng dẫn đóng góp:**
-- Tuân theo code style hiện có
-- Thêm test cho tính năng mới
-- Cập nhật tài liệu
-- Giữ commit nhỏ gọn và mô tả rõ ràng
-
-Xem [CONTRIBUTING.md](https://github.com/YumamaX3/Vela/blob/main/CONTRIBUTING.md) để biết chi tiết.
+   Hãy chạy bộ kiểm tra đi kèm repository trước khi mở pull request, và giữ các commit nhỏ và mô tả rõ.
+4. **Cải thiện tài liệu** — các chỉnh sửa và bản dịch hữu ích không kém gì tính năng.
+5. **Thêm nhà cung cấp** — các ví dụ adapter nằm trong `open-sse/providers/registry/`.
 
 ---
 
-## Cần trợ giúp thêm?
+## Vela dùng những cổng nào?
+
+- **32060** — mọi thứ: dashboard (`/dashboard`) và API (`/v1`), phục vụ bởi một tiến trình.
+- **32060** một lần nữa trên trình duyệt nghĩa là `http://localhost:32060`; dashboard nằm sâu một cấp ở `/dashboard`.
+
+Nếu thứ khác cần cổng ấy, hãy đổi nó bằng `vela --port 8080` hoặc `PORT=8080`.
+
+---
+
+## Tôi đi đâu khi có thứ gì đó hỏng?
+
+1. `http://localhost:32060/api/health` nên trả lời `{"ok":true}`. Nếu không, Vela không chạy.
+2. `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"` nên liệt kê model. Một danh sách trống nghĩa là chưa có nhà cung cấp nào được kết nối.
+3. [Khắc phục sự cố](troubleshooting.md) ánh xạ những lỗi phổ biến — connection refused, key không hợp lệ, model not found, phản hồi chậm — sang cách sửa của chúng.
+
+---
+
+## Cần thêm trợ giúp?
 
 - **Documentation:** [vela.my.id/docs](https://vela.my.id/docs)
 - **GitHub:** [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)

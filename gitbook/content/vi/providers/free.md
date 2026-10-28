@@ -1,442 +1,236 @@
-# Free Providers - Fallback Chi phí 0
+# Nhà cung cấp miễn phí - Fallback không tốn phí
 
-Backup khẩn cấp khi mọi thứ khác bị giới hạn quota. Code 24/7 với chi phí 0!
+Tầng miễn phí là lớp cuối cùng. Khi subscription đã hết và tầng giá rẻ đã chạm trần, các nhà cung cấp này vẫn trả lời — không tốn của bạn một đồng.
+
+Ba trong số đó đi kèm sẵn để kết nối: iFlow, Qwen và Kiro. Cả ba đều dùng những tài khoản bạn có thể tạo miễn phí, và cả ba đều có giới hạn của riêng chúng do nhà cung cấp đặt ra, không phải Vela.
 
 ---
 
 ## Tổng quan
 
-Provider free tier là **fallback** khi hết quota subscription và cheap:
+- 🆓 **iFlow** — một tài khoản miễn phí với thực đơn model rộng: Qwen3, Kimi K2, DeepSeek, GLM, và hơn thế nữa
+- 🆓 **Qwen** — các model của chính Qwen, trên nền tảng của chính Qwen
+- 🆓 **Kiro** — dòng Claude thông qua một AWS Builder ID hoặc đăng nhập mạng xã hội
 
-- 🆓 **iFlow** - 8 model MIỄN PHÍ (Kimi K2, Qwen3, GLM 4.7, MiniMax M2...)
-- 🆓 **Qwen** - 3 model MIỄN PHÍ (Qwen3 Coder Plus/Flash, Vision)
-- 🆓 **Kiro** - 2 model MIỄN PHÍ (Claude Sonnet 4.5, Haiku 4.5)
+**Ý tưởng:** đặt một trong số này ở cuối mọi combo. Khi ấy, "mọi thứ đều hết quota" không còn là một sự cố khẩn cấp nữa, mà chỉ là một buổi chiều chậm hơn một chút.
 
-**Chiến lược:** Dùng làm backup khẩn cấp. Usage không giới hạn, miễn phí mãi mãi!
-
----
-
-## iFlow (8 Model MIỄN PHÍ)
-
-### Pricing
-
-| Plan | Chi phí Hàng tháng | Models | Quota |
-|------|--------------|--------|-------|
-| FREE | $0 | 8 models | Không giới hạn |
-
-**Giá trị tốt nhất:** Nhiều model nhất trong free tier! Kimi K2, Qwen3, GLM, MiniMax, DeepSeek.
-
-### Setup
-
-**Bước 1: Kết nối qua Dashboard**
-
-```bash
-vela
-# Dashboard → Providers → Connect iFlow
-```
-
-**Bước 2: Đăng nhập OAuth iFlow**
-
-- Click "Connect iFlow"
-- Browser mở → trang đăng nhập iFlow
-- Tạo tài khoản hoặc đăng nhập
-- Cấp quyền
-- Auto token refresh được bật
-
-**Bước 3: Dùng trong CLI**
-
-```
-Model: if/kimi-k2-thinking
-       if/kimi-k2
-       if/qwen3-coder-plus
-       if/glm-4.7
-       if/minimax-m2
-       if/deepseek-r1
-       if/deepseek-v3.2-chat
-       if/deepseek-v3.2-reasoner
-```
-
-### Model có sẵn
-
-| Model ID | Mô tả | Tốt nhất cho |
-|----------|-------------|----------|
-| `if/kimi-k2-thinking` | Kimi K2 Thinking | Reasoning phức tạp |
-| `if/kimi-k2` | Kimi K2 | Coding chung |
-| `if/qwen3-coder-plus` | Qwen3 Coder Plus | Tạo code |
-| `if/glm-4.7` | GLM 4.7 | Tiếng Trung + Anh |
-| `if/minimax-m2` | MiniMax M2 | Context dài |
-| `if/deepseek-r1` | DeepSeek R1 | Task reasoning |
-| `if/deepseek-v3.2-chat` | DeepSeek V3.2 Chat | Conversational |
-| `if/deepseek-v3.2-reasoner` | DeepSeek V3.2 Reasoner | Logic phức tạp |
-
-### Mẹo Pro
-
-- **8 model MIỄN PHÍ** - Đa dạng nhất trong free tier
-- **Usage không giới hạn** - Không giới hạn quota
-- **Kimi K2 Thinking** - Tốt nhất cho reasoning phức tạp
-- **DeepSeek R1** - Khả năng reasoning mạnh
+> **Trung thực về chữ "miễn phí".** Các tầng miễn phí bị giới hạn tốc độ, thỉnh thoảng không khả dụng, và thay đổi mà không báo trước. Các nhà cung cấp công bố hạn mức của họ; Vela hiển thị những gì tài khoản của bạn thực sự còn lại trên trang **Quota**. Bất cứ điều gì khác — một tiêu đề như "180K requests một tháng" — là một con số thượng nguồn có thể dịch chuyển.
 
 ---
 
-## Qwen (3 Model MIỄN PHÍ)
+## iFlow
 
-### Pricing
+### Bạn nhận được gì
 
-| Plan | Chi phí Hàng tháng | Models | Quota |
-|------|--------------|--------|-------|
-| FREE | $0 | 3 models | Không giới hạn |
+Một lần đăng nhập, một thực đơn. Nhà cung cấp mà bản phát hành này đi kèm:
 
-### Setup
+| Model | Tốt cho |
+|-------|----------|
+| `if/qwen3-coder-plus` | sinh mã nguồn |
+| `if/qwen3-max` | model đa dụng Qwen3 mạnh nhất |
+| `if/qwen3-235b-a22b-thinking-2507` | các tác vụ nặng về suy luận |
+| `if/kimi-k2` | lập trình ngữ cảnh dài |
+| `if/deepseek-r1` | suy luận từng bước |
+| `if/deepseek-v3.2` | trò chuyện đa dụng nhanh |
+| `if/glm-4.7` | cùng model với tầng giá rẻ, không tốn phí |
+| `if/qwen3-vl-plus` | thị giác |
 
-**Bước 1: Kết nối qua Dashboard**
+### Thiết lập
 
-```bash
-vela
-# Dashboard → Providers → Connect Qwen
-```
-
-**Bước 2: Xác thực Device Code**
-
-- Click "Connect Qwen"
-- Dashboard hiển thị device code
-- Vào URL xác thực
-- Nhập device code
-- Đăng nhập tài khoản Qwen
-- Auto token refresh được bật
-
-**Bước 3: Dùng trong CLI**
+**Bước 1: kết nối**
 
 ```
-Model: qw/qwen3-coder-plus
-       qw/qwen3-coder-flash
-       qw/vision-model
+Dashboard → Providers → iFlow → Connect
 ```
 
-### Model có sẵn
+**Bước 2: đăng nhập**
 
-| Model ID | Mô tả | Tốt nhất cho |
-|----------|-------------|----------|
-| `qw/qwen3-coder-plus` | Qwen3 Coder Plus | Coding nâng cao |
-| `qw/qwen3-coder-flash` | Qwen3 Coder Flash | Phản hồi nhanh |
-| `qw/vision-model` | Qwen3 Vision | Phân tích ảnh |
+Trình duyệt mở trang đăng nhập của iFlow. Tạo một tài khoản nếu bạn chưa có, phê duyệt kết nối, và Vela từ đó giữ token luôn mới.
 
-### Mẹo Pro
+Một số tài khoản iFlow xác thực bằng session cookie thay vì OAuth; nếu dashboard đưa ra một trường cookie, hãy dán giá trị nó yêu cầu.
 
-- **Qwen3 Coder Plus** - Khả năng coding mạnh
-- **Qwen3 Coder Flash** - Nhanh cho task nhanh
-- **Vision model** - Phân tích ảnh MIỄN PHÍ
-- **Usage không giới hạn** - Không giới hạn quota
+**Bước 3: dùng nó**
+
+```
+Model: if/qwen3-coder-plus
+```
+
+### Tại sao nó là lựa chọn miễn phí đầu tiên
+
+Sự đa dạng. Một tài khoản chạm tới model của nhiều nhà cung cấp khác nhau, khiến nó là mặc định tốt khi bạn không muốn phải nghĩ xem nên thử nhà cung cấp miễn phí nào.
 
 ---
 
-## Kiro (Claude MIỄN PHÍ)
+## Qwen
 
-### Pricing
+### Bạn nhận được gì
 
-| Plan | Chi phí Hàng tháng | Models | Quota |
-|------|--------------|--------|-------|
-| FREE | $0 | Claude Sonnet 4.5, Haiku 4.5 | Không giới hạn |
+Các model của chính Qwen, do Qwen phục vụ:
 
-**Giá trị tốt nhất:** Claude MIỄN PHÍ! Cùng chất lượng với Claude Code trả phí.
+| Model | Tốt cho |
+|-------|----------|
+| `qwen/qwen-max` | model đa dụng mạnh nhất |
+| `qwen/qwen-plus` | cân bằng |
+| `qwen/qwen-turbo` | tác vụ nhanh, nhẹ |
+| `qwen/qwen-long` | tài liệu rất dài |
 
-### Setup
+### Thiết lập
 
-**Bước 1: Kết nối qua Dashboard**
-
-```bash
-vela
-# Dashboard → Providers → Connect Kiro
+```
+Dashboard → Providers → Qwen → Connect or Add API key
 ```
 
-**Bước 2: AWS Builder ID hoặc OAuth**
+Tuỳ tài khoản của bạn, đó là một lần đăng nhập hoặc một key từ console của Qwen. Sau đó dùng model như `qwen/qwen-plus`.
 
-- Click "Connect Kiro"
-- Chọn phương thức đăng nhập:
-  - AWS Builder ID (khuyên dùng)
-  - Tài khoản Google
-  - Tài khoản GitHub
-- Cấp quyền
-- Auto token refresh được bật
+### Khi nào nên dùng nó
 
-**Bước 3: Dùng trong CLI**
+- Khi iFlow bị rate limit và bạn cần gì đó ngay bây giờ.
+- Cho công việc trên tài liệu dài, nơi `qwen/qwen-long` có lợi thế.
+- Như bậc thứ hai của một combo chỉ-miễn-phí.
+
+---
+
+## Kiro (Claude không mất phí)
+
+### Bạn nhận được gì
+
+Dòng Claude qua Kiro, môi trường lập trình của AWS:
+
+| Model | Tốt cho |
+|-------|----------|
+| `kr/claude-sonnet-5` | sự cân bằng thường ngày |
+| `kr/claude-sonnet-4.5` | một lựa chọn đã được chứng minh ổn định |
+| `kr/claude-opus-4.8`, `kr/claude-opus-5` | những bài toán khó |
+| `kr/claude-haiku-4.5` | tác vụ nhanh |
+
+Mỗi model còn có các biến thể `-thinking` và `-agentic` (`kr/claude-sonnet-4.5-thinking`, và tương tự) khi bạn muốn thấy rõ quá trình suy luận.
+
+### Thiết lập
+
+**Bước 1: kết nối**
+
+```
+Dashboard → Providers → Kiro → Connect
+```
+
+**Bước 2: chọn một cách đăng nhập**
+
+AWS Builder ID là lựa chọn thường lệ; đăng nhập Google và GitHub cũng được nhà cung cấp cung cấp.
+
+**Bước 3: dùng nó**
 
 ```
 Model: kr/claude-sonnet-4.5
-       kr/claude-haiku-4.5
 ```
 
-### Model có sẵn
+### Tại sao nó là lựa chọn chất lượng
 
-| Model ID | Mô tả | Tốt nhất cho |
-|----------|-------------|----------|
-| `kr/claude-sonnet-4.5` | Claude Sonnet 4.5 | Cân bằng chất lượng/tốc độ |
-| `kr/claude-haiku-4.5` | Claude Haiku 4.5 | Phản hồi nhanh |
-
-### Mẹo Pro
-
-- **Claude MIỄN PHÍ** - Cùng chất lượng tier trả phí
-- **AWS Builder ID** - Setup dễ với tài khoản AWS
-- **Usage không giới hạn** - Không giới hạn quota
-- **Chất lượng tốt nhất** - Claude 4.5 miễn phí!
+Đó là cùng họ model bạn vẫn phải trả tiền, nhưng không tốn gì. Điều đó khiến `kr/...` trở thành mục "miễn phí nhưng vẫn tốt" tự nhiên trong một combo — cái bạn dùng cho công việc thật thay vì thử nghiệm.
 
 ---
 
-## So sánh Tính năng
+## So sánh cạnh nhau
 
-| Provider | Models | Model tốt nhất | Setup | Quota |
-|----------|--------|------------|-------|-------|
-| **iFlow** | 8 | Kimi K2 Thinking | OAuth | Không giới hạn |
-| **Qwen** | 3 | Qwen3 Coder Plus | Device Code | Không giới hạn |
-| **Kiro** | 2 | Claude Sonnet 4.5 | AWS Builder ID | Không giới hạn |
-
-**Thắng cuộc:** iFlow vì đa dạng, Kiro vì chất lượng!
+| Provider | Tiền tố | Model đi kèm | Đăng nhập | Giỏi nhất ở |
+|----------|--------|-----------------|-------|---------|
+| **iFlow** | `if/` | 15 | OAuth hoặc cookie | sự đa dạng |
+| **Qwen** | `qwen/` | 4 | đăng nhập hoặc key | tài liệu dài |
+| **Kiro** | `kr/` | 44 | AWS Builder ID / mạng xã hội | chất lượng Claude |
 
 ---
 
-## Ví dụ Sử dụng
+## Dùng chúng trong các công cụ của bạn
 
-### Setup Cursor IDE
-
-```
-Settings → Models → Advanced:
-  OpenAI API Base URL: http://localhost:32060/v1
-  OpenAI API Key: [from Vela dashboard]
-  Model: if/kimi-k2-thinking
-```
-
-### Tạo Combo (Khuyên dùng)
+### Một model miễn phí, trực tiếp
 
 ```
-Dashboard → Combos → Create New
-
-Name: free-combo
-Models:
-  1. if/kimi-k2-thinking (iFlow primary)
-  2. qw/qwen3-coder-plus (Qwen backup)
-  3. kr/claude-sonnet-4.5 (Kiro quality)
-
-Use in CLI: free-combo
+Base URL: http://localhost:32060/v1
+API Key:  [your Vela key]
+Model:    kr/claude-sonnet-4.5
 ```
 
-**Kết quả:** Chi phí 0, uptime tối đa!
+### Một combo chỉ-miễn-phí
+
+```
+Dashboard → Combos → Create
+  Name:   zero-cost
+  Models: 1. kr/claude-sonnet-4.5      ← quality first
+          2. if/qwen3-coder-plus        ← variety
+          3. qwen/qwen-plus             ← last resort
+```
+
+Chi phí: không, mãi mãi. Tốc độ và tính khả dụng: bất cứ gì các tầng miễn phí cho phép hôm nay.
+
+### Combo đủ ba tầng
+
+```
+Dashboard → Combos → Create
+  Name:   never-stuck
+  Models: 1. cc/claude-opus-5          ← subscription
+          2. cx/gpt-5.6-sol            ← second subscription
+          3. glm/glm-4.7               ← cheap
+          4. minimax/MiniMax-M2.1      ← cheaper
+          5. kr/claude-sonnet-4.5      ← free, still good
+          6. if/qwen3-coder-plus       ← free, variety
+```
+
+Đây là chuỗi mà toàn bộ thiết kế đang hướng tới: dùng những gì bạn đã trả tiền, fallback sang những gì rẻ, và không bao giờ kết thúc bằng hư không.
+
+**Cơ chế fallback hoạt động thế nào:** một combo chuyển sang model kế tiếp khi một request *thất bại* — lỗi quota, rate limit, timeout, prompt bị từ chối, model không xác định. Nó không chủ động chuyển chỉ vì hạn mức ngày đang cạn dần. Nếu bạn muốn một ngưỡng cứng, hãy đặt trên API key (**Endpoint & Key → budget**); khi ấy Vela từ chối bằng 429 thay vì lặng lẽ tiêu tiền.
 
 ---
 
-## Chiến lược Fallback Đầy đủ
+## Tận dụng tối đa các tầng miễn phí
 
-### Combo 3 Tầng Hoàn chỉnh
+### 1. Đặt chúng ở cuối, và thật lòng
+
+Một model miễn phí đứng đầu sẽ hút hết công việc của bạn và để quota trả phí hết hạn mà chẳng dùng đến. Một model miễn phí đứng cuối không tốn gì mà cứu được cả ngày.
+
+### 2. Ghép model với công việc
 
 ```
-Dashboard → Combos → Create New
-
-Name: complete-fallback
-Models:
-  1. gc/gemini-3-flash-preview (FREE subscription)
-  2. cc/claude-opus-4-5 (Paid subscription)
-  3. glm/glm-4.7 (Cheap backup, $0.6/1M)
-  4. minimax/MiniMax-M2.1 (Cheapest, $0.2/1M)
-  5. if/kimi-k2-thinking (FREE fallback)
-  6. kr/claude-sonnet-4.5 (FREE quality)
-
-Use in CLI: complete-fallback
+Reasoning / tricky code : if/qwen3-235b-a22b-thinking-2507, kr/claude-opus-4.8
+Everyday coding         : kr/claude-sonnet-4.5, if/qwen3-coder-plus
+Fast and cheap          : qwen/qwen-turbo, if/deepseek-v3.2
+Long documents          : qwen/qwen-long
+Vision                  : if/qwen3-vl-plus
 ```
 
-**Kết quả:**
-- Tier 1: Subscription MIỄN PHÍ (Gemini CLI)
-- Tier 2: Subscription trả phí (Claude Code)
-- Tier 3: Backup rẻ (GLM, MiniMax)
-- Tier 4: Fallback MIỄN PHÍ (iFlow, Kiro)
+### 3. Đừng xây production chỉ trên chúng
 
-**Không bao giờ ngừng code!**
+Các tầng miễn phí thay đổi mà không báo trước: một model biến mất, một giới hạn siết lại, một nhà cung cấp có một buổi chiều tồi tệ. Hãy dùng chúng như sàn của một chuỗi, không phải toàn bộ mặt bằng.
+
+### 4. Để ý độ ưu tiên, không chỉ quota
+
+Các tầng miễn phí thường điều tiết bằng độ ưu tiên thay vì từ chối thẳng: request của bạn xếp sau các khách hàng trả phí. Nếu phản hồi có vẻ chậm, đó thường là lý do, và chuyển sang một nhà cung cấp miễn phí khác chính là cách sửa.
 
 ---
 
-## Best Practices
-
-### 1. Dùng làm Backup Khẩn cấp
-
-```
-Priority:
-1. Subscription tier (maximize paid quota)
-2. Cheap tier (pennies per 1M tokens)
-3. FREE tier (unlimited, zero cost)
-
-Only use free tier when:
-- Subscription quota exhausted
-- Budget limit reached
-- Testing/non-critical tasks
-```
-
-### 2. Chọn Model phù hợp
-
-```
-Complex reasoning: if/kimi-k2-thinking
-Fast coding: qw/qwen3-coder-flash
-Best quality: kr/claude-sonnet-4.5
-Long context: if/minimax-m2
-Vision tasks: qw/vision-model
-```
-
-### 3. Tạo Combo Chỉ Free
-
-```
-For zero-cost coding:
-
-Name: zero-cost
-Models:
-  1. kr/claude-sonnet-4.5 (Best quality)
-  2. if/kimi-k2-thinking (Complex tasks)
-  3. qw/qwen3-coder-plus (Fast coding)
-
-Cost: $0 forever!
-```
-
-### 4. Test Trước Production
-
-```
-Use free tier to:
-- Test prompts
-- Prototype features
-- Learn new frameworks
-- Non-critical tasks
-
-Save paid quota for:
-- Production code
-- Complex refactoring
-- Critical features
-```
-
----
-
-## Ví dụ Thực tế
-
-### Ví dụ 1: Sinh viên/Người học (Ngân sách 0)
-
-```
-Setup:
-1. kr/claude-sonnet-4.5 (Best quality)
-2. if/kimi-k2-thinking (Complex reasoning)
-3. qw/qwen3-coder-plus (Fast coding)
-
-Monthly cost: $0
-Usage: Unlimited
-
-Perfect for:
-- Learning to code
-- Personal projects
-- Homework/assignments
-```
-
-### Ví dụ 2: Freelancer (Tiết kiệm Ngân sách)
-
-```
-Setup:
-1. gc/gemini-3-flash-preview (FREE 180K/month)
-2. glm/glm-4.7 (Cheap backup, $0.6/1M)
-3. if/kimi-k2-thinking (FREE fallback)
-
-Monthly cost: $5-10
-Usage: 100M+ tokens
-
-Perfect for:
-- Client projects (paid tier)
-- Testing (free tier)
-- Emergency backup
-```
-
-### Ví dụ 3: Heavy User (Tối đa hết tất cả)
-
-```
-Setup:
-1. gc/gemini-3-flash-preview (FREE 180K/month)
-2. cc/claude-opus-4-5 (Subscription $20-100)
-3. cx/gpt-5.2-codex (Subscription $20-200)
-4. glm/glm-4.7 (Cheap $0.6/1M)
-5. minimax/MiniMax-M2.1 (Cheapest $0.2/1M)
-6. if/kimi-k2-thinking (FREE unlimited)
-7. kr/claude-sonnet-4.5 (FREE quality)
-
-Monthly cost: $40-320 (subscriptions) + $10-20 (cheap tier)
-Usage: 500M+ tokens
-
-Perfect for:
-- Professional development
-- Team projects
-- 24/7 coding
-```
-
----
-
-## So sánh Chi phí
-
-### Kịch bản: 100M tokens/tháng
-
-**Phương án 1: Chỉ ChatGPT API**
-```
-100M × $20/1M = $2,000/month
-```
-
-**Phương án 2: Chỉ Vela Free Tier**
-```
-100M via free tier = $0/month
-Savings: $2,000/month (100%)
-```
-
-**Phương án 3: Chiến lược Hoàn chỉnh Vela**
-```
-60M via Gemini CLI (FREE): $0
-30M via Claude Code (subscription): $0 extra
-8M via GLM (cheap): $4.80
-2M via iFlow (FREE): $0
-Total: $4.80/month + subscriptions you already have
-Savings: $1,995/month (99.76%)
-```
-
----
-
-## Troubleshooting
+## Khắc phục sự cố
 
 ### "OAuth failed"
 
-**Giải pháp:**
-- Kiểm tra kết nối internet
-- Thử browser khác
-- Xóa cache browser
-- Kết nối lại trong dashboard
+- Kiểm tra bạn đang có mạng và trang của nhà cung cấp tải được trong một trình duyệt bình thường.
+- Thử một trình duyệt khác, hoặc một cửa sổ riêng tư đã tắt tiện ích mở rộng.
+- Ngắt kết nối rồi kết nối lại từ **Providers**.
 
 ### "Model not available"
 
-**Giải pháp:**
-- Kiểm tra provider đã kết nối trong dashboard
-- Xác minh OAuth token hợp lệ
-- Kết nối lại provider nếu cần
+- Xác nhận nhà cung cấp hiển thị là đã kết nối trong **Providers**.
+- Xác nhận id model đúng y như gateway liệt kê: `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`.
 
 ### "Slow responses"
 
-**Giải pháp:**
-- Free tier có thể có ưu tiên thấp hơn
-- Dùng trong giờ thấp điểm
-- Chuyển sang free provider khác
-- Nâng cấp lên cheap tier để tăng tốc
+Các tầng miễn phí có độ ưu tiên thấp nhất. Hãy thử một nhà cung cấp miễn phí khác, làm việc vào những giờ yên ắng hơn, hoặc để combo đi tiếp.
 
----
+### "It worked yesterday and stopped today"
 
-## Giới hạn
-
-### Cân nhắc Free Tier
-
-- **Tốc độ** - Có thể chậm hơn tier trả phí
-- **Ưu tiên** - Ưu tiên thấp hơn trong giờ cao điểm
-- **Rate limit** - Có thể bị rate limit (nhưng không giới hạn quota)
-- **Tính khả dụng** - Có thể có downtime thỉnh thoảng
-
-**Giải pháp:** Dùng chiến lược fallback 3 tầng để đáng tin cậy!
+Đó là bản chất của một tầng miễn phí. Hãy kết nối lại, thử một model khác trên cùng nhà cung cấp, hoặc dựa vào một nhà cung cấp miễn phí khác cho đến khi nó trở lại.
 
 ---
 
 ## Bước tiếp theo
 
-- **Setup subscriptions:** [Subscription Providers](./subscription.md)
-- **Thêm cheap backup:** [Cheap Providers](./cheap.md)
-- **Tạo combos:** Dashboard → Combos → Create New
-- **Bắt đầu code:** Dùng combo `complete-fallback` để có độ tin cậy tối đa
+- **Bắt đầu với subscription:** [Nhà cung cấp Subscription](subscription.md)
+- **Thêm một tầng giữa giá rẻ:** [Nhà cung cấp giá rẻ](cheap.md)
+- **Dựng và tinh chỉnh một chuỗi:** [Combos](../features/combos.md)

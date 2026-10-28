@@ -1,236 +1,220 @@
-# ☁️ クラウドデプロイメント
+# ☁️ クラウドへのデプロイ
 
-リモートアクセスと本番利用のため、VPSまたはDockerにVelaをデプロイ。
+Velaをサーバーで動かすと、変わることはただひとつだけです: ほかのマシンから届くようになる、つまりパスワードと玄関が要る、ということです。ほかはすべて — プロバイダー、コンボ、キー — ローカルのときとまったく同じに動きます。
+
+このガイドは、公開されたDockerイメージ(推奨の道)、VPSへのインストール、リバースプロキシ、そしてポートを開く前に大事なセキュリティのチェックリストを扱います。
 
 ---
 
-## 🖥️ VPSデプロイメント
+## 🖥️ VPSで
 
 ### 前提条件
 
-- Ubuntu 20.04+ または同様のLinuxディストリビューション
-- Node.js 20以上
-- Git
-- rootまたはsudoアクセス
+- Ubuntu 22.04以降、あるいはそれに相当するLinux
+- Node.js 20以降(Dockerを使うなら読み飛ばせます)
+- `git`
+- `sudo`のあるユーザー
 
-### ステップ1: リポジトリをクローン
+### ステップ1: Node.js、そしてVelaをインストールする
+
+```bash
+# Node.js 20+ — the official NodeSource script is one option
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Vela
+npm install -g vela
+```
+
+ソースからビルドしたければ:
 
 ```bash
 git clone https://github.com/YumamaX3/Vela.git
-cd Vela/app
-```
-
-### ステップ2: 依存関係をインストール
-
-```bash
+cd Vela
 npm install
-```
-
-### ステップ3: アプリケーションをビルド
-
-```bash
 npm run build
-```
-
-### ステップ4: 環境変数を設定
-
-`.env` ファイルを作成するか、変数をエクスポート:
-
-```bash
-export JWT_SECRET="your-secure-secret-change-this-to-random-string"
-export INITIAL_PASSWORD="your-secure-password"
-export DATA_DIR="/var/lib/Vela"
-export NODE_ENV="production"
-```
-
-**環境変数:**
-
-| 変数 | デフォルト | 説明 |
-|----------|---------|-------------|
-| `JWT_SECRET` | 自動生成 | **本番環境では必ず変更!** JWTトークンの署名に使用 |
-| `INITIAL_PASSWORD` | `123456` | ダッシュボードログインパスワード |
-| `DATA_DIR` | `~/.vela` | データベースとデータの保存パス |
-| `NODE_ENV` | `development` | デプロイ時は `production` に設定 |
-| `ENABLE_REQUEST_LOGS` | `false` | デバッグリクエスト/レスポンスログを有効化 |
-
-### ステップ5: データディレクトリを作成
-
-```bash
-sudo mkdir -p /var/lib/Vela
-sudo chown $USER:$USER /var/lib/Vela
-```
-
-### ステップ6: アプリケーションを起動
-
-```bash
 npm run start
 ```
 
-### ステップ7: 本番環境用にPM2をセットアップ
+リポジトリのルートが**アプリそのもの**です。入れ子の`app/`ディレクトリはありません。
 
-PM2はアプリケーションを稼働させ続け、クラッシュ時に再起動します:
+### ステップ2: 環境を設定する
+
+シェルのプロファイルに、systemdのユニットに、あるいはアプリのそばの`.env`ファイルに、これを置きます:
 
 ```bash
-# PM2をグローバルにインストール
-npm install -g pm2
-
-# PM2でVelaを起動
-pm2 start npm --name Vela -- start
-
-# PM2設定を保存
-pm2 save
-
-# システム起動時にPM2を開始するようセットアップ
-pm2 startup
-# 上記コマンドが出力する指示に従ってください
+export JWT_SECRET="$(openssl rand -hex 32)"   # signs dashboard sessions
+export INITIAL_PASSWORD="set-me-by-you"       # placeholder, not a secret
+export DATA_DIR="/var/lib/vela"
+export NODE_ENV="production"
+export PORT="32060"
 ```
 
-**PM2管理コマンド:**
+`JWT_SECRET`は新しく生成したもので、少なくとも32文字でなければなりません。プレースホルダーのままだと、Velaは起動を拒否します。
+
+| 変数 | 何をするか |
+|----------|--------------|
+| `JWT_SECRET` | ダッシュボードのセッションに署名します。生成してください。チュートリアルのものを使い回さないこと。 |
+| `INITIAL_PASSWORD` | 最初のダッシュボードのログインパスワード。任意ですが、サーバーでは期待されます。これは資格情報です: 実行時に与え、決してコミットしないこと。 |
+| `DATA_DIR` | データベースの住む場所。デフォルトは`~/.vela`。 |
+| `NODE_ENV` | 本物の環境では`production`に。 |
+| `ENABLE_REQUEST_LOGS` | デフォルトは`false`。デバッグ中だけオンに。 |
+| `REQUIRE_API_KEY` | オンのとき、有効なキーのないリクエストは拒否されます。 |
+| `VELA_BACKUP_*` | 任意の暗号化バックアップの仕組み。すべてデフォルトはオフ。 |
+
+完全な一覧はリポジトリの`.env.example`と`docs/ENVIRONMENT.md`にあります。
+
+### ステップ3: データディレクトリ
 
 ```bash
-# ログを表示
-pm2 logs Vela
+sudo mkdir -p /var/lib/vela
+sudo chown $USER:$USER /var/lib/vela
+```
 
-# アプリケーションを再起動
-pm2 restart Vela
+### ステップ4: プロセスマネージャーの下で動かす
 
-# アプリケーションを停止
-pm2 stop Vela
+```bash
+sudo npm install -g pm2
 
-# ステータスを表示
+pm2 start vela --name vela
+pm2 save
+pm2 startup      # follow the line it prints, so it survives a reboot
+```
+
+役に立つPM2のコマンド:
+
+```bash
+pm2 logs vela          # follow the output
+pm2 restart vela
+pm2 stop vela
 pm2 status
-
-# リソースをモニタリング
 pm2 monit
 ```
 
+### ステップ5: ダッシュボードのパスワードを設定する
+
+**サーバーから**ダッシュボードを開き(たとえば下のSSHトンネルを通して)、**設定 → アクセス**へ行き、パスワードを設定します。そうするまで、遠隔のブラウザは設計として拒否されます。
+
 ---
 
-## 🐳 Dockerデプロイメント
+## 🐳 Dockerでのデプロイ
 
-### オプション1: Dockerfileを使用
+公開されたイメージが最短の道で、こちらを好むべきです。
 
-`app` ディレクトリに `Dockerfile` を作成:
+### 公開されたイメージ
+
+```bash
+docker run -d --name vela --restart unless-stopped \
+  -p 127.0.0.1:32060:32060 \
+  -v "$HOME/vela-data:/app/data" \
+  -e DATA_DIR=/app/data \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  -e INITIAL_PASSWORD="set-me-by-you" \
+  ghcr.io/yumamax3/vela:1.2.4
+```
+
+- `ghcr.io/yumamax3/vela`は**公開**イメージです。誰でもログインせずにpullできます。トークンは要りません。秘密は何も含まれていません — 秘密はすべて実行時に環境として与えられる、だからこそ公開されていても安全なのです。
+- **タグを固定してください**(`:1.2.4`)。`:latest`はリリースについていき、再起動の下で変わることがあります。
+- リバースプロキシが玄関なら、**`127.0.0.1`へ公開してください**。そうすれば、素のポートはインターネットにはまったく出ません。
+- **`/app/data`をマウントしてください。** ボリュームがなければ、コンテナが入れ替わったときすべてが消えます。
+
+### Docker Composeでのデプロイ
+
+リポジトリには、文書化されたテンプレート`docker-compose.example.yml`が同梱されています。コピーし、プレースホルダーを埋め、起動します:
+
+```bash
+cp docker-compose.example.yml docker-compose.yml
+# edit docker-compose.yml: every `set-me` and every secret
+docker compose up -d
+```
+
+あなた自身の最小のチャートは、このようなものです:
+
+```yaml
+services:
+  vela:
+    image: ghcr.io/yumamax3/vela:1.2.4
+    container_name: vela
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:32060:32060"
+    environment:
+      - NODE_ENV=production
+      - DATA_DIR=/app/data
+      - JWT_SECRET=set-me-from-openssl-rand-hex-32   # placeholder, not a secret
+      - INITIAL_PASSWORD=set-me-by-you               # placeholder, not a secret
+    volumes:
+      - vela-data:/app/data
+    stop_grace_period: 30s
+
+volumes:
+  vela-data:
+```
+
+```bash
+docker compose up -d          # start
+docker compose logs -f        # follow
+docker compose down           # stop
+docker compose pull && docker compose up -d   # update
+```
+
+> 例のチャートには、`mysql` / `mirror`のストレージモードのための任意のMariaDBの「双子」と、任意の圧縮のサイドカーもあります。どちらもコメントアウトされているか内部専用で、どちらもVelaを動かすのに要りません。
+
+### 自分でイメージをビルドする
+
+コードを変える必要があるときにだけ:
 
 ```dockerfile
-FROM node:20-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
+RUN npm ci
 
-# Install dependencies
-RUN npm ci --only=production
-
-# Copy application files
 COPY . .
-
-# Build application
 RUN npm run build
 
-# Expose ports
-EXPOSE 3000 32060
-
-# Set environment variables
 ENV NODE_ENV=production
 ENV DATA_DIR=/app/data
-
-# Create data directory
 RUN mkdir -p /app/data
 
-# Start application
+EXPOSE 32060
 CMD ["npm", "run", "start"]
 ```
 
-**ビルドと実行:**
-
 ```bash
-# イメージをビルド
-docker build -t Vela .
-
-# コンテナを実行
-docker run -d \
-  --name Vela \
-  -p 3000:3000 \
-  -p 32060:32060 \
-  -e JWT_SECRET="your-secure-secret-change-this" \
-  -e INITIAL_PASSWORD="your-secure-password" \
-  -v Vela-data:/app/data \
-  vela
+docker build -t vela-local:1.2.4 .
+docker run -d --name vela -p 127.0.0.1:32060:32060 \
+  -v vela-data:/app/data \
+  -e DATA_DIR=/app/data \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  vela-local:1.2.4
 ```
 
-### オプション2: Docker Compose
-
-`docker-compose.yml` を作成:
-
-```yaml
-version: '3.8'
-
-services:
-  Vela:
-    build: .
-    container_name: Vela
-    ports:
-      - "3000:3000"
-      - "32060:32060"
-    environment:
-      - NODE_ENV=production
-      - JWT_SECRET=your-secure-secret-change-this
-      - INITIAL_PASSWORD=your-secure-password
-      - DATA_DIR=/app/data
-    volumes:
-      - Vela-data:/app/data
-    restart: unless-stopped
-
-volumes:
-  Vela-data:
-```
-
-**Docker Composeで実行:**
-
-```bash
-# サービスを起動
-docker-compose up -d
-
-# ログを表示
-docker-compose logs -f
-
-# サービスを停止
-docker-compose down
-
-# 再ビルドして再起動
-docker-compose up -d --build
-```
+ソースからのビルドは、公開されたイメージより遅く、大きく、あなたのマシンにあるものをそのまま引き継ぎます。公開されたイメージはタグのついたコミットからビルドされ、あなたのイメージはあなたのものからビルドされます。
 
 ---
 
-## 🌐 Nginxリバースプロキシ
+## 🌐 リバースプロキシ(Nginx)
 
-### Nginxを使う理由
+なぜわざわざ: TLS、本物のドメイン名、そしてリクエストの大きさを制限しヘッダーを足せる、よく設定されたひとつの玄関。
 
-- SSL/TLS終端
-- ドメイン名マッピング
-- ロードバランシング
-- セキュリティ強化
-
-### ステップ1: Nginxをインストール
+### インストール
 
 ```bash
 sudo apt update
-sudo apt install nginx
+sudo apt install -y nginx
 ```
 
-### ステップ2: Nginxを設定
+### 設定
 
-`/etc/nginx/sites-available/Vela` を作成:
+`/etc/nginx/sites-available/vela`を作ります:
 
 ```nginx
 server {
     listen 80;
     server_name your-domain.com;
-
-    # Redirect HTTP to HTTPS
     return 301 https://$server_name$request_uri;
 }
 
@@ -238,18 +222,16 @@ server {
     listen 443 ssl http2;
     server_name your-domain.com;
 
-    # SSL certificates (use certbot to generate)
-    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+    ssl_certificate     /etc/letsencrypt/live/your-domain.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
-
-    # SSL configuration
     ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
 
-    # Proxy to Vela
+    # Vela caps request bodies at 32 MB by default
+    client_max_body_size 32m;
+
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://127.0.0.1:32060;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -258,216 +240,160 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
-        
-        # SSE support - CRITICAL for streaming
-        proxy_buffering off;
-        proxy_read_timeout 86400;
-    }
 
-    # API endpoint
-    location /v1 {
-        proxy_pass http://localhost:32060;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        
-        # SSE support - CRITICAL for streaming
+        # Streaming (SSE) — without these, replies arrive in one lump at the end
         proxy_buffering off;
         proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
     }
 }
 ```
 
-### ステップ3: サイトを有効化
+ダッシュボードと`/v1`はどちらも同じポートに住むので、ひとつの`location`が両方を覆います。
+
+### 有効にして証明書を取る
 
 ```bash
-# シンボリックリンクを作成
-sudo ln -s /etc/nginx/sites-available/Vela /etc/nginx/sites-enabled/
-
-# 設定をテスト
+sudo ln -s /etc/nginx/sites-available/vela /etc/nginx/sites-enabled/
 sudo nginx -t
-
-# Nginxをリロード
 sudo systemctl reload nginx
-```
 
-### ステップ4: Let's EncryptでSSLをセットアップ
-
-```bash
-# certbotをインストール
-sudo apt install certbot python3-certbot-nginx
-
-# SSL証明書を取得
+sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d your-domain.com
-
-# 自動更新は自動的に設定されます
-# 更新をテスト
 sudo certbot renew --dry-run
 ```
 
+そのあと、ツールを`https://your-domain.com/v1`に向けてください。
+
 ---
 
-## 🔒 セキュリティ考慮事項
+## 🔒 セキュリティのチェックリスト
 
-### 1. デフォルト認証情報を変更
+このリストのどれも一分で済み、最悪の日を防ぎます。
 
-**重要:** デプロイ前に `JWT_SECRET` と `INITIAL_PASSWORD` を変更:
+### 1. 本物の`JWT_SECRET`と、本物のパスワード
 
 ```bash
-# 安全なJWTシークレットを生成
-openssl rand -base64 32
-
-# この値をJWT_SECRETに使用
-export JWT_SECRET="generated-secret-here"
+openssl rand -hex 32        # paste into JWT_SECRET
 ```
 
-### 2. ファイアウォール設定
+そのあと**設定 → アクセス**でダッシュボードのパスワードを設定し、**ダッシュボードのログインを必須にする**をオンにします。**APIキーを必須にする**ことも考えてください。そうすれば`/v1`に届くものはキーを提示しなければなりません。
+
+### 2. ファイアウォール
 
 ```bash
-# SSHを許可
 sudo ufw allow 22/tcp
-
-# HTTP/HTTPSを許可 (Nginx使用時)
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
-
-# リバースプロキシを使用しない場合、Velaポートを許可
-sudo ufw allow 3000/tcp
-sudo ufw allow 32060/tcp
-
-# ファイアウォールを有効化
+# only if you are NOT behind a proxy:
+# sudo ufw allow 32060/tcp
 sudo ufw enable
 ```
 
-### 3. ダッシュボードアクセスを制限
+### 3. 素のポートを私的に保つ
 
-APIアクセスのみ必要な場合、ダッシュボードポートを制限:
+Nginxが玄関なら、Velaはループバックだけで聞くべきです — 上の例のように`127.0.0.1:32060:32060`で公開してください。公開のプロキシのない箱でダッシュボードに届くには:
 
 ```bash
-# ダッシュボードへのlocalhostアクセスのみ許可
-sudo ufw deny 3000/tcp
+ssh -L 32060:localhost:32060 you@your-server
+# then open http://localhost:32060/dashboard on your own machine
 ```
 
-SSHトンネル経由でダッシュボードにアクセス:
+### 4. キーごとの支出上限
+
+人ごと、あるいはツールごとにひとつのAPIキーを配り(**Endpoint & Key → Create Key**)、それぞれにトークン予算か支出上限を設定します。上限に達すると、Velaは黙ってより多く使うのではなく、はっきりした`429`で答えます。
+
+### 5. 意識して更新する
 
 ```bash
-ssh -L 3000:localhost:3000 user@your-server.com
-# ブラウザで http://localhost:3000 を開く
-```
-
-### 4. 定期的な更新
-
-```bash
-# システムパッケージを更新
+# Packages you depend on
 sudo apt update && sudo apt upgrade -y
 
-# Velaを更新
-cd /path/to/Vela/app
-git pull
-npm install
-npm run build
-pm2 restart Vela
+# From a git checkout
+cd Vela && git pull && npm install && npm run build && pm2 restart vela
+
+# Docker
+docker compose pull && docker compose up -d
 ```
 
-### 5. バックアップ戦略
+### 6. データディレクトリをバックアップする
 
 ```bash
-# データディレクトリをバックアップ
-tar -czf Vela-backup-$(date +%Y%m%d).tar.gz /var/lib/Vela
-
-# 自動毎日バックアップ (crontabに追加)
-0 2 * * * tar -czf /backups/Vela-$(date +\%Y\%m\%d).tar.gz /var/lib/Vela
+tar -czf vela-backup-$(date +%Y%m%d).tar.gz -C /var/lib vela
 ```
+
+cronに足して、毎晩の複製に。組み込みの暗号化バックアップを有効にするなら、`VELA_BACKUP_ENCRYPTION_KEY`を失えばバックアップも失うことを忘れないでください。
 
 ---
 
-## 📊 モニタリング
-
-### アプリケーションステータスを確認
+## 📊 監視
 
 ```bash
-# PM2ステータス
 pm2 status
-
-# ログを表示
-pm2 logs Vela --lines 100
-
-# リソースをモニタリング
+pm2 logs vela --lines 100
 pm2 monit
-```
 
-### Nginxログ
+docker compose logs -f --tail 100
 
-```bash
-# アクセスログ
 sudo tail -f /var/log/nginx/access.log
-
-# エラーログ
 sudo tail -f /var/log/nginx/error.log
+
+curl -s http://127.0.0.1:32060/api/health      # {"ok":true}
 ```
 
-### システムリソース
-
-```bash
-# CPUとメモリ使用量
-htop
-
-# ディスク使用量
-df -h
-
-# ネットワーク接続
-netstat -tulpn | grep -E '3000|32060'
-```
+コンテナには`/api/health`を叩くヘルスチェックが同梱されているので、起き上がれば`docker ps`が`healthy`を示します。
 
 ---
 
 ## 🚨 トラブルシューティング
 
-### アプリケーションが起動しない
+### 起動しない
 
 ```bash
-# ログを確認
-pm2 logs Vela
-
-# ポートが使用中か確認
-sudo lsof -i :3000
-sudo lsof -i :32060
-
-# 環境変数を確認
-pm2 env Vela
+pm2 logs vela          # or: docker compose logs
+ss -tlnp | grep 32060  # is something else on the port?
 ```
 
-### Nginx 502 Bad Gateway
+`JWT_SECRET`に触れる起動の拒否は、まさにその意味です: 長いランダムな秘密を生成してください。
+
+### Nginxが502を返す
+
+NginxがVelaに届いていません。Velaが動いているか(上の`curl`)、`proxy_pass`のポートが合っているか、エラーログを確かめてください:
 
 ```bash
-# Velaが実行中か確認
-pm2 status
-
-# Nginxエラーログを確認
 sudo tail -f /var/log/nginx/error.log
-
-# Nginx設定をテスト
-sudo nginx -t
 ```
 
-### SSEストリーミングが動作しない
+### ストリーミングが流れない
 
-SSEサポート用にNginx設定で `proxy_buffering off` が設定されていることを確認。
+`proxy_buffering off`がないか、手前のCDNかWAFがバッファリングしています。どちらもイベントを通さなければなりません。
 
-### Permission Deniedエラー
+### 遠隔のログインが拒否される
+
+それがパスワードの門です。Velaのマシンからパスワードを設定し(**設定 → アクセス**)、あるいは`INITIAL_PASSWORD`を与えて再起動してください。
+
+### データディレクトリの権限が拒否される
 
 ```bash
-# データディレクトリ権限を修正
-sudo chown -R $USER:$USER /var/lib/Vela
-chmod 755 /var/lib/Vela
+sudo chown -R $USER:$USER /var/lib/vela
+chmod 755 /var/lib/vela
 ```
+
+Dockerでは、マウントしたホストのディレクトリが、コンテナの`node`ユーザー(uid 1000)から書き込めることを確かめてください。
+
+---
+
+## 📱 ホストされているエンドポイントについて
+
+このドキュメントの古いページに、ホストされているVelaのインスタンスとして`https://vela.my.id`や`https://vela.ai`が挙げられているのを見るかもしれません。それらは**プロジェクト所有者自身のデプロイ**で、ここでは上流の事実として記されているだけで、このドキュメントが約束できるサービスではありません。それらについて読むものには、いつも日付を心に置いてください。
+
+大事なものは、自分でホストしてください(このページ) — あるいは、プロバイダーが渡した、発行されたAPIキーとともに、そのホストのインスタンスに届いてください。ツールの設定はどちらの道でも同じで、変わるのはベースURLだけです。
 
 ---
 
 ## 🔗 次のステップ
 
-- [プロバイダーを接続](/providers/subscription.md)
-- [コンボをセットアップ](/features/combos.md)
-- [ツールと統合](/integration/cursor.md)
+- [プロバイダーを接続する](../providers/subscription.md)
+- [コンボを組む](../features/combos.md)
+- [Cursorをあなたのサーバーに向ける](../integration/cursor.md)
+- [トラブルシューティング](../troubleshooting.md)

@@ -1,537 +1,316 @@
 # Combos - Cadenas de fallback personalizadas
 
-Crea combinaciones de modelos personalizadas con fallback automático. Los combos te permiten definir tu propia estrategia de enrutamiento basada en costo, calidad y disponibilidad.
+Un combo es un nombre para una cadena de modelos. Dale un nombre una vez, y cada herramienta puede pedir ese nombre en lugar de un modelo concreto — y cuando un modelo de la cadena queda fuera de alcance, responde el siguiente.
+
+Los combos son los cinco minutos más útiles que pasarás con Vela.
 
 ---
 
-## ¿Qué son los combos?
+## Qué es un combo
 
-Los combos son **cadenas de fallback personalizadas** que creas en el dashboard. En lugar de usar un solo modelo, defines una secuencia de modelos que Vela intenta en orden.
-
-**Ejemplo:**
 ```
-Nombre del combo: premium-coding
-Modelos:
-  1. cc/claude-opus-4-5-20251101 (intentar primero)
-  2. glm/glm-4.7 (si #1 tiene cuota agotada)
-  3. minimax/MiniMax-M2.1 (si #2 tiene cuota agotada)
+Name: premium-coding
+Models:
+  1. cc/claude-opus-5          ← try first
+  2. glm/glm-4.7               ← if #1 is out
+  3. kr/claude-sonnet-4.5      ← if #2 is out too
 ```
 
-**Uso en CLI:**
+Luego cualquier herramienta pide `premium-coding` como si fuera un nombre de modelo. Vela resuelve los nombres de combo **antes** que cualquier otra cosa, así que `premium-coding` nunca chocará con un prefijo de proveedor.
+
+### Cuándo avanza la cadena
+
+Un combo pasa al siguiente modelo cuando una solicitud **falla**:
+
+- el proveedor informa un error de cuota o de límite de tasa
+- la solicitud agota su tiempo de espera
+- el proveedor rechaza el prompt por motivos de política
+- el id del modelo es desconocido o no está disponible
+
+### Cuándo no avanza
+
+- Una asignación diaria que solo está bajando **no** provoca un cambio. Vela no te moverá en silencio a un modelo de pago porque estés cerca de un límite — eso sería gastar tu dinero por ti.
+- Un techo de gasto estricto pertenece a la clave de API (**Endpoint & Key → budget**); cuando se alcanza, Vela se niega con un 429 en lugar de desviarte a otro sitio.
+
+---
+
+## Por qué usarlos
+
+### 1. Obtén valor de tus suscripciones
+```
+cc/claude-opus-5 → glm/glm-4.7 → kr/claude-sonnet-4.5
+```
+Usa primero lo que ya pagas, barato después, gratis al final.
+
+### 2. Mantén bajos los costos
+```
+glm/glm-4.7 → minimax/MiniMax-M2.1 → if/qwen3-coder-plus
+```
+$0.60 → $0.30 → gratis, por 1M de tokens de entrada.
+
+### 3. No te quedes nunca atascado
+```
+cc/claude-opus-5 → cx/gpt-5.6-sol → glm/glm-4.7 → if/qwen3-coder-plus
+```
+Termina siempre la cadena en algo gratuito, o estarás a una cuota agotada de distancia de una tarde detenida.
+
+### 4. Mantén la calidad cuando importa
+```
+cc/claude-opus-5 → cx/gpt-5.6-sol → ag/gemini-4-argon-high
+```
+Modelos premium de principio a fin. Cuesta más, nunca se apaga.
+
+---
+
+## Crear uno
+
+### Paso 1: abrir el dashboard
+
+```
+http://localhost:32060/dashboard → Combos
+```
+
+### Paso 2: crear
+
+```
+Combos → Create
+  Combo Name: premium-coding
+  Models:     add them one at a time, in priority order
+```
+
+Arrastra las filas para reordenarlas. El modelo de arriba se prueba primero.
+
+### Paso 3: guardar
+
+El combo aparece de inmediato, y la puerta de enlace lo resolverá en la siguiente solicitud — sin necesidad de reiniciar.
+
+### Paso 4: usarlo
+
 ```
 Model: premium-coding
 ```
 
-Vela intenta automáticamente cada modelo en secuencia hasta que uno tenga éxito.
+Esa es toda la interfaz. Cualquier herramienta que acepte un nombre de modelo acepta el nombre de un combo.
+
+### Una segunda estrategia: round-robin
+
+Un combo también puede rotar entre sus miembros en lugar de ir cayendo por ellos. Configúralo globalmente en **Settings → Routing → Combo round robin**, si tu objetivo es repartir carga (por ejemplo, entre varias cuentas) en lugar de hacer fallback.
 
 ---
 
-## ¿Por qué usar combos?
+## Ejemplos resueltos
 
-### 1. Maximiza el valor de la suscripción
-```
-cc/claude-opus → glm/glm-4.7 → if/kimi-k2-thinking
+### Ejemplo 1: premium pero frugal
 
-→ Usa la suscripción primero, respaldo barato, emergencia gratis
-→ Obtén el valor completo de las suscripciones que ya pagas
-```
-
-### 2. Minimiza costos
-```
-glm/glm-4.7 → minimax/MiniMax-M2.1 → if/kimi-k2-thinking
-
-→ Comienza con la opción de pago más barata ($0.60/1M)
-→ Fallback a una aún más barata ($0.20/1M)
-→ Nivel de emergencia gratis
-→ Costo total: ~$5-10/mes vs $2000 en ChatGPT API
-```
-
-### 3. Garantiza disponibilidad 24/7
-```
-cc/claude-opus → cx/gpt-5.2-codex → glm/glm-4.7 → if/kimi-k2-thinking
-
-→ Siempre incluye el nivel gratis al final
-→ Nunca te quedes sin cuota
-→ Codifica en cualquier momento, en cualquier lugar
-```
-
-### 4. Optimiza por calidad
-```
-cc/claude-opus-4-5 → cx/gpt-5.2-codex → gc/gemini-3-pro
-
-→ Mejores modelos primero
-→ Fallback a otros modelos premium
-→ Mantén alta calidad en toda la cadena de fallback
-```
-
----
-
-## Cómo crear combos
-
-### Paso 1: Abrir el dashboard
-
-```
-http://localhost:32060
-→ Inicia sesión con tu contraseña
-```
-
-### Paso 2: Navegar a Combos
-
-```
-Dashboard → Combos → Create New Combo
-```
-
-### Paso 3: Configurar el combo
-
-**Nombre del combo:**
 ```
 premium-coding
-```
-
-**Descripción (opcional):**
-```
-Suscripción primero, respaldo barato, emergencia gratis
-```
-
-**Seleccionar modelos:**
-```
-1. cc/claude-opus-4-5-20251101
-2. glm/glm-4.7
-3. minimax/MiniMax-M2.1
-```
-
-**Arrastra para reordenar** - Prioridad de arriba a abajo.
-
-### Paso 4: Guardar
-
-```
-Clic en "Save Combo"
-→ El combo aparece en la lista de modelos
-```
-
-### Paso 5: Usar en CLI
-
-```
-Cursor/Cline/Cualquier herramienta:
-  Model: premium-coding
-```
-
----
-
-## Combos de ejemplo
-
-### Ejemplo 1: Premium Coding (Suscripción → Barato → Gratis)
-
-**Objetivo**: Maximizar el valor de la suscripción, minimizar costos extras.
-
-```
-Dashboard → Combos → Create New
-
-Name: premium-coding
-Models:
-  1. cc/claude-opus-4-5-20251101
+  1. cc/claude-opus-5
   2. glm/glm-4.7
   3. minimax/MiniMax-M2.1
 ```
 
-**Uso:**
-```
-Cursor IDE:
-  Model: premium-coding
-```
-
-**Comportamiento:**
-```
-Mañana (cuota fresca):
-  Solicitud → cc/claude-opus-4-5 ✅
-
-Tarde (cuota de Claude agotada):
-  Solicitud → glm/glm-4.7 ✅ (cambio automático)
-
-Noche (cuota de GLM agotada):
-  Solicitud → minimax/MiniMax-M2.1 ✅ (cambio automático)
-```
-
-**Costo mensual (100M tokens):**
-```
-80M vía Claude Code: $0 (suscripción)
-15M vía GLM: $9
-5M vía MiniMax: $1
-Total: $10 + tu suscripción
-```
-
-**Ahorros**: ~99% vs ChatGPT API ($2000).
-
----
-
-### Ejemplo 2: Combo de presupuesto (Barato → Gratis)
-
-**Objetivo**: Minimizar costos, usar el nivel gratis como respaldo.
+Un mes típico con 100M de tokens:
 
 ```
-Dashboard → Combos → Create New
+80M via the Claude subscription : $0
+15M via GLM-4.7                 : about $9
+ 5M via MiniMax M2.1            : about $1
+```
 
-Name: budget-combo
-Models:
+El modelo caro hace el trabajo real; los baratos absorben el desbordamiento.
+
+### Ejemplo 2: solo presupuesto
+
+```
+budget-combo
   1. glm/glm-4.7
   2. minimax/MiniMax-M2.1
-  3. if/kimi-k2-thinking
+  3. if/qwen3-coder-plus
 ```
 
-**Uso:**
+Con 100M de tokens al mes, repartidos 70 / 20 / 10:
+
 ```
-Cline:
-  Provider: OpenAI Compatible
+70M via GLM          : about $42
+20M via MiniMax      : about $4
+10M via iFlow        : $0
+```
+
+Cuesta dinero, pero nada parecido a la factura de una API de venta al público.
+
+### Ejemplo 3: costo cero
+
+```
+free-combo
+  1. kr/claude-sonnet-4.5
+  2. if/qwen3-coder-plus
+  3. qwen/qwen-plus
+```
+
+Costo: $0. Restricciones: lo que los niveles gratuitos opinen de ti hoy.
+
+### Ejemplo 4: calidad primero
+
+```
+quality-first
+  1. cc/claude-opus-5
+  2. cx/gpt-5.6-sol
+  3. ag/gemini-4-argon-high
+```
+
+Sin respaldo barato, a propósito: si los tres están gastados, falla en voz alta en lugar de producir en silencio un trabajo más flojo.
+
+### Ejemplo 5: todos los niveles, en orden
+
+```
+never-stuck
+  1. ag/gemini-4-argon-high     ← free, surprisingly strong
+  2. cc/claude-opus-5           ← subscription
+  3. cx/gpt-5.6-sol             ← second subscription
+  4. gh/claude-sonnet-4.6       ← third
+  5. glm/glm-4.7                ← cheap
+  6. minimax/MiniMax-M2.1       ← cheaper
+  7. kr/claude-sonnet-4.5       ← free, good quality
+  8. if/qwen3-coder-plus        ← free, variety
+```
+
+Ocho peldaños, cada uno más barato que el anterior, y ninguno de ellos sin nada que perder.
+
+---
+
+## Usar un combo en cada herramienta
+
+### Cursor
+
+```
+Settings → Models → OpenAI API
   Base URL: http://localhost:32060/v1
-  Model: budget-combo
+  API Key:  [your Vela key]
+  Model:    premium-coding   (add as a custom model)
 ```
 
-**Comportamiento:**
-```
-Solicitud → glm/glm-4.7
-  ✅ Cuota diaria disponible → Usa GLM ($0.60/1M)
-  ❌ Cuota agotada → Intenta MiniMax ($0.20/1M)
-  ❌ Cuota de MiniMax agotada → Usa iFlow (GRATIS)
-```
+### Claude Code
 
-**Costo mensual (100M tokens):**
-```
-70M vía GLM: $42
-20M vía MiniMax: $4
-10M vía iFlow: $0
-Total: $46 vs $2000 en ChatGPT API
-```
-
-**Ahorros**: 97%.
-
----
-
-### Ejemplo 3: Combo gratis (Cero costo)
-
-**Objetivo**: 100% gratis, sin costos nunca.
-
-```
-Dashboard → Combos → Create New
-
-Name: free-combo
-Models:
-  1. if/kimi-k2-thinking
-  2. qw/qwen3-coder-plus
-  3. kr/claude-sonnet-4.5
-```
-
-**Uso:**
-```
-Claude Desktop:
-  Model: free-combo
-```
-
-**Comportamiento:**
-```
-Solicitud → if/kimi-k2-thinking
-  ✅ Disponible → Usa iFlow
-  ❌ Error → Intenta Qwen
-  ❌ Error → Intenta Kiro
-```
-
-**Costo mensual:**
-```
-100M tokens vía proveedores gratis: $0
-Total: $0 para siempre
-```
-
-**Caso de uso**: Proyectos personales, aprendizaje, experimentación.
-
----
-
-### Ejemplo 4: Calidad primero (Solo modelos premium)
-
-**Objetivo**: Mejor calidad, sin fallback barato.
-
-```
-Dashboard → Combos → Create New
-
-Name: quality-first
-Models:
-  1. cc/claude-opus-4-5-20251101
-  2. cx/gpt-5.2-codex
-  3. gc/gemini-3-pro-preview
-```
-
-**Uso:**
-```
-Codex CLI:
-  export OPENAI_BASE_URL="http://localhost:32060"
-  Model: quality-first
-```
-
-**Comportamiento:**
-```
-Solicitud → cc/claude-opus-4-5
-  ❌ Cuota agotada → cx/gpt-5.2-codex
-  ❌ Cuota agotada → gc/gemini-3-pro-preview
-  ❌ Todo agotado → Devuelve error (sin fallback barato)
-```
-
-**Caso de uso**: Código crítico de producción, refactoring complejo.
-
----
-
-### Ejemplo 5: Multi-suscripción (Maximiza todo)
-
-**Objetivo**: Usa todas las suscripciones antes de pagar extra.
-
-```
-Dashboard → Combos → Create New
-
-Name: multi-sub
-Models:
-  1. gc/gemini-3-flash-preview (GRATIS 180K/mes)
-  2. cc/claude-opus-4-5-20251101 (suscripción Pro)
-  3. cx/gpt-5.2-codex (suscripción Plus)
-  4. gh/gpt-5 (suscripción Copilot)
-  5. glm/glm-4.7 (respaldo barato)
-  6. if/kimi-k2-thinking (emergencia gratis)
-```
-
-**Costo mensual (200M tokens):**
-```
-50M vía Gemini CLI: $0 (nivel gratis)
-80M vía Claude Code: $0 (suscripción)
-40M vía Codex: $0 (suscripción)
-20M vía Copilot: $0 (suscripción)
-8M vía GLM: $4.80
-2M vía iFlow: $0
-Total: $4.80 + suscripciones existentes
-```
-
-**Resultado**: Usa 190M tokens de suscripciones, solo $4.80 extra.
-
----
-
-### Ejemplo 6: Optimización de reinicio de cuota
-
-**Objetivo**: Distribuir el uso según los tiempos de reinicio.
-
-```
-Dashboard → Combos → Create New
-
-Name: reset-optimized
-Models:
-  1. cc/claude-opus-4-5 (reinicio 5h, usar mañana)
-  2. gc/gemini-3-flash (1K/día, usar tarde)
-  3. glm/glm-4.7 (reinicio diario 10AM, usar noche)
-  4. minimax/MiniMax-M2.1 (rolling 5h, usar madrugada)
-  5. if/kimi-k2-thinking (ilimitado, emergencia)
-```
-
-**Rutina diaria:**
-```
-08:00 - 13:00: Claude Code (cuota fresca de 5h)
-13:00 - 18:00: Gemini CLI (cuota 1K/día)
-18:00 - 22:00: GLM (se reinicia 10AM del día siguiente)
-22:00 - 08:00: MiniMax (rolling 5h) o iFlow
-```
-
-**Resultado**: Codifica 24/7 con costos mínimos.
-
----
-
-## Usar combos en herramientas CLI
-
-### Cursor IDE
-
-```
-Settings → Models → Advanced:
-  OpenAI API Base URL: http://localhost:32060/v1
-  OpenAI API Key: [desde el dashboard]
-  Model: premium-coding
-```
-
-### Claude Desktop
-
-Edita `~/.claude/config.json`:
-```json
-{
-  "anthropic_api_base": "http://localhost:32060/v1",
-  "anthropic_api_key": "your-Vela-api-key",
-  "model": "budget-combo"
-}
+```bash
+export ANTHROPIC_BASE_URL="http://localhost:32060/v1"
+export ANTHROPIC_AUTH_TOKEN="[your Vela key]"
+claude --model premium-coding
 ```
 
 ### Codex CLI
 
 ```bash
-export OPENAI_BASE_URL="http://localhost:32060"
-export OPENAI_API_KEY="your-Vela-api-key"
-
-codex --model quality-first "your prompt"
+export OPENAI_BASE_URL="http://localhost:32060/v1"
+export OPENAI_API_KEY="[your Vela key]"
+codex --model premium-coding "your prompt"
 ```
 
-### Cline / Continue / RooCode
+### Cline / Roo / Continue
 
 ```
 Provider: OpenAI Compatible
 Base URL: http://localhost:32060/v1
-API Key: [desde el dashboard]
-Model: free-combo
+API Key:  [your Vela key]
+Model:    premium-coding
 ```
 
-### Solicitud por API
+### Desde un script
 
 ```bash
 curl http://localhost:32060/v1/chat/completions \
-  -H "Authorization: Bearer your-api-key" \
+  -H "Authorization: Bearer [your Vela key]" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "premium-coding",
-    "messages": [
-      {"role": "user", "content": "Write a function to..."}
-    ],
+    "messages": [{"role": "user", "content": "Write a function that reverses a linked list."}],
     "stream": true
   }'
 ```
 
 ---
 
-## Mejores prácticas
+## Buenas costumbres
 
-### 1. Siempre incluye el nivel gratis
-
-```
-✅ Bueno:
-cc/claude-opus → glm/glm-4.7 → if/kimi-k2-thinking
-
-❌ Malo:
-cc/claude-opus → glm/glm-4.7
-(sin fallback gratis, puede quedarse sin cuota)
-```
-
-**Por qué**: Garantiza disponibilidad 24/7, nunca bloqueado por cuota.
-
-### 2. Ordena por costo (Barato a costoso)
+### 1. Termina en algo gratuito
 
 ```
-✅ Bueno:
-glm/glm-4.7 → minimax/MiniMax-M2.1 → cc/claude-opus
-
-❌ Malo:
-cc/claude-opus → glm/glm-4.7
-(desperdicia cuota de suscripción en tareas simples)
+✅ cc/claude-opus-5 → glm/glm-4.7 → if/qwen3-coder-plus
+❌ cc/claude-opus-5 → glm/glm-4.7
 ```
 
-**Excepción**: Si quieres maximizar el valor de la suscripción, pon la suscripción primero.
+La segunda cadena tiene un precipicio al final.
 
-### 3. Coincide con los requisitos de calidad
+### 2. Decide qué estás optimizando
 
-```
-Para código de producción:
-cc/claude-opus → cx/gpt-5.2-codex → glm/glm-4.7
+- **Costo:** barato primero, gratis al final.
+- **Calidad:** premium primero, barato al final.
+- **Valor de suscripción:** suscripción primero, gratis al final.
 
-Para tareas rápidas:
-glm/glm-4.7 → if/kimi-k2-thinking
+No hay una respuesta universal, y el orden correcto cambia con la semana.
 
-Para experimentación:
-if/kimi-k2-thinking → qw/qwen3-coder-plus
-```
-
-### 4. Considera los tiempos de reinicio de cuota
+### 3. Ajusta el combo al trabajo
 
 ```
-Combo matutino (cuotas frescas):
-cc/claude-opus → cx/gpt-5.2-codex
-
-Combo nocturno (cuotas probablemente agotadas):
-glm/glm-4.7 → minimax/MiniMax-M2.1 → if/kimi-k2-thinking
+production code     : quality-first
+everyday edits      : premium-coding
+exploration         : budget-combo
+other people's work : never-stuck
 ```
 
-### 5. Crea múltiples combos para diferentes casos de uso
+Puedes mantener varios y cambiar cambiando un solo campo en la herramienta.
 
-```
-premium-coding: Para tareas complejas
-budget-combo: Para tareas simples
-free-combo: Para experimentación
-quality-first: Para código de producción
-```
+### 4. Comprueba qué hizo la cadena en realidad
 
-**Cambia entre combos** según los requisitos de la tarea.
+La página **Routed by Combo** muestra qué modelo respondió cada solicitud, así que un combo que siempre aterriza en el último peldaño es visible en lugar de misterioso.
 
-### 6. Monitorea el desempeño del combo
+### 5. Pon un techo a las claves compartidas
 
-```
-Dashboard → Analytics → Combo Usage:
-  premium-coding:
-    80% vía cc/claude-opus (bueno, usando suscripción)
-    15% vía glm/glm-4.7 (respaldo aceptable)
-    5% vía minimax (fallback raro)
-```
-
-**Optimiza**: Si hay demasiado uso de fallback, aumenta la cuota principal o reordena modelos.
+Para una clave usada por agentes o trabajos en segundo plano, fija un tope de gasto. Un combo puede llevarte por la cadena, pero no puede impedir que gastes; un presupuesto sí.
 
 ---
 
-## Configuración avanzada
+## Avanzado
 
-### Establecer límites de presupuesto por combo
+### Estrategias por combo
 
-```
-Dashboard → Combos → Edit → Budget:
-  Daily limit: $5
-  Monthly limit: $50
-```
+Un mismo combo puede preferir round-robin en lugar del fallback estricto — útil cuando los miembros tienen la misma calidad y quieres repartir la carga. Configúralo en **Settings → Routing**.
 
-Cuando se alcanza el límite, Vela omite los modelos de pago y usa solo el nivel gratis.
+### Desactivar un modelo temporalmente
 
-### Habilitar/Deshabilitar modelos en un combo
+Desactiva un modelo en la página de su proveedor en lugar de borrarlo de cada combo; el combo lo salta y conserva su forma para cuando lo vuelvas a activar.
 
-```
-Dashboard → Combos → Edit → Models:
-  ✅ cc/claude-opus-4-5 (habilitado)
-  ❌ glm/glm-4.7 (deshabilitado temporalmente)
-  ✅ if/kimi-k2-thinking (habilitado)
-```
+### Importar y exportar
 
-**Caso de uso**: Deshabilitar temporalmente modelos costosos sin eliminar el combo.
-
-### Clonar un combo existente
-
-```
-Dashboard → Combos → Clone "premium-coding"
-→ Crea una copia con sufijo "-copy"
-→ Modifica y guarda como nuevo combo
-```
-
-**Caso de uso**: Crear variaciones para diferentes escenarios.
+Los combos se pueden exportar e importar desde la página de Combos, que es la forma más sencilla de trasladar una configuración que funciona a una segunda máquina.
 
 ---
 
 ## Solución de problemas
 
-**Problema: El combo no aparece en la lista de modelos**
+### No se reconoce el nombre del combo
 
-**Solución:**
-1. Refresca el dashboard
-2. Verifica que el combo esté guardado (marca verde)
-3. Reinicia la herramienta CLI para refrescar la lista de modelos
+- Comprueba que el nombre esté escrito exactamente como se guardó (distingue mayúsculas y minúsculas).
+- Reinicia la herramienta si almacena en caché su lista de modelos al arrancar.
+- Confirma que el combo está guardado — debería aparecer en la lista de Combos.
 
-**Problema: El combo siempre usa el último modelo (nivel gratis)**
+### Siempre aterriza en el último modelo
 
-**Solución:**
-1. Verifica la cuota de los modelos principales (Dashboard → Quota)
-2. Verifica que las API keys sean válidas (Dashboard → Providers)
-3. Verifica que no se hayan excedido los límites de presupuesto
+Eso significa que los anteriores están fallando. Mira **Quota** y **Providers**: normalmente un token caducado, una asignación agotada o un proveedor caído.
 
-**Problema: El combo cuesta más de lo esperado**
+### Cuesta más de lo esperado
 
-**Solución:**
-1. Dashboard → Analytics → Revisa el uso del combo
-2. Verifica si los modelos principales tienen cuota agotada
-3. Reordena los modelos (pon los más baratos primero)
-4. Establece límites de presupuesto
+- Mira **Routed by Combo** para ver con qué frecuencia cayó por la cadena.
+- Lee las tarifas en [Proveedores baratos](../providers/cheap.md) — los tokens de salida cuestan 3–4× los de entrada en el nivel barato.
+- Reordena: pon primero el miembro más barato si la calidad lo permite.
+
+### Una solicitud falla en lugar de hacer fallback
+
+Algunos fallos no se pueden reintentar en otro sitio — una solicitud malformada fallará igual en cada modelo. Lee el texto del error antes de suponer que la cadena está rota.
 
 ---
 
 ## Relacionado
 
-- [Enrutamiento inteligente](./smart-routing.md) - Cómo funciona el fallback automático
-- [Seguimiento de cuota](./quota-tracking.md) - Monitorea uso y costos
+- [Enrutamiento inteligente](smart-routing.md) — cómo una solicitud elige un proveedor
+- [Seguimiento de cuota](quota-tracking.md) — leer el uso y el costo
+- [Proveedores baratos](../providers/cheap.md) — los números detrás de las cadenas

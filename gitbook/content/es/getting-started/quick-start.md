@@ -1,6 +1,6 @@
-# Empezar
+# Comenzar
 
-Pon en marcha Vela en 5 minutos y comienza a enrutar solicitudes de IA de forma inteligente.
+Cinco minutos, un endpoint, todas tus herramientas apuntándole. Esta página es la vía rápida; [Instalación](../getting-started/installation.md) tiene los detalles y la solución de problemas.
 
 ---
 
@@ -12,231 +12,200 @@ Pon en marcha Vela en 5 minutos y comienza a enrutar solicitudes de IA de forma 
 npm install -g vela
 ```
 
-**Requisitos:** Node.js 20+ ([Detalles de instalación](getting-started/installation.md))
+Necesitas Node.js 20 o superior. El comando `vela` es un pequeño lanzador: inicia la puerta de enlace y abre tu navegador.
 
-### 2. Iniciar
+### 2. Arrancar
 
 ```bash
 vela
 ```
 
-🎉 **El dashboard se abre automáticamente** en `http://localhost:32060`
+El dashboard se abre en **http://localhost:32060/dashboard**.
 
-- Contraseña por defecto: `123456` (cámbiala en el dashboard)
-- API key generada automáticamente
-- Listo para conectar proveedores
+Algunas cosas que conviene saber en el primer arranque:
 
-### 3. Conectar proveedores
+- **No hay contraseña por defecto**. Desde la máquina que ejecuta Vela, el dashboard se abre directamente. Los inicios de sesión desde otras máquinas se rechazan hasta que configures una contraseña en **Settings → Access**.
+- Tus datos viven en `~/.vela` en macOS y Linux, y en `%APPDATA%\vela` en Windows.
+- Por defecto la puerta de enlace escucha en todas las interfaces de red (`0.0.0.0`). Si solo la necesitas en esta máquina, arráncala con `vela --host 127.0.0.1`.
 
-Tienes 3 formas de conectar proveedores:
+### 3. Conectar un proveedor
 
-#### Opción A: OAuth (Proveedores de suscripción)
+Hay tres tipos de proveedor, y puedes mezclarlos libremente.
 
-**Ideal para:** Claude Code, Codex, Gemini CLI, GitHub Copilot
+#### Opción A — Suscripciones OAuth
+
+**Ideal para:** Claude Code, Codex, GitHub Copilot, Antigravity — cualquier cosa que ya pagues o a la que inicies sesión.
 
 ```
-Dashboard → Providers → Connect [Provider]
-→ Login OAuth → Refresh automático de token
-→ Seguimiento de cuota habilitado
+Dashboard → Providers → pick a provider → Connect
+→ Log in in the browser window → done
 ```
+
+Los tokens se renuevan solos a partir de ahí, y el seguimiento de cuota empieza de inmediato.
 
 **Ejemplo: Claude Code**
-1. Clic en "Connect Claude Code"
-2. Inicia sesión con tu cuenta de Claude
-3. Autoriza Vela
-4. ✅ ¡Listo! Usa el modelo: `cc/claude-opus-4-5-20251101`
+1. Abre **Providers** y elige **Claude**.
+2. Haz clic en **Connect**, inicia sesión en tu cuenta de Claude y aprueba.
+3. Usa el modelo por su nombre completo, por ejemplo `cc/claude-opus-5`.
 
-#### Opción B: API Key (Proveedores baratos)
+#### Opción B — Claves de API
 
-**Ideal para:** GLM, MiniMax, Kimi, OpenRouter
+**Ideal para:** GLM, MiniMax, Kimi, OpenRouter y cualquier otro proveedor de pago por uso.
 
 ```
-Dashboard → Providers → Add API Key
-→ Selecciona proveedor
-→ Pega API key
-→ Guardar
+Dashboard → Providers → pick a provider → Add API key
+→ paste the key → Save
 ```
 
 **Ejemplo: GLM-4.7**
-1. Regístrate en [Zhipu AI](https://open.bigmodel.cn/)
-2. Obtén la API key del Coding Plan
-3. Dashboard → Add API Key → Provider: `glm` → Pega la key
-4. ✅ ¡Listo! Usa el modelo: `glm/glm-4.7`
+1. Crea una cuenta y una clave en tu proveedor de GLM.
+2. En Vela: **Providers → GLM → Add API key**, pega, guarda.
+3. Usa `glm/glm-4.7`.
 
-#### Opción C: Proveedores gratis (Sin costo)
+#### Opción C — Proveedores gratuitos
 
-**Ideal para:** iFlow, Qwen, Kiro
-
-```
-Dashboard → Providers → Connect [Free Provider]
-→ Device code u OAuth
-→ Uso ilimitado
-```
-
-**Ejemplo: iFlow**
-1. Clic en "Connect iFlow"
-2. Inicia sesión con tu cuenta de iFlow
-3. Autoriza
-4. ✅ ¡Listo! Usa 8 modelos: `if/kimi-k2-thinking`, `if/qwen3-coder-plus`, etc.
-
----
-
-## 4. Usar en herramientas CLI
-
-Apunta tu herramienta de codificación a Vela:
-
-### Cursor IDE
+**Ideal para:** la última línea cuando se agota la cuota de pago.
 
 ```
-Settings → Models → Advanced:
-  OpenAI API Base URL: http://localhost:32060/v1
-  OpenAI API Key: [desde el dashboard de Vela]
-  Model: cc/claude-opus-4-5-20251101
+Dashboard → Providers → Connect a free provider
+→ Device code or OAuth → done
 ```
 
-### Claude Desktop
+**Ejemplo: Kiro**
+1. Abre **Providers** y elige **Kiro**.
+2. Inicia sesión con un AWS Builder ID o una cuenta social.
+3. Usa modelos `kr/` — la familia Claude, sin costo.
 
-Edita `~/.claude/config.json`:
+### 4. Crear una clave de API para tus herramientas
 
-```json
-{
-  "anthropic_api_base": "http://localhost:32060/v1",
-  "anthropic_api_key": "your-Vela-api-key"
-}
+```
+Dashboard → Endpoint & Key → Create Key → copy it
 ```
 
-### Cline / Continue / RooCode
+Las claves tienen la forma `vela-v1-<id>-<checksum>`. Se muestran una sola vez — cópiala en un lugar seguro, o crea otra más adelante si la pierdes. A cada clave se le pueden dar su propio ámbito de proveedores, límite de tasa, presupuesto de tokens y techo de gasto.
+
+### 5. Apuntar tus herramientas a Vela
+
+Toda herramienta necesita lo mismo: el endpoint y la clave.
+
+**Cursor**
+
+```
+Settings → Models → OpenAI API
+  Base URL: http://localhost:32060/v1
+  API Key:  [your Vela key]
+  Model:    cc/claude-opus-5     (add it as a custom model)
+```
+
+**Cline / Continue / Roo**
 
 ```
 Provider: OpenAI Compatible
 Base URL: http://localhost:32060/v1
-API Key: [desde el dashboard]
-Model: cc/claude-opus-4-5-20251101
+API Key:  [your Vela key]
+Model:    cc/claude-opus-5
 ```
 
-### Codex CLI
+**Claude Code**
 
 ```bash
-export OPENAI_BASE_URL="http://localhost:32060"
-export OPENAI_API_KEY="your-Vela-api-key"
-
-codex "your prompt"
+export ANTHROPIC_BASE_URL="http://localhost:32060/v1"
+export ANTHROPIC_AUTH_TOKEN="[your Vela key]"
 ```
+
+**Codex CLI**
+
+```bash
+export OPENAI_BASE_URL="http://localhost:32060/v1"
+export OPENAI_API_KEY="[your Vela key]"
+```
+
+Cada herramienta tiene su propia página en [Integración](../integration/claude-code.md), con los campos exactos y los tropiezos habituales.
 
 ---
 
-## 5. Crear combos inteligentes (Opcional)
+## 6. Construir una cadena de fallback (opcional, pero recomendable)
 
-Los combos habilitan el fallback automático entre modelos:
+Un solo modelo es un único punto de fallo. Un **combo** te permite nombrar una cadena de modelos, y Vela la recorre hasta que uno responde.
 
 ```
-Dashboard → Combos → Create New
-
-Name: premium-coding
-Models:
-  1. cc/claude-opus-4-5-20251101 (Suscripción principal)
-  2. glm/glm-4.7 (Respaldo barato, $0.6/1M)
-  3. if/kimi-k2-thinking (Fallback gratis)
-
-Usar en CLI: premium-coding
+Dashboard → Combos → Create
+  Name:   premium-coding
+  Models: 1. cc/claude-opus-5      (subscription first)
+          2. glm/glm-4.7           (cheap backup)
+          3. kr/claude-sonnet-4.5  (free last line)
 ```
 
-**Cómo funciona:**
-1. Intenta primero Claude Opus (tu suscripción)
-2. Si la cuota se agota → GLM-4.7 (ultra-barato)
-3. Si llega al límite de presupuesto → iFlow (gratis)
-4. ¡Cero tiempo de inactividad, cambio automático!
+Luego usa `premium-coding` donde vaya un nombre de modelo. El combo se busca por nombre antes que cualquier otra cosa, así que funciona en cualquier herramienta.
+
+Un combo pasa al siguiente modelo cuando una solicitud falla — un error de cuota, un límite de tasa, un tiempo de espera agotado, un prompt rechazado, un modelo que no existe. **No** cambia solo porque una cuota diaria esté bajando; eso gastaría dinero en silencio. Si quieres un techo de gasto, fíjalo en la clave de API (**Endpoint & Key → Create/Edit Key → budget**), y Vela rechazará las solicitudes al alcanzarlo con un 429 claro, en lugar de degradarte sin avisar.
 
 ---
 
 ## Modelos disponibles
 
-### Modelos de suscripción (Maximiza primero)
+Los nombres de modelo son `prefijo/modelo`. Aquí tienes un conjunto inicial; abre **Providers** en el dashboard para ver la lista completa — cambia a medida que los proveedores publican nuevos modelos.
 
-**Claude Code (`cc/`)** - Suscripción Pro/Max:
-- `cc/claude-opus-4-5-20251101` - Claude 4.5 Opus
-- `cc/claude-sonnet-4-5-20250929` - Claude 4.5 Sonnet
-- `cc/claude-haiku-4-5-20251001` - Claude 4.5 Haiku
+### Nivel de suscripción
 
-**Codex (`cx/`)** - Suscripción Plus/Pro:
-- `cx/gpt-5.2-codex` - GPT 5.2 Codex
-- `cx/gpt-5.1-codex-max` - GPT 5.1 Codex Max
+**Claude Code (`cc/`)**
+- `cc/claude-opus-5` — el que arrastra el trabajo pesado
+- `cc/claude-sonnet-5` — el equilibrio de cada día
+- `cc/claude-haiku-4-5-20251001` — rápido y ligero
 
-**Gemini CLI (`gc/`)** - GRATIS 180K/mes:
-- `gc/gemini-3-flash-preview` - Gemini 3 Flash Preview
-- `gc/gemini-2.5-pro` - Gemini 2.5 Pro
+**Codex (`cx/`)**
+- `cx/gpt-5.6-sol`, `cx/gpt-5.6-terra`, `cx/gpt-5.6-luna` — la familia actual
+- `cx/gpt-5.5`, `cx/gpt-5.4` — siguen ahí y siguen siendo buenos
 
-**GitHub Copilot (`gh/`)** - Suscripción:
-- `gh/gpt-5` - GPT-5
-- `gh/claude-4.5-sonnet` - Claude 4.5 Sonnet
+**GitHub Copilot (`gh/`)**
+- `gh/claude-sonnet-4.5`, `gh/claude-opus-4.5`, `gh/gpt-5.4`
 
-### Modelos baratos (Respaldo)
+**Antigravity (`ag/`)**
+- `ag/gemini-4-argon-high` y el resto de la familia Gemini, además de modelos Claude
 
-**GLM (`glm/`)** - $0.6/$2.2 por 1M:
-- `glm/glm-4.7` - GLM 4.7 (reinicio diario 10AM)
+### Nivel barato
 
-**MiniMax (`minimax/`)** - $0.20/$1.00 por 1M:
-- `minimax/MiniMax-M2.1` - MiniMax M2.1 (reinicio 5h)
+**GLM (`glm/`)** — `glm/glm-4.7` a $0.60 / $2.20 por 1M, además de `glm/glm-5` y los modelos más recientes `glm-5.x`
 
-**Kimi (`kimi/`)** - $9/mes (10M tokens):
-- `kimi/kimi-latest` - Kimi Latest
+**MiniMax (`minimax/`)** — `minimax/MiniMax-M2.1` a $0.30 / $1.20 por 1M, además de M2.5, M2.7 y M3
 
-### Modelos GRATIS (Emergencia)
+**Kimi (`kimi/`)** — `kimi/kimi-latest`, `kimi/kimi-k2.5`, `kimi/k3`
 
-**iFlow (`if/`)** - 8 modelos GRATIS:
-- `if/kimi-k2-thinking` - Kimi K2 Thinking
-- `if/qwen3-coder-plus` - Qwen3 Coder Plus
-- `if/glm-4.7` - GLM 4.7
-- `if/deepseek-r1` - DeepSeek R1
+### Nivel gratuito
 
-**Qwen (`qw/`)** - 3 modelos GRATIS:
-- `qw/qwen3-coder-plus` - Qwen3 Coder Plus
-- `qw/qwen3-coder-flash` - Qwen3 Coder Flash
+**iFlow (`if/`)** — `if/qwen3-coder-plus`, `if/kimi-k2`, `if/glm-4.7`, `if/deepseek-r1`, y más
 
-**Kiro (`kr/`)** - 2 modelos GRATIS:
-- `kr/claude-sonnet-4.5` - Claude Sonnet 4.5
-- `kr/claude-haiku-4.5` - Claude Haiku 4.5
+**Qwen (`qwen/`)** — `qwen/qwen-plus`, `qwen/qwen-max`, `qwen/qwen-turbo`
+
+**Kiro (`kr/`)** — `kr/claude-sonnet-4.5`, `kr/claude-opus-4.8`, y modelos Claude más recientes
+
+> **Sobre las asignaciones gratuitas:** cifras como las 180K completaciones al mes que reporta Gemini CLI y los límites diarios de Meta o Google son **cifras upstream publicadas por esos proveedores** — no algo que Vela controle. Han cambiado antes y volverán a cambiar. Toma como verdad la lectura de cuota en vivo del dashboard.
 
 ---
 
-## Estrategia de optimización de costos
+## Mantener los costos bajos
 
-### Presupuesto mensual: $10-20/mes
-
-```
-1. Usa el nivel gratis de Gemini CLI (180K/mes) para tareas rápidas
-2. Usa la cuota de suscripción de Claude Code al máximo (ya pagas)
-3. Fallback a GLM ($0.6/1M) cuando se agote la cuota
-4. Emergencia: MiniMax M2.1 ($0.20/1M) o iFlow (gratis)
-
-Ejemplo real (100M tokens/mes):
-  60M vía Gemini CLI: $0 (nivel gratis)
-  30M vía Claude Code: $0 (suscripción que ya tienes)
-  8M vía GLM: $4.80
-  2M vía MiniMax: $0.40
-  Total: $5.20/mes + suscripciones existentes
-```
-
-### Estrategia de reinicio de cuota
+Una rutina práctica, sin necesidad de hoja de cálculo:
 
 ```
-Rutina diaria:
-1. Mañana: Cuota fresca de Claude Code (reinicio 5h)
-2. Tarde: Cambia a Gemini CLI (1K/día)
-3. Noche: Cuota diaria de GLM (reinicio 10AM del día siguiente)
-4. Madrugada: MiniMax (rolling 5h) o iFlow (gratis)
-
-→ ¡Codifica 24/7 con costo extra mínimo!
+1. Put your subscription models first in the combo.
+2. Put GLM or MiniMax second — a fraction of the cost of any retail API.
+3. Always end with a free provider, so the chain never dead-ends.
+4. Set a budget ceiling on the API key you hand to tools you leave running.
 ```
+
+Las páginas de [Proveedores baratos](../providers/cheap.md) y [Proveedores gratuitos](../providers/free.md) tienen ejemplos resueltos, con la aritmética a la vista.
 
 ---
 
-## Próximos pasos
+## A dónde ir después
 
-- [Detalles de instalación](getting-started/installation.md) - Requisitos, troubleshooting
-- [Características](features/) - Explora seguimiento de cuota, combos, despliegue
-- [FAQ](faq.md) - Preguntas y respuestas comunes
-- [Troubleshooting](troubleshooting.md) - Soluciona problemas comunes
+- [Instalación](../getting-started/installation.md) — requisitos, Docker, compilación desde el código fuente, desinstalación
+- [Enrutamiento inteligente](../features/smart-routing.md) — cómo las solicitudes eligen un proveedor
+- [Combos](../features/combos.md) — construir y ajustar cadenas de fallback
+- [Seguimiento de cuota](../features/quota-tracking.md) — leer el dashboard
+- [Preguntas frecuentes](../faq.md) — las dudas que todo el mundo hace primero
+- [Solución de problemas](../troubleshooting.md) — cuando algo no se conecta
 
 ---
 
@@ -245,3 +214,9 @@ Rutina diaria:
 - **Sitio web**: [vela.my.id](https://vela.my.id)
 - **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues**: [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
+
+Vela es la versión 1.2.4. Comprueba qué estás ejecutando con:
+
+```bash
+npm list -g vela
+```

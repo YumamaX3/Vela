@@ -1,136 +1,100 @@
 # OpenAI Codex CLI Integration
 
-Integrate Vela with OpenAI Codex CLI to route your OpenAI API requests through Vela's intelligent routing system.
+Codex CLI can be pointed at Vela with a small block in `~/.codex/config.toml`. This is the same shape the dashboard's **CLI Tools → Codex** page writes for you, so you can either paste it yourself or let the dashboard do it.
 
 ## Prerequisites
 
-- OpenAI Codex CLI installed
-- Vela running locally or cloud endpoint configured
-- API key from Vela dashboard
+- Codex CLI installed
+- Vela running locally, or a cloud endpoint you can reach
+- An API key from the Vela dashboard (**Endpoint & Key → Create Key**)
 
 ## Setup
 
-### 1. Configure Environment Variables
+### 1. Edit `~/.codex/config.toml`
 
-Set the following environment variables in your shell configuration file (`~/.bashrc`, `~/.zshrc`, or `~/.bash_profile`):
+```toml
+model = "cx/gpt-5.6-sol"
+model_provider = "Vela"
+
+[model_providers.Vela]
+name = "Vela"
+base_url = "http://localhost:32060/v1"
+wire_api = "responses"
+http_headers = { Authorization = "Bearer [your Vela key]" }
+```
+
+A custom provider in Codex authenticates **only** through the `http_headers` line above — the `OPENAI_API_KEY` in `auth.json` belongs to the built-in `openai` provider and is not read for a provider defined this way. Put the key here, not there.
+
+### 2. Check it
 
 ```bash
-# Base URL for Vela
+curl -s http://localhost:32060/api/health      # → {"ok":true}
+codex "Write a function that reverses a linked list"
+```
+
+Then look at **Usage** in the dashboard; the request should be there.
+
+### 3. If you prefer environment variables
+
+Some setups prefer the environment to the file. That works too, for anything that speaks the OpenAI API:
+
+```bash
 export OPENAI_BASE_URL="http://localhost:32060/v1"
-
-# API Key from Vela dashboard
-export OPENAI_API_KEY="your-Vela-api-key"
+export OPENAI_API_KEY="[your Vela key]"
 ```
 
-### 2. Reload Shell Configuration
+The `config.toml` route is the one the dashboard generates, and the one to prefer — it survives a new shell.
+
+## Available models
+
+| Model | Good for |
+|-------|----------|
+| `cx/gpt-5.6-sol` | the current flagship for coding |
+| `cx/gpt-5.6-terra` | a second modern option |
+| `cx/gpt-5.6-luna` | lighter, faster work |
+| `cx/gpt-5.5`, `cx/gpt-5.4` | stable fallbacks |
+
+Any other model or combo works too — Codex does not care what the id means, only that Vela can resolve it.
+
+## Usage examples
 
 ```bash
-source ~/.zshrc  # or ~/.bashrc
-```
+# Write code
+codex --model cx/gpt-5.6-sol "Create a REST endpoint that paginates results"
 
-### 3. Verify Configuration
+# Explain code
+codex --model cx/gpt-5.6-terra "Explain what this does: $(cat myfile.js)"
 
-Check that the environment variables are set correctly:
-
-```bash
-echo $OPENAI_BASE_URL
-echo $OPENAI_API_KEY
-```
-
-## Available Models
-
-Vela provides the following Codex models:
-
-| Model ID | Description |
-|----------|-------------|
-| `cx/gpt-5.2-codex` | GPT-5.2 Codex - Latest version |
-| `cx/gpt-5.1-codex-max` | GPT-5.1 Codex Max - Extended context |
-
-## Usage Examples
-
-### Basic Usage
-
-```bash
-# Use GPT-5.2 Codex
-codex --model cx/gpt-5.2-codex "Write a function to sort an array"
-
-# Use GPT-5.1 Codex Max
-codex --model cx/gpt-5.1-codex-max "Explain this complex algorithm"
-```
-
-### Code Generation
-
-```bash
-codex --model cx/gpt-5.2-codex "Create a REST API endpoint for user authentication"
-```
-
-### Code Explanation
-
-```bash
-codex --model cx/gpt-5.1-codex-max "Explain what this code does: $(cat myfile.js)"
-```
-
-## Configuration File
-
-You can also configure Codex CLI using a configuration file. Create or edit `~/.codex/config.json`:
-
-```json
-{
-  "baseUrl": "http://localhost:32060/v1",
-  "apiKey": "your-Vela-api-key",
-  "defaultModel": "cx/gpt-5.2-codex"
-}
+# Use a fallback chain
+codex --model quality-first "Plan the refactor"
 ```
 
 ## Troubleshooting
 
-### Authentication Errors
+### Authentication errors
 
-If you encounter authentication errors:
+1. The key must be in `http_headers` inside `[model_providers.Vela]` — a key in `auth.json` will not be used for a custom provider.
+2. Check the key is complete and starts with `vela-v1-`.
+3. Create a fresh one under **Endpoint & Key** if in doubt; keys cannot be recovered after creation.
 
-1. Verify your API key is correct in Vela dashboard
-2. Check that `OPENAI_API_KEY` environment variable is set
-3. Ensure the API key has not expired
+### Connection issues
 
-### Connection Issues
+1. `curl http://localhost:32060/api/health`.
+2. Confirm `base_url` ends in `/v1`.
+3. Check nothing is blocking port 32060.
 
-If you encounter connection errors:
+### Model not available
 
-1. Verify Vela is running: `curl http://localhost:32060/health`
-2. Check environment variables are set correctly
-3. Ensure no firewall is blocking port 32060
+1. `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`.
+2. Confirm the Codex provider is connected in Vela (**Providers**).
+3. Model ids change upstream; pick a current one from the list above.
 
-### Model Not Available
+## Cloud endpoint
 
-If you get "model not available" errors:
+Replace `base_url` with your deployed address (keeping `/v1`):
 
-1. Verify the model name matches your Vela configuration
-2. Check that the OpenAI provider connection is active in Vela dashboard
-3. Ensure the model is available in your connected providers
-
-## Cloud Endpoint
-
-To use Vela cloud endpoint instead of localhost:
-
-```bash
-export OPENAI_BASE_URL="https://vela.my.id"
+```toml
+base_url = "https://your-domain.example/v1"
 ```
 
-Make sure you have configured your API key in the Vela cloud dashboard.
-
-## Advanced Configuration
-
-### Custom Timeout
-
-```bash
-export OPENAI_TIMEOUT=60  # seconds
-```
-
-### Debug Mode
-
-Enable debug mode to see detailed request/response logs:
-
-```bash
-export CODEX_DEBUG=true
-codex --model cx/gpt-5.2-codex "Your prompt"
-```
+Older documentation mentions the project owner's hosted instance at `https://vela.my.id`; that is an upstream fact about their deployment, not a service these docs can promise. Use whatever endpoint you have credentials for.

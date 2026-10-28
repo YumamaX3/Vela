@@ -11,7 +11,7 @@ Local/remote AI gateway exposing OpenAI-compatible REST. One key, many providers
 
 ```bash
 export VELA_URL="http://localhost:32060"      # or VPS / tunnel URL
-export VELA_KEY="sk-..."                      # from Dashboard → Keys (only if requireApiKey=true)
+export VELA_KEY="vela-v1-…"                   # from the dashboard's Endpoint room (only if requireApiKey=true)
 ```
 
 All requests: `${VELA_URL}/v1/...` with header `Authorization: Bearer ${VELA_KEY}` (omit if auth disabled).
@@ -56,6 +56,6 @@ When the user needs a specific capability, fetch that skill's `SKILL.md` from it
 
 ## Errors
 
-- 401 → set/refresh `VELA_KEY` (Dashboard → Keys)
+- 401 → set/refresh `VELA_KEY` (dashboard → Endpoint room)
 - 400 `Invalid model format` → check `model` exists in `/v1/models/<kind>`
 - 503 `All accounts unavailable` → wait `retry-after` or add another provider account

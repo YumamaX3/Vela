@@ -1,462 +1,267 @@
 # Cheap Providers - Ultra-Cheap Backup
 
-When subscription quota runs out, pay pennies instead of dollars. ~90% cheaper than ChatGPT API!
+When subscription quota runs out, a good cheap model costs a few dollars a day instead of a few dollars an hour. This page covers the three cheap providers Vela ships with, the exact rates Vela uses to estimate cost, and how to place them behind your subscriptions.
+
+> **About the numbers.** Every rate on this page comes from `open-sse/providers/pricing.js` in this release (Vela 1.2.4). It is what Vela itself charges against in its cost estimates. Your provider's invoice is still the final word — rates are set upstream and change without notice.
 
 ---
 
 ## Overview
 
-Cheap tier providers are your **backup** when subscription quota exhausted:
+The cheap lane sits **between** subscriptions and free providers:
 
-- 💰 **GLM-4.7** - $0.6/$2.2 per 1M tokens (daily reset)
-- 💰 **MiniMax M2.1** - $0.2/$1.0 per 1M tokens (5h reset)
-- 💰 **Kimi K2** - $9/month flat (10M tokens)
+- 💰 **GLM-4.7** — $0.60 input / $2.20 output per 1M tokens (`glm/glm-4.7`)
+- 💰 **MiniMax M2.1** — $0.30 input / $1.20 output per 1M tokens (`minimax/MiniMax-M2.1`)
+- 💰 **Kimi** — subscription plans, for steady long-context use (`kimi/...`)
 
-**Strategy:** Use after subscription quota out, before free tier. Massive cost savings vs ChatGPT API ($20/1M).
+**The idea:** when a subscription window closes, the cheap lane keeps you working at a fraction of retail API pricing — and a free provider stays last in line for when even that is too much.
 
 ---
 
-## GLM-4.7 (Daily Reset)
+## GLM-4.7
 
 ### Pricing
 
-| Tier | Input | Output | Reset |
-|------|-------|--------|-------|
-| Standard | $0.60/1M | $2.20/1M | Daily 10:00 AM |
-| Coding Plan | $0.60/1M | $2.20/1M | Daily 10:00 AM (3× quota) |
+| What | Rate |
+|------|------|
+| Input | $0.60 per 1M tokens |
+| Output | $2.20 per 1M tokens |
+| Cached input | $0.11 per 1M tokens |
 
-**Cost Example (10M tokens):**
-- Input: 10M × $0.60 = $6
-- Output: 10M × $2.20 = $22
-- **Total: $6-22** vs $200 on ChatGPT API!
+That is the rate Vela books: roughly a fourteenth of a typical $20-per-1M retail API on input, and about a tenth on output.
+
+**Worked example — 10M tokens, half read and half written:**
+
+```
+Input:   5M × $0.60 = $3.00
+Output:  5M × $2.20 = $11.00
+Total:              $14.00
+```
+
+**Worked example — a typical coding day, 8M tokens at a 3:1 read/write ratio:**
+
+```
+Input:   6M × $0.60 = $3.60
+Output:  2M × $2.20 = $4.40
+Total:              $8.00
+```
 
 ### Setup
 
-**Step 1: Sign Up**
+**Step 1: get a key**
 
-1. Visit [Zhipu AI](https://open.bigmodel.cn/)
-2. Create account (phone verification)
-3. Choose **Coding Plan** for 3× quota at same price
+Create an account with your GLM provider (Zhipu / Z.ai, depending on your region) and generate an API key.
 
-**Step 2: Get API Key**
+**Step 2: add it to Vela**
 
-```bash
-Dashboard → API Keys → Create New
-→ Copy API key (starts with "zhipu-")
+```
+Dashboard → Providers → GLM → Add API key → paste → Save
 ```
 
-**Step 3: Add to Vela**
-
-```bash
-vela
-# Dashboard → Providers → Add API Key
-
-Provider: glm
-API Key: zhipu-your-api-key-here
-```
-
-**Step 4: Use in CLI**
+**Step 3: use it**
 
 ```
 Model: glm/glm-4.7
-       glm/glm-4.6v (vision)
 ```
 
-### Available Models
+### Models on this lane
 
-| Model ID | Description | Context | Best For |
-|----------|-------------|---------|----------|
-| `glm/glm-4.7` | GLM 4.7 | 128K | Coding, general tasks |
-| `glm/glm-4.6v` | GLM 4.6V Vision | 128K | Image analysis |
+| Model | Good for |
+|-------|----------|
+| `glm/glm-4.7` | the value workhorse: coding and general tasks |
+| `glm/glm-4.6v` | vision — reading screenshots and diagrams |
+| `glm/glm-5`, `glm/glm-5.2`, `glm/glm-5.3` | newer, stronger, and dearer |
+| `glm/glm-5.3-flash` | vision, at a lower price |
 
-### Pro Tips
+### Practical notes
 
-- **Coding Plan** - 3× quota at same price ($0.6/$2.2)
-- **Daily reset** - Fresh quota at 10:00 AM Beijing time
-- **Best for coding** - Optimized for code generation
-- **128K context** - Handle large files
-
-### Quota Reset
-
-```
-Daily reset: 10:00 AM Beijing Time (UTC+8)
-→ 2:00 AM UTC
-→ 6:00 PM PST (previous day)
-→ 9:00 PM EST (previous day)
-
-Plan your heavy tasks around reset time!
-```
+- **Cache-aware routing pays.** GLM's cached-input rate is a fifth of the fresh-input rate; long conversations that keep their prefix stable cost much less.
+- **GLM has its own quota windows.** The dashboard's **Quota** page shows your remaining allowance and the reset countdown for your account.
+- **Keep it second, not first**, unless you are deliberately optimising for cost — Claude and Codex are better on the genuinely hard problems.
 
 ---
 
-## MiniMax M2.1 (5-Hour Reset)
+## MiniMax M2.1
 
 ### Pricing
 
-| Tier | Input | Output | Reset |
-|------|-------|--------|-------|
-| Standard | $0.20/1M | $1.00/1M | 5-hour rolling |
+| What | Rate |
+|------|------|
+| Input | $0.30 per 1M tokens |
+| Output | $1.20 per 1M tokens |
+| Cached input | $0.03 per 1M tokens |
 
-**Cost Example (10M tokens):**
-- Input: 10M × $0.20 = $2
-- Output: 10M × $1.00 = $10
-- **Total: $2-10** - Cheapest option!
+This is the cheapest paid lane Vela ships with, and a favourite for long-context work.
+
+**Worked example — 10M tokens, half read and half written:**
+
+```
+Input:   5M × $0.30 = $1.50
+Output:  5M × $1.20 = $6.00
+Total:              $7.50
+```
+
+**Worked example — a typical coding day, 8M tokens at 3:1:**
+
+```
+Input:   6M × $0.30 = $1.80
+Output:  2M × $1.20 = $2.40
+Total:              $4.20
+```
 
 ### Setup
 
-**Step 1: Sign Up**
+**Step 1: get a key** from MiniMax's platform.
 
-1. Visit [MiniMax](https://www.minimax.io/)
-2. Create account
-3. Verify email/phone
+**Step 2: add it**
 
-**Step 2: Get API Key**
-
-```bash
-Dashboard → API Management → Create Key
-→ Copy API key
+```
+Dashboard → Providers → MiniMax → Add API key → paste → Save
 ```
 
-**Step 3: Add to Vela**
-
-```bash
-vela
-# Dashboard → Providers → Add API Key
-
-Provider: minimax
-API Key: your-minimax-api-key
-```
-
-**Step 4: Use in CLI**
+**Step 3: use it**
 
 ```
 Model: minimax/MiniMax-M2.1
 ```
 
-### Available Models
+### Models on this lane
 
-| Model ID | Description | Context | Best For |
-|----------|-------------|---------|----------|
-| `minimax/MiniMax-M2.1` | MiniMax M2.1 | 1M tokens | Long context, coding |
+| Model | Notes |
+|-------|-------|
+| `minimax/MiniMax-M2.1` | the value pick, $0.30 / $1.20 |
+| `minimax/MiniMax-M2.5`, `minimax/MiniMax-M2.7` | newer generations, same headline rate |
+| `minimax/MiniMax-M2.5-highspeed` | faster tier, $0.60 / $2.40 |
+| `minimax/MiniMax-M3` | the current flagship |
+| `minimax/minimax-image-01`, `minimax/speech-2.8-hd` | image and speech services |
 
-### Pro Tips
+### Practical notes
 
-- **Cheapest option** - $0.20/1M input (90% cheaper than ChatGPT)
-- **5-hour rolling** - Quota resets every 5 hours
-- **1M context** - Massive context window
-- **Best for long files** - Handle entire codebases
-
-### Quota Reset
-
-```
-5-hour rolling window:
-→ Use quota → Wait 5 hours → Fresh quota
-
-Example:
-10:00 AM - Use 5M tokens
-3:00 PM - Fresh quota available
-8:00 PM - Fresh quota available
-
-Code 24/7 with minimal cost!
-```
+- **Long context is the reason to pick it.** MiniMax models take very large inputs, which makes them a good home for whole-file and whole-repo questions when your subscription window is shut.
+- **Watch for the `-highspeed` variants** — they cost twice as much. Worth it for interactive work, wasteful for batch jobs.
 
 ---
 
-## Kimi K2 (Flat $9/month)
+## Kimi (flat planning)
 
 ### Pricing
 
-| Plan | Monthly Cost | Included Tokens | Effective Cost |
-|------|--------------|-----------------|----------------|
-| Subscription | $9 | 10M tokens | $0.90/1M |
+Kimi sells coding plans rather than per-token retail. Vela can reach them by login or API key, whichever your account offers.
 
-**Cost Example:**
-- $9/month flat
-- 10M tokens included
-- **Effective: $0.90/1M** - Best value for consistent usage!
+**Why it earns a place:** for steady, predictable usage a flat monthly plan beats per-token billing, and Kimi models are strong on long context.
 
 ### Setup
 
-**Step 1: Subscribe**
-
-1. Visit [Moonshot AI](https://platform.moonshot.ai/)
-2. Create account
-3. Subscribe to $9/month plan
-
-**Step 2: Get API Key**
-
-```bash
-Dashboard → API Keys → Create New
-→ Copy API key
 ```
-
-**Step 3: Add to Vela**
-
-```bash
-vela
-# Dashboard → Providers → Add API Key
-
-Provider: kimi
-API Key: your-kimi-api-key
+Dashboard → Providers → Kimi → Connect (login)   — or —   Add API key
 ```
-
-**Step 4: Use in CLI**
 
 ```
 Model: kimi/kimi-latest
-```
-
-### Available Models
-
-| Model ID | Description | Context | Best For |
-|----------|-------------|---------|----------|
-| `kimi/kimi-latest` | Kimi Latest | 200K | General coding |
-
-### Pro Tips
-
-- **Fixed cost** - $9/month regardless of usage (up to 10M)
-- **Best for consistent usage** - If you use 10M/month, only $0.90/1M
-- **Monthly reset** - 10M tokens reset monthly
-- **Predictable billing** - No surprise costs
-
-### Quota Reset
-
-```
-Monthly reset: 1st of each month
-→ 10M tokens refresh
-
-Example monthly usage:
-Week 1: 3M tokens
-Week 2: 2M tokens
-Week 3: 3M tokens
-Week 4: 2M tokens
-Total: 10M tokens = $9 flat
+       kimi/kimi-k2.5
+       kimi/k3
 ```
 
 ---
 
-## Pricing Comparison
+## Side by side
 
-| Provider | Input/1M | Output/1M | Reset | 10M Cost | Best For |
-|----------|----------|-----------|-------|----------|----------|
-| **GLM-4.7** | $0.60 | $2.20 | Daily 10AM | $6-22 | Daily quota users |
-| **MiniMax M2.1** | $0.20 | $1.00 | 5-hour | $2-10 | **Cheapest!** |
-| **Kimi K2** | $0.90 | $0.90 | Monthly | **$9 flat** | Consistent usage |
-| ChatGPT API | $20.00 | $20.00 | None | $200 | ❌ Expensive |
+| Provider | Input /1M | Output /1M | Shape | Best for |
+|----------|-----------|------------|-------|----------|
+| **GLM-4.7** | $0.60 | $2.20 | metered, own quota windows | everyday cheap coding |
+| **MiniMax M2.1** | $0.30 | $1.20 | metered | cheapest, long context |
+| **Kimi** | plan-based | plan-based | subscription | steady volume |
+| A retail API for comparison | about $20 | about $20 (or more) | metered | — |
 
-**Savings:** 90-95% cheaper than ChatGPT API!
-
----
-
-## Usage Example
-
-### Cursor IDE Setup
-
-```
-Settings → Models → Advanced:
-  OpenAI API Base URL: http://localhost:32060/v1
-  OpenAI API Key: [from Vela dashboard]
-  Model: glm/glm-4.7
-```
-
-### Create Combo (Recommended)
-
-```
-Dashboard → Combos → Create New
-
-Name: cheap-backup
-Models:
-  1. cc/claude-opus-4-5 (Subscription primary)
-  2. glm/glm-4.7 (Cheap backup, daily reset)
-  3. minimax/MiniMax-M2.1 (Cheapest fallback)
-  4. if/kimi-k2-thinking (FREE emergency)
-
-Use in CLI: cheap-backup
-```
-
-**Result:** Subscription → Cheap → Cheapest → Free
+Read the table as "which one to try first when the subscription is done": MiniMax for cost, GLM for quality-per-dollar, Kimi if you already have a plan.
 
 ---
 
-## Cost Optimization
+## Putting the lane to work
 
-### Strategy 1: Daily Reset Routine
-
-```
-Morning (10AM): Fresh GLM quota
-→ Use GLM for heavy tasks
-→ Save subscription quota
-
-Afternoon: Subscription quota
-→ Use Claude/Codex for complex tasks
-
-Evening: MiniMax (5h reset)
-→ Cheap fallback for late work
-
-Night: Free tier (iFlow)
-→ Zero cost emergency backup
-```
-
-### Strategy 2: Budget-First
+### Cursor, Cline, Continue, Roo
 
 ```
-Set monthly budget: $20
-
-Allocation:
-- $9 Kimi K2 (10M tokens flat)
-- $6 GLM daily quota (10M tokens)
-- $5 MiniMax overflow (25M tokens)
-
-Total: 45M tokens for $20
-vs 1M tokens for $20 on ChatGPT API!
+Base URL: http://localhost:32060/v1
+API Key:  [your Vela key]
+Model:    glm/glm-4.7        (or minimax/MiniMax-M2.1, or a combo name)
 ```
 
-### Strategy 3: Maximize Subscriptions First
+### A cheap-first combo
 
 ```
-Priority:
-1. Gemini CLI (180K/month FREE)
-2. Claude Code (subscription you already pay)
-3. GLM-4.7 (cheap backup, $0.6/1M)
-4. MiniMax M2.1 (cheapest, $0.2/1M)
-5. iFlow (FREE emergency)
+Dashboard → Combos → Create
+  Name:   cheap-backup
+  Models: 1. glm/glm-4.7
+          2. minimax/MiniMax-M2.1
+          3. if/qwen3-coder-plus      ← free last line
+```
 
-Monthly cost example (100M tokens):
-- 60M via Gemini CLI: $0 (free)
-- 30M via Claude Code: $0 (subscription)
-- 8M via GLM: $4.80
-- 2M via MiniMax: $0.40
-Total: $5.20/month!
+Use `cheap-backup` wherever a model name goes. Cheap first, cheaper second, free at the end.
+
+### A subscription-first combo
+
+```
+  Models: 1. cc/claude-opus-5
+          2. glm/glm-4.7
+          3. minimax/MiniMax-M2.1
+          4. kr/claude-sonnet-4.5     ← free last line
 ```
 
 ---
 
-## Real-World Examples
+## Where the money actually goes
 
-### Example 1: Heavy Coding Month (100M tokens)
-
-```
-Breakdown:
-- 60M via subscription (Claude/Codex): $0 extra
-- 30M via GLM-4.7: $18
-- 10M via MiniMax M2.1: $2
-
-Total: $20/month
-vs $2000 on ChatGPT API!
-
-Savings: 99% cheaper!
-```
-
-### Example 2: Budget Coder ($10/month)
+### A realistic month, 100M tokens
 
 ```
-Strategy:
-- $9 Kimi K2 (10M tokens)
-- $1 MiniMax overflow (5M tokens)
-
-Total: 15M tokens for $10
-vs 0.5M tokens for $10 on ChatGPT API!
-
-30× more tokens!
+60M via a free allowance    : $0     (upstream allowance, not Vela's)
+30M via a subscription      : $0     (already paid)
+ 8M via GLM-4.7             : about $4.80  (input-weighted)
+ 2M via MiniMax M2.1        : about $0.40  (input-weighted)
 ```
 
-### Example 3: Freelancer (Variable Usage)
+The cheap lane is rarely the bill. It is the insurance policy that keeps you coding when the subscription is dry.
+
+### Setting a ceiling
+
+If you hand an API key to a tool that runs unattended, give the key a spend cap:
 
 ```
-Light month (20M tokens):
-- 15M via subscription: $0
-- 5M via GLM: $3
-Total: $3
-
-Heavy month (150M tokens):
-- 60M via subscription: $0
-- 60M via GLM: $36
-- 30M via MiniMax: $6
-Total: $42
-
-Average: $22.50/month
-vs $3400 on ChatGPT API!
+Dashboard → Endpoint & Key → Create Key (or edit an existing one)
+→ budget: daily / weekly / monthly token budget and spend cap
 ```
 
----
-
-## Best Practices
-
-### 1. Track Daily Quota
-
-```
-Dashboard shows:
-- GLM quota: 75% used (reset in 6h)
-- MiniMax quota: 50% used (reset in 2h)
-- Kimi quota: 8M/10M used (reset in 15 days)
-
-Plan heavy tasks around reset times!
-```
-
-### 2. Use Coding Plan (GLM)
-
-```
-Standard: 1× quota
-Coding Plan: 3× quota (same price!)
-
-→ Always choose Coding Plan
-```
-
-### 3. Combine with Free Tier
-
-```
-Combo:
-1. gc/gemini-3-flash (FREE primary)
-2. glm/glm-4.7 (cheap backup)
-3. minimax/MiniMax-M2.1 (cheapest)
-4. if/kimi-k2-thinking (FREE emergency)
-
-Result: Minimize costs, maximize uptime
-```
-
-### 4. Set Budget Alerts
-
-```
-Dashboard → Settings → Budget Alerts
-
-Daily: $2 limit
-Weekly: $10 limit
-Monthly: $30 limit
-
-→ Auto switch to free tier when limit reached
-```
+When the cap is reached, Vela refuses the request with a 429 that says so. It will **not** silently move you to a cheaper model — a spend cap is a hard stop, by design.
 
 ---
 
 ## Troubleshooting
 
-### "Quota exhausted"
+### "Quota exhausted" on a cheap lane
 
-**Solution:**
-- GLM: Wait until 10:00 AM Beijing time
-- MiniMax: Wait 5 hours from first use
-- Kimi: Wait until 1st of next month
-- Use combo fallback to free tier
+Each provider has its own windows. Check **Quota** for the reset countdown, or let the combo fall through to the free lane.
 
 ### "API key invalid"
 
-**Solution:**
-- Check API key copied correctly
-- Verify account has credits
-- Regenerate API key if needed
+- Re-paste the key — trailing spaces are the usual culprit.
+- Check the account actually has credit; a zero-balance account often answers with an authentication-shaped error.
+- Regenerate the key if it was ever pasted somewhere public.
 
-### "High costs"
+### "My bill is higher than the estimate"
 
-**Solution:**
-- Check usage stats in Dashboard
-- Set budget alerts
-- Switch to MiniMax ($0.2/1M cheapest)
-- Use free tier for non-critical tasks
+- Vela estimates from the rates in `pricing.js`; a provider can change its retail rates before Vela updates them.
+- Long contexts and output-heavy work cost far more than short prompts — output is 3–4× the input price on this lane.
+- The `-highspeed` and `glm-5.x` variants are noticeably dearer than the headline models.
+
+### "I want the cheapest possible"
+
+Put MiniMax M2.1 first, GLM second, and a free provider last — and consider whether Antigravity (free) should simply be first.
 
 ---
 
-## Next Steps
+## Next steps
 
-- **Add free fallback:** [Free Providers](./free.md)
-- **Setup subscriptions:** [Subscription Providers](./subscription.md)
-- **Create combos:** Dashboard → Combos → Create New
+- **Add a free last line:** [Free Providers](free.md)
+- **Start with subscriptions:** [Subscription Providers](subscription.md)
+- **Build and tune a chain:** [Combos](../features/combos.md)

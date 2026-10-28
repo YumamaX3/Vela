@@ -1,201 +1,159 @@
 # Integración con Cline
 
-Integra Vela con la extensión Cline de VSCode para enrutar tus solicitudes de IA a través del sistema de enrutamiento inteligente de Vela.
+Cline es una extensión de VS Code que lee, edita y ejecuta código por ti. Apúntala a Vela y obtiene cualquier modelo que tengas conectado — además de una cadena de fallback cuando se cierra una cuota a mitad de tarea.
 
 ## Requisitos previos
 
-- Visual Studio Code instalado
-- Extensión Cline instalada desde el marketplace de VSCode
-- Vela ejecutándose localmente o endpoint en la nube configurado
-- API key del dashboard de Vela
+- VS Code instalado
+- La extensión Cline, instalada desde el marketplace de VS Code
+- Vela en ejecución local, o un endpoint en la nube accesible
+- Una clave de API del dashboard de Vela (**Endpoint & Key → Create Key**)
 
 ## Configuración
 
-### 1. Abrir la configuración de Cline
+### 1. Abrir los ajustes de Cline
 
-1. Abre Visual Studio Code
-2. Abre el panel de la extensión Cline (clic en el ícono de Cline en la barra lateral)
-3. Clic en el ícono de **Settings** (engranaje) en el panel de Cline
+Haz clic en el icono de Cline en la barra lateral de VS Code, y luego en el icono de engranaje del panel de Cline.
 
-### 2. Seleccionar el proveedor de API
+### 2. Elegir el proveedor OpenAI Compatible
 
-1. En la configuración de Cline, encuentra el dropdown **API Provider**
-2. Selecciona **Ollama** de la lista
-   - Nota: Usamos el tipo de proveedor Ollama porque es compatible con APIs estilo OpenAI
+En el desplegable **API Provider**, elige **OpenAI Compatible**. Esa es la opción correcta para Vela — acepta una URL base con forma de OpenAI y una clave.
 
-### 3. Configurar Base URL
+### 3. Configurar la URL base
 
-Establece la URL base a tu endpoint de Vela:
-
-**Para Vela local:**
 ```
 http://localhost:32060/v1
 ```
 
-**Para Vela en la nube:**
+Incluye el `/v1`. Un despliegue en la nube tiene la misma forma con otro host:
+
 ```
-https://vela.my.id
+https://your-domain.example/v1
 ```
 
-**Pasos:**
-1. En el campo **Base URL**, ingresa tu endpoint de Vela
-2. Asegúrate de incluir `/v1` al final
+### 4. Pegar tu clave
 
-### 4. Agregar API Key
+Tu clave de Vela tiene la forma `vela-v1-<id>-<checksum>`. Se muestra una sola vez al crearla, así que crea una nueva en **Endpoint & Key** si la has perdido.
 
-1. En el campo **API Key**, ingresa tu API key de Vela
-2. Puedes encontrar tu API key en el dashboard de Vela en **Settings → API Keys**
-3. La key debe comenzar con `sk-Vela-`
+### 5. Configurar el id del modelo
 
-### 5. Seleccionar modelo
+Cline acepta un id de modelo de texto libre. Usa uno que Vela resuelva:
 
-1. En el dropdown **Model**, puedes:
-   - Seleccionar de los modelos disponibles (si Cline los auto-detecta)
-   - Ingresar manualmente el nombre del modelo desde tu configuración de Vela
+```
+cc/claude-opus-5
+cc/claude-sonnet-5
+glm/glm-4.7
+premium-coding            ← a combo name works too
+```
 
-2. Nombres comunes de modelos:
-   - `gpt-4`
-   - `gpt-4o`
-   - `claude-opus-4-5`
-   - `claude-sonnet-4-5`
-   - `gemini-2.0-flash`
+### 6. Guardar
 
-### 6. Guardar la configuración
-
-Clic en **Save** o cierra el panel de configuración. Cline guardará automáticamente tu configuración.
+Cierra el panel de ajustes; Cline guarda mientras escribes. Envía un mensaje pequeño para confirmar, y luego mira **Usage** en el dashboard de Vela.
 
 ## Ejemplo de configuración
 
-Tu configuración de Cline debería verse así:
+```
+API Provider:  OpenAI Compatible
+Base URL:      http://localhost:32060/v1
+API Key:       vela-v1-xxxxxxxx-xxxxxxxx
+Model:         cc/claude-opus-5
+```
 
+### Qué escribe el dashboard
+
+Cline guarda sus ajustes en dos archivos del disco. El Quick Connect del dashboard imprime exactamente esta forma, y puedes pegarla a mano si prefieres editar archivos antes que hacer clic:
+
+```json
+// ~/.cline/data/globalState.json
+{ "openAiBaseUrl": "http://localhost:32060", "actModeApiProvider": "openai" }
 ```
-API Provider: Ollama
-Base URL: http://localhost:32060/v1
-API Key: sk-Vela-xxxxxxxxxxxxx
-Model: gpt-4
+
+```json
+// ~/.cline/data/secrets.json
+{ "openAiApiKey": "vela-v1-<id>-<checksum>" }
 ```
+
+Fíjate en la diferencia con el campo de arriba: **`openAiBaseUrl` aquí omite el `/v1`** — Cline añade la ruta por sí mismo. Una URL base `http://localhost:32060/v1` en ese campo produce `/v1/v1/chat/completions` y un 404. Usa el fragmento del dashboard, o introduce la URL desde el propio panel de ajustes de Cline, que gestiona el sufijo por ti.
 
 ## Modelos disponibles
 
-Puedes usar cualquier modelo configurado en tu dashboard de Vela. Ejemplos comunes:
+Cualquier cosa que liste la puerta de enlace: `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`.
 
-| Nombre del modelo | Proveedor | Descripción |
-|------------|----------|-------------|
-| `gpt-4` | OpenAI | GPT-4 Turbo |
-| `gpt-4o` | OpenAI | GPT-4 Optimized |
-| `claude-opus-4-5` | Anthropic | Claude Opus 4.5 |
-| `claude-sonnet-4-5` | Anthropic | Claude Sonnet 4.5 |
-| `gemini-2.0-flash` | Google | Gemini 2.0 Flash |
+| Modelo | Nivel | Bueno para |
+|-------|------|----------|
+| `cc/claude-opus-5` | Suscripción de Claude | trabajo complejo en varios archivos |
+| `cc/claude-sonnet-5` | Suscripción de Claude | ediciones del día a día |
+| `cx/gpt-5.6-sol` | Suscripción de Codex | problemas de programación difíciles |
+| `glm/glm-4.7` | barato | sesiones largas con presupuesto |
+| `minimax/MiniMax-M2.1` | el más barato | contextos grandes |
+| `kr/claude-sonnet-4.5` | gratis | cuando los niveles de pago están secos |
+
+> **Una nota sobre el nivel `cc/`.** El proveedor de Claude Code (`claude`, alias `cc`) está marcado como **obsoleto con un aviso de riesgo** en el registro que incluye esta versión. Funciona, y es lo que la mayoría de la gente quiere para su suscripción de Anthropic — pero depende de una interfaz de Claude Code no documentada que puede cambiar sin aviso. Si empieza a fallar, los modelos Claude gratuitos `kr/` y el nivel `cx/` son las alternativas estables.
 
 ## Uso
 
-### Chat con IA
+### Chat
 
-1. Abre el panel de Cline en VSCode
-2. Escribe tu mensaje en el input del chat
-3. Presiona Enter para enviar
-4. Cline usará Vela para procesar tu solicitud
+Escribe en el panel de Cline y pulsa Enter. Cline envía la conversación, y los archivos que decida leer, a través de Vela.
 
 ### Generación de código
 
-1. Pide a Cline que genere código: "Create a React component for a login form"
-2. Cline generará código usando Vela
-3. Revisa y acepta el código generado
-
-### Explicación de código
-
-1. Selecciona código en tu editor
-2. Pregunta a Cline: "Explain this code"
-3. Obtén explicaciones potenciadas por IA a través de Vela
+Pide un cambio ("añade paginación a este endpoint"). Cline propone ediciones; revísalas antes de aceptarlas — con el mismo cuidado que tendrías con cualquier agente.
 
 ### Operaciones con archivos
 
-1. Pide a Cline que cree, modifique o elimine archivos
-2. Cline usará Vela para entender el contexto y hacer cambios
-3. Revisa los cambios antes de aceptar
+Cline puede crear, modificar y borrar archivos. Vela no altera ese comportamiento; solo decide qué modelo lo planifica y lo ejecuta. El fallback aquí es genuinamente útil: un cambio de modelo entre pasos mantiene en marcha una tarea larga.
 
 ## Solución de problemas
 
-### Error "Connection Failed"
+### "Connection failed"
 
-1. Verifica que Vela esté corriendo: `curl http://localhost:32060/health`
-2. Verifica que la URL base sea correcta e incluya `/v1`
-3. Asegúrate de que ningún firewall esté bloqueando el puerto 32060
-4. Intenta reiniciar VSCode
+1. `curl http://localhost:32060/api/health` → debería responder.
+2. Confirma que la URL base termina en `/v1`.
+3. Comprueba el cortafuegos en el puerto 32060.
+4. Recarga la ventana de VS Code (`Cmd/Ctrl + Shift + P` → "Reload Window").
 
-### Error "Invalid API Key"
+### "Invalid API key"
 
-1. Verifica tu API key en el dashboard de Vela
-2. Asegúrate de haber copiado la key completa incluyendo el prefijo `sk-Vela-`
-3. Verifica que la API key no haya expirado
-4. Intenta regenerar una nueva API key
+- La clave debe empezar por `vela-v1-`. Las claves con el formato antiguo `sk-...` se rechazan.
+- Cópiala entera, sin un salto de línea final.
+- Crea una clave nueva si la antigua se pegó alguna vez en público — las claves antiguas no se pueden volver a mostrar.
 
-### Error "Model Not Found"
+### "Model not found"
 
-1. Verifica que el nombre del modelo coincida exactamente con tu configuración de Vela
-2. Verifica que la conexión del proveedor esté activa en el dashboard de Vela
-3. Asegúrate de que el modelo esté disponible en tus proveedores conectados
-4. Intenta usar el nombre completo del modelo (ej. `openai/gpt-4` en lugar de `gpt-4`)
+- Usa el id exacto de `/v1/models`.
+- Confirma que ese proveedor está conectado en **Providers**.
+- Los ids de modelo cambian aguas arriba; un id retirado no se resolverá, se escriba como se escriba.
 
-### Cline no responde
+### Cline se detiene a mitad de tarea
 
-1. Revisa el panel de output de Cline para mensajes de error
-2. Verifica que tu instancia de Vela esté ejecutándose y saludable
-3. Intenta recargar la ventana de VSCode (Cmd/Ctrl + Shift + P → "Reload Window")
-4. Revisa los logs de Vela para cualquier error
+Muy a menudo, una ventana de cuota que se cierra o un límite de tasa. Un combo (`cc/claude-opus-5 → glm/glm-4.7 → kr/claude-sonnet-4.5`) permite que el siguiente paso se ejecute en el siguiente modelo en lugar de detenerse.
 
-## Configuración avanzada
+## Avanzado
 
-### Usar endpoint en la nube
+### Usar un combo
 
-Para usar el endpoint en la nube de Vela en lugar de localhost:
+```
+Model: never-stuck
+```
 
-1. En la configuración de Cline, establece Base URL a: `https://vela.my.id`
-2. Asegúrate de haber configurado tu API key en el dashboard en la nube de Vela
-3. Asegúrate de que tu endpoint en la nube esté activo y accesible
+con una cadena que termina en un proveedor gratuito. Las ejecuciones largas de agentes son las más beneficiadas — son exactamente la carga de trabajo que choca contra un muro de cuota media hora después de empezar.
 
-### Múltiples modelos
+### Cambiar de modelo según la tarea
 
-Puedes cambiar rápidamente entre modelos:
+Ten dos o tres ids a mano y cambia el campo según cambie el trabajo:
 
-1. Abre la configuración de Cline
-2. Cambia el campo **Model** a otro modelo
-3. Guarda y continúa chateando con el nuevo modelo
+- razonamiento pesado y refactorizaciones → `cc/claude-opus-5`
+- ediciones del día a día → `glm/glm-4.7`
+- experimentos → `kr/claude-sonnet-4.5`
 
-### Timeout personalizado
+### Tiempos de espera
 
-Si experimentas problemas de timeout con solicitudes grandes:
+Las ediciones grandes con contextos largos pueden superar el tiempo de espera de Cline. Auméntalo en los ajustes de VS Code si Cline ofrece la opción, o divide la tarea — Vela transmitirá tan rápido como lo haga el proveedor.
 
-1. Abre la configuración de VSCode (Cmd/Ctrl + ,)
-2. Busca "Cline timeout"
-3. Aumenta el valor de timeout (por defecto suele ser 30 segundos)
+## Buenas prácticas
 
-## Mejores prácticas
-
-1. **Usa modelos apropiados**: Elige modelos rápidos (como Haiku o Flash) para tareas simples, y modelos más potentes (como Opus o GPT-4) para tareas complejas
-2. **Monitorea el uso**: Revisa el dashboard de Vela para estadísticas de uso y costos
-3. **Gestión de contexto**: Mantén tus conversaciones enfocadas para reducir el uso de tokens
-4. **Cambio de modelo**: Cambia modelos según la complejidad de la tarea para optimizar costo y rendimiento
-5. **Seguridad de API Key**: Nunca subas tu API key al control de versiones
-
-## Integración con características de Vela
-
-### Enrutamiento de modelos
-
-Vela enruta automáticamente tus solicitudes al mejor proveedor disponible según:
-- Disponibilidad del modelo
-- Estado de salud del proveedor
-- Optimización de costos
-- Balanceo de carga
-
-### Soporte de fallback
-
-Si un proveedor falla, Vela automáticamente cambia a proveedores alternativos configurados en tu dashboard.
-
-### Seguimiento de uso
-
-Monitorea tu uso de Cline a través del dashboard de Vela:
-- Total de solicitudes
-- Uso de tokens
-- Costo por modelo
-- Distribución por proveedor
+1. **Dale a Cline su propia clave**, con un techo de gasto. Un agente que hace bucles puede quemar un presupuesto sorprendentemente rápido; un tope lo convierte en una parada en lugar de una factura.
+2. **Mantén las conversaciones enfocadas** — el contexto es el costo dominante.
+3. **Nunca hagas commit de la clave.** Vive en los ajustes de VS Code, no en el repositorio.
+4. **Vigila qué modelo respondió** en **Routed by Combo** cuando uses una cadena: te dice si tus respaldos están haciendo el trabajo.

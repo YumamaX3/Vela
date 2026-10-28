@@ -1,149 +1,126 @@
-# Cursor統合
+# Cursorとの連携
 
-VelaをCursor IDEと統合し、AIリクエストをVelaのインテリジェントルーティングシステム経由でルーティングします。
+CursorはOpenAI互換のカスタムエンドポイントを使えます。Velaに向ければ、チャットも、インラインの編集も、オートコンプリートの呼び出しも、すべてゲートウェイを通ります — ルーティングされ、追跡され、あなたのキーと予算に従う。
 
 ## 前提条件
 
-- Cursor IDEがインストール済み
-- Cursor Proアカウント (カスタムAPIエンドポイントに必要)
-- Velaクラウドエンドポイントが設定済み
-- VelaダッシュボードからのAPIキー
+- Cursorがインストール済み
+- Velaがローカルで動いているか、届くクラウドのエンドポイントがある
+- Velaのダッシュボード(**Endpoint & Key → Create Key**)で作ったAPIキー
 
-## ⚠️ 重要な注意点
+## ⚠️ まず知っておくべきこと
 
-> **クラウドエンドポイントが必要**: Cursorは独自のサーバー経由でリクエストをルーティングし、localhostエンドポイントをサポートしません。Velaクラウドエンドポイント `https://vela.my.id` を使用する必要があります。
+> **カスタムエンドポイントには有料のCursorプランが要るかもしれません。** Cursorはこの機能を、バージョンとプランのあいだで動かしてきました。あなたのビルドでベースURLの欄が出ないなら、それはCursorの制限であって、Velaのものではありません。
 
-> **Cursor Proが必要**: この機能はカスタムAPIエンドポイントを使用するためにCursor Proアカウントが必要です。
+> **localhostでは足りないことがあります。** Cursorの設定によっては、リクエストをCursor自身のサーバー経由で送るので、そこから見た`localhost`は、あなたのマシンではなくCursorのマシンを意味します。ブラウザがダッシュボードに届くのに、リクエストが接続エラーで失敗するなら、それが原因です — Cursorが届ける場所にVelaをデプロイし([クラウドへのデプロイ](../deployment/cloud.md))、そのアドレスを使ってください。
+
+> **HTTPSでは裸のIPではなくドメインを使ってください。** Velaをリバースプロキシの背後に置くなら、TLSの証明書を与えてください — APIキーがリクエストの中を旅します。
 
 ## セットアップ
 
-### 1. Cursor設定を開く
+### 1. Cursorのモデル設定を開く
 
-1. Cursor IDEを開く
-2. **Settings** へ移動 (Cmd/Ctrl + ,)
-3. **Models** セクションへ移動
+**Settings**(`Cmd/Ctrl + ,`)→ **Models**。
 
-### 2. OpenAI APIを有効化
+### 2. カスタムのOpenAIエンドポイントを有効にする
 
-1. **OpenAI API key** オプションを見つける
-2. トグルを有効にしてカスタムAPI設定を有効化
+**OpenAI API key**をオンにして、**Override OpenAI Base URL**の欄を探します。あなたのビルドにあれば、しめたものです。
 
-### 3. Base URLを設定
-
-Base URLをVelaクラウドエンドポイントに設定:
+### 3. ベースURLを設定する
 
 ```
-https://vela.my.id
+http://localhost:32060/v1
 ```
 
-**手順:**
-1. Models設定で **Base URL** フィールドを見つける
-2. 入力: `https://vela.my.id`
-3. **Save** をクリック
+`/v1`は残してください。それがなければ、URLはAPIではなくダッシュボードに届き、不可解なHTMLの応答で失敗します。
 
-### 4. APIキーを追加
+### 4. キーを貼り付ける
 
-1. **API Key** フィールドにVela APIキーを入力
-2. APIキーはVelaダッシュボードの **Settings → API Keys** で確認できます
-3. **Save** をクリック
+キーは`vela-v1-<id>-<checksum>`の形をしています。持っていなければ**Endpoint & Key → Create Key**で新しく手に入れてください — キーは一度しか表示されません。
 
-### 5. カスタムモデルを追加
+### 5. モデルを足す
 
-1. **View All Models** ボタンをクリック
-2. **Add Custom Model** をクリック
-3. Vela設定からモデル名を入力 (例: `gpt-4`、`claude-opus-4-5` など)
-4. **Add** をクリック
+**View All Models → Add custom model**で、Velaが解決するとおりのモデルIDを足します:
 
-### 6. モデルを選択
+```
+cc/claude-opus-5
+cc/claude-sonnet-5
+glm/glm-4.7
+premium-coding          ← a combo name works here too
+```
 
-1. Cursorチャットインターフェイスでモデルセレクタードロップダウンをクリック
-2. リストからカスタムモデルを選択
-3. CursorでVelaを使い始める!
+### 6. 選ぶ
+
+Cursorのチャットのモデル選択でそのモデルを選び、メッセージを送ります。それがVelaダッシュボードの**Usage**に届いたことを確かめてください。
 
 ## 設定例
 
-Cursor設定は次のようになります:
-
 ```
-OpenAI API: ✓ Enabled
-Base URL: https://vela.my.id
-API Key: sk-Vela-xxxxxxxxxxxxx
-Custom Models: gpt-4, claude-opus-4-5, gemini-2.0-flash
+OpenAI API:        ✓ enabled
+Base URL:          http://localhost:32060/v1
+API key:           vela-v1-xxxxxxxx-xxxxxxxx
+Custom models:     cc/claude-opus-5, cc/claude-sonnet-5, glm/glm-4.7
 ```
 
-## 利用可能なモデル
+## 利用できるモデル
 
-Velaダッシュボードで設定されたモデルを使用できます。一般的な例:
+ゲートウェイが一覧するものなら何でも — `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`を走らせて、あなたのものを確かめてください。よく選ばれるもの:
 
-| モデル名 | プロバイダー | 説明 |
-|------------|----------|-------------|
-| `gpt-4` | OpenAI | GPT-4 Turbo |
-| `gpt-4o` | OpenAI | GPT-4 Optimized |
-| `claude-opus-4-5` | Anthropic | Claude Opus 4.5 |
-| `claude-sonnet-4-5` | Anthropic | Claude Sonnet 4.5 |
-| `gemini-2.0-flash` | Google | Gemini 2.0 Flash |
+| モデル | レーン |
+|-------|------|
+| `cc/claude-opus-5` | Claudeサブスクリプション |
+| `cc/claude-sonnet-5` | Claudeサブスクリプション |
+| `cx/gpt-5.6-sol` | Codexサブスクリプション |
+| `glm/glm-4.7` | 格安 |
+| `minimax/MiniMax-M2.1` | 最も安い |
+| `kr/claude-sonnet-4.5` | 無料 |
 
-## 使用法
+コンボもここで動き、それがCursorをVelaとともに使う理由そのものです: ひとつのモデルのクォータが閉じたら、会話の途中で次のものが答えます。
 
-### チャットインターフェイス
+## 使い方
 
-1. Cursorチャットを開く (Cmd/Ctrl + L)
-2. ドロップダウンからモデルを選択
-3. Vela経由でAIとチャット開始
-
-### インラインコード生成
-
-1. エディタでコードを選択
-2. Cmd/Ctrl + Kを押す
-3. プロンプトを入力
-4. CursorはVelaを使用してコードを生成
-
-### コード説明
-
-1. エディタでコードを選択
-2. Cmd/Ctrl + Lを押す
-3. 「Explain this code」と質問
-4. Vela経由でAIによる説明を取得
+- **Chat**(`Cmd/Ctrl + L`) — Velaのモデルを選んで、尋ねる。
+- **Inline edit**(`Cmd/Ctrl + K`) — コードを選び、プロンプトを書き、受け入れる。
+- **Explain** — コードを選んで尋ね、鎖を使っているなら**Routed by Combo**でどのモデルが答えたか確かめる。
 
 ## トラブルシューティング
 
-### 「Invalid API Key」エラー
+### 「Invalid API key」
 
-1. VelaダッシュボードでAPIキーを確認
-2. `sk-Vela-` プレフィックスを含むキー全体をコピーしたか確認
-3. APIキーが期限切れでないか確認
-4. 新しいAPIキーを再生成してみる
+1. **Endpoint & Key**で、キーが存在し有効か確かめてください。
+2. キーを丸ごとコピーしてください — `vela-v1-`から末尾のチェックサムまで。
+3. 古い`sk-...`形式のキーは現在の方式より前のもので、拒否されます。新しく作ってください。
 
-### 「Model Not Found」エラー
+### 「Model not found」
 
-1. モデル名がVela設定と正確に一致するか確認
-2. Velaダッシュボードでプロバイダー接続がアクティブか確認
-3. 接続されたプロバイダーでモデルが利用可能か確認
-4. フルモデル名を使用してみる (例: `gpt-4` の代わりに `openai/gpt-4`)
+1. `/v1/models`の正確なIDを使ってください。
+2. プロバイダーが**Providers**で接続済みか確かめてください。
+3. プロバイダーが退役させたモデルは、どう綴っても解決されないことを思い出してください。
 
-### 接続の問題
+### 接続の失敗
 
-1. クラウドエンドポイントを使用しているか確認: `https://vela.my.id`
-2. インターネット接続を確認
-3. Velaクラウドサービスが運用中か確認
-4. VPNまたはプロキシが有効な場合は無効化してみる
+1. Velaが答えるか確かめてください: `curl http://localhost:32060/api/health`。
+2. ベースURLが`/v1`で終わるか確かめてください。
+3. Cursorのサーバーが経路に入っているなら、`localhost`は働けません — デプロイしたエンドポイントを使ってください。
 
-### Localhostが動作しない
+### 欄がない
 
-> **覚えておいてください**: Cursorはlocalhostエンドポイントをサポートしません。クラウドエンドポイント `https://vela.my.id` を使用する必要があります。ローカルVelaインスタンスを使用したい場合は、ngrokなどのトンネリングサービスを検討してローカルエンドポイントを公開してください。
+Cursorのビルドとプランのなかには、カスタムのベースURLを出さないものがあります。Velaの側でそれを足すことはできません。代わりに: VS CodeのなかのCline、Roo、Continue。どれもベースURLを受け取ります。
 
-## クラウドエンドポイントのセットアップ
+## クラウドのエンドポイント
 
-ローカルでVelaを実行し、Cursorで使用したい場合:
+証明書のあるサーバーで:
 
-1. Vela設定でクラウドエンドポイントを有効化
-2. VelaダッシュボードでクラウドエンドポイントURLを設定
-3. Cursor設定でクラウドURLを使用
-4. ローカルVelaインスタンスがインターネットからアクセス可能か確認
+```
+Base URL:  https://your-domain.example/v1
+API key:   [your Vela key]
+```
+
+そうすればCursorは、どこで動いていようとVelaに届きます。レート制限もプロバイダーのローテーションも同じで、変わったのはアドレスだけです。
 
 ## ベストプラクティス
 
-1. **モデルエイリアスを使用**: Velaで頻繁に使うモデル用のショートエイリアスを作成
-2. **使用量をモニター**: Velaダッシュボードで使用統計とコストを確認
-3. **APIキーをローテーション**: セキュリティのためAPIキーを定期的にローテーション
-4. **モデルをテスト**: ユースケースに最適なモデルを見つけるため、異なるモデルを試す
+1. **マシンごと、あるいは人ごとにひとつのキー** — 利用レポートが、誰がいくら使ったかを教えてくれます。
+2. **Cursorが人の見ていないところで走るなら、上限を付ける** — 暴走するループを止めるのは、支出上限だけです。
+3. **キーを回す** — ノートPCを失ったとき、あるいはキーをあるべきでない場所に貼ったとき。
+4. **コンボを使う** — クォータの壁があなたの午後を終わらせないように。

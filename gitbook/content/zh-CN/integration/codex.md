@@ -1,136 +1,100 @@
 # OpenAI Codex CLI 集成
 
-将 Vela 与 OpenAI Codex CLI 集成,通过 Vela 的智能路由系统转发你的 OpenAI API 请求。
+只需在 `~/.codex/config.toml` 中加入一小段配置，就能让 Codex CLI 指向 Vela。这与仪表盘 **CLI 工具 → Codex** 页面为你写出的内容形状相同，因此你可以自己粘贴，也可以交给仪表盘完成。
 
-## 前置要求
+## 前提条件
 
-- 已安装 OpenAI Codex CLI
-- Vela 本地运行或已配置云端 endpoint
-- 来自 Vela 仪表盘的 API key
+- 已安装 Codex CLI
+- 本地运行着 Vela，或有一个你能访问的云端端点
+- 来自 Vela 仪表盘的 API Key（**端点与密钥 → 创建密钥**）
 
-## 设置
+## 配置
 
-### 1. 配置环境变量
+### 1. 编辑 `~/.codex/config.toml`
 
-在 shell 配置文件(`~/.bashrc`、`~/.zshrc` 或 `~/.bash_profile`)中设置以下环境变量:
+```toml
+model = "cx/gpt-5.6-sol"
+model_provider = "Vela"
+
+[model_providers.Vela]
+name = "Vela"
+base_url = "http://localhost:32060/v1"
+wire_api = "responses"
+http_headers = { Authorization = "Bearer [your Vela key]" }
+```
+
+Codex 中的自定义提供商**只**通过上面这一行 `http_headers` 认证 —— `auth.json` 里的 `OPENAI_API_KEY` 属于内置的 `openai` 提供商，对于这样定义的提供商不会被读取。请把密钥放在这里，而不是那里。
+
+### 2. 检查
 
 ```bash
-# Vela 的 Base URL
+curl -s http://localhost:32060/api/health      # → {"ok":true}
+codex "Write a function that reverses a linked list"
+```
+
+然后查看仪表盘中的 **用量**；这次请求应当出现在那里。
+
+### 3. 如果你更偏好环境变量
+
+有些配置更偏好环境变量而非文件。对任何讲 OpenAI API 的工具来说，这也同样可行：
+
+```bash
 export OPENAI_BASE_URL="http://localhost:32060/v1"
-
-# 来自 Vela 仪表盘的 API Key
-export OPENAI_API_KEY="your-Vela-api-key"
+export OPENAI_API_KEY="[your Vela key]"
 ```
 
-### 2. 重新加载 Shell 配置
-
-```bash
-source ~/.zshrc  # 或 ~/.bashrc
-```
-
-### 3. 验证配置
-
-检查环境变量是否设置正确:
-
-```bash
-echo $OPENAI_BASE_URL
-echo $OPENAI_API_KEY
-```
+`config.toml` 是仪表盘生成的方式，也是更推荐的方式 —— 它能在一个新的 shell 中继续生效。
 
 ## 可用模型
 
-Vela 提供以下 Codex 模型:
+| 模型 | 适合 |
+|-------|----------|
+| `cx/gpt-5.6-sol` | 当前编码旗舰 |
+| `cx/gpt-5.6-terra` | 另一种现代选择 |
+| `cx/gpt-5.6-luna` | 更轻、更快的工作 |
+| `cx/gpt-5.5`、`cx/gpt-5.4` | 稳定的回退项 |
 
-| 模型 ID | 描述 |
-|----------|-------------|
-| `cx/gpt-5.2-codex` | GPT-5.2 Codex - 最新版本 |
-| `cx/gpt-5.1-codex-max` | GPT-5.1 Codex Max - 扩展上下文 |
+任何其他模型或组合同样可用 —— Codex 并不关心 id 的含义，只要 Vela 能解析它即可。
 
-## 使用示例
-
-### 基础用法
-
-```bash
-# 使用 GPT-5.2 Codex
-codex --model cx/gpt-5.2-codex "Write a function to sort an array"
-
-# 使用 GPT-5.1 Codex Max
-codex --model cx/gpt-5.1-codex-max "Explain this complex algorithm"
-```
-
-### 代码生成
+## 用法示例
 
 ```bash
-codex --model cx/gpt-5.2-codex "Create a REST API endpoint for user authentication"
+# 写代码
+codex --model cx/gpt-5.6-sol "Create a REST endpoint that paginates results"
+
+# 解释代码
+codex --model cx/gpt-5.6-terra "Explain what this does: $(cat myfile.js)"
+
+# 使用回退链
+codex --model quality-first "Plan the refactor"
 ```
 
-### 代码解释
-
-```bash
-codex --model cx/gpt-5.1-codex-max "Explain what this code does: $(cat myfile.js)"
-```
-
-## 配置文件
-
-也可以通过配置文件配置 Codex CLI。创建或编辑 `~/.codex/config.json`:
-
-```json
-{
-  "baseUrl": "http://localhost:32060/v1",
-  "apiKey": "your-Vela-api-key",
-  "defaultModel": "cx/gpt-5.2-codex"
-}
-```
-
-## 故障排除
+## 故障排查
 
 ### 认证错误
 
-遇到认证错误时:
-
-1. 在 Vela 仪表盘中确认 API key 正确
-2. 检查 `OPENAI_API_KEY` 环境变量已设置
-3. 确认 API key 未过期
+1. 密钥必须位于 `[model_providers.Vela]` 内的 `http_headers` 中 —— `auth.json` 中的密钥不会用于自定义提供商。
+2. 检查密钥是否完整、是否以 `vela-v1-` 开头。
+3. 如有疑问，请在 **端点与密钥** 下新建一个；密钥创建后无法找回。
 
 ### 连接问题
 
-遇到连接错误时:
-
-1. 确认 Vela 正在运行:`curl http://localhost:32060/health`
-2. 检查环境变量设置是否正确
-3. 确保防火墙没有阻止 32060 端口
+1. `curl http://localhost:32060/api/health`。
+2. 确认 `base_url` 以 `/v1` 结尾。
+3. 检查是否有东西挡住了 32060 端口。
 
 ### 模型不可用
 
-出现 "model not available" 错误时:
+1. `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`。
+2. 确认 Codex 提供商已在 Vela 中连接（**提供商**）。
+3. 模型 id 会随上游变化；请从上面的列表中选择当前可用的。
 
-1. 确认模型名与 Vela 配置一致
-2. 检查 Vela 仪表盘中 OpenAI 提供商连接是否激活
-3. 确认连接的提供商中包含该模型
+## 云端端点
 
-## 云端 Endpoint
+将 `base_url` 替换为你部署的地址（保留 `/v1`）：
 
-使用 Vela 云端 endpoint 而非 localhost:
-
-```bash
-export OPENAI_BASE_URL="https://vela.my.id"
+```toml
+base_url = "https://your-domain.example/v1"
 ```
 
-确保已在 Vela 云端仪表盘中配置 API key。
-
-## 高级配置
-
-### 自定义超时
-
-```bash
-export OPENAI_TIMEOUT=60  # 秒
-```
-
-### Debug 模式
-
-启用 debug 模式查看详细请求/响应日志:
-
-```bash
-export CODEX_DEBUG=true
-codex --model cx/gpt-5.2-codex "Your prompt"
-```
+旧文档提到了项目所有者的托管实例 `https://vela.my.id`；那是关于他们部署的上游事实，而不是这些文档所能承诺的服务。请使用你拥有凭据的端点。

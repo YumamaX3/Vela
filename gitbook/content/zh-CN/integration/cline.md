@@ -1,201 +1,159 @@
 # Cline 集成
 
-将 Vela 与 Cline VSCode 扩展集成,通过 Vela 的智能路由系统转发你的 AI 请求。
+Cline 是一个为你读取、编辑和运行代码的 VS Code 扩展。把它指向 Vela，它就能使用你连接的任何模型 —— 并且在任务中途配额关闭时获得一条回退链。
 
-## 前置要求
+## 前提条件
 
-- 已安装 Visual Studio Code
-- 从 VSCode 市场安装了 Cline 扩展
-- Vela 本地运行或已配置云端 endpoint
-- 来自 Vela 仪表盘的 API key
+- 已安装 VS Code
+- 已从 VS Code 应用市场安装 Cline 扩展
+- 本地运行着 Vela，或有一个可访问的云端端点
+- 来自 Vela 仪表盘的 API Key（**端点与密钥 → 创建密钥**）
 
-## 设置
+## 配置
 
-### 1. 打开 Cline 设置
+### 1. 打开 Cline 的设置
 
-1. 打开 Visual Studio Code
-2. 打开 Cline 扩展面板(点击侧边栏的 Cline 图标)
-3. 点击 Cline 面板中的 **Settings**(齿轮图标)
+点击 VS Code 侧边栏中的 Cline 图标，再点击 Cline 面板中的齿轮图标。
 
-### 2. 选择 API Provider
+### 2. 选择 OpenAI Compatible 提供商
 
-1. 在 Cline 设置中找到 **API Provider** 下拉菜单
-2. 从列表中选择 **Ollama**
-   - 注意:我们使用 Ollama provider 类型,因为它与 OpenAI 风格 API 兼容
+在 **API Provider** 下拉菜单中，选择 **OpenAI Compatible**。这是使用 Vela 的正确选择 —— 它接受 OpenAI 形状的基础 URL 和密钥。
 
-### 3. 配置 Base URL
+### 3. 设置基础 URL
 
-将 base URL 设为你的 Vela endpoint:
-
-**本地 Vela:**
 ```
 http://localhost:32060/v1
 ```
 
-**云端 Vela:**
+包含 `/v1`。云端部署形状相同，只是主机不同：
+
 ```
-https://vela.my.id
+https://your-domain.example/v1
 ```
 
-**步骤:**
-1. 在 **Base URL** 字段中输入你的 Vela endpoint
-2. 末尾必须包含 `/v1`
+### 4. 粘贴你的密钥
 
-### 4. 添加 API Key
+你的 Vela 密钥形如 `vela-v1-<id>-<checksum>`。它在创建时只显示一次，如果你弄丢了，请在 **端点与密钥** 下新建一个。
 
-1. 在 **API Key** 字段中输入你的 Vela API key
-2. 可在 Vela 仪表盘 **Settings → API Keys** 中找到 API key
-3. key 应以 `sk-Vela-` 开头
+### 5. 设置模型 id
 
-### 5. 选择模型
+Cline 接受自由文本的模型 id。请使用 Vela 能解析的：
 
-1. 在 **Model** 下拉菜单中,可以:
-   - 从可用模型中选择(若 Cline 自动检测)
-   - 或手动输入 Vela 配置中的模型名
+```
+cc/claude-opus-5
+cc/claude-sonnet-5
+glm/glm-4.7
+premium-coding            ← 组合名称同样可用
+```
 
-2. 常见模型名:
-   - `gpt-4`
-   - `gpt-4o`
-   - `claude-opus-4-5`
-   - `claude-sonnet-4-5`
-   - `gemini-2.0-flash`
+### 6. 保存
 
-### 6. 保存配置
-
-点击 **Save** 或关闭设置面板。Cline 会自动保存你的配置。
+关闭设置面板；Cline 会随输入自动保存。发送一条简短消息确认，然后查看 Vela 仪表盘中的 **用量**。
 
 ## 配置示例
 
-你的 Cline 设置应如下所示:
+```
+API Provider:  OpenAI Compatible
+Base URL:      http://localhost:32060/v1
+API Key:       vela-v1-xxxxxxxx-xxxxxxxx
+Model:         cc/claude-opus-5
+```
 
+### 仪表盘写入的内容
+
+Cline 把设置保存在磁盘上的两个文件里。仪表盘的 Quick Connect 会打印完全相同的形状，如果你更愿意编辑文件而不是点击界面，也可以手动粘贴：
+
+```json
+// ~/.cline/data/globalState.json
+{ "openAiBaseUrl": "http://localhost:32060", "actModeApiProvider": "openai" }
 ```
-API Provider: Ollama
-Base URL: http://localhost:32060/v1
-API Key: sk-Vela-xxxxxxxxxxxxx
-Model: gpt-4
+
+```json
+// ~/.cline/data/secrets.json
+{ "openAiApiKey": "vela-v1-<id>-<checksum>" }
 ```
+
+注意它与上面那个字段的差别：**这里的 `openAiBaseUrl` 省略了 `/v1`** —— Cline 会自己追加路径。在该字段中填入 `http://localhost:32060/v1` 会产生 `/v1/v1/chat/completions` 和一个 404。请使用仪表盘的片段，或通过 Cline 自己的设置面板输入 URL，它会替你处理后缀。
 
 ## 可用模型
 
-你可以使用 Vela 仪表盘中配置的任意模型。常见示例:
+网关列出的任何模型：`curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`。
 
-| 模型名 | 提供商 | 描述 |
-|------------|----------|-------------|
-| `gpt-4` | OpenAI | GPT-4 Turbo |
-| `gpt-4o` | OpenAI | GPT-4 Optimized |
-| `claude-opus-4-5` | Anthropic | Claude Opus 4.5 |
-| `claude-sonnet-4-5` | Anthropic | Claude Sonnet 4.5 |
-| `gemini-2.0-flash` | Google | Gemini 2.0 Flash |
+| 模型 | 通道 | 适合 |
+|-------|------|----------|
+| `cc/claude-opus-5` | Claude 订阅 | 复杂的多文件工作 |
+| `cc/claude-sonnet-5` | Claude 订阅 | 日常编辑 |
+| `cx/gpt-5.6-sol` | Codex 订阅 | 棘手的编码问题 |
+| `glm/glm-4.7` | 低价 | 预算内的长时间运行 |
+| `minimax/MiniMax-M2.1` | 最便宜 | 超长上下文 |
+| `kr/claude-sonnet-4.5` | 免费 | 付费通道枯竭时 |
 
-## 使用
+> **关于 `cc/` 通道的说明。** 本版本注册表中，Claude Code 提供商（`claude`，别名 `cc`）被标记为**已弃用，并附风险提示**。它仍然可用，也是大多数人对其 Anthropic 订阅的首选 —— 但它依赖一个未公开的 Claude Code 接口，可能在没有预告的情况下变化。如果它开始失败，免费的 `kr/` Claude 模型和 `cx/` 通道是稳妥的替代方案。
 
-### 与 AI 对话
+## 用法
 
-1. 在 VSCode 中打开 Cline 面板
-2. 在聊天输入框中输入消息
-3. 按 Enter 发送
-4. Cline 会通过 Vela 处理你的请求
+### 聊天
 
-### 生成代码
+在 Cline 面板中输入并按回车。Cline 会通过 Vela 发送对话，以及它选择读取的任何文件。
 
-1. 让 Cline 生成代码:"创建一个登录表单的 React 组件"
-2. Cline 会通过 Vela 生成代码
-3. 检查并接受生成的代码
+### 代码生成
 
-### 代码解释
-
-1. 在编辑器中选中代码
-2. 让 Cline:"解释这段代码"
-3. 通过 Vela 获得 AI 驱动的解释
+请求一项改动（"为这个端点添加分页"）。Cline 会提出编辑；在接受前请审阅 —— 就像你对任何智能体那样谨慎。
 
 ### 文件操作
 
-1. 让 Cline 创建、修改或删除文件
-2. Cline 会通过 Vela 理解上下文并进行修改
-3. 在接受前检查变更
+Cline 可以创建、修改和删除文件。Vela 不会改变这一行为；它只决定由哪个模型来规划和执行。这里的回退确实有用：步骤之间的模型切换能让长任务继续推进。
 
-## 故障排除
+## 故障排查
 
-### "Connection Failed" 错误
+### "Connection failed"
 
-1. 确认 Vela 正在运行:`curl http://localhost:32060/health`
-2. 确认 base URL 正确且包含 `/v1`
-3. 确保防火墙没有阻止 32060 端口
-4. 尝试重启 VSCode
+1. `curl http://localhost:32060/api/health` → 应当有应答。
+2. 确认基础 URL 以 `/v1` 结尾。
+3. 检查 32060 端口的防火墙。
+4. 重新加载 VS Code 窗口（`Cmd/Ctrl + Shift + P` → "Reload Window"）。
 
-### "Invalid API Key" 错误
+### "Invalid API key"
 
-1. 在 Vela 仪表盘中确认 API key
-2. 确保复制了包含 `sk-Vela-` 前缀在内的完整 key
-3. 检查 API key 是否过期
-4. 尝试重新生成 API key
+- 密钥必须以 `vela-v1-` 开头。旧式 `sk-...` 格式的密钥会被拒绝。
+- 完整复制它，不要带上末尾的换行。
+- 如果旧密钥曾被公开粘贴，请新建一个 —— 旧密钥无法再次显示。
 
-### "Model Not Found" 错误
+### "Model not found"
 
-1. 确认模型名与 Vela 配置完全一致
-2. 检查 Vela 仪表盘中提供商连接是否激活
-3. 确认连接的提供商中包含该模型
-4. 尝试使用完整模型名(例如用 `openai/gpt-4` 代替 `gpt-4`)
+- 使用 `/v1/models` 中的精确 id。
+- 确认该提供商已在 **提供商** 中连接。
+- 模型 id 会随上游变化；已下线的 id 无论怎么拼写都无法解析。
 
-### Cline 无响应
+### Cline 在任务中途停止
 
-1. 查看 Cline 输出面板中的错误信息
-2. 确认 Vela 实例正在运行且健康
-3. 重新加载 VSCode 窗口(Cmd/Ctrl + Shift + P → "Reload Window")
-4. 检查 Vela 日志是否有错误
+这常常是配额窗口关闭或速率限制所致。使用一个组合（`cc/claude-opus-5 → glm/glm-4.7 → kr/claude-sonnet-4.5`）可以让下一步在下一个模型上继续，而不是停下。
 
-## 高级配置
+## 进阶
 
-### 使用云端 Endpoint
+### 使用组合
 
-使用 Vela 云端 endpoint 而非 localhost:
+```
+Model: never-stuck
+```
 
-1. 在 Cline 设置中将 Base URL 设为:`https://vela.my.id`
-2. 确保已在 Vela 云端仪表盘中配置 API key
-3. 确保云端 endpoint 已激活且可访问
+配合一条以免费提供商收尾的链。长时间运行的智能体受益最大 —— 它们正是那种半小时左右就会撞上配额墙的工作负载。
 
-### 多个模型
+### 按任务切换模型
 
-可以快速切换模型:
+常备两三个 id，随工作变化而更换字段：
 
-1. 打开 Cline 设置
-2. 将 **Model** 字段改为另一个模型
-3. 保存并继续使用新模型对话
+- 重度推理与重构 → `cc/claude-opus-5`
+- 日常编辑 → `glm/glm-4.7`
+- 实验 → `kr/claude-sonnet-4.5`
 
-### 自定义超时
+### 超时
 
-如果大请求出现超时:
-
-1. 打开 VSCode 设置(Cmd/Ctrl + ,)
-2. 搜索 "Cline timeout"
-3. 提高超时值(默认通常为 30 秒)
+带长上下文的大规模编辑可能超过 Cline 的请求超时。如果 Cline 提供该选项，请在 VS Code 设置中调高它，或者拆分任务 —— Vela 会以提供商的速度进行流式输出。
 
 ## 最佳实践
 
-1. **使用合适的模型**:简单任务用更快的模型(如 Haiku 或 Flash),复杂任务用更强的模型(如 Opus 或 GPT-4)
-2. **监控使用**:在 Vela 仪表盘查看用量统计和成本
-3. **管理上下文**:保持对话聚焦以减少 token 用量
-4. **切换模型**:根据任务复杂度切换模型,优化成本和性能
-5. **API Key 安全**:绝不将 API key 提交到版本控制
-
-## 与 Vela 功能的集成
-
-### 模型路由
-
-Vela 会根据以下因素自动将请求路由到最佳提供商:
-- 模型可用性
-- 提供商健康状态
-- 成本优化
-- 负载均衡
-
-### 回退支持
-
-某个提供商失败时,Vela 会自动回退到仪表盘中配置的备用提供商。
-
-### 使用跟踪
-
-通过 Vela 仪表盘监控你的 Cline 使用:
-- 请求总数
-- Token 使用
-- 每个模型的成本
-- 提供商分布
+1. **给 Cline 一把专属密钥**，并设置支出上限。反复循环的智能体会以惊人的速度烧掉预算；一个上限能让那变成一次停止，而不是一张账单。
+2. **让对话保持聚焦** —— 上下文是主要的成本来源。
+3. **绝不要提交密钥。** 它活在 VS Code 设置中，而不是仓库里。
+4. **在使用链条时，于 Routed by Combo 中留意是哪个模型应答的**：它会告诉你回退是否在发挥作用。

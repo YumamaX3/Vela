@@ -1,249 +1,197 @@
-# Continue VSCode拡張機能統合
+# Continue VSCode拡張機能との連携
 
-VelaをContinue拡張機能と統合し、Visual Studio Codeに直接AIアシスタンスを導入します。
+Continueは、VS CodeとJetBrainsのためのオープンソースのAIアシスタントです。`config.json`を読み、そのファイルひとつでVelaを通すことができます。
 
 ## 前提条件
 
-- Visual Studio Codeがインストール済み
-- VSCodeマーケットプレイスからContinue拡張機能がインストール済み
-- [ダッシュボード](https://vela.my.id/dashboard)からのVela APIキー
-- Velaが動作中 (ローカルまたはクラウド)
+- Continue拡張機能をインストールしたVS Code
+- Velaがローカルで動いているか、届くクラウドのエンドポイントがある
+- Velaのダッシュボード(**Endpoint & Key → Create Key**)で作ったAPIキー
 
 ## 設定手順
 
-### 1. Continue設定を開く
+### 1. Continueの設定を開く
 
-1. VSCodeを開く
-2. `Cmd+Shift+P` (Mac) または `Ctrl+Shift+P` (Windows/Linux) を押す
-3. 「Continue: Open Config」と入力して選択
-4. `~/.continue/config.json` が開きます
+- `Cmd+Shift+P`(macOS)または`Ctrl+Shift+P`(Windows/Linux)
+- **Continue: Open Config**を実行
+- `~/.continue/config.json`が開きます
 
-### 2. Velaモデル設定を追加
+### 2. Velaのモデルを足す
 
-以下の設定を `config.json` に追加:
+Continueの現在の設定形式は`models`の配列を使います:
 
-**単一モデルセットアップ:**
+**ひとつのモデル:**
+
 ```json
 {
   "models": [
     {
-      "title": "Vela - Claude Opus",
+      "title": "Vela — Claude Opus",
       "provider": "openai",
-      "model": "cc/claude-opus-4-5-20251101",
-      "apiKey": "your-api-key-from-dashboard",
+      "model": "cc/claude-opus-5",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1"
     }
   ]
 }
 ```
 
-**複数モデルセットアップ:**
+**いくつか、ドロップダウンで切り替えられるように:**
+
 ```json
 {
   "models": [
     {
-      "title": "Vela - Claude Opus (Best)",
+      "title": "Vela — Opus (hard tasks)",
       "provider": "openai",
-      "model": "cc/claude-opus-4-5-20251101",
-      "apiKey": "your-api-key-from-dashboard",
+      "model": "cc/claude-opus-5",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1"
     },
     {
-      "title": "Vela - Claude Sonnet (Balanced)",
+      "title": "Vela — Sonnet (everyday)",
       "provider": "openai",
-      "model": "cc/claude-sonnet-4-20250514",
-      "apiKey": "your-api-key-from-dashboard",
+      "model": "cc/claude-sonnet-5",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1"
     },
     {
-      "title": "Vela - DeepSeek Chat (Code)",
+      "title": "Vela — GLM (cheap)",
       "provider": "openai",
-      "model": "cx/deepseek-chat",
-      "apiKey": "your-api-key-from-dashboard",
-      "apiBase": "http://localhost:32060/v1"
-    },
-    {
-      "title": "Vela - Claude Haiku (Fast)",
-      "provider": "openai",
-      "model": "cc/claude-haiku-4-20250514",
-      "apiKey": "your-api-key-from-dashboard",
+      "model": "glm/glm-4.7",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1"
     }
   ]
 }
 ```
 
-**クラウドVela用:**
-`apiBase` を以下に置き換え:
+**デプロイしたVelaなら**、`apiBase`を変えます:
+
 ```json
-"apiBase": "https://vela.my.id/v1"
+"apiBase": "https://your-domain.example/v1"
 ```
 
-### 3. 保存してリロード
+> あなたのContinueのバージョンが、ここに示す古い`models`/`apiBase`のスキーマをまだ使っているなら、書かれたとおりに動きます。新しいビルドでは、初回起動時に小さな設定ウィザードを求められるかもしれません。同じ3つの値 — プロバイダーの`openai`、モデルID、ベースURL — を、同じ場所に入れます。
 
-1. 設定ファイルを保存
-2. VSCodeウィンドウをリロード: `Cmd+Shift+P` → 「Developer: Reload Window」
-3. Continue拡張機能が新しい設定を読み込みます
+### 3. 保存して再読み込みする
 
-### 4. モデルを選択
+ファイルを保存し、**Developer: Reload Window**。Continueは読み込み時に設定を読みます。
 
-1. Continueサイドバーを開く (左パネルのContinueアイコンをクリック)
-2. 上部のモデルセレクタードロップダウンをクリック
-3. お好みのVelaモデルを選択
+### 4. モデルを選ぶ
 
-## 利用可能なモデル
+Continueのサイドバーを開き、上のドロップダウンからモデルを選びます。
 
-### Claudeモデル (Anthropic)
-- `cc/claude-opus-4-5-20251101` - 最も高性能、複雑なタスクに最適
-- `cc/claude-sonnet-4-20250514` - パフォーマンスと速度のバランス
-- `cc/claude-haiku-4-20250514` - 最速、シンプルなタスクに適している
+## 利用できるモデル
 
-### DeepSeekモデル
-- `cx/deepseek-chat` - コード生成に優れている
-- `cx/deepseek-reasoner` - 複雑な問題解決に最適
+ゲートウェイが一覧するものなら何でも — 次のコマンドで確かめられます:
 
-### GLMモデル (Zhipu AI)
-- `glm/glm-4-plus` - 高度な中国語と英語
-- `glm/glm-4-flash` - 高速応答
+```bash
+curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"
+```
+
+| モデル | レーン |
+|-------|------|
+| `cc/claude-opus-5` | Claudeサブスクリプション |
+| `cc/claude-sonnet-5` | Claudeサブスクリプション |
+| `cc/claude-haiku-4-5-20251001` | Claudeサブスクリプション |
+| `cx/gpt-5.6-sol` | Codexサブスクリプション |
+| `cx/gpt-5.4` | Codexサブスクリプション |
+| `glm/glm-4.7` | 格安 |
+| `minimax/MiniMax-M2.1` | 最も安い |
+| `kr/claude-sonnet-4.5` | 無料 |
+
+コンボもモデルIDとして動きます。
 
 ## 使用例
 
-### コード説明
-1. エディタでコードを選択
-2. Continueサイドバーを開く
-3. 入力: 「Explain this code」
-4. Model: `cc/claude-sonnet-4-20250514`
-
-### コード生成
-1. Continueサイドバーを開く
-2. 入力: 「Create a React component for user profile card」
-3. Model: `cx/deepseek-chat`
-
-### リファクタリング
-1. リファクタリングするコードを選択
-2. 入力: 「Refactor this to use async/await」
-3. Model: `cc/claude-sonnet-4-20250514`
-
-### バグ修正
-1. 問題のあるコードを選択
-2. 入力: 「Find and fix the bug in this code」
-3. Model: `cx/deepseek-reasoner`
+- **説明:** コードを選び、サイドバーを開いて「Explain this」と尋ねる。
+- **生成:** 「ユーザープロフィール用のReactカードコンポーネント」を頼む。
+- **リファクタリング:** コードを選び、「Refactor this to async/await」と尋ねる。
+- **デバッグ:** スタックトレースを貼り、何が壊れたかを尋ねる。
 
 ## 高度な設定
 
-### カスタムシステムプロンプト
-
-特定の動作のためのカスタムシステムプロンプトを追加:
+### システムプロンプト
 
 ```json
 {
   "models": [
     {
-      "title": "Vela - Code Expert",
+      "title": "Vela — Code Expert",
       "provider": "openai",
-      "model": "cx/deepseek-chat",
-      "apiKey": "your-api-key",
+      "model": "cc/claude-sonnet-5",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1",
-      "systemMessage": "You are an expert programmer. Always provide clean, well-documented code with best practices."
+      "systemMessage": "You are a senior engineer. Prefer small, reviewable changes and explain trade-offs."
     }
   ]
 }
 ```
 
-### Temperatureとパラメータ
-
-パラメータでモデルの動作を調整:
+### Temperature
 
 ```json
-{
-  "models": [
-    {
-      "title": "Vela - Creative Writer",
-      "provider": "openai",
-      "model": "cc/claude-opus-4-5-20251101",
-      "apiKey": "your-api-key",
-      "apiBase": "http://localhost:32060/v1",
-      "temperature": 0.9,
-      "topP": 0.95
-    }
-  ]
-}
+"temperature": 0.9,
+"topP": 0.95
 ```
+
+コードには低いtemperatureがたいてい良く、文章には高いほうが。
 
 ### コンテキストプロバイダー
 
-Continueがモデルに送信するコンテキストを設定:
+Continueは、あなたのプロンプトに添えて何を送るかを決めます。これを締めるのが、Continueのユーザーにとってコストへの最大のレバーです:
 
 ```json
 {
   "contextProviders": [
-    {
-      "name": "code",
-      "params": {
-        "maxLines": 100
-      }
-    },
-    {
-      "name": "diff",
-      "params": {}
-    },
-    {
-      "name": "terminal",
-      "params": {}
-    }
+    { "name": "code", "params": { "maxLines": 100 } },
+    { "name": "diff", "params": {} }
   ]
 }
 ```
 
 ## キーボードショートカット
 
-- `Cmd+L` (Mac) / `Ctrl+L` (Windows/Linux) - Continueチャットを開く
-- `Cmd+I` (Mac) / `Ctrl+I` (Windows/Linux) - インライン編集
-- `Cmd+Shift+R` (Mac) / `Ctrl+Shift+R` (Windows/Linux) - 応答を再生成
+- `Cmd/Ctrl + L` — チャットを開く
+- `Cmd/Ctrl + I` — インラインの編集
+- `Cmd/Ctrl + Shift + R` — 再生成
+
+(ショートカットはバージョンによって違います。VS Codeのキーボードショートカットのパネルに、あなたのものが並んでいます。)
 
 ## トラブルシューティング
 
 ### モデルが応答しない
-- Velaが動作中か確認: `curl http://localhost:32060/health`
-- config.jsonのAPIキーを確認
-- エラーについてVSCode開発者コンソールを確認: `Help` → `Toggle Developer Tools`
 
-### 間違ったモデルが選択されている
-- Continueサイドバーのモデルドロップダウンをクリック
-- 正しいVelaモデルを選択
-- モデル名は正確に一致する必要があります (大文字小文字を区別)
+1. `curl http://localhost:32060/api/health` → `{"ok":true}`。
+2. `config.json`のキーを確かめてください。
+3. VS Codeの開発者コンソール(**Help → Toggle Developer Tools**)を開き、エラーを読んでください。
+
+### 違うモデルが答える
+
+- サイドバーのドロップダウンを確かめてください — Continueは最後の選択を覚えています。
+- モデルIDは大文字小文字を区別します。
 
 ### 設定が読み込まれない
-- JSON構文が有効であることを確認 (JSONバリデータを使用)
-- ファイルの場所を確認: `~/.continue/config.json`
-- 変更後にVSCodeウィンドウをリロード
 
-### パフォーマンスが遅い
-- より高速なモデルへ切替 (haiku、flash)
-- contextProvidersでコンテキストサイズを削減
-- Velaへのネットワークレイテンシを確認
+- JSONを検証してください(末尾のカンマがいつもの犯人です)。
+- パスが`~/.continue/config.json`であることを確かめてください。
+- 保存したあとにウィンドウを再読み込みしてください。
+
+### 遅い
+
+- より軽いモデルを使ってください。
+- コンテキストを削ってください: `maxLines`を減らし、添えるファイルを減らす。
+- Velaまでのネットワークの遅延を確かめてください。
 
 ## ベストプラクティス
 
-### モデル選択戦略
-- **クイック編集**: `cc/claude-haiku-4-20250514` を使用
-- **コード生成**: `cx/deepseek-chat` を使用
-- **複雑なリファクタリング**: `cc/claude-opus-4-5-20251101` を使用
-- **問題解決**: `cx/deepseek-reasoner` を使用
-
-### コンテキスト管理
-- 質問する前に関連コードのみを選択
-- 具体的で明確なプロンプトを使用
-- 複雑なタスクを小さなステップに分解
-
-### コスト最適化
-- シンプルなタスクには高速/安価なモデルを使用
-- 可能な場合はコンテキストサイズを制限
-- 頻繁に使用される応答をキャッシュ
+1. **3つのモデル、3つの値段** — 考えるにはOpus、書くにはSonnet、雑用にはGLM。切り替えはクリックひとつ。
+2. **尋ねる前に選ぶ** — ファイルを丸ごと送るのが、高くつく習慣です。
+3. **Continueが共有のマシンで走るなら、キーに上限を。**
 
 ## 次のステップ
 
-- [Cursorを設定](cursor.md) IDE統合を強化
-- [Rooをセットアップ](roo.md) AIアシスタント用
-- [CLI使用法を確認](../cli/basic-usage.md)
-- [モデル選択について学ぶ](../models/overview.md)
+- [Cursor](cursor.md) — IDEのための
+- [Roo](roo.md) — もうひとつのエージェントのための
+- [コンボ](../features/combos.md) — フォールバックの鎖のための

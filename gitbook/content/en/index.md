@@ -1,164 +1,170 @@
 # Welcome to Vela
 
-**Use Claude, Codex, Gemini for FREE • Ultra-cheap alternatives from $0.20/1M tokens**
+**Use Claude, Codex, and Gemini through one endpoint — then keep coding on cheap or free backstops when your subscription runs dry.**
 
-Vela is an AI model router that maximizes your subscription value and minimizes costs through intelligent routing and automatic fallback.
+Vela is a small gateway that sits between your coding tools and your AI providers. You point every tool at one address, and Vela decides which provider answers each request — the one whose quota you already paid for first, then a cheap one, then a free one.
+
+If you have ever watched a month of Claude Code quota expire unused, or lost an hour to a rate limit in the middle of a refactor, Vela is built for that afternoon.
 
 ---
 
-## What is Vela?
+## What is Vela, in plain words?
 
-Vela is a smart proxy that sits between your coding tools (Cursor, Cline, Claude Desktop) and AI providers. It automatically routes requests to the best available model based on quota, cost, and availability.
+Your coding tools (Cursor, Cline, Continue, Claude Code, Codex, and dozens more) all speak "OpenAI-compatible": give them a base URL and a key, and they talk to whatever answers there.
 
-**Stop wasting money:**
+Vela answers there. Behind it sit the providers you connect — your Claude Code login, your Codex login, a GLM key, a free Kiro account — and Vela routes each request to the one that should serve it.
+
+**What that fixes:**
 - ❌ Subscription quota expires unused every month
-- ❌ Rate limits stop you mid-coding
-- ❌ Expensive APIs ($20-50/month per provider)
-- ❌ Manual switching between providers
+- ❌ Rate limits stop you mid-sentence
+- ❌ Several paid APIs, each with its own monthly bill
+- ❌ Hand-switching tools between providers
 
-**Start maximizing value:**
-- ✅ **Maximize Subscriptions** - Track and use every bit of Claude Code, Codex, Gemini quota
-- ✅ **FREE Available** - Access iFlow, Qwen, Kiro models via CLI
-- ✅ **Ultra-Cheap Backup** - GLM ($0.6/1M), MiniMax M2.1 ($0.20/1M)
-- ✅ **Smart Fallback** - Subscription → Cheap → Free, automatic switching
+**What you get instead:**
+- ✅ **Subscriptions used to the last token** — Claude Code, Codex, Copilot and friends, tracked in real time
+- ✅ **Cheap backups** — GLM-4.7 at $0.60 / $2.20 per 1M tokens, MiniMax M2.1 at $0.30 / $1.20
+- ✅ **Free fallbacks** — iFlow, Qwen and Kiro, which cost nothing
+- ✅ **Automatic fallback** — when one runs out, the next takes over without you noticing
 
 ---
 
 ## Key Features
 
-### 🔄 Smart 3-Tier Fallback
+### 🔄 Three tiers, one endpoint
+
+You set the order once and keep coding:
 
 ```
-Setup once, never stop coding:
-
-Tier 1 (SUBSCRIPTION): Claude Code → Codex → Gemini
+Tier 1 (SUBSCRIPTION): Claude Code → Codex → Copilot
   ↓ quota exhausted
-Tier 2 (CHEAP): GLM-4.7 → MiniMax M2.1 → Kimi
-  ↓ budget limit
-Tier 3 (FREE): iFlow → Qwen → Kiro
+Tier 2 (CHEAP):        GLM-4.7 → MiniMax M2.1 → Kimi
+  ↓ spend cap reached
+Tier 3 (FREE):         iFlow → Qwen → Kiro
 
-→ Automatic switching, zero downtime!
+→ The next one answers. You keep typing.
 ```
 
-### 📊 Quota Tracking
+Tiers 2 and 3 are not automatic unless you build them. A **combo** is how you name the chain; the [Combos guide](features/combos.md) walks through building one in a few clicks.
 
-- Real-time token consumption per provider
-- Reset countdown (5-hour, daily, weekly, monthly)
-- Cost estimation for paid tiers
-- Monthly spending reports
+### 📊 Quota tracking
 
-### 🎯 Universal CLI Support
+- Token consumption per provider, live
+- Reset countdowns (hourly, daily, weekly, monthly)
+- Cost estimates for the paid lanes
+- Budget ceilings per API key, if you want hard limits
 
-Works with any tool that supports custom OpenAI endpoints:
+### 🎯 Works with any OpenAI-compatible tool
 
-✅ **Cursor** • **Cline** • **Claude Desktop** • **Codex** • **RooCode** • **Continue** • **Any OpenAI-compatible tool**
+✅ **Cursor** • **Cline** • **Claude Code** • **Codex CLI** • **Roo** • **Continue** • **anything else that takes a base URL**
 
-### 💰 Cost Optimization
+### 💰 A realistic month
 
-**Real example (100M tokens/month):**
+A developer on 100M tokens a month, mostly through quota they already own:
+
 ```
-60M via Gemini CLI: $0 (free tier)
-30M via Claude Code: $0 (subscription you already have)
-8M via GLM: $4.80
-2M via MiniMax: $0.40
-Total: $5.20/month vs $2000 on ChatGPT API!
+60M via Gemini CLI        : $0   (free allowance, upstream figure)
+30M via Claude Code       : $0   (subscription you already pay for)
+ 8M via GLM-4.7            : about $4.80
+ 2M via MiniMax M2.1       : about $0.40
 ```
+
+The [cheap providers page](providers/cheap.md) works through these numbers line by line.
 
 ---
 
-## Why Choose Vela?
+## How many providers does Vela support?
 
-### Maximize Subscriptions
+The honest answer is three numbers, because they measure three different things. All three were measured on 2026-10-28 at version 1.2.4, and you can re-derive them at any time:
 
-Already paying for Claude Code ($20-100/month) or Codex ($20-200/month)? Get full value:
+| Count | What it means | How to check it yourself |
+|-|-|-|
+| **189** | provider files in the registry — everything anyone has written | `ls open-sse/providers/registry/*.js \| grep -v index.js \| wc -l` |
+| **186** | entries the app can actually see (three files are deliberately not imported) | `node -e "import('./open-sse/providers/registry/index.js').then(m=>console.log(m.default.length))"` |
+| **145** | transports a request can actually reach | `node -e "import('./open-sse/providers/index.js').then(m=>console.log(Object.keys(m.PROVIDERS).length))"` |
 
-- Track quota usage in real-time
-- Auto-switch when quota resets (5-hour, weekly)
-- Use every token before it expires
-- Gemini CLI: 180K completions/month **FREE**
+So: **145 providers you can dial**, out of 186 the app can see, out of 189 written down.
 
-### Ultra-Cheap Backup
+The gaps explain themselves. Three files (`devin-cli`, `trae`, `windsurf`) sit on disk but are commented out of the generated index — two lacked solid tool-calling support, one spawns a local agent with shell access — so they are visible to nobody. The other 41 of the 186 are entries that declare no transport: media, tools, or work in progress, reachable by nothing that sends a chat request. Every file, imported or not, still matters to someone reading the registry; none of them is a marketing number. Run the three commands in your own clone and you will get today's numbers, not next month's.
 
-When subscription quota runs out, pay pennies:
-
-| Provider | Cost per 1M tokens | Reset |
-|----------|-------------------|-------|
-| **GLM-4.7** | $0.60 input / $2.20 output | Daily 10:00 AM |
-| **MiniMax M2.1** | $0.20 input / $1.00 output | 5-hour rolling |
-| **Kimi K2** | $9/month (10M tokens) | Monthly |
-
-**~90% cheaper than ChatGPT API ($20/1M)!**
-
-### Free Forever Fallback
-
-Emergency backup when everything else is quota-limited:
-
-- **iFlow**: 8 models (Kimi K2, Qwen3 Coder Plus, GLM 4.7, MiniMax M2)
-- **Qwen**: 3 models (Qwen3 Coder Plus/Flash, Vision)
-- **Kiro**: Claude Sonnet 4.5, Haiku 4.5 (AWS Builder ID)
+By the way they authenticate, the 186 the app can see split into 131 API-key providers, 23 OAuth logins, 22 free-tier lanes, 7 web-cookie providers and 3 with no account at all. You do not need to remember that — the dashboard's **Providers** room lists them.
 
 ---
 
-## Quick Start
+## Why people choose Vela
 
-Get started in 2 minutes:
+### Get full value from what you already pay for
+
+Already on Claude Code or Codex? Vela tracks how much of that quota is left, switches between accounts, and keeps a countdown to the reset. The goal is simple: use what you bought before it expires.
+
+### Cheap when the good stuff runs out
+
+| Provider | Per 1M tokens | Typical reset |
+|----------|---------------|---------------|
+| **GLM-4.7** | $0.60 in / $2.20 out | daily |
+| **MiniMax M2.1** | $0.30 in / $1.20 out | rolling window |
+| **Kimi** | subscription plans | monthly |
+
+These are the rates Vela itself uses for cost estimates (`open-sse/providers/pricing.js`); your provider's invoice is the final word.
+
+### Free when everything else is spent
+
+- **iFlow** — free account, many models (Qwen3, Kimi K2, GLM 4.7, DeepSeek and more)
+- **Qwen** — Qwen models on Qwen's own account
+- **Kiro** — Claude models through an AWS Builder ID
+
+Free lanes have rate limits, and they change without notice. They are the last line, not the first.
+
+---
+
+## Quick start
+
+Two minutes, if Node.js 20 or newer is installed:
 
 ```bash
-# Install globally
+# The launcher installs itself and starts the gateway
 npm install -g vela
-
-# Start (dashboard opens automatically)
 vela
 ```
 
-🎉 **Dashboard opens** → Connect providers → Start coding!
+The dashboard opens by itself at **http://localhost:32060/dashboard**. There is no default password: a local browser walks straight in, and remote logins stay closed until you set a password under **Settings → Access**.
 
-**Use in your CLI tool:**
+Then, in any coding tool:
 
 ```
 Endpoint: http://localhost:32060/v1
-API Key: [from dashboard]
-Model: cc/claude-opus-4-5-20251101
+API Key:  [create one under Dashboard → Endpoint & Key → Create Key]
+Model:    cc/claude-opus-5        (or any model, or a combo name)
 ```
 
-[→ Full Getting Started Guide](getting-started.md)
+[→ Full getting-started guide](getting-started/quick-start.md)
 
 ---
 
-## Use Cases
+## What people use it for
 
-### For Individual Developers
+### Solo developers
+Run every tool against one endpoint, let subscriptions go first, and stop paying for extra API credit "just in case".
 
-- Maximize your Claude Code/Codex subscription
-- Use Gemini CLI free tier (180K/month)
-- Fallback to ultra-cheap models ($0.20/1M)
-- Code 24/7 without rate limits
+### Small teams
+Run Vela once on a small server, hand out one API key per person with its own spend ceiling, and watch usage in one place.
 
-### For Teams
-
-- Deploy on VPS/Cloud for shared access
-- Track team spending in real-time
-- Set budget limits per tier
-- Centralized provider management
-
-### For Mobile/Remote Coding
-
-- Use cloud deployment (https://vela.my.id)
-- Access from iPad, phone, anywhere
-- No localhost limitations
-- Cloudflare edge network (300+ locations)
+### Coding from more than one machine
+Deploy Vela on a VPS or container and reach it from a laptop, a tablet, or a phone. [The cloud guide](deployment/cloud.md) covers it, including the reverse proxy you will need.
 
 ---
 
-## What's Next?
+## Where to go next
 
-- [Getting Started](getting-started.md) - Install and configure in 5 minutes
-- [Installation Guide](getting-started/installation.md) - Detailed setup instructions
-- [Features](features/) - Explore all capabilities
-- [FAQ](faq.md) - Common questions
+- [Quick start](getting-started/quick-start.md) — running in five minutes
+- [Installation](getting-started/installation.md) — every installation method, in detail
+- [Providers](providers/subscription.md) — the three lanes explained: subscription, cheap, free
+- [Features](features/smart-routing.md) — routing, combos, quota tracking
+- [Integration](integration/claude-code.md) — hooking up your tools
+- [Deployment](deployment/localhost.md) — local, cloud, Docker
+- [FAQ](faq.md) — short answers to common questions
 
 ---
 
 <div align="center">
-  <sub>Built with ❤️ for developers maximizing AI value</sub>
+  <sub>Built for developers who would rather code than babysit their API bills.</sub>
 </div>

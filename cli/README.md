@@ -1,6 +1,8 @@
 # ⛵ Vela — The AI Gateway CLI
 
-**One OpenAI-compatible endpoint across 111 dialable provider transports. Never stop coding.**
+> *"One command, one harbor. The launcher installs the ship, starts the ship, and keeps her afloat — and the dashboard opens the moment the anchor drops."*
+
+**One OpenAI-compatible endpoint across 145 dialable provider transports. Never stop coding.**
 
 **Connect All AI Code Tools (Claude Code, Cursor, Antigravity, Copilot, Codex, Gemini, OpenCode, Cline, OpenClaw...) to Vela's provider fleet — with RTK token savings, quota tracking, and auto-fallback.**
 
@@ -46,10 +48,10 @@ npx vela
 ```bash
 docker run -d --name vela -p 32060:32060 \
   -v "$HOME/.vela:/app/data" -e DATA_DIR=/app/data \
-  ghcr.io/yumamax3/vela:latest
+  ghcr.io/yumamax3/vela:1.2.4   # pin a tag — :latest moves without asking you
 ```
 
-🎉 Dashboard opens at `http://localhost:32060`
+The dashboard opens at `http://localhost:32060` (there is **no default password** — set one under Settings → Access before opening remote logins).
 
 **2. Connect a FREE provider (no signup needed):**
 
@@ -114,6 +116,8 @@ Any tool supporting OpenAI/Claude-compatible API works.
 
 - **Source**: https://github.com/YumamaX3/Vela
 - **Changelog**: https://github.com/YumamaX3/Vela/blob/main/CHANGELOG.md
+- **Charts**: https://github.com/YumamaX3/Vela/tree/main/docs/README.md — the harbor map
+- **Docker, deep**: https://github.com/YumamaX3/Vela/blob/main/DOCKER.md
 
 ---
 

@@ -1,442 +1,236 @@
-# 免费提供商 - 零成本回退
+# 免费提供商 —— 零成本兜底
 
-当其他一切都受配额限制时的应急备用。零成本 24/7 编码!
+免费通道是最后一道防线。当订阅用尽、低价通道触顶时，这些提供商仍在应答 —— 对你零成本。
+
+其中三个已预置好、开箱即可连接：iFlow、Qwen 和 Kiro。三者都使用可免费创建的账户，也都有各自的限制，由提供商设定，而非 Vela。
 
 ---
 
 ## 概览
 
-免费层提供商是订阅和低价配额都耗尽时的 **回退**:
+- 🆓 **iFlow** —— 一个免费账户，菜单上的模型丰富多样：Qwen3、Kimi K2、DeepSeek、GLM 等
+- 🆓 **Qwen** —— Qwen 自家的模型，在 Qwen 自家的平台上
+- 🆓 **Kiro** —— 通过 AWS Builder ID 或社交登录使用 Claude 家族
 
-- 🆓 **iFlow** - 8 个免费模型(Kimi K2、Qwen3、GLM 4.7、MiniMax M2...)
-- 🆓 **Qwen** - 3 个免费模型(Qwen3 Coder Plus/Flash、Vision)
-- 🆓 **Kiro** - 2 个免费模型(Claude Sonnet 4.5、Haiku 4.5)
+**思路：** 在每个组合的末尾放上其中一个。这样一来，"一切都配额耗尽"就不再是紧急事故，而只是一个下午变慢了一些。
 
-**策略:** 作为应急备用使用。无限用量,永久零成本!
-
----
-
-## iFlow(8 个免费模型)
-
-### 价格
-
-| 套餐 | 月费 | 模型 | 配额 |
-|------|--------------|--------|-------|
-| 免费 | $0 | 8 个模型 | 无限 |
-
-**最佳价值:** 免费层中模型最多!Kimi K2、Qwen3、GLM、MiniMax、DeepSeek。
-
-### 设置
-
-**步骤 1:通过仪表盘连接**
-
-```bash
-vela
-# 仪表盘 → 提供商 → 连接 iFlow
-```
-
-**步骤 2:iFlow OAuth 登录**
-
-- 点击 "Connect iFlow"
-- 浏览器打开 → iFlow 登录页
-- 创建账户或登录
-- 授予权限
-- 启用自动 token 刷新
-
-**步骤 3:在 CLI 中使用**
-
-```
-Model: if/kimi-k2-thinking
-       if/kimi-k2
-       if/qwen3-coder-plus
-       if/glm-4.7
-       if/minimax-m2
-       if/deepseek-r1
-       if/deepseek-v3.2-chat
-       if/deepseek-v3.2-reasoner
-```
-
-### 可用模型
-
-| 模型 ID | 描述 | 最佳场景 |
-|----------|-------------|----------|
-| `if/kimi-k2-thinking` | Kimi K2 Thinking | 复杂推理 |
-| `if/kimi-k2` | Kimi K2 | 通用编码 |
-| `if/qwen3-coder-plus` | Qwen3 Coder Plus | 代码生成 |
-| `if/glm-4.7` | GLM 4.7 | 中文 + 英文 |
-| `if/minimax-m2` | MiniMax M2 | 长上下文 |
-| `if/deepseek-r1` | DeepSeek R1 | 推理任务 |
-| `if/deepseek-v3.2-chat` | DeepSeek V3.2 Chat | 对话型 |
-| `if/deepseek-v3.2-reasoner` | DeepSeek V3.2 Reasoner | 复杂逻辑 |
-
-### 专业建议
-
-- **8 个免费模型** - 免费层中最丰富
-- **无限用量** - 无配额限制
-- **Kimi K2 Thinking** - 复杂推理最佳
-- **DeepSeek R1** - 强大的推理能力
+> **对"免费"要诚实。** 免费层有限速、偶尔不可用，并且会毫无预告地变化。提供商会公布它们的额度；Vela 在 **配额** 页面显示你的账户实际还剩多少。其他任何东西 —— 比如"每月 180K 次请求"这样的标题数字 —— 都是可能变动的上游数字。
 
 ---
 
-## Qwen(3 个免费模型)
+## iFlow
 
-### 价格
+### 你能得到什么
 
-| 套餐 | 月费 | 模型 | 配额 |
-|------|--------------|--------|-------|
-| 免费 | $0 | 3 个模型 | 无限 |
+一次登录，一份菜单。本版本内置的提供商：
 
-### 设置
+| 模型 | 适合 |
+|-------|----------|
+| `if/qwen3-coder-plus` | 代码生成 |
+| `if/qwen3-max` | 最强的 Qwen3 通用模型 |
+| `if/qwen3-235b-a22b-thinking-2507` | 推理密集的任务 |
+| `if/kimi-k2` | 长上下文编码 |
+| `if/deepseek-r1` | 逐步推理 |
+| `if/deepseek-v3.2` | 快速的通用聊天 |
+| `if/glm-4.7` | 与低价通道相同的模型，零成本 |
+| `if/qwen3-vl-plus` | 视觉 |
 
-**步骤 1:通过仪表盘连接**
+### 配置
 
-```bash
-vela
-# 仪表盘 → 提供商 → 连接 Qwen
-```
-
-**步骤 2:设备码授权**
-
-- 点击 "Connect Qwen"
-- 仪表盘显示设备码
-- 访问授权 URL
-- 输入设备码
-- 登录 Qwen 账户
-- 启用自动 token 刷新
-
-**步骤 3:在 CLI 中使用**
+**第 1 步：连接**
 
 ```
-Model: qw/qwen3-coder-plus
-       qw/qwen3-coder-flash
-       qw/vision-model
+仪表盘 → 提供商 → iFlow → 连接
 ```
 
-### 可用模型
+**第 2 步：登录**
 
-| 模型 ID | 描述 | 最佳场景 |
-|----------|-------------|----------|
-| `qw/qwen3-coder-plus` | Qwen3 Coder Plus | 高级编码 |
-| `qw/qwen3-coder-flash` | Qwen3 Coder Flash | 快速响应 |
-| `qw/vision-model` | Qwen3 Vision | 图像分析 |
+浏览器会打开 iFlow 的登录页面。如果没有账户请先创建一个，批准连接，此后 Vela 会保持 token 新鲜。
 
-### 专业建议
+有些 iFlow 账户用会话 Cookie 而非 OAuth 认证；如果仪表盘提供 Cookie 字段，请粘贴它要求的值。
 
-- **Qwen3 Coder Plus** - 编码能力强
-- **Qwen3 Coder Flash** - 快速任务首选
-- **Vision 模型** - 免费图像分析
-- **无限用量** - 无配额限制
+**第 3 步：使用它**
+
+```
+模型: if/qwen3-coder-plus
+```
+
+### 为什么它是免费首选
+
+多样性。一个账户即可触及多家厂商的模型，这让它成为一个很好的默认选择 —— 当你不想考虑该试哪个免费提供商时。
 
 ---
 
-## Kiro(免费 Claude)
+## Qwen
 
-### 价格
+### 你能得到什么
 
-| 套餐 | 月费 | 模型 | 配额 |
-|------|--------------|--------|-------|
-| 免费 | $0 | Claude Sonnet 4.5、Haiku 4.5 | 无限 |
+Qwen 自家的模型，由 Qwen 提供：
 
-**最佳价值:** 免费 Claude!与付费 Claude Code 同质量。
+| 模型 | 适合 |
+|-------|----------|
+| `qwen/qwen-max` | 最强的通用模型 |
+| `qwen/qwen-plus` | 均衡 |
+| `qwen/qwen-turbo` | 快速、轻量的任务 |
+| `qwen/qwen-long` | 超长文档 |
 
-### 设置
-
-**步骤 1:通过仪表盘连接**
-
-```bash
-vela
-# 仪表盘 → 提供商 → 连接 Kiro
-```
-
-**步骤 2:AWS Builder ID 或 OAuth**
-
-- 点击 "Connect Kiro"
-- 选择登录方式:
-  - AWS Builder ID(推荐)
-  - Google 账户
-  - GitHub 账户
-- 授予权限
-- 启用自动 token 刷新
-
-**步骤 3:在 CLI 中使用**
+### 配置
 
 ```
-Model: kr/claude-sonnet-4.5
-       kr/claude-haiku-4.5
+仪表盘 → 提供商 → Qwen → 连接 或 添加 API Key
 ```
 
-### 可用模型
+取决于你的账户，要么是登录，要么是从 Qwen 控制台获取的密钥。然后以 `qwen/qwen-plus` 的形式使用模型。
 
-| 模型 ID | 描述 | 最佳场景 |
-|----------|-------------|----------|
-| `kr/claude-sonnet-4.5` | Claude Sonnet 4.5 | 质量/速度平衡 |
-| `kr/claude-haiku-4.5` | Claude Haiku 4.5 | 快速响应 |
+### 何时使用它
 
-### 专业建议
-
-- **免费 Claude** - 与付费层同质量
-- **AWS Builder ID** - 用 AWS 账户轻松设置
-- **无限用量** - 无配额限制
-- **顶级质量** - 免费的 Claude 4.5!
+- 当 iFlow 被限流而你现在就需要什么时。
+- 用于长文档工作，`qwen/qwen-long` 在这方面有优势。
+- 作为纯免费组合的第二级。
 
 ---
 
-## 特性对比
+## Kiro（零成本的 Claude）
 
-| 提供商 | 模型 | 最佳模型 | 设置方式 | 配额 |
-|----------|--------|------------|-------|-------|
-| **iFlow** | 8 | Kimi K2 Thinking | OAuth | 无限 |
-| **Qwen** | 3 | Qwen3 Coder Plus | 设备码 | 无限 |
-| **Kiro** | 2 | Claude Sonnet 4.5 | AWS Builder ID | 无限 |
+### 你能得到什么
 
-**赢家:** 多样性看 iFlow,质量看 Kiro!
+通过 Kiro（AWS 的编码环境）使用 Claude 家族：
+
+| 模型 | 适合 |
+|-------|----------|
+| `kr/claude-sonnet-5` | 日常均衡 |
+| `kr/claude-sonnet-4.5` | 久经考验的稳定之选 |
+| `kr/claude-opus-4.8`、`kr/claude-opus-5` | 困难问题 |
+| `kr/claude-haiku-4.5` | 快速任务 |
+
+每个模型还有 `-thinking` 和 `-agentic` 变体（如 `kr/claude-sonnet-4.5-thinking` 等），当你想要可见的推理过程时使用。
+
+### 配置
+
+**第 1 步：连接**
+
+```
+仪表盘 → 提供商 → Kiro → 连接
+```
+
+**第 2 步：选择登录方式**
+
+AWS Builder ID 是常用选项；提供商也提供 Google 和 GitHub 登录。
+
+**第 3 步：使用它**
+
+```
+模型: kr/claude-sonnet-4.5
+```
+
+### 为什么它是质量之选
+
+它就是你会为之付费的同一个模型家族，而且分文不花。这让 `kr/...` 成为组合中天然的"免费但仍然好用"条目 —— 用于真正的工作，而非实验。
 
 ---
 
-## 使用示例
+## 并排对比
 
-### Cursor IDE 设置
-
-```
-Settings → Models → Advanced:
-  OpenAI API Base URL: http://localhost:32060/v1
-  OpenAI API Key: [从 Vela 仪表盘获取]
-  Model: if/kimi-k2-thinking
-```
-
-### 创建组合(推荐)
-
-```
-仪表盘 → 组合 → 新建
-
-名称: free-combo
-模型:
-  1. if/kimi-k2-thinking (iFlow 主力)
-  2. qw/qwen3-coder-plus (Qwen 备用)
-  3. kr/claude-sonnet-4.5 (Kiro 质量)
-
-CLI 中使用: free-combo
-```
-
-**结果:** 零成本,最大在线!
+| 提供商 | 前缀 | 内置模型数 | 登录 | 最擅长 |
+|----------|--------|-----------------|-------|---------|
+| **iFlow** | `if/` | 15 | OAuth 或 Cookie | 多样性 |
+| **Qwen** | `qwen/` | 4 | 登录或密钥 | 长文档 |
+| **Kiro** | `kr/` | 44 | AWS Builder ID / 社交 | Claude 品质 |
 
 ---
 
-## 完整回退策略
+## 在你的工具中使用它们
 
-### 完整 3 层组合
+### 直接使用一个免费模型
 
 ```
-仪表盘 → 组合 → 新建
-
-名称: complete-fallback
-模型:
-  1. gc/gemini-3-flash-preview (免费订阅)
-  2. cc/claude-opus-4-5 (付费订阅)
-  3. glm/glm-4.7 (低价备用, 每 1M $0.6)
-  4. minimax/MiniMax-M2.1 (最便宜, 每 1M $0.2)
-  5. if/kimi-k2-thinking (免费回退)
-  6. kr/claude-sonnet-4.5 (免费质量)
-
-CLI 中使用: complete-fallback
+基础 URL：http://localhost:32060/v1
+API Key： [你的 Vela 密钥]
+模型：    kr/claude-sonnet-4.5
 ```
 
-**结果:**
-- 第 1 层: 免费订阅(Gemini CLI)
-- 第 2 层: 付费订阅(Claude Code)
-- 第 3 层: 低价备用(GLM、MiniMax)
-- 第 4 层: 免费回退(iFlow、Kiro)
+### 纯免费组合
 
-**永不停码!**
+```
+仪表盘 → 组合 → 创建
+  名称：   zero-cost
+  模型：   1. kr/claude-sonnet-4.5      ← 质量优先
+          2. if/qwen3-coder-plus        ← 多样性
+          3. qwen/qwen-plus             ← 最后手段
+```
+
+成本：永远为零。速度与可用性：取决于免费层今天的允许。
+
+### 完整的三层组合
+
+```
+仪表盘 → 组合 → 创建
+  名称：   never-stuck
+  模型：   1. cc/claude-opus-5          ← 订阅
+          2. cx/gpt-5.6-sol            ← 第二个订阅
+          3. glm/glm-4.7               ← 低价
+          4. minimax/MiniMax-M2.1      ← 更低价
+          5. kr/claude-sonnet-4.5      ← 免费，仍然好用
+          6. if/qwen3-coder-plus       ← 免费，多样性
+```
+
+这正是整个设计所指的那条链：用你付过的东西，回退到便宜的东西，绝不以一无所有收尾。
+
+**回退是如何工作的：** 当请求*失败*时，组合会转向下一个模型 —— 配额错误、速率限制、超时、被拒绝的提示词、未知模型。它不会因为每日额度即将耗尽就主动切换。如果你想要硬性上限，请在 API Key 上设置一个（**端点与密钥 → 预算**）；届时 Vela 会以 429 拒绝，而不是悄悄花钱。
 
 ---
 
-## 最佳实践
+## 充分利用免费层
 
-### 1. 作为应急备用
+### 1. 把它们放在最后，并且说到做到
 
-```
-优先级:
-1. 订阅层(最大化付费配额)
-2. 低价层(每 1M tokens 几分钱)
-3. 免费层(无限,零成本)
+把免费模型放在第一，会吸走你所有的工作，让付费配额白白过期。免费模型放在最后，不花一分钱，却能救回一整天。
 
-仅在以下情况使用免费层:
-- 订阅配额耗尽
-- 预算上限达到
-- 测试/非关键任务
-```
-
-### 2. 选择合适的模型
+### 2. 让模型匹配任务
 
 ```
-复杂推理: if/kimi-k2-thinking
-快速编码: qw/qwen3-coder-flash
-最佳质量: kr/claude-sonnet-4.5
-长上下文: if/minimax-m2
-视觉任务: qw/vision-model
+推理 / 棘手的代码 : if/qwen3-235b-a22b-thinking-2507、kr/claude-opus-4.8
+日常编码          : kr/claude-sonnet-4.5、if/qwen3-coder-plus
+快速且便宜        : qwen/qwen-turbo、if/deepseek-v3.2
+长文档            : qwen/qwen-long
+视觉              : if/qwen3-vl-plus
 ```
 
-### 3. 创建仅免费组合
+### 3. 不要只靠它们构建生产环境
 
-```
-零成本编码:
+免费通道会毫无预告地变化：某个模型消失、限制收紧、提供商度过一个糟糕的下午。请把它们当作链条的地板，而不是整张户型图。
 
-名称: zero-cost
-模型:
-  1. kr/claude-sonnet-4.5 (最佳质量)
-  2. if/kimi-k2-thinking (复杂任务)
-  3. qw/qwen3-coder-plus (快速编码)
+### 4. 关注优先级，而非配额
 
-成本: 永远 $0!
-```
-
-### 4. 上生产前先测试
-
-```
-用免费层来:
-- 测试 prompt
-- 原型功能
-- 学习新框架
-- 非关键任务
-
-把付费配额留给:
-- 生产代码
-- 复杂重构
-- 关键功能
-```
+免费层常常按优先级限流，而不是直接拒绝：你的请求排在付费客户后面等待。如果回复感觉慢，通常就是这个原因，换另一个免费提供商就是解决办法。
 
 ---
 
-## 真实案例
-
-### 案例 1:学生/学习者(零预算)
-
-```
-设置:
-1. kr/claude-sonnet-4.5 (最佳质量)
-2. if/kimi-k2-thinking (复杂推理)
-3. qw/qwen3-coder-plus (快速编码)
-
-月成本: $0
-用量: 无限
-
-适合:
-- 学习编程
-- 个人项目
-- 作业/任务
-```
-
-### 案例 2:自由职业(预算敏感)
-
-```
-设置:
-1. gc/gemini-3-flash-preview (每月免费 180K)
-2. glm/glm-4.7 (低价备用, 每 1M $0.6)
-3. if/kimi-k2-thinking (免费回退)
-
-月成本: $5-10
-用量: 100M+ tokens
-
-适合:
-- 客户项目(付费层)
-- 测试(免费层)
-- 应急备用
-```
-
-### 案例 3:重度用户(全部最大化)
-
-```
-设置:
-1. gc/gemini-3-flash-preview (每月免费 180K)
-2. cc/claude-opus-4-5 (订阅 $20-100)
-3. cx/gpt-5.2-codex (订阅 $20-200)
-4. glm/glm-4.7 (低价 每 1M $0.6)
-5. minimax/MiniMax-M2.1 (最便宜 每 1M $0.2)
-6. if/kimi-k2-thinking (免费无限)
-7. kr/claude-sonnet-4.5 (免费质量)
-
-月成本: $40-320(订阅)+ $10-20(低价层)
-用量: 500M+ tokens
-
-适合:
-- 专业开发
-- 团队项目
-- 24/7 编码
-```
-
----
-
-## 成本对比
-
-### 场景:每月 100M tokens
-
-**方案 1:仅 ChatGPT API**
-```
-100M × $20/1M = $2,000/月
-```
-
-**方案 2:仅 Vela 免费层**
-```
-100M 通过免费层 = $0/月
-节省: $2,000/月 (100%)
-```
-
-**方案 3:Vela 完整策略**
-```
-60M 通过 Gemini CLI(免费): $0
-30M 通过 Claude Code(订阅): 无额外费用
-8M 通过 GLM(低价): $4.80
-2M 通过 iFlow(免费): $0
-合计: $4.80/月 + 你已有的订阅
-节省: $1,995/月 (99.76%)
-```
-
----
-
-## 故障排除
+## 故障排查
 
 ### "OAuth failed"
 
-**方案:**
-- 检查网络连接
-- 尝试其他浏览器
-- 清除浏览器缓存
-- 在仪表盘重新连接
+- 检查你是否在线，以及提供商的网站在普通浏览器中能否加载。
+- 换一个浏览器试试，或使用关闭了扩展的无痕窗口。
+- 从 **提供商** 中断开并重新连接。
 
 ### "Model not available"
 
-**方案:**
-- 检查仪表盘中提供商已连接
-- 确认 OAuth token 有效
-- 必要时重新连接提供商
+- 确认该提供商在 **提供商** 中显示为已连接。
+- 确认模型 id 与网关列出的完全一致：`curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`。
 
 ### "Slow responses"
 
-**方案:**
-- 免费层优先级较低
-- 在非高峰时段使用
-- 切换到其他免费提供商
-- 升级到低价层以提速
+免费通道优先级最低。换另一个免费提供商、在更清静的时段工作，或让组合继续前行。
 
----
+### "It worked yesterday and stopped today"
 
-## 限制
-
-### 免费层注意事项
-
-- **速度** - 可能慢于付费层
-- **优先级** - 高峰期优先级较低
-- **速率限制** - 可能限速(但配额无限)
-- **可用性** - 偶尔可能宕机
-
-**方案:** 使用 3 层回退策略保障可靠性!
+这就是免费层的本性。重新连接、在同一提供商上换个模型，或者在它恢复之前依赖另一个免费提供商。
 
 ---
 
 ## 下一步
 
-- **设置订阅:** [订阅型提供商](./subscription.md)
-- **添加低价备用:** [低价提供商](./cheap.md)
-- **创建组合:** 仪表盘 → 组合 → 新建
-- **开始编码:** 使用 `complete-fallback` 组合最大化可靠性
+- **从订阅开始：** [订阅提供商](subscription.md)
+- **加一条低价中间通道：** [低价提供商](cheap.md)
+- **构建并调优一条链：** [组合](../features/combos.md)

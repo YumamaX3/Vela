@@ -1,396 +1,208 @@
 # Free Providers - Zero Cost Fallback
 
-Emergency backup when everything else is quota-limited. Code 24/7 with zero cost!
+The free lane is the last line. When subscriptions are spent and the cheap lane is capped, these providers still answer — at no cost to you.
+
+Three of them ship ready to connect: iFlow, Qwen and Kiro. All three use accounts you can create for free, and all three have limits of their own that are set by the provider, not by Vela.
 
 ---
 
 ## Overview
 
-Free tier providers are your **fallback** when subscription and cheap quota exhausted:
+- 🆓 **iFlow** — a free account with a broad model menu: Qwen3, Kimi K2, DeepSeek, GLM, and more
+- 🆓 **Qwen** — Qwen's own models, on Qwen's own platform
+- 🆓 **Kiro** — the Claude family through an AWS Builder ID or a social login
 
-- 🆓 **iFlow** - 8 models FREE (Kimi K2, Qwen3, GLM 4.7, MiniMax M2...)
-- 🆓 **Qwen** - 3 models FREE (Qwen3 Coder Plus/Flash, Vision)
-- 🆓 **Kiro** - 2 models FREE (Claude Sonnet 4.5, Haiku 4.5)
+**The idea:** put one of these at the end of every combo. Then "everything is out of quota" stops being an emergency and becomes a slower afternoon.
 
-**Strategy:** Use as emergency backup. Unlimited usage, zero cost forever!
-
----
-
-## iFlow (8 FREE Models)
-
-### Pricing
-
-| Plan | Monthly Cost | Models | Quota |
-|------|--------------|--------|-------|
-| FREE | $0 | 8 models | Unlimited |
-
-**Best Value:** Most models in free tier! Kimi K2, Qwen3, GLM, MiniMax, DeepSeek.
-
-### Setup
-
-**Step 1: Connect via Dashboard**
-
-```bash
-vela
-# Dashboard → Providers → Connect iFlow
-```
-
-**Step 2: iFlow OAuth Login**
-
-- Click "Connect iFlow"
-- Browser opens → iFlow login page
-- Create account or login
-- Grant permissions
-- Auto token refresh enabled
-
-**Step 3: Use in CLI**
-
-```
-Model: if/kimi-k2-thinking
-       if/kimi-k2
-       if/qwen3-coder-plus
-       if/glm-4.7
-       if/minimax-m2
-       if/deepseek-r1
-       if/deepseek-v3.2-chat
-       if/deepseek-v3.2-reasoner
-```
-
-### Available Models
-
-| Model ID | Description | Best For |
-|----------|-------------|----------|
-| `if/kimi-k2-thinking` | Kimi K2 Thinking | Complex reasoning |
-| `if/kimi-k2` | Kimi K2 | General coding |
-| `if/qwen3-coder-plus` | Qwen3 Coder Plus | Code generation |
-| `if/glm-4.7` | GLM 4.7 | Chinese + English |
-| `if/minimax-m2` | MiniMax M2 | Long context |
-| `if/deepseek-r1` | DeepSeek R1 | Reasoning tasks |
-| `if/deepseek-v3.2-chat` | DeepSeek V3.2 Chat | Conversational |
-| `if/deepseek-v3.2-reasoner` | DeepSeek V3.2 Reasoner | Complex logic |
-
-### Pro Tips
-
-- **8 models FREE** - Most variety in free tier
-- **Unlimited usage** - No quota limits
-- **Kimi K2 Thinking** - Best for complex reasoning
-- **DeepSeek R1** - Strong reasoning capabilities
+> **Be honest about "free".** Free tiers are rate-limited, occasionally unavailable, and change without notice. The providers publish their allowances; Vela shows what your account actually has left on the **Quota** page. Anything else — a headline like "180K requests a month" — is an upstream figure that can move.
 
 ---
 
-## Qwen (3 FREE Models)
+## iFlow
 
-### Pricing
+### What you get
 
-| Plan | Monthly Cost | Models | Quota |
-|------|--------------|--------|-------|
-| FREE | $0 | 3 models | Unlimited |
+One login, one menu. The provider this release ships with:
+
+| Model | Good for |
+|-------|----------|
+| `if/qwen3-coder-plus` | code generation |
+| `if/qwen3-max` | the strongest Qwen3 general model |
+| `if/qwen3-235b-a22b-thinking-2507` | reasoning-heavy tasks |
+| `if/kimi-k2` | long-context coding |
+| `if/deepseek-r1` | step-by-step reasoning |
+| `if/deepseek-v3.2` | fast general chat |
+| `if/glm-4.7` | the same model as the cheap lane, at no cost |
+| `if/qwen3-vl-plus` | vision |
 
 ### Setup
 
-**Step 1: Connect via Dashboard**
-
-```bash
-vela
-# Dashboard → Providers → Connect Qwen
-```
-
-**Step 2: Device Code Authorization**
-
-- Click "Connect Qwen"
-- Dashboard shows device code
-- Visit authorization URL
-- Enter device code
-- Login to Qwen account
-- Auto token refresh enabled
-
-**Step 3: Use in CLI**
+**Step 1: connect**
 
 ```
-Model: qw/qwen3-coder-plus
-       qw/qwen3-coder-flash
-       qw/vision-model
+Dashboard → Providers → iFlow → Connect
 ```
 
-### Available Models
+**Step 2: log in**
 
-| Model ID | Description | Best For |
-|----------|-------------|----------|
-| `qw/qwen3-coder-plus` | Qwen3 Coder Plus | Advanced coding |
-| `qw/qwen3-coder-flash` | Qwen3 Coder Flash | Fast responses |
-| `qw/vision-model` | Qwen3 Vision | Image analysis |
+The browser opens iFlow's sign-in page. Create an account if you do not have one, approve the connection, and Vela keeps the token fresh from then on.
 
-### Pro Tips
+Some iFlow accounts authenticate with a session cookie rather than OAuth; if the dashboard offers a cookie field, paste the value it asks for.
 
-- **Qwen3 Coder Plus** - Strong coding capabilities
-- **Qwen3 Coder Flash** - Fast for quick tasks
-- **Vision model** - FREE image analysis
-- **Unlimited usage** - No quota limits
+**Step 3: use it**
+
+```
+Model: if/qwen3-coder-plus
+```
+
+### Why it is the first free pick
+
+Variety. One account reaches models from several vendors, which makes it a good default when you do not want to think about which free provider to try.
 
 ---
 
-## Kiro (Claude FREE)
+## Qwen
 
-### Pricing
+### What you get
 
-| Plan | Monthly Cost | Models | Quota |
-|------|--------------|--------|-------|
-| FREE | $0 | Claude Sonnet 4.5, Haiku 4.5 | Unlimited |
+Qwen's own models, served by Qwen:
 
-**Best Value:** FREE Claude! Same quality as paid Claude Code.
+| Model | Good for |
+|-------|----------|
+| `qwen/qwen-max` | the strongest general model |
+| `qwen/qwen-plus` | balanced |
+| `qwen/qwen-turbo` | fast, light tasks |
+| `qwen/qwen-long` | very long documents |
 
 ### Setup
 
-**Step 1: Connect via Dashboard**
-
-```bash
-vela
-# Dashboard → Providers → Connect Kiro
+```
+Dashboard → Providers → Qwen → Connect or Add API key
 ```
 
-**Step 2: AWS Builder ID or OAuth**
+Depending on your account, that is either a login or a key from Qwen's console. Then use models as `qwen/qwen-plus`.
 
-- Click "Connect Kiro"
-- Choose login method:
-  - AWS Builder ID (recommended)
-  - Google account
-  - GitHub account
-- Grant permissions
-- Auto token refresh enabled
+### When to reach for it
 
-**Step 3: Use in CLI**
+- When iFlow is rate-limited and you need something now.
+- For long-document work, where `qwen/qwen-long` has an edge.
+- As the second rung of a free-only combo.
+
+---
+
+## Kiro (Claude at no cost)
+
+### What you get
+
+The Claude family through Kiro, which is AWS's coding environment:
+
+| Model | Good for |
+|-------|----------|
+| `kr/claude-sonnet-5` | the everyday balance |
+| `kr/claude-sonnet-4.5` | a proven stable choice |
+| `kr/claude-opus-4.8`, `kr/claude-opus-5` | the hard problems |
+| `kr/claude-haiku-4.5` | quick tasks |
+
+Each also has `-thinking` and `-agentic` variants (`kr/claude-sonnet-4.5-thinking`, and so on) when you want visible reasoning.
+
+### Setup
+
+**Step 1: connect**
+
+```
+Dashboard → Providers → Kiro → Connect
+```
+
+**Step 2: choose a login**
+
+AWS Builder ID is the usual option; Google and GitHub logins are also offered by the provider.
+
+**Step 3: use it**
 
 ```
 Model: kr/claude-sonnet-4.5
-       kr/claude-haiku-4.5
 ```
 
-### Available Models
+### Why it is the quality pick
 
-| Model ID | Description | Best For |
-|----------|-------------|----------|
-| `kr/claude-sonnet-4.5` | Claude Sonnet 4.5 | Balanced quality/speed |
-| `kr/claude-haiku-4.5` | Claude Haiku 4.5 | Fast responses |
-
-### Pro Tips
-
-- **FREE Claude** - Same quality as paid tier
-- **AWS Builder ID** - Easy setup with AWS account
-- **Unlimited usage** - No quota limits
-- **Best quality** - Claude 4.5 for free!
+It is the same model family you would pay for, at nothing. That makes `kr/...` the natural "free but still good" entry in a combo — the one you use for real work rather than experiments.
 
 ---
 
-## Feature Comparison
+## Side by side
 
-| Provider | Models | Best Model | Setup | Quota |
-|----------|--------|------------|-------|-------|
-| **iFlow** | 8 | Kimi K2 Thinking | OAuth | Unlimited |
-| **Qwen** | 3 | Qwen3 Coder Plus | Device Code | Unlimited |
-| **Kiro** | 2 | Claude Sonnet 4.5 | AWS Builder ID | Unlimited |
-
-**Winner:** iFlow for variety, Kiro for quality!
+| Provider | Prefix | Models shipped | Login | Best at |
+|----------|--------|-----------------|-------|---------|
+| **iFlow** | `if/` | 15 | OAuth or cookie | variety |
+| **Qwen** | `qwen/` | 4 | login or key | long documents |
+| **Kiro** | `kr/` | 44 | AWS Builder ID / social | Claude quality |
 
 ---
 
-## Usage Example
+## Using them in your tools
 
-### Cursor IDE Setup
-
-```
-Settings → Models → Advanced:
-  OpenAI API Base URL: http://localhost:32060/v1
-  OpenAI API Key: [from Vela dashboard]
-  Model: if/kimi-k2-thinking
-```
-
-### Create Combo (Recommended)
+### One free model, directly
 
 ```
-Dashboard → Combos → Create New
-
-Name: free-combo
-Models:
-  1. if/kimi-k2-thinking (iFlow primary)
-  2. qw/qwen3-coder-plus (Qwen backup)
-  3. kr/claude-sonnet-4.5 (Kiro quality)
-
-Use in CLI: free-combo
+Base URL: http://localhost:32060/v1
+API Key:  [your Vela key]
+Model:    kr/claude-sonnet-4.5
 ```
 
-**Result:** Zero cost, maximum uptime!
+### A free-only combo
+
+```
+Dashboard → Combos → Create
+  Name:   zero-cost
+  Models: 1. kr/claude-sonnet-4.5      ← quality first
+          2. if/qwen3-coder-plus        ← variety
+          3. qwen/qwen-plus             ← last resort
+```
+
+Cost: nothing, ever. Speed and availability: whatever the free tiers allow today.
+
+### The full three-lane combo
+
+```
+Dashboard → Combos → Create
+  Name:   never-stuck
+  Models: 1. cc/claude-opus-5          ← subscription
+          2. cx/gpt-5.6-sol            ← second subscription
+          3. glm/glm-4.7               ← cheap
+          4. minimax/MiniMax-M2.1      ← cheaper
+          5. kr/claude-sonnet-4.5      ← free, still good
+          6. if/qwen3-coder-plus       ← free, variety
+```
+
+This is the chain the whole design is pointing at: use what you paid for, fall back to what is cheap, and never end on nothing.
+
+**How the falling-back works:** a combo moves to the next model when a request *fails* — quota error, rate limit, timeout, refused prompt, unknown model. It does not pre-emptively switch because a daily allowance is running low. If you want a hard ceiling, set one on the API key (**Endpoint & Key → budget**); Vela then refuses with a 429 rather than quietly spending.
 
 ---
 
-## Full Fallback Strategy
+## Getting the most out of free tiers
 
-### Complete 3-Tier Combo
+### 1. Put them last, and mean it
 
-```
-Dashboard → Combos → Create New
+A free model first will soak up all your work and leave your paid quota to expire unused. A free model last costs nothing and saves the day.
 
-Name: complete-fallback
-Models:
-  1. gc/gemini-3-flash-preview (FREE subscription)
-  2. cc/claude-opus-4-5 (Paid subscription)
-  3. glm/glm-4.7 (Cheap backup, $0.6/1M)
-  4. minimax/MiniMax-M2.1 (Cheapest, $0.2/1M)
-  5. if/kimi-k2-thinking (FREE fallback)
-  6. kr/claude-sonnet-4.5 (FREE quality)
-
-Use in CLI: complete-fallback
-```
-
-**Result:**
-- Tier 1: FREE subscription (Gemini CLI)
-- Tier 2: Paid subscription (Claude Code)
-- Tier 3: Cheap backup (GLM, MiniMax)
-- Tier 4: FREE fallback (iFlow, Kiro)
-
-**Never stop coding!**
-
----
-
-## Best Practices
-
-### 1. Use as Emergency Backup
+### 2. Match the model to the job
 
 ```
-Priority:
-1. Subscription tier (maximize paid quota)
-2. Cheap tier (pennies per 1M tokens)
-3. FREE tier (unlimited, zero cost)
-
-Only use free tier when:
-- Subscription quota exhausted
-- Budget limit reached
-- Testing/non-critical tasks
+Reasoning / tricky code : if/qwen3-235b-a22b-thinking-2507, kr/claude-opus-4.8
+Everyday coding         : kr/claude-sonnet-4.5, if/qwen3-coder-plus
+Fast and cheap          : qwen/qwen-turbo, if/deepseek-v3.2
+Long documents          : qwen/qwen-long
+Vision                  : if/qwen3-vl-plus
 ```
 
-### 2. Choose Right Model
+### 3. Do not build production on them alone
 
-```
-Complex reasoning: if/kimi-k2-thinking
-Fast coding: qw/qwen3-coder-flash
-Best quality: kr/claude-sonnet-4.5
-Long context: if/minimax-m2
-Vision tasks: qw/vision-model
-```
+Free lanes change without warning: a model disappears, a limit tightens, a provider has a bad afternoon. Use them as the floor of a chain, not the whole floorplan.
 
-### 3. Create Free-Only Combo
+### 4. Watch the priority, not the quota
 
-```
-For zero-cost coding:
-
-Name: zero-cost
-Models:
-  1. kr/claude-sonnet-4.5 (Best quality)
-  2. if/kimi-k2-thinking (Complex tasks)
-  3. qw/qwen3-coder-plus (Fast coding)
-
-Cost: $0 forever!
-```
-
-### 4. Test Before Production
-
-```
-Use free tier to:
-- Test prompts
-- Prototype features
-- Learn new frameworks
-- Non-critical tasks
-
-Save paid quota for:
-- Production code
-- Complex refactoring
-- Critical features
-```
-
----
-
-## Real-World Examples
-
-### Example 1: Student/Learner (Zero Budget)
-
-```
-Setup:
-1. kr/claude-sonnet-4.5 (Best quality)
-2. if/kimi-k2-thinking (Complex reasoning)
-3. qw/qwen3-coder-plus (Fast coding)
-
-Monthly cost: $0
-Usage: Unlimited
-
-Perfect for:
-- Learning to code
-- Personal projects
-- Homework/assignments
-```
-
-### Example 2: Freelancer (Budget-Conscious)
-
-```
-Setup:
-1. gc/gemini-3-flash-preview (FREE 180K/month)
-2. glm/glm-4.7 (Cheap backup, $0.6/1M)
-3. if/kimi-k2-thinking (FREE fallback)
-
-Monthly cost: $5-10
-Usage: 100M+ tokens
-
-Perfect for:
-- Client projects (paid tier)
-- Testing (free tier)
-- Emergency backup
-```
-
-### Example 3: Heavy User (Maximize Everything)
-
-```
-Setup:
-1. gc/gemini-3-flash-preview (FREE 180K/month)
-2. cc/claude-opus-4-5 (Subscription $20-100)
-3. cx/gpt-5.2-codex (Subscription $20-200)
-4. glm/glm-4.7 (Cheap $0.6/1M)
-5. minimax/MiniMax-M2.1 (Cheapest $0.2/1M)
-6. if/kimi-k2-thinking (FREE unlimited)
-7. kr/claude-sonnet-4.5 (FREE quality)
-
-Monthly cost: $40-320 (subscriptions) + $10-20 (cheap tier)
-Usage: 500M+ tokens
-
-Perfect for:
-- Professional development
-- Team projects
-- 24/7 coding
-```
-
----
-
-## Cost Comparison
-
-### Scenario: 100M tokens/month
-
-**Option 1: ChatGPT API Only**
-```
-100M × $20/1M = $2,000/month
-```
-
-**Option 2: Vela Free Tier Only**
-```
-100M via free tier = $0/month
-Savings: $2,000/month (100%)
-```
-
-**Option 3: Vela Complete Strategy**
-```
-60M via Gemini CLI (FREE): $0
-30M via Claude Code (subscription): $0 extra
-8M via GLM (cheap): $4.80
-2M via iFlow (FREE): $0
-Total: $4.80/month + subscriptions you already have
-Savings: $1,995/month (99.76%)
-```
+Free tiers often throttle by priority rather than refuse outright: your request waits behind paying customers. If replies feel slow, that is usually why, and switching to another free provider is the fix.
 
 ---
 
@@ -398,45 +210,27 @@ Savings: $1,995/month (99.76%)
 
 ### "OAuth failed"
 
-**Solution:**
-- Check internet connection
-- Try different browser
-- Clear browser cache
-- Reconnect in dashboard
+- Check you are online and the provider's site loads in a normal browser.
+- Try a different browser, or a private window with extensions off.
+- Disconnect and reconnect from **Providers**.
 
 ### "Model not available"
 
-**Solution:**
-- Check provider connected in dashboard
-- Verify OAuth token valid
-- Reconnect provider if needed
+- Confirm the provider shows as connected in **Providers**.
+- Confirm the model id is exactly as listed by the gateway: `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`.
 
 ### "Slow responses"
 
-**Solution:**
-- Free tier may have lower priority
-- Use during off-peak hours
-- Switch to different free provider
-- Upgrade to cheap tier for speed
+Free lanes are the lowest priority. Try another free provider, work at quieter hours, or let the combo move on.
+
+### "It worked yesterday and stopped today"
+
+That is the nature of a free tier. Reconnect, try a different model on the same provider, or lean on a different free provider until it returns.
 
 ---
 
-## Limitations
+## Next steps
 
-### Free Tier Considerations
-
-- **Speed** - May be slower than paid tiers
-- **Priority** - Lower priority during peak hours
-- **Rate limits** - Possible rate limiting (but unlimited quota)
-- **Availability** - May have occasional downtime
-
-**Solution:** Use 3-tier fallback strategy for reliability!
-
----
-
-## Next Steps
-
-- **Setup subscriptions:** [Subscription Providers](./subscription.md)
-- **Add cheap backup:** [Cheap Providers](./cheap.md)
-- **Create combos:** Dashboard → Combos → Create New
-- **Start coding:** Use `complete-fallback` combo for maximum reliability
+- **Start with subscriptions:** [Subscription Providers](subscription.md)
+- **Add a cheap middle lane:** [Cheap Providers](cheap.md)
+- **Build and tune a chain:** [Combos](../features/combos.md)

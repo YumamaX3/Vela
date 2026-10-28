@@ -1,249 +1,197 @@
-# Integración con la extensión Continue de VSCode
+# Integración con la extensión Continue para VSCode
 
-Integra Vela con la extensión Continue para llevar la asistencia de IA directamente a Visual Studio Code.
+Continue es un asistente de IA de código abierto para VS Code y JetBrains. Lee un `config.json`, y ese archivo es todo lo que necesitas para enrutarlo a través de Vela.
 
 ## Requisitos previos
 
-- Visual Studio Code instalado
-- Extensión Continue instalada desde el marketplace de VSCode
-- API key de Vela desde el [dashboard](https://vela.my.id/dashboard)
-- Vela ejecutándose (local o en la nube)
+- VS Code con la extensión Continue instalada
+- Vela en ejecución local, o un endpoint en la nube accesible
+- Una clave de API del dashboard de Vela (**Endpoint & Key → Create Key**)
 
 ## Pasos de configuración
 
 ### 1. Abrir la configuración de Continue
 
-1. Abre VSCode
-2. Presiona `Cmd+Shift+P` (Mac) o `Ctrl+Shift+P` (Windows/Linux)
-3. Escribe "Continue: Open Config" y selecciónalo
-4. Esto abre `~/.continue/config.json`
+- `Cmd+Shift+P` (macOS) o `Ctrl+Shift+P` (Windows/Linux)
+- Ejecuta **Continue: Open Config**
+- Esto abre `~/.continue/config.json`
 
-### 2. Agregar configuración de modelo de Vela
+### 2. Añadir modelos de Vela
 
-Agrega la siguiente configuración a tu `config.json`:
+El formato de configuración actual de Continue usa un array `models`:
 
-**Configuración de un solo modelo:**
+**Un modelo:**
+
 ```json
 {
   "models": [
     {
-      "title": "Vela - Claude Opus",
+      "title": "Vela — Claude Opus",
       "provider": "openai",
-      "model": "cc/claude-opus-4-5-20251101",
-      "apiKey": "your-api-key-from-dashboard",
+      "model": "cc/claude-opus-5",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1"
     }
   ]
 }
 ```
 
-**Configuración de múltiples modelos:**
+**Varios, para poder cambiar en el desplegable:**
+
 ```json
 {
   "models": [
     {
-      "title": "Vela - Claude Opus (Best)",
+      "title": "Vela — Opus (hard tasks)",
       "provider": "openai",
-      "model": "cc/claude-opus-4-5-20251101",
-      "apiKey": "your-api-key-from-dashboard",
+      "model": "cc/claude-opus-5",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1"
     },
     {
-      "title": "Vela - Claude Sonnet (Balanced)",
+      "title": "Vela — Sonnet (everyday)",
       "provider": "openai",
-      "model": "cc/claude-sonnet-4-20250514",
-      "apiKey": "your-api-key-from-dashboard",
+      "model": "cc/claude-sonnet-5",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1"
     },
     {
-      "title": "Vela - DeepSeek Chat (Code)",
+      "title": "Vela — GLM (cheap)",
       "provider": "openai",
-      "model": "cx/deepseek-chat",
-      "apiKey": "your-api-key-from-dashboard",
-      "apiBase": "http://localhost:32060/v1"
-    },
-    {
-      "title": "Vela - Claude Haiku (Fast)",
-      "provider": "openai",
-      "model": "cc/claude-haiku-4-20250514",
-      "apiKey": "your-api-key-from-dashboard",
+      "model": "glm/glm-4.7",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1"
     }
   ]
 }
 ```
 
-**Para Vela en la nube:**
-Reemplaza `apiBase` con:
+**Para un Vela desplegado**, cambia `apiBase`:
+
 ```json
-"apiBase": "https://vela.my.id/v1"
+"apiBase": "https://your-domain.example/v1"
 ```
+
+> Si tu versión de Continue todavía usa el esquema `models`/`apiBase` más antiguo que se muestra aquí, funciona tal como está escrito. Las compilaciones más nuevas pueden pedirte un pequeño asistente de configuración en el primer arranque; los mismos tres valores — proveedor `openai`, id de modelo, URL base — van en los mismos lugares.
 
 ### 3. Guardar y recargar
 
-1. Guarda el archivo de configuración
-2. Recarga la ventana de VSCode: `Cmd+Shift+P` → "Developer: Reload Window"
-3. La extensión Continue cargará la nueva configuración
+Guarda el archivo, y luego **Developer: Reload Window**. Continue lee la configuración al cargar.
 
-### 4. Seleccionar modelo
+### 4. Seleccionar un modelo
 
-1. Abre la barra lateral de Continue (clic en el ícono de Continue en el panel izquierdo)
-2. Clic en el dropdown selector de modelo en la parte superior
-3. Elige tu modelo preferido de Vela
+Abre la barra lateral de Continue y elige el modelo en el desplegable de la parte superior.
 
 ## Modelos disponibles
 
-### Modelos Claude (Anthropic)
-- `cc/claude-opus-4-5-20251101` - El más capaz, ideal para tareas complejas
-- `cc/claude-sonnet-4-20250514` - Rendimiento y velocidad equilibrados
-- `cc/claude-haiku-4-20250514` - El más rápido, bueno para tareas simples
+Cualquier cosa que liste la puerta de enlace — compruébalo con:
 
-### Modelos DeepSeek
-- `cx/deepseek-chat` - Excelente para generación de código
-- `cx/deepseek-reasoner` - Mejor para resolución de problemas complejos
+```bash
+curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"
+```
 
-### Modelos GLM (Zhipu AI)
-- `glm/glm-4-plus` - Chino e inglés avanzado
-- `glm/glm-4-flash` - Respuestas rápidas
+| Modelo | Nivel |
+|-------|------|
+| `cc/claude-opus-5` | Suscripción de Claude |
+| `cc/claude-sonnet-5` | Suscripción de Claude |
+| `cc/claude-haiku-4-5-20251001` | Suscripción de Claude |
+| `cx/gpt-5.6-sol` | Suscripción de Codex |
+| `cx/gpt-5.4` | Suscripción de Codex |
+| `glm/glm-4.7` | barato |
+| `minimax/MiniMax-M2.1` | el más barato |
+| `kr/claude-sonnet-4.5` | gratis |
+
+Los combos también funcionan como ids de modelo.
 
 ## Ejemplos de uso
 
-### Explicación de código
-1. Selecciona código en el editor
-2. Abre la barra lateral de Continue
-3. Escribe: "Explain this code"
-4. Modelo: `cc/claude-sonnet-4-20250514`
+- **Explicar:** selecciona código, abre la barra lateral, pregunta "Explain this".
+- **Generar:** pide "a React card component for a user profile".
+- **Refactorizar:** selecciona código, pide "Refactor this to async/await".
+- **Depurar:** pega el stack trace y pregunta qué se rompió.
 
-### Generación de código
-1. Abre la barra lateral de Continue
-2. Escribe: "Create a React component for user profile card"
-3. Modelo: `cx/deepseek-chat`
+## Avanzado
 
-### Refactorización
-1. Selecciona código para refactorizar
-2. Escribe: "Refactor this to use async/await"
-3. Modelo: `cc/claude-sonnet-4-20250514`
-
-### Corrección de bugs
-1. Selecciona código problemático
-2. Escribe: "Find and fix the bug in this code"
-3. Modelo: `cx/deepseek-reasoner`
-
-## Configuración avanzada
-
-### Prompts de sistema personalizados
-
-Agrega prompts de sistema personalizados para comportamientos específicos:
+### Un system prompt
 
 ```json
 {
   "models": [
     {
-      "title": "Vela - Code Expert",
+      "title": "Vela — Code Expert",
       "provider": "openai",
-      "model": "cx/deepseek-chat",
-      "apiKey": "your-api-key",
+      "model": "cc/claude-sonnet-5",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1",
-      "systemMessage": "You are an expert programmer. Always provide clean, well-documented code with best practices."
+      "systemMessage": "You are a senior engineer. Prefer small, reviewable changes and explain trade-offs."
     }
   ]
 }
 ```
 
-### Temperatura y parámetros
-
-Ajusta el comportamiento del modelo con parámetros:
+### Temperatura
 
 ```json
-{
-  "models": [
-    {
-      "title": "Vela - Creative Writer",
-      "provider": "openai",
-      "model": "cc/claude-opus-4-5-20251101",
-      "apiKey": "your-api-key",
-      "apiBase": "http://localhost:32060/v1",
-      "temperature": 0.9,
-      "topP": 0.95
-    }
-  ]
-}
+"temperature": 0.9,
+"topP": 0.95
 ```
+
+Para código, una temperatura más baja suele ser mejor; para escritura, más alta.
 
 ### Proveedores de contexto
 
-Configura qué contexto envía Continue al modelo:
+Continue decide qué enviar junto a tu prompt. Ajustar esto es la palanca más grande sobre el costo para los usuarios de Continue:
 
 ```json
 {
   "contextProviders": [
-    {
-      "name": "code",
-      "params": {
-        "maxLines": 100
-      }
-    },
-    {
-      "name": "diff",
-      "params": {}
-    },
-    {
-      "name": "terminal",
-      "params": {}
-    }
+    { "name": "code", "params": { "maxLines": 100 } },
+    { "name": "diff", "params": {} }
   ]
 }
 ```
 
 ## Atajos de teclado
 
-- `Cmd+L` (Mac) / `Ctrl+L` (Windows/Linux) - Abrir chat de Continue
-- `Cmd+I` (Mac) / `Ctrl+I` (Windows/Linux) - Edición inline
-- `Cmd+Shift+R` (Mac) / `Ctrl+Shift+R` (Windows/Linux) - Regenerar respuesta
+- `Cmd/Ctrl + L` — abrir el chat
+- `Cmd/Ctrl + I` — edición en línea
+- `Cmd/Ctrl + Shift + R` — regenerar
+
+(Los atajos varían según la versión; el panel de atajos de VS Code lista los tuyos.)
 
 ## Solución de problemas
 
 ### El modelo no responde
-- Verifica que Vela esté corriendo: `curl http://localhost:32060/health`
-- Verifica la API key en config.json
-- Revisa la consola de desarrollador de VSCode por errores: `Help` → `Toggle Developer Tools`
 
-### Modelo incorrecto seleccionado
-- Clic en el dropdown de modelo en la barra lateral de Continue
-- Selecciona el modelo correcto de Vela
-- El nombre del modelo debe coincidir exactamente (sensible a mayúsculas)
+1. `curl http://localhost:32060/api/health` → `{"ok":true}`.
+2. Comprueba la clave en `config.json`.
+3. Abre la consola de desarrollador de VS Code (**Help → Toggle Developer Tools**) y lee el error.
 
-### La configuración no se carga
-- Verifica que la sintaxis JSON sea válida (usa un validador de JSON)
-- Verifica la ubicación del archivo: `~/.continue/config.json`
-- Recarga la ventana de VSCode después de cambios
+### Responde el modelo equivocado
 
-### Rendimiento lento
-- Cambia a modelos más rápidos (haiku, flash)
-- Reduce el tamaño del contexto en contextProviders
-- Verifica la latencia de red hacia Vela
+- Comprueba el desplegable de la barra lateral — Continue recuerda la última selección.
+- Los ids de modelo distinguen mayúsculas y minúsculas.
 
-## Mejores prácticas
+### La configuración no carga
 
-### Estrategia de selección de modelo
-- **Ediciones rápidas**: Usa `cc/claude-haiku-4-20250514`
-- **Generación de código**: Usa `cx/deepseek-chat`
-- **Refactoring complejo**: Usa `cc/claude-opus-4-5-20251101`
-- **Resolución de problemas**: Usa `cx/deepseek-reasoner`
+- Valida el JSON (una coma final es el culpable habitual).
+- Confirma que la ruta es `~/.continue/config.json`.
+- Recarga la ventana después de guardar.
 
-### Gestión de contexto
-- Selecciona solo el código relevante antes de preguntar
-- Usa prompts específicos y claros
-- Divide tareas complejas en pasos más pequeños
+### Lento
 
-### Optimización de costos
-- Usa modelos más rápidos/baratos para tareas simples
-- Limita el tamaño del contexto cuando sea posible
-- Cachea respuestas usadas con frecuencia
+- Usa un modelo más ligero.
+- Recorta el contexto: menos `maxLines`, menos archivos adjuntos.
+- Comprueba la latencia de red hasta Vela.
 
-## Próximos pasos
+## Buenas prácticas
 
-- [Configurar Cursor](cursor.md) para integración mejorada con IDE
-- [Configurar Roo](roo.md) para asistente de IA
-- [Explorar uso de CLI](../cli/basic-usage.md)
-- [Aprende sobre la selección de modelos](../models/overview.md)
+1. **Tres modelos, tres precios** — Opus para pensar, Sonnet para escribir, GLM para las tareas domésticas. Cambiar es un clic.
+2. **Selecciona antes de preguntar** — enviar archivos completos es el hábito caro.
+3. **Pon un techo a la clave** si Continue corre en una máquina compartida.
+
+## A dónde ir después
+
+- [Cursor](cursor.md) para el IDE
+- [Roo](roo.md) para otro agente
+- [Combos](../features/combos.md) para las cadenas de fallback

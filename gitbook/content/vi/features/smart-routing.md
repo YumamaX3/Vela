@@ -1,407 +1,183 @@
-# Smart Routing & Auto Fallback
+# Định tuyến thông minh & Fallback tự động
 
-Vela tự động định tuyến request qua provider tốt nhất hiện có bằng hệ thống fallback 3 tầng. Không bao giờ ngừng code vì giới hạn quota hay rate limiting.
+Vela không đoán. Mỗi request đều đi đến đâu đó vì một lý do: model bạn yêu cầu, tài khoản nên phục vụ nó, và — nếu thế thất bại — cái kế tiếp trong hàng.
 
----
-
-## Cách hoạt động
-
-Vela dùng định tuyến thông minh để tối đa hóa subscription hiện có, giảm chi phí và đảm bảo khả dụng 24/7:
-
-```
-Request → Vela → Check Tier 1 (Subscription)
-                     ↓ quota exhausted
-                     Check Tier 2 (Cheap)
-                     ↓ budget limit
-                     Check Tier 3 (Free)
-                     ↓
-                     Response
-```
-
-### Hệ thống Fallback 3 tầng
-
-**Tier 1: SUBSCRIPTION (Chính)**
-- Claude Code (Pro/Max)
-- OpenAI Codex (Plus/Pro)
-- Gemini CLI (MIỄN PHÍ 180K/tháng)
-- GitHub Copilot
-- Antigravity (Google)
-
-**Mục tiêu**: Tối đa giá trị từ subscription đã trả tiền.
-
-**Tier 2: CHEAP (Backup)**
-- GLM-4.7 ($0.60/1M input)
-- MiniMax M2.1 ($0.20/1M input)
-- Kimi K2 ($9/tháng cố định)
-
-**Mục tiêu**: Backup siêu rẻ khi hết quota subscription (~90% rẻ hơn ChatGPT API).
-
-**Tier 3: FREE (Khẩn cấp)**
-- iFlow (8 models)
-- Qwen (3 models)
-- Kiro (Claude MIỄN PHÍ)
-
-**Mục tiêu**: Fallback chi phí 0 để code không giới hạn.
+Trang này giải thích từng mảnh, để khi một request rơi vào một chỗ không như bạn nghĩ, bạn biết chính xác núm vặn nào để xoay.
 
 ---
 
-## Chuyển đổi Tự động
-
-Vela giám sát quota thời gian thực và chuyển provider tự động:
-
-### Kịch bản 1: Hết Quota Subscription
+## Hình dạng của một request
 
 ```
-User request → cc/claude-opus-4-5
-               ↓ quota exhausted (5-hour limit reached)
-               Auto switch → glm/glm-4.7
-               ↓ daily quota exhausted
-               Auto switch → minimax/MiniMax-M2.1
-               ↓ 5-hour quota exhausted
-               Auto switch → if/kimi-k2-thinking (FREE)
-               ↓
-               Response delivered ✅
+Your tool
+   ↓  POST /v1/chat/completions, model: "premium-coding"
+Vela
+   ↓  is "premium-coding" a combo?      → yes: walk its chain
+   ↓  otherwise: is it prefix/model?    → resolve provider + model
+   ↓  which account for that provider?  → connection order, or round-robin
+   ↓  does the API key allow it?        → key scope
+   ↓  is the key within budget?         → 429 if not
+   ↓  call the upstream
+   ↓  failed?                           → next model in the chain (combos)
+Reply
 ```
 
-**Kết quả**: Zero downtime, trải nghiệm liền mạch.
-
-### Kịch bản 2: Rate Limiting
-
-```
-User request → cx/gpt-5.2-codex
-               ↓ rate limited (too many requests)
-               Auto switch → glm/glm-4.7
-               ↓
-               Response delivered ✅
-```
-
-### Kịch bản 3: Provider không khả dụng
-
-```
-User request → cc/claude-opus-4-5
-               ↓ provider error (503)
-               Auto switch → next available model
-               ↓
-               Response delivered ✅
-```
+Không có gì trên đường đi ấy âm thầm sắp xếp lại các ưu tiên của bạn. Nếu bạn yêu cầu một model subscription, bạn nhận được nó hoặc nhận một lỗi — trừ khi bạn đang dùng một combo, khi ấy bạn nhận model kế tiếp bạn đã liệt kê.
 
 ---
 
-## Logic chọn Model
+## Fallback của combo
 
-Vela chọn model tốt nhất dựa trên:
-
-1. **Khả dụng quota** - Kiểm tra provider còn quota không
-2. **Tier chi phí** - Ưu tiên subscription → cheap → free
-3. **Thời gian reset** - Cân nhắc khi quota reset
-4. **Sức khỏe provider** - Bỏ qua provider có lỗi
-
-### Ví dụ Thứ tự Ưu tiên
-
-Cho request đến `cc/claude-opus-4-5`:
+Một combo là cơ chế duy nhất đưa một request sang một *model khác*:
 
 ```
-1. Check Claude Code quota
-   ✅ Available → Use cc/claude-opus-4-5
-   ❌ Exhausted → Continue to step 2
-
-2. Check fallback tier (if configured)
-   ✅ GLM quota available → Use glm/glm-4.7
-   ❌ Exhausted → Continue to step 3
-
-3. Check free tier
-   ✅ iFlow available → Use if/kimi-k2-thinking
-   ❌ All exhausted → Return quota error
+cc/claude-opus-5 → glm/glm-4.7 → kr/claude-sonnet-4.5
 ```
+
+Nó chuyển tiếp khi một request thất bại — lỗi quota, rate limit, timeout, từ chối theo chính sách, model không xác định — và đứng yên khi một request chỉ *có thể* thất bại về sau. Toàn bộ quy tắc, cùng cách dựng một combo, nằm trong [Combos](combos.md).
+
+## Luân chuyển tài khoản
+
+Trong một nhà cung cấp, nhiều kết nối có thể chia nhau công việc. **Settings → Routing** đưa ra round-robin (trải đều qua các kết nối) hoặc fill-first (dùng một cái cho đến khi nó kêu ca), cùng một giới hạn sticky giữ một cuộc trò chuyện trên cùng một tài khoản trong một lúc. Đây là cách bạn dùng hai tài khoản Claude, hoặc ba, mà không phải nghĩ ngợi.
+
+## Phạm vi key và ngân sách
+
+Mỗi API key có thể bị giới hạn trong một số nhà cung cấp, model hay combo nhất định, và được gán một ngân sách token cùng ngưỡng chi tiêu. Khi chạm ngưỡng, request bị từ chối bằng một `429` mang mã `budget_exceeded` — một điểm dừng rõ ràng thay vì một lần hạ cấp lặng lẽ.
 
 ---
 
-## Tùy chọn Cấu hình
+## Mỗi tầng để làm gì
 
-### Cài đặt Dashboard
+**Subscription — dùng trước, nếu chất lượng quan trọng**
+- Claude Code, Codex, Copilot, Antigravity, Kimi
+- Bạn đã trả tiền cho những cái này; mục tiêu là dùng hết hạn mức trước khi nó hết hạn
 
-**1. Bật/Tắt Auto Fallback**
+**Giá rẻ — tầng giữa**
+- GLM-4.7 ($0.60 / $2.20 mỗi 1M), MiniMax M2.1 ($0.30 / $1.20), các gói Kimi
+- Một phần nhỏ giá API bán lẻ, và đủ tốt cho phần lớn công việc
 
-```
-Dashboard → Settings → Smart Routing
-→ Toggle "Auto Fallback" ON/OFF
-```
+**Miễn phí — lớp cuối cùng**
+- iFlow, Qwen, Kiro
+- Bị giới hạn tốc độ và thất thường, nhưng không tốn gì
 
-- **ON** (mặc định): Chuyển tier tự động
-- **OFF**: Strict mode, trả lỗi nếu model chính không khả dụng
+---
 
-**2. Đặt Giới hạn Ngân sách**
-
-```
-Dashboard → Settings → Budget Control
-→ Daily limit: $5
-→ Monthly limit: $50
-```
-
-Khi đạt ngân sách, Vela tự động chuyển sang free tier.
-
-**3. Cấu hình Thứ tự Fallback**
+## Nhìn nó diễn ra
 
 ```
-Dashboard → Settings → Fallback Priority
-→ Drag to reorder providers within each tier
+Dashboard → Usage        a live view of requests, tokens and cost
+Dashboard → Quota        per provider: used, remaining, reset countdown
+Dashboard → Routed by Combo   which model actually answered
+Dashboard → Log Harbor   the request ledger, when you need the detail
 ```
 
-Ví dụ thứ tự tùy chỉnh:
+Nếu một combo lần nào cũng rơi vào bậc cuối, **Quota** sẽ cho bạn thấy lý do trong vài giây.
+
+---
+
+## Cấu hình quan trọng
+
+### Chiến lược định tuyến
+
 ```
-Tier 1: Gemini CLI → Claude Code → Codex
-Tier 2: MiniMax → GLM → Kimi
-Tier 3: iFlow → Kiro → Qwen
+Dashboard → Settings → Routing
+  Round robin            spread requests across connections
+  Sticky limit           how long one conversation stays on one connection
+  Combo round robin      rotate through a combo's members instead of falling through
 ```
 
-**4. Thông báo Reset Quota**
+### Quy tắc fallback
+
+Ngoài combos, Vela có **Fallback Rules** — những quy tắc do người vận hành định nghĩa, dựa trên điều gì đã hỏng:
+
+- một mã HTTP cụ thể
+- một prompt bị từ chối (chính sách nội dung)
+- một cửa sổ ngữ cảnh quá nhỏ
+- một timeout
+- bất kỳ lỗi nào
+
+Các quy tắc có thể được xâu chuỗi và thử trong một bảng dry-run trước khi áp dụng thật. Chúng là công cụ đúng khi "thử model khác khi *điều kia* xảy ra" là một chính sách, không phải một sở thích. Tìm chúng dưới mục **Fallback Rules** ở thanh bên.
+
+### Ngưỡng theo từng key
 
 ```
-Dashboard → Settings → Notifications
-→ Email when quota resets
-→ Alert when 80% quota used
+Dashboard → Endpoint & Key → Create Key / Edit
+  rate limit, token budget, spend cap, provider/model scope
 ```
+
+Đây là cơ chế duy nhất chặn được việc tiêu tiền. Hãy dùng nó trên mọi key chạy không người trông.
 
 ---
 
 ## Ví dụ
 
-### Ví dụ 1: Auto Fallback Cơ bản
+### Ví dụ 1: subscription trước
 
-**Setup:**
 ```
-Model: cc/claude-opus-4-5-20251101
-Fallback: Auto (default 3-tier)
-```
-
-**Hoạt động:**
-```
-Morning (fresh quota):
-  Request → cc/claude-opus-4-5 ✅
-
-Afternoon (quota exhausted):
-  Request → glm/glm-4.7 ✅ (auto switched)
-
-Evening (GLM quota out):
-  Request → minimax/MiniMax-M2.1 ✅ (auto switched)
-
-Late night (all paid quota out):
-  Request → if/kimi-k2-thinking ✅ (free tier)
+Model: premium-coding
+  1. cc/claude-opus-5
+  2. glm/glm-4.7
+  3. if/qwen3-coder-plus
 ```
 
-**Chi phí**: ~$5-10/tháng extra (chủ yếu được bao bởi subscription).
+Buổi sáng: Claude trả lời. Buổi chiều, khi cửa sổ cuốn chiếu đóng lại: GLM trả lời. Buổi tối, khi thẻ bị từ chối: iFlow trả lời. Bạn vẫn tiếp tục gõ.
 
-### Ví dụ 2: Định tuyến theo Ngân sách
+### Ví dụ 2: với một ngưỡng chi tiêu
 
-**Setup:**
-```
-Dashboard → Settings:
-  Daily budget: $2
-  Monthly budget: $20
-  Fallback: Enabled
-```
+Gán cho key một trần $20 mỗi tháng. Làm việc qua GLM và MiniMax cho đến khi chạm trần; từ đó mọi request trả phí bị từ chối bằng `429`, và các tầng miễn phí vẫn trả lời. Hoá đơn dự đoán được, không có hoá đơn bất ngờ.
 
-**Hoạt động:**
-```
-Day 1-15 (within budget):
-  Requests → glm/glm-4.7 (cheap tier)
-  Cost: $1.50/day
+### Ví dụ 3: chỉ subscription
 
-Day 16 (budget reached):
-  Requests → if/kimi-k2-thinking (free tier)
-  Cost: $0
-
-Next month (budget resets):
-  Requests → glm/glm-4.7 again
-```
-
-**Kết quả**: Không bao giờ vượt $20/tháng, luôn khả dụng.
-
-### Ví dụ 3: Chế độ Chỉ Subscription
-
-**Setup:**
-```
-Dashboard → Settings:
-  Auto Fallback: OFF
-  Strict mode: ON
-```
-
-**Hoạt động:**
-```
-Request → cc/claude-opus-4-5
-  ✅ Quota available → Success
-  ❌ Quota exhausted → Return error (no fallback)
-```
-
-**Use case**: Khi chỉ muốn dùng subscription trả phí, không phí thêm.
-
-### Ví dụ 4: Chế độ Chỉ Free
-
-**Setup:**
-```
-Model: if/kimi-k2-thinking
-Fallback: qw/qwen3-coder-plus → kr/claude-sonnet-4.5
-```
-
-**Hoạt động:**
-```
-All requests → Free tier only
-Cost: $0 forever
-```
-
-**Use case**: Dự án cá nhân, học tập, thử nghiệm.
+Một model duy nhất và không combo. Nếu cửa sổ đóng, bạn nhận lỗi của nhà cung cấp. Đó là chủ ý: có người thà chờ còn hơn tiêu tiền.
 
 ---
 
-## Best Practices
+## Thói quen tốt
 
-### 1. Tối đa Giá trị Subscription
+### 1. Để công việc khó đi đến subscription
 
-```
-Strategy:
-- Set subscription models as Tier 1
-- Monitor quota usage in dashboard
-- Use cheap tier only when subscription exhausted
-```
+Opus và các model hạng GPT-5.6 xứng đáng với giá của chúng ở kiến trúc và gỡ lỗi. Các model giá rẻ xứng đáng ở tám mươi phần trăm còn lại.
 
-**Ví dụ combo:**
-```
-cc/claude-opus-4-5 → glm/glm-4.7 → if/kimi-k2-thinking
-```
+### 2. Kết thúc bằng một tầng miễn phí
 
-### 2. Tối ưu Chi phí
+Một chuỗi kết thúc bằng một model trả phí là một chuỗi kết thúc bằng một cánh cửa đóng.
 
-```
-Strategy:
-- Use Gemini CLI free tier first (180K/month)
-- Fallback to GLM/MiniMax (ultra-cheap)
-- Emergency: iFlow (free)
-```
+### 3. Xem thời điểm reset, không chỉ phần trăm
 
-**Ví dụ combo:**
-```
-gc/gemini-3-flash-preview → glm/glm-4.7 → if/kimi-k2-thinking
-```
+Các cửa sổ cuốn chiếu và cửa sổ cố định hành xử khác nhau. Làm việc nặng ngay trước ngày reset tháng là hạn mức ném đi.
 
-### 3. Tối ưu Chất lượng
+### 4. Mỗi công cụ hoặc mỗi người một key
 
-```
-Strategy:
-- Use best models (Claude Opus, GPT-5.2)
-- Fallback to good cheap models (GLM-4.7)
-- Last resort: Free tier
-```
-
-**Ví dụ combo:**
-```
-cc/claude-opus-4-5 → cx/gpt-5.2-codex → glm/glm-4.7
-```
-
-### 4. Khả dụng 24/7
-
-```
-Strategy:
-- Always include free tier in fallback
-- Monitor quota reset times
-- Distribute usage across providers
-```
-
-**Ví dụ combo:**
-```
-cc/claude-opus-4-5 → glm/glm-4.7 → minimax/MiniMax-M2.1 → if/kimi-k2-thinking
-```
-
-**Kết quả**: Không bao giờ hết quota, code mọi lúc.
+Phạm vi và ngân sách tính theo key. Một key dùng chung nghĩa là một trần chung và không cách nào biết ai đã tiêu bao nhiêu.
 
 ---
 
-## Chiến lược Reset Quota
+## Khắc phục sự cố
 
-Lên kế hoạch usage quanh thời gian reset quota:
+### "No available provider" / "quota exhausted"
 
-| Provider | Quota Reset | Chiến lược |
-|----------|-------------|----------|
-| **Claude Code** | 5 giờ + hàng tuần | Dùng buổi sáng, quota mới |
-| **Codex** | 5 giờ + hàng tuần | Dùng sau khi hết quota Claude |
-| **Gemini CLI** | Hàng ngày (1K) + Hàng tháng (180K) | Dùng cả ngày |
-| **GLM-4.7** | Hàng ngày 10:00 AM | Dùng buổi tối, reset sáng hôm sau |
-| **MiniMax M2.1** | 5 giờ rolling | Dùng mọi lúc, theo rolling window |
-| **iFlow/Qwen/Kiro** | Không giới hạn | Backup khẩn cấp |
+Xem **Quota** cho một đồng hồ đếm ngược, rồi kiểm tra combo có kết thúc bằng một model miễn phí không. Nếu có mà nhà cung cấp miễn phí cũng đã cạn, đó là một ngày tồi tệ thật sự ở thượng nguồn, không phải lỗi cục bộ.
 
-**Ví dụ lịch hàng ngày:**
-```
-08:00 - 13:00: Claude Code (fresh 5h quota)
-13:00 - 18:00: Gemini CLI (1K/day quota)
-18:00 - 22:00: GLM-4.7 (cheap, resets 10AM)
-22:00 - 08:00: MiniMax or iFlow (5h rolling or free)
-```
+### Nó cứ fallback liên tục
 
----
+- Nhìn vào bậc đầu tiên: một token OAuth đã hết hạn là nguyên nhân phổ biến nhất.
+- Kiểm tra trang trạng thái của nhà cung cấp.
+- Xác nhận id model vẫn tồn tại (`/v1/models`).
 
-## Giám sát & Cảnh báo
+### Chi phí cao hơn combo gợi ý
 
-### Dashboard Quota Tracker
+- Đọc **Routed by Combo**: nó đã rơi xa hơn xuống chuỗi so với bạn tưởng.
+- Nhớ rằng token output tốn gấp vài lần input trên mọi tầng.
+- Kiểm tra xem trong chuỗi có model `-highspeed` hoặc `glm-5.x` lớn hơn không.
 
-```
-Dashboard → Quota Overview:
-  Claude Code: 2.5h / 5h remaining (50%)
-  Gemini CLI: 450 / 1000 requests today
-  GLM-4.7: 5M / 10M tokens (resets in 8h)
-  MiniMax: 3M / 5M tokens (rolling 5h)
-```
+### Một request bị từ chối bằng 429
 
-### Thông báo Thời gian thực
-
-```
-Dashboard → Notifications:
-  ⚠️ Claude Code quota 80% used (1h remaining)
-  ✅ GLM-4.7 quota reset (10M tokens available)
-  💰 Daily budget 50% used ($2.50 / $5)
-```
-
-### Usage Analytics
-
-```
-Dashboard → Analytics:
-  Today: 50M tokens
-    - 30M via Claude Code (subscription)
-    - 15M via GLM-4.7 ($9)
-    - 5M via iFlow (free)
-  
-  Cost: $9 (vs $1000 on ChatGPT API)
-  Savings: 99%
-```
-
----
-
-## Troubleshooting
-
-**Issue: "All providers quota exhausted"**
-
-**Giải pháp:**
-1. Kiểm tra quota tracker trong dashboard
-2. Đợi quota reset (xem countdown)
-3. Thêm free tier vào fallback chain
-4. Hoặc tăng giới hạn ngân sách
-
-**Issue: "Too many fallback switches"**
-
-**Giải pháp:**
-1. Kiểm tra provider chính có down không
-2. Tăng giới hạn quota (upgrade subscription)
-3. Dùng model chính rẻ hơn (GLM thay vì Claude)
-
-**Issue: "Unexpected costs"**
-
-**Giải pháp:**
-1. Dashboard → Analytics → Xem usage
-2. Đặt giới hạn ngân sách hàng ngày/tháng
-3. Chuyển sang free tier cho task không quan trọng
-4. Dùng combo với free fallback
+Đọc mã trong phản hồi: rate limit, phạm vi key, hay ngân sách. Mỗi mã nói rõ nó đã từ chối điều gì và vì sao.
 
 ---
 
 ## Liên quan
 
-- [Combos](./combos.md) - Tạo chuỗi fallback tùy chỉnh
-- [Quota Tracking](./quota-tracking.md) - Theo dõi usage và chi phí
+- [Combos](combos.md) — dựng các chuỗi
+- [Theo dõi Quota](quota-tracking.md) — đọc các con số
+- [Nhà cung cấp giá rẻ](../providers/cheap.md) — các mức giá

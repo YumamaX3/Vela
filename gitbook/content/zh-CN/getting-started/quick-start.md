@@ -1,6 +1,6 @@
-# 入门指南
+# 快速开始
 
-5 分钟启动 Vela,开始智能路由 AI 请求。
+五分钟，一个端点，所有工具都指向它。本页是快速通道；更详细的说明与故障排查见[安装](../getting-started/installation.md)。
 
 ---
 
@@ -12,7 +12,7 @@
 npm install -g vela
 ```
 
-**要求:** Node.js 20+([安装详情](getting-started/installation.md))
+你需要 Node.js 20 或更新版本。`vela` 命令是一个小巧的启动器：它会启动网关并打开浏览器。
 
 ### 2. 启动
 
@@ -20,228 +20,203 @@ npm install -g vela
 vela
 ```
 
-🎉 **仪表盘自动打开** 地址为 `http://localhost:32060`
+仪表盘会在 **http://localhost:32060/dashboard** 打开。
 
-- 默认密码:`123456`(在仪表盘中修改)
-- API key 自动生成
-- 可立即连接提供商
+首次运行时，有几点值得知道：
+
+- **没有默认密码**。在运行 Vela 的这台机器上，仪表盘可以直接进入。在你于 **设置 → 访问** 中设置密码之前，来自其他机器的登录会被拒绝。
+- 在 macOS 和 Linux 上，你的数据位于 `~/.vela`；在 Windows 上位于 `%APPDATA%\vela`。
+- 默认情况下，网关监听所有网络接口（`0.0.0.0`）。如果你只在本机使用，请用 `vela --host 127.0.0.1` 启动。
 
 ### 3. 连接提供商
 
-有 3 种方式连接提供商:
+提供商共有三类，你可以自由混用。
 
-#### 方式 A:OAuth(订阅型提供商)
+#### 方案 A —— OAuth 订阅
 
-**适用于:** Claude Code、Codex、Gemini CLI、GitHub Copilot
-
-```
-仪表盘 → 提供商 → 连接 [提供商]
-→ OAuth 登录 → 自动刷新 token
-→ 启用配额跟踪
-```
-
-**示例:Claude Code**
-1. 点击 "Connect Claude Code"
-2. 用你的 Claude 账户登录
-3. 授权 Vela
-4. ✅ 完成!使用模型:`cc/claude-opus-4-5-20251101`
-
-#### 方式 B:API Key(低价提供商)
-
-**适用于:** GLM、MiniMax、Kimi、OpenRouter
+**最适合：** Claude Code、Codex、GitHub Copilot、Antigravity —— 任何你已经在付费或登录的服务。
 
 ```
-仪表盘 → 提供商 → 添加 API Key
-→ 选择提供商
-→ 粘贴 API key
-→ 保存
+仪表盘 → 提供商 → 选择一个提供商 → 连接
+→ 在浏览器窗口中登录 → 完成
 ```
 
-**示例:GLM-4.7**
-1. 在 [Zhipu AI](https://open.bigmodel.cn/) 注册
-2. 从 Coding Plan 获取 API key
-3. 仪表盘 → 添加 API Key → 提供商:`glm` → 粘贴 key
-4. ✅ 完成!使用模型:`glm/glm-4.7`
+此后 token 会自动刷新，配额跟踪即刻开始。
 
-#### 方式 C:免费提供商(零成本)
+**示例：Claude Code**
+1. 打开 **提供商**，选择 **Claude**。
+2. 点击 **连接**，登录你的 Claude 账户并授权。
+3. 使用模型的完整名称调用，例如 `cc/claude-opus-5`。
 
-**适用于:** iFlow、Qwen、Kiro
+#### 方案 B —— API Key
 
-```
-仪表盘 → 提供商 → 连接 [免费提供商]
-→ 设备码或 OAuth
-→ 无限使用
-```
-
-**示例:iFlow**
-1. 点击 "Connect iFlow"
-2. 用 iFlow 账户登录
-3. 授权
-4. ✅ 完成!使用 8 个模型:`if/kimi-k2-thinking`、`if/qwen3-coder-plus` 等
-
----
-
-## 4. 在 CLI 工具中使用
-
-将你的编码工具指向 Vela:
-
-### Cursor IDE
+**最适合：** GLM、MiniMax、Kimi、OpenRouter，以及任何其他按量付费的提供商。
 
 ```
-Settings → Models → Advanced:
-  OpenAI API Base URL: http://localhost:32060/v1
-  OpenAI API Key: [从 Vela 仪表盘获取]
-  Model: cc/claude-opus-4-5-20251101
+仪表盘 → 提供商 → 选择一个提供商 → 添加 API Key
+→ 粘贴密钥 → 保存
 ```
 
-### Claude Desktop
+**示例：GLM-4.7**
+1. 在你的 GLM 提供商处创建账户并生成密钥。
+2. 在 Vela 中：**提供商 → GLM → 添加 API Key**，粘贴并保存。
+3. 使用 `glm/glm-4.7`。
 
-编辑 `~/.claude/config.json`:
+#### 方案 C —— 免费提供商
 
-```json
-{
-  "anthropic_api_base": "http://localhost:32060/v1",
-  "anthropic_api_key": "your-Vela-api-key"
-}
-```
-
-### Cline / Continue / RooCode
+**最适合：** 付费配额耗尽时的最后一道防线。
 
 ```
-Provider: OpenAI Compatible
-Base URL: http://localhost:32060/v1
-API Key: [从仪表盘获取]
-Model: cc/claude-opus-4-5-20251101
+仪表盘 → 提供商 → 连接一个免费提供商
+→ 设备码或 OAuth → 完成
 ```
 
-### Codex CLI
+**示例：Kiro**
+1. 打开 **提供商**，选择 **Kiro**。
+2. 使用 AWS Builder ID 或社交账户登录。
+3. 使用 `kr/` 模型 —— Claude 系列，零成本。
+
+### 4. 为你的工具创建 API Key
+
+```
+仪表盘 → 端点与密钥 → 创建密钥 → 复制
+```
+
+密钥形如 `vela-v1-<id>-<checksum>`。它只显示一次 —— 请复制到安全的地方，若丢失只能稍后重新创建。每个密钥都可以单独设置提供商范围、速率限制、token 预算和支出上限。
+
+### 5. 让工具指向 Vela
+
+每个工具都需要同样的两样东西：端点和密钥。
+
+**Cursor**
+
+```
+设置 → 模型 → OpenAI API
+  基础 URL：http://localhost:32060/v1
+  API Key： [你的 Vela 密钥]
+  模型：    cc/claude-opus-5     （作为自定义模型添加）
+```
+
+**Cline / Continue / Roo**
+
+```
+提供商：OpenAI Compatible
+基础 URL：http://localhost:32060/v1
+API Key： [你的 Vela 密钥]
+模型：    cc/claude-opus-5
+```
+
+**Claude Code**
 
 ```bash
-export OPENAI_BASE_URL="http://localhost:32060"
-export OPENAI_API_KEY="your-Vela-api-key"
-
-codex "your prompt"
+export ANTHROPIC_BASE_URL="http://localhost:32060/v1"
+export ANTHROPIC_AUTH_TOKEN="[your Vela key]"
 ```
+
+**Codex CLI**
+
+```bash
+export OPENAI_BASE_URL="http://localhost:32060/v1"
+export OPENAI_API_KEY="[your Vela key]"
+```
+
+每个工具在[集成](../integration/claude-code.md)下都有自己的页面，列出确切的字段和常见坑。
 
 ---
 
-## 5. 创建智能组合(可选)
+## 6. 构建回退链（可选，但推荐）
 
-组合(Combos)可在多个模型之间实现自动回退:
+单一模型就是单一故障点。**组合**让你为一条模型链命名，Vela 会沿着它逐级尝试，直到有一个应答。
 
 ```
-仪表盘 → 组合 → 新建
-
-名称: premium-coding
-模型:
-  1. cc/claude-opus-4-5-20251101 (订阅主力)
-  2. glm/glm-4.7 (低价备用, $0.6/1M)
-  3. if/kimi-k2-thinking (免费回退)
-
-CLI 中使用: premium-coding
+仪表盘 → 组合 → 创建
+  名称：  premium-coding
+  模型：  1. cc/claude-opus-5      （订阅优先）
+          2. glm/glm-4.7           （低价备用）
+          3. kr/claude-sonnet-4.5  （免费兜底）
 ```
 
-**工作原理:**
-1. 先尝试 Claude Opus(你的订阅)
-2. 配额耗尽 → GLM-4.7(超低价)
-3. 预算上限 → iFlow(免费)
-4. 零停机,自动切换!
+之后在任何需要填写模型名的地方，使用 `premium-coding` 即可。组合会在其他一切之前按名称查找，因此在任何工具中都能工作。
+
+组合在请求失败时才会回退 —— 配额错误、速率限制、超时、被拒绝的提示词、不存在的模型。它**不会**仅仅因为每日配额偏低就切换；那会悄悄花掉你的钱。如果你想要支出上限，请在 API Key 上设置（**端点与密钥 → 创建/编辑密钥 → 预算**），一旦触达上限，Vela 会以明确的 429 拒绝请求，而不是悄悄降级。
 
 ---
 
 ## 可用模型
 
-### 订阅型模型(优先使用)
+模型名称的格式为 `prefix/model`。以下是起步集合；请在仪表盘的 **提供商** 中查看完整列表 —— 它会随提供商发布新模型而变化。
 
-**Claude Code (`cc/`)** - Pro/Max 订阅:
-- `cc/claude-opus-4-5-20251101` - Claude 4.5 Opus
-- `cc/claude-sonnet-4-5-20250929` - Claude 4.5 Sonnet
-- `cc/claude-haiku-4-5-20251001` - Claude 4.5 Haiku
+### 订阅层
 
-**Codex (`cx/`)** - Plus/Pro 订阅:
-- `cx/gpt-5.2-codex` - GPT 5.2 Codex
-- `cx/gpt-5.1-codex-max` - GPT 5.1 Codex Max
+**Claude Code（`cc/`）**
+- `cc/claude-opus-5` —— 主力担当
+- `cc/claude-sonnet-5` —— 日常均衡之选
+- `cc/claude-haiku-4-5-20251001` —— 快速轻量
 
-**Gemini CLI (`gc/`)** - 每月免费 180K:
-- `gc/gemini-3-flash-preview` - Gemini 3 Flash Preview
-- `gc/gemini-2.5-pro` - Gemini 2.5 Pro
+**Codex（`cx/`）**
+- `cx/gpt-5.6-sol`、`cx/gpt-5.6-terra`、`cx/gpt-5.6-luna` —— 当前家族
+- `cx/gpt-5.5`、`cx/gpt-5.4` —— 仍在，且依然好用
 
-**GitHub Copilot (`gh/`)** - 订阅:
-- `gh/gpt-5` - GPT-5
-- `gh/claude-4.5-sonnet` - Claude 4.5 Sonnet
+**GitHub Copilot（`gh/`）**
+- `gh/claude-sonnet-4.5`、`gh/claude-opus-4.5`、`gh/gpt-5.4`
 
-### 低价模型(备用)
+**Antigravity（`ag/`）**
+- `ag/gemini-4-argon-high` 以及 Gemini 家族其余模型，外加 Claude 模型
 
-**GLM (`glm/`)** - 每 1M $0.6/$2.2:
-- `glm/glm-4.7` - GLM 4.7(每日 10AM 重置)
+### 低价层
 
-**MiniMax (`minimax/`)** - 每 1M $0.20/$1.00:
-- `minimax/MiniMax-M2.1` - MiniMax M2.1(5h 重置)
+**GLM（`glm/`）** —— `glm/glm-4.7`，每 1M token $0.60 / $2.20，另有更新的 `glm-5.x` 模型
 
-**Kimi (`kimi/`)** - $9/月(10M tokens):
-- `kimi/kimi-latest` - Kimi Latest
+**MiniMax（`minimax/`）** —— `minimax/MiniMax-M2.1`，每 1M token $0.30 / $1.20，另有 M2.5、M2.7 和 M3
 
-### 免费模型(应急)
+**Kimi（`kimi/`）** —— `kimi/kimi-latest`、`kimi/kimi-k2.5`、`kimi/k3`
 
-**iFlow (`if/`)** - 8 个免费模型:
-- `if/kimi-k2-thinking` - Kimi K2 Thinking
-- `if/qwen3-coder-plus` - Qwen3 Coder Plus
-- `if/glm-4.7` - GLM 4.7
-- `if/deepseek-r1` - DeepSeek R1
+### 免费层
 
-**Qwen (`qw/`)** - 3 个免费模型:
-- `qw/qwen3-coder-plus` - Qwen3 Coder Plus
-- `qw/qwen3-coder-flash` - Qwen3 Coder Flash
+**iFlow（`if/`）** —— `if/qwen3-coder-plus`、`if/kimi-k2`、`if/glm-4.7`、`if/deepseek-r1` 等
 
-**Kiro (`kr/`)** - 2 个免费模型:
-- `kr/claude-sonnet-4.5` - Claude Sonnet 4.5
-- `kr/claude-haiku-4.5` - Claude Haiku 4.5
+**Qwen（`qwen/`）** —— `qwen/qwen-plus`、`qwen/qwen-max`、`qwen/qwen-turbo`
+
+**Kiro（`kr/`）** —— `kr/claude-sonnet-4.5`、`kr/claude-opus-4.8`，以及更新的 Claude 模型
+
+> **关于免费额度：** Gemini CLI 所报告的每月 180K 次补全、Meta 或 Google 的每日限额等数字，**都是那些提供商公布的上游数字** —— 并非 Vela 所能控制。它们此前变过，今后也还会变。请以仪表盘上的实时配额读数为准。
 
 ---
 
-## 成本优化策略
+## 保持低成本
 
-### 月度预算:$10-20/月
-
-```
-1. 用 Gemini CLI 免费层(每月 180K)处理快速任务
-2. 用足 Claude Code 订阅配额(你已经付费了)
-3. 配额用完后回退到 GLM(每 1M $0.6)
-4. 应急: MiniMax M2.1(每 1M $0.20)或 iFlow(免费)
-
-真实案例(每月 100M tokens):
-  60M 通过 Gemini CLI: $0(免费层)
-  30M 通过 Claude Code: $0(你已有的订阅)
-  8M 通过 GLM: $4.80
-  2M 通过 MiniMax: $0.40
-  合计: $5.20/月 + 已有订阅
-```
-
-### 配额重置策略
+一套实用流程，不需要电子表格：
 
 ```
-日常安排:
-1. 早上: 全新的 Claude Code 配额(5h 重置)
-2. 下午: 切换到 Gemini CLI(每日 1K)
-3. 晚上: GLM 每日配额(次日 10AM 重置)
-4. 深夜: MiniMax(5h 滚动)或 iFlow(免费)
-
-→ 24/7 编码,几乎零额外成本!
+1. 把订阅模型放在组合的最前面。
+2. 把 GLM 或 MiniMax 放在第二位 —— 只是任何零售 API 成本的一小部分。
+3. 始终以免费提供商收尾，让链条永不断路。
+4. 对你交给长期运行工具的 API Key 设置预算上限。
 ```
+
+[低价提供商](../providers/cheap.md)与[免费提供商](../providers/free.md)页面提供了带算式的工作示例。
 
 ---
 
 ## 下一步
 
-- [安装详情](getting-started/installation.md) - 要求与故障排除
-- [功能特性](features/) - 探索配额跟踪、组合、部署
-- [常见问题](faq.md) - 常见问题与解答
-- [故障排除](troubleshooting.md) - 解决常见问题
+- [安装](../getting-started/installation.md) —— 环境要求、Docker、源码构建、卸载
+- [智能路由](../features/smart-routing.md) —— 请求如何选择提供商
+- [组合](../features/combos.md) —— 构建与调优回退链
+- [配额跟踪](../features/quota-tracking.md) —— 读懂仪表盘
+- [常见问题](../faq.md) —— 所有人最先问的问题
+- [故障排查](../troubleshooting.md) —— 当某些东西连不上时
 
 ---
 
-## 需要帮助?
+## 需要帮助？
 
-- **网站**: [vela.my.id](https://vela.my.id)
-- **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
-- **Issues**: [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
+- **网站**：[vela.my.id](https://vela.my.id)
+- **GitHub**：[github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
+- **Issues**：[github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
+
+Vela 当前版本为 1.2.4。用以下命令查看你运行的版本：
+
+```bash
+npm list -g vela
+```

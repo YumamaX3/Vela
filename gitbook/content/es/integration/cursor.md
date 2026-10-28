@@ -1,149 +1,126 @@
 # Integración con Cursor
 
-Integra Vela con Cursor IDE para enrutar tus solicitudes de IA a través del sistema de enrutamiento inteligente de Vela.
+Cursor puede usar un endpoint personalizado compatible con OpenAI. Apúntalo a Vela y cada chat, edición en línea y llamada de autocompletado pasará por la puerta de enlace — enrutada, rastreada y sujeta a tus claves y presupuestos.
 
 ## Requisitos previos
 
-- Cursor IDE instalado
-- Cuenta Cursor Pro (requerida para endpoints de API personalizados)
-- Endpoint en la nube de Vela configurado
-- API key del dashboard de Vela
+- Cursor instalado
+- Vela en ejecución local, o un endpoint en la nube accesible
+- Una clave de API del dashboard de Vela (**Endpoint & Key → Create Key**)
 
-## ⚠️ Notas importantes
+## ⚠️ Cosas que conviene saber antes
 
-> **Endpoint en la nube requerido**: Cursor enruta solicitudes a través de su propio servidor y no soporta endpoints localhost. Debes usar el endpoint en la nube de Vela: `https://vela.my.id`
+> **Los endpoints personalizados pueden requerir un plan de Cursor de pago.** Cursor ha movido esta capacidad entre versiones y planes. Si el campo de URL base no se ofrece en tu compilación, es una restricción de Cursor, no de Vela.
 
-> **Cursor Pro requerido**: Esta característica requiere una cuenta Cursor Pro para usar endpoints de API personalizados.
+> **Puede que localhost no sea suficiente.** Algunas configuraciones de Cursor envían las solicitudes a través de los propios servidores de Cursor, para los que `localhost` significa la máquina de Cursor, no la tuya. Si las solicitudes fallan con un error de conexión mientras tu navegador alcanza el dashboard, esa es la causa — despliega Vela donde Cursor pueda alcanzarlo (consulta [Despliegue en la nube](../deployment/cloud.md)) y usa esa dirección en su lugar.
+
+> **Usa un dominio, no una IP desnuda, sobre HTTPS.** Si pones Vela detrás de un proxy inverso, dale un certificado TLS — las claves de API viajan en la solicitud.
 
 ## Configuración
 
-### 1. Abrir la configuración de Cursor
+### 1. Abrir los ajustes de modelos de Cursor
 
-1. Abre Cursor IDE
-2. Ve a **Settings** (Cmd/Ctrl + ,)
-3. Navega a la sección **Models**
+**Settings** (`Cmd/Ctrl + ,`) → **Models**.
 
-### 2. Habilitar OpenAI API
+### 2. Habilitar el endpoint de OpenAI personalizado
 
-1. Encuentra la opción **OpenAI API key**
-2. Activa el toggle para habilitar la configuración de API personalizada
+Activa **OpenAI API key** y busca el campo **Override OpenAI Base URL**. Si tu compilación lo tiene, estás de suerte.
 
-### 3. Configurar Base URL
-
-Establece la URL base al endpoint en la nube de Vela:
+### 3. Configurar la URL base
 
 ```
-https://vela.my.id
+http://localhost:32060/v1
 ```
 
-**Pasos:**
-1. En la configuración de Models, localiza el campo **Base URL**
-2. Ingresa: `https://vela.my.id`
-3. Clic en **Save**
+Conserva el `/v1`. Una URL sin él llegará al dashboard en lugar de a la API y fallará con una respuesta HTML confusa.
 
-### 4. Agregar API Key
+### 4. Pegar tu clave
 
-1. En el campo **API Key**, ingresa tu API key de Vela
-2. Puedes encontrar tu API key en el dashboard de Vela en **Settings → API Keys**
-3. Clic en **Save**
+La clave tiene la forma `vela-v1-<id>-<checksum>`. Consigue una nueva en **Endpoint & Key → Create Key** si no tienes — las claves se muestran una sola vez.
 
-### 5. Agregar modelo personalizado
+### 5. Añadir un modelo
 
-1. Clic en el botón **View All Models**
-2. Clic en **Add Custom Model**
-3. Ingresa el nombre del modelo desde tu configuración de Vela (ej. `gpt-4`, `claude-opus-4-5`, etc.)
-4. Clic en **Add**
+En **View All Models → Add custom model**, añade el id del modelo exactamente como lo resuelve Vela:
 
-### 6. Seleccionar modelo
+```
+cc/claude-opus-5
+cc/claude-sonnet-5
+glm/glm-4.7
+premium-coding          ← a combo name works here too
+```
 
-1. En la interfaz de chat de Cursor, clic en el dropdown selector de modelo
-2. Elige tu modelo personalizado de la lista
-3. ¡Empieza a usar Vela con Cursor!
+### 6. Seleccionarlo
+
+Elige el modelo en el selector de modelos del chat de Cursor y envía un mensaje. Confirma que llegó en **Usage**, en el dashboard de Vela.
 
 ## Ejemplo de configuración
 
-Tu configuración de Cursor debería verse así:
-
 ```
-OpenAI API: ✓ Enabled
-Base URL: https://vela.my.id
-API Key: sk-Vela-xxxxxxxxxxxxx
-Custom Models: gpt-4, claude-opus-4-5, gemini-2.0-flash
+OpenAI API:        ✓ enabled
+Base URL:          http://localhost:32060/v1
+API key:           vela-v1-xxxxxxxx-xxxxxxxx
+Custom models:     cc/claude-opus-5, cc/claude-sonnet-5, glm/glm-4.7
 ```
 
 ## Modelos disponibles
 
-Puedes usar cualquier modelo configurado en tu dashboard de Vela. Ejemplos comunes:
+Cualquier cosa que liste la puerta de enlace — ejecuta `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"` para ver los tuyos. Opciones habituales:
 
-| Nombre del modelo | Proveedor | Descripción |
-|------------|----------|-------------|
-| `gpt-4` | OpenAI | GPT-4 Turbo |
-| `gpt-4o` | OpenAI | GPT-4 Optimized |
-| `claude-opus-4-5` | Anthropic | Claude Opus 4.5 |
-| `claude-sonnet-4-5` | Anthropic | Claude Sonnet 4.5 |
-| `gemini-2.0-flash` | Google | Gemini 2.0 Flash |
+| Modelo | Nivel |
+|-------|------|
+| `cc/claude-opus-5` | Suscripción de Claude |
+| `cc/claude-sonnet-5` | Suscripción de Claude |
+| `cx/gpt-5.6-sol` | Suscripción de Codex |
+| `glm/glm-4.7` | barato |
+| `minimax/MiniMax-M2.1` | el más barato |
+| `kr/claude-sonnet-4.5` | gratis |
+
+Los combos también funcionan aquí, y son la razón para usar Cursor con Vela: cuando se cierra la cuota de un modelo, responde el siguiente, a mitad de la conversación.
 
 ## Uso
 
-### Interfaz de chat
-
-1. Abre el chat de Cursor (Cmd/Ctrl + L)
-2. Selecciona tu modelo del dropdown
-3. Comienza a chatear con IA a través de Vela
-
-### Generación de código inline
-
-1. Selecciona código en tu editor
-2. Presiona Cmd/Ctrl + K
-3. Ingresa tu prompt
-4. Cursor usará Vela para generar código
-
-### Explicación de código
-
-1. Selecciona código en tu editor
-2. Presiona Cmd/Ctrl + L
-3. Pregunta "Explain this code"
-4. Obtén explicaciones potenciadas por IA a través de Vela
+- **Chat** (`Cmd/Ctrl + L`) — selecciona el modelo de Vela y pregunta.
+- **Edición en línea** (`Cmd/Ctrl + K`) — selecciona código, escribe el prompt, acepta.
+- **Explicar** — selecciona el código, pregunta, y comprueba qué modelo respondió en **Routed by Combo** si usas una cadena.
 
 ## Solución de problemas
 
-### Error "Invalid API Key"
+### "Invalid API key"
 
-1. Verifica tu API key en el dashboard de Vela
-2. Asegúrate de haber copiado la key completa incluyendo el prefijo `sk-Vela-`
-3. Verifica que la API key no haya expirado
-4. Intenta regenerar una nueva API key
+1. Verifica en **Endpoint & Key** que la clave existe y está activada.
+2. Copia la clave completa — desde `vela-v1-` hasta el checksum final.
+3. Las claves con el formato antiguo `sk-...` son anteriores al esquema actual y se rechazan; crea una nueva.
 
-### Error "Model Not Found"
+### "Model not found"
 
-1. Verifica que el nombre del modelo coincida exactamente con tu configuración de Vela
-2. Verifica que la conexión del proveedor esté activa en el dashboard de Vela
-3. Asegúrate de que el modelo esté disponible en tus proveedores conectados
-4. Intenta usar el nombre completo del modelo (ej. `openai/gpt-4` en lugar de `gpt-4`)
+1. Usa el id exacto de `/v1/models`.
+2. Comprueba que el proveedor está conectado en **Providers**.
+3. Recuerda que un modelo que el proveedor retiró no se resolverá, se escriba como se escriba.
 
-### Problemas de conexión
+### Fallos de conexión
 
-1. Verifica que estés usando el endpoint en la nube: `https://vela.my.id`
-2. Verifica tu conexión a internet
-3. Asegúrate de que el servicio en la nube de Vela esté operativo
-4. Intenta deshabilitar VPN o proxy si está habilitado
+1. Confirma que Vela responde: `curl http://localhost:32060/api/health`.
+2. Confirma que la URL base termina en `/v1`.
+3. Si los servidores de Cursor están en el camino, `localhost` no puede funcionar — usa un endpoint desplegado.
 
-### Localhost no funciona
+### Falta el campo
 
-> **Recuerda**: Cursor no soporta endpoints localhost. Debes usar el endpoint en la nube `https://vela.my.id`. Si necesitas usar una instancia local de Vela, considera usar un servicio de tunneling como ngrok para exponer tu endpoint local.
+Algunas compilaciones y planes de Cursor no exponen una URL base personalizada. Nada del lado de Vela puede añadirla. Alternativas: Cline, Roo o Continue dentro de VS Code, que aceptan una URL base.
 
-## Configuración del endpoint en la nube
+## Endpoint en la nube
 
-Si estás ejecutando Vela localmente y quieres usarlo con Cursor:
+En un servidor con certificado:
 
-1. Habilita el endpoint en la nube en la configuración de Vela
-2. Configura tu URL del endpoint en la nube en el dashboard de Vela
-3. Usa la URL en la nube en la configuración de Cursor
-4. Asegúrate de que tu instancia local de Vela sea accesible desde internet
+```
+Base URL:  https://your-domain.example/v1
+API key:   [your Vela key]
+```
 
-## Mejores prácticas
+Entonces Cursor alcanza Vela desde donde se ejecute. Los límites de tasa y la rotación de proveedores son los mismos; solo cambió la dirección.
 
-1. **Usa aliases de modelos**: Crea aliases cortos para modelos usados con frecuencia en Vela
-2. **Monitorea el uso**: Revisa el dashboard de Vela para estadísticas de uso y costos
-3. **Rota las API Keys**: Rota tus API keys regularmente por seguridad
-4. **Prueba modelos**: Prueba diferentes modelos para encontrar el mejor para tu caso de uso
+## Buenas prácticas
+
+1. **Una clave por máquina o por persona** — el informe de uso te dice quién gastó qué.
+2. **Ponle un techo** si Cursor corre sin supervisión; un tope de gasto es lo único que detiene un bucle desbocado.
+3. **Rota las claves** cuando se pierde un portátil o una clave se pega donde no debería.
+4. **Usa un combo** para que un muro de cuota no acabe con tu tarde.

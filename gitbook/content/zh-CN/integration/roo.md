@@ -1,127 +1,120 @@
 # Roo AI 助手集成
 
-将 Vela 与 Roo AI 助手集成,通过统一界面访问多个 AI 模型。
+Roo 是一个住在侧边栏里的 VS Code 智能体。把它指向 Vela，它就能用一把密钥、一个地址，触达你连接的所有模型。
 
-## 前置要求
+## 前提条件
 
-- 已安装 Roo AI 助手
-- 来自 [仪表盘](https://vela.my.id/dashboard) 的 Vela API key
-- Vela 正在运行(本地或云端)
+- 已在 VS Code 中安装 Roo
+- 本地运行着 Vela，或有一个可访问的云端端点
+- 来自 Vela 仪表盘的 API Key（**端点与密钥 → 创建密钥**）
 
 ## 配置步骤
 
-### 1. 打开 Roo 设置
+### 1. 打开 Roo 的设置
 
-启动 Roo AI 助手并打开设置面板。
+启动 Roo，从侧边栏打开其设置面板。
 
-### 2. 配置 API Provider
+### 2. 选择提供商类型
 
-1. 进入 **API Provider** 设置
-2. 选择 **Ollama** 作为 provider 类型
-3. 配置以下设置:
+在 **API Provider** 下，选择 **OpenAI Compatible**。Vela 讲的是 OpenAI API，因此这是正确的形状 —— Roo 会要求填写基础 URL、密钥和模型 id。
 
-**本地 Vela:**
+### 3. 填写三个字段
+
+**本地 Vela：**
+
 ```
-Base URL: http://localhost:32060/v1
-API Key: your-api-key-from-dashboard
-```
-
-**云端 Vela:**
-```
-Base URL: https://vela.my.id/v1
-API Key: your-api-key-from-dashboard
+Base URL:  http://localhost:32060/v1
+API Key:   vela-v1-<id>-<checksum>
+Model:     cc/claude-opus-5
 ```
 
-### 3. 选择模型
+**已部署的 Vela：**
 
-从可用的 Vela 模型中选择:
+```
+Base URL:  https://your-domain.example/v1
+API Key:   [your Vela key]
+Model:     cc/claude-opus-5
+```
 
-**Claude 模型:**
-- `cc/claude-opus-4-5-20251101` - 最强
-- `cc/claude-sonnet-4-20250514` - 平衡
-- `cc/claude-haiku-4-20250514` - 快速
+### 4. 测试它
 
-**DeepSeek 模型:**
-- `cx/deepseek-chat` - 通用
-- `cx/deepseek-reasoner` - 复杂推理
-
-**GLM 模型:**
-- `glm/glm-4-plus` - 高级
-- `glm/glm-4-flash` - 快速响应
-
-### 4. 测试连接
-
-发送测试消息验证集成:
+发送：
 
 ```
 Hello! Can you confirm you're connected through Vela?
 ```
 
-## 使用示例
+然后查看仪表盘中的 **用量** —— 这次请求应当出现在那里，并归属于那把密钥。
 
-### 基础聊天
-```
-向 Roo 提问: "Explain quantum computing in simple terms"
-模型: cc/claude-sonnet-4-20250514
-```
+## 选择模型
 
-### 代码生成
-```
-向 Roo 提问: "Write a Python function to calculate Fibonacci numbers"
-模型: cx/deepseek-chat
-```
+| 模型 | 通道 | 用于 |
+|-------|------|------------|
+| `cc/claude-opus-5` | Claude 订阅 | 最难的任务 |
+| `cc/claude-sonnet-5` | Claude 订阅 | 均衡的日常工作 |
+| `cc/claude-haiku-4-5-20251001` | Claude 订阅 | 快速编辑 |
+| `cx/gpt-5.6-sol` | Codex 订阅 | 编码密集的问题 |
+| `glm/glm-4.7` | 低价 | 预算内的长会话 |
+| `kr/claude-sonnet-4.5` | 免费 | 付费通道耗尽时 |
 
-### 复杂推理
+> **关于 `cc/` 通道的说明。** 本版本中，Claude Code 提供商（`claude`，别名 `cc`）带有**已弃用**标记与风险提示：它依赖一个未公开的 Claude Code 接口，可能在没有预告的情况下变化。它今天仍然可用，也是 Anthropic 订阅的自然之选 —— 如果它失效，请留意 `cx/` 以及免费的 `kr/` Claude 模型。
+
+## 用法示例
+
 ```
-向 Roo 提问: "Analyze the trade-offs between microservices and monolithic architecture"
-模型: cx/deepseek-reasoner
+快速任务       : cc/claude-haiku-4-5-20251001  或  glm/glm-4.7
+均衡工作       : cc/claude-sonnet-5  或  cx/gpt-5.6-sol
+困难推理       : cc/claude-opus-5
+成本敏感       : glm/glm-4.7  →  kr/claude-sonnet-4.5
 ```
 
 ## 模型选择建议
 
-- **快速任务**:使用 `cc/claude-haiku-4-20250514` 或 `glm/glm-4-flash`
-- **均衡性能**:使用 `cc/claude-sonnet-4-20250514` 或 `cx/deepseek-chat`
-- **复杂推理**:使用 `cc/claude-opus-4-5-20251101` 或 `cx/deepseek-reasoner`
-- **成本优化**:使用 DeepSeek 或 GLM 模型
+- **快而便宜**的，用于重命名、修注释和小改动。
+- **Sonnet 级**的，用于普通功能开发。
+- **Opus 级**的，当任务横跨许多文件或逻辑微妙时。
+- **一个组合**，当会话可能超出配额窗口时 —— 那决定了能否完成。
 
-## 故障排除
+## 故障排查
 
 ### 连接失败
-- 确认 Vela 正在运行:`curl http://localhost:32060/health`
-- 检查 API key 是否正确
-- 确保 Base URL 末尾包含 `/v1`
+
+1. `curl http://localhost:32060/api/health` → `{"ok":true}`。
+2. 检查基础 URL 以 `/v1` 结尾。
+3. 检查密钥是否完整。
+4. 重新加载 VS Code 窗口。
 
 ### 模型不可用
-- 检查模型名是否完全匹配(大小写敏感)
-- 确认 Vela 套餐中已启用该模型
-- 尝试列表中的其他模型
+
+- id 必须完全匹配，包括大小写。
+- 确认该提供商已在 **提供商** 中连接。
+- 查看网关自己的列表：`curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`。
 
 ### 响应缓慢
-- 切换到更快的模型(haiku、flash)
-- 检查网络连接
-- 查看 Vela 日志排查问题
 
-## 高级配置
+- 换用更轻的模型（`cc/claude-haiku-4-5-20251001`、`glm/glm-4.7`）。
+- 裁剪上下文 —— 少附加一些文件。
+- 检查提供商是否性能下降。
 
-### 自定义模型别名
+## 进阶
 
-可在 Roo 设置中为常用模型创建快捷别名:
+### 简短别名
+
+如果 Roo 允许保存命名的模型预设，请按任务而非模型来命名：
 
 ```
-别名: "fast" → cc/claude-haiku-4-20250514
-别名: "smart" → cc/claude-opus-4-5-20251101
-别名: "code" → cx/deepseek-chat
+"fast"  → cc/claude-haiku-4-5-20251001
+"smart" → cc/claude-opus-5
+"cheap" → glm/glm-4.7
+"chain" → never-stuck
 ```
 
-### 多个配置文件
+### 独立配置档
 
-为不同场景设置不同配置:
-- **开发**:DeepSeek 模型用于编码
-- **写作**:Claude 模型用于内容创作
-- **研究**:Reasoner 模型用于分析
+为不同类型的工作使用不同配置档 —— 编码、写作、研究 —— 各自拥有自己的模型和自己的 Vela 密钥，让用量落在正确的桶里。
 
 ## 下一步
 
-- [配置 Cursor](cursor.md) 进行 IDE 集成
-- [设置 Continue](continue.md) 用于 VSCode
-- [探索 CLI 用法](../cli/basic-usage.md)
+- [Cursor](cursor.md) 用于 IDE 集成
+- [Continue](continue.md) 用于 VS Code
+- [组合](../features/combos.md) 了解值得使用的回退链

@@ -1,6 +1,6 @@
 # Bắt đầu
 
-Khởi chạy Vela trong 5 phút và bắt đầu định tuyến các request AI một cách thông minh.
+Năm phút, một endpoint, mọi công cụ đều hướng về đó. Trang này là con đường nhanh; [Cài đặt](../getting-started/installation.md) có chi tiết cặn kẽ và phần khắc phục sự cố.
 
 ---
 
@@ -12,236 +12,211 @@ Khởi chạy Vela trong 5 phút và bắt đầu định tuyến các request A
 npm install -g vela
 ```
 
-**Yêu cầu:** Node.js 20+ ([Chi tiết cài đặt](getting-started/installation.md))
+Bạn cần Node.js 20 trở lên. Lệnh `vela` là một trình khởi chạy nhỏ: nó khởi động gateway và mở trình duyệt của bạn.
 
-### 2. Khởi chạy
+### 2. Khởi động
 
 ```bash
 vela
 ```
 
-🎉 **Dashboard tự động mở** tại `http://localhost:32060`
+Dashboard mở tại **http://localhost:32060/dashboard**.
 
-- Mật khẩu mặc định: `123456` (đổi trong dashboard)
-- API key được tạo tự động
-- Sẵn sàng kết nối provider
+Vài điều nên biết ở lần chạy đầu tiên:
 
-### 3. Kết nối Provider
+- **Không có mật khẩu mặc định**. Từ chính máy đang chạy Vela, dashboard mở thẳng vào. Các phiên đăng nhập từ máy khác bị từ chối cho đến khi bạn đặt mật khẩu trong **Settings → Access**.
+- Dữ liệu của bạn nằm trong `~/.vela` trên macOS và Linux, và trong `%APPDATA%\vela` trên Windows.
+- Mặc định gateway lắng nghe trên mọi giao diện mạng (`0.0.0.0`). Nếu bạn chỉ cần nó trên máy này, hãy khởi động với `vela --host 127.0.0.1`.
 
-Bạn có 3 cách để kết nối provider:
+### 3. Kết nối một nhà cung cấp
 
-#### Cách A: OAuth (Subscription Provider)
+Có ba loại nhà cung cấp, và bạn có thể trộn chúng tuỳ ý.
 
-**Tốt nhất cho:** Claude Code, Codex, Gemini CLI, GitHub Copilot
+#### Lựa chọn A — Subscription qua OAuth
+
+**Phù hợp nhất với:** Claude Code, Codex, GitHub Copilot, Antigravity — bất cứ thứ gì bạn đã trả tiền hoặc đã đăng nhập sẵn.
 
 ```
-Dashboard → Providers → Connect [Provider]
-→ OAuth login → Auto token refresh
-→ Quota tracking enabled
+Dashboard → Providers → pick a provider → Connect
+→ Log in in the browser window → done
 ```
+
+Từ đó trở đi token tự làm mới, và việc theo dõi quota bắt đầu ngay lập tức.
 
 **Ví dụ: Claude Code**
-1. Click "Connect Claude Code"
-2. Đăng nhập tài khoản Claude
-3. Cho phép Vela
-4. ✅ Xong! Dùng model: `cc/claude-opus-4-5-20251101`
+1. Mở **Providers** và chọn **Claude**.
+2. Nhấp **Connect**, đăng nhập tài khoản Claude của bạn, và phê duyệt.
+3. Dùng model theo tên đầy đủ, ví dụ `cc/claude-opus-5`.
 
-#### Cách B: API Key (Cheap Provider)
+#### Lựa chọn B — API key
 
-**Tốt nhất cho:** GLM, MiniMax, Kimi, OpenRouter
+**Phù hợp nhất với:** GLM, MiniMax, Kimi, OpenRouter, và bất kỳ nhà cung cấp trả theo mức dùng nào khác.
 
 ```
-Dashboard → Providers → Add API Key
-→ Select provider
-→ Paste API key
-→ Save
+Dashboard → Providers → pick a provider → Add API key
+→ paste the key → Save
 ```
 
 **Ví dụ: GLM-4.7**
-1. Đăng ký tại [Zhipu AI](https://open.bigmodel.cn/)
-2. Lấy API key từ Coding Plan
-3. Dashboard → Add API Key → Provider: `glm` → Paste key
-4. ✅ Xong! Dùng model: `glm/glm-4.7`
+1. Tạo một tài khoản và một key tại nhà cung cấp GLM của bạn.
+2. Trong Vela: **Providers → GLM → Add API key**, dán vào, lưu.
+3. Dùng `glm/glm-4.7`.
 
-#### Cách C: Free Provider (Miễn phí)
+#### Lựa chọn C — Nhà cung cấp miễn phí
 
-**Tốt nhất cho:** iFlow, Qwen, Kiro
-
-```
-Dashboard → Providers → Connect [Free Provider]
-→ Device code or OAuth
-→ Unlimited usage
-```
-
-**Ví dụ: iFlow**
-1. Click "Connect iFlow"
-2. Đăng nhập tài khoản iFlow
-3. Cho phép
-4. ✅ Xong! Dùng 8 model: `if/kimi-k2-thinking`, `if/qwen3-coder-plus`, v.v.
-
----
-
-## 4. Dùng trong CLI Tools
-
-Trỏ công cụ code của bạn tới Vela:
-
-### Cursor IDE
+**Phù hợp nhất với:** lớp cuối cùng khi quota trả phí đã cạn.
 
 ```
-Settings → Models → Advanced:
-  OpenAI API Base URL: http://localhost:32060/v1
-  OpenAI API Key: [from Vela dashboard]
-  Model: cc/claude-opus-4-5-20251101
+Dashboard → Providers → Connect a free provider
+→ Device code or OAuth → done
 ```
 
-### Claude Desktop
+**Ví dụ: Kiro**
+1. Mở **Providers** và chọn **Kiro**.
+2. Đăng nhập bằng AWS Builder ID hoặc một tài khoản mạng xã hội.
+3. Dùng các model `kr/` — dòng Claude, không mất phí.
 
-Sửa `~/.claude/config.json`:
+### 4. Tạo một API key cho các công cụ của bạn
 
-```json
-{
-  "anthropic_api_base": "http://localhost:32060/v1",
-  "anthropic_api_key": "your-Vela-api-key"
-}
+```
+Dashboard → Endpoint & Key → Create Key → copy it
 ```
 
-### Cline / Continue / RooCode
+Key có dạng `vela-v1-<id>-<checksum>`. Chúng chỉ được hiển thị một lần — hãy sao chép nơi an toàn, hoặc tạo một key mới sau này nếu bạn làm mất. Mỗi key có thể được gán phạm vi nhà cung cấp, rate limit, ngân sách token và ngưỡng chi tiêu riêng.
+
+### 5. Hướng các công cụ của bạn về Vela
+
+Mọi công cụ đều cần cùng hai thứ: endpoint và key.
+
+**Cursor**
+
+```
+Settings → Models → OpenAI API
+  Base URL: http://localhost:32060/v1
+  API Key:  [your Vela key]
+  Model:    cc/claude-opus-5     (add it as a custom model)
+```
+
+**Cline / Continue / Roo**
 
 ```
 Provider: OpenAI Compatible
 Base URL: http://localhost:32060/v1
-API Key: [from dashboard]
-Model: cc/claude-opus-4-5-20251101
+API Key:  [your Vela key]
+Model:    cc/claude-opus-5
 ```
 
-### Codex CLI
+**Claude Code**
 
 ```bash
-export OPENAI_BASE_URL="http://localhost:32060"
-export OPENAI_API_KEY="your-Vela-api-key"
-
-codex "your prompt"
+export ANTHROPIC_BASE_URL="http://localhost:32060/v1"
+export ANTHROPIC_AUTH_TOKEN="[your Vela key]"
 ```
+
+**Codex CLI**
+
+```bash
+export OPENAI_BASE_URL="http://localhost:32060/v1"
+export OPENAI_API_KEY="[your Vela key]"
+```
+
+Mỗi công cụ có trang riêng trong [Tích hợp](../integration/claude-code.md), với đúng các trường cần điền và những vướng mắc thường gặp.
 
 ---
 
-## 5. Tạo Smart Combos (Tùy chọn)
+## 6. Dựng một chuỗi fallback (tuỳ chọn, nhưng nên làm)
 
-Combo cho phép fallback tự động giữa các model:
+Một model duy nhất là một điểm chết duy nhất. Một **combo** cho phép bạn đặt tên cho một chuỗi model, và Vela đi qua chuỗi ấy cho đến khi một model trả lời.
 
 ```
-Dashboard → Combos → Create New
-
-Name: premium-coding
-Models:
-  1. cc/claude-opus-4-5-20251101 (Subscription primary)
-  2. glm/glm-4.7 (Cheap backup, $0.6/1M)
-  3. if/kimi-k2-thinking (Free fallback)
-
-Use in CLI: premium-coding
+Dashboard → Combos → Create
+  Name:   premium-coding
+  Models: 1. cc/claude-opus-5      (subscription first)
+          2. glm/glm-4.7           (cheap backup)
+          3. kr/claude-sonnet-4.5  (free last line)
 ```
 
-**Cách hoạt động:**
-1. Thử Claude Opus trước (subscription của bạn)
-2. Nếu hết quota → GLM-4.7 (siêu rẻ)
-3. Nếu hết budget → iFlow (miễn phí)
-4. Zero downtime, chuyển đổi tự động!
+Sau đó dùng `premium-coding` ở bất cứ đâu cần một tên model. Combo được tra theo tên trước mọi thứ khác, nên nó hoạt động trong mọi công cụ.
+
+Một combo fallback khi một request thất bại — lỗi quota, rate limit, timeout, prompt bị từ chối, một model không tồn tại. Nó **không** chuyển chỉ vì quota ngày đang gần cạn; làm vậy sẽ âm thầm tiêu tiền của bạn. Nếu bạn muốn một ngưỡng chi tiêu, hãy đặt trên API key (**Endpoint & Key → Create/Edit Key → budget**), và Vela sẽ từ chối các request khi chạm ngưỡng, với một mã 429 rõ ràng thay vì lặng lẽ hạ cấp bạn.
 
 ---
 
-## Model có sẵn
+## Các model hiện có
 
-### Subscription Models (Dùng đầu tiên)
+Tên model có dạng `prefix/model`. Đây là một bộ khởi đầu; hãy mở **Providers** trong dashboard để xem danh sách đầy đủ — nó thay đổi khi các nhà cung cấp phát hành model mới.
 
-**Claude Code (`cc/`)** - Subscription Pro/Max:
-- `cc/claude-opus-4-5-20251101` - Claude 4.5 Opus
-- `cc/claude-sonnet-4-5-20250929` - Claude 4.5 Sonnet
-- `cc/claude-haiku-4-5-20251001` - Claude 4.5 Haiku
+### Tầng subscription
 
-**Codex (`cx/`)** - Subscription Plus/Pro:
-- `cx/gpt-5.2-codex` - GPT 5.2 Codex
-- `cx/gpt-5.1-codex-max` - GPT 5.1 Codex Max
+**Claude Code (`cc/`)**
+- `cc/claude-opus-5` — kẻ gánh nặng
+- `cc/claude-sonnet-5` — sự cân bằng thường ngày
+- `cc/claude-haiku-4-5-20251001` — nhanh và nhẹ
 
-**Gemini CLI (`gc/`)** - MIỄN PHÍ 180K/tháng:
-- `gc/gemini-3-flash-preview` - Gemini 3 Flash Preview
-- `gc/gemini-2.5-pro` - Gemini 2.5 Pro
+**Codex (`cx/`)**
+- `cx/gpt-5.6-sol`, `cx/gpt-5.6-terra`, `cx/gpt-5.6-luna` — dòng hiện tại
+- `cx/gpt-5.5`, `cx/gpt-5.4` — vẫn còn đó và vẫn tốt
 
-**GitHub Copilot (`gh/`)** - Subscription:
-- `gh/gpt-5` - GPT-5
-- `gh/claude-4.5-sonnet` - Claude 4.5 Sonnet
+**GitHub Copilot (`gh/`)**
+- `gh/claude-sonnet-4.5`, `gh/claude-opus-4.5`, `gh/gpt-5.4`
 
-### Cheap Models (Backup)
+**Antigravity (`ag/`)**
+- `ag/gemini-4-argon-high` và phần còn lại của dòng Gemini, cùng các model Claude
 
-**GLM (`glm/`)** - $0.6/$2.2 per 1M:
-- `glm/glm-4.7` - GLM 4.7 (reset 10AM hàng ngày)
+### Tầng giá rẻ
 
-**MiniMax (`minimax/`)** - $0.20/$1.00 per 1M:
-- `minimax/MiniMax-M2.1` - MiniMax M2.1 (reset 5h)
+**GLM (`glm/`)** — `glm/glm-4.7` với $0.60 / $2.20 mỗi 1M, cùng các model `glm-5.x` mới hơn
 
-**Kimi (`kimi/`)** - $9/tháng (10M tokens):
-- `kimi/kimi-latest` - Kimi Latest
+**MiniMax (`minimax/`)** — `minimax/MiniMax-M2.1` với $0.30 / $1.20 mỗi 1M, cùng M2.5, M2.7 và M3
 
-### Model MIỄN PHÍ (Khẩn cấp)
+**Kimi (`kimi/`)** — `kimi/kimi-latest`, `kimi/kimi-k2.5`, `kimi/k3`
 
-**iFlow (`if/`)** - 8 models MIỄN PHÍ:
-- `if/kimi-k2-thinking` - Kimi K2 Thinking
-- `if/qwen3-coder-plus` - Qwen3 Coder Plus
-- `if/glm-4.7` - GLM 4.7
-- `if/deepseek-r1` - DeepSeek R1
+### Tầng miễn phí
 
-**Qwen (`qw/`)** - 3 models MIỄN PHÍ:
-- `qw/qwen3-coder-plus` - Qwen3 Coder Plus
-- `qw/qwen3-coder-flash` - Qwen3 Coder Flash
+**iFlow (`if/`)** — `if/qwen3-coder-plus`, `if/kimi-k2`, `if/glm-4.7`, `if/deepseek-r1`, và hơn thế nữa
 
-**Kiro (`kr/`)** - 2 models MIỄN PHÍ:
-- `kr/claude-sonnet-4.5` - Claude Sonnet 4.5
-- `kr/claude-haiku-4.5` - Claude Haiku 4.5
+**Qwen (`qwen/`)** — `qwen/qwen-plus`, `qwen/qwen-max`, `qwen/qwen-turbo`
+
+**Kiro (`kr/`)** — `kr/claude-sonnet-4.5`, `kr/claude-opus-4.8`, và các model Claude mới hơn
+
+> **Về các hạn mức miễn phí:** những con số như 180K completions mỗi tháng mà Gemini CLI công bố, hay giới hạn hàng ngày của Meta hoặc Google, là **những con số phía thượng nguồn do chính các nhà cung cấp ấy công bố** — không phải thứ Vela kiểm soát. Chúng đã từng thay đổi và sẽ còn thay đổi. Hãy xem chỉ số quota trực tiếp trong dashboard là sự thật.
 
 ---
 
-## Chiến lược Tối ưu Chi phí
+## Giữ chi phí ở mức thấp
 
-### Ngân sách hàng tháng: $10-20/tháng
-
-```
-1. Use Gemini CLI free tier (180K/month) for quick tasks
-2. Use Claude Code subscription quota fully (you already pay)
-3. Fallback to GLM ($0.6/1M) when quota out
-4. Emergency: MiniMax M2.1 ($0.20/1M) or iFlow (free)
-
-Real example (100M tokens/month):
-  60M via Gemini CLI: $0 (free tier)
-  30M via Claude Code: $0 (subscription you already have)
-  8M via GLM: $4.80
-  2M via MiniMax: $0.40
-  Total: $5.20/month + existing subscriptions
-```
-
-### Chiến lược Reset Quota
+Một nếp thực hành thiết thực, không cần bảng tính:
 
 ```
-Daily routine:
-1. Morning: Fresh Claude Code quota (5h reset)
-2. Afternoon: Switch to Gemini CLI (1K/day)
-3. Evening: GLM daily quota (reset 10AM next day)
-4. Late night: MiniMax (5h rolling) or iFlow (free)
-
-→ Code 24/7 with minimal extra cost!
+1. Put your subscription models first in the combo.
+2. Put GLM or MiniMax second — a fraction of the cost of any retail API.
+3. Always end with a free provider, so the chain never dead-ends.
+4. Set a budget ceiling on the API key you hand to tools you leave running.
 ```
+
+[Trang Nhà cung cấp giá rẻ](../providers/cheap.md) và [Nhà cung cấp miễn phí](../providers/free.md) có các ví dụ đã tính sẵn, kèm phép toán hiển thị rõ.
 
 ---
 
 ## Bước tiếp theo
 
-- [Chi tiết cài đặt](getting-started/installation.md) - Yêu cầu, troubleshooting
-- [Tính năng](features/) - Khám phá quota tracking, combos, deployment
-- [FAQ](faq.md) - Câu hỏi thường gặp
-- [Troubleshooting](troubleshooting.md) - Sửa các vấn đề phổ biến
+- [Cài đặt](../getting-started/installation.md) — yêu cầu hệ thống, Docker, build từ mã nguồn, gỡ cài đặt
+- [Định tuyến thông minh](../features/smart-routing.md) — cách một request chọn nhà cung cấp
+- [Combos](../features/combos.md) — dựng và tinh chỉnh các chuỗi fallback
+- [Theo dõi quota](../features/quota-tracking.md) — đọc dashboard
+- [FAQ](../faq.md) — những câu hỏi ai cũng hỏi trước tiên
+- [Khắc phục sự cố](../troubleshooting.md) — khi có thứ gì đó không kết nối được
 
 ---
 
-## Cần trợ giúp?
+## Cần giúp đỡ?
 
 - **Website**: [vela.my.id](https://vela.my.id)
 - **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues**: [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
+
+Vela là phiên bản 1.2.4. Kiểm tra bạn đang chạy bản nào với:
+
+```bash
+npm list -g vela
+```

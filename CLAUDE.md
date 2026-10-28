@@ -2,17 +2,18 @@
 
 > *Every harbor needs a chart. These are the Shores' navigational papers — where the currents run, which rocks to mind, how the fleet sails. Read them before you touch the helm.* 🪞💜
 
-**Vela** (v1.0.59) — a local AI routing gateway + dashboard. One OpenAI-compatible endpoint (`/v1`) routing traffic across a provider registry of **166 files on disk → 149 imported by the generated index → 111 dialable chat transports** (the other 38 are media/search/embedding providers that legitimately carry no chat transport). Format translation, model-combo fallback (with operator fallback rules), multi-account fallback, OAuth credential management, token refresh, quota tracking, per-key ACL, and prompt injectors.
+**Vela** (v1.2.4) — a local AI routing gateway + dashboard. One OpenAI-compatible endpoint (`/v1`) routing traffic across a provider registry of **189 files on disk → 186 imported by the generated index → 145 dialable chat transports** (the other 41 are media/search/embedding providers that legitimately carry no chat transport). Format translation, model-combo fallback (with operator fallback rules), multi-account fallback, OAuth credential management, token refresh, quota tracking, per-key ACL, and prompt injectors.
 
 > ⚠️ **Count discipline (2026-09-04):** this chart once claimed "143 upstream providers", which
 > matched *no* measurement. Every number above was measured at runtime, not grepped — and the three
 > differ, so name which one you mean. Re-derive with:
 > ```bash
-> ls open-sse/providers/registry/*.js | grep -v index.js | wc -l      # 166 files on disk
-> node -e "import('./open-sse/providers/registry/index.js').then(m=>console.log(m.default.length))"  # 149 imported
-> node -e "import('./open-sse/providers/index.js').then(m=>console.log(Object.keys(m.PROVIDERS).length))"  # 111 dialable
+> ls open-sse/providers/registry/*.js | grep -v index.js | wc -l      # 189 files on disk
+> node -e "import('./open-sse/providers/registry/index.js').then(m=>console.log(m.default.length))"  # 186 imported
+> node -e "import('./open-sse/providers/index.js').then(m=>console.log(Object.keys(m.PROVIDERS).length))"  # 145 dialable
 > ```
-> - **All 166 files accounted for as of 2026-09-30** (the registry debt is RESOLVED — see below). The arithmetic now closes like this: **166 files on disk = 163 imported** by the regenerated index **+ 3 hidden** (`trae`, `devin-cli`, `windsurf` — files on disk, deliberately unimported), and **125** of the 163 carry a chat transport. Re-derive by running the census suite: `npx vitest run -c tests/vitest.config.js tests/unit/provider-registry-census.test.js` — it asserts the property mechanically.
+> - **The registry debt (found 2026-09-04, RESOLVED 2026-09-30) — the property still holds, re-measured 2026-10-28.** The arithmetic closes like this: **189 files on disk = 186 imported** by the regenerated index **+ 3 hidden** (`trae`, `devin-cli`, `windsurf` — files on disk, deliberately unimported), and **145** of the 186 carry a chat transport (the other 41 — `aws-polly`, `brave-search`, `black-forest-labs`, `comfyui`, `cartesia` … — are the media/search shelf, `PROVIDER_MEDIA`). Re-derive by running the census suite: `npx vitest run -c tests/vitest.config.js tests/unit/provider-registry-census.test.js` — it asserts the property mechanically. (2026-09-30's measurement, kept as history: 166 on disk = 163 imported + 3 hidden, 125 dialable.)
+> - **2026-10-28 measurement, beside the history:** the same three probes answer **189 / 186 / 145**, and the prior census values for 2026-09-04 and 2026-09-30 are left in place above rather than overwritten — a census is a reading, not a law; only the tripod (disk / index / dialable) stays fixed.
 
 - **Language**: Node.js + Next.js (App Router, standalone output)
 - **Runtime**: Node 22+ (the image pins `node:22-alpine`). ⚠️ There is **no `engines` field** in `package.json`, and `≥ 22.5` is **not** a hard floor — it is the threshold at which the driver chain offers the zero-install `node:sqlite` (`driver.js:34`: `if (maj < 22 || (maj === 22 && min < 5)) return null`). Below it the chain still works via `better-sqlite3`, and last via pure-JS `sql.js`. Bun compatible.
@@ -41,19 +42,19 @@ vela/
 ├── Dockerfile                # Multi-stage, multi-arch (amd64 + arm64), HEALTHCHECK
 ├── docker-compose.yml        # Live chart (gitignored — holds the Shores' secrets)
 ├── docker-compose.example.yml# Template chart (tracked)
-├── package.json              # v0.9.93 — bump with every release
+├── package.json              # v1.2.4 — bump with every release
 ├── CHANGELOG.md              # Every minor's covenant entry
 ├── cli/                      # The `vela` npm CLI — bin `vela`, full purge
 ├── open-sse/                 # The gateway engine — providers, RTK, executors, handlers
 ├── src/
-│   ├── app/                  # Next App Router — 30 dashboard pages (35 page.js total) + 206 API routes
+│   ├── app/                  # Next App Router — 31 dashboard rooms (36 page.js total) + 255 tracked API routes (258 on disk — the `src/app/api/plans/` lanes sit behind the bare `plans/` gitignore rule)
 │   ├── lib/                  # The deep current — db, network, oauth, auth, updater, headroom
 │   ├── sse/                  # Server-sent-event services — keyGate, budget, token refresh
 │   ├── shared/               # Shared components, hooks, utils, constants
 │   ├── mitm/                 # The MITM proxy child process
 │   └── instrumentation.js    # Server init — outbound proxy, deferred startup
-├── tests/                    # 405 test files — unit 367 · translator 27 · contract 10 · auth 1 (+4 .snap)
-├── scripts/                  # changelog sync, standalone assets, i18n seed, icon subset (gitignored except 2)
+├── tests/                    # 484 collected test files — unit 443 · translator 31 · contract 10 · auth 1 (+4 .snap)
+├── scripts/                  # changelog sync, standalone assets, registry emitter, i18n seed, icon subset (gitignored except 5)
 └── .github/workflows/        # docker-publish, cache-warm, gitbook-pages
 ```
 
@@ -77,7 +78,7 @@ Client ──> custom-server.js (IP stamp, h2c, hop-by-hop strip)
 
 | Engine | Path | Responsibility |
 |-|-|-|
-| **Dashboard** | `src/app/` | The UI — 30 dashboard pages (35 `page.js` total), 206 API routes |
+| **Dashboard** | `src/app/` | The UI — 32 dashboard pages (36 `page.js` total), 258 API routes |
 | **Gateway** | `open-sse/` | The proxy engine — providers, executors, RTK, handlers |
 
 ---
@@ -87,7 +88,7 @@ Client ──> custom-server.js (IP stamp, h2c, hop-by-hop strip)
 ### Database (`src/lib/db/`)
 
 - **`driver.js`** — adapter resolution: `better-sqlite3` → `node:sqlite` (≥22.5) → `sql.js`. `VELA_DB_DRIVER` pins one; failure is loud.
-- **`migrate.js`** — versioned migration chain + additive schema sync. `SCHEMA_VERSION = 16`, migrations `001–016`.
+- **`migrate.js`** — versioned migration chain + additive schema sync. `SCHEMA_VERSION = 23` (the const itself lives in `schema.js`; `migrate.js` imports it), migrations `001–023`. The pre-change safety backup is keyed on `SCHEMA_VERSION` **and** a non-empty pending queue, so a migration added without a bump still takes its snapshot.
 - **`schema.js`** — `TABLES` is the single source of truth for both harbors. ⚠️ **Not every table is in `TABLES`** — `fallbackRules` is born of migration 012 (v2 columns from 014) and absent from `TABLES`, so the additive sync CANNOT supply its columns; the versioned chain must run. Check before assuming `TABLES` covers a table.
 - **`repos/`** — per-entity facades bound by posture (`bind.js`): sqlite verbatim, mysql twins, mirror decorator.
 - **`mirror/`** — `VELA_DB_MODE=mirror`: sqlite primary serves, outbox pump carries writes to the MariaDB twin.
@@ -96,18 +97,32 @@ Client ──> custom-server.js (IP stamp, h2c, hop-by-hop strip)
 
 > **⚠️ THE ADAPTER CONTRACT (learned the hard way, v0.9.20)**: the adapter interface exposes `run/get/all/exec/transaction` — **NO raw `prepare()`**. The sql.js adapter (Docker runner's fallback) and the mysql/mirror adapters have no public `.prepare`. A migration using `db.prepare(...)` crashed every DB API at boot (the 0.9.19 boot storm). **Use `db.all("PRAGMA table_info(...)")` + `db.exec(...)`** — exactly like migration 002 documents.
 
-**Migrations** (`src/lib/db/migrations/`):
+**Migrations** (`src/lib/db/migrations/`, registered in `index.js`; the table below is read from each file, one row per real migration):
 | # | Name | What it sealed |
 |-|-|-|
-| 001 | init | Base schema |
-| 002 | apikey-governance | keyHash/keyPrefix/allowlists, tombstone + scrub, UNIQUE index |
-| 003–010 | (ascension) | Budget, combos, quotas, usage enrichers |
-| 011 | proxy-fitness | Circuit-breaker state |
-| 012 | fallback-rules | Operator fallback rules (Seam 2 — the table; binder fixed v0.9.46) |
-| 013 | key-acl | `allowedKinds`/`allowedProviders`/`allowedCombos` (tri-state) |
-| 014 | fallback-rules-v2-triggers | Typed triggers, condition ops, `targetModels` chain |
-| 015 | combo-usage | Per-combo usage attribution |
+| 001 | initial | Base schema — every table in `TABLES` through `buildCreateTableSql`, idempotent (`IF NOT EXISTS`) for an unstamped legacy DB |
+| 002 | apikey-governance | Nineteen `apiKeys` columns in three waves (W1 core `keyHash`/`keyPrefix`/`allowedModels`…, W2 lifecycle `expiresAt`/rotation…, W3 governance `tokenBudgetDaily`/`spendCapDailyCents`/`rateLimitRpm`/`ipAllowlist`), `usageHistory.keyId`/`keyPrefix`, the `uq_ak_key_hash` UNIQUE index (NULL-distinct), legacy-row tombstone + plaintext scrub |
+| 003 | key-categories | `apiKeys.category` + a partial index on non-NULL categories |
+| 004 | usage-history dedupe UNIQUE | Replaces the SELECT-then-INSERT dedupe race with `uq_uh_dedupe` over the seven-column identity; backfills NULL→`''` on the four text columns and collapses pre-existing duplicates (keeping the lowest id) |
+| 005 | backup-ledger | `backupLedger` — the backup engine's event rows (backup · restore · drill · purge · failed); excluded from `exportDb()` by name (S2 law) |
+| 006 | mirror-outbox | `outbox` — the mirror pump's sqlite-only logical op-log (with `retries`/`error` for the poison-op policy); deliberately absent from `TABLES` |
+| 007 | mirror-seq | `mirrorSeq` — the pump's apply cursor (`lastAppliedSeq`/`lastFailedSeq`, one row); sqlite-only by the same law |
+| 008 | usage telemetry + composite indexes | `usageHistory.latencyMs`/`ttftMs`/`httpStatus`/`statusClass`, four composite `(timestamp, …)` indexes, batched 10k-row `statusClass` backfill from `LEGACY_STATUS_MAP` |
+| 009 | saved views | `usageViews` (Usage Observatory W4-A) — one row per saved compass view, `params` stored verbatim and never interpolated; `uq_uv_name` |
+| 010 | usage request tags | `usageRequestTags` (W4-C) — annotation layer over `usageHistory`, `uq_urt_usageId_name` |
+| 011 | proxy-fitness | `proxyFitness` — PK `(poolId, provider)`, EWMA success/latency, `unfitUntil` geo-block TTL |
+| 012 | fallback-rules | Operator fallback rules (Seam 2 — the table; binder fixed v0.9.46); absent from `TABLES`, so only the versioned chain supplies it |
+| 013 | key-acl | `allowedKinds`/`allowedProviders`/`allowedCombos` (tri-state) on `apiKeys` |
+| 014 | fallback-rules-v2-triggers | Typed triggers (`triggerType`/`conditionOp`/`conditionVal`), `targetModels` chain, `cooldownSkip` |
+| 015 | combo-usage-attribution | `combo` on `usageHistory` + `requestDetails`, `idx_uh_combo` |
 | 016 | auth-sessions-audit | Session ledger (`authSessions` keyed by the JWT's `jti`), durable limiter ground (`authFailures`), audit trail (`authAuditLog`) — built from `TABLES`, so the versioned chain, the additive auto-sync and the MariaDB twin's bootstrap diff cannot drift into three dialects |
+| 017 | auth-users | `authUsers` — the one operator's credential store (Star's decree 2026-09-26): username + password hash, `lastLoginAt`/`disabledAt`, UNIQUE through the named `uq_auth_users_username` index (the auto-sync strips inline UNIQUE); built from `TABLES` |
+| 018 | log-events | `logEvents` — one append-only ledger, three streams (`console` · `container` · `request`) in one room, `INTEGER PRIMARY KEY` as the stream cursor (arrival order, no tie-break), numeric `lvl`, dedicated `truncMsg`/`truncMeta` flags, no FTS5; plus `usageHistory.reqId`/`upstreamId` join keys — `uq_uh_dedupe` deliberately left at its seven columns |
+| 019 | circuit-breaker-keys | `circuitBreakerKeys` — the breaker's own ledger, PK `(poolId, provider, model)` with model-granular counts and `state` (`healthy`/`cooldown`/`exhausted`); `proxyFitness`'s unfit columns remain the draw's input |
+| 020 | guardrails | `guardrailPolicies` (scope · direction · detectors · action · priority) + `guardrailLogs` (entity + detector, never the matched value), ported from the reference gateway |
+| 021 | credential-vault | Six sealed columns on `providerConnections` (`secret`/`token`/`refresh` × wrapped DEK + ciphertext), AES-256-GCM envelope, default `''` so a plaintext install reads as before; `down` is a deliberate no-op — a rollback that loses secrets is not a rollback |
+| 022 | semantic-cache | `semanticCacheEntries` — the disk shelf behind the in-memory LRU; sqlite-only by the `outbox` law, streams never cached |
+| 023 | plans | `plans` — reusable key-policy templates (`limitTokens`, `spendCapCents`, `rpmLimit`, `period`, `allowedModels`), `uq_plan_name`, `apiKeys.planId` + partial index; replicated state (in `TABLES`) |
 
 ### Network (`src/lib/network/`)
 
@@ -119,12 +134,16 @@ Client ──> custom-server.js (IP stamp, h2c, hop-by-hop strip)
 
 ### Auth (`src/lib/auth/`)
 
-Six files, all verified present: `dashboardSession.js`, `loginLimiter.js`, `loginMessages.js`, `oidc.js`, `saml.js`, `trustedPeer.js`.
+Nine files, all verified present (2026-10-28): `authAudit.js`, `dashboardSession.js`, `loginLimiter.js`, `loginMessages.js`, `oidc.js`, `saml.js`, `sessionLedger.js`, `trustedPeer.js`, `users.js`.
 
-- **`dashboardSession.js`** — cookie session for the dashboard.
-- **`loginLimiter.js` + `loginMessages.js`** — the lockout ladder and honest copy (v0.9.41 Seal 3).
-- **`oidc.js` + `saml.js`** — enterprise login (OpenID Connect + SAML). Both are **single files, not directories**.
-- **`trustedPeer.js`** — verifies the `x-9r-peer-token` per-process stamp.
+- **`dashboardSession.js`** — cookie session for the dashboard. Every minted JWT carries its own **`jti`** (`createDashboardAuthToken`/`setDashboardAuthCookie`), and `verifyDashboardAuthToken` consults `isSessionRevoked(jti)` against the `authSessions` ledger (migration 016) — a stateless token made killable without being made stateful on the hot path (a short revocation cache fronts the row read).
+- **`sessionLedger.js`** — the **one writer** of session rows (`recordSession`). Three routes mint sessions — password login, SAML ACS, OIDC callback — and a row written by three hands would be three dialects. Fail-open by decree: a ledger write never fails a login that already succeeded.
+- **`loginLimiter.js` + `loginMessages.js`** — the lockout ladder and honest copy (v0.9.41 Seal 3). Since migration 016 the ladder and the fixed window live in the durable `authFailures` table, so a restart no longer wipes every lockout.
+- **`authAudit.js`** — the one writer of the `authAuditLog` trail; `detail` is metadata-only by contract — no password, no token, no hash.
+- **`users.js`** — the credential store's seam (migration 017): one operator, password-only (`DEFAULT_USERNAME` seed, `verifyUserPassword`, `adoptLegacyHash` for an old `settings.password` hash).
+- **`oidc.js` + `saml.js`** — enterprise login (OpenID Connect + SAML). Both are **single files, not directories**; OIDC uses `jose`'s remote JWKS, SAML uses `@node-saml/node-saml`. Each passes the `jti` it mints to `sessionLedger`.
+- **`trustedPeer.js`** — verifies the `x-9r-peer-token` per-process stamp (constant-time compare via `shared/utils/timingSafeEqual.js`).
+- **Session routes** — `GET /api/auth/sessions` lists rows (revoked ones shown, with their reason), `DELETE /api/auth/sessions/[id]` ends one, `POST /api/auth/sessions/revoke-all` is logout-everywhere (optionally keeping the caller's own `jti`).
 - **`/v1` key auth lives in `src/sse/services/keyGate.js`, NOT here.** This chart once hedged `apiAuth.js (or similar)` — that file does not exist and never did. The hedge was a guess presented as a fact.
 
 ### OAuth & Tokens
@@ -146,10 +165,10 @@ Six files, all verified present: `dashboardSession.js`, `loginLimiter.js`, `logi
 
 ### Providers (`open-sse/providers/`)
 
-- **`registry/`** — one file per provider (**166 files on disk**, 149 imported by the generated index → 111 dialable chat transports). `registry/index.js` is **auto-generated** — never hand-edit.
+- **`registry/`** — one file per provider (**189 files on disk**, 186 imported by the generated index → 145 dialable chat transports; re-measured 2026-10-28). `registry/index.js` is **auto-generated** — never hand-edit.
 - **`index.js`** — builds `PROVIDERS`/`PROVIDER_MODELS`/`PROVIDER_OAUTH`/`PROVIDER_MEDIA` **only from `REGISTRY`** (the generated index). There is **no directory scan and no fallback**: a registry file absent from `index.js` is genuinely unreachable at runtime, no matter how complete it looks.
 - **Adding a provider**: copy an existing simple entry (e.g. `openai.js`), add models to `config/providerModels.js`; add an executor only for non-OpenAI-compatible upstreams.
-- **`executors/` lives at `open-sse/executors/`, NOT under `providers/`** — **30 files** = 27 specialized per-upstream executors + `base.js` (`BaseExecutor`) + `default.js` (`DefaultExecutor`) + `index.js` (the map). OpenAI-compatible providers share `default.js`. (This chart once listed it under the Providers heading; the path there holds 0 files.)
+- **`executors/` lives at `open-sse/executors/`, NOT under `providers/`** — **43 `.js` files** + four web-tool/door directories (`chatgpt-web/`, `deepseek-web/`, `gemini-web/`, `muse-web/`): 36 specialized per-upstream executor modules + `base.js` (`BaseExecutor`) + `default.js` (`DefaultExecutor`) + `index.js` (the map) + shared hooks (`browserExecutableCheck.js`, `chatgptWebTools.js`, `grok-web-tools.js`, `deepseek-web-done-terminator.js`). The `executors` map in `index.js` carries **50 entries**, several of them aliases (`cu`→cursor, `ocg`, `gcli`, `mmf`, `fb`); `getExecutor()` falls back to a cached `DefaultExecutor` for anything unmapped, so OpenAI-compatible providers share `default.js`. (This chart once listed it under the Providers heading; the path there holds 0 files.)
 
 > ✅ **THE REGISTRY DEBT (found 2026-09-04) — RESOLVED 2026-09-30, by the Star's
 > decree.** The old generator (`migrate-registry.mjs`) was a schema-migrator, not
@@ -164,6 +183,33 @@ Six files, all verified present: `dashboardSession.js`, `loginLimiter.js`, `logi
 > census suite `tests/unit/provider-registry-census.test.js` now enforces
 > disk == index as a property (mutation-proven), so this debt class cannot
 > silently recur.
+>
+> 🔁 **The property re-sounded 2026-10-28:** disk = index + hidden still holds
+> at **189 = 186 + 3**, with 145 dialable. The emitter itself is now tracked
+> (`scripts/generate-registry-index.mjs` is force-included past `scripts/*`),
+> so the regenerator is as durable as the guard that checks it.
+
+### The CodeBuddy Family (`open-sse/executors/codebuddy-family.js` + `open-sse/shared/codebuddy/`)
+
+Four products — CodeBuddy CN (`copilot.tencent.com`), WorkBuddy CN (`www.workbuddy.cn`), CodeBuddy Intl (`www.codebuddy.ai`), WorkBuddy Intl (`www.workbuddy.ai`) — answer to **one wire shape and four hosts**. Vela once carried four near-identical executors that had begun to disagree; they are now **one class and a frozen table**: `CodeBuddyFamilyExecutor` reads a profile from `shared/codebuddy/profiles.js` and `index.js` maps `codebuddy-cn` / `codebuddy-intl` / `workbuddy-cn` / `workbuddy-intl` to it. **No request state lives on the instance** — the executors are module-load singletons, so a field on `this` would be shared by every concurrent request. If a behaviour differs, the difference is a **field on the profile**, never a branch on product id.
+
+| Module | What it holds |
+|-|-|
+| `profiles.js` | The four frozen records (`host`, `messageShape`, `opener`, `sanitise`, `consoleDoor`, `refreshUserAgent`) — a fifth sibling costs one object, no code |
+| `siteRouting.js` | `CODEBUDDY_PROFILES` (hosts), `CODEBUDDY_DOMAINS`, `chatUrlForProfile`, `tokenIssuer`, `siteForCredential` — **the profile comes from the credential, never from input**; a look-alike host, port, userinfo or query is refused, not normalized. JWT claims are **hints, not authority**; two disagreeing hints are an error, never a coin-flip |
+| `gate.js` | The honest gate — three deceptive HTTP-200 refusal shapes (`{code,msg}` body, first SSE frame, mid-stream frame) are classified by business code (`11101`→400, `11128`→400, `11140`→403, `14018`→429) so combo fallback fires instead of laundering them; `sanitizeCodeBuddySystemText` neuters the competitor-brand content filter (11128) by substitution, never wholesale; `refreshCodeBuddyToken` |
+| `channelCheck.js` | The channel-door fallback — `isChannelCheckError` / `shouldChannelFallback` / `channelFallbackUrl`; one retry through the console door |
+| `capabilityGate.js` | The capability preflight — refuse before a credit is spent. **Dead by default and honestly so**: `declarationsFor` answers `null` until a real catalogue lands, and a refusal is a plain 400 carrying no ERROR_RULES match, so the classifier reads it as request-scoped (never cools the account) |
+| `breakerStore.js` + `breakerLedger.js` + `breakerBinding.js` | The **persistent breaker binding** (below) |
+| `consent.js` | The **consent gate** (below) |
+| `routingScheduler.js` | The **scheduler modes** (below) |
+| `identity.js` | Transport identity headers / plugin prefix per site |
+
+**The persistent breaker binding (M4).** The gate's in-memory `Map` is what the request path reads; a bound `PersistentBreakerStore` is where its open windows survive a restart. The binding is made **at boot**, fire-and-forget, from `src/instrumentation.js` — a dynamic import of the sqlite store-adapters and `bindCodeBuddyBreaker(await openStoreAdapter())`, kept dynamic so the db/better-sqlite3 tree never reaches the Edge bundle. A binding failure degrades to **memory-only** (the breaker still guards, it simply forgets), never to a boot failure. `breakerLedger.js` binds to Vela's **own** ledger — `circuitBreakerKeys` (migration 019) via `circuitBreakerRepo` — not a second store beside `data.sqlite`. `breakerStore.js` carries four laws that make persistence safe: every restored deadline is **clamped at read** to its ceiling (a stale or hand-edited file cannot park an account forever); the reader accepts **only a wholly valid snapshot**; a write failure degrades to memory, never lockout; and the write is **bounded** (`BREAKER_MAX_ACCOUNTS` 256, `BREAKER_MAX_BYTES` 256 KiB, ceil `BREAKER_AUTH_CEILING_MS` 1h), shedding rows nearest expiry and telling the caller whose row was shed. The in-memory semantics it preserves: 5 consecutive terminal failures open the window, one half-open probe re-admits, success closes — and while open the executor surfaces a **synthetic 429** so account selection rotates instead of hammering a dead credential.
+
+**The scheduler modes** (`routingScheduler.js`). Credential selection is cached as revision-keyed shards, and the cache's relationship to the legacy path is a **mode**, not a default: `SCHEDULER_MODES = ["legacy", "shadow", "indexed"]`. `legacy` evaluates the predicate on every request; `shadow` builds and serves the shard but **returns the legacy answer** and counts every disagreement (the default — `SCHEDULER_DEFAULT_MODE`); `indexed` serves the shard. `resolveSchedulerMode()` falls back to the default on an unrecognised string, never silently to `indexed`. A shard is keyed by **revisions, not time**, so a stale shard is unreachable rather than expired; and **dynamic health is never cached** — the predicate answers only the static "is this credential eligible at all", and the caller re-checks live health on the served entry. Bounds: `SCHEDULER_MISMATCH_LIMIT` 20, `SCHEDULER_SHARD_LIMIT` 32.
+
+**The consent gate** (`consent.js`). For consequential account actions — `checkin`, `buddy`, `growth` — consent is the **revision hash of the exact words shown**, never a boolean: when the terms change the hash changes and every prior acceptance is void. `authorizeAction()` applies four refusals in order — the operator's switch (`NOT_ENABLED`), the echoed revision must match exactly (`STALE_REVISION`), a prior acceptance must exist (`NO_CONSENT`), and it must be for *this* revision (`TERMS_CHANGED`). The module contains **no upstream call**: it decides whether a human said yes to exactly these words; the doing stays behind the caller's own switch. The audit precedes the write. (Consumed today by `tests/unit/codebuddy-consent.test.js`; no executor calls `authorizeAction` yet — the gate exists, the actions are not yet armed.)
 
 ### RTK Token Saver (`open-sse/rtk/`)
 
@@ -335,6 +381,16 @@ gh api "repos/YumamaX3/Vela/releases/tags/v1.0.0" --jq '.html_url'
 > result — it is a broken instrument, and it is indistinguishable from good news.
 > Census now: **89 tags, 58 Releases, 31 unreleased**, every one of the 31 still
 > pre-decree — the composition unchanged from the entry above, which is the point.
+>
+> 🔎 **Re-sounded 2026-10-28 (measured, beside the history above — which stays).**
+> The same two commands, same `LC_ALL=C` sorts: **237 tags on the remote, 110
+> Releases, 128 unreleased** — the gap now runs *past* the decree era, and the
+> composition rule from 2026-09-23 no longer describes it — the 128 is carried
+> almost entirely by the pre-`v0.9.38` era (`v0.2.x`–`v0.5.x` from the fork's own
+> history), and the post-decree gap is **exactly two tags: `v0.9.92` and
+> `v1.0.94`**. Both are the same wound the decree names — a tag sailed, no Release
+> posted. `git tag -l` answers 237 locally, the remote 237 after peeling. Re-derive
+> with the bash block above; print the whole gap, never a filtered one.
 
 ### 📜 The Description Decree (Star's decree, 2026-08-29)
 
@@ -399,7 +455,7 @@ Never reintroduce a shared cancel-in-progress group.
 
 ## 🧪 The Test Covenant
 
-- **Runner**: vitest, `tests/` root. **405 test files** (unit 367 · translator 27 · contract 10 · auth 1) plus **4 `.snap` fixtures**; vitest's `include` is `**/*.test.{js,jsx}`, so it collects **404** — the one stray, `unit/custom-server-h2c.test.cjs`, runs under `node:test`, not vitest. Canonical invocation: `npx vitest run -c tests/vitest.config.js` — there is no root config and no `test` script, and without `-c` the `@/` alias dies.
+- **Runner**: vitest, `tests/` root. **484 collected test files** (unit 443 · translator 31 · contract 10 · auth 1) plus **4 `.snap` fixtures**; vitest's `include` is `**/*.test.{js,jsx}`, so it collects **483** — the one stray, `unit/custom-server-h2c.test.cjs`, runs under `node:test`, not vitest. (Re-measured 2026-10-28; the count is `find tests -name '*.test.*'` minus the single `.live.test.js`, which the config excludes by design.) Canonical invocation: `npx vitest run -c tests/vitest.config.js` — that file is the only suite config (its `include` is `**/*.test.{js,jsx}`, and it carries the `@`/`open-sse` aliases plus the JSX-in-`.js` pre-transform). The root `vitest.config.mjs` is a **narrower** second config — `include: ["tests/unit/**/*.test.{js,jsx}"]` — and there is still no root `test` script; without `-c` on the canonical command the `@/` alias dies.
 - **⚠️ NEVER claim "full suite green".** The repository has none to claim — v0.9.45 measured 40 failing files / 97 failing cases at pristine HEAD over `tests/unit`, `known-fails.txt` covers 9, and the **2026-09-19 re-measure at `e4e013ad`, run over the whole suite in an isolated worktree, found 112 failing cases** — while a **2026-09-20 re-measure scoped to `tests/unit` alone** (the v0.9.71 port tide's own diff, same protocol: pristine worktree at `e4e013ad`, `npm ci` from the committed lock, identical invocation) measured **41 files / 98 cases at pristine → 40 files / 96 cases in the ported tree**, with **zero** failing names attributable to the port and `tests/unit/kiro-terminal-integrity.test.js` the single file the tide returned to green. **Name the scope whenever a count is quoted** — those two figures are `tests/unit` only; the 112 above is the whole suite, and comparing them without saying so is the drift this bullet exists to prevent. **Re-baselining `known-fails.txt` to make a gate pass is forbidden.** The gate is an **explicit storm file list** plus a **blast-radius diff** against pristine HEAD in an out-of-repo worktree (compare failing test *names*, never counts — and strip durations, since a duration difference is not drift).
 - **Isolate the strays before blaming your own change.** A blast-radius diff will surface names that appear **only under full-suite load**. 2026-09-19: three names (`s3-offsite`, two `xai-oauth-service` cases) failed in the ported tree but not at pristine — and **passed 15/15 when run alone**, and had passed in an earlier full run of the *same* tree. Both suites touch `undici` mocking; the load is the variable, not the diff. Re-run the strays on their own; report "flaky under load, zero attributable" instead of either hiding them or chasing them.
 - **Producer coverage, not just consumer.** A suite that injects a literal dependency object proves the *consumer* and leaves the *producer* uncovered — `fallback-rules-seam.test.js` stayed green for five minors while `bindFallbackRules.js` was broken in production, because every block handed `handleComboChat` a fake repo and none imported the binder. Its header even *claimed* to cover the binder. For every binding/factory/accessor module, verify some test actually imports it.

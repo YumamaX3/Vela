@@ -1,109 +1,135 @@
 # Claude Code 集成
 
-将 Vela 与 Claude Code CLI 集成,通过 Vela 的智能路由系统转发你的 Anthropic API 请求。
+把 Claude Code 指向 Vela 只需两个环境变量。此后，你终端发出的每一个 Claude 请求都会经过网关 —— 这意味着它可以被路由、被跟踪，并被回退链覆盖。
 
-## 前置要求
+## 前提条件
 
-- 已安装 Claude Code CLI
-- Vela 本地运行或已配置云端 endpoint
-- 来自 Vela 仪表盘的 API key
+- 已安装 Claude Code CLI（`claude --version` 应输出版本号）
+- 本地运行着 Vela，或有一个你能访问的云端端点
+- 已在 Vela 仪表盘中创建 API Key（**端点与密钥 → 创建密钥**）
 
-## 设置
+## 配置
 
 ### 1. 配置环境变量
 
-在 shell 配置文件(`~/.bashrc`、`~/.zshrc` 或 `~/.bash_profile`)中设置以下环境变量:
+把它们加入你的 shell 配置文件（`~/.zshrc`、`~/.bashrc` 或 `~/.bash_profile`）：
 
 ```bash
-# Vela 的 Base URL
 export ANTHROPIC_BASE_URL="http://localhost:32060/v1"
+export ANTHROPIC_AUTH_TOKEN="[your Vela key]"
+```
 
-# 可选: 为别名设置默认模型
-export ANTHROPIC_DEFAULT_OPUS_MODEL="cc/claude-opus-4-5-20251101"
-export ANTHROPIC_DEFAULT_SONNET_MODEL="cc/claude-sonnet-4-5-20250929"
+- `ANTHROPIC_BASE_URL` —— Claude Code 发送请求的地址。保留 `/v1`。
+- `ANTHROPIC_AUTH_TOKEN` —— 你的 Vela 密钥。Claude Code 会把它作为 bearer token 发送；Vela 会将其作为 API Key 接受。
+
+如果你希望默认由另一个模型应答，也请设置别名目标：
+
+```bash
+export ANTHROPIC_DEFAULT_OPUS_MODEL="cc/claude-opus-5"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="cc/claude-sonnet-5"
 export ANTHROPIC_DEFAULT_HAIKU_MODEL="cc/claude-haiku-4-5-20251001"
 ```
 
-### 2. 重新加载 Shell 配置
+### 2. 重新加载 shell
 
 ```bash
-source ~/.zshrc  # 或 ~/.bashrc
+source ~/.zshrc     # or ~/.bashrc
 ```
 
-### 3. 验证配置
-
-检查环境变量是否设置正确:
+### 3. 验证
 
 ```bash
 echo $ANTHROPIC_BASE_URL
+curl -s http://localhost:32060/api/health      # → {"ok":true}
 ```
+
+然后运行一个小提示词：
+
+```bash
+claude --model sonnet "Say hello in five words."
+```
+
+经由 Vela 收到回复，就说明已经接通。你可以在仪表盘中确认：**用量** 会显示这次请求。
 
 ## 模型别名
 
-Claude Code 支持以下模型别名,映射到 Vela 模型:
+Claude Code 的简称会映射到上面环境变量所指向的模型：
 
-| 别名 | 模型 | 环境变量 |
-|-------|-------|---------------------|
-| `opus` | Claude Opus 4.5 | `ANTHROPIC_DEFAULT_OPUS_MODEL` |
-| `sonnet` | Claude Sonnet 4.5 | `ANTHROPIC_DEFAULT_SONNET_MODEL` |
-| `haiku` | Claude Haiku 4.5 | `ANTHROPIC_DEFAULT_HAIKU_MODEL` |
+| 别名 | 含义 | 由谁设置 |
+|-------|---------|--------|
+| `opus` | 你最重的模型 | `ANTHROPIC_DEFAULT_OPUS_MODEL` |
+| `sonnet` | 你日常使用的模型 | `ANTHROPIC_DEFAULT_SONNET_MODEL` |
+| `haiku` | 你的快速模型 | `ANTHROPIC_DEFAULT_HAIKU_MODEL` |
 
-## 使用示例
+如果没有设置，Claude Code 会请求它通常使用的上游名称，由 Vela 在你已连接的提供商中解析。
 
-### 使用模型别名
+## 用法示例
 
-```bash
-# 使用 Opus 模型
-claude --model opus "Explain quantum computing"
-
-# 使用 Sonnet 模型
-claude --model sonnet "Write a Python function"
-
-# 使用 Haiku 模型
-claude --model haiku "Quick code review"
-```
-
-### 使用完整模型名
+### 配合别名
 
 ```bash
-claude --model cc/claude-opus-4-5-20251101 "Your prompt here"
+claude --model opus   "Explain the trade-offs of an append-only log"
+claude --model sonnet "Write a Python function that retries with backoff"
+claude --model haiku  "Review this diff for typos"
 ```
 
-## 配置文件
+### 使用完整的 Vela 模型名
 
-Claude Code 将配置存储在 `~/.claude/settings.json`。如有需要可手动编辑:
+```bash
+claude --model cc/claude-opus-5 "Refactor this module"
+```
+
+### 使用组合
+
+这正是 Vela 大显身手之处：如果订阅窗口在下午中途关闭，链条会继续前行。
+
+```bash
+claude --model premium-coding "Plan the migration"
+```
+
+配合 `cc/claude-opus-5 → glm/glm-4.7 → kr/claude-sonnet-4.5` 的组合。
+
+## 设置文件
+
+Claude Code 也会读取 `~/.claude/settings.json`，同样的值可以放在 `env` 块下：
 
 ```json
 {
-  "baseUrl": "http://localhost:32060/v1",
-  "defaultModel": "sonnet"
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://localhost:32060/v1",
+    "ANTHROPIC_AUTH_TOKEN": "[your Vela key]"
+  }
 }
 ```
 
-## 故障排除
+仪表盘可以替你写入：**CLI 工具 → Claude Code** 会填好基础 URL 与密钥，并在保存前向你展示结果。
+
+## 故障排查
 
 ### 连接问题
 
-遇到连接错误时:
+1. `curl http://localhost:32060/api/health` → 应为 `{"ok":true}`。
+2. `echo $ANTHROPIC_BASE_URL` → 应以 `/v1` 结尾。
+3. 检查是否有东西挡住了 32060 端口，以及 Vela 是否绑定在你预期的位置（`vela --host 127.0.0.1` 会让它保持本地）。
 
-1. 确认 Vela 正在运行:`curl http://localhost:32060/health`
-2. 检查环境变量设置是否正确
-3. 确保防火墙没有阻止 32060 端口
+### 找不到模型
 
-### 模型未找到
+1. 询问网关它有什么：`curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`。
+2. 检查该模型的提供商是否已在 **提供商** 中连接。
+3. 记住模型 id 会随上游变化 —— 今天是 `cc/claude-opus-5`，下个季度可能是别的。
 
-出现 "model not found" 错误时:
+### 未授权 / 401
 
-1. 确认模型名与 Vela 配置一致
-2. 检查 Vela 仪表盘中提供商连接是否激活
-3. 确认所连接的提供商中包含该模型
+- 确认 `ANTHROPIC_AUTH_TOKEN` 中装的是 Vela 密钥（`vela-v1-...`），而不是 Claude 订阅令牌。
+- 密钥只在创建时显示一次。如果你已经没有了，请在 **端点与密钥** 下再创建一个。
 
-## 云端 Endpoint
+## 云端端点
 
-使用 Vela 云端 endpoint 而非 localhost:
+要使用已部署的 Vela 而非 localhost：
 
 ```bash
-export ANTHROPIC_BASE_URL="https://vela.my.id"
+export ANTHROPIC_BASE_URL="https://your-domain.example/v1"
+export ANTHROPIC_AUTH_TOKEN="[your Vela key]"
 ```
 
-确保已在 Vela 云端仪表盘中配置 API key。
+项目自己托管的实例在旧文档中显示为 `https://vela.my.id` —— 那是项目所有者自己的部署，是一个上游事实，而不是这些文档所能承诺的服务。请使用你实际拥有凭据的端点。

@@ -1,387 +1,255 @@
 # 常见问题
 
-关于 Vela 的常见问题。
+人们最先问的问题，用大白话作答。如果这里没有对得上的，下一站是[故障排查](troubleshooting.md)。
 
 ---
 
-## 什么是 Vela?
+## 什么是 Vela？
 
-**Vela 是一款 AI 模型路由工具,能够最大化你的订阅价值并最小化成本。**
+**你编码工具与 AI 提供商之间的网关。**
 
-它使用 3 层回退系统在多个 AI 提供商之间智能路由请求:
-1. **订阅层** - 充分利用你已付费的 Claude Code、Codex、Gemini 配额
-2. **低价层** - 超低价替代方案(每 1M tokens $0.20-$0.60)
-3. **免费层** - 无限免费模型应急备用
+你把每个工具都指向同一个地址 —— `http://localhost:32060/v1` —— Vela 会把每个请求路由到你已连接的一个提供商。它跟踪配额、保持 OAuth token 新鲜，并能在某个模型拒绝时回退到另一个模型。
 
-**核心优势:**
-- 不再浪费订阅配额
-- 配额耗尽时自动回退
-- 实时配额跟踪
-- 比直接使用 API 节省 90% 成本
+它不是模型，也不会让模型变得免费。它是你已经能访问的那些模型之间的交换机。
 
 ---
 
-## 价格是如何计算的?
+## Vela 是免费的吗？
 
-**Vela 采用三层定价策略:**
+**Vela 本身是免费且开源的（MIT）。**
 
-### 第 1 层:订阅(优先使用)
-- **Claude Code**(Pro/Max):$20-100/月 - 5 小时 + 每周配额
-- **OpenAI Codex**(Plus/Pro):$20-200/月 - 5 小时 + 每周配额
-- **Gemini CLI**:免费 - 每月 180K 次补全 + 每天 1K
-- **GitHub Copilot**:$10-19/月 - 每月重置
-- **Antigravity**:免费 - 类似 Gemini
+花钱的是上游发生的事：Claude Code 订阅、Codex 套餐，或 GLM、MiniMax 这类按 token 付费的提供商。Vela 不会在上面加收任何费用。
 
-**目标:** 在配额重置前用掉每一点!
-
-### 第 2 层:低价(备用)
-- **GLM-4.7**:每 1M tokens $0.60/$2.20 - 每日 10AM 重置
-- **MiniMax M2.1**:每 1M tokens $0.20/$1.00 - 5 小时滚动
-- **Kimi K2**:$9/月固定(10M tokens)
-
-**目标:** 比 ChatGPT API(每 1M $20)便宜 90%!
-
-### 第 3 层:免费(应急)
-- **iFlow**:8 个免费模型(Kimi K2、Qwen3、GLM、MiniMax...)
-- **Qwen**:3 个免费模型(Qwen3 Coder Plus/Flash、Vision)
-- **Kiro**:2 个免费模型(Claude Sonnet 4.5、Haiku 4.5)
-
-**目标:** 当其他配额都受限时零成本回退!
+如果你接受它们的限制，完全可以只靠免费提供商运行 —— iFlow、Qwen、Kiro、Antigravity。这个组合零成本。
 
 ---
 
-## Vela 是免费的吗?
+## 路由是如何工作的？
 
-**是的,Vela 本身 100% 免费且开源。**
+有两种机制，它们各不相同：
 
-**可用的免费层提供商:**
-- **Gemini CLI** - 每月 180K 次补全(免费 Google 账户)
-- **iFlow** - 8 个无限模型(免费 OAuth)
-- **Qwen** - 3 个无限模型(免费 OAuth)
-- **Kiro** - Claude Sonnet/Haiku(免费 AWS Builder ID)
+1. **组合**是你定义的链：模型 1，然后模型 2，然后模型 3。当对某个模型的请求*失败*时 —— 配额错误、速率限制、超时、被拒绝的提示词、未知模型 —— Vela 会尝试下一个。
+2. **轮询**（按提供商，或按组合）把请求分摊到同一提供商的多个账户上，避免一个账户被反复冲击。
 
-**只用免费层提供商,就可以永久免费编码!**
+两者都不会仅仅因为每日额度即将耗尽就把你切换到更便宜的模型。那会花掉你并未同意花的钱。
 
-**可选的付费提供商:**
-- 你可能已有的订阅服务(Claude Code、Codex、Copilot)
-- 超低价替代方案(每 1M tokens $0.20-$0.60)
+要设置硬性上限，请使用按密钥的预算：触达时，Vela 会以 429 拒绝并说明情况。
+
+参见[智能路由](features/smart-routing.md)与[组合](features/combos.md)。
 
 ---
 
-## 支持哪些提供商?
+## Vela 支持多少提供商？
 
-### 订阅型提供商
-- **Claude Code**(Pro/Max)- Claude 4.5 Opus/Sonnet/Haiku
-- **OpenAI Codex**(Plus/Pro)- GPT 5.2 Codex、GPT 5.1 Codex Max
-- **Gemini CLI**(免费)- Gemini 3 Flash/Pro、2.5 Pro/Flash
-- **GitHub Copilot** - GPT-5、Claude 4.5、Gemini 3
-- **Antigravity**(Google)- Gemini 3 Pro、Claude Sonnet 4.5
+三个诚实的数字，于 2026-10-28 在 1.2.4 版本上测得：
 
-### 低价提供商
-- **GLM**(Zhipu AI)- GLM 4.7、GLM 4.6V Vision
-- **MiniMax** - MiniMax M2.1
-- **Kimi**(Moonshot AI)- Kimi Latest
-- **OpenRouter** - 透传到任意 OpenRouter 模型
+- 注册表中 **189** 个提供商文件
+- 由索引导入的 **186** 个（有三个被刻意注释掉：`devin-cli`、`trae`、`windsurf`）
+- **145** 个拥有请求实际能够抵达的传输
 
-### 免费提供商
-- **iFlow** - 8 个模型(Kimi K2、Qwen3、GLM、MiniMax、DeepSeek...)
-- **Qwen** - 3 个模型(Qwen3 Coder Plus/Flash、Vision)
-- **Kiro** - 2 个模型(Claude Sonnet 4.5、Haiku 4.5)
+你可以在自己的克隆中重新推导它们：
 
-**合计:15+ 个提供商,50+ 个模型**
-
-详情请见 [提供商文档](providers/subscription.md)。
-
----
-
-## 可以同时使用多个提供商吗?
-
-**可以!这正是 Vela 的核心功能。**
-
-**通过组合(Combos),你可以把多个提供商串联起来实现自动回退:**
-
-```
-示例组合: "premium-coding"
-1. cc/claude-opus-4-5(订阅主力)
-2. glm/glm-4.7(低价备用)
-3. if/kimi-k2(免费应急)
-
-→ 配额耗尽时自动切换
-→ 永不停止编码
-→ 几乎零额外成本
-```
-
-**创建组合的方法:**
-```
-仪表盘 → 组合 → 新建
-→ 按优先级添加模型
-→ CLI 中使用组合名: "premium-coding"
-```
-
-**优势:**
-- 配额耗尽时零停机
-- 自动成本优化
-- 所有工具使用同一个模型名
-
-详情见 [组合文档](features/combos.md)。
-
----
-
-## 配额跟踪是如何工作的?
-
-**Vela 为所有提供商提供实时配额跟踪:**
-
-**功能:**
-- **Token 消耗** - 每次请求的输入/输出 tokens
-- **重置倒计时** - 配额刷新前剩余时间
-- **使用统计** - 每日/每周/每月报告
-- **成本估算** - 预计支出(付费层)
-- **配额告警** - 配额不足时通知
-
-**配额类型:**
-- **5 小时滚动** - Claude Code、Codex、MiniMax
-- **每日重置** - Gemini CLI(每日 1K)、GLM(10AM)
-- **每周重置** - Claude Code、Codex(额外配额)
-- **每月重置** - Gemini CLI(180K)、GitHub Copilot(1 日)
-
-**查看配额:**
-```
-仪表盘 → 提供商 → 配额跟踪
-→ 实时使用情况 + 重置倒计时
-```
-
-详情见 [配额跟踪文档](features/quota-tracking.md)。
-
----
-
-## Vela 能配合 Cursor 使用吗?
-
-**可以,但 Cursor 需要使用云端 endpoint。**
-
-**问题:** Cursor IDE 不支持 localhost endpoint。
-
-**解决方案:** 使用 Vela 云端部署:
-
-```
-Cursor Settings → Models → Advanced:
-  OpenAI API Base URL: https://vela.my.id/v1
-  OpenAI API Key: [从仪表盘获取]
-  Model: cc/claude-opus-4-5-20251101
-```
-
-**替代方案:** 在 VPS 上自托管,使用公开域名:
 ```bash
-# 部署到 VPS
-git clone https://github.com/YumamaX3/Vela.git
-cd Vela/app
-npm install && npm run build
-npm start
-
-# 配置 Nginx 反向代理
-# 将 Cursor 指向: https://your-domain.com/v1
+ls open-sse/providers/registry/*.js | grep -v index.js | wc -l
+node -e "import('./open-sse/providers/registry/index.js').then(m=>console.log(m.default.length))"
+node -e "import('./open-sse/providers/index.js').then(m=>console.log(Object.keys(m.PROVIDERS).length))"
 ```
 
-**其他 CLI 工具支持 localhost:**
-- Cline ✅
-- Claude Desktop ✅
-- Codex CLI ✅
-- Continue ✅
-- RooCode ✅
+本文档逐条通道记载的：
 
-详情见 [Cursor 集成指南](integration/cursor.md)。
+- **订阅：** Claude Code、Codex、GitHub Copilot、Antigravity、Kimi
+- **低价：** GLM、MiniMax、Kimi
+- **免费：** iFlow、Qwen、Kiro
 
 ---
 
-## 可以自托管 Vela 吗?
+## 今天可以使用哪些模型？
 
-**可以!Vela 支持多种部署方式:**
+模型 id 的格式为 `prefix/model`。本版本中几个可靠的：
 
-### Localhost(默认)
+| 模型 | 通道 |
+|-------|------|
+| `cc/claude-opus-5`、`cc/claude-sonnet-5` | Claude Code 订阅 |
+| `cx/gpt-5.6-sol`、`cx/gpt-5.5` | Codex 订阅 |
+| `gh/claude-sonnet-4.6`、`gh/gpt-5.4` | GitHub Copilot |
+| `ag/gemini-4-argon-high` | Antigravity（免费） |
+| `glm/glm-4.7` | 低价 —— 每 1M 输入 $0.60 / 输出 $2.20 |
+| `minimax/MiniMax-M2.1` | 低价 —— 每 1M 输入 $0.30 / 输出 $1.20 |
+| `kr/claude-sonnet-4.5` | 免费 |
+| `if/qwen3-coder-plus` | 免费 |
+| `qwen/qwen-plus` | 免费 |
+
+不要相信文档胜过正在运行的网关：
+
+```bash
+curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"
+```
+
+那张列表才是你安装的真相。
+
+---
+
+## 可以同时使用多个提供商吗？
+
+**可以 —— 这正是重点。** 构建一个组合：
+
+```
+仪表盘 → 组合 → 创建
+  名称：   premium-coding
+  模型：   1. cc/claude-opus-5       ← 订阅
+          2. glm/glm-4.7            ← 低价
+          3. kr/claude-sonnet-4.5   ← 免费
+```
+
+然后在任何工具中把 `premium-coding` 当作模型名使用。组合名称会在其他一切之前被解析，因此在网络上它看起来就像一个普通模型。
+
+---
+
+## Vela 能配合 Cursor 使用吗？
+
+**可以。** Cursor 接受 OpenAI 兼容的基础 URL 和密钥。如果 Vela 运行在你的机器上：
+
+```
+Cursor → 设置 → 模型 → OpenAI API
+  基础 URL：http://localhost:32060/v1
+  API Key： [你的 Vela 密钥]
+  模型：    你的模型或组合名称（作为自定义模型添加）
+```
+
+某些 Cursor 版本把自定义端点限制在付费套餐，某些配置会经由 Cursor 自己的服务器路由，那种情况下 `localhost` 从它们那一侧无法访问。在这种情形下，请把 Vela 部署在一台有公网地址的服务器上（参见[云端部署](deployment/cloud.md)），并改用 `https://your-domain/v1`。
+
+其他接受基础 URL 的工具同理：Cline、Roo、Continue、Claude Code、Codex CLI，以及任何其他 OpenAI 兼容工具。参见[集成](integration/claude-code.md)。
+
+---
+
+## 我可以自行托管 Vela 吗？
+
+**可以，而且这正是它本来的运行方式。** 三条路线：
+
+**在你的机器上：**
 ```bash
 npm install -g vela
 vela
-→ 仪表盘: http://localhost:3000
-→ API: http://localhost:32060/v1
+# 仪表盘：http://localhost:32060/dashboard
+# API：   http://localhost:32060/v1
 ```
 
-### VPS/云
+**使用 Docker，在任何服务器上：**
+```bash
+docker run -d --name vela \
+  -p 127.0.0.1:32060:32060 \
+  -v "$HOME/vela-data:/app/data" \
+  -e DATA_DIR=/app/data \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  ghcr.io/yumamax3/vela:1.2.4
+```
+
+镜像是公开的 —— 拉取无需登录或令牌 —— 且支持多架构（amd64 与 arm64）。请固定标签，而不是使用 `:latest`。
+
+**从源码：**
 ```bash
 git clone https://github.com/YumamaX3/Vela.git
-cd Vela/app
-npm install && npm run build
-
-export JWT_SECRET="your-secure-secret"
-export INITIAL_PASSWORD="your-password"
-export NODE_ENV="production"
-
-npm start
-```
-
-### Docker
-```bash
-docker build -t Vela .
-docker run -d \
-  -p 3000:3000 \
-  -e JWT_SECRET="your-secret" \
-  -v Vela-data:/app/data \
-  vela
-```
-
-### Cloudflare Workers
-```bash
-cd Vela/app
-npm run deploy:cloudflare
-```
-
-**环境变量:**
-- `JWT_SECRET` - **生产环境必须修改!**
-- `DATA_DIR` - 数据库存储路径(默认:`~/.vela`)
-- `INITIAL_PASSWORD` - 仪表盘登录(默认:`123456`)
-- `NODE_ENV` - 部署时设为 `production`
-
-详情见 [部署指南](getting-started/installation.md#deployment)。
-
----
-
-## 我的数据安全吗?
-
-**是的,Vela 优先考虑安全和隐私:**
-
-**本地存储:**
-- 所有数据存储在本地 `~/.vela`(或自定义 `DATA_DIR`)
-- 不会发送数据到 Vela 服务器
-- OAuth tokens 使用 JWT 加密
-
-**无遥测:**
-- 不跟踪使用情况
-- 不分析
-- 不向外回连
-
-**开源:**
-- GitHub 上提供完整源码
-- 可自行审计安全性
-- 社区评审
-
-**最佳实践:**
-- 生产环境修改 `JWT_SECRET`
-- 使用强 `INITIAL_PASSWORD`
-- 云端部署启用 HTTPS
-- 定期轮换 API keys
-
-**Vela 存储的内容:**
-- 提供商 OAuth tokens(加密)
-- API keys(加密)
-- 使用统计(仅本地)
-- 组合配置
-
-**Vela 不存储的内容:**
-- 你的 prompt 或响应
-- 你生成的代码
-- 个人信息
-
----
-
-## 如何更新 Vela?
-
-**更新方式取决于安装类型:**
-
-### 全局 NPM 安装
-```bash
-npm update -g vela
-```
-
-### 本地安装
-```bash
-cd Vela/app
-git pull origin main
+cd Vela
 npm install
 npm run build
-npm start
+npm run start
 ```
 
-### Docker
-```bash
-docker pull Vela:latest
-docker stop Vela
-docker rm Vela
-docker run -d \
-  -p 3000:3000 \
-  -v Vela-data:/app/data \
-  Vela:latest
-```
+仓库根目录就是应用；没有嵌套的 `app/` 目录。可用的脚本是 `dev`、`build`、`start`（以及它们的 Bun 变体）—— 没有测试脚本，也没有 Cloudflare 部署脚本。
 
-**查看版本:**
-```bash
-Vela --version
-```
-
-**破坏性变更:**
-- 查看 [CHANGELOG.md](https://github.com/YumamaX3/Vela/blob/main/CHANGELOG.md)
-- 大版本更新前备份 `~/.vela`
-- 阅读大版本的迁移指南
+完整细节：[本地](deployment/localhost.md) · [云端](deployment/cloud.md)。
 
 ---
 
-## 如何贡献?
+## 我的数据安全吗？
 
-**欢迎贡献!**
+**默认情况下，它留在你的机器上。**
 
-### 贡献方式:
+- 一切都活在数据目录中 —— macOS/Linux 上是 `~/.vela`，Windows 上是 `%APPDATA%\vela`，或 `DATA_DIR` 指定的任何位置。
+- 已连接提供商的 OAuth token 与 API Key 就存储在那个本地数据库中。
+- Vela 只向你连接的提供商发送请求；不会向 Vela 项目回报任何东西。
 
-1. **报告 bug:**
-   - [GitHub Issues](https://github.com/YumamaX3/Vela/issues)
-   - 附上错误日志、复现步骤
+**它保留什么：** 提供商连接与 token、你的 API Key（以哈希形式存储 —— 完整密钥只在创建时显示一次）、用量统计、组合、设置以及请求日志（仅在你启用时）。
 
-2. **功能请求:**
-   - [GitHub Discussions](https://github.com/YumamaX3/Vela/discussions)
-   - 描述使用场景和价值
+**它不保留什么：** 在请求日志之外，不会保留你的提示词或生成代码的副本 —— 而请求日志默认关闭。
 
-3. **提交代码:**
+**在把它暴露到网络之前：** 在 **设置 → 访问** 中设置仪表盘密码，开启 **要求仪表盘登录**，考虑 **要求 API Key**，并把它放在 HTTPS 之后。清单见[云端部署](deployment/cloud.md)。
+
+---
+
+## 默认密码是什么？
+
+**没有默认密码。**
+
+老教程提到 `123456`；那个默认值早已退役。当前 Vela 完全没有默认密码：
+
+- 在运行 Vela 的机器上，仪表盘无需询问即可打开。
+- 从其他任何地方，在你于 **设置 → 访问** 中设置密码之前，登录都会被**拒绝**。
+
+一旦这些控制就位，同一屏幕会显示绿色的"已设防"判定 —— 值得在开放端口前检查一下。
+
+---
+
+## 如何更新 Vela？
+
+```bash
+# npm install
+npm update -g vela
+npm list -g vela        # 你正在运行的版本
+
+# Docker —— 刻意固定更新的标签
+docker pull ghcr.io/yumamax3/vela:1.2.4
+docker stop vela && docker rm vela
+# 用新标签重新运行你的 docker run 命令
+
+# 从 git 检出
+cd Vela && git pull && npm install && npm run build && npm run start
+```
+
+大版本升级前请先备份数据目录。数据库迁移会在启动时自动运行，并在运行前先做一份安全副本。
+
+---
+
+## 我可以如何贡献？
+
+非常欢迎。
+
+1. **报告 Bug** —— [GitHub Issues](https://github.com/YumamaX3/Vela/issues)，附上错误、复现步骤和你的版本。
+2. **请求功能** —— [GitHub Discussions](https://github.com/YumamaX3/Vela/discussions)。
+3. **提交代码：**
    ```bash
-   # Fork 仓库
    git clone https://github.com/YOUR_USERNAME/Vela.git
    cd Vela
-   
-   # 创建分支
    git checkout -b feature/your-feature
-   
-   # 修改代码
    npm install
    npm run dev
-   
-   # 测试
-   npm test
-   
-   # 提交并推送
-   git add .
-   git commit -m "Add your feature"
-   git push origin feature/your-feature
-   
-   # 在 GitHub 上创建 Pull Request
    ```
-
-4. **改进文档:**
-   - 修正错别字、添加示例
-   - 翻译到其他语言
-   - 编写教程
-
-5. **添加提供商:**
-   - 实现新的 provider adapter
-   - 参考 `app/lib/providers/` 中的示例
-
-**贡献指南:**
-- 遵循现有代码风格
-- 为新功能添加测试
-- 更新文档
-- 提交保持原子化、描述清晰
-
-详情见 [CONTRIBUTING.md](https://github.com/YumamaX3/Vela/blob/main/CONTRIBUTING.md)。
+   在提交拉取请求之前，请运行仓库自带的检查套件，并保持提交小而具描述性。
+4. **改进文档** —— 更正与翻译和功能一样有用。
+5. **添加提供商** —— 适配器示例位于 `open-sse/providers/registry/` 下。
 
 ---
 
-## 需要更多帮助?
+## Vela 使用哪些端口？
 
-- **文档:** [vela.my.id/docs](https://vela.my.id/docs)
-- **GitHub:** [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
-- **Issues:** [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
-- **故障排除:** [troubleshooting.md](troubleshooting.md)
+- **32060** —— 一切：仪表盘（`/dashboard`）与 API（`/v1`），由一个进程服务。
+- 浏览器里的 **32060** 就是 `http://localhost:32060`；仪表盘在下一层，位于 `/dashboard`。
+
+如果别的程序需要那个端口，请用 `vela --port 8080` 或 `PORT=8080` 更改。
+
+---
+
+## 出问题了我该去哪里？
+
+1. `http://localhost:32060/api/health` 应当应答 `{"ok":true}`。如果没有，说明 Vela 没有在运行。
+2. `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"` 应当列出模型。列表为空意味着没有连接任何提供商。
+3. [故障排查](troubleshooting.md)把常见错误 —— 连接被拒绝、密钥无效、找不到模型、回复缓慢 —— 映射到对应的修复方法。
+
+---
+
+## 需要更多帮助？
+
+- **文档：** [vela.my.id/docs](https://vela.my.id/docs)
+- **GitHub：** [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
+- **Issues：** [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
+- **故障排查：** [troubleshooting.md](troubleshooting.md)

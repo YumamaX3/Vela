@@ -1,149 +1,126 @@
 # Cursor 集成
 
-将 Vela 与 Cursor IDE 集成,通过 Vela 的智能路由系统转发你的 AI 请求。
+Cursor 可以使用自定义的 OpenAI 兼容端点。把它指向 Vela，每一次聊天、行内编辑和自动补全调用都会经过网关 —— 被路由、被跟踪，并受你的密钥与预算约束。
 
-## 前置要求
+## 前提条件
 
-- 已安装 Cursor IDE
-- Cursor Pro 账户(使用自定义 API endpoint 必需)
-- 已配置 Vela 云端 endpoint
-- 来自 Vela 仪表盘的 API key
+- 已安装 Cursor
+- 本地运行着 Vela，或有一个可访问的云端端点
+- 来自 Vela 仪表盘的 API Key（**端点与密钥 → 创建密钥**）
 
-## ⚠️ 重要说明
+## ⚠️ 事先值得了解的事
 
-> **必须使用云端 Endpoint**:Cursor 会通过自己的服务器转发请求,不支持 localhost endpoint。你必须使用 Vela 云端 endpoint:`https://vela.my.id`
+> **自定义端点可能需要付费的 Cursor 套餐。** Cursor 在不同版本和套餐之间变动过这项能力。如果你的构建中没有提供基础 URL 字段，那是 Cursor 的限制，而不是 Vela 的。
 
-> **必须有 Cursor Pro**:此功能需要 Cursor Pro 账户才能使用自定义 API endpoint。
+> **localhost 可能不够用。** 某些 Cursor 配置会通过 Cursor 自己的服务器发送请求，而那些服务器眼中的 `localhost` 是 Cursor 的机器，而不是你的。如果当浏览器能访问仪表盘时请求却以连接错误失败，原因就在这里 —— 请把 Vela 部署到 Cursor 能访问的地方（参见[云端部署](../deployment/cloud.md)），并改用那个地址。
 
-## 设置
+> **在 HTTPS 下使用域名，而不是裸 IP。** 如果你把 Vela 放在反向代理之后，请给它一张 TLS 证书 —— API Key 是随请求一起传输的。
 
-### 1. 打开 Cursor 设置
+## 配置
 
-1. 打开 Cursor IDE
-2. 进入 **Settings**(Cmd/Ctrl + ,)
-3. 导航到 **Models** 部分
+### 1. 打开 Cursor 的模型设置
 
-### 2. 启用 OpenAI API
+**设置**（`Cmd/Ctrl + ,`）→ **Models**。
 
-1. 找到 **OpenAI API key** 选项
-2. 启用开关以激活自定义 API 配置
+### 2. 启用自定义 OpenAI 端点
 
-### 3. 配置 Base URL
+打开 **OpenAI API key**，寻找 **Override OpenAI Base URL** 字段。如果你的构建中有它，那就没问题了。
 
-将 base URL 设为 Vela 云端 endpoint:
+### 3. 设置基础 URL
 
 ```
-https://vela.my.id
+http://localhost:32060/v1
 ```
 
-**步骤:**
-1. 在 Models 设置中找到 **Base URL** 字段
-2. 输入:`https://vela.my.id`
-3. 点击 **Save**
+保留 `/v1`。没有它的 URL 会访问到仪表盘而不是 API，并以令人困惑的 HTML 响应失败。
 
-### 4. 添加 API Key
+### 4. 粘贴你的密钥
 
-1. 在 **API Key** 字段中输入你的 Vela API key
-2. 可在 Vela 仪表盘 **Settings → API Keys** 中找到 API key
-3. 点击 **Save**
+密钥形如 `vela-v1-<id>-<checksum>`。如果你还没有，请从 **端点与密钥 → 创建密钥** 获取一个新的 —— 密钥只显示一次。
 
-### 5. 添加自定义模型
+### 5. 添加模型
 
-1. 点击 **View All Models** 按钮
-2. 点击 **Add Custom Model**
-3. 输入 Vela 配置中的模型名(例如 `gpt-4`、`claude-opus-4-5` 等)
-4. 点击 **Add**
+在 **View All Models → Add custom model** 下，按 Vela 解析模型的精确 id 添加：
 
-### 6. 选择模型
+```
+cc/claude-opus-5
+cc/claude-sonnet-5
+glm/glm-4.7
+premium-coding          ← 组合名称在这里同样可用
+```
 
-1. 在 Cursor 聊天界面,点击模型选择下拉菜单
-2. 从列表中选择你的自定义模型
-3. 开始在 Cursor 中使用 Vela!
+### 6. 选择它
+
+在 Cursor 的聊天模型选择器中选中该模型并发送一条消息。在 Vela 仪表盘的 **用量** 下确认它已经到达。
 
 ## 配置示例
 
-你的 Cursor 设置应如下所示:
-
 ```
-OpenAI API: ✓ 已启用
-Base URL: https://vela.my.id
-API Key: sk-Vela-xxxxxxxxxxxxx
-Custom Models: gpt-4, claude-opus-4-5, gemini-2.0-flash
+OpenAI API:        ✓ 已启用
+Base URL:          http://localhost:32060/v1
+API key:           vela-v1-xxxxxxxx-xxxxxxxx
+Custom models:     cc/claude-opus-5, cc/claude-sonnet-5, glm/glm-4.7
 ```
 
 ## 可用模型
 
-你可以使用 Vela 仪表盘中配置的任意模型。常见示例:
+网关列出的任何模型 —— 运行 `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"` 查看你的。常用选择：
 
-| 模型名 | 提供商 | 描述 |
-|------------|----------|-------------|
-| `gpt-4` | OpenAI | GPT-4 Turbo |
-| `gpt-4o` | OpenAI | GPT-4 Optimized |
-| `claude-opus-4-5` | Anthropic | Claude Opus 4.5 |
-| `claude-sonnet-4-5` | Anthropic | Claude Sonnet 4.5 |
-| `gemini-2.0-flash` | Google | Gemini 2.0 Flash |
+| 模型 | 通道 |
+|-------|------|
+| `cc/claude-opus-5` | Claude 订阅 |
+| `cc/claude-sonnet-5` | Claude 订阅 |
+| `cx/gpt-5.6-sol` | Codex 订阅 |
+| `glm/glm-4.7` | 低价 |
+| `minimax/MiniMax-M2.1` | 最便宜 |
+| `kr/claude-sonnet-4.5` | 免费 |
 
-## 使用
+组合在这里同样有效，也正是用 Cursor 搭配 Vela 的理由：当一个模型的配额关闭时，下一个会在对话中途接手。
 
-### 聊天界面
+## 用法
 
-1. 打开 Cursor 聊天(Cmd/Ctrl + L)
-2. 从下拉菜单中选择模型
-3. 通过 Vela 与 AI 对话
+- **聊天**（`Cmd/Ctrl + L`）—— 选择 Vela 模型并提问。
+- **行内编辑**（`Cmd/Ctrl + K`）—— 选中代码，输入提示，接受。
+- **解释** —— 选中代码，提问，如果你在使用链条，可在 **Routed by Combo** 下查看是由哪个模型应答的。
 
-### 内联代码生成
+## 故障排查
 
-1. 在编辑器中选中代码
-2. 按 Cmd/Ctrl + K
-3. 输入 prompt
-4. Cursor 会通过 Vela 生成代码
+### "Invalid API key"
 
-### 代码解释
+1. 在 **端点与密钥** 下确认该密钥存在且已启用。
+2. 复制完整的密钥 —— 从 `vela-v1-` 一直到末尾的校验和。
+3. 旧式 `sk-...` 格式的密钥早于当前方案，会被拒绝；请新建一个。
 
-1. 在编辑器中选中代码
-2. 按 Cmd/Ctrl + L
-3. 询问 "Explain this code"
-4. 通过 Vela 获得 AI 驱动的解释
+### "Model not found"
 
-## 故障排除
+1. 使用 `/v1/models` 中的精确 id。
+2. 检查该提供商是否已在 **提供商** 中连接。
+3. 记住提供商已下线的模型无法解析，无论怎么拼写。
 
-### "Invalid API Key" 错误
+### 连接失败
 
-1. 在 Vela 仪表盘中确认 API key
-2. 确保复制了包含 `sk-Vela-` 前缀在内的完整 key
-3. 检查 API key 是否过期
-4. 尝试重新生成 API key
+1. 确认 Vela 有应答：`curl http://localhost:32060/api/health`。
+2. 确认基础 URL 以 `/v1` 结尾。
+3. 如果 Cursor 的服务器处在链路中，`localhost` 就无法工作 —— 请使用已部署的端点。
 
-### "Model Not Found" 错误
+### 字段缺失
 
-1. 确认模型名与 Vela 配置完全一致
-2. 检查 Vela 仪表盘中提供商连接是否激活
-3. 确认连接的提供商中包含该模型
-4. 尝试使用完整模型名(例如用 `openai/gpt-4` 代替 `gpt-4`)
+某些 Cursor 构建与套餐不提供自定义基础 URL。Vela 这一侧无法添加它。替代方案：在 VS Code 中使用 Cline、Roo 或 Continue，它们都接受基础 URL。
 
-### 连接问题
+## 云端端点
 
-1. 确认使用的是云端 endpoint:`https://vela.my.id`
-2. 检查网络连接
-3. 确认 Vela 云端服务运行正常
-4. 若启用了 VPN 或代理,尝试关闭
+在带证书的服务器上：
 
-### Localhost 无法使用
+```
+Base URL:  https://your-domain.example/v1
+API key:   [your Vela key]
+```
 
-> **请记住**:Cursor 不支持 localhost endpoint。你必须使用云端 endpoint `https://vela.my.id`。如果需要使用本地 Vela 实例,可以考虑使用 ngrok 之类的隧道服务把本地 endpoint 暴露到公网。
-
-## 云端 Endpoint 设置
-
-如果你在本地运行 Vela 并希望搭配 Cursor 使用:
-
-1. 在 Vela 设置中启用云端 endpoint
-2. 在 Vela 仪表盘中配置云端 endpoint URL
-3. 在 Cursor 设置中使用该云端 URL
-4. 确保本地 Vela 实例可从互联网访问
+这样无论 Cursor 在哪里运行，都能访问 Vela。速率限制与提供商轮换完全相同；只是地址变了。
 
 ## 最佳实践
 
-1. **使用模型别名**:为常用模型在 Vela 中创建简短别名
-2. **监控使用**:在 Vela 仪表盘查看用量统计和成本
-3. **轮换 API Keys**:为安全起见定期轮换 API key
-4. **测试模型**:尝试不同模型,找到最适合你场景的那个
+1. **每台机器或每个人一把密钥** —— 用量报告会告诉你谁花了多少。
+2. **给它设置上限**，如果 Cursor 是无人值守运行的；支出上限是唯一能阻止失控循环的东西。
+3. **在笔记本丢失或密钥被粘贴到不该去的地方时轮换密钥**。
+4. **使用组合**，让配额之墙不会终结你的下午。

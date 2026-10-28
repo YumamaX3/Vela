@@ -1,6 +1,6 @@
 # src
 
-The Next.js App Router layer — 35 pages and 198 API route handlers wrapped around the gateway engine in `open-sse/`. Read this before touching a page or a route.
+The Next.js App Router layer — **36 pages and 255 tracked API route handlers** wrapped around the gateway engine in `open-sse/`. Read this before touching a page or a route.
 
 ## The app shape
 
@@ -12,7 +12,7 @@ The Next.js App Router layer — 35 pages and 198 API route handlers wrapped aro
 | Root redirect | `src/app/page.js` → `/dashboard` |
 | Outside the group | `src/app/login/`, `src/app/landing/`, `src/app/callback/`, `src/app/dashboard/settings/pricing/` |
 
-Measured 2026-09-24: **35 `page.js`** (30 under `src/app/(dashboard)/dashboard/`), **198 `route.js`** under `src/app/api/`.
+Measured 2026-10-28: **36 `page.js`** (**31** under `src/app/(dashboard)/dashboard/`), **255 tracked `route.js`** under `src/app/api/` (258 on disk — the `src/app/api/plans/` routes sit behind the bare `plans/` gitignore rule; re-derive with `git ls-files | grep -E '^src/app/.*route\.js$' | wc -l`).
 
 Next **16.1.6**, React **19.2.4**. ⚠️ Next 16 renamed the middleware convention: `middleware.js` → `proxy.js`, and the exported function `middleware()` → `proxy()`. `src/proxy.js` is that file — it is the only middleware entry, and it just re-exports the guard (`export default async function proxy(request) { return dashboardProxy(request); }`).
 
@@ -43,7 +43,7 @@ The shell root uses `h-dvh`, **never** `h-screen`. Tailwind emits `.h-screen` af
 
 Every endpoint is `src/app/api/**/route.js` exporting HTTP-named functions (`GET`, `POST`, `PATCH`, `DELETE`, `OPTIONS`). Only `route.js` is a route; anything else in the folder is an ordinary module. The house names for those are `_lib/` (shared route logic — `src/app/api/keys/_lib/keysApi.js`), `redact.js`, `testUtils.js`. Put shared-write logic in `_lib/`, never in a second `route.js`.
 
-Add `export const dynamic = "force-dynamic"` when the handler must not be cached (**56** route files do, measured 2026-09-24; `src/app/api/settings/route.js` also sets `revalidate = 0` and sends `Cache-Control: no-store`). Handlers return `NextResponse.json(...)`.
+Add `export const dynamic = "force-dynamic"` when the handler must not be cached (**72** tracked route files do, measured 2026-10-28; `src/app/api/settings/route.js` also sets `revalidate = 0` and sends `Cache-Control: no-store`). Handlers return `NextResponse.json(...)`.
 
 ### The guard — `src/dashboardGuard.js`
 
@@ -129,7 +129,7 @@ Shared HTTP helpers live in `@/shared/utils/api` (`get`/`post`/`put`/`del`), whi
 
 | Path | What lives there |
 |---|---|
-| `src/shared/components/` | The primitives — `Button`, `Card`, `Input`, `Select`, `Modal`/`ConfirmModal`, `Drawer`, `TabBar`, `Toggle`, `Badge`, `Loading`/`CardSkeleton`, `Sidebar`, `Header`, `ThemeProvider`/`ThemeToggle`. Exported through `index.js`; import from `@/shared/components`. `Sidebar` and `Header` mount from `DashboardLayout`, so anything added to them appears on all 30 pages. |
+| `src/shared/components/` | The primitives — `Button`, `Card`, `Input`, `Select`, `Modal`/`ConfirmModal`, `Drawer`, `TabBar`, `Toggle`, `Badge`, `Loading`/`CardSkeleton`, `Sidebar`, `Header`, `ThemeProvider`/`ThemeToggle`. Exported through `index.js`; import from `@/shared/components`. `Sidebar` and `Header` mount from `DashboardLayout`, so anything added to them appears on all 31 dashboard rooms (36 pages total, measured 2026-10-28). |
 | `src/shared/components/layouts/` | `DashboardLayout` (the shell), `AuthLayout` — re-exported by the barrel via `export *`. |
 | `src/shared/hooks/` | `useFocusTrap`, `useScrollLock`, `useCopyToClipboard`, `usePageVisible`, `useModelCaps`, `useTheme` — cross-room behavior, not room state. |
 | `src/shared/utils/` | `api`, `cn` (class merge), `timingSafeEqual`, `ssrfGuard`, `keyVault`, `machineId`, `providerIcon`/`providerModelsFetcher`, `sanitizeHtml`. |

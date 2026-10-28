@@ -1,109 +1,135 @@
-# Claude Code統合
+# Claude Codeとの連携
 
-VelaをClaude Code CLIと統合し、AnthropicのAPIリクエストをVelaのインテリジェントルーティングシステム経由でルーティングします。
+Claude CodeをVelaに向けるのに必要なのは、ふたつの環境変数だけです。あとは、ターミナルから出るすべてのClaudeリクエストがゲートウェイを通ります — つまり、ルーティングされ、追跡され、フォールバックの鎖に受け止められる。
 
 ## 前提条件
 
-- Claude Code CLIがインストール済み
-- Velaがローカルで動作中、またはクラウドエンドポイントが設定済み
-- VelaダッシュボードからのAPIキー
+- Claude Code CLIがインストール済み(`claude --version`がバージョンを表示するはず)
+- Velaがローカルで動いているか、届くクラウドのエンドポイントがある
+- Velaのダッシュボード(**Endpoint & Key → Create Key**)で作ったAPIキー
 
 ## セットアップ
 
-### 1. 環境変数を設定
+### 1. 環境変数を設定する
 
-シェル設定ファイル (`~/.bashrc`、`~/.zshrc`、または `~/.bash_profile`) で以下の環境変数を設定:
+シェルのプロファイル(`~/.zshrc`、`~/.bashrc`、`~/.bash_profile`)にこれを足します:
 
 ```bash
-# Vela用Base URL
 export ANTHROPIC_BASE_URL="http://localhost:32060/v1"
+export ANTHROPIC_AUTH_TOKEN="[your Vela key]"
+```
 
-# オプション: エイリアス用のデフォルトモデルを設定
-export ANTHROPIC_DEFAULT_OPUS_MODEL="cc/claude-opus-4-5-20251101"
-export ANTHROPIC_DEFAULT_SONNET_MODEL="cc/claude-sonnet-4-5-20250929"
+- `ANTHROPIC_BASE_URL` — Claude Codeがリクエストを送る先。`/v1`は残してください。
+- `ANTHROPIC_AUTH_TOKEN` — あなたのVelaキー。Claude Codeはベアラートークンとして送り、VelaはAPIキーとして受け入れます。
+
+既定で別のモデルに答えさせたいなら、エイリアスの行き先も設定します:
+
+```bash
+export ANTHROPIC_DEFAULT_OPUS_MODEL="cc/claude-opus-5"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="cc/claude-sonnet-5"
 export ANTHROPIC_DEFAULT_HAIKU_MODEL="cc/claude-haiku-4-5-20251001"
 ```
 
-### 2. シェル設定をリロード
+### 2. シェルを読み込み直す
 
 ```bash
-source ~/.zshrc  # または ~/.bashrc
+source ~/.zshrc     # or ~/.bashrc
 ```
 
-### 3. 設定を確認
-
-環境変数が正しく設定されているか確認:
+### 3. 確かめる
 
 ```bash
 echo $ANTHROPIC_BASE_URL
+curl -s http://localhost:32060/api/health      # → {"ok":true}
 ```
 
-## モデルエイリアス
+そのあと、小さなプロンプトをひとつ走らせます:
 
-Claude CodeはVelaモデルにマッピングされる以下のモデルエイリアスをサポート:
+```bash
+claude --model sonnet "Say hello in five words."
+```
 
-| エイリアス | モデル | 環境変数 |
-|-------|-------|---------------------|
-| `opus` | Claude Opus 4.5 | `ANTHROPIC_DEFAULT_OPUS_MODEL` |
-| `sonnet` | Claude Sonnet 4.5 | `ANTHROPIC_DEFAULT_SONNET_MODEL` |
-| `haiku` | Claude Haiku 4.5 | `ANTHROPIC_DEFAULT_HAIKU_MODEL` |
+Velaを通して返事が来れば、配線できています。ダッシュボードで確かめられます: **Usage**にそのリクエストが出ます。
+
+## モデルのエイリアス
+
+Claude Codeの短い名前は、上の環境変数が指す先へと対応します:
+
+| エイリアス | 意味 | 設定するもの |
+|-------|---------|--------|
+| `opus` | 最も重いモデル | `ANTHROPIC_DEFAULT_OPUS_MODEL` |
+| `sonnet` | 日常のモデル | `ANTHROPIC_DEFAULT_SONNET_MODEL` |
+| `haiku` | 速いモデル | `ANTHROPIC_DEFAULT_HAIKU_MODEL` |
+
+設定しなければ、Claude Codeはいつもの上流の名前を求めてきて、Velaはそれを接続済みのプロバイダーに照らして解決します。
 
 ## 使用例
 
-### モデルエイリアスを使用
+### エイリアスで
 
 ```bash
-# Opusモデルを使用
-claude --model opus "Explain quantum computing"
-
-# Sonnetモデルを使用
-claude --model sonnet "Write a Python function"
-
-# Haikuモデルを使用
-claude --model haiku "Quick code review"
+claude --model opus   "Explain the trade-offs of an append-only log"
+claude --model sonnet "Write a Python function that retries with backoff"
+claude --model haiku  "Review this diff for typos"
 ```
 
-### フルモデル名を使用
+### Velaの完全なモデル名で
 
 ```bash
-claude --model cc/claude-opus-4-5-20251101 "Your prompt here"
+claude --model cc/claude-opus-5 "Refactor this module"
 ```
+
+### コンボで
+
+ここでVelaはその場所を勝ち取ります: 午後の半ばにサブスクリプションの窓が閉じても、鎖は続きます。
+
+```bash
+claude --model premium-coding "Plan the migration"
+```
+
+`cc/claude-opus-5 → glm/glm-4.7 → kr/claude-sonnet-4.5`のコンボとともに。
 
 ## 設定ファイル
 
-Claude Codeは設定を `~/.claude/settings.json` に保存します。必要に応じてこのファイルを手動で編集できます:
+Claude Codeは`~/.claude/settings.json`も読み、同じ値は`env`ブロックの下に置けます:
 
 ```json
 {
-  "baseUrl": "http://localhost:32060/v1",
-  "defaultModel": "sonnet"
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://localhost:32060/v1",
+    "ANTHROPIC_AUTH_TOKEN": "[your Vela key]"
+  }
 }
 ```
+
+ダッシュボードがこれを書いてくれます: **CLI Tools → Claude Code**がベースURLとキーを埋め、保存する前に結果を見せます。
 
 ## トラブルシューティング
 
 ### 接続の問題
 
-接続エラーが発生した場合:
-
-1. Velaが動作中か確認: `curl http://localhost:32060/health`
-2. 環境変数が正しく設定されているか確認
-3. ファイアウォールがポート32060をブロックしていないか確認
+1. `curl http://localhost:32060/api/health` → `{"ok":true}`のはず。
+2. `echo $ANTHROPIC_BASE_URL` → `/v1`で終わるはず。
+3. ポート32060を妨げるものがないか、Velaが思った場所に束ねられているか(`vela --host 127.0.0.1`ならローカルだけ)を確かめてください。
 
 ### モデルが見つからない
 
-「model not found」エラーが発生した場合:
+1. ゲートウェイに何を持っているか尋ねてください: `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`。
+2. そのモデルのプロバイダーが**Providers**で接続済みか確かめてください。
+3. モデルIDは上流で変わることを思い出してください — 今日は`cc/claude-opus-5`、次の四半期には別のもの。
 
-1. モデル名がVelaの設定と一致しているか確認
-2. Velaダッシュボードでプロバイダー接続がアクティブか確認
-3. 接続されたプロバイダーでモデルが利用可能か確認
+### Unauthorized / 401
 
-## クラウドエンドポイント
+- `ANTHROPIC_AUTH_TOKEN`にVelaのキー(`vela-v1-...`)が入っていることを確かめてください。Claudeのサブスクリプショントークンではありません。
+- キーは作成時に一度だけ表示されます。もう手元になければ、**Endpoint & Key**で別のものを作ってください。
 
-localhostの代わりにVelaクラウドエンドポイントを使用するには:
+## クラウドのエンドポイント
+
+localhostではなく、デプロイ済みのVelaを使うには:
 
 ```bash
-export ANTHROPIC_BASE_URL="https://vela.my.id"
+export ANTHROPIC_BASE_URL="https://your-domain.example/v1"
+export ANTHROPIC_AUTH_TOKEN="[your Vela key]"
 ```
 
-VelaクラウドダッシュボードでAPIキーが設定されていることを確認してください。
+プロジェクト自身のホストされているインスタンスは、古いドキュメントには`https://vela.my.id`として現れます — それは所有者のデプロイであって、このドキュメントが約束できるサービスではなく、上流の事実です。実際に資格情報を持っているエンドポイントを使ってください。

@@ -1,6 +1,6 @@
 # インストール
 
-トラブルシューティングのヒント付きのVela詳細インストールガイド。
+Velaを動かすために必要なすべて: 要件、4つのインストール方法、ちゃんと動くかを確かめる手順、そしてきれいに片付ける方法。2分で動かしたいだけなら、[クイックスタート](quick-start.md)が近道です。
 
 ---
 
@@ -8,176 +8,188 @@
 
 ### システム要件
 
-- **Node.js**: バージョン 20.0.0以上
-- **npm**: バージョン 10.0.0以上 (Node.jsに付属)
-- **OS**: macOS、Linux、Windows (WSL推奨)
-- **ディスク容量**: インストールに約200MB
+- **Node.js**: npmからインストールする場合はバージョン20以降。公式のDockerイメージにはNode 22が入っているので、Dockerを使う人は読み飛ばせます。
+- **npm**: バージョン10以降(Node.jsに同梱されています)。
+- **オペレーティングシステム**: macOS、Linux、Windows(Windowsはネイティブで動きます。WSLも問題ありません)。
+- **ディスク**: アプリ本体に約500MB、利用履歴が増えるにしたがってデータも増えます。
+- **メモリ**: 約1GBあれば快適です。Dockerイメージはデフォルトで1GBのヒープ上限を設定します。
 
-### バージョンを確認
+いま入っているものを確かめましょう:
 
 ```bash
 node --version
-# v20.x.x以上が表示されるはず
+# v20.x.x or newer
 
 npm --version
-# 10.x.x以上が表示されるはず
+# 10.x.x or newer
 ```
 
-**Node.jsがない場合?** [nodejs.org](https://nodejs.org/)からインストール
+Node.jsがなければ、[nodejs.org](https://nodejs.org/)から、あるいは`nvm`のようなバージョンマネージャーで入れてください。
 
 ---
 
 ## インストール方法
 
-### 方法1: グローバルインストール (推奨)
-
-どこからでも使用できるようにVelaをグローバルインストール:
+### 方法1: npmでグローバルインストール(推奨)
 
 ```bash
 npm install -g vela
-```
-
-**Velaを起動:**
-
-```bash
 vela
 ```
 
-**利点:**
-- ✅ どのディレクトリからでも実行
-- ✅ シンプルなコマンド: `Vela`
-- ✅ `npm update -g vela` で自動更新
-
-### 方法2: ローカルインストール
-
-特定のプロジェクトにインストール:
+`vela`コマンドはランチャーです。ゲートウェイを起動し、ポートが応答するのを待って、ダッシュボードを開きます。知っておくとよいフラグ:
 
 ```bash
-mkdir my-Vela
-cd my-Vela
-npm install -g vela
+vela                    # start on the default port, open the browser
+vela --port 8080        # a different port
+vela --host 127.0.0.1   # this machine only (the default binds 0.0.0.0)
+vela --no-browser       # do not open a browser
+vela --log              # show server logs in the terminal
+vela --tray             # run in the system tray
+vela --skip-update      # skip the update check on start
+vela --help             # everything else
 ```
 
-**Velaを起動:**
+**これが最初の選択肢になる理由:**
+- ✅ どのディレクトリからでも動かせる
+- ✅ コマンドはひとつ: `vela`
+- ✅ `npm update -g vela`で最新に保てる
+- ✅ ランチャーは落ちたサーバーを再起動し、実行に使うバイナリをインストールディレクトリの外、`~/.vela/runtime`に保ちます
+
+### 方法2: インストールせずに動かす
+
+ちょっと試してみたいだけなら:
 
 ```bash
-npx Vela
+npx vela
 ```
 
-**利点:**
-- ✅ プロジェクトごとに分離
-- ✅ プロジェクトごとのバージョン管理
-- ✅ グローバル名前空間の汚染なし
+ランチャーをnpmのキャッシュに落として実行します。グローバルには何もインストールされませんが、データディレクトリ(`~/.vela`)は作られ、設定は実行をまたいで残ります。
 
-### 方法3: ソースから (開発)
+### 方法3: Docker
 
-GitHubからクローンしてビルド:
+サーバー、NAS、あるいはNode.jsを入れたくない何かに向いています。
+
+```bash
+docker run -d --name vela \
+  -p 32060:32060 \
+  -v "$HOME/vela-data:/app/data" \
+  -e DATA_DIR=/app/data \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  ghcr.io/yumamax3/vela:1.2.4
+```
+
+そのあと**http://localhost:32060/dashboard**を開きます。
+
+- イメージは**公開**です。pullするのにGitHubのログインも、パーソナルアクセストークンも、資格情報も要りません。
+- イメージはマルチアーキテクチャです。ふつうのサーバー(`linux/amd64`)でも、Raspberry PiやApple SiliconのDockerホストのようなARMマシン(`linux/arm64`)でも、ネイティブに動きます。
+- **タグを固定してください。** `ghcr.io/yumamax3/vela:1.2.4`が現在のリリースです。`:latest`は新しいバージョンが出るたびに動くので、再起動したら選んだ覚えのないバージョンになっていた、ということが黙って起こりえます。
+- **つねに`/app/data`をマウントしてください。** ボリュームがなければ、データベースはコンテナの中に住み、コンテナとともに消えます。
+
+Compose、リバースプロキシ、環境変数の詳細は[クラウドへのデプロイのガイド](../deployment/cloud.md)にあります。
+
+### 方法4: ソースから
+
+開発、改変、あるいは独自のイメージをビルドしたい人に。
 
 ```bash
 git clone https://github.com/YumamaX3/Vela.git
-cd Vela/app
+cd Vela
 npm install
 npm run build
-npm start
+npm run start
 ```
 
-**利点:**
-- ✅ 最新の開発機能
-- ✅ 開発に貢献可能
-- ✅ カスタム変更
+プロジェクトはクローンのルートにあります — 入れ子の`app/`フォルダはありません。スクリプトは次のとおりです:
+
+```bash
+npm run dev        # development server with hot reload, port 32060
+npm run build      # production build
+npm run start      # run the production build
+```
+
+`npm run dev`はVela本体をいじるときのものです。デプロイで走らせるのは`npm run build`のあとの`npm run start`です。
+
+> ⚠️ **バージョンについて:** 自分でビルドしたものがこのドキュメントと違う動きをしたら、`package.json`を確かめてください — その`version`フィールドが真実です。このドキュメントは**1.2.4**を説明しています。
 
 ---
 
-## 初回実行
+## 初回起動
 
-### サーバーを起動
+### サーバーを起動する
 
 ```bash
 vela
 ```
 
-**何が起こるか:**
-1. サーバーが `http://localhost:32060` で起動
-2. ダッシュボードが自動的にブラウザで開く
-3. `~/.vela` にデータディレクトリが作成される
-4. APIキーが自動生成される
+起きること:
 
-### ダッシュボードログイン
+1. ゲートウェイが`http://localhost:32060`で起動します。
+2. ダッシュボードがブラウザの`/dashboard`で開きます。
+3. データディレクトリが作られます — macOSとLinuxでは`~/.vela`、Windowsでは`%APPDATA%\vela`、`DATA_DIR`を設定していればその場所。
+4. それだけです。**デフォルトのパスワードはなく**、事前に生成されたキーもありません。
 
-**デフォルト認証情報:**
-- パスワード: `123456`
+### ダッシュボードのパスワード
 
-**⚠️ パスワードをすぐに変更:**
-1. ダッシュボードにログイン
-2. Settings → Change Password
-3. 強力なパスワードを使用
+ここは、古いチュートリアルと現代のVelaが食い違うところなので、はっきり書いておく価値があります:
 
-### APIキーを取得
+- **デフォルトのパスワードはありません。** `123456`でも、`admin`でも、ほかの何でもありません。
+- **ローカルからのアクセスは開いています。** Velaを動かしているマシンからは、ダッシュボードは何も求めずに開きます。これは意図されたことです — 自分のノートPCにログインする必要はないはずです。
+- **パスワードを決めるまで、遠隔からのアクセスは拒否されます。** ネットワーク上のほかのマシンからダッシュボードを開いても、Velaは誰も決めていないパスワードで入れることはしません。
+
+パスワードを設定するには: **Velaを動かしているマシンから**ダッシュボードを開き、**設定 → アクセス**で設定します。同じ画面で、ダッシュボードのログインを必須にするか、APIリクエストにキーを義務づけるかも切り替えられ、ゲートウェイが「ゲート済み」かどうかもひと目でわかります — ネットワークに晒す前に見ておきたいチェックマークです。
+
+あるいは、初回起動の前に環境変数で`INITIAL_PASSWORD`を設定することもできます。Velaはそれをログインのパスワードとして受け入れます。
+
+### ツール用のAPIキーを手に入れる
 
 ```
-Dashboard → Settings → API Keys
-→ APIキーをコピー
-→ CLIツールで使用
+Dashboard → Endpoint & Key → Create Key
+→ copy the key that appears (it is shown once)
 ```
 
-**APIキー形式の例:**
-```
-9r_1234567890abcdef1234567890abcdef
-```
+キーは`vela-v1-<random>-<checksum>`の形をしています。同じダイアログで、範囲を狭めることもできます: どのプロバイダー、モデル、コンボに届いてよいか、レート制限、日次・週次・月次のトークン予算、そして支出上限。共用や長時間の仕組みには上限をつけてください — 上限に達すると、Velaは黙って使うのではなく、はっきりした429で答えます。
 
 ---
 
-## インストールを確認
+## インストールを確かめる
 
-### サーバーステータスを確認
+### サーバーが生きているか
 
 ```bash
-curl http://localhost:32060/health
+curl http://localhost:32060/api/health
 ```
 
-**期待されるレスポンス:**
+期待される応答:
+
 ```json
-{
-  "status": "ok",
-  "version": "1.0.0"
-}
+{"ok":true}
 ```
 
-### 利用可能なモデルを一覧表示
+ヘルスチェックのルートは意図的に認証なしにしてあるので、`REQUIRE_API_KEY`が有効でも答えます。
+
+### 届くモデルを一覧する
 
 ```bash
 curl http://localhost:32060/v1/models \
-  -H "Authorization: Bearer your-api-key"
+  -H "Authorization: Bearer vela-v1-your-key-here"
 ```
 
-**期待されるレスポンス:**
-```json
-{
-  "object": "list",
-  "data": [
-    {
-      "id": "cc/claude-opus-4-5-20251101",
-      "object": "model",
-      "created": 1234567890,
-      "owned_by": "claude-code"
-    }
-  ]
-}
-```
+接続したプロバイダーすべてから、すべてのモデルが返ります。リストが空なら、まだプロバイダーが接続されていません — [クイックスタート](quick-start.md)の手順3を見てください。
 
-### チャットコンプリーションをテスト
+### 本物のリクエストをひとつ送る
 
 ```bash
 curl http://localhost:32060/v1/chat/completions \
-  -H "Authorization: Bearer your-api-key" \
+  -H "Authorization: Bearer vela-v1-your-key-here" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "cc/claude-opus-4-5-20251101",
-    "messages": [
-      {"role": "user", "content": "Hello!"}
-    ]
+    "model": "glm/glm-4.7",
+    "messages": [{"role": "user", "content": "Say hello in five words."}]
   }'
 ```
+
+返事が来れば、ゲートウェイも、キーも、プロバイダーも、ルーティングも、すべて動いています。失敗したら、エラーの文言が理由を告げます。[トラブルシューティング](../troubleshooting.md)がよくあるものを直し方と対応づけています。
 
 ---
 
@@ -185,293 +197,205 @@ curl http://localhost:32060/v1/chat/completions \
 
 ### 環境変数
 
-`.env` ファイルを作成するか、環境変数を設定:
+シェルで、アプリのそばの`.env`ファイルで、あるいはコンテナの環境として設定できます。まず大事なものから:
 
 ```bash
-# セキュリティ (本番環境では必須)
-export JWT_SECRET="your-secure-secret-change-this"
-export INITIAL_PASSWORD="your-password"
+# Security — set these for any non-local deployment
+export JWT_SECRET="$(openssl rand -hex 32)"   # signs dashboard sessions
+export INITIAL_PASSWORD="your-password"       # optional first login password
 
-# ストレージ
-export DATA_DIR="~/.vela"
+# Storage
+export DATA_DIR="$HOME/.vela"                 # where the database lives
 
-# サーバー
-export PORT="32060"
+# Server
+export PORT="32060"                           # the default
 export NODE_ENV="production"
-
-# ロギング
-export ENABLE_REQUEST_LOGS="false"
 ```
+
+`JWT_SECRET`には警告が要ります。2026年10月以降、Velaはこれがプレースホルダーのままだったり32文字を下回ったりすると**起動を拒否します**。本物を生成してください。変数の完全な一覧はリポジトリの`.env.example`と`docs/ENVIRONMENT.md`にあります。
 
 ### データディレクトリ
 
-**デフォルトの場所:** `~/.vela`
+デフォルト: `~/.vela`(macOS/Linux)または`%APPDATA%\vela`(Windows)。
 
-**内容:**
-```
+```text
 ~/.vela/
-  ├── db/
-  │   └── data.sqlite   # データベース (プロバイダー、コンボ、使用量)
-  └── logs/             # リクエストログ (有効化されている場合)
+  db/
+    data.sqlite        # providers, combos, keys, settings
+    backups/           # pre-migration safety copies and scheduled backups
+  logs/                # request logs, if enabled
+  runtime/             # launcher-managed binaries
 ```
 
-**場所を変更:**
+移動するには:
 
 ```bash
-export DATA_DIR="/custom/path"
+export DATA_DIR="/srv/vela-data"
 vela
 ```
 
-### ポート設定
+Windowsでは、Unix風のパス(`/`で始まるもの)は警告とともに無視され、デフォルトが使われます — そのパスはそこには存在できないからです。
 
-**デフォルトポート:** `32060`
+### ポートの設定
 
-**ポートを変更:**
-
-```bash
-export PORT="3000"
-vela
-```
-
-**またはコマンドラインで:**
+デフォルトは`32060`です。フラグか環境変数で変えられます:
 
 ```bash
-Vela --port 3000
+vela --port 8080
+# or
+PORT=8080 vela
 ```
+
+別のポートを使うなら、`/v1`に向けているすべてのツールを更新してください — そしてベースURLの末尾の`/v1`は残すこと。
 
 ---
 
-## トラブルシューティング
+## インストールのトラブルシューティング
 
-### ポートがすでに使用されている
+### ポートがすでに使われている
 
-**エラー:**
 ```
 Error: listen EADDRINUSE: address already in use :::32060
 ```
 
-**解決策1: 既存のプロセスを終了**
+プロセスを見つけて止めるか、別のポートを選んでください:
 
 ```bash
-# ポート32060を使用しているプロセスを検索
+# macOS / Linux
 lsof -i :32060
+kill <PID>
 
-# プロセスを終了
-kill -9 <PID>
+# Windows
+netstat -ano | findstr :32060
+taskkill /PID <PID> /F
+
+# or simply start elsewhere
+vela --port 8080
 ```
 
-**解決策2: 別のポートを使用**
+### 権限が拒否される
+
+```
+Error: EACCES: permission denied, mkdir '/usr/local/lib/node_modules/...'
+```
+
+直し方は、`sudo`を使うことではなく、npmが所有するディレクトリを渡すことです:
 
 ```bash
-Vela --port 3000
-```
-
-### Permission Denied
-
-**エラー:**
-```
-Error: EACCES: permission denied, mkdir '/usr/local/lib/node_modules/Vela'
-```
-
-**解決策: sudoを使用 (非推奨) またはnpm権限を修正**
-
-```bash
-# npm権限を修正 (推奨)
 mkdir ~/.npm-global
 npm config set prefix '~/.npm-global'
 echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
-
-# 再度インストール
 npm install -g vela
 ```
 
-### Node.jsバージョンが古すぎる
+### Node.jsが古すぎる
 
-**エラー:**
 ```
 Error: The engine "node" is incompatible with this module
 ```
 
-**解決策: Node.jsを更新**
+Node.jsを更新してください — `nvm`があればそれで、なければ[nodejs.org](https://nodejs.org/)から:
 
 ```bash
-# nvmを使用 (推奨)
 nvm install 20
 nvm use 20
-
-# またはnodejs.orgからダウンロード
 ```
 
 ### ダッシュボードが開かない
 
-**問題:** ダッシュボードが自動的に開かない
+`http://localhost:32060/dashboard`を自分で開いてみてください。それでも開かなければ、プロセスが動いているか(`vela --log`が出力を映します)、ファイアウォールを確かめます: macOSではシステム設定 → ネットワーク → ファイアウォールでNodeプロセスを許可し、Linuxでは`ufw`や`iptables`を確かめ、WindowsではWindows Defenderファイアウォールで通してください。
 
-**解決策1: 手動で開く**
+### プロバイダーが接続しない
 
-```
-http://localhost:32060
-```
+- オンラインか確かめてください(`ping 1.1.1.1`)。
+- ローカルの不具合と決めつける前に、プロバイダーのステータスページを確かめてください。
+- OAuthのプロバイダーでは、**Providers → [provider] → Disconnect → Connect**をもう一度試してください。切れたセッションは、壊れたインストールとそっくりに見えることがよくあります。
 
-**解決策2: ファイアウォールを確認**
+### メモリ使用量が多い
 
-```bash
-# macOS: システム環境設定 → セキュリティでNode.jsを許可
-# Linux: iptablesを確認
-# Windows: Windowsファイアウォールを確認
-```
-
-### プロバイダーに接続できない
-
-**問題:** OAuthログインが失敗、またはAPIキーが無効
-
-**解決策1: インターネット接続を確認**
-
-```bash
-ping google.com
-```
-
-**解決策2: プロバイダーのステータスを確認**
-
-- Claude Code: [status.anthropic.com](https://status.anthropic.com)
-- OpenAI: [status.openai.com](https://status.openai.com)
-- Gemini: [status.cloud.google.com](https://status.cloud.google.com)
-
-**解決策3: APIキーを再生成**
-
-```
-Dashboard → Provider → Disconnect → Reconnect
-```
-
-### 高メモリ使用量
-
-**問題:** VelaがRAMを使いすぎている
-
-**解決策: サーバーを再起動**
-
-```bash
-# 停止
-pkill -f Vela
-
-# 起動
-vela
-```
-
-**または自動再起動にPM2を使用:**
+ゲートウェイを再起動してください(`Ctrl+C`、そして`vela`)。長時間動かすインストールなら、プロセスマネージャーを使ってください:
 
 ```bash
 npm install -g pm2
-pm2 start Vela --name Vela
+pm2 start vela --name vela
 pm2 save
 ```
 
 ---
 
-## デプロイメントオプション
+## デプロイの選択肢
 
-### ローカル開発
+### 自分のマシンで
 
 ```bash
 npm install -g vela
 vela
 ```
 
-**ユースケース:** 個人コーディング、テスト
+**向いている:** 個人のコーディング、プロバイダーを試すこと、すべてをローカルに保つこと。
 
-### VPS/クラウドサーバー
-
-```bash
-# インストール
-npm install -g vela
-
-# 設定
-export JWT_SECRET="your-secure-secret"
-export INITIAL_PASSWORD="your-password"
-export NODE_ENV="production"
-
-# PM2で起動
-npm install -g pm2
-pm2 start Vela --name Vela
-pm2 save
-pm2 startup
-```
-
-**ユースケース:** チームアクセス、リモートコーディング
-
-### Docker
+### サーバーで
 
 ```bash
-docker pull Vela/Vela:latest
-
-docker run -d \
-  -p 32060:32060 \
-  -e JWT_SECRET="your-secure-secret" \
-  -e INITIAL_PASSWORD="your-password" \
-  -v Vela-data:/root/.Vela \
-  --name Vela \
-  Vela/Vela:latest
+docker run -d --name vela --restart unless-stopped \
+  -p 127.0.0.1:32060:32060 \
+  -v "$HOME/vela-data:/app/data" \
+  -e DATA_DIR=/app/data \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  -e INITIAL_PASSWORD="choose-a-password" \
+  ghcr.io/yumamax3/vela:1.2.4
 ```
 
-**ユースケース:** コンテナデプロイ、Kubernetes
+`127.0.0.1`に束ねるというのは、同じマシン上のリバースプロキシだけがダッシュボードに届けるということです — インターネットに面したホストにとって安全なデフォルトです。[クラウドへのデプロイ](../deployment/cloud.md)には、大事なストリーミングの設定も含めた、Nginxの完全な設定があります。
 
-### リバースプロキシ (Nginx)
+### リバースプロキシの背後で
+
+ストリーミングの応答(サーバー送信イベント)は、バッファリングを切らないと、最後にひとまとめに届いてしまいます:
 
 ```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    location / {
-        proxy_pass http://localhost:32060;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        
-        # SSE support for streaming
-        proxy_buffering off;
-        proxy_read_timeout 86400;
-    }
+location / {
+    proxy_pass http://127.0.0.1:32060;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;
+    proxy_read_timeout 86400;
 }
 ```
-
-**ユースケース:** HTTPS、カスタムドメイン、ロードバランシング
 
 ---
 
 ## アンインストール
 
-### グローバルインストールを削除
-
 ```bash
-npm uninstall -g vela
+npm uninstall -g vela      # remove the launcher
+rm -rf ~/.vela             # remove data, keys and settings — this is irreversible
 ```
 
-### データディレクトリを削除
+Windowsではデータディレクトリは`%APPDATA%\vela`です。そのあと、シェルのプロファイルに足したエクスポートを消してください。
+
+Dockerで動かしていたなら:
 
 ```bash
-rm -rf ~/.vela
-```
-
-### 設定を削除
-
-```bash
-# シェル設定から環境変数を削除
-nano ~/.bashrc  # または ~/.zshrc
-# Vela関連のエクスポートを削除
+docker stop vela && docker rm vela
+docker rmi ghcr.io/yumamax3/vela:1.2.4
+# and remove the volume or host directory you mounted
 ```
 
 ---
 
 ## 次のステップ
 
-- [スタートガイド](../getting-started.md) - プロバイダーを接続してコーディング開始
-- [機能](../features/) - クォータトラッキング、コンボ、デプロイを確認
-- [トラブルシューティング](../troubleshooting.md) - 一般的な問題の修正
+- [クイックスタート](quick-start.md) — プロバイダーを接続し、ツールをVelaに向ける
+- [プロバイダー](../providers/subscription.md) — いつ、どのレーンを使うか
+- [機能](../features/smart-routing.md) — ルーティング、コンボ、クォータ追跡
+- [トラブルシューティング](../troubleshooting.md) — つながらないとき
 
 ---
 
-## ヘルプが必要?
+## ヘルプが必要ですか?
 
 - **ウェブサイト**: [vela.my.id](https://vela.my.id)
 - **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)

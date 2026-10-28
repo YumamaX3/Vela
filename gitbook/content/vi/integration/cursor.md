@@ -1,149 +1,126 @@
 # Tích hợp Cursor
 
-Tích hợp Vela với Cursor IDE để định tuyến request AI qua hệ thống routing thông minh của Vela.
+Cursor có thể dùng một endpoint tuỳ chỉnh tương thích OpenAI. Hướng nó về Vela và mọi lời gọi chat, chỉnh sửa inline và autocomplete đều đi qua gateway — được định tuyến, được theo dõi, và chịu sự chi phối của các key cùng ngân sách của bạn.
 
-## Yêu cầu
+## Điều kiện tiên quyết
 
-- Cursor IDE đã cài đặt
-- Tài khoản Cursor Pro (cần thiết cho custom API endpoint)
-- Vela cloud endpoint đã cấu hình
-- API key từ Vela dashboard
+- Đã cài Cursor
+- Vela đang chạy cục bộ, hoặc một endpoint cloud chạm tới được
+- Một API key từ dashboard Vela (**Endpoint & Key → Create Key**)
 
-## ⚠️ Lưu ý Quan trọng
+## ⚠️ Những điều nên biết trước
 
-> **Yêu cầu Cloud Endpoint**: Cursor định tuyến request qua server của chính nó và không hỗ trợ endpoint localhost. Bạn phải dùng Vela cloud endpoint: `https://vela.my.id`
+> **Endpoint tuỳ chỉnh có thể cần gói Cursor trả phí.** Cursor đã di chuyển khả năng này qua lại giữa các phiên bản và các gói. Nếu bản build của bạn không đưa ra trường base-URL, đó là một hạn chế của Cursor, không phải của Vela.
 
-> **Yêu cầu Cursor Pro**: Tính năng này yêu cầu tài khoản Cursor Pro để dùng custom API endpoint.
+> **Localhost có thể chưa đủ.** Một số cấu hình Cursor gửi request qua chính server của Cursor, từ đó `localhost` nghĩa là máy của Cursor, không phải máy của bạn. Nếu request thất bại với lỗi kết nối trong khi trình duyệt của bạn chạm tới được dashboard, đó là nguyên nhân — hãy triển khai Vela ở nơi Cursor chạm tới được (xem [Triển khai cloud](../deployment/cloud.md)) và dùng địa chỉ ấy thay vào đó.
 
-## Setup
+> **Dùng tên miền, không phải IP trần, qua HTTPS.** Nếu bạn đặt Vela sau một reverse proxy, hãy cấp cho nó chứng chỉ TLS — API key truyền đi trong request.
 
-### 1. Mở Cursor Settings
+## Thiết lập
 
-1. Mở Cursor IDE
-2. Đi đến **Settings** (Cmd/Ctrl + ,)
-3. Đi đến phần **Models**
+### 1. Mở phần cài đặt model của Cursor
 
-### 2. Bật OpenAI API
+**Settings** (`Cmd/Ctrl + ,`) → **Models**.
 
-1. Tìm option **OpenAI API key**
-2. Bật toggle để kích hoạt cấu hình custom API
+### 2. Bật endpoint OpenAI tuỳ chỉnh
 
-### 3. Cấu hình Base URL
+Bật **OpenAI API key** và tìm trường **Override OpenAI Base URL**. Nếu bản build của bạn có nó, bạn đã sẵn sàng.
 
-Đặt base URL tới Vela cloud endpoint:
+### 3. Đặt base URL
 
 ```
-https://vela.my.id
+http://localhost:32060/v1
 ```
 
-**Các bước:**
-1. Trong cài đặt Models, tìm field **Base URL**
-2. Nhập: `https://vela.my.id`
-3. Click **Save**
+Giữ `/v1`. Một URL không có nó sẽ chạm vào dashboard thay vì API và thất bại với một phản hồi HTML khó hiểu.
 
-### 4. Thêm API Key
+### 4. Dán key của bạn
 
-1. Trong field **API Key**, nhập API key Vela
-2. Bạn có thể tìm API key trong Vela dashboard tại **Settings → API Keys**
-3. Click **Save**
+Key có dạng `vela-v1-<id>-<checksum>`. Lấy một cái mới từ **Endpoint & Key → Create Key** nếu bạn chưa có — key chỉ được hiển thị một lần.
 
-### 5. Thêm Custom Model
+### 5. Thêm một model
 
-1. Click nút **View All Models**
-2. Click **Add Custom Model**
-3. Nhập tên model từ cấu hình Vela (ví dụ: `gpt-4`, `claude-opus-4-5`, v.v.)
-4. Click **Add**
-
-### 6. Chọn Model
-
-1. Trong giao diện chat Cursor, click dropdown chọn model
-2. Chọn custom model từ danh sách
-3. Bắt đầu dùng Vela với Cursor!
-
-## Ví dụ Cấu hình
-
-Cursor settings của bạn nên trông như sau:
+Dưới **View All Models → Add custom model**, thêm id model đúng như Vela phân giải nó:
 
 ```
-OpenAI API: ✓ Enabled
-Base URL: https://vela.my.id
-API Key: sk-Vela-xxxxxxxxxxxxx
-Custom Models: gpt-4, claude-opus-4-5, gemini-2.0-flash
+cc/claude-opus-5
+cc/claude-sonnet-5
+glm/glm-4.7
+premium-coding          ← a combo name works here too
 ```
 
-## Model có sẵn
+### 6. Chọn nó
 
-Bạn có thể dùng bất kỳ model nào đã cấu hình trong Vela dashboard. Ví dụ phổ biến:
+Chọn model trong bộ chọn model chat của Cursor và gửi một tin nhắn. Xác nhận nó đã đến dưới **Usage** trong dashboard Vela.
 
-| Tên Model | Provider | Mô tả |
-|------------|----------|-------------|
-| `gpt-4` | OpenAI | GPT-4 Turbo |
-| `gpt-4o` | OpenAI | GPT-4 Optimized |
-| `claude-opus-4-5` | Anthropic | Claude Opus 4.5 |
-| `claude-sonnet-4-5` | Anthropic | Claude Sonnet 4.5 |
-| `gemini-2.0-flash` | Google | Gemini 2.0 Flash |
+## Ví dụ cấu hình
+
+```
+OpenAI API:        ✓ enabled
+Base URL:          http://localhost:32060/v1
+API key:           vela-v1-xxxxxxxx-xxxxxxxx
+Custom models:     cc/claude-opus-5, cc/claude-sonnet-5, glm/glm-4.7
+```
+
+## Các model hiện có
+
+Bất cứ thứ gì gateway liệt kê — chạy `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"` để xem những cái của bạn. Những lựa chọn phổ biến:
+
+| Model | Tầng |
+|-------|------|
+| `cc/claude-opus-5` | subscription Claude |
+| `cc/claude-sonnet-5` | subscription Claude |
+| `cx/gpt-5.6-sol` | subscription Codex |
+| `glm/glm-4.7` | giá rẻ |
+| `minimax/MiniMax-M2.1` | rẻ nhất |
+| `kr/claude-sonnet-4.5` | miễn phí |
+
+Combos cũng hoạt động ở đây, và đó là lý do để dùng Cursor với Vela xuyên suốt: khi quota của một model đóng lại, model kế tiếp trả lời, ngay giữa cuộc trò chuyện.
 
 ## Sử dụng
 
-### Giao diện Chat
+- **Chat** (`Cmd/Ctrl + L`) — chọn model Vela và hỏi.
+- **Inline edit** (`Cmd/Ctrl + K`) — chọn code, gõ prompt, chấp nhận.
+- **Explain** — chọn code, hỏi, và kiểm tra model nào đã trả lời dưới **Routed by Combo** nếu bạn đang dùng một chuỗi.
 
-1. Mở Cursor chat (Cmd/Ctrl + L)
-2. Chọn model từ dropdown
-3. Bắt đầu chat với AI qua Vela
+## Khắc phục sự cố
 
-### Tạo Code Inline
+### "Invalid API key"
 
-1. Chọn code trong editor
-2. Nhấn Cmd/Ctrl + K
-3. Nhập prompt
-4. Cursor sẽ dùng Vela để tạo code
+1. Xác minh trong **Endpoint & Key** rằng key tồn tại và đang được bật.
+2. Sao chép toàn bộ key — từ `vela-v1-` đến checksum ở cuối.
+3. Các key theo định dạng `sk-...` cũ có trước cơ chế hiện tại và bị từ chối; hãy tạo một cái mới.
 
-### Giải thích Code
+### "Model not found"
 
-1. Chọn code trong editor
-2. Nhấn Cmd/Ctrl + L
-3. Hỏi "Explain this code"
-4. Nhận giải thích AI qua Vela
+1. Dùng đúng id từ `/v1/models`.
+2. Kiểm tra nhà cung cấp đã kết nối trong **Providers**.
+3. Nhớ rằng một model mà nhà cung cấp đã khai tử sẽ không phân giải được, dù viết thế nào.
 
-## Troubleshooting
+### Lỗi kết nối
 
-### Lỗi "Invalid API Key"
+1. Xác nhận Vela trả lời: `curl http://localhost:32060/api/health`.
+2. Xác nhận base URL kết thúc bằng `/v1`.
+3. Nếu server của Cursor nằm trên đường đi, `localhost` không thể hoạt động — hãy dùng một endpoint đã triển khai.
 
-1. Xác minh API key trong Vela dashboard
-2. Đảm bảo bạn sao chép đầy đủ key bao gồm prefix `sk-Vela-`
-3. Kiểm tra API key chưa hết hạn
-4. Thử tạo API key mới
+### Thiếu trường đó
 
-### Lỗi "Model Not Found"
+Một số bản build và gói Cursor không phơi ra base URL tuỳ chỉnh. Không có gì ở phía Vela có thể thêm nó. Các lựa chọn thay thế: Cline, Roo hoặc Continue trong VS Code, đều chấp nhận một base URL.
 
-1. Xác minh tên model khớp chính xác với cấu hình Vela
-2. Kiểm tra kết nối provider đang hoạt động trong Vela dashboard
-3. Đảm bảo model có sẵn trong các provider đã kết nối
-4. Thử dùng tên model đầy đủ (ví dụ: `openai/gpt-4` thay vì `gpt-4`)
+## Endpoint cloud
 
-### Lỗi Connection
+Trên một server có chứng chỉ:
 
-1. Xác minh bạn đang dùng cloud endpoint: `https://vela.my.id`
-2. Kiểm tra kết nối internet
-3. Đảm bảo dịch vụ Vela cloud đang hoạt động
-4. Thử tắt VPN hoặc proxy nếu đang bật
+```
+Base URL:  https://your-domain.example/v1
+API key:   [your Vela key]
+```
 
-### Localhost không hoạt động
+Sau đó Cursor chạm tới Vela từ bất cứ đâu nó chạy. Các rate limit và việc luân chuyển nhà cung cấp vẫn y như cũ; chỉ địa chỉ thay đổi.
 
-> **Nhớ**: Cursor không hỗ trợ endpoint localhost. Bạn phải dùng cloud endpoint `https://vela.my.id`. Nếu cần dùng Vela cục bộ, hãy cân nhắc dùng dịch vụ tunneling như ngrok để expose endpoint cục bộ.
+## Thực hành tốt nhất
 
-## Setup Cloud Endpoint
-
-Nếu bạn chạy Vela cục bộ và muốn dùng với Cursor:
-
-1. Bật cloud endpoint trong Vela settings
-2. Cấu hình URL cloud endpoint trong Vela dashboard
-3. Dùng URL cloud trong Cursor settings
-4. Đảm bảo Vela instance cục bộ có thể truy cập từ internet
-
-## Best Practices
-
-1. **Dùng Model Aliases**: Tạo alias ngắn cho model thường dùng trong Vela
-2. **Theo dõi Usage**: Kiểm tra Vela dashboard để xem thống kê và chi phí
-3. **Xoay API Key**: Định kỳ xoay API key để bảo mật
-4. **Test Model**: Thử các model khác nhau để tìm model tốt nhất cho use case
+1. **Mỗi máy hoặc mỗi người một key** — báo cáo mức dùng cho bạn biết ai đã tiêu gì.
+2. **Đặt một ngưỡng cho nó** nếu Cursor chạy không người trông; một ngưỡng chi tiêu là thứ duy nhất chặn được một vòng lặp chạy loạn.
+3. **Luân chuyển key** khi mất một laptop hoặc khi một key bị dán ở nơi không nên dán.
+4. **Dùng một combo** để một bức tường quota không kết thúc buổi chiều của bạn.

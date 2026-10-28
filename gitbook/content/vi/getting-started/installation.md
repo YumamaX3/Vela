@@ -1,6 +1,6 @@
 # Cài đặt
 
-Hướng dẫn cài đặt chi tiết cho Vela với mẹo troubleshooting.
+Mọi thứ bạn cần để chạy Vela: các yêu cầu, bốn cách cài đặt, cách xác minh nó hoạt động, và cách gỡ nó ra. Nếu bạn chỉ muốn nó chạy trong hai phút, [Bắt đầu nhanh](quick-start.md) là con đường ngắn hơn.
 
 ---
 
@@ -8,176 +8,188 @@ Hướng dẫn cài đặt chi tiết cho Vela với mẹo troubleshooting.
 
 ### Yêu cầu hệ thống
 
-- **Node.js**: Phiên bản 20.0.0 trở lên
-- **npm**: Phiên bản 10.0.0 trở lên (đi kèm Node.js)
-- **OS**: macOS, Linux, Windows (khuyên dùng WSL)
-- **Dung lượng**: ~200MB để cài đặt
+- **Node.js**: phiên bản 20 trở lên nếu bạn cài qua npm. Ảnh Docker chính thức đóng gói sẵn Node 22, nên người dùng Docker có thể bỏ qua mục này.
+- **npm**: phiên bản 10 trở lên (đi kèm Node.js).
+- **Hệ điều hành**: macOS, Linux, hoặc Windows (Windows chạy gốc; WSL cũng dùng được).
+- **Ổ đĩa**: khoảng 500MB cho ứng dụng, nhiều hơn cho dữ liệu khi lịch sử dùng tăng lên.
+- **Bộ nhớ**: khoảng 1GB là thoải mái. Ảnh Docker mặc định đặt trần heap 1GB.
 
-### Kiểm tra Phiên bản
+Kiểm tra những gì bạn đang có:
 
 ```bash
 node --version
-# Should show v20.x.x or higher
+# v20.x.x or newer
 
 npm --version
-# Should show 10.x.x or higher
+# 10.x.x or newer
 ```
 
-**Chưa có Node.js?** Cài đặt từ [nodejs.org](https://nodejs.org/)
+Nếu chưa có Node.js, hãy cài từ [nodejs.org](https://nodejs.org/) hoặc bằng một trình quản lý phiên bản như `nvm`.
 
 ---
 
-## Phương thức Cài đặt
+## Các phương thức cài đặt
 
-### Cách 1: Cài Global (Khuyên dùng)
-
-Cài Vela toàn cục để dùng ở bất kỳ đâu:
+### Phương thức 1: cài toàn cục qua npm (khuyến nghị)
 
 ```bash
 npm install -g vela
-```
-
-**Khởi động Vela:**
-
-```bash
 vela
 ```
 
-**Lợi ích:**
-- ✅ Chạy từ mọi thư mục
-- ✅ Lệnh đơn giản: `Vela`
-- ✅ Auto-update với `npm update -g vela`
-
-### Cách 2: Cài Local
-
-Cài trong project cụ thể:
+Lệnh `vela` là một trình khởi chạy. Nó khởi động gateway, chờ cổng trả lời, và mở dashboard. Những cờ đáng biết:
 
 ```bash
-mkdir my-Vela
-cd my-Vela
-npm install -g vela
+vela                    # start on the default port, open the browser
+vela --port 8080        # a different port
+vela --host 127.0.0.1   # this machine only (the default binds 0.0.0.0)
+vela --no-browser       # do not open a browser
+vela --log              # show server logs in the terminal
+vela --tray             # run in the system tray
+vela --skip-update      # skip the update check on start
+vela --help             # everything else
 ```
 
-**Khởi động Vela:**
+**Tại sao đây là lựa chọn mặc định:**
+- ✅ Chạy được từ bất kỳ thư mục nào
+- ✅ Một lệnh duy nhất: `vela`
+- ✅ `npm update -g vela` giữ nó luôn mới
+- ✅ Trình khởi chạy tự khởi động lại server bị crash và giữ các binary runtime trong `~/.vela/runtime`, tách khỏi thư mục cài đặt
+
+### Phương thức 2: chạy mà không cần cài
+
+Nếu bạn chỉ muốn thử:
 
 ```bash
-npx Vela
+npx vela
 ```
 
-**Lợi ích:**
-- ✅ Cô lập mỗi project
-- ✅ Version control mỗi project
-- ✅ Không làm bẩn global namespace
+Lệnh này tải trình khởi chạy vào cache của npm và chạy nó. Không có gì được cài toàn cục, nhưng thư mục dữ liệu (`~/.vela`) vẫn được tạo, và các cài đặt của bạn còn nguyên giữa các lần chạy.
 
-### Cách 3: Từ Source (Development)
+### Phương thức 3: Docker
 
-Clone và build từ GitHub:
+Tốt cho một server, một NAS, hoặc bất cứ nơi nào bạn không muốn cài Node.js.
+
+```bash
+docker run -d --name vela \
+  -p 32060:32060 \
+  -v "$HOME/vela-data:/app/data" \
+  -e DATA_DIR=/app/data \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  ghcr.io/yumamax3/vela:1.2.4
+```
+
+Sau đó mở **http://localhost:32060/dashboard**.
+
+- Ảnh này là **công khai**. Bạn không cần đăng nhập GitHub, personal access token, hay bất kỳ thông tin xác thực nào để kéo nó.
+- Ảnh hỗ trợ nhiều kiến trúc: nó chạy gốc trên cả server thông thường (`linux/amd64`) lẫn các máy ARM như Raspberry Pi hay máy chủ Docker Apple Silicon (`linux/arm64`).
+- **Ghim thẻ phiên bản.** `ghcr.io/yumamax3/vela:1.2.4` là bản phát hành hiện tại. `:latest` di chuyển mỗi khi một phiên bản mới được phát hành, và một lần khởi động lại có thể lặng lẽ đưa bạn sang một phiên bản bạn không chọn.
+- **Luôn mount `/app/data`.** Không có volume, cơ sở dữ liệu của bạn sống trong container và biến mất cùng nó.
+
+[Hướng dẫn triển khai cloud](../deployment/cloud.md) bao quát Compose, reverse proxy và các biến môi trường một cách sâu sắc.
+
+### Phương thức 4: từ mã nguồn
+
+Cho phát triển, vá lỗi, hoặc tự build ảnh của riêng bạn.
 
 ```bash
 git clone https://github.com/YumamaX3/Vela.git
-cd Vela/app
+cd Vela
 npm install
 npm run build
-npm start
+npm run start
 ```
 
-**Lợi ích:**
-- ✅ Tính năng phát triển mới nhất
-- ✅ Đóng góp cho dự án
-- ✅ Tùy chỉnh
+Dự án nằm ngay gốc bản clone — không có thư mục `app/` lồng bên trong. Các script là:
+
+```bash
+npm run dev        # development server with hot reload, port 32060
+npm run build      # production build
+npm run start      # run the production build
+```
+
+`npm run dev` để làm việc trên chính Vela. `npm run build` rồi `npm run start` là thứ một bản triển khai nên chạy.
+
+> ⚠️ **Một lưu ý về phiên bản:** nếu bản bạn build có hành vi khác với tài liệu này, hãy kiểm tra `package.json` — trường `version` của nó là sự thật. Tài liệu này mô tả **1.2.4**.
 
 ---
 
-## Lần chạy Đầu tiên
+## Lần chạy đầu tiên
 
-### Khởi động Server
+### Khởi động server
 
 ```bash
 vela
 ```
 
-**Điều gì xảy ra:**
-1. Server khởi động tại `http://localhost:32060`
-2. Dashboard tự động mở trong browser
-3. Data directory được tạo tại `~/.vela`
-4. API key được tạo tự động
+Điều gì xảy ra:
 
-### Đăng nhập Dashboard
+1. Gateway khởi động tại `http://localhost:32060`.
+2. Dashboard mở trong trình duyệt tại `/dashboard`.
+3. Một thư mục dữ liệu được tạo — `~/.vela` trên macOS và Linux, `%APPDATA%\vela` trên Windows — hoặc thư mục do `DATA_DIR` chỉ định nếu bạn có đặt.
+4. Không gì khác. **Không có mật khẩu mặc định** và không có key nào được tạo sẵn.
 
-**Credentials mặc định:**
-- Mật khẩu: `123456`
+### Mật khẩu dashboard
 
-**⚠️ Đổi mật khẩu ngay:**
-1. Đăng nhập dashboard
-2. Settings → Change Password
-3. Dùng mật khẩu mạnh
+Đây là chỗ các hướng dẫn cũ mâu thuẫn với Vela hiện đại, nên cần nói thẳng:
 
-### Lấy API Key
+- **Không có mật khẩu mặc định.** Không phải `123456`, không phải `admin`, không phải bất cứ thứ gì khác.
+- **Truy cập cục bộ đang mở.** Từ chính máy đang chạy Vela, dashboard tải mà không hỏi gì. Đó là chủ ý: bạn không nên phải đăng nhập vào chiếc laptop của chính mình.
+- **Truy cập từ xa bị từ chối cho đến khi bạn đặt một mật khẩu.** Nếu ai đó mở dashboard từ một máy khác trên mạng, Vela sẽ không cho họ vào bằng một mật khẩu chưa từng được chọn.
+
+Để đặt mật khẩu: mở dashboard **từ máy đang chạy Vela**, vào **Settings → Access**, và đặt mật khẩu ở đó. Cùng màn hình ấy cho phép bạn bắt buộc đăng nhập dashboard, bật/tắt việc các request API phải mang theo key, và nhìn thấy ngay gateway có "gated" (đã đóng cổng) hay chưa — dấu tích bạn muốn có trước khi phơi nó ra một mạng lưới.
+
+Cách khác, hãy đặt `INITIAL_PASSWORD` trong môi trường trước lần khởi động đầu tiên; Vela sẽ chấp nhận nó làm mật khẩu đăng nhập.
+
+### Lấy một API key cho các công cụ của bạn
 
 ```
-Dashboard → Settings → API Keys
-→ Copy your API key
-→ Use in CLI tools
+Dashboard → Endpoint & Key → Create Key
+→ copy the key that appears (it is shown once)
 ```
 
-**Ví dụ format API key:**
-```
-9r_1234567890abcdef1234567890abcdef
-```
+Một key có dạng `vela-v1-<random>-<checksum>`. Trong cùng hộp thoại, bạn có thể thu hẹp phạm vi của nó: được chạm tới những nhà cung cấp, model hay combo nào; một rate limit; một ngân sách token theo ngày/tuần/tháng; và một ngưỡng chi tiêu. Với một thiết lập dùng chung hoặc chạy lâu dài, hãy đặt một ngưỡng — Vela trả lời bằng một mã 429 rõ ràng khi chạm ngưỡng thay vì lặng lẽ tiêu tiền.
 
 ---
 
-## Xác minh Cài đặt
+## Xác minh bản cài đặt
 
-### Kiểm tra trạng thái Server
+### Kiểm tra server còn sống
 
 ```bash
-curl http://localhost:32060/health
+curl http://localhost:32060/api/health
 ```
 
-**Phản hồi dự kiến:**
+Mong đợi:
+
 ```json
-{
-  "status": "ok",
-  "version": "1.0.0"
-}
+{"ok":true}
 ```
 
-### Liệt kê Model khả dụng
+Route health được cố ý để không cần xác thực, nên nó vẫn trả lời ngay cả khi `REQUIRE_API_KEY` đang bật.
+
+### Liệt kê các model bạn chạm tới được
 
 ```bash
 curl http://localhost:32060/v1/models \
-  -H "Authorization: Bearer your-api-key"
+  -H "Authorization: Bearer vela-v1-your-key-here"
 ```
 
-**Phản hồi dự kiến:**
-```json
-{
-  "object": "list",
-  "data": [
-    {
-      "id": "cc/claude-opus-4-5-20251101",
-      "object": "model",
-      "created": 1234567890,
-      "owned_by": "claude-code"
-    }
-  ]
-}
-```
+Bạn sẽ nhận được mọi model từ mọi nhà cung cấp đã kết nối. Nếu danh sách trống, chưa có nhà cung cấp nào được kết nối — xem bước 3 của [Bắt đầu nhanh](quick-start.md).
 
-### Test Chat Completion
+### Gửi một request thật
 
 ```bash
 curl http://localhost:32060/v1/chat/completions \
-  -H "Authorization: Bearer your-api-key" \
+  -H "Authorization: Bearer vela-v1-your-key-here" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "cc/claude-opus-4-5-20251101",
-    "messages": [
-      {"role": "user", "content": "Hello!"}
-    ]
+    "model": "glm/glm-4.7",
+    "messages": [{"role": "user", "content": "Say hello in five words."}]
   }'
 ```
+
+Một phản hồi nghĩa là mọi thứ — gateway, key, nhà cung cấp, định tuyến — đang hoạt động. Nếu nó thất bại, nội dung lỗi nói rõ nguyên nhân; [Khắc phục sự cố](../troubleshooting.md) ánh xạ những lỗi phổ biến sang cách sửa.
 
 ---
 
@@ -185,293 +197,205 @@ curl http://localhost:32060/v1/chat/completions \
 
 ### Biến môi trường
 
-Tạo file `.env` hoặc set biến môi trường:
+Bạn có thể đặt chúng trong shell, trong một tệp `.env` cạnh ứng dụng, hoặc như môi trường container. Những cái quan trọng trước tiên:
 
 ```bash
-# Security (REQUIRED in production)
-export JWT_SECRET="your-secure-secret-change-this"
-export INITIAL_PASSWORD="your-password"
+# Security — set these for any non-local deployment
+export JWT_SECRET="$(openssl rand -hex 32)"   # signs dashboard sessions
+export INITIAL_PASSWORD="your-password"       # optional first login password
 
 # Storage
-export DATA_DIR="~/.vela"
+export DATA_DIR="$HOME/.vela"                 # where the database lives
 
 # Server
-export PORT="32060"
+export PORT="32060"                           # the default
 export NODE_ENV="production"
-
-# Logging
-export ENABLE_REQUEST_LOGS="false"
 ```
 
-### Data Directory
+`JWT_SECRET` xứng đáng một lời cảnh báo: kể từ tháng Mười năm 2026, Vela **từ chối khởi động** nếu nó còn là một giá trị giữ chỗ hoặc ngắn hơn 32 ký tự. Hãy tạo một cái thật. Danh sách đầy đủ các biến nằm trong `.env.example` của repository và `docs/ENVIRONMENT.md`.
 
-**Vị trí mặc định:** `~/.vela`
+### Thư mục dữ liệu
 
-**Nội dung:**
-```
+Mặc định: `~/.vela` (macOS/Linux) hoặc `%APPDATA%\vela` (Windows).
+
+```text
 ~/.vela/
-  ├── db/
-  │   └── data.sqlite   # Database (providers, combos, usage)
-  └── logs/             # Request logs (if enabled)
+  db/
+    data.sqlite        # providers, combos, keys, settings
+    backups/           # pre-migration safety copies and scheduled backups
+  logs/                # request logs, if enabled
+  runtime/             # launcher-managed binaries
 ```
 
-**Đổi vị trí:**
+Để di chuyển nó:
 
 ```bash
-export DATA_DIR="/custom/path"
+export DATA_DIR="/srv/vela-data"
 vela
 ```
 
-### Cấu hình Port
+Trên Windows, một đường dẫn kiểu Unix (bắt đầu bằng `/`) bị bỏ qua kèm cảnh báo và đường dẫn mặc định được dùng — đường dẫn ấy không thể tồn tại ở đó.
 
-**Port mặc định:** `32060`
+### Cấu hình cổng
 
-**Đổi port:**
-
-```bash
-export PORT="3000"
-vela
-```
-
-**Hoặc dùng command line:**
+Mặc định là `32060`. Đổi bằng cờ hoặc biến môi trường:
 
 ```bash
-Vela --port 3000
+vela --port 8080
+# or
+PORT=8080 vela
 ```
+
+Nếu bạn dùng cổng khác, hãy cập nhật mọi công cụ trỏ đến `/v1` — và giữ lại đoạn `/v1` ở cuối base URL.
 
 ---
 
-## Troubleshooting
+## Khắc phục sự cố cài đặt
 
-### Port đã được dùng
+### Cổng đã bị dùng
 
-**Lỗi:**
 ```
 Error: listen EADDRINUSE: address already in use :::32060
 ```
 
-**Giải pháp 1: Kill process hiện có**
+Tìm và dừng tiến trình, hoặc chọn cổng khác:
 
 ```bash
-# Find process using port 32060
+# macOS / Linux
 lsof -i :32060
+kill <PID>
 
-# Kill process
-kill -9 <PID>
+# Windows
+netstat -ano | findstr :32060
+taskkill /PID <PID> /F
+
+# or simply start elsewhere
+vela --port 8080
 ```
 
-**Giải pháp 2: Dùng port khác**
+### Permission denied
+
+```
+Error: EACCES: permission denied, mkdir '/usr/local/lib/node_modules/...'
+```
+
+Cách sửa là cho npm một thư mục do nó sở hữu, không phải dùng `sudo`:
 
 ```bash
-Vela --port 3000
-```
-
-### Permission Denied
-
-**Lỗi:**
-```
-Error: EACCES: permission denied, mkdir '/usr/local/lib/node_modules/Vela'
-```
-
-**Giải pháp: Dùng sudo (không khuyến nghị) hoặc fix npm permissions**
-
-```bash
-# Fix npm permissions (recommended)
 mkdir ~/.npm-global
 npm config set prefix '~/.npm-global'
 echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
-
-# Then install again
 npm install -g vela
 ```
 
-### Node.js Phiên bản quá cũ
+### Node.js quá cũ
 
-**Lỗi:**
 ```
 Error: The engine "node" is incompatible with this module
 ```
 
-**Giải pháp: Cập nhật Node.js**
+Cập nhật Node.js — bằng `nvm` nếu bạn có, nếu không thì từ [nodejs.org](https://nodejs.org/):
 
 ```bash
-# Using nvm (recommended)
 nvm install 20
 nvm use 20
-
-# Or download from nodejs.org
 ```
 
 ### Dashboard không mở
 
-**Vấn đề:** Dashboard không tự mở
+Hãy tự mở `http://localhost:32060/dashboard`. Nếu nó cũng không tải, kiểm tra tiến trình đang chạy (`vela --log` hiển thị đầu ra của nó), và kiểm tra tường lửa của bạn: trên macOS, cho phép tiến trình Node trong System Settings → Network → Firewall; trên Linux, kiểm tra `ufw` hoặc `iptables`; trên Windows, cho phép nó qua Windows Defender Firewall.
 
-**Giải pháp 1: Mở thủ công**
+### Một nhà cung cấp không kết nối được
 
-```
-http://localhost:32060
-```
+- Kiểm tra bạn đang có mạng (`ping 1.1.1.1`).
+- Kiểm tra trang trạng thái của nhà cung cấp trước khi cho rằng lỗi nằm ở máy bạn.
+- Với các nhà cung cấp OAuth, thử **Providers → [provider] → Disconnect → Connect** lại lần nữa; một phiên đã hết hạn thường trông y hệt một bản cài đặt hỏng.
 
-**Giải pháp 2: Kiểm tra firewall**
+### Dùng nhiều bộ nhớ
 
-```bash
-# macOS: Allow Node.js in System Preferences → Security
-# Linux: Check iptables
-# Windows: Check Windows Firewall
-```
-
-### Không kết nối được Provider
-
-**Vấn đề:** OAuth login thất bại hoặc API key không hợp lệ
-
-**Giải pháp 1: Kiểm tra kết nối internet**
-
-```bash
-ping google.com
-```
-
-**Giải pháp 2: Kiểm tra trạng thái provider**
-
-- Claude Code: [status.anthropic.com](https://status.anthropic.com)
-- OpenAI: [status.openai.com](https://status.openai.com)
-- Gemini: [status.cloud.google.com](https://status.cloud.google.com)
-
-**Giải pháp 3: Tạo lại API key**
-
-```
-Dashboard → Provider → Disconnect → Reconnect
-```
-
-### Sử dụng RAM cao
-
-**Vấn đề:** Vela dùng quá nhiều RAM
-
-**Giải pháp: Khởi động lại server**
-
-```bash
-# Stop
-pkill -f Vela
-
-# Start
-vela
-```
-
-**Hoặc dùng PM2 để auto-restart:**
+Khởi động lại gateway (`Ctrl+C`, rồi `vela`). Với một bản cài chạy lâu dài, hãy dùng một trình quản lý tiến trình:
 
 ```bash
 npm install -g pm2
-pm2 start Vela --name Vela
+pm2 start vela --name vela
 pm2 save
 ```
 
 ---
 
-## Tùy chọn Deployment
+## Các lựa chọn triển khai
 
-### Phát triển cục bộ
+### Trên máy của bạn
 
 ```bash
 npm install -g vela
 vela
 ```
 
-**Use case:** Code cá nhân, testing
+**Tốt cho:** lập trình cá nhân, thử nhà cung cấp, giữ mọi thứ cục bộ.
 
-### VPS/Cloud Server
-
-```bash
-# Install
-npm install -g vela
-
-# Configure
-export JWT_SECRET="your-secure-secret"
-export INITIAL_PASSWORD="your-password"
-export NODE_ENV="production"
-
-# Start with PM2
-npm install -g pm2
-pm2 start Vela --name Vela
-pm2 save
-pm2 startup
-```
-
-**Use case:** Team access, remote coding
-
-### Docker
+### Trên một server
 
 ```bash
-docker pull Vela/Vela:latest
-
-docker run -d \
-  -p 32060:32060 \
-  -e JWT_SECRET="your-secure-secret" \
-  -e INITIAL_PASSWORD="your-password" \
-  -v Vela-data:/root/.Vela \
-  --name Vela \
-  Vela/Vela:latest
+docker run -d --name vela --restart unless-stopped \
+  -p 127.0.0.1:32060:32060 \
+  -v "$HOME/vela-data:/app/data" \
+  -e DATA_DIR=/app/data \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  -e INITIAL_PASSWORD="choose-a-password" \
+  ghcr.io/yumamax3/vela:1.2.4
 ```
 
-**Use case:** Containerized deployment, Kubernetes
+Gắn vào `127.0.0.1` nghĩa là chỉ một reverse proxy trên cùng máy mới chạm tới dashboard — mặc định an toàn cho một máy chủ phơi ra internet. [Triển khai cloud](../deployment/cloud.md) có cấu hình Nginx đầy đủ, với các thiết lập streaming quan trọng.
 
-### Reverse Proxy (Nginx)
+### Phía sau một reverse proxy
+
+Các phản hồi streaming (server-sent events) cần tắt buffering, nếu không chúng sẽ về một cục vào cuối:
 
 ```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    location / {
-        proxy_pass http://localhost:32060;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        
-        # SSE support for streaming
-        proxy_buffering off;
-        proxy_read_timeout 86400;
-    }
+location / {
+    proxy_pass http://127.0.0.1:32060;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;
+    proxy_read_timeout 86400;
 }
 ```
-
-**Use case:** HTTPS, custom domain, load balancing
 
 ---
 
 ## Gỡ cài đặt
 
-### Gỡ Global Installation
-
 ```bash
-npm uninstall -g vela
+npm uninstall -g vela      # remove the launcher
+rm -rf ~/.vela             # remove data, keys and settings — this is irreversible
 ```
 
-### Xóa Data Directory
+Trên Windows, thư mục dữ liệu là `%APPDATA%\vela`. Sau đó xoá mọi export bạn đã thêm vào hồ sơ shell.
+
+Nếu bạn đã chạy Docker thay vào đó:
 
 ```bash
-rm -rf ~/.vela
-```
-
-### Xóa Cấu hình
-
-```bash
-# Remove environment variables from shell config
-nano ~/.bashrc  # or ~/.zshrc
-# Delete Vela-related exports
+docker stop vela && docker rm vela
+docker rmi ghcr.io/yumamax3/vela:1.2.4
+# and remove the volume or host directory you mounted
 ```
 
 ---
 
 ## Bước tiếp theo
 
-- [Hướng dẫn Bắt đầu](../getting-started.md) - Kết nối provider và bắt đầu code
-- [Tính năng](../features/) - Khám phá quota tracking, combos, deployment
-- [Troubleshooting](../troubleshooting.md) - Sửa các vấn đề thường gặp
+- [Bắt đầu nhanh](quick-start.md) — kết nối nhà cung cấp và hướng công cụ về Vela
+- [Nhà cung cấp](../providers/subscription.md) — dùng tầng nào vào lúc nào
+- [Tính năng](../features/smart-routing.md) — định tuyến, combos, theo dõi quota
+- [Khắc phục sự cố](../troubleshooting.md) — khi có thứ gì đó không kết nối được
 
 ---
 
-## Cần trợ giúp?
+## Cần giúp đỡ?
 
 - **Website**: [vela.my.id](https://vela.my.id)
 - **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)

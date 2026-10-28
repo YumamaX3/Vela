@@ -1,249 +1,197 @@
 # Tích hợp Continue VSCode Extension
 
-Tích hợp Vela với extension Continue để mang trợ lý AI trực tiếp vào Visual Studio Code.
+Continue là một trợ lý AI mã nguồn mở cho VS Code và JetBrains. Nó đọc một tệp `config.json`, và tệp ấy là tất cả những gì bạn cần để định tuyến nó qua Vela.
 
-## Yêu cầu
+## Điều kiện tiên quyết
 
-- Visual Studio Code đã cài đặt
-- Extension Continue đã cài đặt từ VSCode marketplace
-- Vela API key từ [dashboard](https://vela.my.id/dashboard)
-- Vela đang chạy (cục bộ hoặc cloud)
+- VS Code với tiện ích mở rộng Continue đã cài
+- Vela đang chạy cục bộ, hoặc một endpoint cloud chạm tới được
+- Một API key từ dashboard Vela (**Endpoint & Key → Create Key**)
 
-## Các bước Cấu hình
+## Các bước cấu hình
 
-### 1. Mở Continue Configuration
+### 1. Mở cấu hình Continue
 
-1. Mở VSCode
-2. Nhấn `Cmd+Shift+P` (Mac) hoặc `Ctrl+Shift+P` (Windows/Linux)
-3. Gõ "Continue: Open Config" và chọn
-4. Mở `~/.continue/config.json`
+- `Cmd+Shift+P` (macOS) hoặc `Ctrl+Shift+P` (Windows/Linux)
+- Chạy **Continue: Open Config**
+- Thao tác này mở `~/.continue/config.json`
 
-### 2. Thêm Cấu hình Model Vela
+### 2. Thêm các model Vela
 
-Thêm cấu hình sau vào `config.json`:
+Định dạng cấu hình hiện tại của Continue dùng một mảng `models`:
 
-**Setup Một Model:**
+**Một model:**
+
 ```json
 {
   "models": [
     {
-      "title": "Vela - Claude Opus",
+      "title": "Vela — Claude Opus",
       "provider": "openai",
-      "model": "cc/claude-opus-4-5-20251101",
-      "apiKey": "your-api-key-from-dashboard",
+      "model": "cc/claude-opus-5",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1"
     }
   ]
 }
 ```
 
-**Setup Nhiều Model:**
+**Nhiều model, để bạn có thể chuyển trong menu thả xuống:**
+
 ```json
 {
   "models": [
     {
-      "title": "Vela - Claude Opus (Best)",
+      "title": "Vela — Opus (hard tasks)",
       "provider": "openai",
-      "model": "cc/claude-opus-4-5-20251101",
-      "apiKey": "your-api-key-from-dashboard",
+      "model": "cc/claude-opus-5",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1"
     },
     {
-      "title": "Vela - Claude Sonnet (Balanced)",
+      "title": "Vela — Sonnet (everyday)",
       "provider": "openai",
-      "model": "cc/claude-sonnet-4-20250514",
-      "apiKey": "your-api-key-from-dashboard",
+      "model": "cc/claude-sonnet-5",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1"
     },
     {
-      "title": "Vela - DeepSeek Chat (Code)",
+      "title": "Vela — GLM (cheap)",
       "provider": "openai",
-      "model": "cx/deepseek-chat",
-      "apiKey": "your-api-key-from-dashboard",
-      "apiBase": "http://localhost:32060/v1"
-    },
-    {
-      "title": "Vela - Claude Haiku (Fast)",
-      "provider": "openai",
-      "model": "cc/claude-haiku-4-20250514",
-      "apiKey": "your-api-key-from-dashboard",
+      "model": "glm/glm-4.7",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1"
     }
   ]
 }
 ```
 
-**Cho Cloud Vela:**
-Thay `apiBase` bằng:
+**Với một Vela đã triển khai**, đổi `apiBase`:
+
 ```json
-"apiBase": "https://vela.my.id/v1"
+"apiBase": "https://your-domain.example/v1"
 ```
 
-### 3. Lưu và Reload
+> Nếu phiên bản Continue của bạn vẫn dùng lược đồ `models`/`apiBase` cũ hơn được hiển thị ở đây, nó hoạt động đúng như đã viết. Các bản build mới hơn có thể yêu cầu bạn chạy một trình hướng dẫn cấu hình nhỏ ở lần khởi chạy đầu tiên; cùng ba giá trị — provider `openai`, id model, base URL — đi vào cùng những chỗ ấy.
 
-1. Lưu file cấu hình
-2. Reload cửa sổ VSCode: `Cmd+Shift+P` → "Developer: Reload Window"
-3. Extension Continue sẽ load cấu hình mới
+### 3. Lưu và tải lại
 
-### 4. Chọn Model
+Lưu tệp, rồi **Developer: Reload Window**. Continue đọc cấu hình khi tải.
 
-1. Mở sidebar Continue (click icon Continue trong panel trái)
-2. Click dropdown chọn model ở trên cùng
-3. Chọn model Vela ưa thích
+### 4. Chọn một model
 
-## Model có sẵn
+Mở thanh bên Continue và chọn model từ menu thả xuống ở đầu.
 
-### Claude Models (Anthropic)
-- `cc/claude-opus-4-5-20251101` - Mạnh nhất, tốt nhất cho task phức tạp
-- `cc/claude-sonnet-4-20250514` - Cân bằng hiệu năng và tốc độ
-- `cc/claude-haiku-4-20250514` - Nhanh nhất, phù hợp task đơn giản
+## Các model hiện có
 
-### DeepSeek Models
-- `cx/deepseek-chat` - Xuất sắc cho tạo code
-- `cx/deepseek-reasoner` - Tốt nhất cho giải quyết vấn đề phức tạp
+Bất cứ thứ gì gateway liệt kê — kiểm tra bằng:
 
-### GLM Models (Zhipu AI)
-- `glm/glm-4-plus` - Tiếng Trung và tiếng Anh nâng cao
-- `glm/glm-4-flash` - Phản hồi nhanh
+```bash
+curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"
+```
 
-## Ví dụ Sử dụng
+| Model | Tầng |
+|-------|------|
+| `cc/claude-opus-5` | subscription Claude |
+| `cc/claude-sonnet-5` | subscription Claude |
+| `cc/claude-haiku-4-5-20251001` | subscription Claude |
+| `cx/gpt-5.6-sol` | subscription Codex |
+| `cx/gpt-5.4` | subscription Codex |
+| `glm/glm-4.7` | giá rẻ |
+| `minimax/MiniMax-M2.1` | rẻ nhất |
+| `kr/claude-sonnet-4.5` | miễn phí |
 
-### Giải thích Code
-1. Chọn code trong editor
-2. Mở sidebar Continue
-3. Gõ: "Explain this code"
-4. Model: `cc/claude-sonnet-4-20250514`
+Combos cũng hoạt động như id model.
 
-### Tạo Code
-1. Mở sidebar Continue
-2. Gõ: "Create a React component for user profile card"
-3. Model: `cx/deepseek-chat`
+## Ví dụ sử dụng
 
-### Refactoring
-1. Chọn code để refactor
-2. Gõ: "Refactor this to use async/await"
-3. Model: `cc/claude-sonnet-4-20250514`
+- **Explain:** chọn code, mở thanh bên, hỏi "Explain this".
+- **Generate:** yêu cầu "a React card component for a user profile".
+- **Refactor:** chọn code, hỏi "Refactor this to async/await".
+- **Debug:** dán stack trace và hỏi điều gì đã hỏng.
 
-### Sửa Bug
-1. Chọn code có vấn đề
-2. Gõ: "Find and fix the bug in this code"
-3. Model: `cx/deepseek-reasoner`
+## Nâng cao
 
-## Cấu hình Nâng cao
-
-### Custom System Prompts
-
-Thêm system prompt tùy chỉnh cho hành vi cụ thể:
+### Một system prompt
 
 ```json
 {
   "models": [
     {
-      "title": "Vela - Code Expert",
+      "title": "Vela — Code Expert",
       "provider": "openai",
-      "model": "cx/deepseek-chat",
-      "apiKey": "your-api-key",
+      "model": "cc/claude-sonnet-5",
+      "apiKey": "vela-v1-<id>-<checksum>",
       "apiBase": "http://localhost:32060/v1",
-      "systemMessage": "You are an expert programmer. Always provide clean, well-documented code with best practices."
+      "systemMessage": "You are a senior engineer. Prefer small, reviewable changes and explain trade-offs."
     }
   ]
 }
 ```
 
-### Temperature và Parameters
-
-Điều chỉnh hành vi model với parameters:
+### Temperature
 
 ```json
-{
-  "models": [
-    {
-      "title": "Vela - Creative Writer",
-      "provider": "openai",
-      "model": "cc/claude-opus-4-5-20251101",
-      "apiKey": "your-api-key",
-      "apiBase": "http://localhost:32060/v1",
-      "temperature": 0.9,
-      "topP": 0.95
-    }
-  ]
-}
+"temperature": 0.9,
+"topP": 0.95
 ```
 
-### Context Providers
+Với code, temperature thấp thường tốt hơn; với viết lách, cao hơn.
 
-Cấu hình context Continue gửi đến model:
+### Context providers
+
+Continue quyết định những gì gửi kèm prompt của bạn. Siết chặt điều này là đòn bẩy lớn nhất về chi phí cho người dùng Continue:
 
 ```json
 {
   "contextProviders": [
-    {
-      "name": "code",
-      "params": {
-        "maxLines": 100
-      }
-    },
-    {
-      "name": "diff",
-      "params": {}
-    },
-    {
-      "name": "terminal",
-      "params": {}
-    }
+    { "name": "code", "params": { "maxLines": 100 } },
+    { "name": "diff", "params": {} }
   ]
 }
 ```
 
 ## Phím tắt
 
-- `Cmd+L` (Mac) / `Ctrl+L` (Windows/Linux) - Mở Continue chat
-- `Cmd+I` (Mac) / `Ctrl+I` (Windows/Linux) - Inline edit
-- `Cmd+Shift+R` (Mac) / `Ctrl+Shift+R` (Windows/Linux) - Tạo lại response
+- `Cmd/Ctrl + L` — mở chat
+- `Cmd/Ctrl + I` — chỉnh sửa inline
+- `Cmd/Ctrl + Shift + R` — tạo lại
 
-## Troubleshooting
+(Phím tắt thay đổi theo phiên bản; bảng phím tắt của VS Code liệt kê những cái của bạn.)
+
+## Khắc phục sự cố
 
 ### Model không phản hồi
-- Kiểm tra Vela đang chạy: `curl http://localhost:32060/health`
-- Xác minh API key trong config.json
-- Kiểm tra VSCode Developer Console để xem lỗi: `Help` → `Toggle Developer Tools`
 
-### Chọn sai Model
-- Click dropdown model trong sidebar Continue
-- Chọn đúng model Vela
-- Tên model phải khớp chính xác (case-sensitive)
+1. `curl http://localhost:32060/api/health` → `{"ok":true}`.
+2. Kiểm tra key trong `config.json`.
+3. Mở console dành cho nhà phát triển của VS Code (**Help → Toggle Developer Tools**) và đọc lỗi.
 
-### Cấu hình không Load
-- Xác minh JSON syntax hợp lệ (dùng JSON validator)
-- Kiểm tra vị trí file: `~/.continue/config.json`
-- Reload cửa sổ VSCode sau khi thay đổi
+### Chọn sai model
 
-### Hiệu năng Chậm
-- Chuyển sang model nhanh hơn (haiku, flash)
-- Giảm context size trong contextProviders
-- Kiểm tra độ trễ network đến Vela
+- Kiểm tra menu thả xuống ở thanh bên — Continue nhớ lựa chọn cuối cùng.
+- Id model phân biệt chữ hoa chữ thường.
 
-## Best Practices
+### Cấu hình không load
 
-### Chiến lược Chọn Model
-- **Edit nhanh**: Dùng `cc/claude-haiku-4-20250514`
-- **Tạo code**: Dùng `cx/deepseek-chat`
-- **Refactoring phức tạp**: Dùng `cc/claude-opus-4-5-20251101`
-- **Giải quyết vấn đề**: Dùng `cx/deepseek-reasoner`
+- Kiểm tra tính hợp lệ của JSON (dấu phẩy thừa ở cuối là thủ phạm thường gặp).
+- Xác nhận đường dẫn là `~/.continue/config.json`.
+- Tải lại cửa sổ sau khi lưu.
 
-### Quản lý Context
-- Chỉ chọn code liên quan trước khi hỏi
-- Dùng prompt cụ thể, rõ ràng
-- Chia task phức tạp thành các bước nhỏ
+### Chậm
 
-### Tối ưu Chi phí
-- Dùng model nhanh hơn/rẻ hơn cho task đơn giản
-- Giới hạn context size khi có thể
-- Cache response thường dùng
+- Dùng một model nhẹ hơn.
+- Cắt ngữ cảnh: ít `maxLines` hơn, ít tệp đính kèm hơn.
+- Kiểm tra độ trễ mạng đến Vela.
+
+## Thực hành tốt nhất
+
+1. **Ba model, ba mức giá** — Opus để suy nghĩ, Sonnet để viết, GLM cho việc lặt vặt. Chuyển đổi chỉ một cú nhấp.
+2. **Chọn trước khi hỏi** — gửi cả tệp là thói quen đắt đỏ.
+3. **Đặt một ngưỡng cho key** nếu Continue chạy trên một máy dùng chung.
 
 ## Bước tiếp theo
 
-- [Cấu hình Cursor](cursor.md) cho tích hợp IDE nâng cao
-- [Setup Roo](roo.md) cho trợ lý AI
-- [Khám phá CLI usage](../cli/basic-usage.md)
-- [Tìm hiểu về chọn model](../models/overview.md)
+- [Cursor](cursor.md) cho IDE
+- [Roo](roo.md) cho một agent khác
+- [Combos](../features/combos.md) cho các chuỗi fallback

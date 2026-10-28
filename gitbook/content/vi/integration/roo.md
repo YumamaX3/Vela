@@ -1,127 +1,120 @@
 # Tích hợp Roo AI Assistant
 
-Tích hợp Vela với Roo AI Assistant để truy cập nhiều model AI qua một giao diện thống nhất.
+Roo là một agent VS Code sống ở thanh bên. Hướng nó về Vela và nó chạm tới mọi model bạn đã kết nối, với một key và một địa chỉ.
 
-## Yêu cầu
+## Điều kiện tiên quyết
 
-- Roo AI Assistant đã cài đặt
-- Vela API key từ [dashboard](https://vela.my.id/dashboard)
-- Vela đang chạy (cục bộ hoặc cloud)
+- Đã cài Roo trong VS Code
+- Vela đang chạy cục bộ, hoặc một endpoint cloud chạm tới được
+- Một API key từ dashboard Vela (**Endpoint & Key → Create Key**)
 
-## Các bước Cấu hình
+## Các bước cấu hình
 
-### 1. Mở Roo Settings
+### 1. Mở cài đặt Roo
 
-Khởi chạy Roo AI Assistant và mở panel settings.
+Khởi chạy Roo và mở bảng cài đặt của nó từ thanh bên.
 
-### 2. Cấu hình API Provider
+### 2. Chọn loại nhà cung cấp
 
-1. Đi đến cài đặt **API Provider**
-2. Chọn **Ollama** làm provider type
-3. Cấu hình các settings sau:
+Dưới **API Provider**, chọn **OpenAI Compatible**. Vela nói OpenAI API, nên đó là hình dạng đúng — Roo sẽ hỏi một base URL, một key và một id model.
 
-**Cho Vela cục bộ:**
+### 3. Điền ba trường
+
+**Vela cục bộ:**
+
 ```
-Base URL: http://localhost:32060/v1
-API Key: your-api-key-from-dashboard
-```
-
-**Cho Vela cloud:**
-```
-Base URL: https://vela.my.id/v1
-API Key: your-api-key-from-dashboard
+Base URL:  http://localhost:32060/v1
+API Key:   vela-v1-<id>-<checksum>
+Model:     cc/claude-opus-5
 ```
 
-### 3. Chọn Model
+**Vela đã triển khai:**
 
-Chọn từ các model Vela có sẵn:
+```
+Base URL:  https://your-domain.example/v1
+API Key:   [your Vela key]
+Model:     cc/claude-opus-5
+```
 
-**Claude Models:**
-- `cc/claude-opus-4-5-20251101` - Mạnh nhất
-- `cc/claude-sonnet-4-20250514` - Cân bằng
-- `cc/claude-haiku-4-20250514` - Nhanh
+### 4. Thử nó
 
-**DeepSeek Models:**
-- `cx/deepseek-chat` - Đa năng
-- `cx/deepseek-reasoner` - Reasoning phức tạp
-
-**GLM Models:**
-- `glm/glm-4-plus` - Nâng cao
-- `glm/glm-4-flash` - Phản hồi nhanh
-
-### 4. Test Connection
-
-Gửi tin nhắn test để xác minh tích hợp:
+Gửi:
 
 ```
 Hello! Can you confirm you're connected through Vela?
 ```
 
-## Ví dụ Sử dụng
+Rồi nhìn dưới **Usage** trong dashboard — request nên ở đó, được gán cho key ấy.
 
-### Chat Cơ bản
+## Chọn một model
+
+| Model | Tầng | Dùng cho |
+|-------|------|------------|
+| `cc/claude-opus-5` | subscription Claude | những tác vụ khó nhất |
+| `cc/claude-sonnet-5` | subscription Claude | công việc thường ngày cân bằng |
+| `cc/claude-haiku-4-5-20251001` | subscription Claude | chỉnh sửa nhanh |
+| `cx/gpt-5.6-sol` | subscription Codex | các bài toán nặng về lập trình |
+| `glm/glm-4.7` | giá rẻ | những phiên dài với ngân sách |
+| `kr/claude-sonnet-4.5` | miễn phí | khi các tầng trả phí đã cạn |
+
+> **Một lưu ý về tầng `cc/`.** Nhà cung cấp Claude Code (`claude`, bí danh `cc`) mang một dấu **deprecated** kèm thông báo rủi ro trong bản phát hành này: nó dựa trên một giao diện Claude Code không được tài liệu hoá, thứ có thể thay đổi mà không báo trước. Nó hoạt động hôm nay và nó là lựa chọn tự nhiên cho một subscription Anthropic — hãy nhớ đến `cx/` và các model Claude miễn phí `kr/` nếu nó hỏng.
+
+## Ví dụ sử dụng
+
 ```
-Ask Roo: "Explain quantum computing in simple terms"
-Model: cc/claude-sonnet-4-20250514
+Quick tasks       : cc/claude-haiku-4-5-20251001  or  glm/glm-4.7
+Balanced work     : cc/claude-sonnet-5  or  cx/gpt-5.6-sol
+Hard reasoning    : cc/claude-opus-5
+Cost-sensitive    : glm/glm-4.7  →  kr/claude-sonnet-4.5
 ```
 
-### Tạo Code
-```
-Ask Roo: "Write a Python function to calculate Fibonacci numbers"
-Model: cx/deepseek-chat
-```
+## Mẹo chọn model
 
-### Reasoning Phức tạp
-```
-Ask Roo: "Analyze the trade-offs between microservices and monolithic architecture"
-Model: cx/deepseek-reasoner
-```
+- **Nhanh và rẻ** cho đổi tên, sửa chú thích và chỉnh sửa nhỏ.
+- **Hạng Sonnet** cho công việc tính năng thông thường.
+- **Hạng Opus** khi một tác vụ trải qua nhiều tệp hoặc logic tinh tế.
+- **Một combo** khi phiên có thể sống lâu hơn một cửa sổ quota — đó là khác biệt giữa hoàn thành và không.
 
-## Mẹo Chọn Model
+## Khắc phục sự cố
 
-- **Task nhanh**: Dùng `cc/claude-haiku-4-20250514` hoặc `glm/glm-4-flash`
-- **Hiệu năng cân bằng**: Dùng `cc/claude-sonnet-4-20250514` hoặc `cx/deepseek-chat`
-- **Reasoning phức tạp**: Dùng `cc/claude-opus-4-5-20251101` hoặc `cx/deepseek-reasoner`
-- **Tối ưu chi phí**: Dùng model DeepSeek hoặc GLM
+### Connection failed
 
-## Troubleshooting
-
-### Connection Failed
-- Xác minh Vela đang chạy: `curl http://localhost:32060/health`
-- Kiểm tra API key đúng
-- Đảm bảo Base URL bao gồm hậu tố `/v1`
+1. `curl http://localhost:32060/api/health` → `{"ok":true}`.
+2. Kiểm tra base URL kết thúc bằng `/v1`.
+3. Kiểm tra key đầy đủ.
+4. Tải lại cửa sổ VS Code.
 
 ### Model không khả dụng
-- Kiểm tra tên model khớp chính xác (case-sensitive)
-- Xác minh model được bật trong Vela plan
-- Thử model khác từ danh sách
 
-### Phản hồi Chậm
-- Chuyển sang model nhanh hơn (haiku, flash)
-- Kiểm tra kết nối network
-- Theo dõi logs Vela để xem vấn đề
+- Id phải khớp chính xác, kể cả chữ hoa chữ thường.
+- Xác nhận nhà cung cấp đã kết nối trong **Providers**.
+- Kiểm tra danh sách của chính gateway: `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`.
 
-## Cấu hình Nâng cao
+### Phản hồi chậm
 
-### Custom Model Aliases
+- Chuyển sang một model nhẹ hơn (`cc/claude-haiku-4-5-20251001`, `glm/glm-4.7`).
+- Cắt bớt ngữ cảnh — ít tệp đính kèm hơn.
+- Kiểm tra nhà cung cấp không bị suy giảm.
 
-Bạn có thể tạo shortcut cho model thường dùng trong Roo settings:
+## Nâng cao
+
+### Bí danh ngắn
+
+Nếu Roo cho bạn lưu các preset model có tên, hãy đặt tên theo công việc thay vì theo model:
 
 ```
-Alias: "fast" → cc/claude-haiku-4-20250514
-Alias: "smart" → cc/claude-opus-4-5-20251101
-Alias: "code" → cx/deepseek-chat
+"fast"  → cc/claude-haiku-4-5-20251001
+"smart" → cc/claude-opus-5
+"cheap" → glm/glm-4.7
+"chain" → never-stuck
 ```
 
-### Nhiều Profile
+### Các hồ sơ riêng
 
-Setup profile khác nhau cho use case khác nhau:
-- **Development**: Model DeepSeek cho code
-- **Writing**: Model Claude cho nội dung
-- **Research**: Model Reasoner cho phân tích
+Những hồ sơ khác nhau cho những loại công việc khác nhau — lập trình, viết lách, nghiên cứu — mỗi hồ sơ có model riêng và key Vela riêng, để mức dùng rơi vào đúng ngăn.
 
 ## Bước tiếp theo
 
-- [Cấu hình Cursor](cursor.md) cho tích hợp IDE
-- [Setup Continue](continue.md) cho VSCode
-- [Khám phá CLI usage](../cli/basic-usage.md)
+- [Cursor](cursor.md) cho tích hợp IDE
+- [Continue](continue.md) cho VS Code
+- [Combos](../features/combos.md) cho những chuỗi fallback đáng dùng

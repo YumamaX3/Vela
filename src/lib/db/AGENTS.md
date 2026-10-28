@@ -1,6 +1,6 @@
 # src/lib/db
 
-The storage layer: one SQLite primary (optionally mirrored to MariaDB), 18 declared tables, a versioned migration chain, facades bound by posture, and an encrypted backup engine. Everything that persists lives behind this directory. New code imports `@/lib/db/index.js` — never `driver.js`.
+The storage layer: one SQLite primary (optionally mirrored to MariaDB), **24 declared tables** (measured 2026-10-28 — `Object.keys(TABLES).length`), a versioned migration chain (**23 migrations, `SCHEMA_VERSION = 23`**), facades bound by posture, and an encrypted backup engine. Everything that persists lives behind this directory. New code imports `@/lib/db/index.js` — never `driver.js`.
 
 ## The rooms
 
@@ -10,7 +10,7 @@ The storage layer: one SQLite primary (optionally mirrored to MariaDB), 18 decla
 | `paths.js` | `DATA_DIR/db/data.sqlite`, `DATA_DIR/db/backups`, the legacy-JSON paths |
 | `schema.js` | `SCHEMA_VERSION`, `PRAGMA_SQL`, `TABLES` — the declarative schema both harbors derive from |
 | `migrate.js` | `runMigrationOnce` — versioned chain → additive sync → one-time legacy JSON import |
-| `migrations/` | `001`–`016`, each `{ version, name, up, down }`; registry in `migrations/index.js` |
+| `migrations/` | `001`–`023`, each `{ version, name, up, down }`; registry in `migrations/index.js` |
 | `adapters/` | `bunSqliteAdapter.js`, `betterSqliteAdapter.js`, `nodeSqliteAdapter.js`, `sqljsAdapter.js` |
 | `index.js` | Pure re-export barrel. No SQL, no adapter access. |
 | `repos/bind.js` | The posture seam: `getDbMode`, `bindFacade`, `assertMysqlReachable`, `assertHarborBound` |

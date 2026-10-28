@@ -1,407 +1,183 @@
 # Smart Routing & Auto Fallback
 
-Vela automatically routes your requests through the best available provider using a 3-tier fallback system. Never stop coding due to quota limits or rate limiting.
+Vela does not guess. Every request goes somewhere for a reason: the model you asked for, the account that should serve it, and — if that fails — the next one in line.
+
+This page explains the pieces, so that when a request lands somewhere unexpected, you know exactly which knob to turn.
 
 ---
 
-## How It Works
-
-Vela uses intelligent routing to maximize your existing subscriptions, minimize costs, and ensure 24/7 availability:
+## The shape of a request
 
 ```
-Request → Vela → Check Tier 1 (Subscription)
-                     ↓ quota exhausted
-                     Check Tier 2 (Cheap)
-                     ↓ budget limit
-                     Check Tier 3 (Free)
-                     ↓
-                     Response
+Your tool
+   ↓  POST /v1/chat/completions, model: "premium-coding"
+Vela
+   ↓  is "premium-coding" a combo?      → yes: walk its chain
+   ↓  otherwise: is it prefix/model?    → resolve provider + model
+   ↓  which account for that provider?  → connection order, or round-robin
+   ↓  does the API key allow it?        → key scope
+   ↓  is the key within budget?         → 429 if not
+   ↓  call the upstream
+   ↓  failed?                           → next model in the chain (combos)
+Reply
 ```
 
-### 3-Tier Fallback System
-
-**Tier 1: SUBSCRIPTION (Primary)**
-- Claude Code (Pro/Max)
-- OpenAI Codex (Plus/Pro)
-- Gemini CLI (FREE 180K/month)
-- GitHub Copilot
-- Antigravity (Google)
-
-**Goal**: Maximize value from subscriptions you already pay for.
-
-**Tier 2: CHEAP (Backup)**
-- GLM-4.7 ($0.60/1M input)
-- MiniMax M2.1 ($0.20/1M input)
-- Kimi K2 ($9/month flat)
-
-**Goal**: Ultra-cheap backup when subscription quota runs out (~90% cheaper than ChatGPT API).
-
-**Tier 3: FREE (Emergency)**
-- iFlow (8 models)
-- Qwen (3 models)
-- Kiro (Claude FREE)
-
-**Goal**: Zero-cost fallback for unlimited coding.
+Nothing in that path silently reorders your priorities. If you asked for a subscription model, you get it or you get an error — unless you are using a combo, in which case you get the next model you listed.
 
 ---
 
-## Automatic Switching
+## Combo fallback
 
-Vela monitors quota in real-time and switches providers automatically:
-
-### Scenario 1: Subscription Quota Exhausted
+A combo is the only mechanism that moves a request to a *different model*:
 
 ```
-User request → cc/claude-opus-4-5
-               ↓ quota exhausted (5-hour limit reached)
-               Auto switch → glm/glm-4.7
-               ↓ daily quota exhausted
-               Auto switch → minimax/MiniMax-M2.1
-               ↓ 5-hour quota exhausted
-               Auto switch → if/kimi-k2-thinking (FREE)
-               ↓
-               Response delivered ✅
+cc/claude-opus-5 → glm/glm-4.7 → kr/claude-sonnet-4.5
 ```
 
-**Result**: Zero downtime, seamless experience.
+It moves on when a request fails — quota errors, rate limits, timeouts, policy refusals, unknown models — and stays put when a request merely *might* fail later. The full rules, and how to build one, are in [Combos](combos.md).
 
-### Scenario 2: Rate Limiting
+## Account rotation
 
-```
-User request → cx/gpt-5.2-codex
-               ↓ rate limited (too many requests)
-               Auto switch → glm/glm-4.7
-               ↓
-               Response delivered ✅
-```
+Within one provider, several connections can share the work. **Settings → Routing** offers round-robin (spread across connections) or fill-first (use one until it complains), with a sticky limit that keeps a conversation on the same account for a while. This is how you use two Claude accounts, or three, without thinking about it.
 
-### Scenario 3: Provider Unavailable
+## Key scope and budget
 
-```
-User request → cc/claude-opus-4-5
-               ↓ provider error (503)
-               Auto switch → next available model
-               ↓
-               Response delivered ✅
-```
+Every API key can be limited to certain providers, models or combos, and given a token budget and spend ceiling. When the ceiling is reached, the request is refused with a `429` carrying a `budget_exceeded` code — a clear stop rather than a quiet downgrade.
 
 ---
 
-## Model Selection Logic
+## What each lane is for
 
-Vela selects the best model based on:
+**Subscription — use first, if quality matters**
+- Claude Code, Codex, Copilot, Antigravity, Kimi
+- You already pay for these; the goal is to use the allowance before it expires
 
-1. **Quota availability** - Check if provider has remaining quota
-2. **Cost tier** - Prefer subscription → cheap → free
-3. **Reset timing** - Consider when quota resets
-4. **Provider health** - Skip providers with errors
+**Cheap — the middle**
+- GLM-4.7 ($0.60 / $2.20 per 1M), MiniMax M2.1 ($0.30 / $1.20), Kimi plans
+- A fraction of retail API pricing, and good enough for most work
 
-### Priority Order Example
-
-For a request to `cc/claude-opus-4-5`:
-
-```
-1. Check Claude Code quota
-   ✅ Available → Use cc/claude-opus-4-5
-   ❌ Exhausted → Continue to step 2
-
-2. Check fallback tier (if configured)
-   ✅ GLM quota available → Use glm/glm-4.7
-   ❌ Exhausted → Continue to step 3
-
-3. Check free tier
-   ✅ iFlow available → Use if/kimi-k2-thinking
-   ❌ All exhausted → Return quota error
-```
+**Free — the last line**
+- iFlow, Qwen, Kiro
+- Rate-limited and variable, but they cost nothing
 
 ---
 
-## Configuration Options
-
-### Dashboard Settings
-
-**1. Enable/Disable Auto Fallback**
+## Watching it happen
 
 ```
-Dashboard → Settings → Smart Routing
-→ Toggle "Auto Fallback" ON/OFF
+Dashboard → Usage        a live view of requests, tokens and cost
+Dashboard → Quota        per provider: used, remaining, reset countdown
+Dashboard → Routed by Combo   which model actually answered
+Dashboard → Log Harbor   the request ledger, when you need the detail
 ```
 
-- **ON** (default): Automatic tier switching
-- **OFF**: Strict mode, return error if primary model unavailable
+If a combo is landing on its last rung every time, **Quota** will show you why within seconds.
 
-**2. Set Budget Limits**
+---
 
-```
-Dashboard → Settings → Budget Control
-→ Daily limit: $5
-→ Monthly limit: $50
-```
+## Configuration that matters
 
-When budget reached, Vela automatically switches to free tier.
-
-**3. Configure Fallback Order**
+### Routing strategy
 
 ```
-Dashboard → Settings → Fallback Priority
-→ Drag to reorder providers within each tier
+Dashboard → Settings → Routing
+  Round robin            spread requests across connections
+  Sticky limit           how long one conversation stays on one connection
+  Combo round robin      rotate through a combo's members instead of falling through
 ```
 
-Example custom order:
+### Fallback rules
+
+Beyond combos, Vela has **Fallback Rules** — operator-defined rules keyed on what went wrong:
+
+- a specific HTTP status
+- a refused prompt (content policy)
+- a context window that is too small
+- a timeout
+- any error at all
+
+Rules can be chained and tested in a dry-run panel before they go live. They are the right tool when "try this other model when *that* happens" is a policy rather than a preference. Find them under **Fallback Rules** in the sidebar.
+
+### Per-key ceilings
+
 ```
-Tier 1: Gemini CLI → Claude Code → Codex
-Tier 2: MiniMax → GLM → Kimi
-Tier 3: iFlow → Kiro → Qwen
+Dashboard → Endpoint & Key → Create Key / Edit
+  rate limit, token budget, spend cap, provider/model scope
 ```
 
-**4. Quota Reset Notifications**
-
-```
-Dashboard → Settings → Notifications
-→ Email when quota resets
-→ Alert when 80% quota used
-```
+This is the only mechanism that stops spending. Use it on any key that runs unattended.
 
 ---
 
 ## Examples
 
-### Example 1: Basic Auto Fallback
+### Example 1: subscription first
 
-**Setup:**
 ```
-Model: cc/claude-opus-4-5-20251101
-Fallback: Auto (default 3-tier)
-```
-
-**Behavior:**
-```
-Morning (fresh quota):
-  Request → cc/claude-opus-4-5 ✅
-
-Afternoon (quota exhausted):
-  Request → glm/glm-4.7 ✅ (auto switched)
-
-Evening (GLM quota out):
-  Request → minimax/MiniMax-M2.1 ✅ (auto switched)
-
-Late night (all paid quota out):
-  Request → if/kimi-k2-thinking ✅ (free tier)
+Model: premium-coding
+  1. cc/claude-opus-5
+  2. glm/glm-4.7
+  3. if/qwen3-coder-plus
 ```
 
-**Cost**: ~$5-10/month extra (mostly covered by subscription).
+Morning: Claude answers. Afternoon, when the rolling window closes: GLM answers. Evening, when the card declines: iFlow answers. You keep typing.
 
-### Example 2: Budget-Conscious Routing
+### Example 2: with a spend ceiling
 
-**Setup:**
-```
-Dashboard → Settings:
-  Daily budget: $2
-  Monthly budget: $20
-  Fallback: Enabled
-```
+Give the key a $20 monthly cap. Work through GLM and MiniMax until the cap is reached; from then on every paid request is refused with a `429`, and free lanes still answer. Predictable bills, no surprise invoices.
 
-**Behavior:**
-```
-Day 1-15 (within budget):
-  Requests → glm/glm-4.7 (cheap tier)
-  Cost: $1.50/day
+### Example 3: subscription only
 
-Day 16 (budget reached):
-  Requests → if/kimi-k2-thinking (free tier)
-  Cost: $0
-
-Next month (budget resets):
-  Requests → glm/glm-4.7 again
-```
-
-**Result**: Never exceed $20/month, always available.
-
-### Example 3: Subscription-Only Mode
-
-**Setup:**
-```
-Dashboard → Settings:
-  Auto Fallback: OFF
-  Strict mode: ON
-```
-
-**Behavior:**
-```
-Request → cc/claude-opus-4-5
-  ✅ Quota available → Success
-  ❌ Quota exhausted → Return error (no fallback)
-```
-
-**Use case**: When you only want to use paid subscriptions, no extra costs.
-
-### Example 4: Free-Only Mode
-
-**Setup:**
-```
-Model: if/kimi-k2-thinking
-Fallback: qw/qwen3-coder-plus → kr/claude-sonnet-4.5
-```
-
-**Behavior:**
-```
-All requests → Free tier only
-Cost: $0 forever
-```
-
-**Use case**: Personal projects, learning, experimentation.
+A single model and no combo. If the window is closed, you get the provider's error. That is deliberate: some people would rather wait than spend.
 
 ---
 
-## Best Practices
+## Good habits
 
-### 1. Maximize Subscription Value
+### 1. Let the hard work go to the subscription
 
-```
-Strategy:
-- Set subscription models as Tier 1
-- Monitor quota usage in dashboard
-- Use cheap tier only when subscription exhausted
-```
+Opus and GPT-5.6-class models earn their price on architecture and debugging. Cheap models earn theirs on the other eighty percent.
 
-**Example combo:**
-```
-cc/claude-opus-4-5 → glm/glm-4.7 → if/kimi-k2-thinking
-```
+### 2. End on a free lane
 
-### 2. Optimize for Cost
+A chain that ends on a paid model ends on a closed door.
 
-```
-Strategy:
-- Use Gemini CLI free tier first (180K/month)
-- Fallback to GLM/MiniMax (ultra-cheap)
-- Emergency: iFlow (free)
-```
+### 3. Watch the reset times, not just the percentages
 
-**Example combo:**
-```
-gc/gemini-3-flash-preview → glm/glm-4.7 → if/kimi-k2-thinking
-```
+Rolling windows and fixed windows behave differently. Heavy work the day before a monthly reset is allowance thrown away.
 
-### 3. Optimize for Quality
+### 4. One key per tool or per person
 
-```
-Strategy:
-- Use best models (Claude Opus, GPT-5.2)
-- Fallback to good cheap models (GLM-4.7)
-- Last resort: Free tier
-```
-
-**Example combo:**
-```
-cc/claude-opus-4-5 → cx/gpt-5.2-codex → glm/glm-4.7
-```
-
-### 4. 24/7 Availability
-
-```
-Strategy:
-- Always include free tier in fallback
-- Monitor quota reset times
-- Distribute usage across providers
-```
-
-**Example combo:**
-```
-cc/claude-opus-4-5 → glm/glm-4.7 → minimax/MiniMax-M2.1 → if/kimi-k2-thinking
-```
-
-**Result**: Never run out of quota, code anytime.
-
----
-
-## Quota Reset Strategy
-
-Plan your usage around quota reset times:
-
-| Provider | Quota Reset | Strategy |
-|----------|-------------|----------|
-| **Claude Code** | 5-hour + weekly | Use in morning, fresh quota |
-| **Codex** | 5-hour + weekly | Use after Claude quota out |
-| **Gemini CLI** | Daily (1K) + Monthly (180K) | Use throughout day |
-| **GLM-4.7** | Daily 10:00 AM | Use evening, resets next morning |
-| **MiniMax M2.1** | 5-hour rolling | Use anytime, tracks rolling window |
-| **iFlow/Qwen/Kiro** | No limit | Emergency backup |
-
-**Daily routine example:**
-```
-08:00 - 13:00: Claude Code (fresh 5h quota)
-13:00 - 18:00: Gemini CLI (1K/day quota)
-18:00 - 22:00: GLM-4.7 (cheap, resets 10AM)
-22:00 - 08:00: MiniMax or iFlow (5h rolling or free)
-```
-
----
-
-## Monitoring & Alerts
-
-### Dashboard Quota Tracker
-
-```
-Dashboard → Quota Overview:
-  Claude Code: 2.5h / 5h remaining (50%)
-  Gemini CLI: 450 / 1000 requests today
-  GLM-4.7: 5M / 10M tokens (resets in 8h)
-  MiniMax: 3M / 5M tokens (rolling 5h)
-```
-
-### Real-Time Notifications
-
-```
-Dashboard → Notifications:
-  ⚠️ Claude Code quota 80% used (1h remaining)
-  ✅ GLM-4.7 quota reset (10M tokens available)
-  💰 Daily budget 50% used ($2.50 / $5)
-```
-
-### Usage Analytics
-
-```
-Dashboard → Analytics:
-  Today: 50M tokens
-    - 30M via Claude Code (subscription)
-    - 15M via GLM-4.7 ($9)
-    - 5M via iFlow (free)
-  
-  Cost: $9 (vs $1000 on ChatGPT API)
-  Savings: 99%
-```
+Scopes and budgets are per key. One shared key means one shared ceiling and no way to tell who spent what.
 
 ---
 
 ## Troubleshooting
 
-**Issue: "All providers quota exhausted"**
+### "No available provider" / "quota exhausted"
 
-**Solution:**
-1. Check dashboard quota tracker
-2. Wait for quota reset (see countdown)
-3. Add free tier to fallback chain
-4. Or increase budget limit
+Check **Quota** for a countdown, then check the combo ends on a free model. If it does and free providers are also out, that is a genuinely bad day upstream, not a local fault.
 
-**Issue: "Too many fallback switches"**
+### It keeps falling back
 
-**Solution:**
-1. Check if primary provider is down
-2. Increase quota limits (upgrade subscription)
-3. Use cheaper primary model (GLM instead of Claude)
+- Look at the first rung: an expired OAuth token is the most common cause.
+- Check the provider's status page.
+- Confirm the model id still exists (`/v1/models`).
 
-**Issue: "Unexpected costs"**
+### Costs are higher than the combo suggests
 
-**Solution:**
-1. Dashboard → Analytics → Review usage
-2. Set daily/monthly budget limits
-3. Switch to free tier for non-critical tasks
-4. Use combos with free fallback
+- Read **Routed by Combo**: it fell further down the chain than you assumed.
+- Remember output tokens cost several times input on every lane.
+- Check for `-highspeed` or larger `glm-5.x` models in the chain.
+
+### A request is refused with a 429
+
+Read the code in the response: rate limit, key scope, or budget. Each names what it refused and why.
 
 ---
 
 ## Related
 
-- [Combos](./combos.md) - Create custom fallback chains
-- [Quota Tracking](./quota-tracking.md) - Monitor usage and costs
+- [Combos](combos.md) — building the chains
+- [Quota Tracking](quota-tracking.md) — reading the numbers
+- [Cheap Providers](../providers/cheap.md) — the rates

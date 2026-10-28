@@ -1,385 +1,253 @@
 # Frequently Asked Questions
 
-Common questions about Vela.
+The questions people ask first, answered plainly. If nothing here matches, [Troubleshooting](troubleshooting.md) is the next stop.
 
 ---
 
 ## What is Vela?
 
-**Vela is an AI model router that maximizes your subscription value and minimizes costs.**
+**A gateway between your coding tools and your AI providers.**
 
-It intelligently routes requests across multiple AI providers using a 3-tier fallback system:
-1. **Subscription tier** - Maximize Claude Code, Codex, Gemini quotas you already pay for
-2. **Cheap tier** - Ultra-cheap alternatives ($0.20-$0.60 per 1M tokens)
-3. **Free tier** - Emergency backup with unlimited free models
+You point every tool at one address — `http://localhost:32060/v1` — and Vela routes each request to a provider you have connected. It keeps track of quotas, keeps OAuth tokens fresh, and can fall back to a different model when one refuses.
 
-**Key benefits:**
-- Never waste subscription quota
-- Automatic fallback when quota exhausted
-- Real-time quota tracking
-- 90% cost savings vs direct API usage
-
----
-
-## How does pricing work?
-
-**Vela uses a 3-tier pricing strategy:**
-
-### Tier 1: Subscription (Maximize First)
-- **Claude Code** (Pro/Max): $20-100/month - 5-hour + weekly quota
-- **OpenAI Codex** (Plus/Pro): $20-200/month - 5-hour + weekly quota
-- **Gemini CLI**: FREE - 180K completions/month + 1K/day
-- **GitHub Copilot**: $10-19/month - Monthly reset
-- **Antigravity**: FREE - Similar to Gemini
-
-**Goal:** Use every bit of quota before it resets!
-
-### Tier 2: Cheap (Backup)
-- **GLM-4.7**: $0.60/$2.20 per 1M tokens - Daily reset 10AM
-- **MiniMax M2.1**: $0.20/$1.00 per 1M tokens - 5-hour rolling
-- **Kimi K2**: $9/month flat (10M tokens)
-
-**Goal:** 90% cheaper than ChatGPT API ($20/1M)!
-
-### Tier 3: Free (Emergency)
-- **iFlow**: 8 models FREE (Kimi K2, Qwen3, GLM, MiniMax...)
-- **Qwen**: 3 models FREE (Qwen3 Coder Plus/Flash, Vision)
-- **Kiro**: 2 models FREE (Claude Sonnet 4.5, Haiku 4.5)
-
-**Goal:** Zero cost fallback when everything else is quota-limited!
+It is not a model, and it does not make models free. It is the switchboard between the models you already have access to.
 
 ---
 
 ## Is Vela free?
 
-**Yes, Vela itself is 100% free and open source.**
+**Vela itself is free and open source (MIT).**
 
-**Free tier providers available:**
-- **Gemini CLI** - 180K completions/month (FREE Google account)
-- **iFlow** - 8 models unlimited (FREE OAuth)
-- **Qwen** - 3 models unlimited (FREE OAuth)
-- **Kiro** - Claude Sonnet/Haiku (FREE AWS Builder ID)
+What costs money is what happens upstream: a Claude Code subscription, a Codex plan, or pay-per-token providers like GLM and MiniMax. Vela does not add a fee on top.
 
-**You can code for FREE forever using only free tier providers!**
-
-**Optional paid providers:**
-- Subscription services you may already have (Claude Code, Codex, Copilot)
-- Ultra-cheap alternatives ($0.20-$0.60 per 1M tokens)
+You can run entirely on free providers — iFlow, Qwen, Kiro, Antigravity — if you accept their limits. That combination costs nothing.
 
 ---
 
-## Which providers are supported?
+## How does routing work?
 
-### Subscription Providers
-- **Claude Code** (Pro/Max) - Claude 4.5 Opus/Sonnet/Haiku
-- **OpenAI Codex** (Plus/Pro) - GPT 5.2 Codex, GPT 5.1 Codex Max
-- **Gemini CLI** (FREE) - Gemini 3 Flash/Pro, 2.5 Pro/Flash
-- **GitHub Copilot** - GPT-5, Claude 4.5, Gemini 3
-- **Antigravity** (Google) - Gemini 3 Pro, Claude Sonnet 4.5
+There are two mechanisms, and they are different:
 
-### Cheap Providers
-- **GLM** (Zhipu AI) - GLM 4.7, GLM 4.6V Vision
-- **MiniMax** - MiniMax M2.1
-- **Kimi** (Moonshot AI) - Kimi Latest
-- **OpenRouter** - Passthrough to any OpenRouter model
+1. **A combo** is a chain you define: model 1, then model 2, then model 3. When a request to a model *fails* — quota error, rate limit, timeout, refused prompt, unknown model — Vela tries the next one.
+2. **Round-robin** (per provider, or per combo) spreads requests across several accounts of the same provider, so one account is not hammered.
 
-### Free Providers
-- **iFlow** - 8 models (Kimi K2, Qwen3, GLM, MiniMax, DeepSeek...)
-- **Qwen** - 3 models (Qwen3 Coder Plus/Flash, Vision)
-- **Kiro** - 2 models (Claude Sonnet 4.5, Haiku 4.5)
+Neither one switches you to a cheaper model merely because a daily allowance is running low. That would spend money you did not agree to spend.
 
-**Total: 15+ providers, 50+ models**
+For a hard ceiling, use a per-key budget: when it is reached, Vela refuses with a 429 that says so.
 
-See [providers documentation](providers/subscription.md) for details.
+See [Smart Routing](features/smart-routing.md) and [Combos](features/combos.md).
 
 ---
 
-## Can I use multiple providers?
+## How many providers does Vela support?
 
-**Yes! This is Vela's core feature.**
+Three honest numbers, measured on 2026-10-28 at version 1.2.4:
 
-**Combos allow you to chain multiple providers with automatic fallback:**
+- **189** provider files in the registry
+- **186** imported by the index (three are deliberately commented out: `devin-cli`, `trae`, `windsurf`)
+- **145** with a transport a request can actually reach
 
-```
-Example combo: "premium-coding"
-1. cc/claude-opus-4-5 (Subscription primary)
-2. glm/glm-4.7 (Cheap backup)
-3. if/kimi-k2 (Free emergency)
+You can re-derive them in your own clone:
 
-→ Auto-switches when quota exhausted
-→ Never stops coding
-→ Minimal extra cost
-```
-
-**How to create combos:**
-```
-Dashboard → Combos → Create New
-→ Add models in priority order
-→ Use combo name in CLI: "premium-coding"
+```bash
+ls open-sse/providers/registry/*.js | grep -v index.js | wc -l
+node -e "import('./open-sse/providers/registry/index.js').then(m=>console.log(m.default.length))"
+node -e "import('./open-sse/providers/index.js').then(m=>console.log(Object.keys(m.PROVIDERS).length))"
 ```
 
-**Benefits:**
-- Zero downtime when quota runs out
-- Automatic cost optimization
-- Single model name for all tools
+The ones documented lane by lane here:
 
-See [combos documentation](features/combos.md) for examples.
+- **Subscription:** Claude Code, Codex, GitHub Copilot, Antigravity, Kimi
+- **Cheap:** GLM, MiniMax, Kimi
+- **Free:** iFlow, Qwen, Kiro
 
 ---
 
-## How does quota tracking work?
+## Which models can I use today?
 
-**Vela tracks quota in real-time for all providers:**
+Model ids are `prefix/model`. A few reliable ones in this release:
 
-**Features:**
-- **Token consumption** - Input/output tokens per request
-- **Reset countdown** - Time until quota refreshes
-- **Usage stats** - Daily/weekly/monthly reports
-- **Cost estimation** - Projected spending (paid tiers)
-- **Quota alerts** - Notifications when quota low
+| Model | Lane |
+|-------|------|
+| `cc/claude-opus-5`, `cc/claude-sonnet-5` | Claude Code subscription |
+| `cx/gpt-5.6-sol`, `cx/gpt-5.5` | Codex subscription |
+| `gh/claude-sonnet-4.6`, `gh/gpt-5.4` | GitHub Copilot |
+| `ag/gemini-4-argon-high` | Antigravity (free) |
+| `glm/glm-4.7` | cheap — $0.60 / $2.20 per 1M |
+| `minimax/MiniMax-M2.1` | cheap — $0.30 / $1.20 per 1M |
+| `kr/claude-sonnet-4.5` | free |
+| `if/qwen3-coder-plus` | free |
+| `qwen/qwen-plus` | free |
 
-**Quota types:**
-- **5-hour rolling** - Claude Code, Codex, MiniMax
-- **Daily reset** - Gemini CLI (1K/day), GLM (10AM)
-- **Weekly reset** - Claude Code, Codex (additional quota)
-- **Monthly reset** - Gemini CLI (180K), GitHub Copilot (1st)
+Do not trust documentation over the running gateway:
 
-**View quota:**
+```bash
+curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"
 ```
-Dashboard → Providers → Quota Tracking
-→ Real-time usage + reset countdown
+
+That list is the truth for your install.
+
+---
+
+## Can I use several providers together?
+
+**Yes — that is the point.** Build a combo:
+
+```
+Dashboard → Combos → Create
+  Name:   premium-coding
+  Models: 1. cc/claude-opus-5       ← subscription
+          2. glm/glm-4.7            ← cheap
+          3. kr/claude-sonnet-4.5   ← free
 ```
 
-See [quota tracking documentation](features/quota-tracking.md) for details.
+Then use `premium-coding` as the model name in any tool. The combo name is resolved before anything else, so it looks like an ordinary model on the wire.
 
 ---
 
 ## Does Vela work with Cursor?
 
-**Yes, but Cursor requires a cloud endpoint.**
-
-**Problem:** Cursor IDE doesn't support localhost endpoints.
-
-**Solution:** Use Vela cloud deployment:
+**Yes.** Cursor takes an OpenAI-compatible base URL and key. If Vela runs on your machine:
 
 ```
-Cursor Settings → Models → Advanced:
-  OpenAI API Base URL: https://vela.my.id/v1
-  OpenAI API Key: [from dashboard]
-  Model: cc/claude-opus-4-5-20251101
+Cursor → Settings → Models → OpenAI API
+  Base URL: http://localhost:32060/v1
+  API Key:  [your Vela key]
+  Model:    your model or combo name (add it as a custom model)
 ```
 
-**Alternative:** Self-host on VPS with public domain:
-```bash
-# Deploy to VPS
-git clone https://github.com/YumamaX3/Vela.git
-cd Vela/app
-npm install && npm run build
-npm start
+Some Cursor versions restrict custom endpoints to paid plans, and some configurations route through Cursor's own servers, in which case `localhost` is not reachable from their side. In that situation, deploy Vela on a server with a public address (see [Cloud deployment](deployment/cloud.md)) and use `https://your-domain/v1` instead.
 
-# Configure Nginx reverse proxy
-# Point Cursor to: https://your-domain.com/v1
-```
-
-**Other CLI tools work with localhost:**
-- Cline ✅
-- Claude Desktop ✅
-- Codex CLI ✅
-- Continue ✅
-- RooCode ✅
-
-See [Cursor integration guide](integration/cursor.md) for details.
+Other tools that take a base URL work the same way: Cline, Roo, Continue, Claude Code, Codex CLI, and anything else OpenAI-compatible. See [Integration](integration/claude-code.md).
 
 ---
 
 ## Can I self-host Vela?
 
-**Yes! Vela supports multiple deployment options:**
+**Yes, and it is the intended way to run it.** Three routes:
 
-### Localhost (Default)
+**On your machine:**
 ```bash
 npm install -g vela
 vela
-→ Dashboard: http://localhost:3000
-→ API: http://localhost:32060/v1
+# dashboard: http://localhost:32060/dashboard
+# API:       http://localhost:32060/v1
 ```
 
-### VPS/Cloud
+**With Docker, on any server:**
+```bash
+docker run -d --name vela \
+  -p 127.0.0.1:32060:32060 \
+  -v "$HOME/vela-data:/app/data" \
+  -e DATA_DIR=/app/data \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  ghcr.io/yumamax3/vela:1.2.4
+```
+
+The image is public — no login or token required to pull it — and multi-architecture (amd64 and arm64). Pin the tag rather than using `:latest`.
+
+**From source:**
 ```bash
 git clone https://github.com/YumamaX3/Vela.git
-cd Vela/app
-npm install && npm run build
-
-export JWT_SECRET="your-secure-secret"
-export INITIAL_PASSWORD="your-password"
-export NODE_ENV="production"
-
-npm start
+cd Vela
+npm install
+npm run build
+npm run start
 ```
 
-### Docker
-```bash
-docker build -t Vela .
-docker run -d \
-  -p 3000:3000 \
-  -e JWT_SECRET="your-secret" \
-  -v Vela-data:/app/data \
-  vela
-```
+The repository root is the app; there is no nested `app/` directory. The available scripts are `dev`, `build`, `start` (and their Bun variants) — there is no test script and no Cloudflare deploy script.
 
-### Cloudflare Workers
-```bash
-cd Vela/app
-npm run deploy:cloudflare
-```
-
-**Environment variables:**
-- `JWT_SECRET` - **MUST change in production!**
-- `DATA_DIR` - Database storage path (default: `~/.vela`)
-- `INITIAL_PASSWORD` - Dashboard login (default: `123456`)
-- `NODE_ENV` - Set to `production` for deploy
-
-See [deployment guide](getting-started/installation.md#deployment) for details.
+Full details: [Localhost](deployment/localhost.md) · [Cloud](deployment/cloud.md).
 
 ---
 
-## Is my data secure?
+## Is my data safe?
 
-**Yes, Vela prioritizes security and privacy:**
+**It stays on your machine, by default.**
 
-**Local storage:**
-- All data stored locally in `~/.vela` (or custom `DATA_DIR`)
-- No data sent to Vela servers
-- OAuth tokens encrypted with JWT
+- Everything lives in the data directory — `~/.vela` on macOS/Linux, `%APPDATA%\vela` on Windows, or whatever `DATA_DIR` names.
+- Connected providers' OAuth tokens and API keys are stored in that local database.
+- Vela sends requests only to the providers you connected; nothing is reported back to the Vela project.
 
-**No telemetry:**
-- No usage tracking
-- No analytics
-- No phone-home
+**What it keeps:** provider connections and tokens, your API keys (stored as hashes — full keys are shown once at creation), usage statistics, combos, settings and request logs (only if you enable them).
 
-**Open source:**
-- Full source code available on GitHub
-- Audit security yourself
-- Community-reviewed
+**What it does not keep:** a copy of your prompts or generated code beyond the request logs, which are off by default.
 
-**Best practices:**
-- Change `JWT_SECRET` in production
-- Use strong `INITIAL_PASSWORD`
-- Enable HTTPS for cloud deployments
-- Rotate API keys regularly
+**Before exposing it to a network:** set a dashboard password under **Settings → Access**, turn on **Require dashboard login**, consider **Require API key**, and put it behind HTTPS. The checklist is in [Cloud deployment](deployment/cloud.md).
 
-**What Vela stores:**
-- Provider OAuth tokens (encrypted)
-- API keys (encrypted)
-- Usage statistics (local only)
-- Combo configurations
+---
 
-**What Vela does NOT store:**
-- Your prompts or responses
-- Code you generate
-- Personal information
+## What is the default password?
+
+**There isn't one.**
+
+Older tutorials mention `123456`; that default was retired. Current Vela has no default password at all:
+
+- From the machine running Vela, the dashboard opens without asking.
+- From anywhere else, logins are **refused** until you set a password under **Settings → Access**.
+
+The same screen shows a green "gated" verdict once the controls are in place — worth checking before you open a port.
 
 ---
 
 ## How do I update Vela?
 
-**Update methods depend on installation type:**
-
-### Global NPM Install
 ```bash
+# npm install
 npm update -g vela
+npm list -g vela        # what you are running now
+
+# Docker — pin the newer tag deliberately
+docker pull ghcr.io/yumamax3/vela:1.2.4
+docker stop vela && docker rm vela
+# re-run your docker run command with the new tag
+
+# From a git checkout
+cd Vela && git pull && npm install && npm run build && npm run start
 ```
 
-### Local Install
-```bash
-cd Vela/app
-git pull origin main
-npm install
-npm run build
-npm start
-```
-
-### Docker
-```bash
-docker pull Vela:latest
-docker stop Vela
-docker rm Vela
-docker run -d \
-  -p 3000:3000 \
-  -v Vela-data:/app/data \
-  Vela:latest
-```
-
-**Check version:**
-```bash
-Vela --version
-```
-
-**Breaking changes:**
-- Check [CHANGELOG.md](https://github.com/YumamaX3/Vela/blob/main/CHANGELOG.md)
-- Backup `~/.vela` before major updates
-- Review migration guides for major versions
+Back up the data directory first for major versions. Database migrations run automatically on start, with a safety copy taken before they do.
 
 ---
 
 ## How can I contribute?
 
-**We welcome contributions!**
+Very welcome.
 
-### Ways to contribute:
-
-1. **Report bugs:**
-   - [GitHub Issues](https://github.com/YumamaX3/Vela/issues)
-   - Include error logs, steps to reproduce
-
-2. **Request features:**
-   - [GitHub Discussions](https://github.com/YumamaX3/Vela/discussions)
-   - Describe use case and benefits
-
-3. **Submit code:**
+1. **Report bugs** — [GitHub Issues](https://github.com/YumamaX3/Vela/issues), with the error, the steps, and your version.
+2. **Request features** — [GitHub Discussions](https://github.com/YumamaX3/Vela/discussions).
+3. **Send code:**
    ```bash
-   # Fork repo
    git clone https://github.com/YOUR_USERNAME/Vela.git
    cd Vela
-   
-   # Create branch
    git checkout -b feature/your-feature
-   
-   # Make changes
    npm install
    npm run dev
-   
-   # Test
-   npm test
-   
-   # Commit and push
-   git add .
-   git commit -m "Add your feature"
-   git push origin feature/your-feature
-   
-   # Create Pull Request on GitHub
    ```
-
-4. **Improve docs:**
-   - Fix typos, add examples
-   - Translate to other languages
-   - Write tutorials
-
-5. **Add providers:**
-   - Implement new provider adapters
-   - See `app/lib/providers/` for examples
-
-**Contribution guidelines:**
-- Follow existing code style
-- Add tests for new features
-- Update documentation
-- Keep commits atomic and descriptive
-
-See [CONTRIBUTING.md](https://github.com/YumamaX3/Vela/blob/main/CONTRIBUTING.md) for details.
+   Run the check suite the repository ships with before opening a pull request, and keep commits small and descriptive.
+4. **Improve docs** — corrections and translations are as useful as features.
+5. **Add providers** — adapter examples live under `open-sse/providers/registry/`.
 
 ---
 
-## Need More Help?
+## What ports does Vela use?
+
+- **32060** — everything: the dashboard (`/dashboard`) and the API (`/v1`), served by one process.
+- **32060** again in a browser means `http://localhost:32060`; the dashboard lives one level down at `/dashboard`.
+
+If something else needs that port, change it with `vela --port 8080` or `PORT=8080`.
+
+---
+
+## Where do I go when something breaks?
+
+1. `http://localhost:32060/api/health` should answer `{"ok":true}`. If it does not, Vela is not running.
+2. `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"` should list models. An empty list means no provider is connected.
+3. [Troubleshooting](troubleshooting.md) maps the common errors — connection refused, invalid key, model not found, slow replies — to their fixes.
+
+---
+
+## Need more help?
 
 - **Documentation:** [vela.my.id/docs](https://vela.my.id/docs)
 - **GitHub:** [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)

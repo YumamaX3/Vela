@@ -1,165 +1,210 @@
 # 🏠 Localhost Deployment
 
-Run Vela on your local machine for development and personal use.
+Running Vela on your own machine is the default, the easiest, and the one with the fewest ways to go wrong. This page covers the day-to-day: starting it, stopping it, moving its data, updating it, and the two or three problems that come up most.
+
+If you have not installed it yet, start with [Installation](../getting-started/installation.md).
 
 ---
 
 ## 📦 Installation
-
-Install Vela globally via npm:
 
 ```bash
 npm install -g vela
 ```
 
 **Requirements:**
-- Node.js 20 or higher
-- npm 9 or higher
+- Node.js 20 or newer
+- npm 10 or newer (ships with Node.js)
 
 ---
 
-## 🚀 Starting the Server
-
-Start Vela with a single command:
+## 🚀 Starting the server
 
 ```bash
 vela
 ```
 
-The dashboard will automatically open in your browser at `http://localhost:3000`
+The dashboard opens by itself at **http://localhost:32060/dashboard**.
 
-**Default Configuration:**
-- **Dashboard**: `http://localhost:3000`
-- **API Endpoint**: `http://localhost:32060/v1`
-- **Data Directory**: `~/.vela`
+**Default configuration:**
+
+| What | Where |
+|-|-|
+| **Dashboard** | `http://localhost:32060/dashboard` |
+| **API endpoint** | `http://localhost:32060/v1` |
+| **Default port** | `32060` |
+| **Data directory** | `~/.vela` (macOS/Linux) · `%APPDATA%\vela` (Windows) |
+| **Dashboard password** | none by default — see below |
+
+One process serves both the dashboard and the API. There is no second port to remember.
+
+### About the password
+
+There is **no default password** in current Vela. From the machine itself, the dashboard opens without one. Remote browsers are refused until you set a password under **Settings → Access** — a direct answer to everyone who ever shipped `123456` as a default and regretted it.
+
+If you want a login even locally, set one in **Settings → Access** (or set `INITIAL_PASSWORD` before the first start) and turn on **Require dashboard login**.
+
+### About the network
+
+By default the launcher binds to `0.0.0.0`, which means other machines on your network can reach the port. For a purely local setup:
+
+```bash
+vela --host 127.0.0.1
+```
 
 ---
 
 ## 🔧 Configuration
 
-### Custom Data Directory
-
-Set a custom data directory using environment variable:
+### A custom data directory
 
 ```bash
-DATA_DIR=/path/to/data Vela
+DATA_DIR=/path/to/data vela
 ```
 
-### Custom Port
+On Windows, use a native path such as `D:\vela-data`; a Unix-style path there is ignored with a warning.
 
-The API port (32060) and dashboard port (3000) are configured in the application. To change them, you'll need to modify the source code or use environment variables if supported.
+### A custom port
+
+```bash
+vela --port 8080
+# or
+PORT=8080 vela
+```
+
+Everything that talks to Vela — your editor, your scripts — must then use `http://localhost:8080/v1`.
+
+### A custom host
+
+```bash
+vela --host 127.0.0.1    # this machine only
+vela --host 0.0.0.0      # all interfaces (the default)
+```
 
 ---
 
-## 🛑 Stopping the Server
+## 🛑 Stopping the server
 
-Press `Ctrl+C` in the terminal where Vela is running.
+Press `Ctrl+C` in the terminal running it. The gateway drains in-flight requests before exiting, so a streaming reply finishes rather than being cut in half.
+
+If it was started in the background or through a process manager:
 
 ```bash
-# In the terminal running Vela
-^C  # Press Ctrl+C
+pm2 stop vela         # if you used PM2
+pkill -f vela         # last resort
 ```
-
-The server will gracefully shut down and save all data.
 
 ---
 
-## 🔄 Restarting the Server
-
-Simply run the start command again:
+## 🔄 Restarting
 
 ```bash
 vela
 ```
 
-All your configurations, API keys, and combos are preserved in the data directory.
+Providers, keys, combos, budgets and usage history all survive — they live in the data directory, not in memory.
 
 ---
 
-## 📊 Updating Vela
-
-Update to the latest version:
+## 📊 Updating
 
 ```bash
 npm update -g vela
 ```
 
-Check your current version:
+Check what you are running:
 
 ```bash
 npm list -g vela
 ```
 
+For the Docker route, pull the newer tag explicitly:
+
+```bash
+docker pull ghcr.io/yumamax3/vela:1.2.4
+docker stop vela && docker rm vela
+# re-run the same docker run command with the new tag
+```
+
+Database migrations run automatically on start, with a safety copy taken first under `~/.vela/db/backups/`. Still, back up before a major update.
+
 ---
 
 ## 🔍 Troubleshooting
 
-### Port Already in Use
-
-If port 32060 or 3000 is already in use:
+### Port already in use
 
 ```bash
-# Find process using the port (macOS/Linux)
+# macOS / Linux
 lsof -i :32060
-lsof -i :3000
+kill <PID>
 
-# Kill the process
-kill -9 <PID>
+# Windows
+netstat -ano | findstr :32060
+taskkill /PID <PID> /F
 ```
 
-### Permission Errors
+Or just run on another port: `vela --port 8080`.
 
-If you encounter permission errors during installation:
+### Permission errors on install
 
 ```bash
-# Use sudo (not recommended)
-sudo npm install -g vela
-
-# Or fix npm permissions (recommended)
+# Give npm a directory it owns (recommended)
 mkdir ~/.npm-global
 npm config set prefix '~/.npm-global'
 echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
+npm install -g vela
 ```
 
-### Data Directory Issues
-
-If the data directory is not accessible:
+### The data directory is not writable
 
 ```bash
-# Check permissions
 ls -la ~/.vela
-
-# Fix permissions
 chmod 755 ~/.vela
 ```
 
----
+If it still fails, point `DATA_DIR` at a directory you own.
 
-## 📁 Data Directory Structure
+### The dashboard will not load from another machine
 
-```
-~/.vela/
-├── db/
-│   └── data.sqlite   # Main database (providers, combos, settings)
-├── logs/             # Application logs
-└── cache/            # Temporary cache files
-```
-
-**Backup Your Data:**
+That is the password gate doing its job. Either open it on the Vela machine and set a password under **Settings → Access**, or keep it local with `vela --host 127.0.0.1` and reach it through an SSH tunnel:
 
 ```bash
-# Backup
-cp -r ~/.vela ~/.vela.backup
-
-# Restore
-cp -r ~/.vela.backup ~/.vela
+ssh -L 32060:localhost:32060 you@the-vela-machine
+# then open http://localhost:32060/dashboard
 ```
 
 ---
 
-## 🔗 Next Steps
+## 📁 The data directory
 
-- [Connect Providers](/providers/subscription.md)
-- [Create Combos](/features/combos.md)
-- [Integrate with CLI Tools](/integration/cursor.md)
+```text
+~/.vela/
+├── db/
+│   ├── data.sqlite     # providers, keys, combos, settings, usage
+│   └── backups/        # pre-migration copies and any scheduled backups
+├── logs/               # request logs, when enabled
+└── runtime/            # binaries the launcher manages
+```
+
+**Backing up is just copying the directory** — ideally while Vela is stopped, so SQLite's write-ahead log has settled:
+
+```bash
+# While Vela is stopped:
+cp -r ~/.vela ~/.vela.backup
+
+# Restore (with Vela stopped):
+rm -rf ~/.vela && cp -r ~/.vela.backup ~/.vela
+```
+
+For scheduled, encrypted backups, Vela has a built-in engine — see the backup variables in `.env.example` (`VELA_BACKUP_*`). Keep `VELA_BACKUP_ENCRYPTION_KEY` somewhere you will still have it in a year; losing it makes the backups unreadable forever.
+
+---
+
+## 🔗 Next steps
+
+- [Connect providers](../providers/subscription.md)
+- [Build a fallback chain](../features/combos.md)
+- [Point your editor at Vela](../integration/cursor.md)
+- [Going remote: cloud deployment](cloud.md)

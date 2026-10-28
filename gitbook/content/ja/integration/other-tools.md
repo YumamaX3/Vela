@@ -1,416 +1,328 @@
-# その他ツール統合
+# その他のツールとの連携
 
-VelaはOpenAI API形式をサポートする任意のツールと互換性があります。このガイドでは、様々なツールやカスタムアプリケーション向けの汎用統合パターンを説明します。
+OpenAI APIと話せるものなら、Velaとも話せます。このページは汎用のレシピです: アドレス、キー、いくつかの動く例、そしてスクリプトが同じ失敗を二度しないようにする型。
 
 ## 概要
 
-VelaはOpenAI互換APIエンドポイントを提供し、以下と動作します:
-- カスタムスクリプトとアプリケーション
-- APIクライアントとテストツール
-- CLIツールとユーティリティ
-- サードパーティ統合
-- 開発フレームワーク
+形はいつも同じです:
 
-## 汎用セットアップパターン
-
-任意のOpenAI互換ツールは以下の設定でVelaに接続できます:
-
-**ローカルVela:**
 ```
-Base URL: http://localhost:32060/v1
-API Key: your-api-key-from-dashboard
-Model: 任意のVelaモデル (cc/*, cx/*, glm/*など)
+Base URL:  http://localhost:32060/v1     (or https://your-domain.example/v1)
+API key:   vela-v1-<id>-<checksum>       (from Dashboard → Endpoint & Key)
+Model:     any id the gateway lists, or a combo name
 ```
 
-**クラウドVela:**
+## 汎用のセットアップの型
+
+**ローカルのVela:**
+
 ```
-Base URL: https://vela.my.id/v1
-API Key: your-api-key-from-dashboard
-Model: 任意のVelaモデル (cc/*, cx/*, glm/*など)
+Base URL:  http://localhost:32060/v1
+API Key:   [your Vela key]
+Model:     cc/claude-sonnet-5
 ```
 
-## 利用可能なモデル
+**デプロイしたVela:**
 
-### Claudeモデル (Anthropic)
-- `cc/claude-opus-4-5-20251101`
-- `cc/claude-sonnet-4-20250514`
-- `cc/claude-haiku-4-20250514`
+```
+Base URL:  https://your-domain.example/v1
+API Key:   [your Vela key]
+Model:     cc/claude-sonnet-5
+```
 
-### DeepSeekモデル
-- `cx/deepseek-chat`
-- `cx/deepseek-reasoner`
+`/v1`は残してください。以下のすべては、この3つの値を前提にしています。
 
-### GLMモデル (Zhipu AI)
-- `glm/glm-4-plus`
-- `glm/glm-4-flash`
+## 利用できるモデル
 
-## 統合例
+一覧を信じるより、ゲートウェイに尋ねてください:
 
-### PythonとOpenAI SDK
+```bash
+curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"
+```
+
+確かな出発点の一式:
+
+| モデル | レーン |
+|-------|------|
+| `cc/claude-opus-5` | Claudeサブスクリプション |
+| `cc/claude-sonnet-5` | Claudeサブスクリプション |
+| `cc/claude-haiku-4-5-20251001` | Claudeサブスクリプション |
+| `cx/gpt-5.6-sol` | Codexサブスクリプション |
+| `cx/gpt-5.4` | Codexサブスクリプション |
+| `glm/glm-4.7` | 格安 |
+| `minimax/MiniMax-M2.1` | 最も安い |
+| `if/qwen3-coder-plus` | 無料 |
+
+## 連携の例
+
+### Python, OpenAI SDK
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(
-    api_key="your-api-key-from-dashboard",
-    base_url="http://localhost:32060/v1"
+    api_key="vela-v1-<id>-<checksum>",
+    base_url="http://localhost:32060/v1",
 )
 
 response = client.chat.completions.create(
-    model="cc/claude-sonnet-4-20250514",
-    messages=[
-        {"role": "user", "content": "Hello, how are you?"}
-    ]
+    model="cc/claude-sonnet-5",
+    messages=[{"role": "user", "content": "Hello! Who are you?"}],
 )
 
 print(response.choices[0].message.content)
 ```
 
-### Node.jsとOpenAI SDK
+### Node.js, OpenAI SDK
 
 ```javascript
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  apiKey: "your-api-key-from-dashboard",
-  baseURL: "http://localhost:32060/v1"
+  apiKey: "vela-v1-<id>-<checksum>",
+  baseURL: "http://localhost:32060/v1",
 });
 
 const response = await client.chat.completions.create({
-  model: "cc/claude-sonnet-4-20250514",
-  messages: [
-    { role: "user", content: "Hello, how are you?" }
-  ]
+  model: "cc/claude-sonnet-5",
+  messages: [{ role: "user", content: "Hello!" }],
 });
 
 console.log(response.choices[0].message.content);
 ```
 
-### cURLコマンド
+### cURL
 
 ```bash
 curl http://localhost:32060/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-api-key-from-dashboard" \
+  -H "Authorization: Bearer vela-v1-<id>-<checksum>" \
   -d '{
-    "model": "cc/claude-sonnet-4-20250514",
-    "messages": [
-      {"role": "user", "content": "Hello, how are you?"}
-    ]
+    "model": "cc/claude-sonnet-5",
+    "messages": [{ "role": "user", "content": "Hello!" }]
   }'
 ```
 
-### HTTPクライアント (Postman、Insomnia)
+### HTTPクライアント(Postman、Insomnia、Bruno)
 
-**Request:**
 ```
 POST http://localhost:32060/v1/chat/completions
-```
-
-**Headers:**
-```
 Content-Type: application/json
-Authorization: Bearer your-api-key-from-dashboard
-```
+Authorization: Bearer vela-v1-<id>-<checksum>
 
-**Body:**
-```json
 {
-  "model": "cc/claude-sonnet-4-20250514",
-  "messages": [
-    {"role": "user", "content": "Hello, how are you?"}
-  ],
+  "model": "cc/claude-sonnet-5",
+  "messages": [{ "role": "user", "content": "Hello!" }],
   "temperature": 0.7,
   "max_tokens": 1000
 }
 ```
 
-### LangChain統合
+### LangChain (Python)
 
 ```python
-from langchain.chat_models import ChatOpenAI
-from langchain.schema import HumanMessage
+from langchain_openai import ChatOpenAI
 
 llm = ChatOpenAI(
-    model_name="cc/claude-sonnet-4-20250514",
-    openai_api_key="your-api-key-from-dashboard",
+    model="cc/claude-sonnet-5",
+    openai_api_key="vela-v1-<id>-<checksum>",
     openai_api_base="http://localhost:32060/v1",
-    temperature=0.7
+    temperature=0.7,
 )
 
-messages = [HumanMessage(content="Explain quantum computing")]
-response = llm(messages)
-print(response.content)
+print(llm.invoke("Explain vector databases in two sentences.").content)
 ```
 
-### LlamaIndex統合
+### LlamaIndex (Python)
 
 ```python
-from llama_index.llms import OpenAI
+from llama_index.llms.openai_like import OpenAILike
 
-llm = OpenAI(
-    model="cc/claude-sonnet-4-20250514",
-    api_key="your-api-key-from-dashboard",
-    api_base="http://localhost:32060/v1"
+llm = OpenAILike(
+    model="cc/claude-sonnet-5",
+    api_key="vela-v1-<id>-<checksum>",
+    api_base="http://localhost:32060/v1",
+    is_chat_model=True,
 )
 
-response = llm.complete("What is machine learning?")
-print(response.text)
+print(llm.complete("What is a token?"))
 ```
 
-## カスタムスクリプトの例
+### ベースURLを受け取るものなら何でも
 
-### バッチ処理スクリプト
+- **Aider** — `--openai-api-base http://localhost:32060/v1`
+- **OpenCode、Crush、Kilo Code、Cline、Roo、Continue** — OpenAI互換のプロバイダー、同じ3つのフィールド
+- **Claude Code** — [Claude Code](claude-code.md)を見てください
+- **Codex CLI** — [Codex](codex.md)を見てください
+
+ダッシュボードの**Endpoint & Key**ページにはQuick Connectのパネルがあり、そのうちのいくつかについて、あなたの実際のキーを使った、貼るだけのスニペットを出します。
+
+## カスタムスクリプト
+
+### バッチ処理
 
 ```python
-import openai
 import json
+import os
 
-openai.api_key = "your-api-key-from-dashboard"
-openai.api_base = "http://localhost:32060/v1"
+from openai import OpenAI
 
-def process_batch(prompts, model="cx/deepseek-chat"):
-    results = []
-    for prompt in prompts:
-        response = openai.ChatCompletion.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        results.append({
+client = OpenAI(
+    api_key=os.environ["VELA_API_KEY"],
+    base_url=os.environ.get("VELA_BASE_URL", "http://localhost:32060/v1"),
+)
+
+
+def process_batch(prompts, model="glm/glm-4.7"):
+    return [
+        {
             "prompt": prompt,
-            "response": response.choices[0].message.content
-        })
-    return results
+            "response": client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+            ).choices[0].message.content,
+        }
+        for prompt in prompts
+    ]
 
-prompts = [
-    "Explain AI in one sentence",
-    "What is machine learning?",
-    "Define neural networks"
-]
 
-results = process_batch(prompts)
-print(json.dumps(results, indent=2))
+print(json.dumps(process_batch(["Explain AI in one sentence", "Define a neural network"]), indent=2))
 ```
 
-### ストリーミングレスポンスハンドラ
+### ストリーミング
 
 ```javascript
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  apiKey: "your-api-key-from-dashboard",
-  baseURL: "http://localhost:32060/v1"
+  apiKey: process.env.VELA_API_KEY,
+  baseURL: process.env.VELA_BASE_URL || "http://localhost:32060/v1",
 });
 
-async function streamResponse(prompt) {
-  const stream = await client.chat.completions.create({
-    model: "cc/claude-sonnet-4-20250514",
-    messages: [{ role: "user", content: prompt }],
-    stream: true
-  });
+const stream = await client.chat.completions.create({
+  model: "cc/claude-sonnet-5",
+  messages: [{ role: "user", content: "Write a short story about lighthouses" }],
+  stream: true,
+});
 
-  for await (const chunk of stream) {
-    const content = chunk.choices[0]?.delta?.content || "";
-    process.stdout.write(content);
-  }
+for await (const chunk of stream) {
+  process.stdout.write(chunk.choices[0]?.delta?.content ?? "");
 }
-
-streamResponse("Write a short story about AI");
 ```
 
-### マルチモデル比較
+### モデルの比較
 
 ```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="your-api-key-from-dashboard",
-    base_url="http://localhost:32060/v1"
-)
-
-models = [
-    "cc/claude-sonnet-4-20250514",
-    "cx/deepseek-chat",
-    "glm/glm-4-plus"
-]
-
-prompt = "Explain quantum computing in simple terms"
-
-for model in models:
-    response = client.chat.completions.create(
+for model in ["cc/claude-sonnet-5", "cx/gpt-5.6-sol", "glm/glm-4.7"]:
+    reply = client.chat.completions.create(
         model=model,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    print(f"\n=== {model} ===")
-    print(response.choices[0].message.content)
+        messages=[{"role": "user", "content": "Explain a bloom filter in three sentences."}],
+    ).choices[0].message.content
+    print(f"\n=== {model} ===\n{reply}")
 ```
 
-## 一般的な統合パターン
+## よくある型
 
-### 環境変数
-
-認証情報を安全に保存:
+### キーを環境に置く
 
 ```bash
-# .envファイル
-ROUTER_API_KEY=your-api-key-from-dashboard
-ROUTER_BASE_URL=http://localhost:32060/v1
-ROUTER_MODEL=cc/claude-sonnet-4-20250514
+# .env
+VELA_API_KEY=vela-v1-<id>-<checksum>
+VELA_BASE_URL=http://localhost:32060/v1
+VELA_MODEL=cc/claude-sonnet-5
 ```
 
 ```python
 import os
 from openai import OpenAI
 
-client = OpenAI(
-    api_key=os.getenv("ROUTER_API_KEY"),
-    base_url=os.getenv("ROUTER_BASE_URL")
-)
+client = OpenAI(api_key=os.environ["VELA_API_KEY"], base_url=os.environ["VELA_BASE_URL"])
 ```
 
-### エラーハンドリング
+### エラーを扱う
 
 ```python
-from openai import OpenAI, OpenAIError
-
-client = OpenAI(
-    api_key="your-api-key",
-    base_url="http://localhost:32060/v1"
-)
+from openai import OpenAIError
 
 try:
-    response = client.chat.completions.create(
-        model="cc/claude-sonnet-4-20250514",
-        messages=[{"role": "user", "content": "Hello"}]
-    )
-    print(response.choices[0].message.content)
+    reply = client.chat.completions.create(model="cc/claude-sonnet-5", messages=[...])
 except OpenAIError as e:
-    print(f"Error: {e}")
+    print(f"Request failed: {e}")
 ```
 
-### リトライロジック
+### バックオフつきで再試行する
 
 ```python
 import time
-from openai import OpenAI, RateLimitError
-
-client = OpenAI(
-    api_key="your-api-key",
-    base_url="http://localhost:32060/v1"
-)
+from openai import RateLimitError
 
 def chat_with_retry(prompt, max_retries=3):
     for attempt in range(max_retries):
         try:
-            response = client.chat.completions.create(
-                model="cc/claude-sonnet-4-20250514",
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return response.choices[0].message.content
+            return client.chat.completions.create(
+                model="cc/claude-sonnet-5",
+                messages=[{"role": "user", "content": prompt}],
+            ).choices[0].message.content
         except RateLimitError:
-            if attempt < max_retries - 1:
-                time.sleep(2 ** attempt)  # Exponential backoff
-            else:
+            if attempt == max_retries - 1:
                 raise
+            time.sleep(2 ** attempt)
 ```
+
+もっと良いのは、モデルに**コンボ**を使うことです。そうすればVelaが、ひとつが失敗したとき次のモデルへ移り、あなたの再試行の論理は、どの段も尽きた場合だけを扱えばよくなります。
 
 ## トラブルシューティング
 
-### 接続の問題
+### Connection refused
 
-**問題:** Velaに接続できない
 ```bash
-# Velaが動作中か確認
-curl http://localhost:32060/health
-
-# 期待されるレスポンス:
-{"status": "ok"}
+curl http://localhost:32060/api/health      # {"ok":true}
 ```
 
-**解決策:**
-- Velaが動作中か確認
-- ポート32060がブロックされていないか確認
-- 正しいbase URLを確認 (`/v1`を含む)
+これが失敗するなら、Velaは動いていないか、そのポートにいません。それでも、ベースURLが`/v1`で終わるか確かめてください。
 
-### 認証エラー
+### 401 Unauthorized
 
-**問題:** 401 Unauthorized
-```
-Error: Invalid API key
-```
+- キーが完全で、`vela-v1-`で始まることを確かめてください。
+- ヘッダーは`Authorization: Bearer <key>`でなければなりません — `Bearer`のあとに空白ひとつ。
+- キーは一度しか表示されません。もう手元になければ、別のものを作ってください。
 
-**解決策:**
-- ダッシュボードからのAPIキーを確認
-- AuthorizationヘッダーフォーマットがBearer your-api-keyであることを確認
-- APIキーに余分なスペースや改行がないことを確認
+### 404 model not found
 
-### モデルが見つからない
+- 正確なIDを使ってください。大文字小文字が効きます。
+- ゲートウェイに尋ねてください: `curl .../v1/models -H "Authorization: Bearer <key>"`。
+- モデルIDは上流で変わります — 退役したものは解決されません。
 
-**問題:** 404 Model not found
-```
-Error: Model 'cc/claude-opus' not found
-```
+### 429
 
-**解決策:**
-- 正確なモデル名を使用 (大文字小文字を区別)
-- 利用可能なモデルを確認: `curl http://localhost:32060/v1/models`
-- プランでモデルが有効になっていることを確認
+- 応答の本体にあるコードを読んでください: レート制限か、範囲か、予算か。
+- 予算のコードは、あなたが決めた上限に達したという意味です — **Endpoint & Key**で編集してください。
+- それ以外はバックオフつきで再試行するか、コンボを先へ進めさせてください。
 
-### タイムアウトの問題
+### タイムアウト
 
-**問題:** リクエストタイムアウト
-```
-Error: Request timed out after 30s
-```
-
-**解決策:**
-- クライアント設定でタイムアウトを増やす
-- 時間制約のあるタスクには高速モデルを使用
-- Velaへのネットワーク接続を確認
-
-### レート制限
-
-**問題:** 429 Too Many Requests
-```
-Error: Rate limit exceeded
-```
-
-**解決策:**
-- 指数バックオフを実装
-- リクエスト頻度を減らす
-- ダッシュボードでレート制限を確認
-- プランのアップグレードを検討
+- クライアントのタイムアウトを上げてください。長い生成は時間がかかります。
+- 対話の経路には、より速いモデルを試してください。
+- リバースプロキシがストリームをバッファリングしてはいけないことを思い出してください(`proxy_buffering off`)。
 
 ## ベストプラクティス
 
 ### セキュリティ
-- APIキーを環境変数に保存
-- APIキーをバージョン管理にコミットしない
-- クラウドデプロイにはHTTPSを使用
-- APIキーを定期的にローテーション
+- キーは環境変数か秘密の保管庫に。ソースには決して置かない。
+- マシンの外に出るものにはHTTPSを。
+- アプリケーションごとにひとつのキー。漏えいしたとき、回すのはひとつのキーで済む。
 
 ### パフォーマンス
-- タスクの複雑さに応じて適切なモデルを使用
-- 繰り返しクエリにキャッシュを実装
-- 長い応答にはストリーミングを使用
-- 可能な場合はリクエストをバッチ処理
+- 人が待っているときはストリームする。
+- 繰り返す答えは、正当な範囲であなた自身でキャッシュする。
+- 最も高いモデルを既定にするのではなく、仕事にモデルを合わせる。
 
-### エラーハンドリング
-- 常にtry-catchブロックを実装
-- 指数バックオフでリトライロジックを追加
-- デバッグのためエラーをログ
-- フォールバックメカニズムを提供
-
-### コスト最適化
-- シンプルなタスクには費用対効果の高いモデルを選択
-- 適切な場合は応答をキャッシュ
-- ダッシュボードで使用量をモニター
-- コードでリクエスト制限を設定
+### コスト
+- **Usage**を見てください。キーごとのレポートは、スクリプトがいくらかかるかの正直な会計です。
+- 自動化が使うキーには、支出上限を設定してください。
 
 ## 次のステップ
 
-- [Cursorを設定](cursor.md) IDE統合用
-- [Continueをセットアップ](continue.md) VSCode用
-- [CLI使用法を確認](../cli/basic-usage.md)
-- [モデル選択について学ぶ](../models/overview.md)
-- [APIリファレンス](../api/reference.md)
+- [Cursor](cursor.md) · [Cline](cline.md) · [Continue](continue.md) · [Roo](roo.md)
+- [コンボ](../features/combos.md) — スクリプトのためのフォールバックの鎖
+- [クォータ追跡](../features/quota-tracking.md) — 利用量と予算の読み方

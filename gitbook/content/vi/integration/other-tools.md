@@ -1,416 +1,327 @@
 # Tích hợp các Công cụ khác
 
-Vela tương thích với mọi công cụ hỗ trợ format API OpenAI. Hướng dẫn này bao gồm pattern tích hợp tổng quát cho nhiều công cụ và ứng dụng tùy chỉnh.
+Bất cứ thứ gì nói được với OpenAI API đều nói được với Vela. Trang này là công thức chung: địa chỉ, key, một vài ví dụ chạy được, và những mẫu giữ cho một script không thất bại theo cùng một cách hai lần.
 
 ## Tổng quan
 
-Vela cung cấp API endpoint tương thích OpenAI hoạt động với:
-- Script và ứng dụng tùy chỉnh
-- API client và công cụ test
-- Công cụ CLI và utility
-- Tích hợp bên thứ ba
-- Framework phát triển
+Hình dạng luôn như nhau:
 
-## Pattern Setup Tổng quát
+```
+Base URL:  http://localhost:32060/v1     (or https://your-domain.example/v1)
+API key:   vela-v1-<id>-<checksum>       (from Dashboard → Endpoint & Key)
+Model:     any id the gateway lists, or a combo name
+```
 
-Mọi công cụ tương thích OpenAI có thể kết nối đến Vela bằng các cài đặt sau:
+## Mẫu thiết lập tổng quát
 
 **Vela cục bộ:**
-```
-Base URL: http://localhost:32060/v1
-API Key: your-api-key-from-dashboard
-Model: any Vela model (cc/*, cx/*, glm/*, etc.)
-```
 
-**Vela cloud:**
 ```
-Base URL: https://vela.my.id/v1
-API Key: your-api-key-from-dashboard
-Model: any Vela model (cc/*, cx/*, glm/*, etc.)
+Base URL:  http://localhost:32060/v1
+API Key:   [your Vela key]
+Model:     cc/claude-sonnet-5
 ```
 
-## Model có sẵn
+**Vela đã triển khai:**
 
-### Claude Models (Anthropic)
-- `cc/claude-opus-4-5-20251101`
-- `cc/claude-sonnet-4-20250514`
-- `cc/claude-haiku-4-20250514`
+```
+Base URL:  https://your-domain.example/v1
+API Key:   [your Vela key]
+Model:     cc/claude-sonnet-5
+```
 
-### DeepSeek Models
-- `cx/deepseek-chat`
-- `cx/deepseek-reasoner`
+Giữ `/v1`. Mọi thứ dưới đây giả định ba giá trị ấy.
 
-### GLM Models (Zhipu AI)
-- `glm/glm-4-plus`
-- `glm/glm-4-flash`
+## Các model hiện có
 
-## Ví dụ Tích hợp
+Hãy hỏi gateway thay vì tin một danh sách:
 
-### Python với OpenAI SDK
+```bash
+curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"
+```
+
+Một bộ khởi đầu đáng tin:
+
+| Model | Tầng |
+|-------|------|
+| `cc/claude-opus-5` | subscription Claude |
+| `cc/claude-sonnet-5` | subscription Claude |
+| `cc/claude-haiku-4-5-20251001` | subscription Claude |
+| `cx/gpt-5.6-sol` | subscription Codex |
+| `cx/gpt-5.4` | subscription Codex |
+| `glm/glm-4.7` | giá rẻ |
+| `minimax/MiniMax-M2.1` | rẻ nhất |
+| `if/qwen3-coder-plus` | miễn phí |
+
+## Ví dụ tích hợp
+
+### Python, OpenAI SDK
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(
-    api_key="your-api-key-from-dashboard",
-    base_url="http://localhost:32060/v1"
+    api_key="vela-v1-<id>-<checksum>",
+    base_url="http://localhost:32060/v1",
 )
 
 response = client.chat.completions.create(
-    model="cc/claude-sonnet-4-20250514",
-    messages=[
-        {"role": "user", "content": "Hello, how are you?"}
-    ]
+    model="cc/claude-sonnet-5",
+    messages=[{"role": "user", "content": "Hello! Who are you?"}],
 )
 
 print(response.choices[0].message.content)
 ```
 
-### Node.js với OpenAI SDK
+### Node.js, OpenAI SDK
 
 ```javascript
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  apiKey: "your-api-key-from-dashboard",
-  baseURL: "http://localhost:32060/v1"
+  apiKey: "vela-v1-<id>-<checksum>",
+  baseURL: "http://localhost:32060/v1",
 });
 
 const response = await client.chat.completions.create({
-  model: "cc/claude-sonnet-4-20250514",
-  messages: [
-    { role: "user", content: "Hello, how are you?" }
-  ]
+  model: "cc/claude-sonnet-5",
+  messages: [{ role: "user", content: "Hello!" }],
 });
 
 console.log(response.choices[0].message.content);
 ```
 
-### Lệnh cURL
+### cURL
 
 ```bash
 curl http://localhost:32060/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-api-key-from-dashboard" \
+  -H "Authorization: Bearer vela-v1-<id>-<checksum>" \
   -d '{
-    "model": "cc/claude-sonnet-4-20250514",
-    "messages": [
-      {"role": "user", "content": "Hello, how are you?"}
-    ]
+    "model": "cc/claude-sonnet-5",
+    "messages": [{ "role": "user", "content": "Hello!" }]
   }'
 ```
 
-### HTTP Client (Postman, Insomnia)
+### HTTP client (Postman, Insomnia, Bruno)
 
-**Request:**
 ```
 POST http://localhost:32060/v1/chat/completions
-```
-
-**Headers:**
-```
 Content-Type: application/json
-Authorization: Bearer your-api-key-from-dashboard
-```
+Authorization: Bearer vela-v1-<id>-<checksum>
 
-**Body:**
-```json
 {
-  "model": "cc/claude-sonnet-4-20250514",
-  "messages": [
-    {"role": "user", "content": "Hello, how are you?"}
-  ],
+  "model": "cc/claude-sonnet-5",
+  "messages": [{ "role": "user", "content": "Hello!" }],
   "temperature": 0.7,
   "max_tokens": 1000
 }
 ```
 
-### Tích hợp LangChain
+### LangChain (Python)
 
 ```python
-from langchain.chat_models import ChatOpenAI
-from langchain.schema import HumanMessage
+from langchain_openai import ChatOpenAI
 
 llm = ChatOpenAI(
-    model_name="cc/claude-sonnet-4-20250514",
-    openai_api_key="your-api-key-from-dashboard",
+    model="cc/claude-sonnet-5",
+    openai_api_key="vela-v1-<id>-<checksum>",
     openai_api_base="http://localhost:32060/v1",
-    temperature=0.7
+    temperature=0.7,
 )
 
-messages = [HumanMessage(content="Explain quantum computing")]
-response = llm(messages)
-print(response.content)
+print(llm.invoke("Explain vector databases in two sentences.").content)
 ```
 
-### Tích hợp LlamaIndex
+### LlamaIndex (Python)
 
 ```python
-from llama_index.llms import OpenAI
+from llama_index.llms.openai_like import OpenAILike
 
-llm = OpenAI(
-    model="cc/claude-sonnet-4-20250514",
-    api_key="your-api-key-from-dashboard",
-    api_base="http://localhost:32060/v1"
+llm = OpenAILike(
+    model="cc/claude-sonnet-5",
+    api_key="vela-v1-<id>-<checksum>",
+    api_base="http://localhost:32060/v1",
+    is_chat_model=True,
 )
 
-response = llm.complete("What is machine learning?")
-print(response.text)
+print(llm.complete("What is a token?"))
 ```
 
-## Ví dụ Script Tùy chỉnh
+### Bất cứ thứ gì nhận một base URL
 
-### Script Xử lý Batch
+- **Aider** — `--openai-api-base http://localhost:32060/v1`
+- **OpenCode, Crush, Kilo Code, Cline, Roo, Continue** — nhà cung cấp tương thích OpenAI, cùng ba trường
+- **Claude Code** — xem [Claude Code](claude-code.md)
+- **Codex CLI** — xem [Codex](codex.md)
+
+Trang **Endpoint & Key** của dashboard có một bảng Quick Connect in ra các đoạn mã sẵn sàng dán cho một số công cụ này, dùng key thật của bạn.
+
+## Các script tùy chỉnh
+
+### Xử lý hàng loạt
 
 ```python
-import openai
 import json
+import os
 
-openai.api_key = "your-api-key-from-dashboard"
-openai.api_base = "http://localhost:32060/v1"
+from openai import OpenAI
 
-def process_batch(prompts, model="cx/deepseek-chat"):
-    results = []
-    for prompt in prompts:
-        response = openai.ChatCompletion.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        results.append({
+client = OpenAI(
+    api_key=os.environ["VELA_API_KEY"],
+    base_url=os.environ.get("VELA_BASE_URL", "http://localhost:32060/v1"),
+)
+
+
+def process_batch(prompts, model="glm/glm-4.7"):
+    return [
+        {
             "prompt": prompt,
-            "response": response.choices[0].message.content
-        })
-    return results
+            "response": client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+            ).choices[0].message.content,
+        }
+        for prompt in prompts
+    ]
 
-prompts = [
-    "Explain AI in one sentence",
-    "What is machine learning?",
-    "Define neural networks"
-]
 
-results = process_batch(prompts)
-print(json.dumps(results, indent=2))
+print(json.dumps(process_batch(["Explain AI in one sentence", "Define a neural network"]), indent=2))
 ```
 
-### Xử lý Streaming Response
+### Streaming
 
 ```javascript
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  apiKey: "your-api-key-from-dashboard",
-  baseURL: "http://localhost:32060/v1"
+  apiKey: process.env.VELA_API_KEY,
+  baseURL: process.env.VELA_BASE_URL || "http://localhost:32060/v1",
 });
 
-async function streamResponse(prompt) {
-  const stream = await client.chat.completions.create({
-    model: "cc/claude-sonnet-4-20250514",
-    messages: [{ role: "user", content: prompt }],
-    stream: true
-  });
+const stream = await client.chat.completions.create({
+  model: "cc/claude-sonnet-5",
+  messages: [{ role: "user", content: "Write a short story about lighthouses" }],
+  stream: true,
+});
 
-  for await (const chunk of stream) {
-    const content = chunk.choices[0]?.delta?.content || "";
-    process.stdout.write(content);
-  }
+for await (const chunk of stream) {
+  process.stdout.write(chunk.choices[0]?.delta?.content ?? "");
 }
-
-streamResponse("Write a short story about AI");
 ```
 
-### So sánh Nhiều Model
+### So sánh các model
 
 ```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="your-api-key-from-dashboard",
-    base_url="http://localhost:32060/v1"
-)
-
-models = [
-    "cc/claude-sonnet-4-20250514",
-    "cx/deepseek-chat",
-    "glm/glm-4-plus"
-]
-
-prompt = "Explain quantum computing in simple terms"
-
-for model in models:
-    response = client.chat.completions.create(
+for model in ["cc/claude-sonnet-5", "cx/gpt-5.6-sol", "glm/glm-4.7"]:
+    reply = client.chat.completions.create(
         model=model,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    print(f"\n=== {model} ===")
-    print(response.choices[0].message.content)
+        messages=[{"role": "user", "content": "Explain a bloom filter in three sentences."}],
+    ).choices[0].message.content
+    print(f"\n=== {model} ===\n{reply}")
 ```
 
-## Pattern Tích hợp Phổ biến
+## Các mẫu phổ biến
 
-### Biến môi trường
-
-Lưu credentials an toàn:
+### Giữ key trong biến môi trường
 
 ```bash
-# .env file
-ROUTER_API_KEY=your-api-key-from-dashboard
-ROUTER_BASE_URL=http://localhost:32060/v1
-ROUTER_MODEL=cc/claude-sonnet-4-20250514
+# .env
+VELA_API_KEY=vela-v1-<id>-<checksum>
+VELA_BASE_URL=http://localhost:32060/v1
+VELA_MODEL=cc/claude-sonnet-5
 ```
 
 ```python
 import os
 from openai import OpenAI
 
-client = OpenAI(
-    api_key=os.getenv("ROUTER_API_KEY"),
-    base_url=os.getenv("ROUTER_BASE_URL")
-)
+client = OpenAI(api_key=os.environ["VELA_API_KEY"], base_url=os.environ["VELA_BASE_URL"])
 ```
 
-### Xử lý Lỗi
+### Xử lý lỗi
 
 ```python
-from openai import OpenAI, OpenAIError
-
-client = OpenAI(
-    api_key="your-api-key",
-    base_url="http://localhost:32060/v1"
-)
+from openai import OpenAIError
 
 try:
-    response = client.chat.completions.create(
-        model="cc/claude-sonnet-4-20250514",
-        messages=[{"role": "user", "content": "Hello"}]
-    )
-    print(response.choices[0].message.content)
+    reply = client.chat.completions.create(model="cc/claude-sonnet-5", messages=[...])
 except OpenAIError as e:
-    print(f"Error: {e}")
+    print(f"Request failed: {e}")
 ```
 
-### Logic Retry
+### Thử lại với backoff
 
 ```python
 import time
-from openai import OpenAI, RateLimitError
-
-client = OpenAI(
-    api_key="your-api-key",
-    base_url="http://localhost:32060/v1"
-)
+from openai import RateLimitError
 
 def chat_with_retry(prompt, max_retries=3):
     for attempt in range(max_retries):
         try:
-            response = client.chat.completions.create(
-                model="cc/claude-sonnet-4-20250514",
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return response.choices[0].message.content
+            return client.chat.completions.create(
+                model="cc/claude-sonnet-5",
+                messages=[{"role": "user", "content": prompt}],
+            ).choices[0].message.content
         except RateLimitError:
-            if attempt < max_retries - 1:
-                time.sleep(2 ** attempt)  # Exponential backoff
-            else:
+            if attempt == max_retries - 1:
                 raise
+            time.sleep(2 ** attempt)
 ```
 
-## Troubleshooting
+Còn tốt hơn: dùng một **combo** làm model. Khi ấy Vela chuyển sang model kế tiếp khi một cái thất bại, và logic thử lại của bạn chỉ phải xử lý trường hợp mọi bậc đều đã cạn.
 
-### Vấn đề Connection
+## Khắc phục sự cố
 
-**Vấn đề:** Không kết nối được đến Vela
+### Connection refused
+
 ```bash
-# Check if Vela is running
-curl http://localhost:32060/health
-
-# Expected response:
-{"status": "ok"}
+curl http://localhost:32060/api/health      # {"ok":true}
 ```
 
-**Giải pháp:**
-- Xác minh Vela đang chạy
-- Kiểm tra port 32060 không bị chặn
-- Đảm bảo base URL đúng (bao gồm `/v1`)
+Nếu thế thất bại, Vela không chạy hoặc không ở cổng đó. Kiểm tra base URL kết thúc bằng `/v1` ngay cả khi nó đã trả lời.
 
-### Lỗi Xác thực
+### 401 Unauthorized
 
-**Vấn đề:** 401 Unauthorized
-```
-Error: Invalid API key
-```
+- Key phải đầy đủ và bắt đầu bằng `vela-v1-`.
+- Header phải là `Authorization: Bearer <key>` — đúng một dấu cách sau `Bearer`.
+- Key chỉ được hiển thị một lần. Nếu bạn không còn giữ nó, hãy tạo cái khác.
 
-**Giải pháp:**
-- Xác minh API key từ dashboard
-- Kiểm tra format header Authorization: `Bearer your-api-key`
-- Đảm bảo không có khoảng trắng hoặc xuống dòng thừa trong API key
+### 404 model not found
 
-### Model Not Found
+- Dùng đúng id; chữ hoa chữ thường quan trọng.
+- Hỏi gateway: `curl .../v1/models -H "Authorization: Bearer <key>"`.
+- Id model thay đổi ở thượng nguồn — một id đã bị khai tử sẽ không phân giải được.
 
-**Vấn đề:** 404 Model not found
-```
-Error: Model 'cc/claude-opus' not found
-```
+### 429
 
-**Giải pháp:**
-- Dùng tên model chính xác (case-sensitive)
-- Kiểm tra model có sẵn: `curl http://localhost:32060/v1/models`
-- Xác minh model được bật trong plan của bạn
+- Đọc mã trong phần thân phản hồi: rate limit, phạm vi hay ngân sách.
+- Mã ngân sách nghĩa là một ngưỡng bạn đã đặt đã bị chạm — sửa nó trong **Endpoint & Key**.
+- Ngược lại, hãy thử lại với backoff, hoặc để một combo đi tiếp.
 
-### Vấn đề Timeout
+### Timeout
 
-**Vấn đề:** Request timeout
-```
-Error: Request timed out after 30s
-```
+- Tăng timeout phía client; những lần sinh dài cần thời gian.
+- Thử một model nhanh hơn cho các đường tương tác.
+- Nhớ rằng một reverse proxy không được buffer stream (`proxy_buffering off`).
 
-**Giải pháp:**
-- Tăng timeout trong cấu hình client
-- Dùng model nhanh hơn cho task nhạy cảm về thời gian
-- Kiểm tra kết nối network đến Vela
-
-### Rate Limiting
-
-**Vấn đề:** 429 Too Many Requests
-```
-Error: Rate limit exceeded
-```
-
-**Giải pháp:**
-- Triển khai exponential backoff
-- Giảm tần suất request
-- Kiểm tra rate limit trong dashboard
-- Cân nhắc nâng cấp plan
-
-## Best Practices
+## Thực hành tốt nhất
 
 ### Bảo mật
-- Lưu API key trong biến môi trường
-- Không bao giờ commit API key vào version control
-- Dùng HTTPS cho cloud deployment
-- Xoay API key định kỳ
+- Key trong biến môi trường hoặc một kho bí mật, không bao giờ trong mã nguồn.
+- Mỗi ứng dụng một key, để một lần rò rỉ chỉ là một key cần xoay vòng.
 
 ### Hiệu năng
-- Dùng model phù hợp với độ phức tạp task
-- Triển khai caching cho query lặp lại
-- Dùng streaming cho phản hồi dài
-- Batch request khi có thể
+- Stream khi có một con người đang chờ.
+- Tự cache những câu trả lời lặp lại ở nơi điều đó hợp lý.
+- Ghép model với công việc thay vì mặc định dùng cái đắt nhất.
 
-### Xử lý Lỗi
-- Luôn triển khai try-catch block
-- Thêm logic retry với exponential backoff
-- Log lỗi để debug
-- Cung cấp cơ chế fallback
-
-### Tối ưu Chi phí
-- Chọn model tiết kiệm chi phí cho task đơn giản
-- Cache phản hồi khi phù hợp
-- Theo dõi usage trong dashboard
-- Đặt giới hạn request trong code
+### Chi phí
+- Theo dõi **Usage**; báo cáo theo key là bản ghi trung thực về chi phí của một script.
+- Đặt một ngưỡng chi tiêu cho mọi key mà tự động hoá dùng đến.
 
 ## Bước tiếp theo
 
-- [Cấu hình Cursor](cursor.md) cho tích hợp IDE
-- [Setup Continue](continue.md) cho VSCode
-- [Khám phá CLI usage](../cli/basic-usage.md)
-- [Tìm hiểu về chọn model](../models/overview.md)
-- [API Reference](../api/reference.md)
+- [Cursor](cursor.md) · [Cline](cline.md) · [Continue](continue.md) · [Roo](roo.md)
+- [Combos](../features/combos.md) — các chuỗi fallback cho script
+- [Theo dõi quota](../features/quota-tracking.md) — đọc mức dùng và ngân sách

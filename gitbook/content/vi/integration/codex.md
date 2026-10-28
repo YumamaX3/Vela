@@ -1,136 +1,100 @@
 # Tích hợp OpenAI Codex CLI
 
-Tích hợp Vela với OpenAI Codex CLI để định tuyến request API OpenAI qua hệ thống routing thông minh của Vela.
+Codex CLI có thể được hướng về Vela bằng một khối nhỏ trong `~/.codex/config.toml`. Đây chính là hình dạng mà trang **CLI Tools → Codex** của dashboard ghi cho bạn, nên bạn có thể tự dán hoặc để dashboard làm việc đó.
 
-## Yêu cầu
+## Điều kiện tiên quyết
 
-- OpenAI Codex CLI đã cài đặt
-- Vela đang chạy cục bộ hoặc cloud endpoint đã cấu hình
-- API key từ Vela dashboard
+- Đã cài Codex CLI
+- Vela đang chạy cục bộ, hoặc một endpoint cloud bạn chạm tới được
+- Một API key từ dashboard Vela (**Endpoint & Key → Create Key**)
 
-## Setup
+## Thiết lập
 
-### 1. Cấu hình biến môi trường
+### 1. Sửa `~/.codex/config.toml`
 
-Đặt các biến môi trường sau trong file cấu hình shell (`~/.bashrc`, `~/.zshrc`, hoặc `~/.bash_profile`):
+```toml
+model = "cx/gpt-5.6-sol"
+model_provider = "Vela"
+
+[model_providers.Vela]
+name = "Vela"
+base_url = "http://localhost:32060/v1"
+wire_api = "responses"
+http_headers = { Authorization = "Bearer [your Vela key]" }
+```
+
+Một nhà cung cấp tuỳ chỉnh trong Codex xác thực **chỉ** qua dòng `http_headers` ở trên — `OPENAI_API_KEY` trong `auth.json` thuộc về nhà cung cấp `openai` có sẵn và không được đọc cho một nhà cung cấp được định nghĩa theo cách này. Hãy đặt key ở đây, không phải ở đó.
+
+### 2. Kiểm tra
 
 ```bash
-# Base URL for Vela
+curl -s http://localhost:32060/api/health      # → {"ok":true}
+codex "Write a function that reverses a linked list"
+```
+
+Sau đó nhìn vào **Usage** trong dashboard; request nên ở đó.
+
+### 3. Nếu bạn thích biến môi trường hơn
+
+Một số thiết lập thích môi trường hơn tệp. Cách đó cũng hoạt động, với bất cứ thứ gì nói được OpenAI API:
+
+```bash
 export OPENAI_BASE_URL="http://localhost:32060/v1"
-
-# API Key from Vela dashboard
-export OPENAI_API_KEY="your-Vela-api-key"
+export OPENAI_API_KEY="[your Vela key]"
 ```
 
-### 2. Reload Shell Configuration
+Đường `config.toml` là đường dashboard sinh ra, và là đường nên ưu tiên — nó tồn tại qua một lần mở shell mới.
+
+## Các model hiện có
+
+| Model | Tốt cho |
+|-------|----------|
+| `cx/gpt-5.6-sol` | chiếc flagship hiện tại cho lập trình |
+| `cx/gpt-5.6-terra` | một lựa chọn hiện đại thứ hai |
+| `cx/gpt-5.6-luna` | công việc nhẹ hơn, nhanh hơn |
+| `cx/gpt-5.5`, `cx/gpt-5.4` | các fallback ổn định |
+
+Bất kỳ model hay combo nào khác cũng dùng được — Codex không quan tâm id ấy nghĩa là gì, chỉ quan tâm Vela phân giải được nó.
+
+## Ví dụ sử dụng
 
 ```bash
-source ~/.zshrc  # or ~/.bashrc
+# Write code
+codex --model cx/gpt-5.6-sol "Create a REST endpoint that paginates results"
+
+# Explain code
+codex --model cx/gpt-5.6-terra "Explain what this does: $(cat myfile.js)"
+
+# Use a fallback chain
+codex --model quality-first "Plan the refactor"
 ```
 
-### 3. Xác minh Cấu hình
+## Khắc phục sự cố
 
-Kiểm tra các biến môi trường đã set đúng:
+### Lỗi xác thực
 
-```bash
-echo $OPENAI_BASE_URL
-echo $OPENAI_API_KEY
-```
+1. Key phải nằm trong `http_headers` bên trong `[model_providers.Vela]` — một key trong `auth.json` sẽ không được dùng cho một nhà cung cấp tuỳ chỉnh.
+2. Kiểm tra key đầy đủ và bắt đầu bằng `vela-v1-`.
+3. Tạo một cái mới trong **Endpoint & Key** nếu còn nghi ngờ; key không thể lấy lại sau khi tạo.
 
-## Model có sẵn
+### Vấn đề kết nối
 
-Vela cung cấp các model Codex sau:
-
-| Model ID | Mô tả |
-|----------|-------------|
-| `cx/gpt-5.2-codex` | GPT-5.2 Codex - Phiên bản mới nhất |
-| `cx/gpt-5.1-codex-max` | GPT-5.1 Codex Max - Extended context |
-
-## Ví dụ Sử dụng
-
-### Sử dụng Cơ bản
-
-```bash
-# Use GPT-5.2 Codex
-codex --model cx/gpt-5.2-codex "Write a function to sort an array"
-
-# Use GPT-5.1 Codex Max
-codex --model cx/gpt-5.1-codex-max "Explain this complex algorithm"
-```
-
-### Tạo Code
-
-```bash
-codex --model cx/gpt-5.2-codex "Create a REST API endpoint for user authentication"
-```
-
-### Giải thích Code
-
-```bash
-codex --model cx/gpt-5.1-codex-max "Explain what this code does: $(cat myfile.js)"
-```
-
-## File Cấu hình
-
-Bạn cũng có thể cấu hình Codex CLI qua file cấu hình. Tạo hoặc sửa `~/.codex/config.json`:
-
-```json
-{
-  "baseUrl": "http://localhost:32060/v1",
-  "apiKey": "your-Vela-api-key",
-  "defaultModel": "cx/gpt-5.2-codex"
-}
-```
-
-## Troubleshooting
-
-### Lỗi Xác thực
-
-Nếu gặp lỗi xác thực:
-
-1. Xác minh API key đúng trong Vela dashboard
-2. Kiểm tra biến môi trường `OPENAI_API_KEY` đã set
-3. Đảm bảo API key chưa hết hạn
-
-### Lỗi Connection
-
-Nếu gặp lỗi kết nối:
-
-1. Xác minh Vela đang chạy: `curl http://localhost:32060/health`
-2. Kiểm tra biến môi trường đã set đúng
-3. Đảm bảo không firewall nào chặn port 32060
+1. `curl http://localhost:32060/api/health`.
+2. Xác nhận `base_url` kết thúc bằng `/v1`.
+3. Kiểm tra không có gì chặn cổng 32060.
 
 ### Model không khả dụng
 
-Nếu gặp lỗi "model not available":
+1. `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`.
+2. Xác nhận nhà cung cấp Codex đã kết nối trong Vela (**Providers**).
+3. Id model thay đổi ở thượng nguồn; hãy chọn một cái hiện hành từ danh sách trên.
 
-1. Xác minh tên model khớp với cấu hình Vela
-2. Kiểm tra kết nối provider OpenAI đang hoạt động trong Vela dashboard
-3. Đảm bảo model có sẵn trong các provider đã kết nối
+## Endpoint cloud
 
-## Cloud Endpoint
+Thay `base_url` bằng địa chỉ đã triển khai của bạn (giữ `/v1`):
 
-Để dùng Vela cloud endpoint thay vì localhost:
-
-```bash
-export OPENAI_BASE_URL="https://vela.my.id"
+```toml
+base_url = "https://your-domain.example/v1"
 ```
 
-Đảm bảo bạn đã cấu hình API key trong Vela cloud dashboard.
-
-## Cấu hình Nâng cao
-
-### Custom Timeout
-
-```bash
-export OPENAI_TIMEOUT=60  # seconds
-```
-
-### Debug Mode
-
-Bật debug mode để xem logs request/response chi tiết:
-
-```bash
-export CODEX_DEBUG=true
-codex --model cx/gpt-5.2-codex "Your prompt"
-```
+Tài liệu cũ có nhắc đến phiên bản được host của chủ dự án tại `https://vela.my.id`; đó là một sự thật thượng nguồn về bản triển khai của họ, không phải một dịch vụ mà tài liệu này có thể hứa hẹn. Hãy dùng bất kỳ endpoint nào bạn có thông tin xác thực.

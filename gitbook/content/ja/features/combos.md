@@ -1,537 +1,316 @@
-# コンボ - カスタムフォールバックチェーン
+# コンボ - カスタムフォールバックの鎖
 
-自動フォールバック付きのカスタムモデル組み合わせを作成。コンボを使って、コスト、品質、可用性に基づく独自のルーティング戦略を定義できます。
+コンボとは、モデルの鎖につける名前です。一度名前をつければ、どのツールも、特定のモデルではなくその名前で頼めるようになります — そして鎖のひとつのモデルに手が届かないとき、次のものが答えます。
 
----
-
-## コンボとは?
-
-コンボはダッシュボードで作成する**カスタムフォールバックチェーン**です。単一モデルを使う代わりに、Velaが順番に試すモデルのシーケンスを定義します。
-
-**例:**
-```
-コンボ名: premium-coding
-モデル:
-  1. cc/claude-opus-4-5-20251101 (最初に試行)
-  2. glm/glm-4.7 (#1のクォータ消費時)
-  3. minimax/MiniMax-M2.1 (#2のクォータ消費時)
-```
-
-**CLIでの使用:**
-```
-Model: premium-coding
-```
-
-Velaは成功するまで各モデルを順番に自動的に試します。
+コンボは、Velaと過ごすなかでいちばん役に立つ5分間です。
 
 ---
 
-## なぜコンボを使うのか?
+## コンボとは
 
-### 1. サブスクリプション価値を最大化
 ```
-cc/claude-opus → glm/glm-4.7 → if/kimi-k2-thinking
-
-→ サブスクリプション優先、低価格バックアップ、無料緊急時
-→ すでに支払っているサブスクリプションから完全な価値を得る
-```
-
-### 2. コストを最小化
-```
-glm/glm-4.7 → minimax/MiniMax-M2.1 → if/kimi-k2-thinking
-
-→ 最安の有料オプションから開始 (100万あたり$0.60)
-→ さらに安いものへフォールバック (100万あたり$0.20)
-→ 緊急時の無料階層
-→ 総コスト: 月$5〜10 vs ChatGPT APIの$2000
+Name: premium-coding
+Models:
+  1. cc/claude-opus-5          ← try first
+  2. glm/glm-4.7               ← if #1 is out
+  3. kr/claude-sonnet-4.5      ← if #2 is out too
 ```
 
-### 3. 24時間可用性を確保
-```
-cc/claude-opus → cx/gpt-5.2-codex → glm/glm-4.7 → if/kimi-k2-thinking
+そうしたら、どのツールも`premium-coding`を、まるでモデル名のように求めてきます。Velaは何よりも先にコンボの名前を解決するので、`premium-coding`がプロバイダーの接頭辞と衝突することは決してありません。
 
-→ 最後に常に無料階層を含める
-→ クォータ切れにならない
-→ いつでもどこでもコーディング
-```
+### 鎖が動くとき
 
-### 4. 品質に最適化
-```
-cc/claude-opus-4-5 → cx/gpt-5.2-codex → gc/gemini-3-pro
+コンボは、リクエストが**失敗**したときに次のモデルへ落ちます:
 
-→ 最高のモデルが最初
-→ 他のプレミアムモデルへフォールバック
-→ フォールバックチェーン全体で高品質を維持
-```
+- プロバイダーがクォータやレート制限のエラーを報じた
+- リクエストがタイムアウトした
+- プロバイダーがポリシー上の理由でプロンプトを断った
+- モデルIDが未知か利用できない
+
+### 動かないとき
+
+- 日次の割り当てが*単に少なくなってきた*だけでは、切り替えは起こり**ません**。上限に近づいたからといって、Velaが黙って有料のモデルへ移すことはありません — それはあなたのお金をあなたのかわりに使うことです。
+- かたい支出上限はAPIキーに属します(**Endpoint & Key → budget**)。上限に達したら、Velaはどこかへ誘導するのではなく、429で断ります。
 
 ---
 
-## コンボの作成方法
+## なぜ使うのか
+
+### 1. サブスクリプションから価値を
+```
+cc/claude-opus-5 → glm/glm-4.7 → kr/claude-sonnet-4.5
+```
+すでに払っているものを先に、格安を2番目に、無料を最後に。
+
+### 2. コストを抑える
+```
+glm/glm-4.7 → minimax/MiniMax-M2.1 → if/qwen3-coder-plus
+```
+入力100万トークンあたり、$0.60 → $0.30 → 無料。
+
+### 3. 立ち往生しない
+```
+cc/claude-opus-5 → cx/gpt-5.6-sol → glm/glm-4.7 → if/qwen3-coder-plus
+```
+鎖はつねに無料のもので終えてください。そうしなければ、クォータがひとつ尽きただけで午後が止まります。
+
+### 4. 大事なときは品質を保つ
+```
+cc/claude-opus-5 → cx/gpt-5.6-sol → ag/gemini-4-argon-high
+```
+すべてプレミアムなモデル。費用はかさみ、品質は曇りません。
+
+---
+
+## コンボを作る
 
 ### ステップ1: ダッシュボードを開く
 
 ```
-http://localhost:32060
-→ パスワードでログイン
+http://localhost:32060/dashboard → Combos
 ```
 
-### ステップ2: コンボへ移動
+### ステップ2: 作る
 
 ```
-Dashboard → Combos → Create New Combo
+Combos → Create
+  Combo Name: premium-coding
+  Models:     add them one at a time, in priority order
 ```
 
-### ステップ3: コンボを設定
+行をドラッグして並べ替えられます。一番上のモデルが最初に試されます。
 
-**コンボ名:**
-```
-premium-coding
-```
+### ステップ3: 保存する
 
-**説明(任意):**
-```
-サブスクリプション優先、低価格バックアップ、無料緊急時
-```
+コンボはすぐに現れ、ゲートウェイは次のリクエストからそれを解決します — 再起動は要りません。
 
-**モデルを選択:**
-```
-1. cc/claude-opus-4-5-20251101
-2. glm/glm-4.7
-3. minimax/MiniMax-M2.1
-```
-
-**ドラッグで並べ替え** - 上から下へ優先順位。
-
-### ステップ4: 保存
+### ステップ4: 使う
 
 ```
-「Save Combo」をクリック
-→ コンボがモデルリストに表示
+Model: premium-coding
 ```
 
-### ステップ5: CLIで使用
+インターフェースはこれで全部です。モデル名を受け取るツールなら、どれでもコンボ名を受け取ります。
 
-```
-Cursor/Cline/任意のツール:
-  Model: premium-coding
-```
+### もうひとつの戦略: ラウンドロビン
+
+コンボは、メンバーを落ちていくのではなく、メンバーのあいだを回すこともできます。目的がフォールバックではなく負荷の分散(たとえば複数のアカウントに)なら、**設定 → ルーティング → Combo round robin**で全体に設定してください。
 
 ---
 
-## コンボの例
+## 実例
 
-### 例1: プレミアムコーディング (サブスク → 低価格 → 無料)
-
-**目標**: サブスクリプション価値を最大化、追加コストを最小化。
+### 例1: プレミアムだが、つましく
 
 ```
-Dashboard → Combos → Create New
-
-Name: premium-coding
-Models:
-  1. cc/claude-opus-4-5-20251101
+premium-coding
+  1. cc/claude-opus-5
   2. glm/glm-4.7
   3. minimax/MiniMax-M2.1
 ```
 
-**使用法:**
-```
-Cursor IDE:
-  Model: premium-coding
-```
-
-**動作:**
-```
-朝 (新鮮なクォータ):
-  Request → cc/claude-opus-4-5 ✅
-
-午後 (Claudeクォータ切れ):
-  Request → glm/glm-4.7 ✅ (自動切替)
-
-夕方 (GLMクォータ切れ):
-  Request → minimax/MiniMax-M2.1 ✅ (自動切替)
-```
-
-**月コスト (1億トークン):**
-```
-Claude Code経由で8000万: $0 (サブスクリプション)
-GLM経由で1500万: $9
-MiniMax経由で500万: $1
-合計: $10 + サブスクリプション
-```
-
-**節約**: ChatGPT API ($2000) に対して約99%。
-
----
-
-### 例2: バジェットコンボ (低価格 → 無料)
-
-**目標**: コストを最小化、バックアップに無料階層を使用。
+1億トークンの典型的なひと月:
 
 ```
-Dashboard → Combos → Create New
+80M via the Claude subscription : $0
+15M via GLM-4.7                 : about $9
+ 5M via MiniMax M2.1            : about $1
+```
 
-Name: budget-combo
-Models:
+高いモデルが本物の仕事をし、格安のモデルがあふれを拾います。
+
+### 例2: 予算のみ
+
+```
+budget-combo
   1. glm/glm-4.7
   2. minimax/MiniMax-M2.1
-  3. if/kimi-k2-thinking
+  3. if/qwen3-coder-plus
 ```
 
-**使用法:**
+ひと月1億トークンを、70 / 20 / 10で分けて:
+
 ```
-Cline:
-  Provider: OpenAI Compatible
+70M via GLM          : about $42
+20M via MiniMax      : about $4
+10M via iFlow        : $0
+```
+
+お金はかかりますが、小売APIの請求書とは比べものになりません。
+
+### 例3: コストゼロ
+
+```
+free-combo
+  1. kr/claude-sonnet-4.5
+  2. if/qwen3-coder-plus
+  3. qwen/qwen-plus
+```
+
+コスト: $0。制約: 今日の無料枠があなたをどう思うか、そのままです。
+
+### 例4: 品質優先
+
+```
+quality-first
+  1. cc/claude-opus-5
+  2. cx/gpt-5.6-sol
+  3. ag/gemini-4-argon-high
+```
+
+格安のフォールバックは、意図的にありません: 3つとも尽きたなら、黙って弱い仕事をするのではなく、はっきり失敗します。
+
+### 例5: すべてのレーンを、順番に
+
+```
+never-stuck
+  1. ag/gemini-4-argon-high     ← free, surprisingly strong
+  2. cc/claude-opus-5           ← subscription
+  3. cx/gpt-5.6-sol             ← second subscription
+  4. gh/claude-sonnet-4.6       ← third
+  5. glm/glm-4.7                ← cheap
+  6. minimax/MiniMax-M2.1       ← cheaper
+  7. kr/claude-sonnet-4.5       ← free, good quality
+  8. if/qwen3-coder-plus        ← free, variety
+```
+
+8つの段、どれもその上より安く、どれも失うものは何もない。
+
+---
+
+## すべてのツールでコンボを使う
+
+### Cursor
+
+```
+Settings → Models → OpenAI API
   Base URL: http://localhost:32060/v1
-  Model: budget-combo
+  API Key:  [your Vela key]
+  Model:    premium-coding   (add as a custom model)
 ```
 
-**動作:**
-```
-Request → glm/glm-4.7
-  ✅ 日次クォータ利用可 → GLMを使用 (100万あたり$0.60)
-  ❌ クォータ消費 → MiniMaxを試行 (100万あたり$0.20)
-  ❌ MiniMaxクォータ切れ → iFlowを使用 (無料)
-```
+### Claude Code
 
-**月コスト (1億トークン):**
-```
-GLM経由で7000万: $42
-MiniMax経由で2000万: $4
-iFlow経由で1000万: $0
-合計: $46 vs ChatGPT APIの$2000
-```
-
-**節約**: 97%。
-
----
-
-### 例3: フリーコンボ (ゼロコスト)
-
-**目標**: 100%無料、コストはゼロ。
-
-```
-Dashboard → Combos → Create New
-
-Name: free-combo
-Models:
-  1. if/kimi-k2-thinking
-  2. qw/qwen3-coder-plus
-  3. kr/claude-sonnet-4.5
-```
-
-**使用法:**
-```
-Claude Desktop:
-  Model: free-combo
-```
-
-**動作:**
-```
-Request → if/kimi-k2-thinking
-  ✅ 利用可 → iFlowを使用
-  ❌ エラー → Qwenを試行
-  ❌ エラー → Kiroを試行
-```
-
-**月コスト:**
-```
-無料プロバイダー経由で1億トークン: $0
-合計: 永久に$0
-```
-
-**ユースケース**: 個人プロジェクト、学習、実験。
-
----
-
-### 例4: 品質優先 (プレミアムモデルのみ)
-
-**目標**: 最高の品質、低価格フォールバックなし。
-
-```
-Dashboard → Combos → Create New
-
-Name: quality-first
-Models:
-  1. cc/claude-opus-4-5-20251101
-  2. cx/gpt-5.2-codex
-  3. gc/gemini-3-pro-preview
-```
-
-**使用法:**
-```
-Codex CLI:
-  export OPENAI_BASE_URL="http://localhost:32060"
-  Model: quality-first
-```
-
-**動作:**
-```
-Request → cc/claude-opus-4-5
-  ❌ クォータ切れ → cx/gpt-5.2-codex
-  ❌ クォータ切れ → gc/gemini-3-pro-preview
-  ❌ すべて切れ → エラーを返す (低価格フォールバックなし)
-```
-
-**ユースケース**: クリティカルな本番コード、複雑なリファクタリング。
-
----
-
-### 例5: マルチサブスクリプション (すべてを最大化)
-
-**目標**: 追加料金前にすべてのサブスクリプションを利用。
-
-```
-Dashboard → Combos → Create New
-
-Name: multi-sub
-Models:
-  1. gc/gemini-3-flash-preview (月18万無料)
-  2. cc/claude-opus-4-5-20251101 (Proサブスクリプション)
-  3. cx/gpt-5.2-codex (Plusサブスクリプション)
-  4. gh/gpt-5 (Copilotサブスクリプション)
-  5. glm/glm-4.7 (低価格バックアップ)
-  6. if/kimi-k2-thinking (無料緊急時)
-```
-
-**月コスト (2億トークン):**
-```
-Gemini CLI経由で5000万: $0 (無料プラン)
-Claude Code経由で8000万: $0 (サブスクリプション)
-Codex経由で4000万: $0 (サブスクリプション)
-Copilot経由で2000万: $0 (サブスクリプション)
-GLM経由で800万: $4.80
-iFlow経由で200万: $0
-合計: $4.80 + 既存サブスクリプション
-```
-
-**結果**: サブスクリプションから1.9億トークン使用、わずか$4.80の追加料金。
-
----
-
-### 例6: クォータリセット最適化
-
-**目標**: リセット時間に基づいて使用量を分散。
-
-```
-Dashboard → Combos → Create New
-
-Name: reset-optimized
-Models:
-  1. cc/claude-opus-4-5 (5時間リセット、朝に使用)
-  2. gc/gemini-3-flash (1K/日、午後に使用)
-  3. glm/glm-4.7 (毎日午前10時リセット、夕方に使用)
-  4. minimax/MiniMax-M2.1 (5時間ローリング、夜に使用)
-  5. if/kimi-k2-thinking (無制限、緊急時)
-```
-
-**日課:**
-```
-08:00 - 13:00: Claude Code (新鮮な5時間クォータ)
-13:00 - 18:00: Gemini CLI (1K/日クォータ)
-18:00 - 22:00: GLM (翌朝10時リセット)
-22:00 - 08:00: MiniMax (5時間ローリング) または iFlow
-```
-
-**結果**: 最小コストで24時間コーディング。
-
----
-
-## CLIツールでコンボを使用
-
-### Cursor IDE
-
-```
-Settings → Models → Advanced:
-  OpenAI API Base URL: http://localhost:32060/v1
-  OpenAI API Key: [ダッシュボードから取得]
-  Model: premium-coding
-```
-
-### Claude Desktop
-
-`~/.claude/config.json`を編集:
-```json
-{
-  "anthropic_api_base": "http://localhost:32060/v1",
-  "anthropic_api_key": "your-Vela-api-key",
-  "model": "budget-combo"
-}
+```bash
+export ANTHROPIC_BASE_URL="http://localhost:32060/v1"
+export ANTHROPIC_AUTH_TOKEN="[your Vela key]"
+claude --model premium-coding
 ```
 
 ### Codex CLI
 
 ```bash
-export OPENAI_BASE_URL="http://localhost:32060"
-export OPENAI_API_KEY="your-Vela-api-key"
-
-codex --model quality-first "your prompt"
+export OPENAI_BASE_URL="http://localhost:32060/v1"
+export OPENAI_API_KEY="[your Vela key]"
+codex --model premium-coding "your prompt"
 ```
 
-### Cline / Continue / RooCode
+### Cline / Roo / Continue
 
 ```
 Provider: OpenAI Compatible
 Base URL: http://localhost:32060/v1
-API Key: [ダッシュボードから取得]
-Model: free-combo
+API Key:  [your Vela key]
+Model:    premium-coding
 ```
 
-### APIリクエスト
+### スクリプトから
 
 ```bash
 curl http://localhost:32060/v1/chat/completions \
-  -H "Authorization: Bearer your-api-key" \
+  -H "Authorization: Bearer [your Vela key]" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "premium-coding",
-    "messages": [
-      {"role": "user", "content": "Write a function to..."}
-    ],
+    "messages": [{"role": "user", "content": "Write a function that reverses a linked list."}],
     "stream": true
   }'
 ```
 
 ---
 
-## ベストプラクティス
+## 良い習慣
 
-### 1. 常に無料階層を含める
-
-```
-✅ 良い:
-cc/claude-opus → glm/glm-4.7 → if/kimi-k2-thinking
-
-❌ 悪い:
-cc/claude-opus → glm/glm-4.7
-(無料フォールバックなし、クォータ切れの可能性)
-```
-
-**理由**: 24時間可用性を確保、クォータでブロックされない。
-
-### 2. コスト順に並べる (安価→高価)
+### 1. 無料のもので終える
 
 ```
-✅ 良い:
-glm/glm-4.7 → minimax/MiniMax-M2.1 → cc/claude-opus
-
-❌ 悪い:
-cc/claude-opus → glm/glm-4.7
-(シンプルなタスクにサブスクリプションクォータを浪費)
+✅ cc/claude-opus-5 → glm/glm-4.7 → if/qwen3-coder-plus
+❌ cc/claude-opus-5 → glm/glm-4.7
 ```
 
-**例外**: サブスクリプション価値を最大化したい場合は、サブスクリプションを最初に。
+2番目の鎖には、終わりに崖があります。
 
-### 3. 品質要件に合わせる
+### 2. 何を最適化しているかを決める
 
-```
-本番コードの場合:
-cc/claude-opus → cx/gpt-5.2-codex → glm/glm-4.7
+- **コスト:** 格安が先、無料が最後。
+- **品質:** プレミアムが先、格安が最後。
+- **サブスクリプションの価値:** サブスクリプションが先、無料が最後。
 
-クイックタスクの場合:
-glm/glm-4.7 → if/kimi-k2-thinking
+普遍的な答えはなく、正しい順番は週ごとに変わります。
 
-実験用:
-if/kimi-k2-thinking → qw/qwen3-coder-plus
-```
-
-### 4. クォータリセット時間を考慮
+### 3. 仕事にコンボを合わせる
 
 ```
-朝のコンボ (新鮮なクォータ):
-cc/claude-opus → cx/gpt-5.2-codex
-
-夕方のコンボ (クォータが消費されている可能性):
-glm/glm-4.7 → minimax/MiniMax-M2.1 → if/kimi-k2-thinking
+production code     : quality-first
+everyday edits      : premium-coding
+exploration         : budget-combo
+other people's work : never-stuck
 ```
 
-### 5. 異なるユースケース用に複数のコンボを作成
+いくつも持っておき、ツールのひとつのフィールドを変えて切り替えられます。
 
-```
-premium-coding: 複雑なタスク用
-budget-combo: シンプルなタスク用
-free-combo: 実験用
-quality-first: 本番コード用
-```
+### 4. 鎖が実際に何をしたかを確かめる
 
-**タスク要件に基づいてコンボを切り替え**ます。
+**Routed by Combo**ページが、どのリクエストにどのモデルが答えたかを示します。黙っていつも最後の段に着地するコンボは、謎ではなく、見えるものになります。
 
-### 6. コンボパフォーマンスをモニター
+### 5. 共有のキーには上限を
 
-```
-Dashboard → Analytics → Combo Usage:
-  premium-coding:
-    80% cc/claude-opus経由 (良好、サブスクリプション使用)
-    15% glm/glm-4.7経由 (許容バックアップ)
-    5% minimax経由 (まれなフォールバック)
-```
-
-**最適化**: フォールバック使用が多すぎる場合、プライマリクォータを増やすかモデルを並べ替え。
+エージェントやバックグラウンドのジョブが使うキーには、支出上限を付けてください。コンボは鎖を下へ動かせても、支出を止めることはできません。予算なら止められます。
 
 ---
 
 ## 高度な設定
 
-### コンボごとに予算上限を設定
+### コンボごとの戦略
 
-```
-Dashboard → Combos → Edit → Budget:
-  Daily limit: $5
-  Monthly limit: $50
-```
+ひとつのコンボが、厳密なフォールバックよりラウンドロビンを好むこともできます — メンバーが品質で対等で、負荷を散らしたいときに役立ちます。**設定 → ルーティング**で設定してください。
 
-上限に達すると、Velaは有料モデルをスキップして無料階層のみを使用。
+### モデルを一時的に無効にする
 
-### コンボ内のモデルを有効/無効
+すべてのコンボから消すのではなく、プロバイダーのページでモデルを無効にしてください。コンボはそれを飛ばし、戻したときのために形を保ちます。
 
-```
-Dashboard → Combos → Edit → Models:
-  ✅ cc/claude-opus-4-5 (有効)
-  ❌ glm/glm-4.7 (一時的に無効)
-  ✅ if/kimi-k2-thinking (有効)
-```
+### インポートとエクスポート
 
-**ユースケース**: コンボを削除せずに高価なモデルを一時的に無効化。
-
-### 既存のコンボを複製
-
-```
-Dashboard → Combos → Clone "premium-coding"
-→ "-copy" サフィックス付きのコピーを作成
-→ 変更して新しいコンボとして保存
-```
-
-**ユースケース**: 異なるシナリオ用のバリエーションを作成。
+コンボはCombosページからエクスポートとインポートができます。動く設定を2台目のマシンへ移す、いちばんかんたんな方法です。
 
 ---
 
 ## トラブルシューティング
 
-**問題: コンボがモデルリストに表示されない**
+### コンボ名が認識されない
 
-**解決策:**
-1. ダッシュボードを更新
-2. コンボが保存されていることを確認 (緑のチェック)
-3. CLIツールを再起動してモデルリストを更新
+- 保存したとおりに綴られているか確かめてください(大文字小文字を区別します)。
+- 起動時にモデルの一覧をキャッシュするツールなら、再起動してください。
+- コンボが保存されていることを確かめてください — Combosの一覧に出ているはずです。
 
-**問題: コンボが常に最後のモデル (無料階層) を使用**
+### いつも最後のモデルに着地する
 
-**解決策:**
-1. プライマリモデルのクォータを確認 (Dashboard → Quota)
-2. APIキーが有効か確認 (Dashboard → Providers)
-3. 予算上限を超えていないか確認
+それは、前のものが失敗しているという意味です。**Quota**と**Providers**を見てください: たいていは期限切れのトークンか、尽きた割り当てか、落ちているプロバイダーです。
 
-**問題: コンボのコストが予想より高い**
+### 思ったより高くつく
 
-**解決策:**
-1. Dashboard → Analytics → コンボ使用量を確認
-2. プライマリモデルがクォータ切れか確認
-3. モデルを並べ替え (安価を先に)
-4. 予算上限を設定
+- **Routed by Combo**で、どれくらい落ちたかを確かめてください。
+- [格安プロバイダー](../providers/cheap.md)の料率を読んでください — 格安のレーンでは出力トークンは入力の3〜4倍です。
+- 並べ替えてください: 品質が許すなら、より安いメンバーを先頭に。
+
+### フォールバックせずにリクエストが失敗する
+
+ほかへは再試行できない失敗もあります — 形の崩れたリクエストは、どのモデルでも同じように失敗します。鎖が壊れていると決めつける前に、エラーの文言を確かめてください。
 
 ---
 
 ## 関連
 
-- [スマートルーティング](./smart-routing.md) - 自動フォールバックの仕組み
-- [クォータトラッキング](./quota-tracking.md) - 使用量とコストを監視
+- [スマートルーティング](smart-routing.md) — リクエストがプロバイダーを選ぶ仕組み
+- [クォータ追跡](quota-tracking.md) — 利用量とコストの読み方
+- [格安プロバイダー](../providers/cheap.md) — 鎖の背後の数字

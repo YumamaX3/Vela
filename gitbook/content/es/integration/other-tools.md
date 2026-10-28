@@ -1,416 +1,331 @@
 # Integración con otras herramientas
 
-Vela es compatible con cualquier herramienta que soporte el formato de API de OpenAI. Esta guía cubre patrones de integración genéricos para varias herramientas y aplicaciones personalizadas.
+Cualquier cosa que pueda hablar con la API de OpenAI puede hablar con Vela. Esta página es la receta genérica: la dirección, la clave, un puñado de ejemplos que funcionan, y los patrones que evitan que un script falle de la misma forma dos veces.
 
 ## Resumen
 
-Vela proporciona un endpoint de API compatible con OpenAI que funciona con:
-- Scripts y aplicaciones personalizadas
-- Clientes de API y herramientas de testing
-- Herramientas CLI y utilidades
-- Integraciones de terceros
-- Frameworks de desarrollo
+La forma es siempre la misma:
+
+```
+Base URL:  http://localhost:32060/v1     (or https://your-domain.example/v1)
+API key:   vela-v1-<id>-<checksum>       (from Dashboard → Endpoint & Key)
+Model:     any id the gateway lists, or a combo name
+```
 
 ## Patrón de configuración genérico
 
-Cualquier herramienta compatible con OpenAI puede conectarse a Vela usando estas configuraciones:
-
 **Vela local:**
+
 ```
-Base URL: http://localhost:32060/v1
-API Key: your-api-key-from-dashboard
-Model: cualquier modelo de Vela (cc/*, cx/*, glm/*, etc.)
+Base URL:  http://localhost:32060/v1
+API Key:   [your Vela key]
+Model:     cc/claude-sonnet-5
 ```
 
-**Vela en la nube:**
+**Vela desplegado:**
+
 ```
-Base URL: https://vela.my.id/v1
-API Key: your-api-key-from-dashboard
-Model: cualquier modelo de Vela (cc/*, cx/*, glm/*, etc.)
+Base URL:  https://your-domain.example/v1
+API Key:   [your Vela key]
+Model:     cc/claude-sonnet-5
 ```
+
+Conserva el `/v1`. Todo lo de abajo asume esos tres valores.
 
 ## Modelos disponibles
 
-### Modelos Claude (Anthropic)
-- `cc/claude-opus-4-5-20251101`
-- `cc/claude-sonnet-4-20250514`
-- `cc/claude-haiku-4-20250514`
+Pregunta a la puerta de enlace en lugar de fiarte de una lista:
 
-### Modelos DeepSeek
-- `cx/deepseek-chat`
-- `cx/deepseek-reasoner`
+```bash
+curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"
+```
 
-### Modelos GLM (Zhipu AI)
-- `glm/glm-4-plus`
-- `glm/glm-4-flash`
+Un conjunto inicial fiable:
+
+| Modelo | Nivel |
+|-------|------|
+| `cc/claude-opus-5` | Suscripción de Claude |
+| `cc/claude-sonnet-5` | Suscripción de Claude |
+| `cc/claude-haiku-4-5-20251001` | Suscripción de Claude |
+| `cx/gpt-5.6-sol` | Suscripción de Codex |
+| `cx/gpt-5.4` | Suscripción de Codex |
+| `glm/glm-4.7` | barato |
+| `minimax/MiniMax-M2.1` | el más barato |
+| `if/qwen3-coder-plus` | gratis |
 
 ## Ejemplos de integración
 
-### Python con OpenAI SDK
+### Python, SDK de OpenAI
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(
-    api_key="your-api-key-from-dashboard",
-    base_url="http://localhost:32060/v1"
+    api_key="vela-v1-<id>-<checksum>",
+    base_url="http://localhost:32060/v1",
 )
 
 response = client.chat.completions.create(
-    model="cc/claude-sonnet-4-20250514",
-    messages=[
-        {"role": "user", "content": "Hello, how are you?"}
-    ]
+    model="cc/claude-sonnet-5",
+    messages=[{"role": "user", "content": "Hello! Who are you?"}],
 )
 
 print(response.choices[0].message.content)
 ```
 
-### Node.js con OpenAI SDK
+### Node.js, SDK de OpenAI
 
 ```javascript
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  apiKey: "your-api-key-from-dashboard",
-  baseURL: "http://localhost:32060/v1"
+  apiKey: "vela-v1-<id>-<checksum>",
+  baseURL: "http://localhost:32060/v1",
 });
 
 const response = await client.chat.completions.create({
-  model: "cc/claude-sonnet-4-20250514",
-  messages: [
-    { role: "user", content: "Hello, how are you?" }
-  ]
+  model: "cc/claude-sonnet-5",
+  messages: [{ role: "user", content: "Hello!" }],
 });
 
 console.log(response.choices[0].message.content);
 ```
 
-### Comando cURL
+### cURL
 
 ```bash
 curl http://localhost:32060/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-api-key-from-dashboard" \
+  -H "Authorization: Bearer vela-v1-<id>-<checksum>" \
   -d '{
-    "model": "cc/claude-sonnet-4-20250514",
-    "messages": [
-      {"role": "user", "content": "Hello, how are you?"}
-    ]
+    "model": "cc/claude-sonnet-5",
+    "messages": [{ "role": "user", "content": "Hello!" }]
   }'
 ```
 
-### Cliente HTTP (Postman, Insomnia)
+### Clientes HTTP (Postman, Insomnia, Bruno)
 
-**Solicitud:**
 ```
 POST http://localhost:32060/v1/chat/completions
-```
-
-**Headers:**
-```
 Content-Type: application/json
-Authorization: Bearer your-api-key-from-dashboard
-```
+Authorization: Bearer vela-v1-<id>-<checksum>
 
-**Body:**
-```json
 {
-  "model": "cc/claude-sonnet-4-20250514",
-  "messages": [
-    {"role": "user", "content": "Hello, how are you?"}
-  ],
+  "model": "cc/claude-sonnet-5",
+  "messages": [{ "role": "user", "content": "Hello!" }],
   "temperature": 0.7,
   "max_tokens": 1000
 }
 ```
 
-### Integración con LangChain
+### LangChain (Python)
 
 ```python
-from langchain.chat_models import ChatOpenAI
-from langchain.schema import HumanMessage
+from langchain_openai import ChatOpenAI
 
 llm = ChatOpenAI(
-    model_name="cc/claude-sonnet-4-20250514",
-    openai_api_key="your-api-key-from-dashboard",
+    model="cc/claude-sonnet-5",
+    openai_api_key="vela-v1-<id>-<checksum>",
     openai_api_base="http://localhost:32060/v1",
-    temperature=0.7
+    temperature=0.7,
 )
 
-messages = [HumanMessage(content="Explain quantum computing")]
-response = llm(messages)
-print(response.content)
+print(llm.invoke("Explain vector databases in two sentences.").content)
 ```
 
-### Integración con LlamaIndex
+### LlamaIndex (Python)
 
 ```python
-from llama_index.llms import OpenAI
+from llama_index.llms.openai_like import OpenAILike
 
-llm = OpenAI(
-    model="cc/claude-sonnet-4-20250514",
-    api_key="your-api-key-from-dashboard",
-    api_base="http://localhost:32060/v1"
+llm = OpenAILike(
+    model="cc/claude-sonnet-5",
+    api_key="vela-v1-<id>-<checksum>",
+    api_base="http://localhost:32060/v1",
+    is_chat_model=True,
 )
 
-response = llm.complete("What is machine learning?")
-print(response.text)
+print(llm.complete("What is a token?"))
 ```
 
-## Ejemplos de scripts personalizados
+### Cualquier cosa que acepte una URL base
 
-### Script de procesamiento por lotes
+- **Aider** — `--openai-api-base http://localhost:32060/v1`
+- **OpenCode, Crush, Kilo Code, Cline, Roo, Continue** — proveedor compatible con OpenAI, los mismos tres campos
+- **Claude Code** — consulta [Claude Code](claude-code.md)
+- **Codex CLI** — consulta [Codex](codex.md)
+
+La página **Endpoint & Key** del dashboard tiene un panel Quick Connect que imprime fragmentos listos para pegar para varias de estas, usando tu clave real.
+
+## Scripts personalizados
+
+### Procesamiento por lotes
 
 ```python
-import openai
 import json
+import os
 
-openai.api_key = "your-api-key-from-dashboard"
-openai.api_base = "http://localhost:32060/v1"
+from openai import OpenAI
 
-def process_batch(prompts, model="cx/deepseek-chat"):
-    results = []
-    for prompt in prompts:
-        response = openai.ChatCompletion.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        results.append({
+client = OpenAI(
+    api_key=os.environ["VELA_API_KEY"],
+    base_url=os.environ.get("VELA_BASE_URL", "http://localhost:32060/v1"),
+)
+
+
+def process_batch(prompts, model="glm/glm-4.7"):
+    return [
+        {
             "prompt": prompt,
-            "response": response.choices[0].message.content
-        })
-    return results
+            "response": client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+            ).choices[0].message.content,
+        }
+        for prompt in prompts
+    ]
 
-prompts = [
-    "Explain AI in one sentence",
-    "What is machine learning?",
-    "Define neural networks"
-]
 
-results = process_batch(prompts)
-print(json.dumps(results, indent=2))
+print(json.dumps(process_batch(["Explain AI in one sentence", "Define a neural network"]), indent=2))
 ```
 
-### Manejador de respuestas streaming
+### Streaming
 
 ```javascript
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  apiKey: "your-api-key-from-dashboard",
-  baseURL: "http://localhost:32060/v1"
+  apiKey: process.env.VELA_API_KEY,
+  baseURL: process.env.VELA_BASE_URL || "http://localhost:32060/v1",
 });
 
-async function streamResponse(prompt) {
-  const stream = await client.chat.completions.create({
-    model: "cc/claude-sonnet-4-20250514",
-    messages: [{ role: "user", content: prompt }],
-    stream: true
-  });
+const stream = await client.chat.completions.create({
+  model: "cc/claude-sonnet-5",
+  messages: [{ role: "user", content: "Write a short story about lighthouses" }],
+  stream: true,
+});
 
-  for await (const chunk of stream) {
-    const content = chunk.choices[0]?.delta?.content || "";
-    process.stdout.write(content);
-  }
+for await (const chunk of stream) {
+  process.stdout.write(chunk.choices[0]?.delta?.content ?? "");
 }
-
-streamResponse("Write a short story about AI");
 ```
 
-### Comparación multi-modelo
+### Comparar modelos
 
 ```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="your-api-key-from-dashboard",
-    base_url="http://localhost:32060/v1"
-)
-
-models = [
-    "cc/claude-sonnet-4-20250514",
-    "cx/deepseek-chat",
-    "glm/glm-4-plus"
-]
-
-prompt = "Explain quantum computing in simple terms"
-
-for model in models:
-    response = client.chat.completions.create(
+for model in ["cc/claude-sonnet-5", "cx/gpt-5.6-sol", "glm/glm-4.7"]:
+    reply = client.chat.completions.create(
         model=model,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    print(f"\n=== {model} ===")
-    print(response.choices[0].message.content)
+        messages=[{"role": "user", "content": "Explain a bloom filter in three sentences."}],
+    ).choices[0].message.content
+    print(f"\n=== {model} ===\n{reply}")
 ```
 
-## Patrones comunes de integración
+## Patrones habituales
 
-### Variables de entorno
-
-Almacena credenciales de forma segura:
+### Mantén la clave en el entorno
 
 ```bash
-# .env file
-ROUTER_API_KEY=your-api-key-from-dashboard
-ROUTER_BASE_URL=http://localhost:32060/v1
-ROUTER_MODEL=cc/claude-sonnet-4-20250514
+# .env
+VELA_API_KEY=vela-v1-<id>-<checksum>
+VELA_BASE_URL=http://localhost:32060/v1
+VELA_MODEL=cc/claude-sonnet-5
 ```
 
 ```python
 import os
 from openai import OpenAI
 
-client = OpenAI(
-    api_key=os.getenv("ROUTER_API_KEY"),
-    base_url=os.getenv("ROUTER_BASE_URL")
-)
+client = OpenAI(api_key=os.environ["VELA_API_KEY"], base_url=os.environ["VELA_BASE_URL"])
 ```
 
-### Manejo de errores
+### Manejar errores
 
 ```python
-from openai import OpenAI, OpenAIError
-
-client = OpenAI(
-    api_key="your-api-key",
-    base_url="http://localhost:32060/v1"
-)
+from openai import OpenAIError
 
 try:
-    response = client.chat.completions.create(
-        model="cc/claude-sonnet-4-20250514",
-        messages=[{"role": "user", "content": "Hello"}]
-    )
-    print(response.choices[0].message.content)
+    reply = client.chat.completions.create(model="cc/claude-sonnet-5", messages=[...])
 except OpenAIError as e:
-    print(f"Error: {e}")
+    print(f"Request failed: {e}")
 ```
 
-### Lógica de reintentos
+### Reintentar con espera progresiva
 
 ```python
 import time
-from openai import OpenAI, RateLimitError
-
-client = OpenAI(
-    api_key="your-api-key",
-    base_url="http://localhost:32060/v1"
-)
+from openai import RateLimitError
 
 def chat_with_retry(prompt, max_retries=3):
     for attempt in range(max_retries):
         try:
-            response = client.chat.completions.create(
-                model="cc/claude-sonnet-4-20250514",
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return response.choices[0].message.content
+            return client.chat.completions.create(
+                model="cc/claude-sonnet-5",
+                messages=[{"role": "user", "content": prompt}],
+            ).choices[0].message.content
         except RateLimitError:
-            if attempt < max_retries - 1:
-                time.sleep(2 ** attempt)  # Exponential backoff
-            else:
+            if attempt == max_retries - 1:
                 raise
+            time.sleep(2 ** attempt)
 ```
+
+Mejor aún: usa un **combo** como modelo. Entonces Vela pasa al siguiente modelo cuando uno falla, y tu lógica de reintento solo tiene que cubrir el caso en que todos los peldaños están agotados.
 
 ## Solución de problemas
 
-### Problemas de conexión
+### Conexión rechazada
 
-**Problema:** No se puede conectar a Vela
 ```bash
-# Verifica si Vela está corriendo
-curl http://localhost:32060/health
-
-# Respuesta esperada:
-{"status": "ok"}
+curl http://localhost:32060/api/health      # {"ok":true}
 ```
 
-**Solución:**
-- Verifica que Vela esté corriendo
-- Verifica que el puerto 32060 no esté bloqueado
-- Asegúrate de tener la URL base correcta (incluir `/v1`)
+Si eso falla, Vela no está en ejecución o no está en ese puerto. Comprueba además que la URL base termina en `/v1`.
 
-### Errores de autenticación
+### 401 Unauthorized
 
-**Problema:** 401 Unauthorized
-```
-Error: Invalid API key
-```
+- La clave debe estar completa y empezar por `vela-v1-`.
+- La cabecera debe ser `Authorization: Bearer <key>` — un espacio después de `Bearer`.
+- Las claves se muestran una sola vez. Si ya no la tienes, crea otra.
 
-**Solución:**
-- Verifica la API key desde el dashboard
-- Verifica el formato del header de Authorization: `Bearer your-api-key`
-- Asegúrate de no tener espacios extras o saltos de línea en la API key
+### 404 model not found
 
-### Modelo no encontrado
+- Usa el id exacto; las mayúsculas importan.
+- Pregunta a la puerta de enlace: `curl .../v1/models -H "Authorization: Bearer <key>"`.
+- Los ids de modelo cambian aguas arriba — uno retirado no se resolverá.
 
-**Problema:** 404 Model not found
-```
-Error: Model 'cc/claude-opus' not found
-```
+### 429
 
-**Solución:**
-- Usa el nombre exacto del modelo (sensible a mayúsculas)
-- Verifica los modelos disponibles: `curl http://localhost:32060/v1/models`
-- Verifica que el modelo esté habilitado en tu plan
+- Lee el código del cuerpo de la respuesta: límite de tasa, ámbito o presupuesto.
+- Los códigos de presupuesto significan que se alcanzó un techo que fijaste — edítalo en **Endpoint & Key**.
+- Si no, reintenta con espera progresiva, o deja que un combo siga adelante.
 
-### Problemas de timeout
+### Tiempos de espera
 
-**Problema:** Request timeout
-```
-Error: Request timed out after 30s
-```
+- Aumenta el tiempo de espera del cliente; las generaciones largas llevan tiempo.
+- Prueba un modelo más rápido para las rutas interactivas.
+- Recuerda que un proxy inverso no debe almacenar la transmisión en búfer (`proxy_buffering off`).
 
-**Solución:**
-- Aumenta el timeout en la configuración del cliente
-- Usa modelos más rápidos para tareas sensibles al tiempo
-- Verifica la conexión de red a Vela
-
-### Rate limiting
-
-**Problema:** 429 Too Many Requests
-```
-Error: Rate limit exceeded
-```
-
-**Solución:**
-- Implementa exponential backoff
-- Reduce la frecuencia de solicitudes
-- Verifica los límites de tasa en el dashboard
-- Considera actualizar tu plan
-
-## Mejores prácticas
+## Buenas prácticas
 
 ### Seguridad
-- Almacena las API keys en variables de entorno
-- Nunca subas las API keys al control de versiones
-- Usa HTTPS para despliegues en la nube
-- Rota las API keys regularmente
+- Claves en variables de entorno o en un almacén de secretos, nunca en el código.
+- HTTPS para cualquier cosa que salga de tu máquina.
+- Una clave por aplicación, para que una filtración sea una clave que rotar.
 
 ### Rendimiento
-- Usa modelos apropiados para la complejidad de la tarea
-- Implementa caché para consultas repetidas
-- Usa streaming para respuestas largas
-- Agrupa solicitudes cuando sea posible
+- Usa streaming cuando haya una persona esperando.
+- Guarda en caché las respuestas repetidas por tu cuenta cuando sea legítimo.
+- Ajusta el modelo a la tarea en lugar de usar por defecto el más caro.
 
-### Manejo de errores
-- Siempre implementa bloques try-catch
-- Agrega lógica de reintento con exponential backoff
-- Registra errores para debugging
-- Proporciona mecanismos de fallback
+### Costo
+- Vigila **Usage**; el informe por clave es la cuenta honesta de lo que cuesta un script.
+- Fija un tope de gasto en cualquier clave que use la automatización.
 
-### Optimización de costos
-- Elige modelos costo-efectivos para tareas simples
-- Cachea respuestas cuando sea apropiado
-- Monitorea el uso en el dashboard
-- Establece límites de solicitudes en el código
+## A dónde ir después
 
-## Próximos pasos
-
-- [Configurar Cursor](cursor.md) para integración con IDE
-- [Configurar Continue](continue.md) para VSCode
-- [Explorar uso de CLI](../cli/basic-usage.md)
-- [Aprende sobre la selección de modelos](../models/overview.md)
-- [Referencia de API](../api/reference.md)
+- [Cursor](cursor.md) · [Cline](cline.md) · [Continue](continue.md) · [Roo](roo.md)
+- [Combos](../features/combos.md) — cadenas de fallback para scripts
+- [Seguimiento de cuota](../features/quota-tracking.md) — leer el uso y los presupuestos\n",
+  "i": "Write es other-tools integration",
+  "path": "C:/Users/navis/Documents/My Project/Ai Gateway/Vela/gitbook/content/es/integration/other-tools.md"
+}

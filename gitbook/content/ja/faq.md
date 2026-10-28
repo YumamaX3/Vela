@@ -1,385 +1,253 @@
 # よくある質問
 
-Velaに関する一般的な質問。
+誰もがまず聞く問いに、平たく答えます。ここに当てはまるものがなければ、次は[トラブルシューティング](troubleshooting.md)です。
 
 ---
 
-## Velaとは?
+## Velaとは何ですか?
 
-**Velaは、サブスクリプションの価値を最大化し、コストを最小限に抑えるAIモデルルーターです。**
+**あなたのコーディングツールとAIプロバイダーのあいだの、ゲートウェイです。**
 
-3階層フォールバックシステムを使用して、複数のAIプロバイダー間でリクエストをインテリジェントにルーティングします:
-1. **サブスクリプション階層** - すでに支払っているClaude Code、Codex、Geminiのクォータを最大化
-2. **低価格階層** - 超低価格な代替手段(100万トークンあたり$0.20〜$0.60)
-3. **無料階層** - 無制限の無料モデルによる緊急バックアップ
+すべてのツールをひとつのアドレスに向けます — `http://localhost:32060/v1` — そしてVelaが、リクエストごとに、接続したプロバイダーへと流します。クォータを追い、OAuthトークンを新しく保ち、ひとつが断ったら別のモデルへフォールバックできます。
 
-**主な利点:**
-- サブスクリプションのクォータを無駄にしない
-- クォータ消費時の自動フォールバック
-- リアルタイムクォータトラッキング
-- 直接API利用に対して90%のコスト削減
-
----
-
-## 料金体系はどうなっていますか?
-
-**Velaは3階層の料金戦略を使用します:**
-
-### Tier 1: サブスクリプション(最初に最大化)
-- **Claude Code** (Pro/Max): 月$20〜100 - 5時間 + 週次クォータ
-- **OpenAI Codex** (Plus/Pro): 月$20〜200 - 5時間 + 週次クォータ
-- **Gemini CLI**: 無料 - 月18万コンプリーション + 1K/日
-- **GitHub Copilot**: 月$10〜19 - 月次リセット
-- **Antigravity**: 無料 - Geminiと同様
-
-**目標:** リセット前にクォータを余すことなく使用!
-
-### Tier 2: 低価格(バックアップ)
-- **GLM-4.7**: 100万トークンあたり$0.60/$2.20 - 毎日午前10時リセット
-- **MiniMax M2.1**: 100万トークンあたり$0.20/$1.00 - 5時間ローリング
-- **Kimi K2**: 月$9固定(1000万トークン)
-
-**目標:** ChatGPT API(100万あたり$20)より90%安い!
-
-### Tier 3: 無料(緊急時)
-- **iFlow**: 8モデル無料(Kimi K2、Qwen3、GLM、MiniMax...)
-- **Qwen**: 3モデル無料(Qwen3 Coder Plus/Flash、Vision)
-- **Kiro**: 2モデル無料(Claude Sonnet 4.5、Haiku 4.5)
-
-**目標:** 他のすべてがクォータ制限に達した時のゼロコストフォールバック!
+それはモデルではなく、モデルを無料にもしません。すでにアクセスできるモデルたちのあいだの、交換台です。
 
 ---
 
 ## Velaは無料ですか?
 
-**はい、Vela自体は100%無料でオープンソースです。**
+**Vela自体は無料で、オープンソースです(MIT)。**
 
-**利用可能な無料階層プロバイダー:**
-- **Gemini CLI** - 月18万コンプリーション(無料Googleアカウント)
-- **iFlow** - 8モデル無制限(無料OAuth)
-- **Qwen** - 3モデル無制限(無料OAuth)
-- **Kiro** - Claude Sonnet/Haiku(無料AWS Builder ID)
+お金がかかるのは上流で起きることです: Claude Codeのサブスクリプション、Codexのプラン、あるいはGLMやMiniMaxのようなトークン単位のプロバイダー。Velaはその上に手数料を足しません。
 
-**無料階層プロバイダーのみを使用して永久に無料でコーディングできます!**
-
-**オプションの有料プロバイダー:**
-- すでに持っている可能性のあるサブスクリプションサービス(Claude Code、Codex、Copilot)
-- 超低価格な代替手段(100万トークンあたり$0.20〜$0.60)
+その制限を受け入れるなら、無料のプロバイダーだけでも動かせます — iFlow、Qwen、Kiro、Antigravity。その組み合わせは何もかかりません。
 
 ---
 
-## どのプロバイダーがサポートされていますか?
+## ルーティングはどう動きますか?
 
-### サブスクリプションプロバイダー
-- **Claude Code** (Pro/Max) - Claude 4.5 Opus/Sonnet/Haiku
-- **OpenAI Codex** (Plus/Pro) - GPT 5.2 Codex、GPT 5.1 Codex Max
-- **Gemini CLI** (無料) - Gemini 3 Flash/Pro、2.5 Pro/Flash
-- **GitHub Copilot** - GPT-5、Claude 4.5、Gemini 3
-- **Antigravity** (Google) - Gemini 3 Pro、Claude Sonnet 4.5
+仕組みはふたつあり、それらは違うものです:
 
-### 低価格プロバイダー
-- **GLM** (Zhipu AI) - GLM 4.7、GLM 4.6V Vision
-- **MiniMax** - MiniMax M2.1
-- **Kimi** (Moonshot AI) - Kimi Latest
-- **OpenRouter** - 任意のOpenRouterモデルへのパススルー
+1. **コンボ**は、あなたが定義する鎖です: モデル1、次にモデル2、次にモデル3。モデルへのリクエストが*失敗*したとき — クォータのエラー、レート制限、タイムアウト、拒否されたプロンプト、未知のモデル — Velaは次を試します。
+2. **ラウンドロビン**(プロバイダーごと、あるいはコンボごと)は、同じプロバイダーの複数のアカウントにリクエストを散らし、ひとつのアカウントが叩かれ続けないようにします。
 
-### 無料プロバイダー
-- **iFlow** - 8モデル(Kimi K2、Qwen3、GLM、MiniMax、DeepSeek...)
-- **Qwen** - 3モデル(Qwen3 Coder Plus/Flash、Vision)
-- **Kiro** - 2モデル(Claude Sonnet 4.5、Haiku 4.5)
+どちらも、日次の割り当てが少なくなってきたというだけの理由で、より安いモデルへ切り替えることはしません。それは、あなたが同意していないお金を使うことになります。
 
-**合計: 15以上のプロバイダー、50以上のモデル**
+かたい上限には、キーごとの予算を使ってください。上限に達すると、Velaはそう告げる429で断ります。
 
-詳細は[プロバイダードキュメント](providers/subscription.md)を参照。
+[スマートルーティング](features/smart-routing.md)と[コンボ](features/combos.md)を見てください。
 
 ---
 
-## 複数のプロバイダーを使用できますか?
+## Velaはいくつのプロバイダーに対応していますか?
 
-**はい! これはVelaのコア機能です。**
+正直な3つの数字、2026-10-28、バージョン1.2.4で測ったものです:
 
-**コンボにより、複数のプロバイダーを自動フォールバック付きで連鎖させることができます:**
+- **189** — レジストリにあるプロバイダーファイル
+- **186** — インデックスが読み込んでいるもの(3つは意図的にコメントアウトされています: `devin-cli`、`trae`、`windsurf`)
+- **145** — リクエストが実際に届けるトランスポートのあるもの
 
-```
-コンボ例: "premium-coding"
-1. cc/claude-opus-4-5 (サブスクリプション優先)
-2. glm/glm-4.7 (低価格バックアップ)
-3. if/kimi-k2 (無料緊急時)
+自分のクローンで導き直せます:
 
-→ クォータ消費時に自動切替
-→ コーディングが止まらない
-→ 最小の追加コスト
-```
-
-**コンボの作成方法:**
-```
-Dashboard → Combos → Create New
-→ 優先順位順にモデルを追加
-→ CLIでコンボ名を使用: "premium-coding"
-```
-
-**利点:**
-- クォータ切れ時のダウンタイムゼロ
-- 自動コスト最適化
-- すべてのツール用の単一モデル名
-
-例については[コンボドキュメント](features/combos.md)を参照。
-
----
-
-## クォータトラッキングはどのように機能しますか?
-
-**Velaはすべてのプロバイダーのクォータをリアルタイムで追跡します:**
-
-**機能:**
-- **トークン消費** - リクエストごとの入出力トークン
-- **リセットカウントダウン** - クォータが更新されるまでの時間
-- **使用統計** - 日次/週次/月次レポート
-- **コスト見積もり** - 予測支出(有料階層)
-- **クォータアラート** - クォータが少ない時の通知
-
-**クォータタイプ:**
-- **5時間ローリング** - Claude Code、Codex、MiniMax
-- **日次リセット** - Gemini CLI(1K/日)、GLM(午前10時)
-- **週次リセット** - Claude Code、Codex(追加クォータ)
-- **月次リセット** - Gemini CLI(18万)、GitHub Copilot(1日)
-
-**クォータを表示:**
-```
-Dashboard → Providers → Quota Tracking
-→ リアルタイム使用量 + リセットカウントダウン
-```
-
-詳細は[クォータトラッキングドキュメント](features/quota-tracking.md)を参照。
-
----
-
-## VelaはCursorで動作しますか?
-
-**はい、ただしCursorはクラウドエンドポイントが必要です。**
-
-**問題:** Cursor IDEはlocalhostエンドポイントをサポートしていません。
-
-**解決策:** Velaクラウドデプロイメントを使用:
-
-```
-Cursor Settings → Models → Advanced:
-  OpenAI API Base URL: https://vela.my.id/v1
-  OpenAI API Key: [ダッシュボードから取得]
-  Model: cc/claude-opus-4-5-20251101
-```
-
-**代替案:** パブリックドメインでVPSにセルフホスト:
 ```bash
-# VPSへデプロイ
-git clone https://github.com/YumamaX3/Vela.git
-cd Vela/app
-npm install && npm run build
-npm start
-
-# Nginxリバースプロキシを設定
-# Cursorを向ける: https://your-domain.com/v1
+ls open-sse/providers/registry/*.js | grep -v index.js | wc -l
+node -e "import('./open-sse/providers/registry/index.js').then(m=>console.log(m.default.length))"
+node -e "import('./open-sse/providers/index.js').then(m=>console.log(Object.keys(m.PROVIDERS).length))"
 ```
 
-**他のCLIツールはlocalhostで動作:**
-- Cline ✅
-- Claude Desktop ✅
-- Codex CLI ✅
-- Continue ✅
-- RooCode ✅
+ここでレーンごとに説明しているもの:
 
-詳細は[Cursor統合ガイド](integration/cursor.md)を参照。
+- **サブスクリプション:** Claude Code、Codex、GitHub Copilot、Antigravity、Kimi
+- **格安:** GLM、MiniMax、Kimi
+- **無料:** iFlow、Qwen、Kiro
+
+---
+
+## 今日使えるのはどのモデルですか?
+
+モデルIDは`prefix/model`の形です。このリリースで確かなもののいくつか:
+
+| モデル | レーン |
+|-------|------|
+| `cc/claude-opus-5`、`cc/claude-sonnet-5` | Claude Codeサブスクリプション |
+| `cx/gpt-5.6-sol`、`cx/gpt-5.5` | Codexサブスクリプション |
+| `gh/claude-sonnet-4.6`、`gh/gpt-5.4` | GitHub Copilot |
+| `ag/gemini-4-argon-high` | Antigravity(無料) |
+| `glm/glm-4.7` | 格安 — 100万あたり$0.60 / $2.20 |
+| `minimax/MiniMax-M2.1` | 格安 — 100万あたり$0.30 / $1.20 |
+| `kr/claude-sonnet-4.5` | 無料 |
+| `if/qwen3-coder-plus` | 無料 |
+| `qwen/qwen-plus` | 無料 |
+
+ドキュメントを、動いているゲートウェイより信じてはいけません:
+
+```bash
+curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"
+```
+
+その一覧が、あなたのインストールのための真実です。
+
+---
+
+## 複数のプロバイダーを一緒に使えますか?
+
+**はい — それが要点です。** コンボを組んでください:
+
+```
+Dashboard → Combos → Create
+  Name:   premium-coding
+  Models: 1. cc/claude-opus-5       ← subscription
+          2. glm/glm-4.7            ← cheap
+          3. kr/claude-sonnet-4.5   ← free
+```
+
+あとはどのツールでも、モデル名として`premium-coding`を使ってください。コンボの名前は何よりも先に解決されるので、ワイヤの上ではふつうのモデルに見えます。
+
+---
+
+## VelaはCursorで動きますか?
+
+**はい。** CursorはOpenAI互換のベースURLとキーを受け取ります。Velaがあなたのマシンで動いているなら:
+
+```
+Cursor → Settings → Models → OpenAI API
+  Base URL: http://localhost:32060/v1
+  API Key:  [your Vela key]
+  Model:    your model or combo name (add it as a custom model)
+```
+
+Cursorのバージョンによっては、カスタムのエンドポイントを有料プランに限っていたり、設定によってはCursor自身のサーバー経由でルーティングしたりします。その場合、`localhost`は彼らの側からは届きません。そういうときは、公開アドレスを持つサーバーにVelaをデプロイし([クラウドへのデプロイ](deployment/cloud.md))、かわりに`https://your-domain/v1`を使ってください。
+
+ベースURLを受け取るほかのツールも同じように動きます: Cline、Roo、Continue、Claude Code、Codex CLI、そしてOpenAI互換のそのほかすべて。[連携](integration/claude-code.md)を見てください。
 
 ---
 
 ## Velaをセルフホストできますか?
 
-**はい! Velaは複数のデプロイメントオプションをサポートします:**
+**はい、そしてそれが動かすべき意図されたやり方です。** 3つの道:
 
-### Localhost(デフォルト)
+**あなたのマシンで:**
 ```bash
 npm install -g vela
 vela
-→ Dashboard: http://localhost:3000
-→ API: http://localhost:32060/v1
+# dashboard: http://localhost:32060/dashboard
+# API:       http://localhost:32060/v1
 ```
 
-### VPS/クラウド
+**Dockerで、どのサーバーでも:**
+```bash
+docker run -d --name vela \
+  -p 127.0.0.1:32060:32060 \
+  -v "$HOME/vela-data:/app/data" \
+  -e DATA_DIR=/app/data \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  ghcr.io/yumamax3/vela:1.2.4
+```
+
+イメージは公開です — pullにログインもトークンも要りません — そしてマルチアーキテクチャです(amd64とarm64)。`:latest`ではなく、タグを固定してください。
+
+**ソースから:**
 ```bash
 git clone https://github.com/YumamaX3/Vela.git
-cd Vela/app
-npm install && npm run build
-
-export JWT_SECRET="your-secure-secret"
-export INITIAL_PASSWORD="your-password"
-export NODE_ENV="production"
-
-npm start
+cd Vela
+npm install
+npm run build
+npm run start
 ```
 
-### Docker
-```bash
-docker build -t Vela .
-docker run -d \
-  -p 3000:3000 \
-  -e JWT_SECRET="your-secret" \
-  -v Vela-data:/app/data \
-  vela
-```
+リポジトリのルートがアプリです。入れ子の`app/`ディレクトリはありません。スクリプトは`dev`、`build`、`start`(とそのBunの変種)で — テストのスクリプトも、Cloudflareへのデプロイのスクリプトもありません。
 
-### Cloudflare Workers
-```bash
-cd Vela/app
-npm run deploy:cloudflare
-```
-
-**環境変数:**
-- `JWT_SECRET` - **本番環境で必ず変更!**
-- `DATA_DIR` - データベース保存パス(デフォルト: `~/.vela`)
-- `INITIAL_PASSWORD` - ダッシュボードログイン(デフォルト: `123456`)
-- `NODE_ENV` - デプロイ時は`production`に設定
-
-詳細は[デプロイメントガイド](getting-started/installation.md#deployment)を参照。
+詳細: [ローカル](deployment/localhost.md)・[クラウド](deployment/cloud.md)。
 
 ---
 
 ## データは安全ですか?
 
-**はい、Velaはセキュリティとプライバシーを優先します:**
+**デフォルトでは、あなたのマシンに留まります。**
 
-**ローカルストレージ:**
-- すべてのデータは`~/.vela`(またはカスタム`DATA_DIR`)にローカル保存
-- Velaサーバーへのデータ送信なし
-- OAuthトークンはJWTで暗号化
+- すべてデータディレクトリに住みます — macOS/Linuxなら`~/.vela`、Windowsなら`%APPDATA%\vela`、あるいは`DATA_DIR`が名指すもの。
+- 接続したプロバイダーのOAuthトークンとAPIキーは、そのローカルのデータベースに保存されます。
+- Velaは、あなたが接続したプロバイダーにだけリクエストを送ります。Velaのプロジェクトへ何かが報告されることはありません。
 
-**テレメトリなし:**
-- 使用状況追跡なし
-- アナリティクスなし
-- フォンホームなし
+**保持するもの:** プロバイダーの接続とトークン、あなたのAPIキー(ハッシュとして保存 — 完全なキーは作成時に一度だけ表示)、利用の統計、コンボ、設定、そしてリクエストログ(有効にした場合だけ)。
 
-**オープンソース:**
-- 完全なソースコードがGitHubで利用可能
-- 自分でセキュリティを監査可能
-- コミュニティレビュー済み
+**保持しないもの:** リクエストログを除いた、あなたのプロンプトや生成されたコードの複製。リクエストログはデフォルトでオフです。
 
-**ベストプラクティス:**
-- 本番環境で`JWT_SECRET`を変更
-- 強力な`INITIAL_PASSWORD`を使用
-- クラウドデプロイでHTTPSを有効化
-- APIキーを定期的にローテーション
-
-**Velaが保存するもの:**
-- プロバイダーOAuthトークン(暗号化)
-- APIキー(暗号化)
-- 使用統計(ローカルのみ)
-- コンボ設定
-
-**Velaが保存しないもの:**
-- プロンプトやレスポンス
-- 生成したコード
-- 個人情報
+**ネットワークに晒す前に:** **設定 → アクセス**でダッシュボードのパスワードを設定し、**ダッシュボードのログインを必須にする**をオンにし、**APIキーを必須にする**を考え、HTTPSの背後に置いてください。チェックリストは[クラウドへのデプロイ](deployment/cloud.md)にあります。
 
 ---
 
-## Velaを更新するには?
+## デフォルトのパスワードは何ですか?
 
-**更新方法はインストールタイプによって異なります:**
+**ありません。**
 
-### グローバルNPMインストール
+古いチュートリアルは`123456`に触れていますが、そのデフォルトは引退しました。現在のVelaにはデフォルトのパスワードがまったくありません:
+
+- Velaを動かしているマシンからは、ダッシュボードは何も求めずに開きます。
+- ほかのどこからでも、**設定 → アクセス**でパスワードを設定するまで、ログインは**拒否**されます。
+
+同じ画面で、制御が整えば緑の「ゲート済み」の判定が示されます — ポートを開く前に確かめる価値があります。
+
+---
+
+## Velaはどうやって更新しますか?
+
 ```bash
+# npm install
 npm update -g vela
+npm list -g vela        # what you are running now
+
+# Docker — pin the newer tag deliberately
+docker pull ghcr.io/yumamax3/vela:1.2.4
+docker stop vela && docker rm vela
+# re-run your docker run command with the new tag
+
+# From a git checkout
+cd Vela && git pull && npm install && npm run build && npm run start
 ```
 
-### ローカルインストール
-```bash
-cd Vela/app
-git pull origin main
-npm install
-npm run build
-npm start
-```
-
-### Docker
-```bash
-docker pull Vela:latest
-docker stop Vela
-docker rm Vela
-docker run -d \
-  -p 3000:3000 \
-  -v Vela-data:/app/data \
-  Vela:latest
-```
-
-**バージョンを確認:**
-```bash
-Vela --version
-```
-
-**破壊的変更:**
-- [CHANGELOG.md](https://github.com/YumamaX3/Vela/blob/main/CHANGELOG.md)を確認
-- メジャー更新前に`~/.vela`をバックアップ
-- メジャーバージョンの移行ガイドを確認
+大きなバージョンの前には、まずデータディレクトリをバックアップしてください。データベースの移行は起動時に自動で走り、その前に安全のための複製が取られます。
 
 ---
 
-## どのように貢献できますか?
+## どうやって貢献できますか?
 
-**貢献を歓迎します!**
+とても歓迎します。
 
-### 貢献方法:
-
-1. **バグを報告:**
-   - [GitHub Issues](https://github.com/YumamaX3/Vela/issues)
-   - エラーログ、再現手順を含める
-
-2. **機能をリクエスト:**
-   - [GitHub Discussions](https://github.com/YumamaX3/Vela/discussions)
-   - ユースケースと利点を説明
-
-3. **コードを提出:**
+1. **バグを報告する** — [GitHub Issues](https://github.com/YumamaX3/Vela/issues)に、エラー、手順、あなたのバージョンとともに。
+2. **機能を要望する** — [GitHub Discussions](https://github.com/YumamaX3/Vela/discussions)。
+3. **コードを送る:**
    ```bash
-   # リポジトリをフォーク
    git clone https://github.com/YOUR_USERNAME/Vela.git
    cd Vela
-   
-   # ブランチを作成
    git checkout -b feature/your-feature
-   
-   # 変更を加える
    npm install
    npm run dev
-   
-   # テスト
-   npm test
-   
-   # コミットしてプッシュ
-   git add .
-   git commit -m "Add your feature"
-   git push origin feature/your-feature
-   
-   # GitHubでPull Requestを作成
    ```
-
-4. **ドキュメントを改善:**
-   - 誤字の修正、例の追加
-   - 他言語への翻訳
-   - チュートリアルの執筆
-
-5. **プロバイダーを追加:**
-   - 新しいプロバイダーアダプターを実装
-   - 例については`app/lib/providers/`を参照
-
-**貢献ガイドライン:**
-- 既存のコードスタイルに従う
-- 新機能にはテストを追加
-- ドキュメントを更新
-- コミットは小さく、わかりやすく
-
-詳細は[CONTRIBUTING.md](https://github.com/YumamaX3/Vela/blob/main/CONTRIBUTING.md)を参照。
+   プルリクエストを開く前に、リポジトリが同梱するチェックの一式を走らせ、コミットは小さく説明的に保ってください。
+4. **ドキュメントを良くする** — 修正も翻訳も、機能と同じくらい役に立ちます。
+5. **プロバイダーを足す** — アダプターの例は`open-sse/providers/registry/`の下にあります。
 
 ---
 
-## さらにヘルプが必要?
+## Velaはどのポートを使いますか?
+
+- **32060** — すべて。ダッシュボード(`/dashboard`)とAPI(`/v1`)で、ひとつのプロセスが供します。
+- ブラウザでまた**32060**というのは、`http://localhost:32060`ということです。ダッシュボードはその一段下の`/dashboard`に住んでいます。
+
+ほかの何かがそのポートを要るなら、`vela --port 8080`か`PORT=8080`で変えてください。
+
+---
+
+## 何かが壊れたら、どこへ行けばいいですか?
+
+1. `http://localhost:32060/api/health`が`{"ok":true}`で答えるはずです。そうでなければ、Velaは動いていません。
+2. `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`がモデルを一覧するはずです。空の一覧は、プロバイダーが接続されていないという意味です。
+3. [トラブルシューティング](troubleshooting.md)が、よくあるエラー — 接続が拒否される、キーが無効、モデルが見つからない、返事が遅い — を直し方に対応づけています。
+
+---
+
+## もっと助けが必要ですか?
 
 - **ドキュメント:** [vela.my.id/docs](https://vela.my.id/docs)
 - **GitHub:** [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)

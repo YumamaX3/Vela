@@ -1,109 +1,135 @@
 # Tích hợp Claude Code
 
-Tích hợp Vela với Claude Code CLI để định tuyến request API Anthropic qua hệ thống routing thông minh của Vela.
+Hướng Claude Code về Vela chỉ tốn hai biến môi trường. Sau đó, mọi request Claude từ terminal của bạn đều đi qua gateway — nghĩa là nó có thể được định tuyến, được theo dõi, và được một chuỗi fallback che chắn.
 
-## Yêu cầu
+## Điều kiện tiên quyết
 
-- Claude Code CLI đã cài đặt
-- Vela đang chạy cục bộ hoặc cloud endpoint đã cấu hình
-- API key từ Vela dashboard
+- Đã cài Claude Code CLI (`claude --version` nên in ra một số phiên bản)
+- Vela đang chạy cục bộ, hoặc một endpoint cloud bạn chạm tới được
+- Một API key đã tạo trong dashboard Vela (**Endpoint & Key → Create Key**)
 
-## Setup
+## Thiết lập
 
 ### 1. Cấu hình biến môi trường
 
-Đặt các biến môi trường sau trong file cấu hình shell (`~/.bashrc`, `~/.zshrc`, hoặc `~/.bash_profile`):
+Thêm những dòng này vào hồ sơ shell của bạn (`~/.zshrc`, `~/.bashrc`, hoặc `~/.bash_profile`):
 
 ```bash
-# Base URL for Vela
 export ANTHROPIC_BASE_URL="http://localhost:32060/v1"
+export ANTHROPIC_AUTH_TOKEN="[your Vela key]"
+```
 
-# Optional: Set default models for aliases
-export ANTHROPIC_DEFAULT_OPUS_MODEL="cc/claude-opus-4-5-20251101"
-export ANTHROPIC_DEFAULT_SONNET_MODEL="cc/claude-sonnet-4-5-20250929"
+- `ANTHROPIC_BASE_URL` — nơi Claude Code gửi request. Hãy giữ `/v1`.
+- `ANTHROPIC_AUTH_TOKEN` — key Vela của bạn. Claude Code gửi nó như một bearer token; Vela chấp nhận nó như một API key.
+
+Nếu bạn muốn một model khác trả lời mặc định, hãy đặt luôn các đích cho bí danh:
+
+```bash
+export ANTHROPIC_DEFAULT_OPUS_MODEL="cc/claude-opus-5"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="cc/claude-sonnet-5"
 export ANTHROPIC_DEFAULT_HAIKU_MODEL="cc/claude-haiku-4-5-20251001"
 ```
 
-### 2. Reload Shell Configuration
+### 2. Nạp lại shell
 
 ```bash
-source ~/.zshrc  # or ~/.bashrc
+source ~/.zshrc     # or ~/.bashrc
 ```
 
-### 3. Xác minh Cấu hình
-
-Kiểm tra các biến môi trường đã set đúng:
+### 3. Xác minh
 
 ```bash
 echo $ANTHROPIC_BASE_URL
+curl -s http://localhost:32060/api/health      # → {"ok":true}
 ```
 
-## Model Aliases
-
-Claude Code hỗ trợ các alias model sau ánh xạ sang model Vela:
-
-| Alias | Model | Biến môi trường |
-|-------|-------|---------------------|
-| `opus` | Claude Opus 4.5 | `ANTHROPIC_DEFAULT_OPUS_MODEL` |
-| `sonnet` | Claude Sonnet 4.5 | `ANTHROPIC_DEFAULT_SONNET_MODEL` |
-| `haiku` | Claude Haiku 4.5 | `ANTHROPIC_DEFAULT_HAIKU_MODEL` |
-
-## Ví dụ Sử dụng
-
-### Dùng Model Aliases
+Rồi chạy một prompt nhỏ:
 
 ```bash
-# Use Opus model
-claude --model opus "Explain quantum computing"
-
-# Use Sonnet model
-claude --model sonnet "Write a Python function"
-
-# Use Haiku model
-claude --model haiku "Quick code review"
+claude --model sonnet "Say hello in five words."
 ```
 
-### Dùng Full Model Names
+Một phản hồi qua Vela nghĩa là đã nối được. Bạn có thể xác nhận trong dashboard: **Usage** sẽ hiển thị request.
+
+## Bí danh model
+
+Các tên ngắn của Claude Code ánh xạ tới bất cứ đâu mà các biến môi trường trên trỏ tới:
+
+| Bí danh | Ý nghĩa | Được đặt bởi |
+|-------|---------|--------|
+| `opus` | model nặng nhất của bạn | `ANTHROPIC_DEFAULT_OPUS_MODEL` |
+| `sonnet` | model thường ngày của bạn | `ANTHROPIC_DEFAULT_SONNET_MODEL` |
+| `haiku` | model nhanh của bạn | `ANTHROPIC_DEFAULT_HAIKU_MODEL` |
+
+Nếu bạn không đặt chúng, Claude Code yêu cầu các tên thượng nguồn thường lệ của nó và Vela phân giải chúng dựa trên những nhà cung cấp bạn đã kết nối.
+
+## Ví dụ sử dụng
+
+### Với bí danh
 
 ```bash
-claude --model cc/claude-opus-4-5-20251101 "Your prompt here"
+claude --model opus   "Explain the trade-offs of an append-only log"
+claude --model sonnet "Write a Python function that retries with backoff"
+claude --model haiku  "Review this diff for typos"
 ```
 
-## File Settings
+### Với tên model Vela đầy đủ
 
-Claude Code lưu cấu hình trong `~/.claude/settings.json`. Bạn có thể sửa file này thủ công nếu cần:
+```bash
+claude --model cc/claude-opus-5 "Refactor this module"
+```
+
+### Với một combo
+
+Đây là chỗ Vela đáng có mặt: nếu cửa sổ subscription đóng giữa buổi chiều, chuỗi vẫn đi tiếp.
+
+```bash
+claude --model premium-coding "Plan the migration"
+```
+
+với một combo `cc/claude-opus-5 → glm/glm-4.7 → kr/claude-sonnet-4.5`.
+
+## Tệp settings
+
+Claude Code còn đọc `~/.claude/settings.json`, nơi cùng các giá trị ấy có thể nằm dưới một khối `env`:
 
 ```json
 {
-  "baseUrl": "http://localhost:32060/v1",
-  "defaultModel": "sonnet"
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://localhost:32060/v1",
+    "ANTHROPIC_AUTH_TOKEN": "[your Vela key]"
+  }
 }
 ```
 
-## Troubleshooting
+Dashboard có thể ghi cái này cho bạn: **CLI Tools → Claude Code** điền sẵn base URL và key, và hiển thị kết quả cho bạn xem trước khi lưu.
 
-### Lỗi Connection
+## Khắc phục sự cố
 
-Nếu gặp lỗi kết nối:
+### Vấn đề kết nối
 
-1. Xác minh Vela đang chạy: `curl http://localhost:32060/health`
-2. Kiểm tra biến môi trường đã set đúng
-3. Đảm bảo không firewall nào chặn port 32060
+1. `curl http://localhost:32060/api/health` → nên là `{"ok":true}`.
+2. `echo $ANTHROPIC_BASE_URL` → nên kết thúc bằng `/v1`.
+3. Kiểm tra không có gì chặn cổng 32060, và Vela được gắn đúng nơi bạn mong (`vela --host 127.0.0.1` giữ nó cục bộ).
 
-### Model Not Found
+### Model not found
 
-Nếu gặp lỗi "model not found":
+1. Hỏi gateway xem nó có gì: `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`.
+2. Kiểm tra nhà cung cấp của model ấy đã kết nối trong **Providers**.
+3. Nhớ rằng id model thay đổi ở thượng nguồn — `cc/claude-opus-5` hôm nay, một thứ khác vào quý sau.
 
-1. Xác minh tên model khớp với cấu hình Vela
-2. Kiểm tra kết nối provider đang hoạt động trong Vela dashboard
-3. Đảm bảo model có sẵn trong các provider đã kết nối
+### Unauthorized / 401
 
-## Cloud Endpoint
+- Xác nhận `ANTHROPIC_AUTH_TOKEN` đang giữ một key Vela (`vela-v1-...`), không phải token subscription của Claude.
+- Key chỉ được hiển thị một lần khi tạo. Nếu bạn không còn giữ nó, hãy tạo cái khác trong **Endpoint & Key**.
 
-Để dùng Vela cloud endpoint thay vì localhost:
+## Endpoint cloud
+
+Để dùng một Vela đã triển khai thay vì localhost:
 
 ```bash
-export ANTHROPIC_BASE_URL="https://vela.my.id"
+export ANTHROPIC_BASE_URL="https://your-domain.example/v1"
+export ANTHROPIC_AUTH_TOKEN="[your Vela key]"
 ```
 
-Đảm bảo bạn đã cấu hình API key trong Vela cloud dashboard.
+Phiên bản được host của chính dự án xuất hiện trong tài liệu cũ dưới dạng `https://vela.my.id` — đó là bản triển khai của chủ dự án, một sự thật thượng nguồn chứ không phải một dịch vụ mà tài liệu này có thể hứa hẹn. Hãy dùng bất kỳ endpoint nào bạn thực sự có thông tin xác thực.

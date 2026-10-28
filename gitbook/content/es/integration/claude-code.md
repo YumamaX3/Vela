@@ -1,109 +1,135 @@
 # Integración con Claude Code
 
-Integra Vela con Claude Code CLI para enrutar tus solicitudes de la API de Anthropic a través del sistema de enrutamiento inteligente de Vela.
+Apuntar Claude Code a Vela requiere dos variables de entorno. A partir de ahí, cada solicitud a Claude que hace tu terminal pasa por la puerta de enlace — lo que significa que puede enrutarse, rastrearse y quedar cubierta por una cadena de fallback.
 
 ## Requisitos previos
 
-- Claude Code CLI instalado
-- Vela ejecutándose localmente o endpoint en la nube configurado
-- API key del dashboard de Vela
+- CLI de Claude Code instalado (`claude --version` debería imprimir una versión)
+- Vela en ejecución local, o un endpoint en la nube al que puedas llegar
+- Una clave de API creada en el dashboard de Vela (**Endpoint & Key → Create Key**)
 
 ## Configuración
 
-### 1. Configurar variables de entorno
+### 1. Configurar las variables de entorno
 
-Establece las siguientes variables de entorno en tu archivo de configuración del shell (`~/.bashrc`, `~/.zshrc`, o `~/.bash_profile`):
+Añádelas al perfil de tu shell (`~/.zshrc`, `~/.bashrc` o `~/.bash_profile`):
 
 ```bash
-# Base URL for Vela
 export ANTHROPIC_BASE_URL="http://localhost:32060/v1"
+export ANTHROPIC_AUTH_TOKEN="[your Vela key]"
+```
 
-# Optional: Set default models for aliases
-export ANTHROPIC_DEFAULT_OPUS_MODEL="cc/claude-opus-4-5-20251101"
-export ANTHROPIC_DEFAULT_SONNET_MODEL="cc/claude-sonnet-4-5-20250929"
+- `ANTHROPIC_BASE_URL` — adónde envía las solicitudes Claude Code. Conserva el `/v1`.
+- `ANTHROPIC_AUTH_TOKEN` — tu clave de Vela. Claude Code la envía como token de portador; Vela la acepta como clave de API.
+
+Si prefieres que otro modelo responda por defecto, configura también los destinos de los alias:
+
+```bash
+export ANTHROPIC_DEFAULT_OPUS_MODEL="cc/claude-opus-5"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="cc/claude-sonnet-5"
 export ANTHROPIC_DEFAULT_HAIKU_MODEL="cc/claude-haiku-4-5-20251001"
 ```
 
-### 2. Recargar la configuración del shell
+### 2. Recargar tu shell
 
 ```bash
-source ~/.zshrc  # o ~/.bashrc
+source ~/.zshrc     # or ~/.bashrc
 ```
 
-### 3. Verificar la configuración
-
-Verifica que las variables de entorno estén configuradas correctamente:
+### 3. Verificar
 
 ```bash
 echo $ANTHROPIC_BASE_URL
+curl -s http://localhost:32060/api/health      # → {"ok":true}
 ```
 
-## Aliases de modelos
+Luego lanza un prompt pequeño:
 
-Claude Code soporta los siguientes aliases de modelos que mapean a modelos de Vela:
+```bash
+claude --model sonnet "Say hello in five words."
+```
 
-| Alias | Modelo | Variable de entorno |
-|-------|-------|---------------------|
-| `opus` | Claude Opus 4.5 | `ANTHROPIC_DEFAULT_OPUS_MODEL` |
-| `sonnet` | Claude Sonnet 4.5 | `ANTHROPIC_DEFAULT_SONNET_MODEL` |
-| `haiku` | Claude Haiku 4.5 | `ANTHROPIC_DEFAULT_HAIKU_MODEL` |
+Una respuesta a través de Vela significa que está conectado. Puedes confirmarlo en el dashboard: **Usage** mostrará la solicitud.
+
+## Alias de modelo
+
+Los nombres cortos de Claude Code mapean a lo que apunten las variables de entorno de arriba:
+
+| Alias | Significado | Lo configura |
+|-------|---------|--------|
+| `opus` | tu modelo más pesado | `ANTHROPIC_DEFAULT_OPUS_MODEL` |
+| `sonnet` | tu modelo de cada día | `ANTHROPIC_DEFAULT_SONNET_MODEL` |
+| `haiku` | tu modelo rápido | `ANTHROPIC_DEFAULT_HAIKU_MODEL` |
+
+Si no las configuras, Claude Code pide sus nombres habituales del upstream y Vela los resuelve contra los proveedores que hayas conectado.
 
 ## Ejemplos de uso
 
-### Usando aliases de modelos
+### Con alias
 
 ```bash
-# Usar modelo Opus
-claude --model opus "Explain quantum computing"
-
-# Usar modelo Sonnet
-claude --model sonnet "Write a Python function"
-
-# Usar modelo Haiku
-claude --model haiku "Quick code review"
+claude --model opus   "Explain the trade-offs of an append-only log"
+claude --model sonnet "Write a Python function that retries with backoff"
+claude --model haiku  "Review this diff for typos"
 ```
 
-### Usando nombres completos de modelos
+### Con un nombre de modelo completo de Vela
 
 ```bash
-claude --model cc/claude-opus-4-5-20251101 "Your prompt here"
+claude --model cc/claude-opus-5 "Refactor this module"
 ```
 
-## Archivo de configuración
+### Con un combo
 
-Claude Code almacena su configuración en `~/.claude/settings.json`. Puedes editar este archivo manualmente si es necesario:
+Aquí es donde Vela se gana su sitio: si la ventana de suscripción se cierra a media tarde, la cadena continúa.
+
+```bash
+claude --model premium-coding "Plan the migration"
+```
+
+con un combo `cc/claude-opus-5 → glm/glm-4.7 → kr/claude-sonnet-4.5`.
+
+## El archivo de ajustes
+
+Claude Code también lee `~/.claude/settings.json`, donde los mismos valores pueden vivir dentro de un bloque `env`:
 
 ```json
 {
-  "baseUrl": "http://localhost:32060/v1",
-  "defaultModel": "sonnet"
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://localhost:32060/v1",
+    "ANTHROPIC_AUTH_TOKEN": "[your Vela key]"
+  }
 }
 ```
+
+El dashboard puede escribirlo por ti: **CLI Tools → Claude Code** rellena la URL base y la clave, y te muestra el resultado antes de guardarlo.
 
 ## Solución de problemas
 
 ### Problemas de conexión
 
-Si encuentras errores de conexión:
-
-1. Verifica que Vela esté corriendo: `curl http://localhost:32060/health`
-2. Verifica que las variables de entorno estén configuradas correctamente
-3. Asegúrate de que ningún firewall esté bloqueando el puerto 32060
+1. `curl http://localhost:32060/api/health` → debería ser `{"ok":true}`.
+2. `echo $ANTHROPIC_BASE_URL` → debería terminar en `/v1`.
+3. Comprueba que nada bloquee el puerto 32060, y que Vela escuche donde esperas (`vela --host 127.0.0.1` la mantiene local).
 
 ### Modelo no encontrado
 
-Si obtienes errores de "modelo no encontrado":
+1. Pregunta a la puerta de enlace qué tiene: `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"`.
+2. Comprueba que el proveedor de ese modelo está conectado en **Providers**.
+3. Recuerda que los ids de modelo cambian aguas arriba — `cc/claude-opus-5` hoy, otra cosa el próximo trimestre.
 
-1. Verifica que el nombre del modelo coincida con tu configuración de Vela
-2. Verifica que la conexión del proveedor esté activa en el dashboard de Vela
-3. Asegúrate de que el modelo esté disponible en tus proveedores conectados
+### No autorizado / 401
+
+- Confirma que `ANTHROPIC_AUTH_TOKEN` contiene una clave de Vela (`vela-v1-...`), no un token de suscripción de Claude.
+- Las claves se muestran una sola vez al crearlas. Si ya no la tienes, crea otra en **Endpoint & Key**.
 
 ## Endpoint en la nube
 
-Para usar el endpoint en la nube de Vela en lugar de localhost:
+Para usar un Vela desplegado en lugar de localhost:
 
 ```bash
-export ANTHROPIC_BASE_URL="https://vela.my.id"
+export ANTHROPIC_BASE_URL="https://your-domain.example/v1"
+export ANTHROPIC_AUTH_TOKEN="[your Vela key]"
 ```
 
-Asegúrate de haber configurado tu API key en el dashboard en la nube de Vela.
+La instancia alojada del propio proyecto aparece en documentación antigua como `https://vela.my.id` — es el despliegue del propietario, un dato upstream y no un servicio que esta documentación pueda prometer. Usa el endpoint para el que tengas credenciales de verdad.

@@ -1,351 +1,216 @@
-# 故障排除
+# 故障排查
 
-使用 Vela 时常见的问题与解决方案。
+Vela 的大多数问题都是五种之一：它没在运行、密钥不对、模型名不存在、某个提供商配额耗尽，或者中间的网络挡了路。
+
+本页按你可能遇到它们的顺序排列。每一个修复方法，都是你在一分钟内可以检查的东西。
+
+---
+
+## 首先，两项能解决一半问题的检查
+
+```bash
+# 1. 网关是否还活着？
+curl http://localhost:32060/api/health
+# → {"ok":true}
+
+# 2. 它能看到任何模型吗？
+curl http://localhost:32060/v1/models -H "Authorization: Bearer <your key>"
+```
+
+- **完全没有应答** → 它没在运行，或者在别的端口上。参见[连接被拒绝](#connection-refused)。
+- **有应答，但模型列表为空** → 没有连接任何提供商。参见[找不到模型](#model-not-found)。
+- **返回 `401`** → 密钥问题。参见 [API 密钥无效](#api-key-invalid)。
+- **返回 `429`** → 配额、速率限制，或你设置的预算。参见[速率限制](#rate-limiting)。
 
 ---
 
 ## "Language model did not provide messages"
 
-**问题:** 请求失败,响应为空或返回错误。
+**含义：** 请求抵达了一个提供商，返回却是空的或被拒绝。
 
-**原因:**
-- 提供商配额耗尽
-- API key 无效或过期
-- 模型不可用
+**原因：** 配额耗尽、连接过期，或上游已不再服务的模型。
 
-**解决方案:**
+**修复：**
 
-1. **查看配额状态:**
-   ```
-   仪表盘 → 提供商 → 查看配额跟踪
-   ```
-   若配额耗尽,等待重置或切换提供商。
+1. **检查额度** —— **配额**，查看该提供商的剩余量及重置倒计时。
+2. **检查连接** —— **提供商**：过期的 OAuth 连接会显示为需要处理。断开，然后重新连接。
+3. **使用组合**，让你排查时由下一个模型应答：
 
-2. **使用组合回退:**
    ```
-   仪表盘 → 组合 → 创建回退链
-   示例: cc/claude-opus → glm/glm-4.7 → if/kimi-k2
-   ```
-
-3. **验证提供商连接:**
-   ```
-   仪表盘 → 提供商 → 必要时重新连接
+   cc/claude-opus-5 → glm/glm-4.7 → if/qwen3-coder-plus
    ```
 
 ---
 
 ## 速率限制
 
-**问题:** 出现 "Rate limit exceeded" 或 "Too many requests" 错误。
+**含义：** `429 Too Many Requests`，通常带有重试提示。
 
-**原因:**
-- 订阅配额用完(5 小时/每日/每周限制)
-- 触发了 API 速率限制
-- 并发请求过多
+**原因：** 订阅窗口关闭、一次突发触达了每分钟限制，或你密钥上的预算上限被触达。
 
-**解决方案:**
+**修复：**
 
-1. **查看重置时间:**
-   ```
-   仪表盘 → 配额跟踪 → 查看重置倒计时
-   ```
-
-2. **切换到低价层:**
-   ```
-   使用: glm/glm-4.7 (每 1M tokens $0.6)
-        minimax/MiniMax-M2.1 (每 1M tokens $0.20)
-   ```
-
-3. **添加回退组合:**
-   ```
-   仪表盘 → 组合 → 添加备用模型
-   主力: cc/claude-opus (订阅)
-   备用: glm/glm-4.7 (低价)
-   应急: if/kimi-k2 (免费)
-   ```
+1. **读取响应中的代码。** `budget_exceeded` 代码意味着你设置的上限被触达了 —— 在 **端点与密钥** 下修改它。纯粹的速率限制则意味着等待或切换。
+2. **检查重置倒计时**，在 **配额** 页面。
+3. **分摊负载** —— **设置 → 路由 → 轮询**，在同一提供商的多个账户之间。
+4. **在订阅恢复期间使用低价通道**：`glm/glm-4.7`、`minimax/MiniMax-M2.1`。
+5. **在你自己的代码中带退避重试** —— 尊重重试提示，不要猛敲。
 
 ---
 
-## OAuth Token 过期
+## OAuth token 过期
 
-**问题:** 出现 "Unauthorized" 或 "Token expired" 错误。
+**含义：** `Unauthorized`，或某个提供商昨天还好用、今天不行了。
 
-**原因:**
-- OAuth token 过期(自动刷新失败)
-- 提供商会话失效
-- 刷新过程中出现网络问题
+**原因：** 刷新失败（提供商使会话失效、刷新中途网络中断，或你更改了账户密码）。
 
-**解决方案:**
+**修复：**
 
-1. **自动刷新(默认):**
-   Vela 会自动刷新 token。等待 30 秒后重试。
-
-2. **手动重连:**
-   ```
-   仪表盘 → 提供商 → [提供商名称] → 重新连接
-   → 再次完成 OAuth 流程
-   ```
-
-3. **检查提供商状态:**
-   确认提供商服务在线(Claude Code、Codex 等)。
-
----
-
-## 成本过高
-
-**问题:** 出现意外的高用量或高成本。
-
-**原因:**
-- 不必要地使用了昂贵模型
-- 没有回退到便宜层级
-- 上下文窗口过大
-
-**解决方案:**
-
-1. **查看使用统计:**
-   ```
-   仪表盘 → 使用统计 → 查看 token 消耗
-   → 找出高成本模型
-   ```
-
-2. **切换到更便宜的模型:**
-   ```
-   替换: cc/claude-opus ($20-100/月 订阅)
-   为: glm/glm-4.7 (每 1M tokens $0.6)
-       minimax/MiniMax-M2.1 (每 1M tokens $0.20)
-   ```
-
-3. **使用免费层:**
-   ```
-   if/kimi-k2-thinking (免费)
-   qw/qwen3-coder-plus (免费)
-   kr/claude-sonnet-4.5 (免费)
-   gc/gemini-3-flash-preview (每月免费 180K)
-   ```
-
-4. **优化 prompt:**
-   - 减少上下文大小
-   - 长响应使用流式输出
-   - 缓存常用 prompt
+1. **重新连接：** **提供商 → [提供商] → 断开 → 连接**，并重新完成登录。
+2. 如果该提供商显示多个账户，请检查启用的是正确的那一个。
+3. 对于无头服务器，请在另一台机器上完成 OAuth 流程，并把回调粘贴回来（如果提供商允许）。
 
 ---
 
 ## 连接被拒绝
 
-**问题:** 出现 "ECONNREFUSED" 或 "Cannot connect to localhost:32060"。
+**含义：** `ECONNREFUSED`，或"Cannot connect to localhost:32060"。
 
-**原因:**
-- Vela 未运行
-- 端口 32060 被阻止
-- 防火墙拦截连接
+**原因：** Vela 没有运行、它在别的端口上，或者有防火墙挡着。
 
-**解决方案:**
+**修复：**
 
-1. **启动 Vela:**
-   ```bash
-   vela
-   ```
-   仪表盘应该在 http://localhost:3000 打开。
+```bash
+# 启动它
+vela
 
-2. **检查端口 32060:**
-   ```bash
-   # 检查端口是否监听
-   lsof -i :32060
-   
-   # Windows
-   netstat -ano | findstr :32060
-   ```
+# 或者，如果它跑在别处
+vela --port 8080
 
-3. **检查防火墙:**
-   - macOS: 系统设置 → 网络 → 防火墙
-   - Windows: Windows Defender 防火墙 → 允许应用
-   - Linux: `sudo ufw allow 32060`
+# 有东西在监听吗？
+lsof -i :32060            # macOS / Linux
+netstat -ano | findstr :32060   # Windows
+```
 
-4. **使用云端 endpoint:**
-   如果 localhost 不行(例如 Cursor IDE):
-   ```
-   Endpoint: https://vela.my.id/v1
-   ```
+检查你工具的基础 URL 以 `/v1` 结尾 —— 少了它的 `http://localhost:32060` 会访问到仪表盘，而不是 API。
+
+如果你从另一台机器连接，请记住默认绑定是 `0.0.0.0`，但防火墙仍可能挡住它；而如果你用 `--host 127.0.0.1` 启动，就只有那台机器能访问它。
 
 ---
 
-## 仪表盘无法打开
+## 仪表盘打不开
 
-**问题:** 仪表盘无法在 http://localhost:3000 加载。
+**含义：** `http://localhost:32060/dashboard` 一片空白、一直转圈，或无法访问。
 
-**原因:**
-- 端口 3000 被占用
-- Vela 崩溃
-- 浏览器缓存问题
+**原因：** 端口被占用、Vela 崩溃了，或浏览器缓存过期。
 
-**解决方案:**
+**修复：**
 
-1. **确认 Vela 是否运行:**
+1. **检查进程** —— `vela --log` 会显示其输出。如果没有在运行，就启动它。
+2. **检查端口**：
    ```bash
-   # 检查进程
-   ps aux | grep Vela
-   
-   # 检查端口 3000
-   lsof -i :3000
-   ```
-
-2. **杀掉冲突进程:**
-   ```bash
-   # macOS/Linux
-   lsof -ti:3000 | xargs kill -9
-   
-   # Windows
-   netstat -ano | findstr :3000
+   lsof -i :32060                               # macOS / Linux
+   lsof -ti:32060 | xargs kill -9               # 停掉占位者
+   netstat -ano | findstr :32060                # Windows
    taskkill /PID <PID> /F
    ```
-
-3. **重启 Vela:**
-   ```bash
-   # 停止
-   pkill -f Vela
-   
-   # 启动
-   vela
-   ```
-
-4. **清除浏览器缓存:**
-   - Chrome: Ctrl+Shift+Delete → 清除缓存
-   - 尝试无痕模式
-
-5. **检查防火墙设置:**
-   确认端口 3000 未被阻止。
+3. **试试无痕窗口**，以排除缓存或扩展的干扰。
+4. **从另一台机器访问？** 那就是密码门。本地访问是开放的；在你于 **设置 → 访问** 中设置密码之前，远程访问会被拒绝。
 
 ---
 
-## 模型未找到
+## 找不到模型
 
-**问题:** 出现 "Model not found" 或 "Invalid model" 错误。
+**含义：** `404` 或 "model not found"。
 
-**原因:**
-- 提供商未连接
-- 模型 ID 拼写错误
-- 提供商未激活
+**原因：** 拼写错误、提供商未连接，或模型 id 已在上游被重命名。
 
-**解决方案:**
+**修复：**
 
-1. **验证提供商连接:**
-   ```
-   仪表盘 → 提供商 → 检查状态(绿色 = 已激活)
-   ```
-
-2. **检查模型 ID 格式:**
-   ```
-   正确: cc/claude-opus-4-5-20251101
-   错误: claude-opus-4-5-20251101
-   
-   格式: [provider-prefix]/[model-name]
-   ```
-
-3. **列出可用模型:**
+1. **询问网关它有什么：**
    ```bash
-   curl http://localhost:32060/v1/models \
-     -H "Authorization: Bearer your-api-key"
+   curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"
    ```
-
-4. **重新连接提供商:**
-   ```
-   仪表盘 → 提供商 → [提供商] → 重新连接
-   ```
+2. **检查格式** —— `prefix/model`，例如 `glm/glm-4.7`，而不是单独的 `glm-4.7`。
+3. **连接**该模型所属的**提供商**。
+4. **模型列表会变动。** 如果某个模型上个月可用、今天不行，很可能是提供商下架了该 id。请从上面的列表中选择一个当前可用的。
 
 ---
 
 ## 响应缓慢
 
-**问题:** 请求耗时过长或超时。
+**含义：** 请求开始流式输出耗时很久，或超时。
 
-**原因:**
-- 提供商延迟
-- 网络问题
-- 上下文/响应过大
-- 提供商速率限制
+**原因：** 提供商延迟、过大的上下文、免费层优先级，或代理缓冲了流。
 
-**解决方案:**
+**修复：**
 
-1. **查看提供商状态:**
+1. **试试更快的模型** —— `cc/claude-haiku-4-5-20251001`、`minimax/MiniMax-M2.5-highspeed`、`qwen/qwen-turbo`。
+2. **减少上下文** —— 裁剪历史，发送相关文件而不是整个仓库。
+3. **免费层在负载下就是慢的**，这是设计使然。如果这事要紧，就往上一层通道。
+4. **在代理之后？** 流式传输需要关闭缓冲：
+   ```nginx
+   proxy_buffering off;
+   proxy_read_timeout 86400;
    ```
-   仪表盘 → 提供商 → 查看延迟统计
-   ```
-
-2. **切换到更快的模型:**
-   ```
-   快速: cc/claude-haiku-4-5 (Haiku 比 Opus 快)
-         gc/gemini-3-flash-preview
-         qw/qwen3-coder-flash
-   ```
-
-3. **使用流式响应:**
-   ```json
-   {
-     "model": "cc/claude-opus-4-5",
-     "messages": [...],
-     "stream": true
-   }
-   ```
-
-4. **检查网络:**
-   ```bash
-   # 测试延迟
-   ping api.anthropic.com
-   ping api.openai.com
-   ```
-
-5. **减小上下文:**
-   - 精简消息历史
-   - 使用更短的 prompt
-   - 在 CLI 工具中启用上下文裁剪
+5. **检查**你与提供商之间的**网络**。
 
 ---
 
-## API Key 无效
+## API 密钥无效
 
-**问题:** 出现 "Invalid API key" 或 "Authentication failed" 错误。
+**含义：** `401 Unauthorized`。
 
-**原因:**
-- 复制了错误的 API key
-- API key 已过期
-- 未生成 API key
+**原因：** 密钥错误、粘贴被截断、密钥已被删除，或 `REQUIRE_API_KEY` 开启而请求没带密钥。
 
-**解决方案:**
+**修复：**
 
-1. **重新生成 API key:**
-   ```
-   仪表盘 → 设置 → API Keys → 生成新 Key
-   → 复制并使用新 key
-   ```
-
-2. **检查 key 格式:**
-   ```
-   正确: 9r_xxxxxxxxxxxxxxxxxxxxxxxx
-   错误: 缺少 9r_ 前缀
-   ```
-
-3. **检查 CLI 配置中的 key:**
+1. **创建一个新密钥：** **端点与密钥 → 创建密钥**。密钥只在创建时显示一次，并且只以哈希形式存储；无法查回旧密钥。
+2. **检查格式** —— Vela 密钥形如 `vela-v1-<id>-<checksum>`。旧式 `sk-...` 风格的密钥早于此格式，已不再被接受。
+3. **检查请求头** —— `Authorization: Bearer <key>`，没有多余的空格或换行。
+4. **测试它：**
    ```bash
-   # Cursor
-   Settings → Models → OpenAI API Key
-   
-   # Cline
-   Settings → API Key
-   
-   # 环境变量
-   export OPENAI_API_KEY="9r_your_key"
+   curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"
    ```
-
-4. **测试 API key:**
-   ```bash
-   curl http://localhost:32060/v1/models \
-     -H "Authorization: Bearer 9r_your_key"
-   ```
+5. **如果该密钥有范围**，请确认你请求的模型在范围之内。
 
 ---
 
-## 需要更多帮助?
+## 来自提供商而非 Vela 的 "Invalid API key"
 
-- **GitHub Issues:** [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
-- **文档:** [vela.my.id/docs](https://vela.my.id/docs)
-- **常见问题:** [faq.md](faq.md)
+**含义：** Vela 接受了你的密钥，但上游拒绝了提供商的凭据。
+
+**修复：**
+
+1. 在 **提供商** 下重新检查提供商的 API Key 或登录。
+2. 确认上游账户有余额。
+3. 如果上游密钥可能已泄露，请重新生成。
+
+---
+
+## 昨天一切都还好
+
+这是最常见的故障形态，而且几乎总是上游的问题：
+
+- 免费层收紧了限制
+- 提供商下架了某个模型 id
+- OAuth 会话被作废
+- 提供商发生了故障
+
+查看提供商的状态页，在 **提供商** 下重新连接，并让一个组合带你撑到它恢复。
+
+---
+
+## 仍然卡住
+
+- 确认你的版本：`npm list -g vela`（本文档涵盖 1.2.4）。
+- 在 **日志港** 查看确切的请求及其错误。
+- 搜索 [issues](https://github.com/YumamaX3/Vela/issues)，并开一个，附上你的版本、错误文本和产生它的步骤。
+
+---
+
+## 需要更多帮助？
+
+- **GitHub Issues：** [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
+- **文档：** [vela.my.id/docs](https://vela.my.id/docs)
+- **常见问题：** [faq.md](faq.md)

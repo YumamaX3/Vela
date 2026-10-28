@@ -1,375 +1,266 @@
 # Subscription Providers - Maximize Your Value
 
-Maximize your existing AI subscriptions with smart quota tracking and automatic fallback. Use every bit of your subscription before it resets!
+You are already paying for Claude Code, or Codex, or Copilot. The subscription lane is about getting all of it: knowing how much is left, using it before it resets, and moving on cleanly when it is gone.
+
+This page covers the five providers people connect first, what each costs upstream, which models you can call today, and how to put them to work.
+
+> **Dates matter here.** Subscription tiers, prices and model names are set by Anthropic, OpenAI, GitHub and Google — not by Vela. The figures on this page are upstream facts as of **2026-10-28** (Vela 1.2.4). Providers change them often.
 
 ---
 
 ## Overview
 
-Subscription tier providers are your **primary** choice - you're already paying for them, so get full value:
+The subscription lane is **first** because the money is already spent:
 
-- ✅ **Claude Code** (Pro/Max) - Claude 4.5 Opus/Sonnet/Haiku
-- ✅ **OpenAI Codex** (Plus/Pro) - GPT 5.2 Codex, GPT 5.1 Codex Max
-- ✅ **Gemini CLI** (FREE tier!) - 180K completions/month
-- ✅ **GitHub Copilot** - GPT-5, Claude 4.5, Gemini 3
-- ✅ **Antigravity** (Google) - Gemini 3 Pro, Claude Sonnet 4.5
+- ✅ **Claude Code** (Pro/Max) — the Claude family through your Anthropic subscription
+- ✅ **OpenAI Codex** (Plus/Pro) — the GPT-5.x family through your ChatGPT plan
+- ✅ **GitHub Copilot** — one subscription, several vendors' models
+- ✅ **Antigravity** (Google) — Gemini and Claude models on your Google account
+- ✅ **Kimi** — Moonshot's own coding plan, added by API key or login
 
-**Strategy:** Use these first, track quota in real-time, fallback to cheap/free when exhausted.
+**The idea:** use these first, watch the quota in real time, and have a cheap or free provider waiting behind them.
 
 ---
 
 ## Claude Code (Pro/Max)
 
-### Pricing
+### What it costs upstream
 
-| Plan | Monthly Cost | Quota Reset | Models |
-|------|--------------|-------------|--------|
-| Pro | $20 | 5-hour + Weekly | Opus, Sonnet, Haiku |
-| Max | $100 | 5-hour + Weekly | Opus, Sonnet, Haiku |
+| Plan | Typical monthly price | Quota shape | Models |
+|------|----------------------|-------------|--------|
+| Pro | about $20 | rolling window plus weekly refresh | Opus, Sonnet, Haiku |
+| Max | about $100 | larger rolling window plus weekly refresh | Opus, Sonnet, Haiku |
+
+Those are Anthropic's published consumer prices; check your own plan page for what applies to you.
 
 ### Setup
 
-**Step 1: Connect via Dashboard**
+> ⚠️ **A caveat worth stating up front.** In this release the Claude Code provider (`claude`, alias `cc`) is marked **deprecated, with a risk notice** in the registry. It rides an undocumented Claude Code interface, which Anthropic can change without warning. It works today — but treat it as a lane that may need mending, not a guarantee.
 
-```bash
-vela
-# Dashboard opens → Providers → Connect Claude Code
-```
-
-**Step 2: OAuth Login**
-
-- Click "Connect Claude Code"
-- Browser opens → Login to Claude.ai
-- Auto token refresh enabled
-- Quota tracking starts
-
-**Step 3: Use in CLI**
+**Step 1: connect**
 
 ```
-Model: cc/claude-opus-4-5-20251101
-       cc/claude-sonnet-4-5-20250929
-       cc/claude-haiku-4-5-20251001
+Dashboard → Providers → Claude → Connect
 ```
 
-### Available Models
+**Step 2: log in**
 
-| Model ID | Description | Best For |
-|----------|-------------|----------|
-| `cc/claude-opus-4-5-20251101` | Claude 4.5 Opus | Complex tasks, architecture |
-| `cc/claude-sonnet-4-5-20250929` | Claude 4.5 Sonnet | Balanced speed/quality |
-| `cc/claude-haiku-4-5-20251001` | Claude 4.5 Haiku | Fast responses |
+A browser window opens on Claude's sign-in page. Approve the connection. Tokens refresh themselves from that point on, and quota tracking starts immediately.
 
-### Pro Tips
+**Step 3: use it**
 
-- **Use Opus for complex tasks** - Architecture decisions, refactoring
-- **Use Sonnet for speed** - Quick edits, code generation
-- **Track quota per model** - Dashboard shows usage per model
-- **5-hour reset** - Fresh quota every 5 hours + weekly reset
+Models are named `cc/<model-id>`. The ones shipped in this release:
+
+| Model | Good for |
+|-------|----------|
+| `cc/claude-opus-5` | hard problems, architecture, long refactors |
+| `cc/claude-sonnet-5` | everyday work, the sensible default |
+| `cc/claude-fable-5` | writing-heavy tasks |
+| `cc/claude-haiku-4-5-20251001` | fast edits, small questions |
+
+> Model lists move faster than documentation. Run `curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>"` — or open **Providers → Claude** — to see exactly what your install offers today.
+
+### Getting the most from it
+
+- Put Opus first in a combo for production work, Sonnet first for everything else.
+- Add several accounts if you have them; Vela can rotate between them.
+- Watch the reset countdown on the **Quota** page rather than guessing.
 
 ---
 
 ## OpenAI Codex (Plus/Pro)
 
-### Pricing
+### What it costs upstream
 
-| Plan | Monthly Cost | Quota Reset | Models |
-|------|--------------|-------------|--------|
-| Plus | $20 | 5-hour + Weekly | GPT 5.2, GPT 5.1 |
-| Pro | $200 | 5-hour + Weekly | GPT 5.2 Codex, GPT 5.1 Max |
-
-### Setup
-
-**Step 1: Connect via Dashboard**
-
-```bash
-vela
-# Dashboard → Providers → Connect Codex
-```
-
-**Step 2: OAuth Login**
-
-- Click "Connect Codex"
-- Browser opens to `http://localhost:1455`
-- Login to OpenAI account
-- Auto token refresh enabled
-
-**Step 3: Use in CLI**
-
-```
-Model: cx/gpt-5.2-codex
-       cx/gpt-5.1-codex-max
-       cx/gpt-5.2
-       cx/gpt-5.1-codex
-```
-
-### Available Models
-
-| Model ID | Description | Best For |
-|----------|-------------|----------|
-| `cx/gpt-5.2-codex` | GPT 5.2 Codex | Latest coding model |
-| `cx/gpt-5.1-codex-max` | GPT 5.1 Codex Max | Maximum context |
-| `cx/gpt-5.2` | GPT 5.2 | General tasks |
-| `cx/gpt-5.1-codex` | GPT 5.1 Codex | Stable coding |
-
-### Pro Tips
-
-- **5-hour rolling quota** - Fresh quota every 5 hours
-- **Weekly reset** - Full quota reset weekly
-- **Pro tier** - 10× more quota than Plus
-
----
-
-## Gemini CLI (FREE 180K/month!)
-
-### Pricing
-
-| Plan | Monthly Cost | Quota | Reset |
-|------|--------------|-------|-------|
-| FREE | $0 | 180K completions/month + 1K/day | Daily + Monthly |
-
-**Best Value:** Huge free tier! Use this before paid tiers.
+| Plan | Typical monthly price | Quota shape | Models |
+|------|----------------------|-------------|--------|
+| Plus | about $20 | rolling window plus weekly refresh | GPT-5.x family |
+| Pro | about $200 | much larger allowance | GPT-5.x family |
 
 ### Setup
 
-**Step 1: Connect via Dashboard**
-
-```bash
-vela
-# Dashboard → Providers → Connect Gemini CLI
-```
-
-**Step 2: Google OAuth**
-
-- Click "Connect Gemini CLI"
-- Browser opens → Login to Google account
-- Grant permissions
-- Auto token refresh enabled
-
-**Step 3: Use in CLI**
+**Step 1: connect**
 
 ```
-Model: gc/gemini-3-flash-preview
-       gc/gemini-3-pro-preview
-       gc/gemini-2.5-pro
-       gc/gemini-2.5-flash
+Dashboard → Providers → Codex → Connect
 ```
 
-### Available Models
+**Step 2: sign in**
 
-| Model ID | Description | Best For |
-|----------|-------------|----------|
-| `gc/gemini-3-flash-preview` | Gemini 3 Flash Preview | Fast responses |
-| `gc/gemini-3-pro-preview` | Gemini 3 Pro Preview | Complex tasks |
-| `gc/gemini-2.5-pro` | Gemini 2.5 Pro | Stable production |
-| `gc/gemini-2.5-flash` | Gemini 2.5 Flash | Quick tasks |
+The OAuth flow opens in your browser (on loopback; if the browser does not come up on a headless server, copy the URL and complete it on your laptop, then paste the callback back). Tokens refresh automatically.
 
-### Pro Tips
+**Step 3: use it**
 
-- **180K completions/month** - Massive free tier
-- **1K/day limit** - Daily quota resets at midnight
-- **Use first** - Free tier, use before paid subscriptions
-- **No credit card** - Completely free with Google account
+| Model | Good for |
+|-------|----------|
+| `cx/gpt-5.6-sol` | the current flagship for coding |
+| `cx/gpt-5.6-terra` | a second modern option |
+| `cx/gpt-5.6-luna` | fast, lighter work |
+| `cx/gpt-5.5`, `cx/gpt-5.4` | stable fallbacks |
+
+Each model also has a `-review` sibling (for example `cx/gpt-5.6-sol-review`) that draws on a separate quota family; useful to know when the main lane is tight.
+
+### Getting the most from it
+
+- Codex and Claude answer different kinds of questions well. A combo of `cc/claude-opus-5 → cx/gpt-5.6-sol` is a strong pair.
+- The Pro tier is roughly ten times the Plus allowance — worth it only if you regularly exhaust Plus.
 
 ---
 
 ## GitHub Copilot
 
-### Pricing
+### What it costs upstream
 
-| Plan | Monthly Cost | Quota Reset | Models |
-|------|--------------|-------------|--------|
-| Individual | $10 | Monthly (1st) | GPT-5, Claude 4.5, Gemini 3 |
-| Business | $19 | Monthly (1st) | GPT-5, Claude 4.5, Gemini 3 |
-
-### Setup
-
-**Step 1: Connect via Dashboard**
-
-```bash
-vela
-# Dashboard → Providers → Connect GitHub
-```
-
-**Step 2: OAuth via GitHub**
-
-- Click "Connect GitHub"
-- Browser opens → Login to GitHub
-- Authorize GitHub Copilot
-- Auto token refresh enabled
-
-**Step 3: Use in CLI**
-
-```
-Model: gh/gpt-5
-       gh/gpt-5.1-codex-max
-       gh/claude-4.5-sonnet
-       gh/gemini-3-pro
-```
-
-### Available Models
-
-| Model ID | Description | Best For |
-|----------|-------------|----------|
-| `gh/gpt-5` | GPT-5 | Latest OpenAI model |
-| `gh/gpt-5.1-codex-max` | GPT-5.1 Codex Max | Maximum context |
-| `gh/claude-4.5-sonnet` | Claude 4.5 Sonnet | Anthropic quality |
-| `gh/gemini-3-pro` | Gemini 3 Pro | Google quality |
-
-### Pro Tips
-
-- **Monthly reset** - Full quota reset on 1st of month
-- **Multiple models** - Access GPT, Claude, Gemini in one subscription
-- **Business tier** - Higher quota for teams
-
----
-
-## Antigravity (Google Account)
-
-### Pricing
-
-| Plan | Monthly Cost | Quota | Models |
-|------|--------------|-------|--------|
-| FREE | $0 | Similar to Gemini CLI | Gemini 3 Pro, Claude Sonnet 4.5 |
+| Plan | Typical monthly price | Reset | Models |
+|------|----------------------|-------|--------|
+| Individual | about $10 | monthly | several vendors |
+| Business | about $19 per seat | monthly | several vendors |
 
 ### Setup
 
-**Step 1: Connect via Dashboard**
-
-```bash
-vela
-# Dashboard → Providers → Connect Antigravity
-```
-
-**Step 2: Google OAuth**
-
-- Click "Connect Antigravity"
-- Browser opens → Login to Google account
-- Grant permissions
-- Auto token refresh enabled
-
-**Step 3: Use in CLI**
+**Step 1: connect**
 
 ```
-Model: ag/gemini-3-pro-high
-       ag/claude-sonnet-4-5
-       ag/claude-opus-4-5-thinking
+Dashboard → Providers → GitHub → Connect
 ```
 
-### Available Models
+**Step 2: authorize**
 
-| Model ID | Description | Best For |
-|----------|-------------|----------|
-| `ag/gemini-3-pro-high` | Gemini 3 Pro High | High-quality responses |
-| `ag/claude-sonnet-4-5` | Claude Sonnet 4.5 | Anthropic quality |
-| `ag/claude-opus-4-5-thinking` | Claude Opus 4.5 Thinking | Complex reasoning |
+Sign in to GitHub and approve the Copilot authorization. Vela keeps the token fresh.
 
-### Pro Tips
+**Step 3: use it**
 
-- **Free tier** - No cost with Google account
-- **Claude access** - Free Claude Sonnet/Opus
-- **Quota similar to Gemini CLI** - Daily/monthly limits
+Models are named `gh/<model-id>`, for example:
+
+- `gh/claude-sonnet-4.6`, `gh/claude-opus-4.7`, `gh/claude-haiku-4.5`
+- `gh/gpt-5.4`, `gh/gpt-5.3-codex`, `gh/gpt-5.2-codex`
+- `gh/gemini-3.1-pro-preview`, `gh/gemini-3-flash-preview`
+
+### Getting the most from it
+
+- Copilot is the odd one out: **one subscription, several vendors**. It is a good second or third entry in a combo when you want variety without a second bill.
+- The monthly reset means it is best kept in reserve for the end of the month, when other lanes are dry.
 
 ---
 
-## Pricing Comparison
+## Antigravity (Google account)
 
-| Provider | Monthly Cost | Quota Reset | Value |
-|----------|--------------|-------------|-------|
-| **Claude Code Pro** | $20 | 5-hour + Weekly | ⭐⭐⭐⭐⭐ Best quality |
-| **Claude Code Max** | $100 | 5-hour + Weekly | ⭐⭐⭐⭐⭐ Highest quota |
-| **Codex Plus** | $20 | 5-hour + Weekly | ⭐⭐⭐⭐ Good value |
-| **Codex Pro** | $200 | 5-hour + Weekly | ⭐⭐⭐⭐⭐ 10× quota |
-| **Gemini CLI** | **$0** | Daily + Monthly | ⭐⭐⭐⭐⭐ FREE 180K/month! |
-| **GitHub Copilot** | $10-19 | Monthly (1st) | ⭐⭐⭐⭐ Multi-model |
-| **Antigravity** | **$0** | Daily + Monthly | ⭐⭐⭐⭐ FREE Claude! |
+### What it costs upstream
+
+Antigravity is Google's agentic coding environment. It is free with a Google account, with its own quota, and it exposes both Gemini and Claude models.
+
+### Setup
+
+**Step 1: connect**
+
+```
+Dashboard → Providers → Antigravity → Connect
+```
+
+**Step 2: sign in with Google**
+
+Approve the connection, then use models named `ag/<model-id>`:
+
+- `ag/gemini-4-argon-high` (and `-medium`, `-low` for cheaper, faster variants)
+- `ag/gemini-3.8-flash`, `ag/gemini-3.7-flash`, and other Gemini generations
+- Claude models, where your account offers them
+
+### Getting the most from it
+
+- The `-high`/`-medium`/`-low` suffix is a real cost lever: same model family, very different token spend.
+- Because it is free, it belongs at the top of a combo for anything experimental.
 
 ---
 
-## Usage Example
+## Kimi (Moonshot)
 
-### Cursor IDE Setup
+### What it costs upstream
 
-```
-Settings → Models → Advanced:
-  OpenAI API Base URL: http://localhost:32060/v1
-  OpenAI API Key: [from Vela dashboard]
-  Model: cc/claude-opus-4-5-20251101
-```
+Moonshot sells coding plans directly. Vela can reach them by login or by API key, whichever your account supports.
 
-### Create Combo (Recommended)
+### Setup
 
 ```
-Dashboard → Combos → Create New
-
-Name: premium-coding
-Models:
-  1. gc/gemini-3-flash-preview (FREE, use first)
-  2. cc/claude-opus-4-5-20251101 (Subscription)
-  3. cx/gpt-5.2-codex (Subscription backup)
-
-Use in CLI: premium-coding
+Dashboard → Providers → Kimi → Connect (login)   — or —   Add API key
 ```
 
-**Result:** Maximize free tier → Use subscription → Auto fallback
+Models are named `kimi/<model-id>`: `kimi/kimi-latest`, `kimi/kimi-k2.5`, `kimi/k3`, `kimi/kimi-for-coding`.
 
 ---
 
-## Quota Tracking
+## Side by side
 
-Vela tracks quota in real-time:
+| Provider | Monthly (upstream) | How you log in | Reset | Standout |
+|----------|--------------------|----------------|-------|----------|
+| **Claude Code Pro** | about $20 | OAuth | rolling + weekly | best long-form code quality |
+| **Claude Code Max** | about $100 | OAuth | rolling + weekly | biggest Claude allowance |
+| **Codex Plus** | about $20 | OAuth | rolling + weekly | strongest single-purpose coding model |
+| **Codex Pro** | about $200 | OAuth | rolling + weekly | ~10× Plus |
+| **GitHub Copilot** | about $10–19 | OAuth | monthly | several vendors, one bill |
+| **Antigravity** | **free** | Google OAuth | its own | Gemini + Claude at no cost |
+| **Kimi** | plan-dependent | login or key | monthly | long-context coding |
 
-- **Token consumption** - Input/output tokens per request
-- **Reset countdown** - Time until next quota reset
-- **Usage percentage** - How much quota used
-- **Auto fallback** - Switch to next tier when exhausted
+---
 
-**Dashboard view:**
+## A worked example
+
+**Cursor, Cline, or any OpenAI-compatible tool.**
+
+If you have a combo called `premium-coding` (Claude first, GLM second, Kiro last):
 
 ```
-Claude Code Pro
-├─ Quota: 75% used
-├─ Reset: 2h 15m (5-hour)
-├─ Weekly reset: 3 days
-└─ Fallback: glm/glm-4.7 (cheap tier)
+Settings → Models
+  Base URL: http://localhost:32060/v1
+  API Key:  [your Vela key]
+  Model:    premium-coding
+```
+
+If you want the subscription alone, skip combos and use `cc/claude-opus-5` directly.
+
+**Building the combo:**
+
+```
+Dashboard → Combos → Create
+  Name:   premium-coding
+  Models: 1. cc/claude-opus-5      ← subscription
+          2. glm/glm-4.7           ← cheap
+          3. kr/claude-sonnet-4.5  ← free last line
 ```
 
 ---
 
-## Best Practices
+## Watching the quota
 
-### 1. Use Free Tier First
+The **Quota** page shows, per provider:
 
-```
-Priority:
-1. Gemini CLI (180K/month FREE)
-2. Antigravity (FREE Claude)
-3. Claude Code/Codex (paid subscriptions)
-```
+- how much of the window is used, as a bar and a percentage
+- when it resets, as a countdown
+- for paid lanes, what it has cost so far
 
-### 2. Track Quota Daily
+The **Usage** page shows the same spend by model, combo and API key, over today, 7, 14, 30 and 60 days, or all time.
 
-- Check dashboard every morning
-- Plan heavy tasks around quota resets
-- Use cheap/free tier for non-critical tasks
+---
 
-### 3. Create Smart Combos
+## Best practices
+
+### 1. Free and cheap first, if the goal is cost
 
 ```
-Example combo:
-1. gc/gemini-3-flash-preview (FREE primary)
-2. cc/claude-opus-4-5 (Complex tasks)
-3. glm/glm-4.7 (Cheap backup)
-4. if/kimi-k2-thinking (FREE fallback)
+1. Antigravity (free Claude / Gemini)
+2. Claude Code or Codex (you already pay)
+3. GLM-4.7 (cheap)
+4. iFlow or Kiro (free)
 ```
 
-### 4. Optimize by Time
+If the goal is *quality on the hard problems*, put the subscription first instead — there is no universal right order, only the one that matches what you are doing this week.
 
-```
-Morning: Fresh 5-hour quota (Claude/Codex)
-Afternoon: Gemini CLI (1K/day)
-Evening: Subscription quota
-Night: Cheap/free tier
-```
+### 2. Look at the reset times
+
+Rolling windows reset a few hours after first use; daily and monthly windows reset at fixed times. Heavy work the day before a monthly reset is quota spent for nothing.
+
+### 3. Use a combo, and put a free provider at the end
+
+A combo that ends in a free lane never leaves you stuck mid-thought.
 
 ---
 
@@ -377,28 +268,28 @@ Night: Cheap/free tier
 
 ### "Quota exhausted"
 
-**Solution:**
-- Check dashboard quota tracker
-- Wait for reset (5-hour or daily)
-- Use combo fallback to cheap/free tier
+Wait for the reset (check the countdown), or let the combo fall through to the next model. Nothing else is broken.
 
 ### "OAuth token expired"
 
-**Solution:**
-- Auto-refreshed by Vela
-- If issues: Dashboard → Provider → Reconnect
+Vela refreshes tokens automatically; an expired message usually means the refresh itself failed. Go to **Providers → [provider] → Disconnect**, then **Connect** again.
 
-### "Rate limiting"
+### Rate limited while quota looks available
 
-**Solution:**
-- Subscription quota out
-- Add fallback: `cc/claude-opus → glm/glm-4.7`
-- Use free tier: `if/kimi-k2-thinking`
+Rate limits and quota are different limits. A provider can refuse requests for a burst even with allowance left; the fallback chain is the answer, not waiting.
+
+### A model name is rejected
+
+The model may have been renamed upstream. Ask the gateway what it really has:
+
+```bash
+curl http://localhost:32060/v1/models -H "Authorization: Bearer <key>" | grep claude
+```
 
 ---
 
-## Next Steps
+## Next steps
 
-- **Setup cheap backup:** [Cheap Providers](./cheap.md)
-- **Add free fallback:** [Free Providers](./free.md)
-- **Create combos:** Dashboard → Combos → Create New
+- **Cheap backup:** [Cheap Providers](cheap.md)
+- **Free fallback:** [Free Providers](free.md)
+- **Build a chain:** [Combos](../features/combos.md)

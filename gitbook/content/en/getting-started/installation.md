@@ -1,477 +1,401 @@
 # Installation
 
-Detailed installation guide for Vela with troubleshooting tips.
+Everything you need to get Vela running: the requirements, four ways to install it, how to verify that it works, and how to take it off again. If you just want it running in two minutes, [Quick Start](quick-start.md) is the shorter road.
 
 ---
 
 ## Requirements
 
-### System Requirements
+### System requirements
 
-- **Node.js**: Version 20.0.0 or higher
-- **npm**: Version 10.0.0 or higher (comes with Node.js)
-- **OS**: macOS, Linux, Windows (WSL recommended)
-- **Disk Space**: ~200MB for installation
+- **Node.js**: version 20 or newer if you install through npm. The official Docker image bundles Node 22, so Docker users can skip this.
+- **npm**: version 10 or newer (it ships with Node.js).
+- **Operating system**: macOS, Linux, or Windows (Windows works natively; WSL is also fine).
+- **Disk**: roughly 500MB for the app, more for your data as usage history grows.
+- **Memory**: about 1GB is comfortable. The Docker image sets a 1GB heap ceiling by default.
 
-### Check Your Version
+Check what you have:
 
 ```bash
 node --version
-# Should show v20.x.x or higher
+# v20.x.x or newer
 
 npm --version
-# Should show 10.x.x or higher
+# 10.x.x or newer
 ```
 
-**Don't have Node.js?** Install from [nodejs.org](https://nodejs.org/)
+If Node.js is missing, install it from [nodejs.org](https://nodejs.org/) or with a version manager such as `nvm`.
 
 ---
 
-## Installation Methods
+## Installation methods
 
-### Method 1: Global Installation (Recommended)
-
-Install Vela globally to use from anywhere:
+### Method 1: npm global install (recommended)
 
 ```bash
 npm install -g vela
-```
-
-**Start Vela:**
-
-```bash
 vela
 ```
 
-**Benefits:**
-- ✅ Run from any directory
-- ✅ Simple command: `Vela`
-- ✅ Auto-updates with `npm update -g vela`
-
-### Method 2: Local Installation
-
-Install in a specific project:
+The `vela` command is a launcher. It starts the gateway, waits for the port to answer, and opens the dashboard. Flags worth knowing:
 
 ```bash
-mkdir my-Vela
-cd my-Vela
-npm install -g vela
+vela                    # start on the default port, open the browser
+vela --port 8080        # a different port
+vela --host 127.0.0.1   # this machine only (the default binds 0.0.0.0)
+vela --no-browser       # do not open a browser
+vela --log              # show server logs in the terminal
+vela --tray             # run in the system tray
+vela --skip-update      # skip the update check on start
+vela --help             # everything else
 ```
 
-**Start Vela:**
+**Why this is the default choice:**
+- ✅ Run it from any directory
+- ✅ One command: `vela`
+- ✅ `npm update -g vela` keeps it current
+- ✅ The launcher restarts a crashed server and keeps its runtime binaries in `~/.vela/runtime`, away from the install directory
+
+### Method 2: run without installing
+
+If you only want to try it:
 
 ```bash
-npx Vela
+npx vela
 ```
 
-**Benefits:**
-- ✅ Isolated per project
-- ✅ Version control per project
-- ✅ No global namespace pollution
+This downloads the launcher into npm's cache and runs it. Nothing is installed globally, but the data directory (`~/.vela`) is still created, and your settings survive between runs.
 
-### Method 3: From Source (Development)
+### Method 3: Docker
 
-Clone and build from GitHub:
+Good for a server, a NAS, or anything where you would rather not install Node.js.
+
+```bash
+docker run -d --name vela \
+  -p 32060:32060 \
+  -v "$HOME/vela-data:/app/data" \
+  -e DATA_DIR=/app/data \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  ghcr.io/yumamax3/vela:1.2.4
+```
+
+Then open **http://localhost:32060/dashboard**.
+
+- The image is **public**. You do not need a GitHub login, a personal access token, or any credentials to pull it.
+- The image is multi-architecture: it runs natively on both ordinary servers (`linux/amd64`) and ARM machines such as a Raspberry Pi or an Apple Silicon Docker host (`linux/arm64`).
+- **Pin the tag.** `ghcr.io/yumamax3/vela:1.2.4` is the current release. `:latest` moves whenever a new version is published, and a restart can then silently put you on a version you did not choose.
+- **Always mount `/app/data`.** Without the volume, your database lives inside the container and disappears with it.
+
+The [cloud deployment guide](../deployment/cloud.md) covers Compose, reverse proxies and the environment variables in depth.
+
+### Method 4: from source
+
+For development, patching, or building your own image.
 
 ```bash
 git clone https://github.com/YumamaX3/Vela.git
-cd Vela/app
+cd Vela
 npm install
 npm run build
-npm start
+npm run start
 ```
 
-**Benefits:**
-- ✅ Latest development features
-- ✅ Contribute to development
-- ✅ Custom modifications
+The project sits at the root of the clone — there is no nested `app/` folder. The scripts are:
+
+```bash
+npm run dev        # development server with hot reload, port 32060
+npm run build      # production build
+npm run start      # run the production build
+```
+
+`npm run dev` is for working on Vela itself. `npm run build` followed by `npm run start` is what a deployment should run.
+
+> ⚠️ **A note on versions:** if what you built behaves differently from this documentation, check `package.json` — its `version` field is the truth. This documentation describes **1.2.4**.
 
 ---
 
-## First Run
+## First run
 
-### Start the Server
+### Starting the server
 
 ```bash
 vela
 ```
 
-**What happens:**
-1. Server starts on `http://localhost:32060`
-2. Dashboard opens automatically in browser
-3. Data directory created at `~/.vela`
-4. API key generated automatically
+What happens:
 
-### Dashboard Login
+1. The gateway starts on `http://localhost:32060`.
+2. The dashboard opens in your browser at `/dashboard`.
+3. A data directory is created — `~/.vela` on macOS and Linux, `%APPDATA%\vela` on Windows — or the one named by `DATA_DIR` if you set it.
+4. Nothing else. There is **no default password** and no pre-generated key.
 
-**Default credentials:**
-- Password: `123456`
+### The dashboard password
 
-**⚠️ Change password immediately:**
-1. Login to dashboard
-2. Settings → Change Password
-3. Use strong password
+This is where old tutorials disagree with modern Vela, so it is worth stating plainly:
 
-### Get Your API Key
+- **There is no default password.** Not `123456`, not `admin`, not anything else.
+- **Local access is open.** From the machine running Vela, the dashboard loads without asking for anything. That is deliberate: you should not need to log in to your own laptop.
+- **Remote access is refused until you set one.** If someone opens the dashboard from another machine on the network, Vela will not let them in with a password that was never chosen.
+
+To set a password: open the dashboard **from the machine running Vela**, go to **Settings → Access**, and set one there. The same screen lets you require a dashboard login, toggle whether API requests must carry a key, and see at a glance whether the gateway is "gated" — the checkmark you want before you expose it to a network.
+
+Alternatively, set `INITIAL_PASSWORD` in the environment before the first start; Vela will accept it as the login password.
+
+### Getting an API key for your tools
 
 ```
-Dashboard → Settings → API Keys
-→ Copy your API key
-→ Use in CLI tools
+Dashboard → Endpoint & Key → Create Key
+→ copy the key that appears (it is shown once)
 ```
 
-**Example API key format:**
-```
-9r_1234567890abcdef1234567890abcdef
-```
+A key looks like `vela-v1-<random>-<checksum>`. In the same dialog you can give it a narrower scope: which providers, models or combos it may reach; a rate limit; a daily/weekly/monthly token budget; and a spend ceiling. For a shared or long-running setup, set a ceiling — Vela answers with a clear 429 once it is reached instead of quietly spending.
 
 ---
 
-## Verify Installation
+## Verify the installation
 
-### Check Server Status
+### Check the server is alive
 
 ```bash
-curl http://localhost:32060/health
+curl http://localhost:32060/api/health
 ```
 
-**Expected response:**
+Expected:
+
 ```json
-{
-  "status": "ok",
-  "version": "1.0.0"
-}
+{"ok":true}
 ```
 
-### List Available Models
+The health route is intentionally unauthenticated, so it answers even when `REQUIRE_API_KEY` is on.
+
+### List the models you can reach
 
 ```bash
 curl http://localhost:32060/v1/models \
-  -H "Authorization: Bearer your-api-key"
+  -H "Authorization: Bearer vela-v1-your-key-here"
 ```
 
-**Expected response:**
-```json
-{
-  "object": "list",
-  "data": [
-    {
-      "id": "cc/claude-opus-4-5-20251101",
-      "object": "model",
-      "created": 1234567890,
-      "owned_by": "claude-code"
-    }
-  ]
-}
-```
+You will get every model from every provider you have connected. If the list is empty, no provider is connected yet — see step 3 of [Quick Start](quick-start.md).
 
-### Test Chat Completion
+### Send one real request
 
 ```bash
 curl http://localhost:32060/v1/chat/completions \
-  -H "Authorization: Bearer your-api-key" \
+  -H "Authorization: Bearer vela-v1-your-key-here" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "cc/claude-opus-4-5-20251101",
-    "messages": [
-      {"role": "user", "content": "Hello!"}
-    ]
+    "model": "glm/glm-4.7",
+    "messages": [{"role": "user", "content": "Say hello in five words."}]
   }'
 ```
+
+A reply means everything — gateway, key, provider, routing — is working. If it fails, the error text names the reason; [Troubleshooting](../troubleshooting.md) maps the common ones to fixes.
 
 ---
 
 ## Configuration
 
-### Environment Variables
+### Environment variables
 
-Create `.env` file or set environment variables:
+You can set these in your shell, in a `.env` file beside the app, or as container environment. The ones that matter first:
 
 ```bash
-# Security (REQUIRED in production)
-export JWT_SECRET="your-secure-secret-change-this"
-export INITIAL_PASSWORD="your-password"
+# Security — set these for any non-local deployment
+export JWT_SECRET="$(openssl rand -hex 32)"   # signs dashboard sessions
+export INITIAL_PASSWORD="your-password"       # optional first login password
 
 # Storage
-export DATA_DIR="~/.vela"
+export DATA_DIR="$HOME/.vela"                 # where the database lives
 
 # Server
-export PORT="32060"
+export PORT="32060"                           # the default
 export NODE_ENV="production"
-
-# Logging
-export ENABLE_REQUEST_LOGS="false"
 ```
 
-### Data Directory
+`JWT_SECRET` deserves a warning: since October 2026, Vela **refuses to boot** if it is left at a placeholder or is shorter than 32 characters. Generate a real one. The full list of variables is in the repository's `.env.example` and `docs/ENVIRONMENT.md`.
 
-**Default location:** `~/.vela`
+### Data directory
 
-**Contents:**
-```
+Default: `~/.vela` (macOS/Linux) or `%APPDATA%\vela` (Windows).
+
+```text
 ~/.vela/
-  ├── db/
-  │   └── data.sqlite   # Database (providers, combos, usage)
-  └── logs/             # Request logs (if enabled)
+  db/
+    data.sqlite        # providers, combos, keys, settings
+    backups/           # pre-migration safety copies and scheduled backups
+  logs/                # request logs, if enabled
+  runtime/             # launcher-managed binaries
 ```
 
-**Change location:**
+To move it:
 
 ```bash
-export DATA_DIR="/custom/path"
+export DATA_DIR="/srv/vela-data"
 vela
 ```
 
-### Port Configuration
+On Windows, a Unix-style path (starting with `/`) is ignored with a warning and the default is used — that path cannot exist there.
 
-**Default port:** `32060`
+### Port configuration
 
-**Change port:**
-
-```bash
-export PORT="3000"
-vela
-```
-
-**Or use command line:**
+The default is `32060`. Change it with the flag or the environment:
 
 ```bash
-Vela --port 3000
+vela --port 8080
+# or
+PORT=8080 vela
 ```
+
+If you use a different port, update every tool that points at `/v1` — and keep the trailing `/v1` in the base URL.
 
 ---
 
-## Troubleshooting
+## Troubleshooting the install
 
-### Port Already in Use
+### Port already in use
 
-**Error:**
 ```
 Error: listen EADDRINUSE: address already in use :::32060
 ```
 
-**Solution 1: Kill existing process**
+Find and stop the process, or pick another port:
 
 ```bash
-# Find process using port 32060
+# macOS / Linux
 lsof -i :32060
+kill <PID>
 
-# Kill process
-kill -9 <PID>
+# Windows
+netstat -ano | findstr :32060
+taskkill /PID <PID> /F
+
+# or simply start elsewhere
+vela --port 8080
 ```
 
-**Solution 2: Use different port**
+### Permission denied
+
+```
+Error: EACCES: permission denied, mkdir '/usr/local/lib/node_modules/...'
+```
+
+The fix is to give npm a directory it owns, not to use `sudo`:
 
 ```bash
-Vela --port 3000
-```
-
-### Permission Denied
-
-**Error:**
-```
-Error: EACCES: permission denied, mkdir '/usr/local/lib/node_modules/Vela'
-```
-
-**Solution: Use sudo (not recommended) or fix npm permissions**
-
-```bash
-# Fix npm permissions (recommended)
 mkdir ~/.npm-global
 npm config set prefix '~/.npm-global'
 echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
-
-# Then install again
 npm install -g vela
 ```
 
-### Node.js Version Too Old
+### Node.js too old
 
-**Error:**
 ```
 Error: The engine "node" is incompatible with this module
 ```
 
-**Solution: Update Node.js**
+Update Node.js — with `nvm` if you have it, otherwise from [nodejs.org](https://nodejs.org/):
 
 ```bash
-# Using nvm (recommended)
 nvm install 20
 nvm use 20
-
-# Or download from nodejs.org
 ```
 
-### Dashboard Not Opening
+### The dashboard does not open
 
-**Issue:** Dashboard doesn't open automatically
+Open `http://localhost:32060/dashboard` yourself. If that does not load either, check the process is running (`vela --log` shows its output), and check your firewall: on macOS, allow the Node process in System Settings → Network → Firewall; on Linux, check `ufw` or `iptables`; on Windows, allow it through Windows Defender Firewall.
 
-**Solution 1: Open manually**
+### A provider will not connect
 
-```
-http://localhost:32060
-```
+- Check that you are online (`ping 1.1.1.1`).
+- Check the provider's status page before assuming a local fault.
+- For OAuth providers, try **Providers → [provider] → Disconnect → Connect** again; an expired session often looks exactly like a broken install.
 
-**Solution 2: Check firewall**
+### High memory use
 
-```bash
-# macOS: Allow Node.js in System Preferences → Security
-# Linux: Check iptables
-# Windows: Check Windows Firewall
-```
-
-### Cannot Connect to Providers
-
-**Issue:** OAuth login fails or API key invalid
-
-**Solution 1: Check internet connection**
-
-```bash
-ping google.com
-```
-
-**Solution 2: Check provider status**
-
-- Claude Code: [status.anthropic.com](https://status.anthropic.com)
-- OpenAI: [status.openai.com](https://status.openai.com)
-- Gemini: [status.cloud.google.com](https://status.cloud.google.com)
-
-**Solution 3: Regenerate API key**
-
-```
-Dashboard → Provider → Disconnect → Reconnect
-```
-
-### High Memory Usage
-
-**Issue:** Vela using too much RAM
-
-**Solution: Restart server**
-
-```bash
-# Stop
-pkill -f Vela
-
-# Start
-vela
-```
-
-**Or use PM2 for auto-restart:**
+Restart the gateway (`Ctrl+C`, then `vela`). For a long-running install, use a process manager:
 
 ```bash
 npm install -g pm2
-pm2 start Vela --name Vela
+pm2 start vela --name vela
 pm2 save
 ```
 
 ---
 
-## Deployment Options
+## Deployment options
 
-### Local Development
+### On your own machine
 
 ```bash
 npm install -g vela
 vela
 ```
 
-**Use case:** Personal coding, testing
+**Good for:** personal coding, trying providers out, keeping everything local.
 
-### VPS/Cloud Server
-
-```bash
-# Install
-npm install -g vela
-
-# Configure
-export JWT_SECRET="your-secure-secret"
-export INITIAL_PASSWORD="your-password"
-export NODE_ENV="production"
-
-# Start with PM2
-npm install -g pm2
-pm2 start Vela --name Vela
-pm2 save
-pm2 startup
-```
-
-**Use case:** Team access, remote coding
-
-### Docker
+### On a server
 
 ```bash
-docker pull Vela/Vela:latest
-
-docker run -d \
-  -p 32060:32060 \
-  -e JWT_SECRET="your-secure-secret" \
-  -e INITIAL_PASSWORD="your-password" \
-  -v Vela-data:/root/.Vela \
-  --name Vela \
-  Vela/Vela:latest
+docker run -d --name vela --restart unless-stopped \
+  -p 127.0.0.1:32060:32060 \
+  -v "$HOME/vela-data:/app/data" \
+  -e DATA_DIR=/app/data \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
+  -e INITIAL_PASSWORD="choose-a-password" \
+  ghcr.io/yumamax3/vela:1.2.4
 ```
 
-**Use case:** Containerized deployment, Kubernetes
+Binding to `127.0.0.1` means only a reverse proxy on the same machine can reach the dashboard — the safe default for an internet-facing host. [Cloud deployment](../deployment/cloud.md) has the full Nginx configuration, with the streaming settings that matter.
 
-### Reverse Proxy (Nginx)
+### Behind a reverse proxy
+
+Streaming responses (server-sent events) need buffering turned off, or they will arrive in one lump at the end:
 
 ```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    location / {
-        proxy_pass http://localhost:32060;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        
-        # SSE support for streaming
-        proxy_buffering off;
-        proxy_read_timeout 86400;
-    }
+location / {
+    proxy_pass http://127.0.0.1:32060;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;
+    proxy_read_timeout 86400;
 }
 ```
 
-**Use case:** HTTPS, custom domain, load balancing
-
 ---
 
-## Uninstallation
-
-### Remove Global Installation
+## Uninstalling
 
 ```bash
-npm uninstall -g vela
+npm uninstall -g vela      # remove the launcher
+rm -rf ~/.vela             # remove data, keys and settings — this is irreversible
 ```
 
-### Remove Data Directory
+On Windows the data directory is `%APPDATA%\vela`. Then delete any exports you added to your shell profile.
+
+If you ran Docker instead:
 
 ```bash
-rm -rf ~/.vela
-```
-
-### Remove Configuration
-
-```bash
-# Remove environment variables from shell config
-nano ~/.bashrc  # or ~/.zshrc
-# Delete Vela-related exports
+docker stop vela && docker rm vela
+docker rmi ghcr.io/yumamax3/vela:1.2.4
+# and remove the volume or host directory you mounted
 ```
 
 ---
 
-## Next Steps
+## Next steps
 
-- [Getting Started Guide](../getting-started.md) - Connect providers and start coding
-- [Features](../features/) - Explore quota tracking, combos, deployment
-- [Troubleshooting](../troubleshooting.md) - Fix common issues
+- [Quick start](quick-start.md) — connect providers and point your tools at Vela
+- [Providers](../providers/subscription.md) — which lane to use when
+- [Features](../features/smart-routing.md) — routing, combos, quota tracking
+- [Troubleshooting](../troubleshooting.md) — when something will not connect
 
 ---
 
-## Need Help?
+## Need help?
 
 - **Website**: [vela.my.id](https://vela.my.id)
 - **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)

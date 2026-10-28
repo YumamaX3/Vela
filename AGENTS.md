@@ -1,3 +1,6 @@
+# ⛵ Vela — the AI Gateway
+
+This repository's crew instructions, architecture, release rites, and test covenants live in [`CLAUDE.md`](./CLAUDE.md) — read it before touching the helm. The public front door is [`README.md`](./README.md); the charts live in [`docs/`](./docs/README.md). The blocks below are harness and tooling notes (Hydra orchestration, TermCanvas pins, Next.js agent rules), not Vela documentation.
 ## Hydra Orchestration Toolkit
 
 Hydra is a Lead-driven orchestration toolkit. You (the Lead) make strategic

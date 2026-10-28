@@ -1,6 +1,6 @@
 # はじめに
 
-Velaを5分で起動し、AIリクエストをインテリジェントにルーティングし始めましょう。
+5分、ひとつのエンドポイント、すべてのツールをそこへ向けて。このページは速い道です。細部とトラブルシューティングは[インストール](../getting-started/installation.md)にあります。
 
 ---
 
@@ -12,7 +12,7 @@ Velaを5分で起動し、AIリクエストをインテリジェントにルー�
 npm install -g vela
 ```
 
-**要件:** Node.js 20+ ([インストール詳細](getting-started/installation.md))
+Node.js 20以降が必要です。`vela`コマンドは小さなランチャーで、ゲートウェイを起動し、ブラウザを開きます。
 
 ### 2. 起動
 
@@ -20,228 +20,203 @@ npm install -g vela
 vela
 ```
 
-🎉 **ダッシュボードが自動的に開きます** (`http://localhost:32060`)
+ダッシュボードは**http://localhost:32060/dashboard**で開きます。
 
-- デフォルトパスワード: `123456` (ダッシュボードで変更)
-- APIキーは自動生成
-- プロバイダー接続の準備完了
+初回起動で知っておくとよいことがいくつか:
+
+- **デフォルトのパスワードはありません。** Velaを動かしているマシンからは、ダッシュボードはそのまま開きます。ほかのマシンからのログインは、**設定 → アクセス**でパスワードを設定するまで拒否されます。
+- データはmacOSとLinuxでは`~/.vela`、Windowsでは`%APPDATA%\vela`に置かれます。
+- ゲートウェイはデフォルトですべてのネットワークインターフェース(`0.0.0.0`)で待ち受けます。このマシンだけで足りるなら、`vela --host 127.0.0.1`で起動してください。
 
 ### 3. プロバイダーを接続
 
-プロバイダーを接続する方法は3つあります:
+プロバイダーには3種類あり、自由に混ぜられます。
 
-#### オプションA: OAuth(サブスクリプションプロバイダー)
+#### オプションA — OAuthによるサブスクリプション
 
-**最適:** Claude Code、Codex、Gemini CLI、GitHub Copilot
+**最適:** Claude Code、Codex、GitHub Copilot、Antigravity — すでに払っているもの、あるいはログインしているものはなんでも。
 
 ```
-Dashboard → Providers → Connect [Provider]
-→ OAuthログイン → トークン自動更新
-→ クォータトラッキング有効化
+Dashboard → Providers → pick a provider → Connect
+→ Log in in the browser window → done
 ```
+
+それ以降、トークンは自分で更新され、クォータ追跡はすぐに始まります。
 
 **例: Claude Code**
-1. 「Connect Claude Code」をクリック
-2. Claudeアカウントでログイン
-3. Velaを認可
-4. ✅ 完了! モデルを使用: `cc/claude-opus-4-5-20251101`
+1. **Providers**を開き、**Claude**を選びます。
+2. **Connect**をクリックし、Claudeアカウントにログインして承認します。
+3. モデルはフルネームで使います。たとえば`cc/claude-opus-5`。
 
-#### オプションB: APIキー(低価格プロバイダー)
+#### オプションB — APIキー
 
-**最適:** GLM、MiniMax、Kimi、OpenRouter
+**最適:** GLM、MiniMax、Kimi、OpenRouter、そのほか従量課金のプロバイダー。
 
 ```
-Dashboard → Providers → Add API Key
-→ プロバイダーを選択
-→ APIキーを貼り付け
-→ 保存
+Dashboard → Providers → pick a provider → Add API key
+→ paste the key → Save
 ```
 
 **例: GLM-4.7**
-1. [Zhipu AI](https://open.bigmodel.cn/)でサインアップ
-2. Coding PlanからAPIキーを取得
-3. Dashboard → Add API Key → Provider: `glm` → キーを貼り付け
-4. ✅ 完了! モデルを使用: `glm/glm-4.7`
+1. お使いのGLMプロバイダーでアカウントとキーを作ります。
+2. Velaで: **Providers → GLM → Add API key**、貼り付けて保存。
+3. `glm/glm-4.7`を使います。
 
-#### オプションC: 無料プロバイダー(コストなし)
+#### オプションC — 無料プロバイダー
 
-**最適:** iFlow、Qwen、Kiro
-
-```
-Dashboard → Providers → Connect [Free Provider]
-→ デバイスコードまたはOAuth
-→ 無制限利用
-```
-
-**例: iFlow**
-1. 「Connect iFlow」をクリック
-2. iFlowアカウントでログイン
-3. 認可
-4. ✅ 完了! 8モデルを使用: `if/kimi-k2-thinking`、`if/qwen3-coder-plus`など
-
----
-
-## 4. CLIツールで使用
-
-コーディングツールをVelaに向けます:
-
-### Cursor IDE
+**最適:** 有料のクォータが尽きたときの、最後の一手。
 
 ```
-Settings → Models → Advanced:
-  OpenAI API Base URL: http://localhost:32060/v1
-  OpenAI API Key: [Velaダッシュボードから取得]
-  Model: cc/claude-opus-4-5-20251101
+Dashboard → Providers → Connect a free provider
+→ Device code or OAuth → done
 ```
 
-### Claude Desktop
+**例: Kiro**
+1. **Providers**を開き、**Kiro**を選びます。
+2. AWS Builder IDまたはソーシャルアカウントでサインインします。
+3. `kr/`のモデルを使います — Claudeファミリーを、コストなしで。
 
-`~/.claude/config.json`を編集:
+### 4. ツール用のAPIキーを作る
 
-```json
-{
-  "anthropic_api_base": "http://localhost:32060/v1",
-  "anthropic_api_key": "your-Vela-api-key"
-}
+```
+Dashboard → Endpoint & Key → Create Key → copy it
 ```
 
-### Cline / Continue / RooCode
+キーは`vela-v1-<id>-<checksum>`の形をしています。一度しか表示されません — 安全な場所に控えるか、なくしたらあとで新しく作ってください。キーごとに、プロバイダーの範囲、レート制限、トークン予算、支出上限を持たせられます。
+
+### 5. ツールをVelaに向ける
+
+どのツールも必要とするものは同じ2つです: エンドポイントとキー。
+
+**Cursor**
+
+```
+Settings → Models → OpenAI API
+  Base URL: http://localhost:32060/v1
+  API Key:  [your Vela key]
+  Model:    cc/claude-opus-5     (add it as a custom model)
+```
+
+**Cline / Continue / Roo**
 
 ```
 Provider: OpenAI Compatible
 Base URL: http://localhost:32060/v1
-API Key: [ダッシュボードから取得]
-Model: cc/claude-opus-4-5-20251101
+API Key:  [your Vela key]
+Model:    cc/claude-opus-5
 ```
 
-### Codex CLI
+**Claude Code**
 
 ```bash
-export OPENAI_BASE_URL="http://localhost:32060"
-export OPENAI_API_KEY="your-Vela-api-key"
-
-codex "your prompt"
+export ANTHROPIC_BASE_URL="http://localhost:32060/v1"
+export ANTHROPIC_AUTH_TOKEN="[your Vela key]"
 ```
+
+**Codex CLI**
+
+```bash
+export OPENAI_BASE_URL="http://localhost:32060/v1"
+export OPENAI_API_KEY="[your Vela key]"
+```
+
+各ツールには、正確なフィールドとよくあるつまずきを記した専用のページが[連携](../integration/claude-code.md)の下にあります。
 
 ---
 
-## 5. スマートコンボを作成(オプション)
+## 6. フォールバックの鎖を組む(任意だが、おすすめ)
 
-コンボはモデル間の自動フォールバックを可能にします:
+ひとつのモデルは、ひとつの単一障害点です。**コンボ**はモデルの鎖に名前をつける仕組みで、Velaはどれかが答えるまでそれを辿ります。
 
 ```
-Dashboard → Combos → Create New
-
-Name: premium-coding
-Models:
-  1. cc/claude-opus-4-5-20251101 (サブスクリプション優先)
-  2. glm/glm-4.7 (低価格バックアップ、100万あたり$0.6)
-  3. if/kimi-k2-thinking (無料フォールバック)
-
-CLIで使用: premium-coding
+Dashboard → Combos → Create
+  Name:   premium-coding
+  Models: 1. cc/claude-opus-5      (subscription first)
+          2. glm/glm-4.7           (cheap backup)
+          3. kr/claude-sonnet-4.5  (free last line)
 ```
 
-**動作:**
-1. 最初にClaude Opusを試行(サブスクリプション)
-2. クォータ消費時 → GLM-4.7(超低価格)
-3. 予算上限時 → iFlow(無料)
-4. ダウンタイムゼロ、自動切替!
+あとはモデル名を書くところに`premium-coding`と書くだけです。コンボは何よりも先に名前で引かれるので、どのツールでも動きます。
+
+コンボが次へ移るのは、リクエストが失敗したときです — クォータのエラー、レート制限、タイムアウト、拒否されたプロンプト、存在しないモデル。日次のクォータが少なくなってきたというだけでは切り替わりません。それは黙ってお金を使うことになるからです。支出上限が欲しいときは、APIキーに設定してください(**Endpoint & Key → Create/Edit Key → budget**)。上限に達すると、Velaは黙って品質を落とすのではなく、はっきりした429でリクエストを断ります。
 
 ---
 
-## 利用可能なモデル
+## 利用できるモデル
 
-### サブスクリプションモデル(最初に最大化)
+モデル名は`prefix/model`の形です。ここに最初の一式を挙げます。完全な一覧はダッシュボードの**Providers**を開いてください — プロバイダーが新しいモデルを出すたびに変わります。
 
-**Claude Code (`cc/`)** - Pro/Maxサブスクリプション:
-- `cc/claude-opus-4-5-20251101` - Claude 4.5 Opus
-- `cc/claude-sonnet-4-5-20250929` - Claude 4.5 Sonnet
-- `cc/claude-haiku-4-5-20251001` - Claude 4.5 Haiku
+### サブスクリプションのレーン
 
-**Codex (`cx/`)** - Plus/Proサブスクリプション:
-- `cx/gpt-5.2-codex` - GPT 5.2 Codex
-- `cx/gpt-5.1-codex-max` - GPT 5.1 Codex Max
+**Claude Code (`cc/`)**
+- `cc/claude-opus-5` — 力仕事を担うもの
+- `cc/claude-sonnet-5` — 日常のバランス
+- `cc/claude-haiku-4-5-20251001` — 速く、軽い
 
-**Gemini CLI (`gc/`)** - 月18万無料:
-- `gc/gemini-3-flash-preview` - Gemini 3 Flash Preview
-- `gc/gemini-2.5-pro` - Gemini 2.5 Pro
+**Codex (`cx/`)**
+- `cx/gpt-5.6-sol`、`cx/gpt-5.6-terra`、`cx/gpt-5.6-luna` — 現在のファミリー
+- `cx/gpt-5.5`、`cx/gpt-5.4` — いまもあるし、いまも良い
 
-**GitHub Copilot (`gh/`)** - サブスクリプション:
-- `gh/gpt-5` - GPT-5
-- `gh/claude-4.5-sonnet` - Claude 4.5 Sonnet
+**GitHub Copilot (`gh/`)**
+- `gh/claude-sonnet-4.5`、`gh/claude-opus-4.5`、`gh/gpt-5.4`
 
-### 低価格モデル(バックアップ)
+**Antigravity (`ag/`)**
+- `ag/gemini-4-argon-high`とGeminiファミリーの残り、さらにClaudeのモデル
 
-**GLM (`glm/`)** - 100万あたり$0.6/$2.2:
-- `glm/glm-4.7` - GLM 4.7(毎日午前10時リセット)
+### 格安のレーン
 
-**MiniMax (`minimax/`)** - 100万あたり$0.20/$1.00:
-- `minimax/MiniMax-M2.1` - MiniMax M2.1(5時間リセット)
+**GLM (`glm/`)** — `glm/glm-4.7`が100万あたり$0.60 / $2.20、さらに新しい`glm-5.x`のモデル
 
-**Kimi (`kimi/`)** - 月$9(1000万トークン):
-- `kimi/kimi-latest` - Kimi Latest
+**MiniMax (`minimax/`)** — `minimax/MiniMax-M2.1`が100万あたり$0.30 / $1.20、さらにM2.5、M2.7、M3
 
-### 無料モデル(緊急時)
+**Kimi (`kimi/`)** — `kimi/kimi-latest`、`kimi/kimi-k2.5`、`kimi/k3`
 
-**iFlow (`if/`)** - 8モデル無料:
-- `if/kimi-k2-thinking` - Kimi K2 Thinking
-- `if/qwen3-coder-plus` - Qwen3 Coder Plus
-- `if/glm-4.7` - GLM 4.7
-- `if/deepseek-r1` - DeepSeek R1
+### 無料のレーン
 
-**Qwen (`qw/`)** - 3モデル無料:
-- `qw/qwen3-coder-plus` - Qwen3 Coder Plus
-- `qw/qwen3-coder-flash` - Qwen3 Coder Flash
+**iFlow (`if/`)** — `if/qwen3-coder-plus`、`if/kimi-k2`、`if/glm-4.7`、`if/deepseek-r1`など
 
-**Kiro (`kr/`)** - 2モデル無料:
-- `kr/claude-sonnet-4.5` - Claude Sonnet 4.5
-- `kr/claude-haiku-4.5` - Claude Haiku 4.5
+**Qwen (`qwen/`)** — `qwen/qwen-plus`、`qwen/qwen-max`、`qwen/qwen-turbo`
+
+**Kiro (`kr/`)** — `kr/claude-sonnet-4.5`、`kr/claude-opus-4.8`、さらに新しいClaudeのモデル
+
+> **無料枠について:** Gemini CLIが報じられている月18万回の補完や、MetaやGoogleの日次上限といった数字は、**それらのプロバイダーが公表している上流の数字**です — Velaが制御できるものではありません。これまでも変わりましたし、これからも変わります。真実として扱うべきは、ダッシュボードのライブのクォータ表示です。
 
 ---
 
-## コスト最適化戦略
+## コストを低く保つ
 
-### 月予算: $10〜20/月
-
-```
-1. クイックタスクにGemini CLI無料プラン(月18万)を使用
-2. Claude Codeサブスクリプションのクォータを完全利用(すでに支払い済み)
-3. クォータ切れ時はGLM(100万あたり$0.6)へフォールバック
-4. 緊急時: MiniMax M2.1(100万あたり$0.20)またはiFlow(無料)
-
-実例(月1億トークン):
-  Gemini CLI経由で6000万: $0(無料プラン)
-  Claude Code経由で3000万: $0(既存サブスクリプション)
-  GLM経由で800万: $4.80
-  MiniMax経由で200万: $0.40
-  合計: 月$5.20 + 既存サブスクリプション
-```
-
-### クォータリセット戦略
+実践的なルーティンです。表計算は要りません:
 
 ```
-日課:
-1. 朝: Claude Codeの新しいクォータ(5時間リセット)
-2. 午後: Gemini CLIへ切替(1K/日)
-3. 夕方: GLM日次クォータ(翌朝10時リセット)
-4. 深夜: MiniMax(5時間ローリング)またはiFlow(無料)
-
-→ 最小の追加コストで24時間コーディング!
+1. Put your subscription models first in the combo.
+2. Put GLM or MiniMax second — a fraction of the cost of any retail API.
+3. Always end with a free provider, so the chain never dead-ends.
+4. Set a budget ceiling on the API key you hand to tools you leave running.
 ```
+
+[格安プロバイダー](../providers/cheap.md)と[無料プロバイダー](../providers/free.md)のページには、計算の過程も示した実例があります。
 
 ---
 
 ## 次のステップ
 
-- [インストール詳細](getting-started/installation.md) - 要件、トラブルシューティング
-- [機能](features/) - クォータトラッキング、コンボ、デプロイを確認
-- [FAQ](faq.md) - よくある質問と回答
-- [トラブルシューティング](troubleshooting.md) - 一般的な問題の修正
+- [インストール](../getting-started/installation.md) — 要件、Docker、ソースからのビルド、アンインストール
+- [スマートルーティング](../features/smart-routing.md) — リクエストがプロバイダーを選ぶ仕組み
+- [コンボ](../features/combos.md) — フォールバックの鎖を組む、そして調整する
+- [クォータ追跡](../features/quota-tracking.md) — ダッシュボードの読み方
+- [よくある質問](../faq.md) — 誰もがまず聞くこと
+- [トラブルシューティング](../troubleshooting.md) — つながらないとき
 
 ---
 
-## ヘルプが必要?
+## ヘルプが必要ですか?
 
 - **ウェブサイト**: [vela.my.id](https://vela.my.id)
 - **GitHub**: [github.com/YumamaX3/Vela](https://github.com/YumamaX3/Vela)
 - **Issues**: [github.com/YumamaX3/Vela/issues](https://github.com/YumamaX3/Vela/issues)
+
+Velaはバージョン1.2.4です。いま動いているものを確かめるには:
+
+```bash
+npm list -g vela
+```

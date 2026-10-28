@@ -1,5 +1,7 @@
 # Vela — Agent Skills
 
+> *"A skill is a chart an agent can read. Copy the link, paste it to your AI — and the fleet sails itself."*
+
 Drop-in skills for any AI agent (Claude, Cursor, ChatGPT, custom SDK). Just **copy a link** below and paste it to your AI — it will fetch the skill and use Vela for you.
 
 > Tip: start with the **Vela** entry skill — it covers setup and links to all capability skills.
@@ -32,7 +34,7 @@ Then ask normally — *"generate an image of a cat"*, *"transcribe this URL"*, e
 
 ```bash
 export VELA_URL="http://localhost:32060"   # local default, or your VPS / tunnel URL
-export VELA_KEY="sk-..."                   # from Dashboard → Keys (only if requireApiKey=true)
+export VELA_KEY="vela-v1-…"              # from the dashboard's Endpoint room (only if requireApiKey=true)
 ```
 
 Verify: `curl $VELA_URL/api/health` → `{"ok":true}`.
