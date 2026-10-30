@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/clientLogger.js";
 
 import { useState, useEffect, useRef } from "react";
 import { Card, Button, ModelSelectModal, ManualConfigModal, Tooltip } from "@/shared/components";
@@ -151,7 +152,7 @@ export default function ClaudeToolCard({
       const data = await res.json();
       if (res.ok) setModelAliases(data.aliases || {});
     } catch (error) {
-      console.log("Error fetching model aliases:", error);
+      logger.error("CLITOOLS", "Error fetching model aliases:", "CLITOOLS", error);
     }
   };
 

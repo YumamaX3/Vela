@@ -4,6 +4,7 @@ import { getProviderModels, PROVIDER_ID_TO_ALIAS } from "open-sse/config/provide
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
 import { UPDATER_CONFIG } from "@/shared/constants/config";
 import { pingModelByKind } from "@/app/api/models/test/ping";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * POST /api/providers/[id]/test-models
@@ -60,7 +61,7 @@ export async function POST(request, { params }) {
 
     return NextResponse.json({ provider: providerId, connectionId: id, results });
   } catch (error) {
-    console.log("Error testing models:", error);
+    log.info("PROVIDERS", "Error testing models:", (error?.message ?? error));
     return NextResponse.json({ error: "Test failed" }, { status: 500 });
   }
 }

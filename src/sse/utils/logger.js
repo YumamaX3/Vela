@@ -1,6 +1,15 @@
 // Logger utility for cloud
 
-import { fmtDur, fmtTok, kv } from "open-sse/utils/logfmt.js";
+import {
+  fmtDur,
+  fmtTok,
+  kv,
+  realmOf,
+  bannerOf,
+  stripTheme,
+  normalizeLogTheme,
+  LOG_THEMES,
+} from "../../../open-sse/utils/logfmt.js";
 // M6 §4 — the numeric level is declared AT THE SOURCE. logger.error() has
 // always printed through console.log, so the console wrapper's own
 // channel→level mapping answered 20 for it and the persisted row read LOG:
@@ -11,8 +20,8 @@ import { fmtDur, fmtTok, kv } from "open-sse/utils/logfmt.js";
 //
 // The console CHANNEL is unchanged per function, because it is a
 // terminal-output choice that predates this tide and other code reads it.
-import { emitLeveledConsole } from "@/lib/consoleLogBuffer.js";
-import { LOG_LEVELS as LOG_LVL } from "@/lib/logshipper/index.js";
+import { emitLeveledConsole } from "../../lib/consoleLogBuffer.js";
+import { LOG_LEVELS as LOG_LVL } from "../../lib/logshipper/index.js";
 
 // §1's numeric enum, read from the door itself so the two files cannot drift.
 // The names differ from the LOCAL gate below on purpose: this file has always
@@ -39,6 +48,68 @@ const LOG_LEVELS = {
 };
 
 const LEVEL = LOG_LEVELS[process.env.LOG_LEVEL?.toUpperCase?.()] ?? LOG_LEVELS.INFO;
+
+// ── The logbook's voice ─────────────────────────────────────────────────────
+// The theme is a SETTING, but the logger sits on the request path and must
+// never await the store to speak a line. The last known voice therefore lives
+// here in memory; `refreshLogTheme()` reads it at most once per 5s, and a
+// failed read leaves the last voice standing. Fail-open is the law.
+let _logTheme = normalizeLogTheme(process.env.VELA_LOG_THEME);
+const THEME_REFRESH_MS = 5_000;
+let _lastThemeReadAt = 0;
+
+/** Read back the voice in force (always a normalized value). */
+export function getLogTheme() {
+  return _logTheme;
+}
+
+/** Pin the voice. Returns the NORMALIZED value the switch actually took. */
+export function setLogTheme(raw) {
+  _logTheme = normalizeLogTheme(raw);
+  return _logTheme;
+}
+
+/**
+ * Read the stored voice and flip the tongue. Throttled to once per 5s unless
+ * `force` (the TTL is measured against the last READ, not the last change).
+ * A throwing or unreadable store never wedges the voice — it keeps speaking.
+ */
+export async function refreshLogTheme({ force = false } = {}) {
+  const now = Date.now();
+  if (!force && now - _lastThemeReadAt < THEME_REFRESH_MS) return _logTheme;
+  _lastThemeReadAt = now;
+  try {
+    const { getSettings } = await import("@/lib/db/repos/settingsRepo.js");
+    const settings = await getSettings();
+    const stored = settings?.logTheme;
+    if (stored !== undefined && stored !== null && String(stored).trim() !== "") {
+      _logTheme = normalizeLogTheme(stored);
+    }
+  } catch {
+    // fail-open: the last voice stands
+  }
+  return _logTheme;
+}
+
+/** A glyph, spoken only when the tongue is themed. */
+function voice(glyph) {
+  return _logTheme === LOG_THEMES.PLAIN ? "" : glyph;
+}
+
+/** A realm line, dressed in the voice in force: "[mark TAG] message". */
+function dress(tag, message, data) {
+  const body = `${message}${kv(data)}`;
+  if (_logTheme === LOG_THEMES.PLAIN) return `[${stripTheme(tag)}] ${stripTheme(body)}`;
+  return `[${voice(realmOf(tag).mark)}${voice(realmOf(tag).mark) ? " " : ""}${tag}] ${body}`;
+}
+
+/** The realm's banner, through the same funnel as every other line. */
+export function banner(tag, message) {
+  const head = _logTheme === LOG_THEMES.PLAIN ? stripTheme(bannerOf(tag)) : bannerOf(tag);
+  const body = _logTheme === LOG_THEMES.PLAIN ? stripTheme(message) : String(message ?? "");
+  emit("log", LVL.info, `[${formatTime()}] ${head} ${body}`);
+}
+
 
 function formatTime() {
   return new Date().toLocaleTimeString("en-US", { hour12: false });
@@ -95,25 +166,25 @@ export function fmtThink(intent) {
 // classifier to recover a severity it already knows.
 export function debug(tag, message, data) {
   if (LEVEL <= LOG_LEVELS.DEBUG) {
-    emit("log", LVL.debug, `[${formatTime()}] 🔍 [${tag}] ${message}${kv(data)}`);
+    emit("log", LVL.debug, `[${formatTime()}] ${voice("🔍")} ${dress(tag, message, data)}`);
   }
 }
 
 export function info(tag, message, data) {
   if (LEVEL <= LOG_LEVELS.INFO) {
-    emit("log", LVL.info, `[${formatTime()}] ℹ️  [${tag}] ${message}${kv(data)}`);
+    emit("log", LVL.info, `[${formatTime()}] ${voice("ℹ️")} ${dress(tag, message, data)}`);
   }
 }
 
 export function warn(tag, message, data) {
   if (LEVEL <= LOG_LEVELS.WARN) {
-    emit("warn", LVL.warn, `[${formatTime()}] ⚠️  [${tag}] ${message}${kv(data)}`);
+    emit("warn", LVL.warn, `[${formatTime()}] ${voice("⚠️")} ${dress(tag, message, data)}`);
   }
 }
 
 export function error(tag, message, data) {
   if (LEVEL <= LOG_LEVELS.ERROR) {
-    emit("log", LVL.error, `[${formatTime()}] ❌ [${tag}] ${message}${kv(data)}`);
+    emit("log", LVL.error, `[${formatTime()}] ${voice("❌")} ${dress(tag, message, data)}`);
   }
 }
 
@@ -128,7 +199,8 @@ export function response(status, duration, extra) {
 }
 
 export function stream(event, data) {
-  console.log(`[${formatTime()}] 🌊 [STREAM] ${event}${kv(data)}`);
+  const line = `[${formatTime()}] ${voice("🌊") !== "" ? "🌊 " : ""}[STREAM] ${event}${kv(data)}`;
+  console.log(_logTheme === LOG_THEMES.PLAIN ? stripTheme(line) : line);
 }
 
 // Mask sensitive data

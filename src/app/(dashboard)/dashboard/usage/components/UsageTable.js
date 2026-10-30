@@ -1,5 +1,6 @@
 "use client";
 
+import { logger } from "@/lib/clientLogger.js";
 import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
 import PropTypes from "prop-types";
 import Card from "@/shared/components/Card";
@@ -115,7 +116,7 @@ export default function UsageTable({
       const saved = localStorage.getItem(storageKey);
       if (saved) setExpanded(new Set(JSON.parse(saved)));
     } catch (e) {
-      console.error(`Failed to load ${storageKey}:`, e);
+      logger.error("USAGE", ("Failed to load " + (storageKey) + ":"), e);
     }
   }, [storageKey]);
 
@@ -124,7 +125,7 @@ export default function UsageTable({
     try {
       localStorage.setItem(storageKey, JSON.stringify([...expanded]));
     } catch (e) {
-      console.error(`Failed to save ${storageKey}:`, e);
+      logger.error("USAGE", ("Failed to save " + (storageKey) + ":"), e);
     }
   }, [expanded, storageKey]);
 

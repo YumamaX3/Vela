@@ -5,6 +5,7 @@ import { getServerCredentials } from "../config/index.js";
 import { startLocalServer } from "../utils/server.js";
 import { generatePKCE } from "../utils/pkce.js";
 import { spinner as createSpinner } from "../utils/ui.js";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * Codex (OpenAI) OAuth Service
@@ -91,8 +92,8 @@ export class CodexService extends OAuthService {
       // Build authorization URL
       const authUrl = this.buildCodexAuthUrl(redirectUri, state, codeChallenge);
 
-      console.log("\nOpening browser for OpenAI authentication...");
-      console.log(`If browser doesn't open, visit:\n${authUrl}\n`);
+      log.info("OAUTH", "\nOpening browser for OpenAI authentication...");
+      log.info("OAUTH", `If browser doesn't open, visit:\n${authUrl}\n`);
 
       // Open browser
       await open(authUrl);

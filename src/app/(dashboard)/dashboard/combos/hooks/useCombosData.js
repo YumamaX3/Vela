@@ -2,6 +2,7 @@
 
 // The combos deck's data current: one bootstrap load, one hub, one set of
 // mutations. Components never fetch — they call these.
+import { logger } from "@/lib/clientLogger.js";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   bulkCombo,
@@ -38,7 +39,7 @@ export function useCombosData({ hours = 24 } = {}) {
       setServerStats(fleet.serverStats);
       setError(fleet.ok ? null : "The fleet could not be read.");
     } catch (err) {
-      console.log("Error fetching combos:", err);
+      logger.error("USECOMBOSDATA", "Error fetching combos:", "USECOMBOSDATA", err);
       setError("The fleet could not be read.");
     } finally {
       setLoading(false);

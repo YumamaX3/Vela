@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { enableTunnel } from "@/lib/tunnel";
 import { getSettings } from "@/lib/localDb";
 import { configureTunnelMonitoring } from "@/shared/services/initializeApp";
+import * as log from "@/sse/utils/logger.js";
 
 const DNS_WARMUP_DELAY_MS = 8000;
 
@@ -10,12 +11,12 @@ export async function POST() {
     const result = await enableTunnel();
     getSettings()
       .then(configureTunnelMonitoring)
-      .catch((error) => console.warn("Tunnel monitor start failed:", error.message));
+      .catch((error) => log.warn("TUNNEL", "Tunnel monitor start failed:", error.message));
     // Wait for DNS warmup to propagate at Cloudflare edge after tunnel registered
     await new Promise((r) => setTimeout(r, DNS_WARMUP_DELAY_MS));
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Tunnel enable error:", error);
+    log.error("TUNNEL", "Tunnel enable error:", (error?.message ?? error));
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

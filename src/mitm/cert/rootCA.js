@@ -2,6 +2,7 @@ const path = require("path");
 const fs = require("fs");
 const forge = require("node-forge");
 const { MITM_DIR } = require("../paths");
+const { log } = require("../logger");
 
 const ROOT_CA_KEY_PATH = path.join(MITM_DIR, "rootCA.key");
 const ROOT_CA_CERT_PATH = path.join(MITM_DIR, "rootCA.crt");
@@ -26,11 +27,11 @@ function isCertExpired(certPath) {
 function generateRootCA() {
   const exists = fs.existsSync(ROOT_CA_KEY_PATH) && fs.existsSync(ROOT_CA_CERT_PATH);
   if (exists && !isCertExpired(ROOT_CA_CERT_PATH)) {
-    console.log("✅ Root CA already exists");
+    log("✅ Root CA already exists");
     return { key: ROOT_CA_KEY_PATH, cert: ROOT_CA_CERT_PATH };
   }
   if (exists) {
-    console.log("🔐 Root CA expired or expiring soon — regenerating...");
+    log("🔐 Root CA expired or expiring soon — regenerating...");
     try { fs.unlinkSync(ROOT_CA_KEY_PATH); } catch { /* ignore */ }
     try { fs.unlinkSync(ROOT_CA_CERT_PATH); } catch { /* ignore */ }
   }
@@ -39,7 +40,7 @@ function generateRootCA() {
     fs.mkdirSync(MITM_DIR, { recursive: true });
   }
 
-  console.log("🔐 Generating Root CA certificate...");
+  log("🔐 Generating Root CA certificate...");
 
   // Generate RSA key pair
   const keys = forge.pki.rsa.generateKeyPair(2048);
@@ -88,7 +89,7 @@ function generateRootCA() {
   fs.writeFileSync(ROOT_CA_KEY_PATH, privateKeyPem);
   fs.writeFileSync(ROOT_CA_CERT_PATH, certPem);
 
-  console.log("✅ Root CA generated successfully");
+  log("✅ Root CA generated successfully");
   return { key: ROOT_CA_KEY_PATH, cert: ROOT_CA_CERT_PATH };
 }
 

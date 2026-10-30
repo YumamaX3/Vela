@@ -32,6 +32,7 @@
  * directly removes one indirection from a route whose whole job is now to call
  * it. `auth.js:3` was converted the same way during Wave 0.
  */
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { checkAllPools } from "@/lib/network/proxyFleet.js";
 
@@ -64,7 +65,7 @@ export async function POST(request) {
     // PROVEN dead rather than "not ok".
     return NextResponse.json(result);
   } catch (err) {
-    console.error("[bulk-health]", err.message);
+    log.error("PROXYPOOLS", "bulk-health:", err.message);
     return NextResponse.json({ error: "health check failed" }, { status: 500 });
   }
 }

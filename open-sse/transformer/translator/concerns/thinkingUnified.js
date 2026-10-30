@@ -2,9 +2,9 @@
 // Config-driven: thinking format/limits come from capabilities.js + registry transport,
 // never hardcoded per-model here. See .docs/thinking/plan.md MATRIX VI-A.
 
-import { getCapabilitiesForModel } from "../../providers/capabilities.js";
-import { getThinkingLevels } from "../../providers/thinkingLevels.js";
-import { PROVIDERS } from "../../providers/index.js";
+import { getCapabilitiesForModel } from "../../../providers/capabilities.js";
+import { getThinkingLevels } from "../../../providers/thinkingLevels.js";
+import { PROVIDERS } from "../../../providers/index.js";
 import { LEVEL_TO_BUDGET, budgetToLevel, effortToBudget, effortToThinkingLevel } from "./thinking.js";
 
 // Map a target wire-format to its native thinking format (when capability has none).

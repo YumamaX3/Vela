@@ -1,7 +1,7 @@
 // Claude tool type default self-check.
 // Run: node open-sse/utils/claudeToolTypeSelfCheck.mjs
 // No framework, no deps. Uses assert. Mirrors toolPairingSelfCheck.mjs style.
-import { defaultClaudeToolType } from "../translator/concerns/toolCall.js";
+import { defaultClaudeToolType } from "../transformer/translator/concerns/toolCall.js";
 
 const results = [];
 function run(name, fn) {

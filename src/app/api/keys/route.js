@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getApiKeys, createApiKey, KeyLimitsValidationError, sanitizeCategory } from "@/lib/localDb";
 import { getPlan } from "@/lib/db/repos/plansRepo.js";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export async function GET(request) {
     const page = keys.slice(offset, offset + limit);
     return NextResponse.json({ keys: page, total: keys.length, limit, offset });
   } catch (error) {
-    console.log("Error fetching keys:", error);
+    log.info("KEYS", "Error fetching keys:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch keys" }, { status: 500 });
   }
 }
@@ -81,7 +82,7 @@ export async function POST(request) {
     if (error instanceof KeyLimitsValidationError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    console.log("Error creating key:", error);
+    log.info("KEYS", "Error creating key:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to create key" }, { status: 500 });
   }
 }

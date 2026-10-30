@@ -1,5 +1,6 @@
 "use client";
 
+import { logger } from "@/lib/clientLogger.js";
 import { useState } from "react";
 import PropTypes from "prop-types";
 import { Button } from "@/shared/components";
@@ -112,7 +113,7 @@ export default function PassthroughModelsSection({ providerAlias, modelAliases, 
       await onAddCustomModel(modelId);
       setNewModel("");
     } catch (error) {
-      console.log("Error adding model:", error);
+      logger.error("PROVIDERS", "Error adding model:", "PROVIDERS", error);
     } finally {
       setAdding(false);
     }

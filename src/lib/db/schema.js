@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 23;
+export const SCHEMA_VERSION = 24;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -119,6 +119,10 @@ export const TABLES = {
       category: "TEXT",
       // Plans (migration 023) — the template this key inherits defaults from.
       planId: "TEXT",
+      // Per-key access (migration 024) — the restricted switch and its allow
+      // list, read through the shared fail-closed builder.
+      accessRestricted: "INTEGER DEFAULT 0",
+      accessAllow: "TEXT",
     },
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)",

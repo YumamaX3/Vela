@@ -188,6 +188,25 @@ describe("A · the ordered clear — the SAB settles BEFORE the delete", { timeo
 
   it("the hold releases — a line shipped during the clear is POST-clear evidence, not lost", async () => {
     const mod = await mountShipper();
+    // The same quiet window as the ack case below, and for the same reason: the
+    // worker's ~25 boot frames ride its 250ms drain timer and land in logEvents
+    // AFTER mountShipper() returns, so a settle taken on the instant leaves them
+    // to arrive behind the clear and pollute the ledger.
+    const mod0 = await import("@/lib/logshipper/index.js");
+    const { getAdapter } = await import("@/lib/db/driver.js");
+    const { getLogStore } = await import("@/lib/db/repos/sqlite/logStore.js");
+    await getLogStore();
+    const db = await getAdapter();
+    const count = async () => (await db.all("SELECT COUNT(*) AS n FROM logEvents"))[0].n;
+    for (let i = 0; i < 20; i++) {
+      await mod0.flushLogshipper?.();
+      await new Promise((r) => setTimeout(r, 350)); // > one 250ms worker cadence
+      const before = await count();
+      await new Promise((r) => setTimeout(r, 350));
+      if ((await count()) === before) break;
+    }
+    await db.run("DELETE FROM logEvents");
+
     // Enter the hold exactly as step 1 does, ship one line into it, then run
     // the clear. The held line must surface AFTER the delete, so the ledger
     // ends with it and never with a pre-clear row.
@@ -206,6 +225,38 @@ describe("A · the ordered clear — the SAB settles BEFORE the delete", { timeo
 
   it("the DELETE's ack carries the row count the audit row will record", async () => {
     await mountShipper();
+    // The suite's boot is a REAL worker against a REAL temp SQLite, and the
+    // migration chain emits ~24 "[DB][migrate] applied #N" lines through
+    // logger.info → emitLeveledConsole → the ring, which the worker drains
+    // into logEvents. They are the boot's own sediment, not this case's cargo,
+    // and a DELETE that counted them would ack 28 instead of 4.
+    //
+    // Those boot frames ride the worker's 250ms drain timer, so they land in
+    // logEvents AFTER mountShipper() returns. Any sweep that runs on the
+    // instant is too early — it finds 0, and the next tick carries all ~24
+    // rows in behind it (measured at every door: flush ack n=0, clear 0, or a
+    // main-adapter DELETE on a different connection). So we do not sweep on an
+    // instant at all — we wait for the water to go QUIET.
+    const mod0 = await import("@/lib/logshipper/index.js");
+    // Settle to quiet: flush, then require the ledger row count to hold steady
+    // across one worker cadence (250ms) + margin before we sweep and seed.
+    const { getAdapter } = await import("@/lib/db/driver.js");
+    const { getLogStore } = await import("@/lib/db/repos/sqlite/logStore.js");
+    await getLogStore();
+    const db = await getAdapter();
+    const count = async () => (await db.all("SELECT COUNT(*) AS n FROM logEvents"))[0].n;
+    for (let i = 0; i < 20; i++) {
+      await mod0.flushLogshipper?.();
+      await new Promise((r) => setTimeout(r, 350)); // > one 250ms worker cadence
+      const before = await count();
+      await new Promise((r) => setTimeout(r, 350));
+      if ((await count()) === before) break;
+    }
+    // Only once the count holds across a full cadence is the deck still: every
+    // late boot frame has already shipped, so this DELETE removes sediment and
+    // nothing that this case seeded — the ack that follows is THIS cargo's.
+    await db.run("DELETE FROM logEvents");
+
     await seedDirect(["one", "two", "three", "four"]);
 
     const { runOrderedClear } = await import("@/lib/logshipper/clear.js");

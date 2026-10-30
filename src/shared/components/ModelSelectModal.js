@@ -22,6 +22,7 @@
 // Prop contract preserved — every existing call site (basic-chat, combos,
 // providers, endpoint, media-providers) keeps working unchanged.
 
+import { logger } from "@/lib/clientLogger.js";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import PropTypes from "prop-types";
 import Modal from "./Modal";
@@ -229,7 +230,7 @@ export default function ModelSelectModal({
       })
       .catch((error) => {
         // Do not hide the static fallback when the account catalog is unavailable.
-        console.warn("Unable to load Cursor models for selector:", error);
+        logger.warn("MODELS", "Unable to load Cursor models for selector:", error);
         if (!cancelled) setCursorModels([]);
       });
 
@@ -251,26 +252,26 @@ export default function ModelSelectModal({
         fetch("/api/combos", { cache: "no-store" })
           .then((r) => r.ok ? r.json() : Promise.reject(new Error(`combos ${r.status}`)))
           .then((d) => { if (!cancelled) setCombos(d.combos || []); })
-          .catch((e) => { if (!cancelled) { setCombos([]); console.error("combos:", e); } })
+          .catch((e) => { if (!cancelled) { setCombos([]); logger.error("MODELS", "combos:", e); } })
       );
     }
     tasks.push(
       fetch("/api/provider-nodes", { cache: "no-store" })
         .then((r) => r.ok ? r.json() : Promise.reject(new Error(`nodes ${r.status}`)))
         .then((d) => { if (!cancelled) setProviderNodes(d.nodes || []); })
-        .catch((e) => { if (!cancelled) { setProviderNodes([]); console.error("nodes:", e); } })
+        .catch((e) => { if (!cancelled) { setProviderNodes([]); logger.error("MODELS", "nodes:", e); } })
     );
     tasks.push(
       fetch("/api/models/custom", { cache: "no-store" })
         .then((r) => r.ok ? r.json() : Promise.reject(new Error(`custom ${r.status}`)))
         .then((d) => { if (!cancelled) setCustomModels(d.models || []); })
-        .catch((e) => { if (!cancelled) { setCustomModels([]); console.error("custom:", e); } })
+        .catch((e) => { if (!cancelled) { setCustomModels([]); logger.error("MODELS", "custom:", e); } })
     );
     tasks.push(
       fetch("/api/models/disabled", { cache: "no-store" })
         .then((r) => r.ok ? r.json() : Promise.reject(new Error(`disabled ${r.status}`)))
         .then((d) => { if (!cancelled) setDisabledModels(d.disabled || {}); })
-        .catch((e) => { if (!cancelled) { setDisabledModels({}); console.error("disabled:", e); } })
+        .catch((e) => { if (!cancelled) { setDisabledModels({}); logger.error("MODELS", "disabled:", e); } })
     );
 
     Promise.allSettled(tasks).then(() => {

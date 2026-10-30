@@ -1,10 +1,11 @@
 import { convertResponsesStreamToJson } from "../../transformer/streamToJsonConverter.js";
 import { createErrorResult } from "../../utils/error.js";
 import { HTTP_STATUS } from "../../config/runtimeConfig.js";
-import { FORMATS } from "../../translator/formats.js";
+import { FORMATS } from "../../transformer/translator/formats.js";
 import { PROVIDERS } from "../../config/providers.js";
 import { buildRequestDetail, extractRequestConfig, saveUsageStats, formatDoneLine } from "./requestDetail.js";
-import { ROLE, RESPONSES_ITEM } from "../../translator/schema/index.js";
+import { ROLE, RESPONSES_ITEM } from "../../transformer/translator/schema/index.js";
+import * as keeperLog from "../../../src/sse/utils/logger.js";
 
 // Responses-API providers (e.g. codex) may emit SSE without content-type + use Responses output shape
 const isResponsesProvider = (p) => PROVIDERS[p]?.format === FORMATS.OPENAI_RESPONSES;
@@ -285,7 +286,7 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
 
       return { success: true, response: new Response(JSON.stringify(finalResp), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }) };
     } catch (err) {
-      console.error("[ChatCore] Responses API SSE→JSON failed:", err);
+      keeperLog.error("STREAM", "Responses API SSE→JSON failed:", (err?.message ?? err));
       return createErrorResult(HTTP_STATUS.BAD_GATEWAY, "Failed to convert streaming response to JSON");
     }
   }
@@ -357,7 +358,7 @@ export async function handleForcedSSEToJson({ providerResponse, sourceFormat, ta
 
     return { success: true, response: new Response(JSON.stringify(finalBody), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }) };
   } catch (err) {
-    console.error("[ChatCore] Chat Completions SSE→JSON failed:", err);
+    keeperLog.error("STREAM", "Chat Completions SSE→JSON failed:", (err?.message ?? err));
     return createErrorResult(HTTP_STATUS.BAD_GATEWAY, "Failed to convert streaming response to JSON");
   }
 }

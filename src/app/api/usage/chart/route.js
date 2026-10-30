@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getChartData } from "@/lib/usageDb";
+import * as log from "@/sse/utils/logger.js";
 
 const VALID_PERIODS = new Set(["today", "24h", "7d", "14d", "30d", "60d"]);
 
@@ -15,7 +16,7 @@ export async function GET(request) {
     const data = await getChartData(period);
     return NextResponse.json(data);
   } catch (error) {
-    console.error("[API] Failed to get chart data:", error);
+    log.error("USAGE", "Failed to get chart data:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch chart data" }, { status: 500 });
   }
 }

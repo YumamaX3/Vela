@@ -134,6 +134,9 @@ function rebuildShadow(shadow, payload) {
     budgetScope: k.budgetScope ?? null, rateLimitRpm: k.rateLimitRpm ?? null,
     ipAllowlist: k.ipAllowlist ?? null, category: k.category ?? null,
     planId: k.planId ?? null,
+    // Migration 024 — per-key access columns; the rebuild mapping must carry
+    // them or the twin's fingerprint reads phantom drift after every resync.
+    accessRestricted: k.accessRestricted ?? 0, accessAllow: k.accessAllow ?? null,
   }));
   shadow.combos = (payload.combos || []).map((c) => ({
     id: c.id, name: c.name, kind: c.kind || null, models: JSON.stringify(c.models || []),

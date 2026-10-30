@@ -8,6 +8,7 @@ import {
 } from "@/lib/localDb";
 import { validateKeyLimits } from "@/lib/db/keyLimits.js";
 import { readJsonBody } from "../_lib/keysApi.js";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -129,7 +130,7 @@ export async function POST(request) {
       results,
     });
   } catch (error) {
-    console.log("Error in bulk key operation:", error);
+    log.info("KEYS", "Error in bulk key operation:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to apply bulk key operation" }, { status: 500 });
   }
 }

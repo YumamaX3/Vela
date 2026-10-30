@@ -1,4 +1,5 @@
 "use server";
+import * as log from "@/sse/utils/logger.js";
 
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
@@ -112,7 +113,7 @@ export async function GET() {
       settingsPath: getClaudeSettingsPath(),
     });
   } catch (error) {
-    console.log("Error checking claude settings:", error);
+    log.info("CLITOOLS", "Error checking claude settings:", (error?.message ?? error));
     return NextResponse.json(
       { error: "Failed to check claude settings" },
       { status: 500 }
@@ -188,7 +189,7 @@ export async function POST(request) {
       message: "Settings updated successfully",
     });
   } catch (error) {
-    console.log("Error updating claude settings:", error);
+    log.info("CLITOOLS", "Error updating claude settings:", (error?.message ?? error));
     return NextResponse.json(
       { error: "Failed to update claude settings" },
       { status: 500 }
@@ -250,7 +251,7 @@ export async function DELETE() {
       message: "Settings reset successfully",
     });
   } catch (error) {
-    console.log("Error resetting claude settings:", error);
+    log.info("CLITOOLS", "Error resetting claude settings:", (error?.message ?? error));
     return NextResponse.json(
       { error: "Failed to reset claude settings" },
       { status: 500 }

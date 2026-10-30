@@ -1,8 +1,8 @@
 import { register } from "../index.js";
 import { FORMATS } from "../formats.js";
-import { DEFAULT_THINKING_AG_SIGNATURE, DEFAULT_THINKING_GEMINI_CLI_SIGNATURE } from "../../config/defaultThinkingSignature.js";
+import { DEFAULT_THINKING_AG_SIGNATURE, DEFAULT_THINKING_GEMINI_CLI_SIGNATURE } from "../../../config/defaultThinkingSignature.js";
 import { openaiToClaudeRequestForAntigravity } from "./openai-to-claude.js";
-import { getGeminiThoughtSignatureSync } from "../../services/thoughtSignatureStore.js";
+import { getGeminiThoughtSignatureSync } from "../../../services/thoughtSignatureStore.js";
 function generateUUID() {
   return crypto.randomUUID();
 }
@@ -17,7 +17,7 @@ import {
   generateProjectId,
   cleanJSONSchemaForAntigravity
 } from "../formats/gemini.js";
-import { deriveSessionId, toNumericSessionId } from "../../utils/sessionManager.js";
+import { deriveSessionId, toNumericSessionId } from "../../../utils/sessionManager.js";
 import { ROLE, GEMINI_ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index.js";
 
 // Sanitize function names for Gemini API.

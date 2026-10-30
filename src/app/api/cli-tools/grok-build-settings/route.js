@@ -1,4 +1,5 @@
 "use server";
+import * as log from "@/sse/utils/logger.js";
 
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
@@ -91,7 +92,7 @@ export async function GET() {
       configPath: getGrokConfigPath(),
     });
   } catch (error) {
-    console.log("Error checking grok-build settings:", error);
+    log.info("CLITOOLS", "Error checking grok-build settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to check grok-build settings" }, { status: 500 });
   }
 }
@@ -123,7 +124,7 @@ export async function POST(request) {
       modelSlot: "Vela",
     });
   } catch (error) {
-    console.log("Error updating grok-build settings:", error);
+    log.info("CLITOOLS", "Error updating grok-build settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to update grok-build settings" }, { status: 500 });
   }
 }
@@ -147,7 +148,7 @@ export async function DELETE() {
       message: "Vela model slots removed from Grok Build",
     });
   } catch (error) {
-    console.log("Error resetting grok-build settings:", error);
+    log.info("CLITOOLS", "Error resetting grok-build settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to reset grok-build settings" }, { status: 500 });
   }
 }

@@ -35,7 +35,7 @@ vi.mock("@/shared/constants/providers.js", () => ({
   FREE_TIER_PROVIDERS: { zen: { noAuth: true }, "plain-tier": {} },
   resolveProviderId: (p) => p,
 }));
-vi.mock("@/sse/utils/logger.js", () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn() }));
+vi.mock("@/sse/utils/logger.js", () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }));
 
 const { getProviderCredentials } = await import("../../src/sse/services/auth.js");
 const { resolveConnectionProxyConfig } = await import("@/lib/network/connectionProxy");

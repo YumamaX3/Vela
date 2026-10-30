@@ -1,5 +1,6 @@
 "use client";
 
+import { logger } from "@/lib/clientLogger.js";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -49,7 +50,7 @@ function CallbackContent() {
           window.opener.postMessage({ type: "oauth_callback", data: callbackData }, origin);
           relayed = true;
         } catch (e) {
-          console.log("postMessage failed:", e);
+          logger.info("AUTH", "postMessage failed:", e);
         }
       }
     }
@@ -61,7 +62,7 @@ function CallbackContent() {
       channel.close();
       relayed = true;
     } catch (e) {
-      console.log("BroadcastChannel failed:", e);
+      logger.info("AUTH", "BroadcastChannel failed:", e);
     }
 
     // Method 3: localStorage event (fallback)
@@ -69,7 +70,7 @@ function CallbackContent() {
       localStorage.setItem("oauth_callback", JSON.stringify({ ...callbackData, timestamp: Date.now() }));
       relayed = true;
     } catch (e) {
-      console.log("localStorage failed:", e);
+      logger.info("AUTH", "localStorage failed:", e);
     }
 
     if (!(code || token || error)) {

@@ -2,8 +2,8 @@
 // without throwing, correct upstreamId, strip applied. Data-driven → new providers auto-covered.
 import { describe, it, expect } from "vitest";
 import "./registerAll.js";
-import { translateRequest } from "../../open-sse/translator/index.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
+import { translateRequest } from "../../open-sse/transformer/translator/index.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
 import { buildProviderGroups, buildModelMatrix, resolveTargetFormat } from "./matrix.js";
 
 // Base OpenAI-format request with text + tool + image (exercises strip + tool paths)

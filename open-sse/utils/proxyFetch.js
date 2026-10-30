@@ -27,6 +27,7 @@ import { relayAuthHeaders } from "../../src/lib/network/relayTemplate.js";
 // key AND the construction argument, both of which need the real credentials.
 // Relative for the same dual-loader reason documented above.
 import { maskProxyUrlForRead } from "../../src/lib/db/repos/proxyRedaction.js";
+import * as log from "../../src/sse/utils/logger.js";
 
 const originalFetch = globalThis.fetch;
 const proxyDispatchers = new Map();
@@ -47,7 +48,7 @@ async function getGotScraping() {
     _gotScraping = typeof mod.gotScraping === "function" ? mod.gotScraping : null;
     if (_gotScraping) dbg("TLS", "got-scraping loaded (browser-like JA3 enabled)");
   } catch (e) {
-    console.warn(`[ProxyFetch] got-scraping unavailable, falling back to native fetch: ${e.message}`);
+    log.warn("STREAM", `[ProxyFetch] got-scraping unavailable, falling back to native fetch: ${e.message}`);
     _gotScraping = null;
   }
   return _gotScraping;
@@ -117,7 +118,7 @@ async function tryGotScrapingFetch(url, options) {
     }
     return res;
   } catch (e) {
-    console.warn(`[ProxyFetch] got-scraping request failed, fallback to native fetch: ${e.message}`);
+    log.warn("STREAM", `[ProxyFetch] got-scraping request failed, fallback to native fetch: ${e.message}`);
     return null;
   }
 }
@@ -269,7 +270,7 @@ async function resolveRealIP(hostname) {
     DNS_CACHE.set(hostname, { ip: addresses[0], expiry: Date.now() + MEMORY_CONFIG.dnsCacheTtlMs });
     return addresses[0];
   } catch (error) {
-    console.warn(`[ProxyFetch] DNS resolve failed for ${hostname}:`, error.message);
+    log.warn("STREAM", `[ProxyFetch] DNS resolve failed for ${hostname}:`, error.message);
     return null;
   }
 }
@@ -559,7 +560,7 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
         if (proxyOptions?.strictProxy === true) {
           throw new Error(`[ProxyFetch] Proxy required but failed (strictProxy=true): ${proxyError.message}`);
         }
-        console.warn(`[ProxyFetch] Proxy failed, falling back to direct bypass: ${proxyError.message}`);
+        log.warn("STREAM", `[ProxyFetch] Proxy failed, falling back to direct bypass: ${proxyError.message}`);
       }
     }
     // No proxy — manually resolve real IP to bypass DNS spoof
@@ -568,7 +569,7 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
       const realIP = await resolveRealIP(parsedUrl.hostname);
       if (realIP) return await createBypassRequest(parsedUrl, realIP, options);
     } catch (error) {
-      console.warn(`[ProxyFetch] MITM bypass failed: ${error.message}`);
+      log.warn("STREAM", `[ProxyFetch] MITM bypass failed: ${error.message}`);
     }
   }
 
@@ -581,7 +582,7 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
       if (proxyOptions?.strictProxy === true) {
         throw new Error(`[ProxyFetch] Proxy required but failed (strictProxy=true): ${proxyError.message}`);
       }
-      console.warn(`[ProxyFetch] Proxy failed, falling back to direct: ${proxyError.message}`);
+      log.warn("STREAM", `[ProxyFetch] Proxy failed, falling back to direct: ${proxyError.message}`);
       return originalFetch(url, options);
     }
   }

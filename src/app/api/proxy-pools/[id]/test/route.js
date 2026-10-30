@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getProxyPoolById, updateProxyPool } from "@/models";
 import { testPoolReachability } from "@/lib/network/proxyTest";
+import * as log from "@/sse/utils/logger.js";
 
 // POST /api/proxy-pools/[id]/test - Test proxy pool entry
 //
@@ -59,7 +60,7 @@ export async function POST(request, { params }) {
       activeStateChanged: Object.prototype.hasOwnProperty.call(updates, "isActive"),
     });
   } catch (error) {
-    console.log("Error testing proxy pool:", error);
+    log.info("PROXYPOOLS", "Error testing proxy pool:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to test proxy pool" }, { status: 500 });
   }
 }

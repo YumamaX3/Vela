@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +52,7 @@ export async function GET() {
     profiles.sort((a, b) => a.name.localeCompare(b.name));
     return NextResponse.json({ profiles });
   } catch (error) {
-    console.error("Error reading codex profiles:", error);
+    log.error("CLITOOLS", "Error reading codex profiles:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to read profiles" }, { status: 500 });
   }
 }
@@ -90,7 +91,7 @@ export async function POST(request) {
       },
     });
   } catch (error) {
-    console.error("Error saving codex profile:", error);
+    log.error("CLITOOLS", "Error saving codex profile:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to save profile" }, { status: 500 });
   }
 }
@@ -117,7 +118,7 @@ export async function DELETE(request) {
 
     return NextResponse.json({ success: true, message: `Profile ${cleanName} deleted` });
   } catch (error) {
-    console.error("Error deleting codex profile:", error);
+    log.error("CLITOOLS", "Error deleting codex profile:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to delete profile" }, { status: 500 });
   }
 }

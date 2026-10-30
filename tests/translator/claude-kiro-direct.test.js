@@ -3,8 +3,8 @@
 // OpenAI pivot, and that the "Improperly formed request" 400-guards survive.
 import { describe, it, expect } from "vitest";
 import "./registerAll.js";
-import { translateRequest, translateResponse } from "../../open-sse/translator/index.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
+import { translateRequest, translateResponse } from "../../open-sse/transformer/translator/index.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
 
 const C2K = (body, credentials = null, model = "claude-sonnet-4.5") =>
   translateRequest(FORMATS.CLAUDE, FORMATS.KIRO, model, body, true, credentials, "kiro");

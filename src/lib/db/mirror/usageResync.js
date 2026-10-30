@@ -29,6 +29,7 @@ import {
   fetchUsageDailyForTimestamps,
   fetchTotalRequestsLifetime,
 } from "../repos/sqlite/usageResyncRepo.js";
+import * as log from "@/sse/utils/logger.js";
 
 function envInt(name, fallback) {
   const v = parseInt(process.env[name], 10);
@@ -121,7 +122,7 @@ async function tick() {
     // serving; the pass retries next tick and redelivery is a no-op.
     g.degraded = true;
     g.lastError = e?.message || String(e);
-    console.warn(`[mirror] usage resync failed (fail-open): ${g.lastError}`);
+    log.warn("DB", `[mirror] usage resync failed (fail-open): ${g.lastError}`);
   } finally {
     g.running = false;
     if (!g.stopped) {

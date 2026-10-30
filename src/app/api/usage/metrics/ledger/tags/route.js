@@ -15,6 +15,7 @@
 // allow-list (requestTagDef.js), parameterized SQL (the repo twins), and
 // escape-on-render + CSV safety (React escaping + the export's csvCell).
 // Plan: plans/mirror-usage-observatory/SEALED-PLAN.md (W4 EXPERIMENTAL).
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { setUsageTags } from "@/lib/db/repos/usageTagsRepo.js";
 import { validateTagSet, MAX_TAGS_PER_REQUEST } from "@/lib/requestTagDef.js";
@@ -47,7 +48,7 @@ export async function PUT(request) {
     const stored = await setUsageTags(id, tags);
     return NextResponse.json({ id, tags: stored });
   } catch (error) {
-    console.error("[API] usage/metrics/ledger/tags PUT failed:", error);
+    log.error("USAGE", "usage/metrics/ledger/tags PUT failed:", (error?.message ?? error));
     return errorResponse(500, "Failed to save tags");
   }
 }

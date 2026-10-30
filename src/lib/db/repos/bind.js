@@ -97,7 +97,7 @@ const CONFIG_WAVE_NAMES = new Set([
 const SECURITY_WAVE_NAMES = new Set([
   // apiKeysRepo
   "sanitizeCategory", "getApiKeys", "getApiKeyById", "createApiKey", "updateApiKey",
-  "deleteApiKey", "resolveKey", "validateApiKey", "ensureInternalKey",
+  "deleteApiKey", "resolveKey", "validateApiKey", "ensureInternalKey", "getApiKeyByKey",
   // disabledModelsRepo
   "getDisabledModels", "getDisabledByProvider", "disableModels", "enableModels",
   // pricingRepo

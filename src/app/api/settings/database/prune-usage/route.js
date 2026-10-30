@@ -1,5 +1,6 @@
 // POST /api/settings/database/prune-usage — drop usage rows older than N days.
 // Port of 9router-go `HandlePruneUsageHistory` (dry-run supported).
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { authorizeMaintenance, readJsonBody } from "@/lib/maintenanceAuth.js";
 import { pruneUsage } from "@/lib/db/repos/sqlite/maintenanceRepo.js";
@@ -17,7 +18,7 @@ export async function POST(request) {
     }
     return NextResponse.json(await pruneUsage({ days, dryRun }));
   } catch (error) {
-    console.error("[Database] Failed to prune usage:", error);
+    log.error("SETTINGS", "Failed to prune usage:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to prune usage history" }, { status: 500 });
   }
 }

@@ -13,6 +13,7 @@ import { resolveConnectionProxyConfig, buildProxyOptionsPayload } from "@/lib/ne
 import { resolveCursorModels } from "open-sse/services/cursorModels.js";
 import { resolveZedModels } from "open-sse/shared/zedAuth.js";
 import { resolveClinepassModels } from "open-sse/services/clinepassModels.js";
+import * as log from "@/sse/utils/logger.js";
 
 const GEMINI_CLI_MODELS_URL = "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels";
 
@@ -118,11 +119,11 @@ const buildOAuthResolver = ({ refreshFn, fetchFn, parseFn, errorLabel }) => asyn
     } else {
       const errorText = await response.text();
       warning = `${errorLabel}: ${response.status} ${errorText}`;
-      console.log(`${errorLabel} (falling back to static):`, errorText);
+      log.info("PROVIDERS", `${errorLabel} (falling back to static):`, errorText);
     }
   } catch (error) {
     warning = `${errorLabel}: ${error.message}`;
-    console.log(`${errorLabel} (falling back to static):`, error.message);
+    log.info("PROVIDERS", `${errorLabel} (falling back to static):`, error.message);
   }
   return { models: [], warning };
 };
@@ -321,7 +322,7 @@ const PROVIDER_MODELS_CONFIG = {
         if (models.length > 0) return { models };
         return { models: [], warning: "Zed returned no live models." };
       } catch (error) {
-        console.log("Failed to fetch Zed models dynamically:", error.message);
+        log.info("PROVIDERS", "Failed to fetch Zed models dynamically:", error.message);
         return { models: [], warning: `Failed to fetch Zed models: ${error.message}` };
       }
     },
@@ -367,7 +368,7 @@ const PROVIDER_MODELS_CONFIG = {
         warning = "Kiro returned no models; falling back to static catalog.";
       } catch (error) {
         warning = `Failed to fetch Kiro models: ${error.message}`;
-        console.log("Failed to fetch Kiro models dynamically, falling back to static:", error.message);
+        log.info("PROVIDERS", "Failed to fetch Kiro models dynamically, falling back to static:", error.message);
       }
       return { models: [], warning };
     }
@@ -403,7 +404,7 @@ const PROVIDER_MODELS_CONFIG = {
         warning = "Qoder returned no models; falling back to static catalog.";
       } catch (error) {
         warning = `Failed to fetch Qoder models: ${error.message}`;
-        console.log("Failed to fetch Qoder models dynamically, falling back to static:", error.message);
+        log.info("PROVIDERS", "Failed to fetch Qoder models dynamically, falling back to static:", error.message);
       }
       return { models: [], warning };
     },
@@ -461,7 +462,7 @@ const PROVIDER_MODELS_CONFIG = {
       });
       if (!response.ok) {
         const errorText = await response.text();
-        console.log("Error fetching models from ollama-local:", errorText);
+        log.info("PROVIDERS", "Error fetching models from ollama-local:", errorText);
         return { error: `Failed to fetch models: ${response.status}`, status: response.status };
       }
       const data = await response.json();
@@ -498,7 +499,7 @@ export async function GET(request, { params }) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.log(`Error fetching models from ${connection.provider}:`, errorText);
+        log.info("PROVIDERS", `Error fetching models from ${connection.provider}:`, errorText);
         return NextResponse.json(
           { error: `Failed to fetch models: ${response.status}` },
           { status: response.status }
@@ -539,7 +540,7 @@ export async function GET(request, { params }) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.log(`Error fetching models from ${connection.provider}:`, errorText);
+        log.info("PROVIDERS", `Error fetching models from ${connection.provider}:`, errorText);
         return NextResponse.json(
           { error: `Failed to fetch models: ${response.status}` },
           { status: response.status }
@@ -610,7 +611,7 @@ export async function GET(request, { params }) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.log(`Error fetching models from ${connection.provider}:`, errorText);
+      log.info("PROVIDERS", `Error fetching models from ${connection.provider}:`, errorText);
       return NextResponse.json(
         { error: `Failed to fetch models: ${response.status}` },
         { status: response.status }
@@ -626,7 +627,7 @@ export async function GET(request, { params }) {
       models
     });
   } catch (error) {
-    console.log("Error fetching provider models:", error);
+    log.info("PROVIDERS", "Error fetching provider models:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch models" }, { status: 500 });
   }
 }

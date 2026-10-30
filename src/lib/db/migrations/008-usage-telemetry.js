@@ -31,6 +31,7 @@
 //
 // Idempotent on any prior state.
 import { LEGACY_STATUS_MAP } from "../../usageStatus.js";
+import * as log from "@/sse/utils/logger.js";
 
 function hasColumn(db, table, col) {
   const rows = db.all(`PRAGMA table_info(${table})`);
@@ -80,7 +81,7 @@ const migration = {
         if (n === 0) break;
       }
       if (updated > 0) {
-        console.log(`[DB][m008] backfilled statusClass='${cls}' on ${updated} rows (legacy status='${raw}')`);
+        log.info("DB", `[DB][m008] backfilled statusClass='${cls}' on ${updated} rows (legacy status='${raw}')`);
       }
     }
 

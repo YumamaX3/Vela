@@ -39,6 +39,12 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
+    // The DATA_DIR floor: every worker starts pointed at a throwaway harbor,
+    // so a suite that forgets to set DATA_DIR can never write the operator's
+    // real store — and two suites sharing one worker can never fight over one
+    // real single-instance lock (the fitness/storm pairing wound). A suite
+    // that sets its own DATA_DIR in beforeEach overrides this floor.
+    setupFiles: ["./tests/setup/isolate-data-dir.mjs"],
     // .jsx suites opt into happy-dom via a per-file docblock; the default
     // environment stays node so nothing existing shifts.
     include: ["**/*.test.js", "**/*.test.jsx"],

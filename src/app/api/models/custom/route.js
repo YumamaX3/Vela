@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCustomModels, addCustomModel, deleteCustomModel } from "@/models";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,7 @@ export async function GET() {
     const models = await getCustomModels();
     return NextResponse.json({ models });
   } catch (error) {
-    console.log("Error fetching custom models:", error);
+    log.info("MODELS", "Error fetching custom models:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch custom models" }, { status: 500 });
   }
 }
@@ -24,7 +25,7 @@ export async function POST(request) {
     const added = await addCustomModel({ providerAlias, id, type: type || "llm", name });
     return NextResponse.json({ success: true, added });
   } catch (error) {
-    console.log("Error adding custom model:", error);
+    log.info("MODELS", "Error adding custom model:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to add custom model" }, { status: 500 });
   }
 }
@@ -42,7 +43,7 @@ export async function DELETE(request) {
     await deleteCustomModel({ providerAlias, id, type });
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.log("Error deleting custom model:", error);
+    log.info("MODELS", "Error deleting custom model:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to delete custom model" }, { status: 500 });
   }
 }

@@ -7,6 +7,7 @@
  * SSRF gate inside the engine; a refused URL returns a refusal verdict, never a
  * dial. ALWAYS_PROTECTED via the /api/network prefix (dashboardGuard).
  */
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { runDoctor, DOCTOR_DEFAULT_TIMEOUT_MS } from "@/lib/network/networkDoctor.js";
 import { getSettings } from "@/lib/localDb";
@@ -30,7 +31,7 @@ export async function POST(request) {
     const result = await runDoctor({ targets, proxyUrl, timeoutMs: DOCTOR_DEFAULT_TIMEOUT_MS });
     return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    console.error("[API] network/diagnose failed:", error);
+    log.error("API", "network/diagnose failed:", (error?.message ?? error));
     return NextResponse.json({ error: "Diagnostics failed" }, { status: 500 });
   }
 }

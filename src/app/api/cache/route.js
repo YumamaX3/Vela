@@ -4,6 +4,7 @@
 // The prompt-cache metrics/trend live on the usage surface and are not faked
 // here: a field this harbor cannot derive is omitted, never returned as zero
 // pretending to be a measurement.
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { semanticCache } from "@/lib/semanticCache.js";
 import { semanticCacheDbCount, ensureSemanticCacheHydrated } from "@/lib/semanticCacheDb.js";
@@ -20,7 +21,7 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error("[Cache] Failed to read stats:", error);
+    log.error("CACHE", "Failed to read stats:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to read cache stats" }, { status: 500 });
   }
 }
@@ -52,7 +53,7 @@ export async function DELETE(request) {
     semanticCache.clear();
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("[Cache] Failed to invalidate:", error);
+    log.error("CACHE", "Failed to invalidate:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to invalidate cache" }, { status: 500 });
   }
 }

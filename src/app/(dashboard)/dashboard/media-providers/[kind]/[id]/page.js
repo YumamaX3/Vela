@@ -1,5 +1,6 @@
 "use client";
 
+import { logger } from "@/lib/clientLogger.js";
 import { useParams, notFound, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
@@ -27,7 +28,7 @@ export default function MediaProviderDetailPage() {
       const res = await fetch(`/api/provider-nodes/${id}`, { method: "DELETE" });
       if (res.ok) router.push(`/dashboard/media-providers/${kind}`);
     } catch (error) {
-      console.log("Error deleting custom embedding node:", error);
+      logger.error("PROVIDERS", "Error deleting custom embedding node:", "PROVIDERS", error);
     }
   };
 

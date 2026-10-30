@@ -34,7 +34,7 @@ import { getSettings } from "../db/repos/settingsRepo.js";
 import { resolveKey } from "../db/repos/apiKeysRepo.js";
 import { buildStreamErrorBytes } from "open-sse/utils/streamHelpers.js";
 import { buildAbortedResponsesTerminalBytes } from "open-sse/utils/responsesStreamHelpers.js";
-import { FORMATS } from "open-sse/translator/formats.js";
+import { FORMATS } from "open-sse/transformer/translator/formats.js";
 
 export const BLOCK_STATUS = 451;
 export const BLOCKED_INBOUND = "Request blocked by a configured guardrail policy.";

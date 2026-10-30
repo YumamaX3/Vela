@@ -7,8 +7,8 @@
 // Sau refactor chạy lại phải khớp y hệt. Lệch = regression.
 import { describe, it, expect } from "vitest";
 import "./registerAll.js";
-import { translateRequest, translateResponse, initState } from "../../open-sse/translator/index.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
+import { translateRequest, translateResponse, initState } from "../../open-sse/transformer/translator/index.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
 
 // Strip volatile id/created so snapshots are stable across runs.
 function stripVolatile(chunks) {

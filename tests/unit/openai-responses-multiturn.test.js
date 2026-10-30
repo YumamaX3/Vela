@@ -6,9 +6,9 @@ import { describe, it, expect } from "vitest";
 import {
   openaiToOpenAIResponsesRequest,
   openaiResponsesToOpenAIRequest,
-} from "../../open-sse/translator/request/openai-responses.js";
+} from "../../open-sse/transformer/translator/request/openai-responses.js";
 import { GrokCliExecutor, _resetGrokCliTurnStore } from "../../open-sse/executors/grok-cli.js";
-import { translateRequest } from "../../open-sse/translator/index.js";
+import { translateRequest } from "../../open-sse/transformer/translator/index.js";
 
 describe("openai ↔ responses multi-turn reasoning", () => {
   it("openai→responses re-emits reasoning item with summary + encrypted_content", () => {

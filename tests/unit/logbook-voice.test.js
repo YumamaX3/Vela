@@ -43,22 +43,28 @@ describe("logfmt — the tide's arithmetic", () => {
 
 describe("logger printers — one row, inline fields", () => {
   let spy;
-  beforeEach(() => {
+  let log;
+  beforeEach(async () => {
     spy = vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(console, "warn").mockImplementation(() => {});
+    // The printer's terminal output depends on the logbook's VOICE. Pin the
+    // shipped default here; `log-theme.test.js` owns the switch itself.
+    log = await import("../../src/sse/utils/logger.js");
+    log.setLogTheme("themed");
   });
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
   it("info wears the tag, the message, and an inline kv chain", async () => {
-    const log = await import("../../src/sse/utils/logger.js");
     log.info("TOKEN_REFRESH", "renewing credentials ahead of the tide", {
       provider: "cline",
       expiresIn: -3974637,
     });
     const line = spy.mock.calls[spy.mock.calls.length - 1][0];
-    expect(line).toContain("[TOKEN_REFRESH]");
+    // Themed voice: the realm mark rides inside the bracket. The plain
+    // voice keeps the bare "[TOKEN_REFRESH]" — pinned in the test below.
+    expect(line).toContain("[🗝️ TOKEN_REFRESH]");
     expect(line).toContain("renewing credentials ahead of the tide");
     expect(line).toContain("provider=cline");
     expect(line).toContain("expiresIn=-3974637");
@@ -66,12 +72,21 @@ describe("logger printers — one row, inline fields", () => {
     expect(line).not.toMatch(/\{.*\}/);
   });
   it("warn and error keep their channels", async () => {
-    const log = await import("../../src/sse/utils/logger.js");
     log.warn("LOOPGUARD", "a loop in the current");
     expect(console.warn).toHaveBeenCalled();
     const w = console.warn.mock.calls[0][0];
-    expect(w).toContain("[LOOPGUARD]");
+    // An unknown tag takes the GENERIC mark — the quiet bullet.
+    expect(w).toContain("[• LOOPGUARD]");
     expect(w).toContain("a loop in the current");
+    // The plain voice sheds the realm MARK but never the tag itself: the ring's
+    // `extractTags` reads `[TAG]` off the text, so a missing bracket loses the
+    // line's whole correlation in every filter downstream.
+    log.setLogTheme("plain");
+    log.info("TOKEN_REFRESH", "plain tongued");
+    const plainLine = spy.mock.calls[spy.mock.calls.length - 1][0];
+    expect(plainLine).toContain("[TOKEN_REFRESH]");
+    expect(plainLine).not.toMatch(/\p{Extended_Pictographic}/u);
+    log.setLogTheme("themed");
     log.error("E", "stowing credentials broke", { error: "invalid_grant" });
     const e = spy.mock.calls[spy.mock.calls.length - 1][0];
     expect(e).toContain("error=invalid_grant");

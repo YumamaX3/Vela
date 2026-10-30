@@ -4,6 +4,7 @@
 // "<provider>/<model>" — the same key a combo entry is written as — so the
 // dashboard can badge a whole model list in one pass. An unknown model is
 // simply absent; it is never reported as "alive".
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { listModelDeprecations } from "@/lib/db/repos/deprecationsRepo.js";
 
@@ -13,7 +14,7 @@ export async function GET(request) {
     const deprecations = await listModelDeprecations(provider);
     return NextResponse.json({ provider, deprecations });
   } catch (error) {
-    console.error("[Models] Failed to read deprecations:", error);
+    log.error("MODELS", "Failed to read deprecations:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to read model deprecations" }, { status: 500 });
   }
 }

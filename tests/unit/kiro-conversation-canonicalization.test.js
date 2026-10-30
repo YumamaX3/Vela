@@ -3,11 +3,11 @@ import {
   canonicalizeKiroConversation,
   normalizeKiroToolSpecs,
   validateKiroConversation,
-} from "../../open-sse/translator/concerns/kiroConversation.js";
+} from "../../open-sse/transformer/translator/concerns/kiroConversation.js";
 import { clearKiroSessionReplayStore } from "../../open-sse/utils/kiroSessionReplay.js";
 import { clearSessionStore } from "../../open-sse/utils/sessionManager.js";
-import { claudeToKiroRequest } from "../../open-sse/translator/request/claude-to-kiro.js";
-import { openaiToKiroRequest } from "../../open-sse/translator/request/openai-to-kiro.js";
+import { claudeToKiroRequest } from "../../open-sse/transformer/translator/request/claude-to-kiro.js";
+import { openaiToKiroRequest } from "../../open-sse/transformer/translator/request/openai-to-kiro.js";
 
 const modelId = "claude-opus-5";
 

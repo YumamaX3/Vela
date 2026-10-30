@@ -12,6 +12,7 @@
 // `confirm()` on "Clear Synced Prices" is now the room's ConfirmModal. A native
 // confirm is a browser dialog with no house voice and no styling; every other
 // destructive act in this console asks through the same door.
+import { logger } from "@/lib/clientLogger.js";
 import { useState, useEffect } from "react";
 import { Button, Card, ConfirmModal } from "@/shared/components";
 import PricingModal from "@/shared/components/PricingModal";
@@ -36,7 +37,7 @@ export default function BillingTab() {
         setCurrentPricing(data);
       }
     } catch (error) {
-      console.error("Failed to load pricing:", error);
+      logger.error("SETTINGS", "Failed to load pricing:", error);
     } finally {
       setLoading(false);
     }
@@ -70,7 +71,7 @@ export default function BillingTab() {
         setSyncResult({ ok: false, data });
       }
     } catch (error) {
-      console.error("Sync failed:", error);
+      logger.error("SETTINGS", "Sync failed:", error);
       setSyncResult({ ok: false, error: error.message });
     } finally {
       setSyncing(false);
@@ -87,7 +88,7 @@ export default function BillingTab() {
         loadPricing();
       }
     } catch (error) {
-      console.error("Failed to clear synced pricing:", error);
+      logger.error("SETTINGS", "Failed to clear synced pricing:", error);
     }
   };
 

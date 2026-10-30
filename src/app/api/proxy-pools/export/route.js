@@ -2,6 +2,7 @@
  * GET /api/proxy-pools/export
  * Export all pools with fitness summary
  */
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { getProxyPools } from "@/lib/localDb";
 import fleet from "@/lib/network/proxyFleet.js"; // Fleet Captain for fitness data
@@ -21,7 +22,7 @@ export async function GET() {
       fitness: fitnessSummary,
     });
   } catch (err) {
-    console.error("[export]", err.message);
+    log.error("PROXYPOOLS", "export:", err.message);
     return NextResponse.json({ error: "export failed" }, { status: 500 });
   }
 }

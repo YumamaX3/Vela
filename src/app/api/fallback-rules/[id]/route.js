@@ -4,6 +4,7 @@ import { getSettings } from "@/lib/localDb";
 import { getFallbackRules, getFallbackRuleById, updateFallbackRule, deleteFallbackRule } from "@/lib/db/repos/fallbackRulesRepo.js";
 import { openStoreAdapter } from "@/lib/db/index.js";
 import { verifyDashboardAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth/dashboardSession";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * Dashboard gate — the canonical pattern (see /api/auth/oidc/test).
@@ -45,7 +46,7 @@ export async function GET(request, { params }) {
 
     return NextResponse.json(rule);
   } catch (error) {
-    console.error("Error fetching fallback rule:", error);
+    log.error("API", "Error fetching fallback rule:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch fallback rule" }, { status: 500 });
   }
 }
@@ -129,7 +130,7 @@ export async function PATCH(request, { params }) {
 
     return NextResponse.json(updatedRule);
   } catch (error) {
-    console.error("Error updating fallback rule:", error);
+    log.error("API", "Error updating fallback rule:", (error?.message ?? error));
     return NextResponse.json(
       { error: "Failed to update fallback rule" },
       { status: 500 }
@@ -168,7 +169,7 @@ export async function DELETE(request, { params }) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting fallback rule:", error);
+    log.error("API", "Error deleting fallback rule:", (error?.message ?? error));
     return NextResponse.json(
       { error: "Failed to delete fallback rule" },
       { status: 500 }

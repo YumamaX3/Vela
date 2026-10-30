@@ -8,6 +8,7 @@ import {
   renderRelay,
   validateRelaySlug,
 } from "@/lib/network/relayDeploy.js";
+import * as log from "@/sse/utils/logger.js";
 
 const CF_API = "https://api.cloudflare.com/client/v4";
 
@@ -57,7 +58,8 @@ export async function POST(request) {
     const projectName = slugCheck.slug;
 
     if (allowWildcard) {
-      console.warn(
+      log.warn(
+        "API",
         `[cloudflare-deploy] relay "${projectName}" deployed with a WILDCARD target allow-list — it will forward to any http(s) host for a holder of its secret`
       );
     }
@@ -99,7 +101,7 @@ export async function POST(request) {
 
     if (!uploadRes.ok) {
       const err = await uploadRes.json().catch(() => ({}));
-      console.error("Cloudflare upload error:", err);
+      log.error("PROXYPOOLS", "Cloudflare upload error:", (err?.message ?? err));
       // 10215 is Cloudflare's "the latest version of your Worker isn't currently
       // deployed" guard on secret edits. It cannot arise on this combined upload
       // path, but naming it keeps the failure readable if Cloudflare ever starts
@@ -122,7 +124,7 @@ export async function POST(request) {
       // Non-fatal: the script and its secret are already live, and an operator with
       // a custom domain does not need workers.dev at all. The URL step below fails
       // loud if it genuinely cannot resolve an address.
-      console.warn("Cloudflare subdomain enable failed:", enableSubdomainRes.status);
+      log.warn("PROXYPOOLS", "Cloudflare subdomain enable failed:", enableSubdomainRes.status);
     }
 
     // ── 3. Resolve the public URL ────────────────────────────────────────────
@@ -172,7 +174,7 @@ export async function POST(request) {
     if (error?.status === 404) {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }
-    console.log("Error deploying Cloudflare relay:", error);
+    log.info("PROXYPOOLS", "Error deploying Cloudflare relay:", (error?.message ?? error));
     return NextResponse.json({ error: error.message || "Deploy failed" }, { status: 500 });
   }
 }

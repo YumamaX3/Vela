@@ -13,10 +13,27 @@ vi.mock("next/server", () => ({
 }));
 
 // Mock os
-vi.mock("os", () => ({
-  default: { homedir: vi.fn(() => "/mock/home") },
-  homedir: vi.fn(() => "/mock/home"),
-}));
+// The route imports @/sse/utils/logger.js, whose graph reaches
+// open-sse/providers/shared.js — that module calls arch() and platform() at
+// LOAD time to build the Stainless fingerprint headers. A stub that exports
+// only homedir makes that import throw ("No arch export is defined on the os
+// mock") and every case in this suite dies at import. Keep the pinned homedir
+// (the route's own candidate-path logic) and supply the remaining members the
+// logger graph touches, so the mock stays a superset of what is needed.
+vi.mock("os", () => {
+  const homedir = vi.fn(() => "/mock/home");
+  const platform = vi.fn(() => process.platform);
+  const arch = vi.fn(() => "x64");
+  return {
+    default: { homedir, platform, arch, type: vi.fn(() => "Darwin"), release: vi.fn(() => "23.0.0"), cpus: vi.fn(() => []) },
+    homedir,
+    platform,
+    arch,
+    type: vi.fn(() => "Darwin"),
+    release: vi.fn(() => "23.0.0"),
+    cpus: vi.fn(() => []),
+  };
+});
 
 // Mock fs/promises
 vi.mock("fs/promises", () => ({

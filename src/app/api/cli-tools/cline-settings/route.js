@@ -1,4 +1,5 @@
 "use server";
+import * as log from "@/sse/utils/logger.js";
 
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
@@ -71,7 +72,7 @@ export async function GET() {
       globalStatePath: getGlobalStatePath(),
     });
   } catch (error) {
-    console.log("Error checking cline settings:", error);
+    log.info("CLITOOLS", "Error checking cline settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to check cline settings" }, { status: 500 });
   }
 }
@@ -102,7 +103,7 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true, message: "Cline settings applied successfully!", globalStatePath: getGlobalStatePath() });
   } catch (error) {
-    console.log("Error updating cline settings:", error);
+    log.info("CLITOOLS", "Error updating cline settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to update cline settings" }, { status: 500 });
   }
 }
@@ -129,7 +130,7 @@ export async function DELETE() {
 
     return NextResponse.json({ success: true, message: "Vela settings removed from Cline" });
   } catch (error) {
-    console.log("Error resetting cline settings:", error);
+    log.info("CLITOOLS", "Error resetting cline settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to reset cline settings" }, { status: 500 });
   }
 }

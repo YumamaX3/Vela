@@ -15,6 +15,7 @@ import {
   clearSemanticCache,
   countSemanticCacheEntries,
 } from "./db/repos/sqlite/semanticCacheRepo.js";
+import * as log from "@/sse/utils/logger.js";
 
 semanticCache.persist = {
   upsert: upsertSemanticCacheEntry,
@@ -38,7 +39,7 @@ export function ensureSemanticCacheHydrated() {
         return rows.length;
       })
       .catch((e) => {
-        console.warn(`[semantic-cache] hydration skipped: ${e.message}`);
+        log.warn("LIB", `[semantic-cache] hydration skipped: ${e.message}`);
         return 0;
       });
   }

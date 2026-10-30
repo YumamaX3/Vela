@@ -1,5 +1,6 @@
 "use client";
 
+import { logger } from "@/lib/clientLogger.js";
 import { useState, useEffect } from "react";
 import Card from "./Card";
 
@@ -31,7 +32,7 @@ export default function RequestLogger() {
         setLogs(data);
       }
     } catch (error) {
-      console.error("Failed to fetch logs:", error);
+      logger.error("LOGS", "Failed to fetch logs:", error);
     } finally {
       if (showLoading) setLoading(false);
     }

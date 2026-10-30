@@ -2,6 +2,7 @@ import { saveRequestUsage, appendRequestLog, saveRequestDetail } from "@/lib/usa
 import { fmtDur, fmtTok } from "../../utils/logfmt.js";
 import { COLORS } from "../../utils/stream.js";
 import { canonicalizeUsage } from "../../utils/usageTracking.js";
+import * as log from "../../../src/sse/utils/logger.js";
 
 const OPTIONAL_PARAMS = [
   "temperature", "top_p", "top_k",
@@ -108,7 +109,7 @@ export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, 
   if (!silent) {
     const time = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
     const accountSuffix = connectionId ? ` · acct ${connectionId.slice(0, 8)}` : "";
-    console.log(`${COLORS.green}[${time}] 📊 [${label}] ${provider} · in ${fmtTok(inTokens)} · out ${fmtTok(outTokens)}${accountSuffix}${COLORS.reset}`);
+    log.info("STREAM", `${COLORS.green}[${time}] 📊 [${label}] ${provider} · in ${fmtTok(inTokens)} · out ${fmtTok(outTokens)}${accountSuffix}${COLORS.reset}`);
   }
 
   // Canonicalize to one storage convention (prompt_tokens cache-inclusive) so
@@ -140,9 +141,7 @@ export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, 
   // so the rejection is the only signal that survives — drop it and the loss
   // is invisible forever. Log it, and count it where a human can see it.
   }).catch((err) => {
-    console.error(
-      `[usage] FAILED to record usage (${provider || "unknown"}/${model || "unknown"}):`,
-      err?.message || err
+    log.error("STREAM", `[usage] FAILED to record usage (${provider || "unknown"}/${model || "unknown"}):`, err?.message || err
     );
     // Read and write the SAME key — a typo here pins the counter at 1 and makes
     // it lie about volume, which is the one thing a failure counter must not do.

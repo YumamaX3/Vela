@@ -8,6 +8,7 @@ import { deriveStatusClass } from "../../../usageStatus.js";
 // alias, and open-sse/executors/base.js:14-22 records what that alias costs
 // when a module is loaded outside vite's transform.
 import { getVoyage } from "../../../logContext.js";
+import * as log from "@/sse/utils/logger.js";
 
 // Usage Observatory W1-B (plans/mirror-usage-observatory/SEALED-PLAN.md W1.3):
 // the write-time enrichment covenant, mirrored verbatim in the mysql twin
@@ -248,7 +249,7 @@ async function calculateCost(provider, model, tokens) {
     const { calculateCostFromTokens } = await import("open-sse/providers/pricing.js");
     return calculateCostFromTokens(tokens, pricing);
   } catch (e) {
-    console.error("Error calculating cost:", e);
+    log.error("DB", "Error calculating cost:", (e?.message ?? e));
     return 0;
   }
 }
@@ -470,10 +471,11 @@ export async function saveRequestUsage(entry) {
     // the same stack on every single request.
     const { isCorruptionError, noteRuntimeCorruption } = await import("../../integrity.js");
     if (!isCorruptionError(e)) {
-      console.error("Failed to save usage stats:", e);
+      log.error("DB", "Failed to save usage stats:", (e?.message ?? e));
     } else if (noteRuntimeCorruption(e, "usage write")) {
-      console.error(
-        "[DB] usage write hit a MALFORMED database image — usage history is NOT being recorded.\n" +
+      log.error(
+        "DB",
+        "usage write hit a MALFORMED database image — usage history is NOT being recorded.\n" +
           "     The gateway keeps serving (fail-open). Repair it: POST /api/settings/database/repair," +
           " then restart. Detail: " + String(e.message || e).slice(0, 160)
       );
@@ -1013,7 +1015,7 @@ export async function getRecentLogs(limit = 200) {
       return `${ts} | ${m} | ${p} | ${account} | ${sent} | ${received} | ${r.status || "-"}`;
     });
   } catch (e) {
-    console.error("[usageRepo] getRecentLogs failed:", e.message);
+    log.error("DB", "getRecentLogs failed:", e.message);
     return [];
   }
 }

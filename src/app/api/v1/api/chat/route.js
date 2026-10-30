@@ -4,7 +4,7 @@
 // client-controlled and is never adopted (logContext.js mintVoyageReqId).
 import { withVoyage } from "@/lib/logContext.js";
 import { handleChat } from "@/sse/handlers/chat.js";
-import { initTranslators } from "open-sse/translator/index.js";
+import { initTranslators } from "open-sse/transformer/translator/index.js";
 import { transformToOllama } from "open-sse/utils/ollamaTransform.js";
 
 let initialized = false;

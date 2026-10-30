@@ -1,5 +1,6 @@
 "use client";
 
+import { logger } from "@/lib/clientLogger.js";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, Button, Input, Modal, Toggle, ConfirmModal } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
@@ -90,7 +91,7 @@ export default function TokenSaverClient() {
         body: JSON.stringify(patch),
       });
     } catch (error) {
-      console.log("Error updating setting:", error);
+      logger.error("SETTINGS", "Error updating setting:", "SETTINGS", error);
     }
   };
 
@@ -103,7 +104,7 @@ export default function TokenSaverClient() {
       });
       if (res.ok) setRtkEnabledState(value);
     } catch (error) {
-      console.log("Error updating rtkEnabled:", error);
+      logger.error("SETTINGS", "Error updating rtkEnabled:", "SETTINGS", error);
     }
   };
 

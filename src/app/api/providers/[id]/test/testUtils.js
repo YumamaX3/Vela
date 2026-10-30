@@ -26,6 +26,7 @@ import {
   probeWithHopValidation,
   allowLocalTestingFor,
 } from "@/lib/network/providerUrlSafety.js";
+import * as log from "@/sse/utils/logger.js";
 
 // OAuth provider test endpoints
 const OAUTH_TEST_CONFIG = {
@@ -333,7 +334,7 @@ async function refreshOAuthToken(connection) {
 
     return null;
   } catch (err) {
-    console.log(`Error refreshing ${provider} token:`, err.message);
+    log.info("PROVIDERS", `Error refreshing ${provider} token:`, err.message);
     return null;
   }
 }

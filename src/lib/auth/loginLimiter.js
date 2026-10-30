@@ -27,6 +27,7 @@
 //
 // FAIL-OPEN: an adapter error disarms the durable arm (one latched warning) and
 // falls back to memory. A store that cannot be read must never brick the gate.
+import * as log from "@/sse/utils/logger.js";
 import { hasTrustedPeerHeaders } from "./trustedPeer.js";
 import {
   getAuthStoreAdapterSync,
@@ -71,7 +72,7 @@ let warned = false;
 function warnOnce(err) {
   if (warned) return;
   warned = true;
-  console.warn("[loginLimiter] durable store unavailable — in-memory only (fail-open):", err?.message || err);
+  log.warn("AUTH", "durable store unavailable — in-memory only (fail-open):", err?.message || err);
 }
 
 /** The open harbor, or null. Never opens one — see the header. The adapter

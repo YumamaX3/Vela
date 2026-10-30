@@ -1,5 +1,6 @@
-import { buildModelsList } from "../route.js";
+import { buildModelsList, LLM_KIND } from "@/lib/modelsList.js";
 import { getKeyAccessContext, filterModelsListForKey } from "@/sse/services/keyAccess.js";
+import * as log from "@/sse/utils/logger.js";
 
 // URL slug → service kind(s). `web` covers both webSearch and webFetch.
 const KIND_SLUG_MAP = {
@@ -11,7 +12,6 @@ const KIND_SLUG_MAP = {
   "web": ["webSearch", "webFetch"],
 };
 
-const LLM_KIND = "llm";
 
 export async function OPTIONS() {
   return new Response(null, {
@@ -71,7 +71,7 @@ export async function GET(request, { params }) {
 
     return json(matchedModel);
   } catch (error) {
-    console.log("Error fetching model:", error);
+    log.info("API", "Error fetching model:", (error?.message ?? error));
     return json(
       { error: { message: error.message, type: "server_error" } },
       { status: 500 },

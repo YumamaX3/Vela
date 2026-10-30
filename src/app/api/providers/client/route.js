@@ -3,6 +3,7 @@ import { getProviderConnections } from "@/lib/localDb";
 import { backfillCodexEmails } from "@/lib/oauth/providers";
 import { USAGE_APIKEY_PROVIDERS, USAGE_SUPPORTED_PROVIDERS } from "@/shared/constants/providers";
 import { maskConnectionProxyForRead } from "@/lib/db/repos/proxyRedaction.js";
+import * as log from "@/sse/utils/logger.js";
 
 const SAFE_FIELDS = [
   "id", "provider", "authType", "name", "email", "displayName",
@@ -127,7 +128,7 @@ export async function GET(request) {
       },
     });
   } catch (error) {
-    console.log("Error fetching providers for client:", error);
+    log.info("PROVIDERS", "Error fetching providers for client:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch providers" }, { status: 500 });
   }
 }

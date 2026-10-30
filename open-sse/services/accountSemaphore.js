@@ -20,7 +20,7 @@
  *     SILENT: nothing is counted and nothing is logged, so an operator cannot
  *     see that an account is shedding load. This port keeps the bound, makes it
  *     explicit, counts every drop on the gate (`stats.dropped`) and emits one
- *     warn line per drop through an injectable logger. The queue is dropped
+ *     warn line per drop through the realm logger. The queue is dropped
  *     from, never grown.
  *  2. PER-CATEGORY BLOCK DURATION (`markBlocked` with no explicit duration).
  *     The fork always required an explicit `durationMs`. Here an omitted
@@ -35,6 +35,7 @@
  * @module open-sse/services/accountSemaphore
  */
 import { getProviderResilienceProfile } from "../config/providerProfiles.js";
+import * as keeperLog from "../../src/sse/utils/logger.js";
 
 /**
  * Build the gate key. `proxyHash` defaults to "direct" (no proxy).
@@ -212,10 +213,10 @@ export function acquire(semaphoreKey, options = {}) {
     });
     // Log the provider and the depth — never the account segment, and never a
     // credential (a gate key carries neither, but the discipline holds anyway).
-    const line = `[AccountSemaphore] ${providerOf(semaphoreKey)} queue full (${gate.queue.length}/${maxQueueSize}) — dropping request`;
+    const line = `AccountSemaphore ${providerOf(semaphoreKey)} queue full (${gate.queue.length}/${maxQueueSize}) — dropping request`;
     try {
       if (typeof log?.warn === "function") log.warn(line);
-      else console.warn(line);
+      else keeperLog.warn("PROVIDERS", line);
     } catch { /* a logger must never break the drop path */ }
     return Promise.reject(err);
   }

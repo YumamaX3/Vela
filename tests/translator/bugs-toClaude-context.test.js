@@ -1,9 +1,9 @@
 // OpenAI-format CLI → Claude provider. Context pollution + lossy mapping on the openai→claude leg.
 import { describe, it, expect } from "vitest";
 import "./registerAll.js";
-import { translateRequest } from "../../open-sse/translator/index.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
-import { prepareClaudeRequest } from "../../open-sse/translator/formats/claude.js";
+import { translateRequest } from "../../open-sse/transformer/translator/index.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
+import { prepareClaudeRequest } from "../../open-sse/transformer/translator/formats/claude.js";
 
 // anthropic-compatible provider so prepareClaudeRequest runs the openai→claude path
 const T = (body) =>

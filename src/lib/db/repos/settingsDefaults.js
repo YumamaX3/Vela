@@ -9,6 +9,9 @@ const DEFAULT_HEADROOM_URL = process.env.HEADROOM_URL || "http://localhost:8787"
 
 export const DEFAULT_SETTINGS = {
   cloudEnabled: false,
+  // The logbook's voice: "themed" (the Keeper's shores) or "plain" (sober
+  // [time] [TAG] message lines for operators piping output into tooling).
+  logTheme: "themed",
   tunnelEnabled: false,
   tunnelUrl: "",
   tunnelProvider: "cloudflare",

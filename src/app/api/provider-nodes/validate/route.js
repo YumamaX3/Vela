@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertPublicUrl } from "@/shared/utils/ssrfGuard.js";
 import { isLocalRequest } from "@/dashboardGuard";
+import * as log from "@/sse/utils/logger.js";
 
 // Fetch with timeout wrapper
 const fetchWithTimeout = (url, options, timeout = 10000) => {
@@ -198,7 +199,7 @@ export async function POST(request) {
     return NextResponse.json({ valid: false, error: getModelsErrorMessage(res.status) });
   } catch (error) {
     const errorMessage = getErrorMessage(error);
-    console.error("Error validating provider node:", {
+    log.error("API", "Error validating provider node:", {
       message: error.message,
       cause: error.cause,
       code: error.cause?.code,

@@ -1,4 +1,5 @@
 // Ensure proxyFetch is loaded to patch globalThis.fetch
+import * as log from "@/sse/utils/logger.js";
 import "open-sse/index.js";
 
 import { getProviderConnectionById } from "@/lib/localDb";
@@ -34,7 +35,7 @@ export async function POST(request, { params }) {
     const status = result.status >= 400 && result.status < 500 ? result.status : 409;
     return Response.json({ ...result, message: result.message || `Reset not applied: ${result.reason || result.result || "unknown"}` }, { status });
   } catch (error) {
-    console.warn(`[Claude Reset] ${error.message}`);
+    log.warn("USAGE", `[Claude Reset] ${error.message}`);
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

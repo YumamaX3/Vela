@@ -1,12 +1,12 @@
 import { register } from "../index.js";
 import { FORMATS } from "../formats.js";
-import { CLAUDE_SYSTEM_PROMPT } from "../../config/appConstants.js";
+import { CLAUDE_SYSTEM_PROMPT } from "../../../config/appConstants.js";
 import { adjustMaxTokens } from "../formats/maxTokens.js";
 import { safeParseJSON } from "../concerns/json.js";
 import { parseDataUri } from "../concerns/image.js";
 import { extractTextContent } from "../formats/gemini.js";
 import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index.js";
-import { getCapabilitiesForModel } from "../../providers/capabilities.js";
+import { getCapabilitiesForModel } from "../../../providers/capabilities.js";
 
 // Empty prefix matches real Claude Code behavior (no tool name prefix).
 // Previously "proxy_" was used but this is a detectable fingerprint difference.

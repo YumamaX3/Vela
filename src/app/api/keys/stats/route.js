@@ -8,6 +8,7 @@ import {
   isScoped,
   postureOf,
 } from "../_lib/keysApi.js";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -129,7 +130,7 @@ export async function GET(request) {
       idle: idle.slice(0, 50).map(({ id, name, posture, lastUsedAt }) => ({ id, name, posture, lastUsedAt })),
     });
   } catch (error) {
-    console.log("Error computing key stats:", error);
+    log.info("KEYS", "Error computing key stats:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to compute key stats" }, { status: 500 });
   }
 }

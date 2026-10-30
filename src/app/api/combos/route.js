@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCombos, createCombo, getComboByName } from "@/lib/localDb";
 import { validateComboName } from "@/shared/constants/comboValidation";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ export async function GET() {
     const combos = await getCombos();
     return NextResponse.json({ combos });
   } catch (error) {
-    console.log("Error fetching combos:", error);
+    log.info("COMBO", "Error fetching combos:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch combos" }, { status: 500 });
   }
 }
@@ -37,7 +38,7 @@ export async function POST(request) {
 
     return NextResponse.json(combo, { status: 201 });
   } catch (error) {
-    console.log("Error creating combo:", error);
+    log.info("COMBO", "Error creating combo:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to create combo" }, { status: 500 });
   }
 }

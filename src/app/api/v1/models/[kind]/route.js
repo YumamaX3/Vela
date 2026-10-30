@@ -1,4 +1,5 @@
 import { buildModelsList } from "@/lib/modelsList";
+import * as log from "@/sse/utils/logger.js";
 
 // URL slug → service kind(s). `web` covers both webSearch and webFetch.
 const KIND_SLUG_MAP = {
@@ -49,7 +50,7 @@ export async function GET(request, { params }) {
       headers: { "Access-Control-Allow-Origin": "*" },
     });
   } catch (error) {
-    console.log("Error fetching models by kind:", error);
+    log.info("API", "Error fetching models by kind:", (error?.message ?? error));
     return Response.json(
       { error: { message: error.message, type: "server_error" } },
       { status: 500 }

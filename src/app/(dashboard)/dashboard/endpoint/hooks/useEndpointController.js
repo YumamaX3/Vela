@@ -8,6 +8,7 @@
 // R-31: extracted for a reason, not for tidiness — the tab split is only honest
 // if behavior is provably untouched. Not one expression below was rewritten;
 // only its address changed.
+import { logger } from "@/lib/clientLogger.js";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { storeKey, getKey, hasKey, removeKey, resolveKeyRef } from "@/shared/utils/keyVault";
@@ -218,7 +219,7 @@ export default function useEndpointController() {
         tailscale.applyTailscaleStatus(data.tailscale);
       }
     } catch (error) {
-      console.log("Error loading settings:", error);
+      logger.error("USEENDPOINTCONTROLLER", "Error loading settings:", "USEENDPOINTCONTROLLER", error);
     } finally {
       setTunnelChecking(false);
     }
@@ -233,7 +234,7 @@ export default function useEndpointController() {
       });
       if (res.ok) setTunnelDashboardAccess(value);
     } catch (error) {
-      console.log("Error updating tunnelDashboardAccess:", error);
+      logger.error("USEENDPOINTCONTROLLER", "Error updating tunnelDashboardAccess:", "USEENDPOINTCONTROLLER", error);
     }
   };
 
@@ -246,7 +247,7 @@ export default function useEndpointController() {
       });
       if (res.ok) setRequireApiKey(value);
     } catch (error) {
-      console.log("Error updating requireApiKey:", error);
+      logger.error("USEENDPOINTCONTROLLER", "Error updating requireApiKey:", "USEENDPOINTCONTROLLER", error);
     }
   };
 
@@ -299,7 +300,7 @@ export default function useEndpointController() {
       }
       setKeys(existing);
     } catch (error) {
-      console.log("Error fetching data:", error);
+      logger.error("USEENDPOINTCONTROLLER", "Error fetching data:", "USEENDPOINTCONTROLLER", error);
     } finally {
       setLoading(false);
     }
@@ -580,7 +581,7 @@ export default function useEndpointController() {
           removeKey(id); // purge the captured copy alongside the server-side revoke
           setKeys(keys.filter((k) => k.id !== id));
         } catch (error) {
-          console.log("Error deleting key:", error);
+          logger.error("USEENDPOINTCONTROLLER", "Error deleting key:", "USEENDPOINTCONTROLLER", error);
         }
       }
     });
@@ -601,7 +602,7 @@ export default function useEndpointController() {
       await setKeyActive(id, isActive);
       setKeys(prev => prev.map(k => k.id === id ? { ...k, isActive } : k));
     } catch (error) {
-      console.log("Error toggling key:", error);
+      logger.error("USEENDPOINTCONTROLLER", "Error toggling key:", "USEENDPOINTCONTROLLER", error);
     }
   };
 

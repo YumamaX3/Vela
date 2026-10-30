@@ -6,7 +6,7 @@ import { toOpenAIUsage } from "../concerns/usage.js";
 import { reasoningDelta } from "../concerns/reasoning.js";
 import { encodeDataUri } from "../concerns/image.js";
 import { toOpenAIFinish } from "../concerns/finishReason.js";
-import { storeGeminiThoughtSignature } from "../../services/thoughtSignatureStore.js";
+import { storeGeminiThoughtSignature } from "../../../services/thoughtSignatureStore.js";
 
 // Build chunk meta for current gemini state
 function chunkMeta(state) {

@@ -1,4 +1,5 @@
 "use server";
+import * as log from "@/sse/utils/logger.js";
 
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
@@ -82,7 +83,7 @@ export async function GET() {
         },
     });
   } catch (error) {
-    console.log("Error checking opencode settings:", error);
+    log.info("CLITOOLS", "Error checking opencode settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to check opencode settings" }, { status: 500 });
   }
 }
@@ -168,7 +169,7 @@ export async function POST(request) {
       configPath,
     });
   } catch (error) {
-    console.log("Error applying opencode settings:", error);
+    log.info("CLITOOLS", "Error applying opencode settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to apply settings" }, { status: 500 });
   }
 }
@@ -204,7 +205,7 @@ export async function PATCH(request) {
       message: "Settings updated",
     });
   } catch (error) {
-    console.log("Error patching opencode settings:", error);
+    log.info("CLITOOLS", "Error patching opencode settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to patch settings" }, { status: 500 });
   }
 }
@@ -260,7 +261,7 @@ export async function DELETE(request) {
       message: modelToRemove ? `Model "${modelToRemove}" removed` : "Vela settings removed from OpenCode",
     });
   } catch (error) {
-    console.log("Error resetting opencode settings:", error);
+    log.info("CLITOOLS", "Error resetting opencode settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to reset opencode settings" }, { status: 500 });
   }
 }

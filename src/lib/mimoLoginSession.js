@@ -15,6 +15,7 @@
  *
  * Edge-safe: no Node-only APIs (used from both middleware and API routes).
  */
+import * as keeperLog from "@/sse/utils/logger.js";
 
 const ACCOUNT_HOST = "account.xiaomi.com";
 export const SESSION_COOKIE = "9r_mimo_login";
@@ -281,18 +282,17 @@ export async function ensureServiceSession(sess) {
   const id = readSessionIdentity(sess);
   if (!id) return false;
   const T = () => new Date().toISOString().slice(11, 23);
-  const log = (m) => console.log(`${T()} [mimo-login][exchange] ${m}`);
   // Backoff: a failed full 5-step chain must not re-run on every 2.5s poll.
   const bkKey = id.passToken.slice(0, 24);
   const lastFail = _exchangeBackoff.get(bkKey);
   if (lastFail && Date.now() - lastFail < 60_000) {
-    log("exchange in backoff (60s), skip");
+    keeperLog.info("LIB", `${T()} [mimo-login][exchange] exchange in backoff (60s), skip`);
     return false;
   }
   try {
     const mod = await import("../../open-sse/shared/mimoAccount.js");
     const proxyOptions = sess.proxyUrl ? { enabled: true, url: sess.proxyUrl } : null;
-    log(`exchanging passToken (region=${sess.region}, egress=${sess.proxyUrl || "direct"}) ...`);
+    keeperLog.info("LIB", `${T()} [mimo-login][exchange] exchanging passToken (region=${sess.region}, egress=${sess.proxyUrl || "direct"}) ...`);
     const serviceCookie = await mod.getMimoAccountCookie(
       {
         region: sess.region,
@@ -303,7 +303,7 @@ export async function ensureServiceSession(sess) {
       proxyOptions,
     );
     if (!serviceCookie) {
-      log("exchange failed: no service cookie");
+      keeperLog.info("LIB", `${T()} [mimo-login][exchange] exchange failed: no service cookie`);
       _exchangeBackoff.set(bkKey, Date.now());
       return false;
     }
@@ -318,7 +318,7 @@ export async function ensureServiceSession(sess) {
       if (!name || !value) continue;
       sess.jar.set(`${name}|${host}|/`, { name, value, domain: host, path: "/" });
     }
-    log(`serviceCookie merged, jar=[${[...sess.jar.keys()].map((k) => k.split("|")[0]).join(",").slice(0, 160)}]`);
+    keeperLog.info("LIB", `${T()} [mimo-login][exchange] serviceCookie merged, jar=[${[...sess.jar.keys()].map((k) => k.split("|")[0]).join(",").slice(0, 160)}]`);
 
     const meUrl = `${sess.upstreamBase}/api/user/xiaomi/me`;
     const res = await fetchUpstream(
@@ -328,10 +328,10 @@ export async function ensureServiceSession(sess) {
       cookieHeaderFor(sess, meUrl),
     );
     absorbSetCookies(sess, res, meUrl);
-    log(`me confirm http=${res.status}`);
+    keeperLog.info("LIB", `${T()} [mimo-login][exchange] me confirm http=${res.status}`);
     return res.status === 200;
   } catch (e) {
-    log(`exchange error: ${e?.message || e}`);
+    keeperLog.info("LIB", `${T()} [mimo-login][exchange] exchange error: ${e?.message || e}`);
     _exchangeBackoff.set(bkKey, Date.now());
     return false;
   }
@@ -447,7 +447,7 @@ async function socksFetch(url, init, proxyUrl) {
     _socksPromise = import("socks-proxy-agent")
       .then((m) => m.SocksProxyAgent || m.default?.SocksProxyAgent || m.default)
       .catch((e) => {
-        console.log(`${new Date().toISOString().slice(11,23)} [mimo-login] socks-proxy-agent unavailable:`, e?.message || e);
+        keeperLog.info("LIB", `${new Date().toISOString().slice(11,23)} [mimo-login] socks-proxy-agent unavailable:`, e?.message || e);
         return null;
       });
   }
@@ -504,14 +504,14 @@ async function loginFetch(url, init, sessionProxyUrl = null) {
       _pafPromise = import("../../open-sse/utils/proxyFetch.js")
         .then((m) => m.proxyAwareFetch)
         .catch((e) => {
-          console.log(`${new Date().toISOString().slice(11,23)} [mimo-login] proxyAwareFetch unavailable (runtime?), direct only:`, e?.message || e);
+          keeperLog.info("LIB", `${new Date().toISOString().slice(11,23)} [mimo-login] proxyAwareFetch unavailable (runtime?), direct only:`, e?.message || e);
           return null;
         });
     }
     const paf = await _pafPromise;
     if (paf) return await paf(url, init, proxyOptions);
   } catch (e) {
-    console.log(`${new Date().toISOString().slice(11,23)} [mimo-login] proxied fetch failed, falling back to direct:`, e?.message || e);
+    keeperLog.info("LIB", `${new Date().toISOString().slice(11,23)} [mimo-login] proxied fetch failed, falling back to direct:`, e?.message || e);
   }
   return fetch(url, init);
 }
@@ -604,7 +604,7 @@ export async function proxyAccountRequest(sess, req, origin) {
         headers["Content-Length"] = String(buf.length);
       } else if (/__mimo_login|localhost/.test(before)) {
         // Anomaly: a local callback shape we cannot rewrite — must never reach Xiaomi.
-        console.log(`${new Date().toISOString().slice(11, 23)} [mimo-login] body STILL local, not matchable: ${before.slice(0, 200)}`);
+        keeperLog.info("LIB", `${new Date().toISOString().slice(11, 23)} [mimo-login] body STILL local, not matchable: ${before.slice(0, 200)}`);
       }
     }
     init.body = buf;
@@ -671,7 +671,7 @@ function buildBrowserResponse(sess, res, origin, reqPath = "", upstreamUrl = "")
     if (/^\/(pass|sts)/.test(reqPath) || res.status >= 400) {
       const m = body.match(/"code"\s*:\s*(-?\d+)/);
       if ((m && m[1] !== "0") || res.status >= 400) {
-        console.log(`${new Date().toISOString().slice(11,23)} [mimo-login] upstream ${reqPath} http=${res.status} code=${m ? m[1] : "?"} | url=${upstreamUrl.slice(0, 180)} | ${body.replace(/\s+/g, " ").slice(0, 160)}`);
+        keeperLog.info("LIB", `${new Date().toISOString().slice(11,23)} [mimo-login] upstream ${reqPath} http=${res.status} code=${m ? m[1] : "?"} | url=${upstreamUrl.slice(0, 180)} | ${body.replace(/\s+/g, " ").slice(0, 160)}`);
       }
     }
     const rewritten = rewriteMimoBases(body, "toProxy", origin);
@@ -684,14 +684,12 @@ function buildBrowserResponse(sess, res, origin, reqPath = "", upstreamUrl = "")
  * Runs the whole redirect chain, absorbs cookies, verifies me=logged-in.
  */
 export async function runTakeover(sess, upstreamUrl, origin) {
-  const T = () => new Date().toISOString().slice(11, 23);
-  const log = (m) => console.log(`${T()} [mimo-login][takeover] ${m}`);
   const idSnap = () => {
     const id = readSessionIdentity(sess);
     const names = [...sess.jar.keys()].map((k) => k.split("|")[0]).join(",");
     return `passToken=${id ? "Y" : "N"} jar=[${names.slice(0, 160)}]`;
   };
-  log(`sts-nav url=${upstreamUrl.slice(0, 160)} origin=${origin} | ${idSnap()}`);
+  keeperLog.info("LIB", `[mimo-login][takeover] sts-nav url=${upstreamUrl.slice(0, 160)} origin=${origin} | ${idSnap()}`);
   const id = readSessionIdentity(sess);
   // AUTHORIZATION COMPLETION = passToken captured (that IS the credential the
   // connection persists for the account route). The serviceToken exchange

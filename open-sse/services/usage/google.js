@@ -2,6 +2,7 @@
  * Google usage handlers (Gemini CLI + Antigravity)
  */
 
+import * as log from "../../../src/sse/utils/logger.js";
 import { CLIENT_METADATA } from "../../config/appConstants.js";
 import { ANTIGRAVITY_IDE_USER_AGENT, ANTIGRAVITY_IDE_VERSION, ANTIGRAVITY_OAUTH_CLIENT } from "../../providers/shared.js";
 import { U, parseResetTime, normalizeCloudCodeProjectId, fetchWithTimeout } from "./shared.js";
@@ -221,7 +222,7 @@ export async function getAntigravityUsage(accessToken, providerSpecificData, pro
       subscriptionInfo,
     };
   } catch (error) {
-    console.error("[Antigravity Usage] Error:", error.message, error.cause);
+    log.error("USAGE", "[Antigravity Usage] Error:", error.message, error.cause);
     return { message: `Antigravity error: ${error.message}` };
   }
 }
@@ -244,7 +245,7 @@ async function getAntigravitySubscriptionInfo(accessToken, proxyOptions = null) 
     if (!response.ok) return null;
     return await response.json();
   } catch (error) {
-    console.error("[Antigravity Subscription] Error:", error.message);
+    log.error("USAGE", "[Antigravity Subscription] Error:", error.message);
     return null;
   }
 }

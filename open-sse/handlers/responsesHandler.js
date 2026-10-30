@@ -3,8 +3,9 @@
  * Converts Chat Completions to Codex Responses API format
  */
 
+import * as keeperLog from "../../src/sse/utils/logger.js";
 import { handleChatCore } from "./chatCore.js";
-import { convertResponsesApiFormat } from "../translator/formats/responsesApi.js";
+import { convertResponsesApiFormat } from "../transformer/translator/formats/responsesApi.js";
 import { createResponsesApiTransformStream } from "../transformer/responsesTransformer.js";
 import { convertResponsesStreamToJson } from "../transformer/streamToJsonConverter.js";
 import { SSE_HEADERS_CORS } from "../utils/sseConstants.js";
@@ -70,7 +71,7 @@ export async function handleResponsesCore({ body, modelInfo, credentials, log, o
         })
       };
     } catch (error) {
-      console.error("[Responses API] Stream-to-JSON conversion failed:", error);
+      keeperLog.error("STREAM", "[Responses API] Stream-to-JSON conversion failed:", (error?.message ?? error));
       return {
         success: false,
         status: 500,

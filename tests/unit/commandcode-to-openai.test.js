@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { commandCodeToOpenAIResponse } from "../../open-sse/translator/response/commandcode-to-openai.js";
+import { commandCodeToOpenAIResponse } from "../../open-sse/transformer/translator/response/commandcode-to-openai.js";
 
 function feed(events) {
   const state = {};

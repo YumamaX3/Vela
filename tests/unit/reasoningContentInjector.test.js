@@ -10,7 +10,15 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { createRequire } from "node:module";
 import { injectReasoningContent } from "../../open-sse/utils/reasoningContentInjector.js";
+
+// A bare `require()` inside vitest's ESM world resolves through RAW NODE —
+// bypassing vite's alias table — so any module graph it drags in must be
+// alias-free to load. declare the loader explicitly and let vite transform
+// the graph instead: `vi.importActual` keeps the SAME modules the static
+// imports see, alias resolution included.
+const require_ = createRequire(import.meta.url);
 import { OpenCodeExecutor } from "../../open-sse/executors/opencode.js";
 
 const assistantWithToolCall = {
@@ -134,8 +142,8 @@ describe("injectReasoningContent — MiniMax thinking round-trip", () => {
     expect(out.messages[0].reasoning_content).toBe(original);
   });
 
-  it("DefaultExecutor transformRequest runs the injector for minimax", () => {
-    const { DefaultExecutor } = require("../../open-sse/executors/default.js");
+  it("DefaultExecutor transformRequest runs the injector for minimax", async () => {
+    const { DefaultExecutor } = await vi.importActual("../../open-sse/executors/default.js");
     const executor = new DefaultExecutor("minimax");
     const out = executor.transformRequest(
       "MiniMax-M2.7",

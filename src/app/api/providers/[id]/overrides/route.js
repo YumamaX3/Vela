@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSettings, updateSettings } from "@/lib/localDb";
 import { PROVIDERS } from "open-sse/config/providers.js";
 import { resolveProviderAlias } from "open-sse/services/model.js";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -79,7 +80,7 @@ export async function GET(request, { params }) {
       builtinHeaders: PROVIDERS[canonical]?.headers || {},
     });
   } catch (error) {
-    console.log("Error getting provider overrides:", error);
+    log.info("PROVIDERS", "Error getting provider overrides:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to get overrides" }, { status: 500 });
   }
 }
@@ -104,7 +105,7 @@ export async function PUT(request, { params }) {
     await updateSettings({ providerOverrides: next });
     return NextResponse.json({ headers: override?.headers || {} });
   } catch (error) {
-    console.log("Error saving provider overrides:", error);
+    log.info("PROVIDERS", "Error saving provider overrides:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to save overrides" }, { status: 500 });
   }
 }

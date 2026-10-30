@@ -4,6 +4,7 @@ import { IFLOW_CONFIG } from "../constants/oauth.js";
 import { getServerCredentials } from "../config/index.js";
 import { startLocalServer } from "../utils/server.js";
 import { spinner as createSpinner } from "../utils/ui.js";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * iFlow OAuth Service
@@ -143,8 +144,8 @@ export class IFlowService {
       // Build authorization URL
       const authUrl = this.buildAuthUrl(redirectUri, state);
 
-      console.log("\nOpening browser for iFlow authentication...");
-      console.log(`If browser doesn't open, visit:\n${authUrl}\n`);
+      log.info("OAUTH", "\nOpening browser for iFlow authentication...");
+      log.info("OAUTH", `If browser doesn't open, visit:\n${authUrl}\n`);
 
       // Open browser
       await open(authUrl);

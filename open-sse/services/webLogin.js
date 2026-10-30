@@ -9,11 +9,12 @@
 // The profile persists, so a repeat login usually finds the session still
 // alive and resolves in one poll — and a warm profile keeps cf_clearance.
 
+import * as log from "../../src/sse/utils/logger.js";
 import { mkdirSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { join } from "node:path";
 import { loadRuntimeDep } from "./lazyRuntime.js";
-import { getWebLoginConfig } from "./webLoginConfig.js";
+import { getWebLoginConfig } from "../transformer/translator/webLoginConfig.js";
 import { getWritableDataDir } from "../utils/writableDataDir.js";
 import { pruneProfileCaches, formatBytes } from "./browserProfileCache.js";
 import { resolveSystemChromeExecutable } from "../executors/browserExecutableCheck.js";
@@ -238,7 +239,7 @@ async function runLogin(session, config) {
     // while the profile is closed and rebuilding is free.
     const pruned = pruneProfileCaches(dir);
     if (pruned.freedBytes > 0) {
-      console.log("[webLogin] pruned", formatBytes(pruned.freedBytes), "from profile", session.profile);
+      log.info("PROVIDERS", "pruned", formatBytes(pruned.freedBytes), "from profile", session.profile);
     }
   }
 }

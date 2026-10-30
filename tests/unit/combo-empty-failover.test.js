@@ -8,7 +8,7 @@ import {
   peekStreamForContent,
   reconstructStream,
 } from "../../open-sse/services/emptyFailover.js";
-import { NO_RETRY_EMPTY_FINISH } from "../../open-sse/translator/schema/finishReasons.js";
+import { NO_RETRY_EMPTY_FINISH } from "../../open-sse/transformer/translator/schema/finishReasons.js";
 
 // The combo cases below build real streaming responses; keep request-detail writes off disk.
 vi.mock("@/lib/usageDb.js", () => ({
@@ -280,8 +280,8 @@ describe("combo fall-through per client format (real combo.js + streaming pipeli
   const { createStreamController } = await import("../../open-sse/utils/streamHandler.js");
   const { handleStreamingResponse, buildOnStreamComplete } = await import("../../open-sse/handlers/chatCore/streamingHandler.js");
   const { handleComboChat } = await import("../../open-sse/services/combo.js");
-  const { initTranslators } = await import("../../open-sse/translator/index.js");
-  const { FORMATS } = await import("../../open-sse/translator/formats.js");
+  const { initTranslators } = await import("../../open-sse/transformer/translator/index.js");
+  const { FORMATS } = await import("../../open-sse/transformer/translator/formats.js");
   await initTranslators();
 
   const LOG = { line: vi.fn(), errorLine: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };

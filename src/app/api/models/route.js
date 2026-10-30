@@ -4,6 +4,7 @@ import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { AI_MODELS } from "@/shared/constants/config";
 import { getProviderAlias } from "@/shared/constants/providers";
 import { getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
+import * as log from "@/sse/utils/logger.js";
 
 // GET /api/models - Get models with aliases
 export async function GET() {
@@ -39,7 +40,7 @@ export async function GET() {
 
     return NextResponse.json({ models });
   } catch (error) {
-    console.log("Error fetching models:", error);
+    log.info("MODELS", "Error fetching models:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch models" }, { status: 500 });
   }
 }
@@ -70,7 +71,7 @@ export async function PUT(request) {
 
     return NextResponse.json({ success: true, model, alias });
   } catch (error) {
-    console.log("Error updating alias:", error);
+    log.info("MODELS", "Error updating alias:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to update alias" }, { status: 500 });
   }
 }

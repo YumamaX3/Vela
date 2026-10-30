@@ -45,6 +45,7 @@
  * that silently reads "0 pools" during a DB outage is worse than an error, because
  * nothing downstream can tell it apart from a genuinely empty fleet.
  */
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { getProviderConnections, getProxyPools } from "@/models";
 import fleet from "@/lib/network/proxyFleet.js";
@@ -154,7 +155,7 @@ export async function GET() {
   } catch (err) {
     // Loud, never a zeroed census — see the header. A zeroed body is the shape of an
     // empty fleet, and a DB outage must not be able to impersonate one.
-    console.error("[proxy-pools/stats]", err?.message || err);
+    log.error("PROXYPOOLS", "proxy-pools/stats:", err?.message || err);
     return NextResponse.json({ error: "Failed to compute proxy pool census" }, { status: 500 });
   }
 }

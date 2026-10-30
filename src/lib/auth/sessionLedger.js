@@ -15,6 +15,7 @@
  * succeeded — the cookie is set either way. A missing row costs the operator
  * exactly one thing: the ability to revoke that particular session.
  */
+import * as log from "@/sse/utils/logger.js";
 import { insertAuthSession } from "@/lib/db/repos/authStoreRepo.js";
 import { getClientIp } from "./loginLimiter.js";
 
@@ -56,7 +57,7 @@ export async function recordSession(minted, request, { ip = null, label = null }
   } catch (err) {
     // The store's failure is the operator's to see; the login is not the place
     // to surface it (the caller's credential was valid).
-    console.error("[sessionLedger] ledger write failed (fail-open):", err?.message || err);
+    log.error("AUTH", "ledger write failed (fail-open):", err?.message || err);
     return false;
   }
 }

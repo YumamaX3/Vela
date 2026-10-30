@@ -1,4 +1,5 @@
 "use server";
+import * as log from "@/sse/utils/logger.js";
 
 import { NextResponse } from "next/server";
 import fs from "fs/promises";
@@ -55,7 +56,7 @@ export async function GET() {
       currentUrl: entry?.models?.[0]?.url || null,
     });
   } catch (error) {
-    console.log("Error checking copilot settings:", error);
+    log.info("CLITOOLS", "Error checking copilot settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to check copilot settings" }, { status: 500 });
   }
 }
@@ -117,7 +118,7 @@ export async function POST(request) {
       configPath,
     });
   } catch (error) {
-    console.log("Error updating copilot settings:", error);
+    log.info("CLITOOLS", "Error updating copilot settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to update copilot settings" }, { status: 500 });
   }
 }
@@ -147,7 +148,7 @@ export async function DELETE() {
       message: "Vela removed from Copilot config",
     });
   } catch (error) {
-    console.log("Error resetting copilot settings:", error);
+    log.info("CLITOOLS", "Error resetting copilot settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to reset copilot settings" }, { status: 500 });
   }
 }

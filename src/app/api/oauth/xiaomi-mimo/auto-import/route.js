@@ -3,6 +3,7 @@ import { readFile, access, constants } from "fs/promises";
 import { homedir } from "os";
 import { join } from "path";
 import { readDesktopPassToken } from "open-sse/shared/mimoAccount.js";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * GET /api/oauth/xiaomi-mimo/auto-import
@@ -117,7 +118,7 @@ export async function GET() {
         mimoCUserId = pt.cUserId;
       }
     } catch (e) {
-      console.log("[xiaomi-mimo] passToken read failed (non-fatal):", e.message);
+      log.info("OAUTH", "passToken read failed (non-fatal):", e?.message || e);
     }
 
     return NextResponse.json({
@@ -131,9 +132,9 @@ export async function GET() {
       mimoCUserId,
     });
   } catch (error) {
-    console.log("Xiaomi MiMo auto-import error:", error);
+    log.error("OAUTH", "Xiaomi MiMo auto-import error:", (error?.message ?? error));
     return NextResponse.json(
-      { found: false, error: error.message },
+      { found: false, error: error?.message || error },
       { status: 500 },
     );
   }

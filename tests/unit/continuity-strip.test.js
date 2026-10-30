@@ -7,7 +7,7 @@ vi.mock("@/lib/usageDb.js", () => ({
 }));
 
 const { stripContinuityFields } = await import("../../open-sse/handlers/chatCore.js");
-const { openaiResponsesToOpenAIRequest } = await import("../../open-sse/translator/request/openai-responses.js");
+const { openaiResponsesToOpenAIRequest } = await import("../../open-sse/transformer/translator/request/openai-responses.js");
 
 // Multi-turn Codex-style Responses input: reasoning item carrying a
 // store=false encrypted_content continuity blob between tool turns.

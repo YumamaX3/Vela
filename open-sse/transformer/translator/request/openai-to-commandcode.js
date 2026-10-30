@@ -14,7 +14,7 @@ import { register } from "../index.js";
 import { FORMATS } from "../formats.js";
 import { randomUUID } from "crypto";
 import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index.js";
-import { DEFAULT_MAX_TOKENS } from "../../config/runtimeConfig.js";
+import { DEFAULT_MAX_TOKENS } from "../../../config/runtimeConfig.js";
 import { parseDataUri, encodeDataUri } from "../concerns/image.js";
 
 function flattenText(content) {

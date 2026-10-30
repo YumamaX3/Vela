@@ -12,7 +12,7 @@
 // `buildToolModeResponse()` accepts an `idSeed` so every provider gets its own
 // `tool_calls[].id` prefix.
 
-import { buildToolAwareResult } from "../translator/webTools.js";
+import { buildToolAwareResult } from "../transformer/translator/webTools.js";
 
 const SSE_HEADERS = {
   "Content-Type": "text/event-stream",

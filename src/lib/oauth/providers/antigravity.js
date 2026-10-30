@@ -1,4 +1,5 @@
 import { ANTIGRAVITY_CONFIG, getOAuthClientMetadata } from "../constants/oauth.js";
+import * as log from "@/sse/utils/logger.js";
 
 const antigravity = {
   config: ANTIGRAVITY_CONFIG,
@@ -78,7 +79,7 @@ const antigravity = {
         }
       }
     } catch (e) {
-      console.log("Failed to load code assist:", e);
+      log.info("OAUTH", "Failed to load code assist:", (e?.message ?? e));
     }
 
     // Fire-and-forget onboarding — does not block DB save

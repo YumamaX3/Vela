@@ -36,6 +36,7 @@ import {
   normalizeImportSections,
   sectionOfField,
 } from "../backupSecurity.js";
+import * as log from "@/sse/utils/logger.js";
 
 // The engine — re-exported for backward-compatible imports.
 export {
@@ -104,6 +105,10 @@ export async function exportDb({ includeRequestDetails = false, redact = false }
         tokenBudgetDaily: r.tokenBudgetDaily ?? null, spendCapDailyCents: r.spendCapDailyCents ?? null,
         budgetScope: r.budgetScope ?? null, rateLimitRpm: r.rateLimitRpm ?? null, ipAllowlist: r.ipAllowlist ?? null,
         category: r.category ?? null,
+        // Migration 024 — per-key access columns ride the export like every
+        // other compared column; a projection that lags the schema reads as
+        // phantom drift on the very next sweep.
+        accessRestricted: r.accessRestricted ?? 0, accessAllow: r.accessAllow ?? null,
       })),
       combos: db.all(`SELECT * FROM combos`).map((r) => ({ id: r.id, name: r.name, kind: r.kind, models: parseJson(r.models, []), createdAt: r.createdAt, updatedAt: r.updatedAt })),
       usageHistory: db.all(`SELECT * FROM usageHistory ORDER BY id ASC`).map((r) => ({
@@ -500,17 +505,18 @@ export async function initDb() {
       const { migratePlaintextCredentials } = await import("./vaultRepo.js");
       const result = await migratePlaintextCredentials();
       if (result.error) {
-        console.warn(`[vault] plaintext credential migration skipped: ${result.error}`);
+        log.warn("DB", `[vault] plaintext credential migration skipped: ${result.error}`);
       } else if (result.sealed > 0 || result.skipped.length > 0) {
-        console.info(
-          `[vault] credential migration complete — sealed ${result.sealed}` +
+        log.info(
+          "DB",
+          `credential migration complete — sealed ${result.sealed}` +
           (result.backup ? `, backup ${result.backup}` : "") +
           (result.skipped.length ? `, skipped ${result.skipped.length}` : "")
         );
       }
     }
   } catch (e) {
-    console.warn(`[vault] plaintext credential migration skipped: ${e.message}`);
+    log.warn("DB", `[vault] plaintext credential migration skipped: ${e.message}`);
   }
 }
 
@@ -582,7 +588,7 @@ export async function writeLedger(kind, fields = {}) {
       ]
     );
   } catch (err) {
-    console.warn("[backup] ledger write failed (fail-open):", err?.message);
+    log.warn("DB", "[backup] ledger write failed (fail-open):", err?.message);
   }
 }
 

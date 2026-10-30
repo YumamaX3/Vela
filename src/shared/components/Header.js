@@ -1,5 +1,6 @@
 "use client";
 
+import { logger } from "@/lib/clientLogger.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
@@ -250,7 +251,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
         window.location.assign("/login");
       }
     } catch (err) {
-      console.error("Failed to logout:", err);
+      logger.error("HEADER", "Failed to logout:", err);
     }
   };
 

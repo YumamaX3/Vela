@@ -1,14 +1,14 @@
 import { FORMATS } from "./formats.js";
 import { ensureToolCallIds, fixMissingToolResponses } from "./concerns/toolCall.js";
 import { prepareClaudeRequest } from "./formats/claude.js";
-import { cloakClaudeTools, decloakStreamChunk } from "../utils/claudeCloaking.js";
+import { cloakClaudeTools, decloakStreamChunk } from "../../utils/claudeCloaking.js";
 import { filterToOpenAIFormat } from "./formats/openai.js";
-import { normalizeThinkingConfig } from "../services/provider.js";
+import { normalizeThinkingConfig } from "../../services/provider.js";
 import { applyThinking, captureThinking } from "./concerns/thinkingUnified.js";
-import { captureSessionId } from "../utils/sessionManager.js";
-import { ensureStreamToolCallIds } from "../utils/streamHelpers.js";
-import { AntigravityExecutor } from "../executors/antigravity.js";
-import { PROVIDERS } from "../providers/index.js";
+import { captureSessionId } from "../../utils/sessionManager.js";
+import { ensureStreamToolCallIds } from "../../utils/streamHelpers.js";
+import { AntigravityExecutor } from "../../executors/antigravity.js";
+import { PROVIDERS } from "../../providers/index.js";
 
 // Registry for translators. Lazy-init guards against circular-import order:
 // translator modules call register() (side-effect) before this module's body runs.

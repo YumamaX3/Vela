@@ -1,5 +1,6 @@
 "use client";
 
+import { logger } from "@/lib/clientLogger.js";
 import { useState, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
 import {
@@ -36,7 +37,7 @@ export default function UsageChart({ period = "7d" }) {
         setData(json);
       }
     } catch (e) {
-      console.error("Failed to fetch chart data:", e);
+      logger.error("USAGE", "Failed to fetch chart data:", e);
     } finally {
       setLoading(false);
     }

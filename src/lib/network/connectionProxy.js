@@ -1,4 +1,5 @@
 import { getProxyPoolById } from "@/models";
+import * as log from "@/sse/utils/logger.js";
 
 // Safely normalize any value into a trimmed string.
 function normalizeString(value) {
@@ -267,10 +268,7 @@ export async function resolveConnectionProxyConfig(
       ...legacy,
     };
   } catch (error) {
-    console.error(
-      "[resolveConnectionProxyConfig] Failed to resolve proxy config:",
-      error
-    );
+    log.error("PROXY", "[resolveConnectionProxyConfig] Failed to resolve proxy config:", (error?.message ?? error));
 
     return {
       source: "error",

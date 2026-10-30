@@ -2,6 +2,7 @@
  * Shared usage helpers (cross-provider)
  */
 
+import * as log from "../../../src/sse/utils/logger.js";
 import { PROVIDERS } from "../../providers/index.js";
 import { proxyAwareFetch } from "../../utils/proxyFetch.js";
 
@@ -37,7 +38,7 @@ export function parseResetTime(resetValue) {
 
     return null;
   } catch (error) {
-    console.warn(`Failed to parse reset time: ${resetValue}`, error);
+    log.warn("USAGE", `Failed to parse reset time: ${resetValue}`, error);
     return null;
   }
 }

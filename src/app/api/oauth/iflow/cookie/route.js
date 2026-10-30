@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createProviderConnection } from "@/models";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * iFlow Cookie-Based Authentication
@@ -131,7 +132,7 @@ export async function POST(request) {
       },
     });
   } catch (error) {
-    console.error("iFlow cookie auth error:", error);
+    log.error("OAUTH", "iFlow cookie auth error:", (error?.message ?? error));
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -1,5 +1,5 @@
-import { FORMATS } from "../../translator/formats.js";
-import { needsTranslation } from "../../translator/index.js";
+import { FORMATS } from "../../transformer/translator/formats.js";
+import { needsTranslation } from "../../transformer/translator/index.js";
 import { createSSETransformStreamWithLogger, createPassthroughStreamWithLogger } from "../../utils/stream.js";
 import { pipeWithDisconnect } from "../../utils/streamHandler.js";
 import { PROVIDERS } from "../../config/providers.js";
@@ -13,6 +13,7 @@ import { saveRequestDetail } from "@/lib/usageDb.js";
 import { guardOutboundStream, scanOutboundPayload, auditDecision, BLOCK_STATUS, BLOCKED_OUTBOUND } from "@/lib/guardrails/pipeline.js";
 import { createErrorResult } from "../../utils/error.js";
 import { SSE_HEADERS_CORS as SSE_HEADERS } from "../../utils/sseConstants.js";
+import * as keeperLog from "../../../src/sse/utils/logger.js";
 
 // Codex returns Responses API SSE → which client format to translate INTO, by request sourceFormat.
 // Gemini-family all map to ANTIGRAVITY decoder; unknown sources fall back to OPENAI.
@@ -53,7 +54,7 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     Promise.resolve()
       .then(onRequestSuccess)
       .catch(err => {
-        console.error("[ChatCore] onRequestSuccess failed:", err?.message || err);
+        keeperLog.error("STREAM", "onRequestSuccess failed:", err?.message || err);
       });
   }
 
@@ -73,7 +74,7 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
       || (bodyText.length < 200 ? bodyText.replace(/<[^>]*>/g, '').trim().slice(0, 160) : `Upstream returned non-SSE response (${upstreamContentType})`);
     const status = providerResponse.status || 502;
     if (log?.errorLine) log.errorLine(reqTag, "✗", `BLOCKED ${status} · ${provider}/${model} · non-SSE (${upstreamContentType})\n    ${shortMsg}`);
-    else console.warn(`[STREAM] ${provider} | ${model} | blocked pipe: ${shortMsg} [${status}]`);
+    else keeperLog.warn("STREAM", `[STREAM] ${provider} | ${model} | blocked pipe: ${shortMsg} [${status}]`);
     streamController?.handleError?.(new Error(`upstream non-SSE: ${status}`));
     return {
       success: false,
@@ -174,7 +175,7 @@ export async function handleStreamingResponse({ providerResponse, provider, mode
     pxpipe,
     status: "success"
   }, { id: streamDetailId })).catch(err => {
-    console.error("[RequestDetail] Failed to save streaming request:", err.message);
+    keeperLog.error("STREAM", "Failed to save streaming request:", err.message);
   });
 
   return {
@@ -208,7 +209,7 @@ export function buildOnStreamComplete({ provider, model, connectionId, apiKey, r
       pxpipe,
       status: "success"
     }, { id: streamDetailId })).catch(err => {
-      console.error("[RequestDetail] Failed to update streaming content:", err.message);
+      keeperLog.error("STREAM", "Failed to update streaming content:", err.message);
     });
 
     // Persist stream usage to DB (no console line; the "📊 done" line below is

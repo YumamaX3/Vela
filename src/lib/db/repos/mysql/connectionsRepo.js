@@ -6,6 +6,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { getMysqlAdapter } from "../../mysql/adapter.js";
 import { parseJson, stringifyJson } from "../../helpers/jsonCol.js";
+import * as log from "@/sse/utils/logger.js";
 import {
   sealConnection, openConnectionData, SEALED_SLOTS, SLOT_COLUMNS,
 } from "../../connectionVault.js";
@@ -56,8 +57,9 @@ function rowToConn(row, { hydrate = true } = {}) {
   let extra = parseJson(row.data, {});
   if (hydrate) {
     extra = openConnectionData(extra, row, {
-      onError: (slot, err) => console.warn(
-        `[vault] sealed ${slot} credential could not be opened for ${row.id}; row left untouched: ${err.message}`
+      onError: (slot, err) => log.warn(
+        "DB",
+        `sealed ${slot} credential could not be opened for ${row.id}; row left untouched: ${err.message}`
       ),
     });
   }

@@ -3,9 +3,9 @@
 // body, dispatching by format so it works for translated and native-passthrough
 // flows. Used by caveman.js, ponytail.js, and user-defined prompt injectors.
 
-import { FORMATS } from "../translator/formats.js";
-import { OPENAI_BLOCK, CLAUDE_BLOCK, RESPONSES_ITEM } from "../translator/schema/blocks.js";
-import { ROLE } from "../translator/schema/roles.js";
+import { FORMATS } from "../transformer/translator/formats.js";
+import { OPENAI_BLOCK, CLAUDE_BLOCK, RESPONSES_ITEM } from "../transformer/translator/schema/blocks.js";
+import { ROLE } from "../transformer/translator/schema/roles.js";
 
 const SEP = "\n\n";
 

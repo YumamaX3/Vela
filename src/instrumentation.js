@@ -15,6 +15,30 @@ export async function register() {
     const { initConsoleLogCapture } = await import("@/lib/consoleLogBuffer");
     initConsoleLogCapture();
 
+    // The boot log's voice, captured ONCE inside the nodejs guard. The logger is
+    // reachable here already (refreshLogTheme below), but it must never be a
+    // top-level static import — that drags logshipper into the Edge bundle. It
+    // is bound fail-open: if the import fails, bootWarn falls back to console so
+    // a failed boot *report* can never become a second boot failure.
+    let bootWarn = (msg, data) => console.warn(msg, data);
+    try {
+      const { warn } = await import("@/sse/utils/logger.js");
+      bootWarn = (msg, data) => warn("BOOT", msg, data);
+    } catch {
+      // The raw voice stands.
+    }
+
+    // The logbook's voice is READ from the settings store, not guessed. Fire-
+    // and-forget inside the same nodejs guard: the logger keeps the env default
+    // (VELA_LOG_THEME) until the first read lands, and a failed read simply
+    // leaves that voice standing — boot is never gated on a theme.
+    try {
+      const { refreshLogTheme } = await import("@/sse/utils/logger.js");
+      refreshLogTheme().catch(() => {});
+    } catch {
+      // The default voice stands.
+    }
+
     // M3 §2 — the durable log transport. Joins the console capture above,
     // inside the same nodejs guard: logshipper owns its own worker spawn, so
     // it must NOT be pulled into the Edge bundle. Fire-and-forget and
@@ -23,7 +47,7 @@ export async function register() {
       const { initLogshipper } = await import("@/lib/logshipper/index.js");
       await initLogshipper();
     } catch (err) {
-      console.warn("[instrumentation] Logshipper init failed:", err.message);
+      bootWarn("Logshipper init failed:", err?.message || err);
     }
 
     // Boot Fleet Captain once per server lifetime (fire-and-forget).
@@ -34,7 +58,7 @@ export async function register() {
       const { startFleet } = await import("@/lib/network/fleetStartup.js");
       await startFleet();
     } catch (err) {
-      console.warn("[instrumentation] Fleet Captain init failed:", err.message);
+      bootWarn("Fleet Captain init failed:", err?.message || err);
     }
 
     // Model-catalog sync (fire-and-forget): the gateway's published modality /
@@ -44,7 +68,7 @@ export async function register() {
       const { startModelCatalogSync } = await import("@/lib/modelCatalog/sync.js");
       startModelCatalogSync();
     } catch (err) {
-      console.warn("[instrumentation] Model catalog sync failed:", err.message);
+      bootWarn("Model catalog sync failed:", err?.message || err);
     }
 
     // OpenCode free-tier catalog (fire-and-forget). The free lane's membership
@@ -56,7 +80,7 @@ export async function register() {
       const { refreshOpenCodeCatalog } = await import("open-sse/services/opencodeCatalog.js");
       refreshOpenCodeCatalog().catch(() => {});
     } catch (err) {
-      console.warn("[instrumentation] OpenCode catalog warm-up failed:", err.message);
+      bootWarn("OpenCode catalog warm-up failed:", err?.message || err);
     }
 
     // M4 (plans/2026-10-28-codebuddy-family.md) — bind the CodeBuddy family's

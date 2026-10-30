@@ -5,6 +5,7 @@ import { WRITABLE_SETTING_KEYS, resolveLogRetention } from "@/lib/db/repos/setti
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 import { resetComboRotation } from "open-sse/services/combo.js";
 import bcrypt from "bcryptjs";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -49,7 +50,7 @@ export async function GET() {
       hasPassword: !!password
     }, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {
-    console.log("Error getting settings:", error);
+    log.info("SETTINGS", "Error getting settings:", (error?.message ?? error));
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -149,6 +150,17 @@ export async function PATCH(request) {
       body.logRetention = resolved.value;
     }
 
+    // The logbook's voice is a CLOSED enum. The roster below would admit any
+    // string; a stored "plain " with a stray space, or a typo nobody reads back,
+    // would silently theme the logbook. Reject loudly, before the write.
+    if (Object.prototype.hasOwnProperty.call(body, "logTheme")) {
+      const value = String(body.logTheme ?? "").trim().toLowerCase();
+      if (value !== "themed" && value !== "plain") {
+        return NextResponse.json({ error: "logTheme must be 'themed' or 'plain'" }, { status: 400 });
+      }
+      body.logTheme = value;
+    }
+
     // CWE-915 — only declared settings keys may be persisted. Placed AFTER the
     // branches that legitimately shape a key (`password` from `newPassword`,
     // `budgetAlerts` deep-merged, `oidcClientSecret` normalized) so their work is not
@@ -156,7 +168,7 @@ export async function PATCH(request) {
     // key is not a setting — it is a caller planting one for a future reader to trust.
     const droppedKeys = Object.keys(body).filter((k) => !ALLOWED_SETTING_KEYS.has(k));
     if (droppedKeys.length) {
-      console.warn(`[settings] ignoring non-settings keys: ${droppedKeys.join(", ")}`);
+      log.warn("SETTINGS", `[settings] ignoring non-settings keys: ${droppedKeys.join(", ")}`);
       for (const key of droppedKeys) delete body[key];
     }
 
@@ -177,7 +189,7 @@ export async function PATCH(request) {
           await createUser({ id: crypto.randomUUID(), username: DEFAULT_USERNAME, passwordHash: body.password });
         }
       } catch (err) {
-        console.error("[settings] credential row sync failed:", err?.message || err);
+        log.error("SETTINGS", "credential row sync failed:", err?.message || err);
       }
     }
 
@@ -206,7 +218,7 @@ export async function PATCH(request) {
     if (Object.prototype.hasOwnProperty.call(body, "budgetAlerts")) {
       import("@/sse/services/usageDigest.js")
         .then(({ configureDigestScheduler }) => configureDigestScheduler())
-        .catch((error) => console.warn("[digest] scheduler configure failed:", error.message));
+        .catch((error) => log.warn("SETTINGS", "scheduler configure failed:", error.message));
     }
 
     // Invalidate combo rotation state when strategy settings change
@@ -227,14 +239,21 @@ export async function PATCH(request) {
         .then(({ configureQuotaAutoPing }) => {
           configureQuotaAutoPing(settings);
         })
-        .catch((error) => console.warn("[AutoPing] settings update failed:", error.message));
+        .catch((error) => log.warn("SETTINGS", "[AutoPing] settings update failed:", error.message));
     }
+
+    // The voice takes effect WITHOUT a restart. Place it last: the response is
+    // built from `settings` below, and a failed refresh must never fail a save
+    // whose value is already persisted (the next read picks it up anyway).
+    import("@/sse/utils/logger.js")
+      .then(({ refreshLogTheme }) => refreshLogTheme({ force: true }))
+      .catch(() => {});
 
     const { password, oidcClientSecret, ...safeSettings } = settings;
     safeSettings.oidcConfigured = !!(safeSettings.oidcIssuerUrl && safeSettings.oidcClientId && oidcClientSecret);
     return NextResponse.json(safeSettings, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {
-    console.log("Error updating settings:", error);
+    log.info("SETTINGS", "Error updating settings:", (error?.message ?? error));
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

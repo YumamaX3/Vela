@@ -1,9 +1,9 @@
-import { claudeToOpenAIRequest } from "../translator/request/claude-to-openai.js";
-import { openaiToClaudeRequest } from "../translator/request/openai-to-claude.js";
+import { claudeToOpenAIRequest } from "../transformer/translator/request/claude-to-openai.js";
+import { openaiToClaudeRequest } from "../transformer/translator/request/openai-to-claude.js";
 import {
   openaiResponsesToOpenAIRequest,
   openaiToOpenAIResponsesRequest,
-} from "../translator/request/openai-responses.js";
+} from "../transformer/translator/request/openai-responses.js";
 
 const DEFAULT_TIMEOUT_MS = 3000;
 

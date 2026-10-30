@@ -11,6 +11,7 @@
 // Porting a dashboard client from the Go harbor should not require rewriting
 // its payloads.
 
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import {
   listPolicies,
@@ -54,7 +55,7 @@ export async function GET(request) {
 
     return NextResponse.json(policies);
   } catch (error) {
-    console.error("[Guardrails] Failed to list policies:", error);
+    log.error("API", "Failed to list policies:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to list guardrail policies" }, { status: 500 });
   }
 }
@@ -75,7 +76,7 @@ export async function POST(request) {
     }
     return NextResponse.json(result.policy, { status: 201 });
   } catch (error) {
-    console.error("[Guardrails] Failed to create policy:", error);
+    log.error("API", "Failed to create policy:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to create guardrail policy" }, { status: 500 });
   }
 }

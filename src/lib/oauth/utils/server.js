@@ -1,6 +1,7 @@
 import http from "http";
 import { URL } from "url";
 import { CODEX_CONFIG, TRAE_CONFIG, WINDSURF_CONFIG, ZED_HOSTED_CONFIG } from "../constants/oauth.js";
+import * as log from "@/sse/utils/logger.js";
 
 // Loopback origin guard for local callback proxies.
 // Legit OAuth redirects are top-level navigations (no `Origin` header); a cross-site
@@ -674,7 +675,7 @@ export function startZedProxy(preferredPort = 0) {
       // Reuse the live listener, but renew its idle timeout so a previous
       // flow's deadline can never kill the flow that just adopted the port.
       if (zedProxyTimeout) clearTimeout(zedProxyTimeout);
-      zedProxyTimeout = setTimeout(() => { console.log("[Zed proxy] timeout, stopping"); stopZedProxy(); }, ZED_HOSTED_CONFIG.oauthTimeoutMs);
+      zedProxyTimeout = setTimeout(() => { log.info("OAUTH", "[Zed proxy] timeout, stopping"); stopZedProxy(); }, ZED_HOSTED_CONFIG.oauthTimeoutMs);
       resolve({ success: true, port: zedProxyPort, callbackUrl: `http://127.0.0.1:${zedProxyPort}/` });
       return;
     }
@@ -685,7 +686,7 @@ export function startZedProxy(preferredPort = 0) {
       for (const k of ["access_token", "user_id", "code_verifier", "state"]) {
         if (redacted[k]) redacted[k] = "<redacted>";
       }
-      console.log("[Zed proxy]", req.method, url.pathname, JSON.stringify(redacted));
+      log.info("OAUTH", "[Zed proxy]", req.method, url.pathname, JSON.stringify(redacted));
       if (url.pathname !== "/" && url.pathname !== "/callback") {
         res.writeHead(404);
         res.end("Not found");
@@ -713,7 +714,7 @@ export function startZedProxy(preferredPort = 0) {
         qp.has("user_id") || qp.has("userId") ||
         qp.has("access_token") || qp.has("accessToken") || qp.has("token");
       if (!hasZedParams) {
-        console.log(`[Zed proxy] ignoring non-callback ${req.method} ${url.pathname} (session kept, server kept)`);
+        log.info("OAUTH", `[Zed proxy] ignoring non-callback ${req.method} ${url.pathname} (session kept, server kept)`);
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(renderCodexResultPage(false, "Waiting for Zed sign-in — this request carried no login data."));
         return;
@@ -759,31 +760,31 @@ export function startZedProxy(preferredPort = 0) {
     server.on("error", (err) => {
       // If the preferred port (e.g. 58443) is busy, fall back to a random port.
       if (err.code === "EADDRINUSE" && tryPort !== 0) {
-        console.log(`[Zed proxy] port ${tryPort} busy, falling back to random`);
+        log.info("OAUTH", `[Zed proxy] port ${tryPort} busy, falling back to random`);
         server.listen(0, "127.0.0.1", () => {
           zedProxyServer = server;
           zedProxyPort = server.address().port;
           zedProxyTimeout = setTimeout(() => stopZedProxy(), ZED_HOSTED_CONFIG.oauthTimeoutMs);
-          console.log(`[Zed proxy] listening on random port ${zedProxyPort}`);
+          log.info("OAUTH", `[Zed proxy] listening on random port ${zedProxyPort}`);
           resolve({ success: true, port: zedProxyPort, callbackUrl: `http://127.0.0.1:${zedProxyPort}/` });
         });
       } else {
-        console.log(`[Zed proxy] listen error: ${err.message}`);
+        log.info("OAUTH", `[Zed proxy] listen error: ${err.message}`);
         resolve({ success: false, reason: err.message });
       }
     });
     server.listen(tryPort, "127.0.0.1", () => {
       zedProxyServer = server;
       zedProxyPort = server.address().port;
-      zedProxyTimeout = setTimeout(() => { console.log("[Zed proxy] timeout, stopping"); stopZedProxy(); }, ZED_HOSTED_CONFIG.oauthTimeoutMs);
-      console.log(`[Zed proxy] listening on port ${zedProxyPort}`);
+      zedProxyTimeout = setTimeout(() => { log.info("OAUTH", "[Zed proxy] timeout, stopping"); stopZedProxy(); }, ZED_HOSTED_CONFIG.oauthTimeoutMs);
+      log.info("OAUTH", `[Zed proxy] listening on port ${zedProxyPort}`);
       resolve({ success: true, port: zedProxyPort, callbackUrl: `http://127.0.0.1:${zedProxyPort}/` });
     });
   });
 }
 
 export function stopZedProxy() {
-  console.log(`[Zed proxy] stopping (port ${zedProxyPort || "-"})`);
+  log.info("OAUTH", `[Zed proxy] stopping (port ${zedProxyPort || "-"})`);
   if (zedProxyTimeout) { clearTimeout(zedProxyTimeout); zedProxyTimeout = null; }
   if (zedProxyServer) { zedProxyServer.close(); zedProxyServer = null; }
   zedProxyPort = null;

@@ -1,4 +1,5 @@
 "use server";
+import * as log from "@/sse/utils/logger.js";
 
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
@@ -109,7 +110,7 @@ export async function GET() {
       settingsPath: getOpenClawSettingsPath(),
     });
   } catch (error) {
-    console.log("Error checking openclaw settings:", error);
+    log.info("CLITOOLS", "Error checking openclaw settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to check openclaw settings" }, { status: 500 });
   }
 }
@@ -229,7 +230,7 @@ export async function POST(request) {
       settingsPath,
     });
   } catch (error) {
-    console.log("Error updating openclaw settings:", error);
+    log.info("CLITOOLS", "Error updating openclaw settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to update openclaw settings" }, { status: 500 });
   }
 }
@@ -288,7 +289,7 @@ export async function DELETE() {
       message: "Vela settings removed successfully",
     });
   } catch (error) {
-    console.log("Error resetting openclaw settings:", error);
+    log.info("CLITOOLS", "Error resetting openclaw settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to reset openclaw settings" }, { status: 500 });
   }
 }

@@ -5,6 +5,7 @@
 // whole document" semantics to lose. A missing id is 404, never a silent
 // create — that is the difference between an edit and a duplicate.
 
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { getPolicy, updatePolicy, deletePolicy } from "@/lib/guardrails/policyStore.js";
 
@@ -33,7 +34,7 @@ export async function GET(request, { params }) {
     if (!policy) return NextResponse.json({ error: "guardrail policy not found" }, { status: 404 });
     return NextResponse.json(policy);
   } catch (error) {
-    console.error("[Guardrails] Failed to fetch policy:", error);
+    log.error("API", "Failed to fetch policy:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch guardrail policy" }, { status: 500 });
   }
 }
@@ -57,7 +58,7 @@ async function update(request, params) {
     }
     return NextResponse.json(result.policy);
   } catch (error) {
-    console.error("[Guardrails] Failed to update policy:", error);
+    log.error("API", "Failed to update policy:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to update guardrail policy" }, { status: 500 });
   }
 }
@@ -82,7 +83,7 @@ export async function DELETE(request, { params }) {
     }
     return NextResponse.json({ status: "ok", id });
   } catch (error) {
-    console.error("[Guardrails] Failed to delete policy:", error);
+    log.error("API", "Failed to delete policy:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to delete guardrail policy" }, { status: 500 });
   }
 }

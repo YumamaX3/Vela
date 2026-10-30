@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPerProviderFrame } from "@/lib/usageDb";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * GET /api/usage/providers/activity
@@ -21,7 +22,7 @@ export async function GET() {
       ts: frame?.ts ?? null,
     });
   } catch (error) {
-    console.log("Error fetching provider activity:", error);
+    log.info("USAGE", "Error fetching provider activity:", (error?.message ?? error));
     // Fail-open like the frame itself: an empty window is honest, a 500 is not.
     return NextResponse.json({ perProvider: {}, windowMs: 60000, ts: null });
   }

@@ -4,6 +4,7 @@ import { GEMINI_CONFIG, getOAuthClientMetadata } from "../constants/oauth.js";
 import { getServerCredentials } from "../config/index.js";
 import { startLocalServer } from "../utils/server.js";
 import { spinner as createSpinner } from "../utils/ui.js";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * Gemini CLI (Google Cloud Code Assist) OAuth Service
@@ -176,8 +177,8 @@ export class GeminiCLIService {
       // Build authorization URL
       const authUrl = this.buildAuthUrl(redirectUri, state);
 
-      console.log("\nOpening browser for Google authentication...");
-      console.log(`If browser doesn't open, visit:\n${authUrl}\n`);
+      log.info("OAUTH", "\nOpening browser for Google authentication...");
+      log.info("OAUTH", `If browser doesn't open, visit:\n${authUrl}\n`);
 
       // Open browser
       await open(authUrl);

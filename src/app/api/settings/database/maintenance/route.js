@@ -18,6 +18,7 @@
 //
 // The persistence itself lives in src/lib/db/repos/sqlite/maintenanceRepo.js
 // (Storage Covenant: raw adapter access stays inside the harbor).
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { verifyDashboardPassword } from "@/lib/auth/dashboardSession";
 
@@ -43,7 +44,7 @@ export async function GET(request) {
     const { getDatabaseStats } = await import("@/lib/db/repos/sqlite/maintenanceRepo.js");
     return NextResponse.json(await getDatabaseStats());
   } catch (error) {
-    console.error("Error reading database stats:", error);
+    log.error("SETTINGS", "Error reading database stats:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to read database stats" }, { status: 500 });
   }
 }
@@ -99,7 +100,7 @@ export async function POST(request) {
         { status: 500 }
       );
     }
-    console.error("Error running database maintenance:", error);
+    log.error("SETTINGS", "Error running database maintenance:", (error?.message ?? error));
     return NextResponse.json({ error: "Database maintenance failed" }, { status: 500 });
   }
 }

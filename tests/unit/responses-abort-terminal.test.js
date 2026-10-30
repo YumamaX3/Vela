@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createDisconnectAwareStream, pipeWithDisconnect, createStreamController } from "../../open-sse/utils/streamHandler.js";
 import { buildAbortedResponsesTerminalBytes } from "../../open-sse/utils/responsesStreamHelpers.js";
 import { buildStreamErrorBytes } from "../../open-sse/utils/streamHelpers.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
 
 // Minimal stream controller stub
 function makeController() {

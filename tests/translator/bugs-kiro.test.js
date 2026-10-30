@@ -1,8 +1,8 @@
 // OpenAI → Kiro (AWS CodeWhisperer) request translation.
 import { describe, it, expect } from "vitest";
 import "./registerAll.js";
-import { translateRequest } from "../../open-sse/translator/index.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
+import { translateRequest } from "../../open-sse/transformer/translator/index.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
 
 const O2K = (body) => translateRequest(FORMATS.OPENAI, FORMATS.KIRO, "m", body, true, null, "kiro");
 const R2K = (model, body) => translateRequest(

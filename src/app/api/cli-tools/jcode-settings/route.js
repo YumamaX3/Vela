@@ -1,4 +1,5 @@
 "use server";
+import * as log from "@/sse/utils/logger.js";
 
 import { NextResponse } from "next/server";
 import fs from "fs/promises";
@@ -178,7 +179,7 @@ export async function POST(request) {
       configPath: getConfigPath(),
     });
   } catch (error) {
-    console.error("Error configuring jcode:", error);
+    log.error("CLITOOLS", "Error configuring jcode:", (error?.message ?? error));
     return NextResponse.json(
       { error: error.message },
       { status: 500 }
@@ -207,7 +208,7 @@ export async function DELETE() {
       message: "Vela configuration removed from jcode",
     });
   } catch (error) {
-    console.error("Error removing jcode configuration:", error);
+    log.error("CLITOOLS", "Error removing jcode configuration:", (error?.message ?? error));
     return NextResponse.json(
       { error: error.message },
       { status: 500 }

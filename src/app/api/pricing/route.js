@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPricing, updatePricing, resetPricing, resetAllPricing } from "@/lib/localDb.js";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * GET /api/pricing
@@ -10,7 +11,7 @@ export async function GET() {
     const pricing = await getPricing();
     return NextResponse.json(pricing);
   } catch (error) {
-    console.error("Error fetching pricing:", error);
+    log.error("API", "Error fetching pricing:", (error?.message ?? error));
     return NextResponse.json(
       { error: "Failed to fetch pricing" },
       { status: 500 }
@@ -74,7 +75,7 @@ export async function PATCH(request) {
     const updatedPricing = await updatePricing(body);
     return NextResponse.json(updatedPricing);
   } catch (error) {
-    console.error("Error updating pricing:", error);
+    log.error("API", "Error updating pricing:", (error?.message ?? error));
     return NextResponse.json(
       { error: "Failed to update pricing" },
       { status: 500 }
@@ -107,7 +108,7 @@ export async function DELETE(request) {
     const pricing = await getPricing();
     return NextResponse.json(pricing);
   } catch (error) {
-    console.error("Error resetting pricing:", error);
+    log.error("API", "Error resetting pricing:", (error?.message ?? error));
     return NextResponse.json(
       { error: "Failed to reset pricing" },
       { status: 500 }

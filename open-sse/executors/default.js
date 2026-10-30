@@ -7,7 +7,7 @@ import { buildClineHeaders } from "../shared/clineAuth.js";
 import { getCachedClaudeHeaders } from "../utils/claudeHeaderCache.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import { injectReasoningContent } from "../utils/reasoningContentInjector.js";
-import { stripUnsupportedParams } from "../translator/concerns/paramSupport.js";
+import { stripUnsupportedParams } from "../transformer/translator/concerns/paramSupport.js";
 import { unwrapClinepassEnvelope } from "../utils/clinepassEnvelope.js";
 
 // Auth header descriptors — derived from registry transport.auth, fallback to hardcoded defaults.

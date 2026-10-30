@@ -2,10 +2,11 @@
  * Shared combo (model combo) handling with fallback support
  */
 
+import * as keeperLog from "../../src/sse/utils/logger.js";
 import { checkFallbackError, formatRetryAfter } from "./accountFallback.js";
 import { unavailableResponse } from "../utils/error.js";
 import { getCapabilitiesForModel } from "../providers/capabilities.js";
-import { extractTextContent } from "../translator/formats/gemini.js";
+import { extractTextContent } from "../transformer/translator/formats/gemini.js";
 import { buildFallbackChain } from "./fallbackRuleMatcher.js";
 import { parseModel } from "./model.js";
 import { peekStreamForContent, reconstructStream, isNoRetryFinish } from "./emptyFailover.js";
@@ -315,12 +316,12 @@ export async function getComboModelsFromData(modelStr, combosData, fallbackRules
             }
           }
           
-          console.debug("[combo] DB fallback rules applied to", modelStr, ":", baseModels.join(' → '));
+          keeperLog.debug("PROVIDERS", "DB fallback rules applied to", modelStr, ":", baseModels.join(' → '));
         }
       }
     } catch (err) {
       // Fail-open: fall back to hardcoded defaults when DB unavailable
-      console.warn("[combo] fallback rules lookup failed, using hardcoded defaults:", err.message);
+      keeperLog.warn("PROVIDERS", "fallback rules lookup failed, using hardcoded defaults:", err.message);
     }
   }
   
@@ -393,7 +394,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
     try {
       return await fallbackRulesRepo.getRulesForSourceModel(comboName || "");
     } catch (err) {
-      console.warn("[combo] fallback-rules lookup failed, using hardcoded defaults:", err.message);
+      keeperLog.warn("PROVIDERS", "fallback-rules lookup failed, using hardcoded defaults:", err.message);
       return [];
     }
   };
@@ -608,7 +609,7 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
             appendChain(chain);
           }
         } catch (err) {
-          console.warn("[combo] fallback-rules post-failure lookup failed:", err.message);
+          keeperLog.warn("PROVIDERS", "fallback-rules post-failure lookup failed:", err.message);
         }
       }
       log.warn("COMBO", `stumbled — trying the next · ${modelStr}`, { status: result.status });

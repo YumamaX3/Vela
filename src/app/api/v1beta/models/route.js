@@ -1,4 +1,5 @@
 import { PROVIDER_MODELS } from "@/shared/constants/models";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * Handle CORS preflight
@@ -59,7 +60,7 @@ export async function GET(request) {
     const scoped = await scopeModelsForRequest(request, models);
     return Response.json({ models: scoped });
   } catch (error) {
-    console.log("Error fetching models:", error);
+    log.info("API", "Error fetching models:", (error?.message ?? error));
     return Response.json({ error: { message: error.message } }, { status: 500 });
   }
 }

@@ -3,8 +3,8 @@
 // Sau refactor chạy lại phải khớp y hệt.
 import { describe, it, expect } from "vitest";
 import "./registerAll.js";
-import { translateRequest } from "../../open-sse/translator/index.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
+import { translateRequest } from "../../open-sse/transformer/translator/index.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
 
 // Body openai mẫu phủ nhiều concern (text, image, tool, tool_result, system, thinking).
 function baseBody() {

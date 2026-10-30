@@ -1,4 +1,5 @@
 // Ensure proxyFetch is loaded to patch globalThis.fetch
+import * as log from "@/sse/utils/logger.js";
 import "open-sse/index.js";
 
 import { getProviderConnectionById } from "@/lib/localDb";
@@ -74,7 +75,7 @@ async function refreshCodexConnection(connection, proxyOptions) {
     const result = await refreshAndUpdateCredentials(connection, false, proxyOptions);
     return { connection: result.connection };
   } catch (refreshError) {
-    console.error("[Codex Reset Credits API] Credential refresh failed:", refreshError);
+    log.error("USAGE", "[Codex Reset Credits API] Credential refresh failed:", refreshError);
     return { response: Response.json({ error: `Credential refresh failed: ${refreshError.message}` }, { status: 401 }) };
   }
 }
@@ -107,7 +108,7 @@ export async function GET(_request, { params }) {
     return Response.json(result);
   } catch (error) {
     const provider = connection?.provider ?? "unknown";
-    console.warn(`[Codex Reset Credits] ${provider}: ${error.message}`);
+    log.warn("USAGE", `[Codex Reset Credits] ${provider}: ${error.message}`);
     return Response.json({ error: error.message }, { status: 500 });
   }
 }
@@ -137,14 +138,14 @@ export async function POST(request, { params }) {
         connection = retryResult.connection;
         consumeResult = await consumeCodexRateLimitResetCredit(connection.accessToken, redeemRequestId, proxyOptions);
       } catch (retryError) {
-        console.warn(`[Codex Reset Credits] force refresh failed: ${retryError.message}`);
+        log.warn("USAGE", `[Codex Reset Credits] force refresh failed: ${retryError.message}`);
       }
     }
 
     return getResponseForConsumeResult(consumeResult, redeemRequestId);
   } catch (error) {
     const provider = connection?.provider ?? "unknown";
-    console.warn(`[Codex Reset Credits] ${provider}: ${error.message}`);
+    log.warn("USAGE", `[Codex Reset Credits] ${provider}: ${error.message}`);
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

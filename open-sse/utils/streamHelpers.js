@@ -1,7 +1,8 @@
-import { FORMATS } from "../translator/formats.js";
-import { fallbackToolCallId } from "../translator/concerns/toolCall.js";
+import { FORMATS } from "../transformer/translator/formats.js";
+import { fallbackToolCallId } from "../transformer/translator/concerns/toolCall.js";
 import { buildErrorBody } from "./error.js";
 import { SSE_DONE } from "./sseConstants.js";
+import * as log from "../../src/sse/utils/logger.js";
 
 const sharedEncoder = new TextEncoder();
 
@@ -33,7 +34,7 @@ export function parseSSELine(line, format = null) {
     return JSON.parse(data);
   } catch (error) {
     if (data.length > 0 && data.length < 1000) {
-      console.log(`[WARN] Failed to parse SSE line (${data.length} chars): ${data.substring(0, 100)}...`);
+      log.info("STREAM", `[WARN] Failed to parse SSE line (${data.length} chars): ${data.substring(0, 100)}...`);
     }
     return null;
   }

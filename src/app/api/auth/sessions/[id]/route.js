@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/dashboardSession";
 import { revokeAuthSession, getAuthSession } from "@/lib/db/repos/authStoreRepo.js";
 import { auditAuthEvent, AUTH_EVENTS } from "@/lib/auth/authAudit.js";
+import * as log from "@/sse/utils/logger.js";
 
 // DELETE /api/auth/sessions/[id] — kill one session by its jti.
 //
@@ -57,7 +58,7 @@ export async function DELETE(request, { params }) {
 
     return NextResponse.json({ success: true, current: isCurrent });
   } catch (error) {
-    console.error("[auth/sessions] revoke failed:", error?.message || error);
+    log.error("AUTH", "[auth/sessions] revoke failed:", error?.message || error);
     return NextResponse.json(
       { error: "Could not revoke the session. Check the server logs." },
       { status: 500 }

@@ -1,13 +1,13 @@
 // Claude helper functions for translator
-import { DEFAULT_THINKING_CLAUDE_SIGNATURE } from "../../config/defaultThinkingSignature.js";
+import { DEFAULT_THINKING_CLAUDE_SIGNATURE } from "../../../config/defaultThinkingSignature.js";
 import { ROLE, CLAUDE_BLOCK } from "../schema/index.js";
 import { adjustMaxTokens } from "./maxTokens.js";
-import { applyCloaking } from "../../utils/claudeCloaking.js";
-import { resolveSessionId } from "../../utils/sessionManager.js";
-import { isValidClaudeSignature } from "../../utils/claudeSignature.js";
-import { PROVIDERS } from "../../providers/index.js";
-import { getCapabilitiesForModel } from "../../providers/capabilities.js";
-import { DEFAULT_MAX_TOKENS } from "../../config/runtimeConfig.js";
+import { applyCloaking } from "../../../utils/claudeCloaking.js";
+import { resolveSessionId } from "../../../utils/sessionManager.js";
+import { isValidClaudeSignature } from "../../../utils/claudeSignature.js";
+import { PROVIDERS } from "../../../providers/index.js";
+import { getCapabilitiesForModel } from "../../../providers/capabilities.js";
+import { DEFAULT_MAX_TOKENS } from "../../../config/runtimeConfig.js";
 
 const CACHE_CONTROL_5M = { type: "ephemeral" };
 const CACHE_CONTROL_1H = { type: "ephemeral", ttl: "1h" };

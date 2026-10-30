@@ -4,14 +4,14 @@
 // - the client's thinking `display` is kept on Claude-format upstreams
 import { describe, it, expect } from "vitest";
 import "./registerAll.js";
-import { translateRequest, translateResponse, initState } from "../../open-sse/translator/index.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
-import { applyThinking } from "../../open-sse/translator/concerns/thinkingUnified.js";
-import { kiroToClaudeResponse } from "../../open-sse/translator/response/kiro-to-claude.js";
-import { kiroToOpenAIResponse } from "../../open-sse/translator/response/kiro-to-openai.js";
+import { translateRequest, translateResponse, initState } from "../../open-sse/transformer/translator/index.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
+import { applyThinking } from "../../open-sse/transformer/translator/concerns/thinkingUnified.js";
+import { kiroToClaudeResponse } from "../../open-sse/transformer/translator/response/kiro-to-claude.js";
+import { kiroToOpenAIResponse } from "../../open-sse/transformer/translator/response/kiro-to-openai.js";
 import { selectAnthropicBeta } from "../../open-sse/providers/shared.js";
-import { hoistToolResultImages } from "../../open-sse/translator/formats/claude.js";
-import { openaiToCommandCodeRequest } from "../../open-sse/translator/request/openai-to-commandcode.js";
+import { hoistToolResultImages } from "../../open-sse/transformer/translator/formats/claude.js";
+import { openaiToCommandCodeRequest } from "../../open-sse/transformer/translator/request/openai-to-commandcode.js";
 
 const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 

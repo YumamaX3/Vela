@@ -9,7 +9,7 @@ import { crc32, parseEventFrame } from "../utils/awsEventStream.js";
 import { escapeUri, signAwsRequest } from "../utils/awsSigv4.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import { SSE_DONE, SSE_HEADERS } from "../utils/sseConstants.js";
-import { FORMATS } from "../translator/formats.js";
+import { FORMATS } from "../transformer/translator/formats.js";
 import { FETCH_CONNECT_TIMEOUT_MS } from "../config/runtimeConfig.js";
 
 /**

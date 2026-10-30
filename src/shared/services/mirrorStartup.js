@@ -20,6 +20,7 @@
 // immediate catch-up that backs off on its own when the twin is unreachable;
 // the twin is NOT probed here. Mode never silently downgrades.
 import { getDbMode } from "@/lib/db/repos/bind.js";
+import * as log from "@/sse/utils/logger.js";
 
 /** Start/stop the mirror rhythms to match the current posture. Idempotent;
  *  safe to call repeatedly (boot + settings changes). Fail-open by law —
@@ -37,7 +38,7 @@ export function configureMirrorStartup() {
     void startMirrorRhythms();
   } catch (e) {
     // Fail-open: a startup error must never take the primary down.
-    console.warn(`[mirror] startup configuration failed (fail-open, primary keeps serving): ${e?.message || e}`);
+    log.warn("SERVICES", `[mirror] startup configuration failed (fail-open, primary keeps serving): ${e?.message || e}`);
   }
 }
 
@@ -54,7 +55,7 @@ export async function startMirrorRhythms() {
   startMirrorPump();      // boot catch-up drains pending ops, then the rhythm
   startUsageResync();     // usage watermark append (the exempt class's path)
   startMirrorSweep();     // divergence fingerprint + full-resync guard
-  console.log("[mirror] startup — pump + usage-resync + divergence sweep armed (primary serving; mode stays mirror)");
+  log.info("SERVICES", "[mirror] startup — pump + usage-resync + divergence sweep armed (primary serving; mode stays mirror)");
 }
 
 /** Stop all three mirror rhythms (idempotent). Used when leaving mirror

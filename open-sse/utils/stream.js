@@ -1,5 +1,5 @@
-import { translateResponse, initState } from "../translator/index.js";
-import { FORMATS } from "../translator/formats.js";
+import { translateResponse, initState } from "../transformer/translator/index.js";
+import { FORMATS } from "../transformer/translator/formats.js";
 import { trackPendingRequest, appendRequestLog } from "@/lib/usageDb.js";
 import { extractUsage, mergeUsage, hasValidUsage, estimateUsage, logUsage, addBufferToUsage, filterUsageForFormat, COLORS } from "./usageTracking.js";
 import { parseSSELine, hasValuableContent, fixInvalidId, formatSSE, ensureStreamToolCallIds, restoreStreamToolNames } from "./streamHelpers.js";
@@ -7,6 +7,7 @@ import { getOpenAIResponsesEventName, isOpenAIResponsesTerminalEvent, formatInco
 import { dbg, isDebugEnabled } from "./debugLog.js";
 
 import { SSE_DONE, SSE_HEADERS, SSE_HEADERS_NO_BUFFER } from "./sseConstants.js";
+import * as log from "../../src/sse/utils/logger.js";
 
 export { COLORS, formatSSE };
 export { SSE_DONE, SSE_HEADERS, SSE_HEADERS_NO_BUFFER };
@@ -519,7 +520,7 @@ export function createSSEStream(options = {}) {
         
         finalizeStream();
       } catch (error) {
-        console.log("Error in flush:", error);
+        log.info("STREAM", "Error in flush:", (error?.message ?? error));
         finalizeStream();
       }
     }

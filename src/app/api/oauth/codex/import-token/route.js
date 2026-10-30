@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createProviderConnection } from "@/models";
 import { extractCodexAccountInfo } from "@/lib/oauth/providers";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * POST /api/oauth/codex/import-token
@@ -90,7 +91,7 @@ export async function POST(request) {
       },
     });
   } catch (error) {
-    console.log("Codex access token import error:", error);
+    log.info("OAUTH", "Codex access token import error:", (error?.message ?? error));
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

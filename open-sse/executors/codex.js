@@ -5,8 +5,8 @@ import {
   refreshProviderCredentials,
   shouldRefreshCredentials,
 } from "../services/oauthCredentialManager.js";
-import { normalizeResponsesInput } from "../translator/formats/responsesApi.js";
-import { fetchImageAsBase64 } from "../translator/concerns/image.js";
+import { normalizeResponsesInput } from "../transformer/translator/formats/responsesApi.js";
+import { fetchImageAsBase64 } from "../transformer/translator/concerns/image.js";
 import { getModelUpstreamId } from "../config/providerModels.js";
 import { getThinkingLevels } from "../providers/thinkingLevels.js";
 import { DEFAULT_RETRY_CONFIG, HTTP_STATUS, resolveRetryEntry } from "../config/runtimeConfig.js";

@@ -21,6 +21,7 @@
 // DISABLED (reads pass through, writes stay plaintext) with a loud warning,
 // because taking a working install offline over an env var is the worse failure.
 import { randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
+import * as log from "@/sse/utils/logger.js";
 
 export const MASTER_KEY_ENV = "VELA_MASTER_KEY";
 export const PREVIOUS_MASTER_KEY_ENV = "VELA_MASTER_KEY_PREVIOUS";
@@ -98,7 +99,7 @@ export class Vault {
     try {
       current = decodeMasterKey(raw);
     } catch (e) {
-      console.warn(`[vault] ${MASTER_KEY_ENV} unusable (${e.message}); provider credentials stay in plaintext`);
+      log.warn("LIB", `[vault] ${MASTER_KEY_ENV} unusable (${e.message}); provider credentials stay in plaintext`);
       return Vault.disabled();
     }
 
@@ -108,7 +109,7 @@ export class Vault {
       try {
         previous = decodeMasterKey(prevRaw);
       } catch (e) {
-        console.warn(`[vault] ${PREVIOUS_MASTER_KEY_ENV} unusable (${e.message}); rotations are not reversible`);
+        log.warn("LIB", `[vault] ${PREVIOUS_MASTER_KEY_ENV} unusable (${e.message}); rotations are not reversible`);
       }
     }
     return new Vault(current, previous);

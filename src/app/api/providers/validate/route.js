@@ -3,7 +3,7 @@ import { getProviderNodeById } from "@/models";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider, isCustomEmbeddingProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getDefaultModel } from "open-sse/config/providerModels.js";
 import { resolveOllamaLocalHost, resolveXiaomiTokenplanBaseUrl, PROVIDERS } from "open-sse/config/providers.js";
-import { openaiToCommandCodeRequest } from "open-sse/translator/request/openai-to-commandcode.js";
+import { openaiToCommandCodeRequest } from "open-sse/transformer/translator/request/openai-to-commandcode.js";
 import { resolveQoderCredentials, resolveQoderModels } from "open-sse/services/qoderModels.js";
 import { normalizeProviderId } from "@/lib/providerNormalization";
 import {
@@ -13,6 +13,7 @@ import {
   allowLocalTestingFor,
   ProviderUrlSafetyError,
 } from "@/lib/network/providerUrlSafety.js";
+import * as log from "@/sse/utils/logger.js";
 
 // Probe a webSearch/webFetch provider using its searchConfig/fetchConfig.
 // Returns true if API key is accepted (status !== 401 && !== 403).
@@ -702,7 +703,7 @@ export async function POST(request) {
       error: isValid ? null : (error || "Invalid API key"),
     });
   } catch (error) {
-    console.log("Error validating API key:", error);
+    log.info("PROVIDERS", "Error validating API key:", (error?.message ?? error));
     return NextResponse.json({ error: "Validation failed" }, { status: 500 });
   }
 }

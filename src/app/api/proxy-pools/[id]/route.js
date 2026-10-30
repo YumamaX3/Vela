@@ -17,6 +17,7 @@ import {
 // §5.5 — same SSRF gate as create. An edit is a way around the POST check if it is not
 // gated too; see providerUrlSafety.js for why this is its own function.
 import { validateProxyPoolUrl } from "@/lib/network/providerUrlSafety.js";
+import * as log from "@/sse/utils/logger.js";
 
 function normalizeProxyPoolUpdate(body = {}) {
   const updates = {};
@@ -75,7 +76,7 @@ export async function GET(request, { params }) {
 
     return NextResponse.json({ proxyPool: maskProxyPoolForRead(proxyPool) });
   } catch (error) {
-    console.log("Error fetching proxy pool:", error);
+    log.info("PROXYPOOLS", "Error fetching proxy pool:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch proxy pool" }, { status: 500 });
   }
 }
@@ -131,7 +132,7 @@ export async function PUT(request, { params }) {
     const updated = await updateProxyPool(id, normalized.updates);
     return NextResponse.json({ proxyPool: maskProxyPoolForRead(updated) });
   } catch (error) {
-    console.log("Error updating proxy pool:", error);
+    log.info("PROXYPOOLS", "Error updating proxy pool:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to update proxy pool" }, { status: 500 });
   }
 }
@@ -162,7 +163,7 @@ export async function DELETE(request, { params }) {
     await deleteProxyPool(id);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.log("Error deleting proxy pool:", error);
+    log.info("PROXYPOOLS", "Error deleting proxy pool:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to delete proxy pool" }, { status: 500 });
   }
 }

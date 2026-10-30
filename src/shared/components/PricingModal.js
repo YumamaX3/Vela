@@ -1,5 +1,6 @@
 "use client";
 
+import { logger } from "@/lib/clientLogger.js";
 import { useState, useEffect, useRef } from "react";
 
 // Pricing Covenant C6: NO import of open-sse/providers/pricing.js here —
@@ -32,7 +33,7 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
         return;
       }
     } catch (error) {
-      console.error("Failed to load pricing:", error);
+      logger.error("PRICING", "Failed to load pricing:", error);
     }
     // Fallback: static defaults via the real endpoint (never the bundled table)
     try {
@@ -108,7 +109,7 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
         alert(`Failed to save pricing: ${error.error}`);
       }
     } catch (error) {
-      console.error("Failed to save pricing:", error);
+      logger.error("PRICING", "Failed to save pricing:", error);
       alert("Failed to save pricing");
     } finally {
       setSaving(false);
@@ -124,7 +125,7 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
         loadPricing();
       }
     } catch (error) {
-      console.error("Failed to reset pricing:", error);
+      logger.error("PRICING", "Failed to reset pricing:", error);
       alert("Failed to reset pricing");
     }
   };

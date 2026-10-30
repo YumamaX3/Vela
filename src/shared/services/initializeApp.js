@@ -16,6 +16,7 @@ import {
 import { getMitmStatus, startMitm, loadEncryptedPassword, initDbHooks, restoreToolDNS, removeAllDNSEntriesSync } from "@/mitm/manager";
 import { syncToJson as syncMitmAliasCache } from "@/lib/mitmAliasCache";
 import { killAllBridges } from "@/lib/mcp/stdioSseBridge";
+import * as log from "@/sse/utils/logger.js";
 
 // Inject correct paths and DB hooks into manager.js (CJS) from ESM context
 (function bootstrapMitm() {
@@ -66,16 +67,23 @@ export async function initializeApp() {
       g.signalHandlersRegistered = true;
     }
 
+    // The MCP bridge is CommonJS and cannot require the ESM logger post-boot
+    // (measured MODULE_NOT_FOUND — see stdioSseBridge.js header). Inject from ESM.
+    try {
+      const { setBridgeLogger } = await import("@/lib/mcp/stdioSseBridge.js");
+      setBridgeLogger(log);
+    } catch { /* the console fallback in the bridge stands */ }
+
     setTunnelUnexpectedExitCallback(() => {
       safeRestartTunnel("unexpected-exit").catch(() => {});
     });
 
     // Defer the heavy work — nothing here blocks incoming requests.
     setTimeout(() => {
-      runHeavyStartup().catch((e) => console.error("[InitApp] deferred startup failed:", e.message));
+      runHeavyStartup().catch((e) => log.error("SERVICES", "[InitApp] deferred startup failed:", e.message));
     }, STARTUP_DEFER_MS);
   } catch (error) {
-    console.error("[InitApp] Error:", error);
+    log.error("SERVICES", "[InitApp] Error:", error?.message ?? error);
   }
 }
 
@@ -86,15 +94,15 @@ async function runHeavyStartup() {
   // Auto-resume tunnel (once per process)
   if (settings.tunnelEnabled && !g.tunnelAutoResumed) {
     g.tunnelAutoResumed = true;
-    console.log("[InitApp] Tunnel was enabled, auto-resuming...");
-    safeRestartTunnel("startup").catch((e) => console.log("[InitApp] Tunnel resume failed:", e.message));
+    log.info("SERVICES", "[InitApp] Tunnel was enabled, auto-resuming...");
+    safeRestartTunnel("startup").catch((e) => log.warn("SERVICES", "[InitApp] Tunnel resume failed:", e.message));
   }
 
   // Auto-resume tailscale (once per process)
   if (settings.tailscaleEnabled && !g.tailscaleAutoResumed) {
     g.tailscaleAutoResumed = true;
-    console.log("[InitApp] Tailscale was enabled, auto-resuming...");
-    safeRestartTailscale("startup").catch((e) => console.log("[InitApp] Tailscale resume failed:", e.message));
+    log.info("SERVICES", "[InitApp] Tailscale was enabled, auto-resuming...");
+    safeRestartTailscale("startup").catch((e) => log.warn("SERVICES", "[InitApp] Tailscale resume failed:", e.message));
   }
 
   if (settings.tunnelEnabled) ensureCloudflared().catch(() => {});
@@ -110,21 +118,21 @@ async function runHeavyStartup() {
   if (hasQuotaAutoPingEnabled(settings)) {
     import("@/shared/services/quotaAutoPing")
       .then(({ startQuotaAutoPing }) => startQuotaAutoPing())
-      .catch((e) => console.log("[AutoPing] scheduler start failed:", e.message));
+      .catch((e) => log.warn("SERVICES", "[AutoPing] scheduler start failed:", e.message));
   }
 
   // Proactive OAuth token refresh (e.g. grok-cli ~6h TTL). Module is idempotent
   // and also started from custom-server.js when that entry is used.
   import("@/sse/services/backgroundTokenRefresh.js")
     .then(({ startBackgroundTokenRefresh }) => startBackgroundTokenRefresh())
-    .catch((e) => console.log("[BackgroundTokenRefresh] scheduler start failed:", e.message));
+    .catch((e) => log.warn("SERVICES", "[BackgroundTokenRefresh] scheduler start failed:", e.message));
 
   // Storage Covenant Wave B3 — the backup scheduler. Env-only policy
   // (VELA_BACKUP_ENABLED), default OFF, fail-open by law. configureBackupScheduler
   // is idempotent and self-gates on the enabled flag.
   import("@/shared/services/backupScheduler.js")
     .then(({ configureBackupScheduler }) => configureBackupScheduler())
-    .catch((e) => console.log("[backup] scheduler start failed:", e.message));
+    .catch((e) => log.warn("SERVICES", "[backup] scheduler start failed:", e.message));
 
   // Storage Covenant Wave C5 — the mirror startup matrix. Under VELA_DB_MODE=
   // mirror this arms pump + usage-resync + divergence sweep (the primary keeps
@@ -133,7 +141,7 @@ async function runHeavyStartup() {
   // idempotent and fail-open by law.
   import("@/shared/services/mirrorStartup.js")
     .then(({ configureMirrorStartup }) => configureMirrorStartup())
-    .catch((e) => console.log("[mirror] startup failed:", e.message));
+    .catch((e) => log.warn("SERVICES", "[mirror] startup failed:", e.message));
 
   // Usage Observatory W3-D — the weekly usage digest scheduler. Settings-driven
   // (budgetAlerts.weeklyDigestEnabled), default OFF; once-per-week delivery is
@@ -141,7 +149,7 @@ async function runHeavyStartup() {
   // fail-open by law.
   import("@/sse/services/usageDigest.js")
     .then(({ configureDigestScheduler }) => configureDigestScheduler())
-    .catch((e) => console.log("[digest] scheduler start failed:", e.message));
+    .catch((e) => log.warn("SERVICES", "[digest] scheduler start failed:", e.message));
 }
 
 function hasQuotaAutoPingEnabled(settings) {
@@ -159,7 +167,7 @@ async function autoStartMitm(settings) {
 
     const password = await loadEncryptedPassword();
     if (!password && process.platform !== "win32") {
-      console.log("[InitApp] MITM was enabled but no saved password found, skipping auto-start");
+      log.info("SERVICES", "[InitApp] MITM was enabled but no saved password found, skipping auto-start");
       return;
     }
 
@@ -169,17 +177,17 @@ async function autoStartMitm(settings) {
     const { ensureInternalKey } = await import("@/lib/db/repos/apiKeysRepo.js");
     const internal = await ensureInternalKey("mitm");
 
-    console.log("[InitApp] MITM was enabled, auto-starting...");
+    log.info("SERVICES", "[InitApp] MITM was enabled, auto-starting...");
     await startMitm(internal.key, password);
-    console.log("[InitApp] MITM auto-started");
+    log.info("SERVICES", "[InitApp] MITM auto-started");
     try {
       await restoreToolDNS(password);
-      console.log("[InitApp] DNS restored from saved state");
+      log.info("SERVICES", "[InitApp] DNS restored from saved state");
     } catch (e) {
-      console.log("[InitApp] DNS restore failed:", e.message);
+      log.warn("SERVICES", "[InitApp] DNS restore failed:", e.message);
     }
   } catch (err) {
-    console.log("[InitApp] MITM auto-start failed:", err.message);
+    log.warn("SERVICES", "[InitApp] MITM auto-start failed:", err.message);
   } finally {
     g.mitmStartInProgress = false;
   }
@@ -205,19 +213,19 @@ async function safeRestartTunnel(reason) {
   if (isCloudflaredRunning()) return;
 
   if (!force && Date.now() - svc.lastRestartAt < RESTART_COOLDOWN_MS) {
-    console.log(`[Tunnel] degraded but cooldown active, skip (${reason})`);
+    log.info("SERVICES", `[Tunnel] degraded but cooldown active, skip (${reason})`);
     return;
   }
   if (!await checkInternet()) return;
 
-  console.log(`[Tunnel] safeRestart (${reason}) — tunnel unreachable${force ? " [force]" : ""}`);
+  log.info("SERVICES", `[Tunnel] safeRestart (${reason}) — tunnel unreachable${force ? " [force]" : ""}`);
   try {
     await enableTunnel();
     svc.lastRestartAt = Date.now();
-    console.log("[Tunnel] restart success");
+    log.info("SERVICES", "[Tunnel] restart success");
   } catch (err) {
     if (!/cloudflared killed|tunnel cancelled/.test(err.message)) {
-      console.log("[Tunnel] restart failed:", err.message);
+      log.warn("SERVICES", "[Tunnel] restart failed:", err.message);
     }
   }
 }
@@ -239,27 +247,27 @@ async function safeRestartTailscale(reason) {
     try {
       await startFunnel(svc.activeLocalPort);
       svc.lastRestartAt = Date.now();
-      console.log("[Tailscale] funnel re-established (daemon alive)");
+      log.info("SERVICES", "[Tailscale] funnel re-established (daemon alive)");
     } catch (err) {
-      console.log("[Tailscale] funnel recovery failed:", err.message);
+      log.warn("SERVICES", "[Tailscale] funnel recovery failed:", err.message);
     }
     return;
   }
 
   const force = FORCE_RESTART_REASONS.test(reason);
   if (!force && Date.now() - svc.lastRestartAt < RESTART_COOLDOWN_MS) {
-    console.log(`[Tailscale] degraded but cooldown active, skip (${reason})`);
+    log.info("SERVICES", `[Tailscale] degraded but cooldown active, skip (${reason})`);
     return;
   }
   if (!await checkInternet()) return;
 
-  console.log(`[Tailscale] safeRestart (${reason}) — daemon not running${force ? " [force]" : ""}`);
+  log.info("SERVICES", `[Tailscale] safeRestart (${reason}) — daemon not running${force ? " [force]" : ""}`);
   try {
     await enableTailscale();
     svc.lastRestartAt = Date.now();
-    console.log("[Tailscale] restart success");
+    log.info("SERVICES", "[Tailscale] restart success");
   } catch (err) {
-    console.log("[Tailscale] restart failed:", err.message);
+    log.warn("SERVICES", "[Tailscale] restart failed:", err.message);
   }
 }
 
@@ -334,7 +342,7 @@ function startNetworkMonitor() {
       safeRestartTunnel(reason).catch(() => {});
       safeRestartTailscale(reason).catch(() => {});
     } catch (err) {
-      console.log("[NetworkMonitor] error:", err.message);
+      log.warn("SERVICES", "[NetworkMonitor] error:", err.message);
     }
   }, NETWORK_CHECK_INTERVAL_MS);
 

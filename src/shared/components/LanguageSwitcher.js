@@ -1,5 +1,6 @@
 "use client";
 
+import { logger } from "@/lib/clientLogger.js";
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { LOCALES, LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
@@ -105,7 +106,7 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
       setLocale(nextLocale);
       setIsOpen(false, nextLocale);
     } catch (err) {
-      console.error("Failed to set locale:", err);
+      logger.error("I18N", "Failed to set locale:", err);
     } finally {
       setIsPending(false);
     }

@@ -41,6 +41,7 @@
 import { FINGERPRINT_TABLES, fingerprintRows, compareFingerprints } from "./mirrorFingerprint.js";
 import { REDACTED_SENTINEL, SECRET_SETTING_KEYS } from "../repos/backupSecurity.js";
 import { fetchPendingOutbox } from "../repos/sqlite/outboxRepo.js";
+import * as log from "@/sse/utils/logger.js";
 
 const DIVERGENCE_SWEEP_TICK_MS = 6 * 60 * 60 * 1000; // 6h default rhythm
 
@@ -144,8 +145,9 @@ export async function runDivergenceSweepOnce({ autoResync } = {}) {
         })),
       },
     });
-    console.warn(
-      `[mirror] DIVERGENCE — ${divergent.map((d) => d.table).join(", ")} — ` +
+    log.warn(
+      "DB",
+      `DIVERGENCE — ${divergent.map((d) => d.table).join(", ")} — ` +
       `${shouldResync ? "full resync engaged" : "autoResync off; twin reconciliation owed"}`
     );
     if (shouldResync) result.resynced = await runFullResync();
@@ -229,7 +231,7 @@ async function tick() {
     // Fail-open: the primary keeps serving; the sweep retries next tick.
     g.degraded = true;
     g.lastError = e?.message || String(e);
-    console.warn(`[mirror] divergence sweep failed (fail-open): ${g.lastError}`);
+    log.warn("DB", `[mirror] divergence sweep failed (fail-open): ${g.lastError}`);
   } finally {
     g.running = false;
     if (!g.stopped) {

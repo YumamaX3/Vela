@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getModelAliases, setModelAlias, deleteModelAlias } from "@/models";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,7 @@ export async function GET() {
     const aliases = await getModelAliases();
     return NextResponse.json({ aliases });
   } catch (error) {
-    console.log("Error fetching aliases:", error);
+    log.info("MODELS", "Error fetching aliases:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch aliases" }, { status: 500 });
   }
 }
@@ -28,7 +29,7 @@ export async function PUT(request) {
 
     return NextResponse.json({ success: true, model, alias });
   } catch (error) {
-    console.log("Error updating alias:", error);
+    log.info("MODELS", "Error updating alias:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to update alias" }, { status: 500 });
   }
 }
@@ -47,7 +48,7 @@ export async function DELETE(request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.log("Error deleting alias:", error);
+    log.info("MODELS", "Error deleting alias:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to delete alias" }, { status: 500 });
   }
 }

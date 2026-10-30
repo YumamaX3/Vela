@@ -7,6 +7,7 @@
  * This significantly reduces the risk of being flagged by Google's anti-abuse systems.
  */
 
+import * as log from "../../src/sse/utils/logger.js";
 import { CLOUD_CODE_API, LOAD_CODE_ASSIST_HEADERS, ANTIGRAVITY_LOAD_CODE_ASSIST_HEADERS, LOAD_CODE_ASSIST_METADATA } from "../config/appConstants.js";
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
@@ -56,7 +57,7 @@ export function startCacheCleanup() {
     if (_cleanupTimer) return;
     _cleanupTimer = setInterval(() => {
         try { cleanupNow(); } catch (e) {
-            console.warn("[ProjectId] cleanup sweep error:", e?.message ?? e);
+            log.warn("PROVIDERS", "cleanup sweep error:", e?.message ?? e);
         }
     }, CLEANUP_INTERVAL_MS);
     // Unref so the timer doesn't prevent Node from exiting when it is otherwise idle
@@ -107,10 +108,10 @@ export async function getProjectIdForConnection(connectionId, accessToken, provi
                 projectIdCache.set(connectionId, {projectId, fetchedAt: Date.now()});
                 return projectId;
             }
-            console.warn("[ProjectId] could not fetch projectId for connection", connectionId.slice(0, 8));
+            log.warn("PROVIDERS", "could not fetch projectId for connection", connectionId.slice(0, 8));
             return null;
         } catch (error) {
-            console.warn(`[ProjectId] Error fetching project ID: ${error.message}`);
+            log.warn("PROVIDERS", `[ProjectId] Error fetching project ID: ${error.message}`);
             return null;
         } finally {
             pendingFetches.delete(connectionId);
@@ -199,7 +200,7 @@ async function fetchProjectId(accessToken, signal, provider) {
  * @returns {Promise<string|null>}
  */
 async function onboardUser(accessToken, tierID, externalSignal, endpoints, provider) {
-    console.log(`[ProjectId] Onboarding user with tier: ${tierID}`);
+    log.info("PROVIDERS", `[ProjectId] Onboarding user with tier: ${tierID}`);
 
     const reqBody = { tierId: tierID, metadata: LOAD_CODE_ASSIST_METADATA };
     const headers = provider === "antigravity" ? ANTIGRAVITY_LOAD_CODE_ASSIST_HEADERS : LOAD_CODE_ASSIST_HEADERS;
@@ -235,29 +236,29 @@ async function onboardUser(accessToken, tierID, externalSignal, endpoints, provi
             if (data.done === true) {
                 const projectId = extractProjectIdFromOnboard(data);
                 if (projectId) {
-                    console.log(`[ProjectId] Successfully onboarded, project ID: ${projectId}`);
+                    log.info("PROVIDERS", `[ProjectId] Successfully onboarded, project ID: ${projectId}`);
                     return projectId;
                 }
                 throw new Error("onboardUser done but no project_id in response");
             }
 
             // Server not done yet – wait and retry
-            console.log(`[ProjectId] Onboard attempt ${attempt}/${MAX_ATTEMPTS}: not done yet, waiting...`);
+            log.info("PROVIDERS", `[ProjectId] Onboard attempt ${attempt}/${MAX_ATTEMPTS}: not done yet, waiting...`);
             await new Promise(resolve => setTimeout(resolve, 2000));
 
         } catch (error) {
             clearTimeout(timeoutId);
             if (error.name === "AbortError") {
-                console.warn(`[ProjectId] onboardUser attempt ${attempt} aborted (timeout or connection removed)`);
+                log.warn("PROVIDERS", `[ProjectId] onboardUser attempt ${attempt} aborted (timeout or connection removed)`);
                 if (externalSignal?.aborted) return null;   // connection gone – stop retrying
                 continue;
             }
             if (attempt === MAX_ATTEMPTS) {
-                console.warn(`[ProjectId] onboardUser failed after ${MAX_ATTEMPTS} attempts: ${error.message}`);
+                log.warn("PROVIDERS", `[ProjectId] onboardUser failed after ${MAX_ATTEMPTS} attempts: ${error.message}`);
                 return null;
             }
             // Continue to next attempt instead of throwing (which would skip remaining retries)
-            console.warn(`[ProjectId] onboardUser attempt ${attempt} failed: ${error.message}, retrying...`);
+            log.warn("PROVIDERS", `[ProjectId] onboardUser attempt ${attempt} failed: ${error.message}, retrying...`);
             await new Promise(resolve => setTimeout(resolve, 2000));
         } finally {
             clearTimeout(timeoutId);

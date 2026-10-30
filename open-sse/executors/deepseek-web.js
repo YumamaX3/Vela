@@ -13,7 +13,7 @@ import {
   hasMalformedDeepSeekToolIntent,
   hasMalformedDeepSeekToolMarkup,
   buildToolConversationPrompt,
-} from "../translator/deepseekWebTools.js";
+} from "../transformer/translator/deepseekWebTools.js";
 import { requestDeepSeekPowChallenge } from "./deepseek-web/pow.js";
 import {
   isThinkingModel,

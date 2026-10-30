@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import * as log from "@/sse/utils/logger.js";
 
 export async function GET(request) {
   try {
@@ -39,7 +40,7 @@ export async function GET(request) {
 
     return NextResponse.json({ success: true, content });
   } catch (error) {
-    console.error("Error loading file:", error);
+    log.error("API", "Error loading file:", (error?.message ?? error));
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

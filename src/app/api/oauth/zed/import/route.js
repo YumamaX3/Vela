@@ -5,6 +5,7 @@ import {
   fetchZedAuthenticatedUser,
   resolveZedOrganizationId,
 } from "open-sse/shared/zedAuth.js";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * POST /api/oauth/zed/import
@@ -74,7 +75,7 @@ export async function POST(request) {
       },
     });
   } catch (error) {
-    console.log("Zed import token error:", error);
+    log.info("OAUTH", "Zed import token error:", (error?.message ?? error));
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -33,6 +33,7 @@
 // the alternative (failing closed to an EMPTY allow-list) would brick the relay.
 import { getProviderConnections, getProviderNodes } from "@/models";
 import { PROBE_HOST } from "./relayTemplate.js";
+import * as log from "@/sse/utils/logger.js";
 
 // Lazy require of the registry: it is 127 pure-data modules (only shared.js, which
 // imports just `os`), but no API route imported it before this, so it is resolved at
@@ -142,7 +143,7 @@ export async function registryHosts() {
   } catch (error) {
     // Surfaced, not swallowed: a relay deployed on a silently-empty registry list
     // would 403 everything, and the operator deserves to know why.
-    console.warn("[relayAllowList] registry derivation failed:", error?.message || error);
+    log.warn("PROXY", "[relayAllowList] registry derivation failed:", error?.message || error);
   }
   return hosts;
 }
@@ -161,7 +162,7 @@ export async function dbHosts() {
       if (host) hosts.add(host);
     }
   } catch (error) {
-    console.warn("[relayAllowList] providerNodes read failed:", error?.message || error);
+    log.warn("PROXY", "[relayAllowList] providerNodes read failed:", error?.message || error);
   }
 
   try {
@@ -173,7 +174,7 @@ export async function dbHosts() {
       if (host) hosts.add(host);
     }
   } catch (error) {
-    console.warn("[relayAllowList] providerConnections read failed:", error?.message || error);
+    log.warn("PROXY", "[relayAllowList] providerConnections read failed:", error?.message || error);
   }
 
   return hosts;

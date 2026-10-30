@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from "react";
 import { Badge, Card } from "@/shared/components";
+import { logger } from "@/lib/clientLogger.js";
 
 export default function FleetStatusPanel({ providerId, proxyPools }) {
   const [fitnessData, setFitnessData] = useState([]);
@@ -19,7 +20,7 @@ export default function FleetStatusPanel({ providerId, proxyPools }) {
           setFitnessData(data.fitness.filter(f => f.provider === providerId));
         }
       } catch (err) {
-        console.warn("[FleetStatusPanel] load failed:", err.message);
+        logger.warn("PROVIDERS", "load failed:", err.message);
       } finally {
         setLoading(false);
       }

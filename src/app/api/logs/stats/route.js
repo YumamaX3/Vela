@@ -18,6 +18,7 @@
 import { NextResponse } from "next/server";
 import { getLogshipperStats } from "@/lib/logshipper/index.js";
 import { countLogEvents } from "@/lib/db/repos/sqlite/logQuery.js";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -50,7 +51,7 @@ export async function GET() {
       retention,
     });
   } catch (error) {
-    console.error("[API] logs/stats failed:", error);
+    log.error("LOGS", "logs/stats failed:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to read logshipper stats" }, { status: 500 });
   }
 }

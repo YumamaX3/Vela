@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getApiKeys, createApiKey, updateApiKey, KeyLimitsValidationError } from "@/lib/localDb";
 import { validateKeyLimits } from "@/lib/db/keyLimits.js";
 import { EXPORT_ENVELOPE, readJsonBody, uniqueName } from "../_lib/keysApi.js";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -178,7 +179,7 @@ export async function POST(request) {
       applied: { changed, created, updated, results },
     });
   } catch (error) {
-    console.log("Error importing keys:", error);
+    log.info("KEYS", "Error importing keys:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to import keys" }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@
  * Claude usage handler
  */
 
+import * as log from "../../../src/sse/utils/logger.js";
 import { proxyAwareFetch } from "../../utils/proxyFetch.js";
 import { ANTHROPIC_API_VERSION } from "../../providers/shared.js";
 import { U, parseResetTime } from "./shared.js";
@@ -143,7 +144,7 @@ async function fetchClaudeUsageRaw(accessToken, proxyOptions = null) {
     }
 
     // Fallback: legacy settings + org usage endpoint
-    console.warn(`[Claude Usage] OAuth endpoint returned ${oauthResponse.status}, falling back to legacy`);
+    log.warn("USAGE", `[Claude Usage] OAuth endpoint returned ${oauthResponse.status}, falling back to legacy`);
     return await getClaudeUsageLegacy(accessToken, proxyOptions);
   } catch (error) {
     return { message: `Claude connected. Unable to fetch usage: ${error.message}` };

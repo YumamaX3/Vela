@@ -7,7 +7,7 @@ import {
   clampResponsesCallId,
   coerceResponsesArguments,
   coerceResponsesOutput,
-} from "../translator/formats/responsesApi.js";
+} from "../transformer/translator/formats/responsesApi.js";
 
 const SESSION_HEADER = "x-opencode-session";
 const SESSION_FIELD = "_opencodeZenSession";

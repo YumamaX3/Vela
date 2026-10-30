@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDistinctProviders } from "@/lib/requestDetailsDb";
 import { getProviderNodes } from "@/lib/localDb";
 import { AI_PROVIDERS, getProviderByAlias } from "@/shared/constants/providers";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * GET /api/usage/providers
@@ -32,7 +33,7 @@ export async function GET() {
 
     return NextResponse.json({ providers });
   } catch (error) {
-    console.error("[API] Failed to get providers:", error);
+    log.error("USAGE", "Failed to get providers:", (error?.message ?? error));
     return NextResponse.json(
       { error: "Failed to fetch providers" },
       { status: 500 }

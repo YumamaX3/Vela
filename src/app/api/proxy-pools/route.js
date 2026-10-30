@@ -22,6 +22,7 @@ import { maskProxyPoolsForRead, maskProxyPoolForRead, findDuplicateProxyPool, du
 // on validateProviderTestUrl — see providerUrlSafety.js for the three measured reasons.
 import { validateProxyPoolUrl } from "@/lib/network/providerUrlSafety.js";
 import { buildUsageMap } from "@/lib/network/poolUsage.js";
+import * as log from "@/sse/utils/logger.js";
 
 function toBoolean(value) {
   if (value === "true") return true;
@@ -81,7 +82,7 @@ export async function GET(request) {
 
     return NextResponse.json({ proxyPools: maskProxyPoolsForRead(enrichedProxyPools) });
   } catch (error) {
-    console.log("Error fetching proxy pools:", error);
+    log.info("PROXYPOOLS", "Error fetching proxy pools:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch proxy pools" }, { status: 500 });
   }
 }
@@ -129,7 +130,7 @@ export async function POST(request) {
     // proxyPool.proxyUrl from this response.
     return NextResponse.json({ proxyPool: maskProxyPoolForRead(proxyPool) }, { status: 201 });
   } catch (error) {
-    console.log("Error creating proxy pool:", error);
+    log.info("PROXYPOOLS", "Error creating proxy pool:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to create proxy pool" }, { status: 500 });
   }
 }

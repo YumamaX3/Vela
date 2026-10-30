@@ -1,4 +1,5 @@
 import { buildModelsList, LLM_KIND, INTERNAL_MODELS_FETCH_HEADER } from "@/lib/modelsList";
+import * as log from "@/sse/utils/logger.js";
 
 export async function OPTIONS() {
   return new Response(null, {
@@ -26,7 +27,7 @@ export async function GET(request) {
       headers: { "Access-Control-Allow-Origin": "*" },
     });
   } catch (error) {
-    console.log("Error fetching models:", error);
+    log.info("API", "Error fetching models:", (error?.message ?? error));
     return Response.json(
       { error: { message: error.message, type: "server_error" } },
       { status: 500 }

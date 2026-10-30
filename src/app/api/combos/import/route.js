@@ -15,6 +15,7 @@ import {
   readJsonBody,
   uniqueCopyName,
 } from "../_lib/combosApi.js";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -156,7 +157,7 @@ export async function POST(request) {
       applied: { changed, strategies: strategiesApplied, results },
     });
   } catch (error) {
-    console.log("Error importing combos:", error);
+    log.info("COMBO", "Error importing combos:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to import combos" }, { status: 500 });
   }
 }

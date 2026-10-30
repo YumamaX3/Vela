@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { openaiToKiroRequest } from "../../open-sse/translator/request/openai-to-kiro.js";
-import { claudeToKiroRequest } from "../../open-sse/translator/request/claude-to-kiro.js";
+import { openaiToKiroRequest } from "../../open-sse/transformer/translator/request/openai-to-kiro.js";
+import { claudeToKiroRequest } from "../../open-sse/transformer/translator/request/claude-to-kiro.js";
 import {
   canonicalizeKiroConversation,
   KIRO_TOOL_RESULTS_PLACEHOLDER,
   KIRO_EMPTY_USER_PLACEHOLDER,
-} from "../../open-sse/translator/concerns/kiroConversation.js";
+} from "../../open-sse/transformer/translator/concerns/kiroConversation.js";
 
 const TOOLS_OPENAI = [{
   type: "function",

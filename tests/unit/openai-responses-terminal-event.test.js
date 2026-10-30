@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { FORMATS } from "../../open-sse/translator/formats.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
 import { createSSETransformStreamWithLogger } from "../../open-sse/utils/stream.js";
 
 async function runTransform(input) {

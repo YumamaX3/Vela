@@ -10,7 +10,9 @@
 // The backup ACTIONS moved to Data — General tells you where the file is, Data
 // is where you move it. Two tabs, two questions, no card that does both.
 import { useState } from "react";
-import { Card, LanguageSwitcher } from "@/shared/components";
+import { Card, LanguageSwitcher, Select } from "@/shared/components";
+import SettingRow from "../SettingRow";
+import { setClientLogTheme } from "@/lib/clientLogger.js";
 import { useTheme } from "@/shared/hooks/useTheme";
 import { cn } from "@/shared/utils/cn";
 import { LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
@@ -27,10 +29,25 @@ function getLocaleFromCookie() {
 
 const THEME_ICONS = { light: "light_mode", dark: "dark_mode", system: "contrast" };
 
-export default function GeneralTab() {
+// The logbook's two voices — read by the server logger and the browser shim alike.
+const LOGBOOK_VOICES = [
+  { value: "themed", label: "Themed" },
+  { value: "plain", label: "Plain" },
+];
+
+export default function GeneralTab({ deck = {} }) {
+  const { settings = {}, loading = false, patch } = deck;
   const { theme, setTheme } = useTheme();
   const [locale, setLocale] = useState(() => getLocaleFromCookie());
   const [langOpen, setLangOpen] = useState(false);
+
+  // The write goes through the deck's one door, and names its key so only this
+  // row dims while in flight. The browser shim is told after the save lands, so
+  // a refused write never leaves the local voice ahead of the server's.
+  const saveLogTheme = async (value) => {
+    const result = await patch({ logTheme: value }, ["logTheme"]);
+    if (result?.ok) setClientLogTheme(value);
+  };
 
   return (
     <>
@@ -89,6 +106,40 @@ export default function GeneralTab() {
               <span className="text-2xl">{LOCALE_FLAGS[locale] || "🌐"}</span>
             </button>
           </div>
+        </div>
+      </Card>
+
+      {/* The logbook's voice is a SERVER setting (the node logger reads it, the
+          browser shim mirrors it), so it sits outside the browser-only Appearance
+          card — changing it changes every operator's terminal, not just this tab. */}
+      <Card>
+        <div className="flex items-start gap-3 mb-4">
+          <div className="p-2 rounded-[10px] bg-brand-500/10 text-brand-500 shrink-0">
+            <span className="material-symbols-outlined text-xl leading-none">terminal</span>
+          </div>
+          <div>
+            <h3 className="text-text-main font-semibold">Logbook</h3>
+            <p className="text-sm text-text-muted mt-0.5">
+              How the gateway's log lines are written.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <SettingRow
+            label="Logbook voice"
+            description="Themed — the Keeper's shore banners · Plain — sober text for log pipelines"
+            control={
+              <Select
+                aria-label="Logbook voice"
+                options={LOGBOOK_VOICES}
+                value={(["themed", "plain"].includes(settings.logTheme) ? settings.logTheme : "themed")}
+                onChange={(e) => saveLogTheme(e.target.value)}
+                disabled={loading || !!deck.pending.logTheme}
+                className="w-40"
+              />
+            }
+          />
         </div>
       </Card>
 

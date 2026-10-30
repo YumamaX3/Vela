@@ -1,4 +1,5 @@
 import { getModelsByProviderId } from "open-sse/config/providerModels.js";
+import { logger } from "@/lib/clientLogger.js";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 export const QUOTA_CACHE_KEY = "quotaCacheData";
@@ -200,7 +201,7 @@ export function getQuotaCache() {
     const cached = window.localStorage.getItem(QUOTA_CACHE_KEY);
     return cached ? JSON.parse(cached) : {};
   } catch (error) {
-    console.error("Error reading quota cache:", error);
+    logger.error("USAGE", "Error reading quota cache:", error);
     return {};
   }
 }
@@ -215,7 +216,7 @@ export function setQuotaCache(connectionId, quotaEntry) {
     };
     window.localStorage.setItem(QUOTA_CACHE_KEY, JSON.stringify(cache));
   } catch (error) {
-    console.error("Error writing quota cache:", error);
+    logger.error("USAGE", "Error writing quota cache:", error);
   }
 }
 
@@ -571,7 +572,7 @@ export function parseQuotaData(provider, data) {
         }
     }
   } catch (error) {
-    console.error(`Error parsing quota data for ${provider}:`, error);
+    logger.error("USAGE", ("Error parsing quota data for " + (provider) + ":"), error);
     return [];
   }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { testSingleConnection } from "./testUtils.js";
+import * as log from "@/sse/utils/logger.js";
 
 // POST /api/providers/[id]/test - Test connection
 export async function POST(request, { params }) {
@@ -17,7 +18,7 @@ export async function POST(request, { params }) {
       refreshed: result.refreshed || false,
     });
   } catch (error) {
-    console.log("Error testing connection:", error);
+    log.info("PROVIDERS", "Error testing connection:", (error?.message ?? error));
     return NextResponse.json({ error: "Test failed" }, { status: 500 });
   }
 }

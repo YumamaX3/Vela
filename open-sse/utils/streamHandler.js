@@ -1,4 +1,5 @@
 // Stream handler with disconnect detection - shared for all providers
+import * as keeperLog from "../../src/sse/utils/logger.js";
 import { STREAM_STALL_TIMEOUT_MS } from "../config/runtimeConfig.js";
 import { dbg, isDebugEnabled } from "./debugLog.js";
 import { fmtDur } from "./logfmt.js";
@@ -28,7 +29,7 @@ export function createStreamController({ onDisconnect, onError, log, provider, m
     const duration = Date.now() - startTime;
     const emit = isError ? log?.errorLine : log?.line;
     if (emit) emit(reqTag, symbol, `${status} · ${provider}/${model} · ${fmtDur(duration)}`);
-    else console.log(`[${getTimeString()}] ${symbol} ${provider}/${model} · ${status} · ${fmtDur(duration)}`);
+    else keeperLog.info("STREAM", `[${getTimeString()}] ${symbol} ${provider}/${model} · ${status} · ${fmtDur(duration)}`);
   };
 
   return {

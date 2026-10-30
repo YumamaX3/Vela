@@ -4,7 +4,7 @@ import REGISTRY from "../providers/registry/index.js";
 import { PROVIDER_MODELS } from "../providers/index.js";
 import { modelQuotaFamily, modelStrip, modelTargetFormat, modelSupportedFormats, normalizeModelId } from "../providers/models/schema.js";
 import { CODEX_REVIEW_SUFFIX, isMuseSparkModel } from "../providers/models/helpers.js";
-import { FORMATS } from "../translator/formats.js";
+import { FORMATS } from "../transformer/translator/formats.js";
 export { PROVIDER_MODELS };
 
 

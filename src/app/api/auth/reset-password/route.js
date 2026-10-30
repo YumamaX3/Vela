@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { updateSettings } from "@/lib/localDb";
 import { deleteAllUsers } from "@/lib/db/repos/usersRepo.js";
+import * as log from "@/sse/utils/logger.js";
 
 // Clear the stored dashboard credential. Tag 3 (M0 security foundation):
 // there is no "default" to reset TO anymore — clearing drops the install back
@@ -20,7 +21,7 @@ export async function POST() {
     // Error-hygiene (Auth Hardening W1): the caller gets a stable line; the
     // internal detail (a DB or crypto failure describing its own shape) goes to
     // the log, where consoleLogBuffer keeps it readable by the operator.
-    console.error("[auth/reset-password] unexpected failure:", error?.message || error);
+    log.error("AUTH", "unexpected failure:", error?.message || error);
     return NextResponse.json(
       { error: "Could not reset the password. Check the server logs." },
       { status: 500 }

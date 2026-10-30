@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import * as log from "@/sse/utils/logger.js";
 
 export async function POST(request) {
   try {
@@ -38,7 +39,7 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error saving file:", error);
+    log.error("API", "Error saving file:", (error?.message ?? error));
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

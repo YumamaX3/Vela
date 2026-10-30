@@ -1,4 +1,5 @@
 "use server";
+import * as log from "@/sse/utils/logger.js";
 
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
@@ -82,7 +83,7 @@ export async function GET() {
       message: "Devin CLI detected. Make sure `devin auth login` has been run.",
     });
   } catch (error) {
-    console.log("Error checking devin settings:", error);
+    log.info("CLITOOLS", "Error checking devin settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to check devin settings" }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createProviderConnection } from "@/models";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * POST /api/oauth/xiaomi-mimo/api-key
@@ -56,7 +57,7 @@ export async function POST(request) {
 
     if (key && !validated) {
       // Soft-fail: store the key but mark as untested
-      console.log("[xiaomi-mimo] key validation failed, storing as untested");
+      log.info("OAUTH", "key validation failed, storing as untested");
     }
 
     // Dedup: same uid, same key, or same session identity+region
@@ -141,7 +142,7 @@ export async function POST(request) {
       },
     });
   } catch (error) {
-    console.log("Xiaomi MiMo API key import error:", error);
+    log.error("OAUTH", "Xiaomi MiMo API key import error:", (error?.message ?? error));
     return NextResponse.json(
       { error: "API key import failed" },
       { status: 500 },

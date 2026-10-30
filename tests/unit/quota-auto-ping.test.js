@@ -8,6 +8,18 @@ vi.mock("@/lib/localDb", () => ({
   updateProviderConnection: vi.fn(),
 }));
 
+// The scheduler now logs through the Vela logger. Its consoleLogBuffer arms an
+// unref'd one-shot flush timer on the first line, which would otherwise inflate
+// `vi.getTimerCount()` in the start/stop assertions below — those must count the
+// scheduler's interval ALONE, or a leaked interval could slip through. This suite
+// asserts no log output, so a silent logger is the faithful stand-in.
+vi.mock("@/sse/utils/logger.js", () => ({
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
+}));
+
 // v0.9.45 §5.2d — quotaAutoPing.js now imports `buildProxyOptionsPayload` alongside
 // `resolveConnectionProxyConfig`. A partial vi.mock makes property ACCESS throw
 // vitest's own `No "X" export is defined on the mock` error, which aborted
@@ -30,7 +42,15 @@ vi.mock("@/app/api/usage/[connectionId]/route.js", () => ({
   refreshAndUpdateCredentials: vi.fn(),
 }));
 
+// quotaAutoPing now logs through the Vela logger, whose consoleLogBuffer reads
+// CONSOLE_LOG_CONFIG from this same module — a strict partial mock makes vitest
+// throw "No CONSOLE_LOG_CONFIG export" from inside a log call, an isolation
+// artifact rather than a behavior change. That constant is pure display policy
+// (ring size / poll cadence), so it is supplied verbatim here. importOriginal is
+// deliberately NOT used: the real module pulls package.json, whose import fans
+// into modules this suite mocks partially.
 vi.mock("@/shared/constants/config", () => ({
+  CONSOLE_LOG_CONFIG: { maxLines: 1000, pollIntervalMs: 1000 },
   QUOTA_AUTOPING_CONFIG: {
     tickIntervalMs: 60000,
     pingLeadMs: 5000,

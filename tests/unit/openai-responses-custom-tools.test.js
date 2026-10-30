@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   openaiResponsesToOpenAIRequest,
-} from "../../open-sse/translator/request/openai-responses.js";
-import { openaiToOpenAIResponsesResponse } from "../../open-sse/translator/response/openai-responses.js";
-import { initState } from "../../open-sse/translator/index.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
+} from "../../open-sse/transformer/translator/request/openai-responses.js";
+import { openaiToOpenAIResponsesResponse } from "../../open-sse/transformer/translator/response/openai-responses.js";
+import { initState } from "../../open-sse/transformer/translator/index.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
 
 const EXEC_TOOL = {
   type: "custom",

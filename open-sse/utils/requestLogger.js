@@ -1,4 +1,5 @@
 // Check if running in Node.js environment (has fs module)
+import * as log from "../../src/sse/utils/logger.js";
 const isNode = typeof process !== "undefined" && process.versions?.node && typeof window === "undefined";
 
 // Check if logging is enabled via environment variable (default: false)
@@ -52,7 +53,7 @@ async function createLogSession(sourceFormat, targetFormat, model) {
     
     return sessionPath;
   } catch (err) {
-    console.log("[LOG] Failed to create log session:", err.message);
+    log.info("STREAM", "Failed to create log session:", err.message);
     return null;
   }
 }
@@ -65,7 +66,7 @@ function writeJsonFile(sessionPath, filename, data) {
     const filePath = path.join(sessionPath, filename);
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
   } catch (err) {
-    console.log(`[LOG] Failed to write ${filename}:`, err.message);
+    log.info("STREAM", `[LOG] Failed to write ${filename}:`, err.message);
   }
 }
 
@@ -255,6 +256,6 @@ export function logError(provider, { error, url, model, requestBody }) {
     
     fs.appendFileSync(logPath, JSON.stringify(logEntry) + "\n");
   } catch (err) {
-    console.log("[LOG] Failed to write error log:", err.message);
+    log.info("STREAM", "Failed to write error log:", err.message);
   }
 }

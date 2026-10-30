@@ -49,10 +49,10 @@ vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
 
 const { KiroExecutor } = await import("../../open-sse/executors/kiro.js");
 const { kiroToClaudeResponse, kiroToClaudeNonStreaming } = await import(
-  "../../open-sse/translator/response/kiro-to-claude.js"
+  "../../open-sse/transformer/translator/response/kiro-to-claude.js"
 );
 const { validateKiroConversation, canonicalizeKiroConversation } = await import(
-  "../../open-sse/translator/concerns/kiroConversation.js"
+  "../../open-sse/transformer/translator/concerns/kiroConversation.js"
 );
 
 const encoder = new TextEncoder();

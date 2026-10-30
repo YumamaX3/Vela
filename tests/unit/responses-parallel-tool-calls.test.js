@@ -5,10 +5,10 @@
 // payloads into index 0 and clients failed with InputValidationError.
 import { describe, expect, it } from "vitest";
 import "../translator/registerAll.js";
-import { openaiResponsesToOpenAIResponse } from "../../open-sse/translator/response/openai-responses.js";
-import { clampResponsesCallId, coerceResponsesOutput, MAX_RESPONSES_CALL_ID_LEN } from "../../open-sse/translator/formats/responsesApi.js";
-import { initState, translateResponse } from "../../open-sse/translator/index.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
+import { openaiResponsesToOpenAIResponse } from "../../open-sse/transformer/translator/response/openai-responses.js";
+import { clampResponsesCallId, coerceResponsesOutput, MAX_RESPONSES_CALL_ID_LEN } from "../../open-sse/transformer/translator/formats/responsesApi.js";
+import { initState, translateResponse } from "../../open-sse/transformer/translator/index.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
 
 const added = (id, call_id, name, type = "function_call") => ({
   type: "response.output_item.added",

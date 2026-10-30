@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getApiKeys } from "@/lib/localDb";
 import { EXPORT_ENVELOPE, EXPORT_VERSION, redactKeyForExport } from "../_lib/keysApi.js";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,7 @@ export async function GET() {
       }
     );
   } catch (error) {
-    console.log("Error exporting keys:", error);
+    log.info("KEYS", "Error exporting keys:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to export keys" }, { status: 500 });
   }
 }

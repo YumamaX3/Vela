@@ -3,6 +3,7 @@
 // Ported from 9router-go `HandleGetVaultStatus`. It answers the only questions
 // an operator can act on: is sealing active, and how many connections are
 // sealed versus still carrying a plaintext credential.
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { verifyDashboardPassword } from "@/lib/auth/dashboardSession";
 import { getVault } from "@/lib/vault.js";
@@ -29,7 +30,7 @@ export async function GET(request) {
       total: counts.total,
     });
   } catch (error) {
-    console.error("[Vault] Failed to read status:", error);
+    log.error("API", "Failed to read status:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to read vault status" }, { status: 500 });
   }
 }

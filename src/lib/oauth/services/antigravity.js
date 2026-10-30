@@ -4,6 +4,7 @@ import { ANTIGRAVITY_CONFIG, getOAuthClientMetadata } from "../constants/oauth.j
 import { getServerCredentials } from "../config/index.js";
 import { startLocalServer } from "../utils/server.js";
 import { spinner as createSpinner } from "../utils/ui.js";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * Antigravity OAuth Service
@@ -245,8 +246,8 @@ export class AntigravityService {
       // Build authorization URL
       const authUrl = this.buildAuthUrl(redirectUri, state);
 
-      console.log("\nOpening browser for Antigravity authentication...");
-      console.log(`If browser doesn't open, visit:\n${authUrl}\n`);
+      log.info("OAUTH", "\nOpening browser for Antigravity authentication...");
+      log.info("OAUTH", `If browser doesn't open, visit:\n${authUrl}\n`);
 
       // Open browser
       await open(authUrl);

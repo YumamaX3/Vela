@@ -21,6 +21,7 @@
  *   - recordOutcome — feeds recordSuccess/recordFailure on success/failure path
  *   - recordClaimGate (:409) — maps country_blocked/ip_capped → onRetryAfter or cooldown
  */
+import * as log from "@/sse/utils/logger.js";
 
 const COOLDOWN_THRESHOLD = 3;     // consecutive failures → cooldown
 const EXHAUSTED_THRESHOLD = 8;    // consecutive failures → exhausted
@@ -207,7 +208,7 @@ export async function flushNow() {
       await deleteBreakerRow(db, row.poolId, row.provider, row.model);
     }
   } catch (err) {
-    console.warn('[circuitBreaker] flush failed:', err.message);
+    log.warn("PROXY", '[circuitBreaker] flush failed:', err.message);
     // On flush failure, keep keys dirty for retry — under the ORIGINAL key.
     // The previous code re-dirtied via makeKey(poolId, provider, '') with an
     // empty model, which can never match a store keyed poolId|providerId|model
@@ -269,7 +270,7 @@ export function isAvailable(poolId, providerId, model) {
     // Healthy state
     return true;
   } catch (err) {
-    console.warn('[circuitBreaker] isAvailable failed:', err.message);
+    log.warn("PROXY", '[circuitBreaker] isAvailable failed:', err.message);
     // Fail-open: assume available
     return true;
   }
@@ -303,7 +304,7 @@ export function recordFailure(poolId, providerId, model, options = {}) {
       state.state = 'exhausted';
       const backoff = calculateBackoffMs(state.failureCount);
       state.cooldownUntil = now + backoff;
-      console.info('[circuitBreaker]', poolId, providerId, model, `→ exhausted at ${state.failureCount} failures`);
+      log.info("PROXY", `[circuitBreaker] ${poolId} ${providerId} ${model} → exhausted at ${state.failureCount} failures`);
     } else if (state.state === 'exhausted') {
       // Already exhausted: keep escalating the backoff on every additional failure,
       // so a pool failing 50× isn't stuck at the 8-failure backoff (32s). This is
@@ -314,7 +315,7 @@ export function recordFailure(poolId, providerId, model, options = {}) {
       state.state = 'cooldown';
       const backoff = calculateBackoffMs(state.failureCount);
       state.cooldownUntil = now + backoff;
-      console.info('[circuitBreaker]', poolId, providerId, model, `→ cooldown at ${state.failureCount} failures`);
+      log.info("PROXY", `[circuitBreaker] ${poolId} ${providerId} ${model} → cooldown at ${state.failureCount} failures`);
     }
     
     markDirty(poolId, providerId, model);
@@ -322,7 +323,7 @@ export function recordFailure(poolId, providerId, model, options = {}) {
     // Auto-schedule flush
     scheduleFlush();
   } catch (err) {
-    console.warn('[circuitBreaker] recordFailure failed:', err.message);
+    log.warn("PROXY", '[circuitBreaker] recordFailure failed:', err.message);
     // Fail-open: don't throw
   }
 }
@@ -349,7 +350,7 @@ export function recordSuccess(poolId, providerId, model) {
       // Circuit breaker handles consecutive failure escalation independently
     }
   } catch (err) {
-    console.warn('[circuitBreaker] recordSuccess failed:', err.message);
+    log.warn("PROXY", '[circuitBreaker] recordSuccess failed:', err.message);
     // Fail-open: don't throw
   }
 }
@@ -378,7 +379,7 @@ export function onRetryAfter(poolId, providerId, model, ms) {
     markDirty(poolId, providerId, model);
     scheduleFlush();
   } catch (err) {
-    console.warn('[circuitBreaker] onRetryAfter failed:', err.message);
+    log.warn("PROXY", '[circuitBreaker] onRetryAfter failed:', err.message);
     // Fail-open
   }
 }
@@ -404,7 +405,7 @@ export function getSnapshot() {
     }
     return snapshot;
   } catch (err) {
-    console.warn('[circuitBreaker] getSnapshot failed:', err.message);
+    log.warn("PROXY", '[circuitBreaker] getSnapshot failed:', err.message);
     return [];
   }
 }
@@ -425,7 +426,7 @@ export function resetKey(poolId, providerId, model) {
     markDirty(poolId, providerId, model);
     scheduleFlush();
   } catch (err) {
-    console.warn('[circuitBreaker] resetKey failed:', err.message);
+    log.warn("PROXY", '[circuitBreaker] resetKey failed:', err.message);
     // Fail-open
   }
 }

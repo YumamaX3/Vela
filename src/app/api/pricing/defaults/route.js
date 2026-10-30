@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDefaultPricing, MODEL_PRICING } from "open-sse/providers/pricing.js";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * GET /api/pricing/defaults
@@ -18,7 +19,7 @@ export async function GET() {
       canonical: MODEL_PRICING,
     });
   } catch (error) {
-    console.error("Error fetching default pricing:", error);
+    log.error("API", "Error fetching default pricing:", (error?.message ?? error));
     return NextResponse.json(
       { error: "Failed to fetch default pricing" },
       { status: 500 }

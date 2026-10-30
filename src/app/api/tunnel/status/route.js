@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getTunnelStatus, getTailscaleStatus, getDownloadStatus } from "@/lib/tunnel";
+import * as log from "@/sse/utils/logger.js";
 
 const STATUS_CACHE_TTL_MS = 3000; // coalesce rapid polls; underlying probes already cache 10s
 
@@ -19,7 +20,7 @@ export async function GET() {
     const download = getDownloadStatus();
     return NextResponse.json({ ...probes, download });
   } catch (error) {
-    console.error("Tunnel status error:", error);
+    log.error("TUNNEL", "Tunnel status error:", (error?.message ?? error));
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

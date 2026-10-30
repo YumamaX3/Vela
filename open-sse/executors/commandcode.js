@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
-import { commandCodeToOpenAIResponse } from "../translator/response/commandcode-to-openai.js";
+import { commandCodeToOpenAIResponse } from "../transformer/translator/response/commandcode-to-openai.js";
 import { SSE_DONE } from "../utils/sseConstants.js";
 
 /**

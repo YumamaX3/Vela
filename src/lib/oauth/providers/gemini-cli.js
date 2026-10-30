@@ -1,4 +1,5 @@
 import { GEMINI_CONFIG, getOAuthClientMetadata } from "../constants/oauth.js";
+import * as log from "@/sse/utils/logger.js";
 
 const geminiCli = {
   config: GEMINI_CONFIG,
@@ -67,7 +68,7 @@ const geminiCli = {
         projectId = data.cloudaicompanionProject?.id || data.cloudaicompanionProject || "";
       }
     } catch (e) {
-      console.log("Failed to fetch project ID:", e);
+      log.info("OAUTH", "Failed to fetch project ID:", (e?.message ?? e));
     }
 
     return { userInfo, projectId };

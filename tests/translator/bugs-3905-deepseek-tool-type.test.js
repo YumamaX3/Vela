@@ -11,8 +11,8 @@
 // unscoped, or onto deepseek, and it goes red with a real reason).
 import { describe, it, expect } from "vitest";
 import { PROVIDERS } from "../../open-sse/providers/index.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
-import { shouldDefaultClaudeToolType } from "../../open-sse/translator/concerns/toolCall.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
+import { shouldDefaultClaudeToolType } from "../../open-sse/transformer/translator/concerns/toolCall.js";
 
 const tools = [{ name: "get_weather", description: "weather", input_schema: { type: "object" } }];
 

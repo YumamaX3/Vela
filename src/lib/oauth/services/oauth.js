@@ -3,6 +3,7 @@ import { startLocalServer } from "../utils/server.js";
 import { generatePKCE } from "../utils/pkce.js";
 import { spinner as createSpinner } from "../utils/ui.js";
 import { OAUTH_TIMEOUT } from "../constants/oauth.js";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * Generic OAuth Authorization Code Flow with PKCE
@@ -132,8 +133,8 @@ export class OAuthService {
     // Build authorization URL
     const authUrl = buildAuthUrlFn(redirectUri, state, codeChallenge);
 
-    console.log(`\nOpening browser for ${providerName} authentication...`);
-    console.log(`If browser doesn't open, visit:\n${authUrl}\n`);
+    log.info("OAUTH", `\nOpening browser for ${providerName} authentication...`);
+    log.info("OAUTH", `If browser doesn't open, visit:\n${authUrl}\n`);
 
     // Open browser
     await open(authUrl);

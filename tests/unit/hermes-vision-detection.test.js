@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { detectRequiredCapabilities } from "../../open-sse/services/combo.js";
 import { augmentModelsWithCapacityAdapter } from "../../open-sse/services/capacityAdapter.js";
-import { stripUnsupportedModalities } from "../../open-sse/translator/concerns/modality.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
+import { stripUnsupportedModalities } from "../../open-sse/transformer/translator/concerns/modality.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
 
 describe("Hermes Vision Image Detection", () => {
   it("detects vision from Ollama / Hermes images array", () => {

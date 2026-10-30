@@ -779,7 +779,7 @@ describe("S6 — all three deploy routes share one relay body and one response s
       expect(src, `${platform} reads poolId`).toContain("body.poolId");
       expect(src, `${platform} reads allowWildcard`).toContain("allowWildcard");
       // The wildcard must be loud, never a silent default.
-      expect(src, `${platform} warns on wildcard`).toMatch(/console\.warn\([\s\S]{0,200}WILDCARD/);
+      expect(src, `${platform} warns on wildcard`).toMatch(/(console\.warn|log\.warn|logger\.warn)\([\s\S]{0,240}WILDCARD/);
       // And never defaulted to true.
       expect(src, `${platform} wildcard default`).not.toMatch(/allowWildcard\s*=\s*true/);
     }

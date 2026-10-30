@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/clientLogger.js";
 
 import { useState, useEffect, useRef } from "react";
 import { Card, Button, ModelSelectModal, ManualConfigModal } from "@/shared/components";
@@ -60,7 +61,7 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
       const data = await res.json();
       if (res.ok) setModelAliases(data.aliases || {});
     } catch (error) {
-      console.log("Error fetching model aliases:", error);
+      logger.error("CLITOOLS", "Error fetching model aliases:", "CLITOOLS", error);
     }
   };
 
@@ -73,7 +74,7 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
         body: JSON.stringify({ baseUrl: getEffectiveBaseUrl(), apiKey: keyToUse, models }),
       });
     } catch (error) {
-      console.log("Error saving models:", error);
+      logger.error("CLITOOLS", "Error saving models:", "CLITOOLS", error);
     }
   };
 

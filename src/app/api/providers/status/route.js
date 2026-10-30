@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getProviderConnections } from "@/models";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +61,7 @@ export async function GET() {
     }
     return NextResponse.json({ counts, worst, providers: byProvider.size });
   } catch (error) {
-    console.log("Error building provider status census:", error);
+    log.info("PROVIDERS", "Error building provider status census:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to build provider status" }, { status: 500 });
   }
 }

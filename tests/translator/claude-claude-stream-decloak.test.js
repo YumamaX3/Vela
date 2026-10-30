@@ -6,8 +6,8 @@
 // to the client, which then rejected the call as an unknown tool.
 import { describe, it, expect } from "vitest";
 import "./registerAll.js";
-import { translateResponse } from "../../open-sse/translator/index.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
+import { translateResponse } from "../../open-sse/transformer/translator/index.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
 import { CLAUDE_TOOL_SUFFIX } from "../../open-sse/config/appConstants.js";
 
 const CLOAKED = "run_code" + CLAUDE_TOOL_SUFFIX;

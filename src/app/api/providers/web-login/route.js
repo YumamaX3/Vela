@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createProviderConnection, deleteProviderConnection, getProviderConnections, updateProviderConnection } from "@/models";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { startWebLogin, getWebLoginStatus, cancelWebLogin, listWebLoginProfiles } from "open-sse/services/webLogin.js";
-import { getWebLoginConfig, listWebLoginProviders } from "open-sse/services/webLoginConfig.js";
+import { getWebLoginConfig, listWebLoginProviders } from "open-sse/transformer/translator/webLoginConfig.js";
 import { fetchWebIdentity } from "open-sse/services/webIdentity.js";
 
 /**

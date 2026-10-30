@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { KiroService } from "@/lib/oauth/services/kiro";
 import { createProviderConnection } from "@/models";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * POST /api/oauth/kiro/api-key
@@ -57,7 +58,7 @@ export async function POST(request) {
       },
     });
   } catch (error) {
-    console.log("Kiro API key import error:", error);
+    log.info("OAUTH", "Kiro API key import error:", (error?.message ?? error));
     // Do not reflect upstream response body to the client (SSRF hardening)
     return NextResponse.json(
       { error: "API key validation failed" },

@@ -17,7 +17,7 @@ export {
 } from "./config/providerModels.js";
 
 // Translator
-export { FORMATS } from "./translator/formats.js";
+export { FORMATS } from "./transformer/translator/formats.js";
 export { 
   register, 
   translateRequest, 
@@ -25,7 +25,7 @@ export {
   needsTranslation, 
   initState, 
   initTranslators 
-} from "./translator/index.js";
+} from "./transformer/translator/index.js";
 
 // Services
 export { 

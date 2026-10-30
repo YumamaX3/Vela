@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/clientLogger.js";
 
 import { useState, useEffect } from "react";
 import { Card, Button, Badge, Modal, Input, ModelSelectModal } from "@/shared/components";
@@ -58,7 +59,7 @@ export default function AntigravityToolCard({
         }
       }
     } catch (error) {
-      console.log("Error loading saved mappings:", error);
+      logger.error("CLITOOLS", "Error loading saved mappings:", "CLITOOLS", error);
     }
   };
 
@@ -68,7 +69,7 @@ export default function AntigravityToolCard({
       const data = await res.json();
       if (res.ok) setModelAliases(data.aliases || {});
     } catch (error) {
-      console.log("Error fetching model aliases:", error);
+      logger.error("CLITOOLS", "Error fetching model aliases:", "CLITOOLS", error);
     }
   };
 
@@ -80,7 +81,7 @@ export default function AntigravityToolCard({
         setStatus(data);
       }
     } catch (error) {
-      console.log("Error fetching status:", error);
+      logger.error("CLITOOLS", "Error fetching status:", "CLITOOLS", error);
       setStatus({ running: false });
     }
   };

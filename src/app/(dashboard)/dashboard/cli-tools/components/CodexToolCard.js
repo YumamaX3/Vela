@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/clientLogger.js";
 
 import { useState, useEffect } from "react";
 import { Card, Button, ModelSelectModal, ManualConfigModal } from "@/shared/components";
@@ -48,7 +49,7 @@ export default function CodexToolCard({ tool, isExpanded, onToggle, baseUrl, api
       const data = await res.json();
       if (res.ok) setModelAliases(data.aliases || {});
     } catch (error) {
-      console.log("Error fetching model aliases:", error);
+      logger.error("CLITOOLS", "Error fetching model aliases:", "CLITOOLS", error);
     }
   };
 

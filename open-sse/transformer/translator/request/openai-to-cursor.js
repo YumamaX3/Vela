@@ -9,7 +9,7 @@
 import { register } from "../index.js";
 import { FORMATS } from "../formats.js";
 import { ROLE, OPENAI_BLOCK, CLAUDE_BLOCK } from "../schema/index.js";
-import { DEFAULT_MIN_TOKENS } from "../../config/runtimeConfig.js";
+import { DEFAULT_MIN_TOKENS } from "../../../config/runtimeConfig.js";
 
 function extractContent(content) {
   if (typeof content === "string") return content;

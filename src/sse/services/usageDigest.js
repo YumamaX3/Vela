@@ -24,6 +24,7 @@
 //
 // Plan: plans/mirror-usage-observatory/SEALED-PLAN.md (W3 GOVERNANCE).
 
+import * as log from "@/sse/utils/logger.js";
 import { quotaWindowStart } from "@/lib/budgetDef.js";
 import { isHttpUrl, postJson } from "./budgetAlerts.js";
 
@@ -198,7 +199,7 @@ export async function runWeeklyDigest({ force = false } = {}) {
     return g.lastResult;
   } catch (err) {
     g.lastResult = { ok: false, sent: false, error: err?.message || String(err), at: new Date().toISOString() };
-    console.warn("[digest] weekly tick failed (fail-open):", err?.message);
+    log.warn("PROVIDERS", "weekly tick failed (fail-open):", err?.message);
     return g.lastResult;
   } finally {
     g.running = false;
@@ -235,7 +236,7 @@ export function startDigestScheduler() {
     if (g.timer.unref) g.timer.unref();
   }, bootDelayMs);
   if (g.timer.unref) g.timer.unref(); // never hold the process open
-  console.log("[digest] scheduler started");
+  log.info("PROVIDERS", "scheduler started");
 }
 
 /** Stop the scheduler (idempotent). */
@@ -245,7 +246,7 @@ export function stopDigestScheduler() {
   clearInterval(g.timer);
   g.timer = null;
   g.nextRunAt = null;
-  console.log("[digest] scheduler stopped");
+  log.info("PROVIDERS", "scheduler stopped");
 }
 
 /** Re-read settings + start/stop accordingly. Called from boot + settings

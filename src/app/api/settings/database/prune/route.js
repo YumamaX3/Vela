@@ -1,6 +1,7 @@
 // POST /api/settings/database/prune — retention-driven purge of request
 // details + usage rows. Port of 9router-go `HandlePruneDatabase`, riding the
 // harbor's existing purgeOldUsage so there is one deletion path, not two.
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { authorizeMaintenance, readJsonBody } from "@/lib/maintenanceAuth.js";
 import { purgeOldUsage } from "@/lib/db/repos/backupRepo.js";
@@ -18,7 +19,7 @@ export async function POST(request) {
     const result = await purgeOldUsage({ retentionDays: days });
     return NextResponse.json({ success: true, retentionDays: days, ...result });
   } catch (error) {
-    console.error("[Database] Failed to prune:", error);
+    log.error("SETTINGS", "Failed to prune:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to prune database" }, { status: 500 });
   }
 }

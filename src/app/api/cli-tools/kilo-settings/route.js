@@ -1,4 +1,5 @@
 "use server";
+import * as log from "@/sse/utils/logger.js";
 
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
@@ -66,7 +67,7 @@ export async function GET() {
       authPath: getAuthPath(),
     });
   } catch (error) {
-    console.log("Error checking kilo settings:", error);
+    log.info("CLITOOLS", "Error checking kilo settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to check kilo settings" }, { status: 500 });
   }
 }
@@ -101,7 +102,7 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true, message: "Kilo Code settings applied successfully!", authPath: getAuthPath() });
   } catch (error) {
-    console.log("Error updating kilo settings:", error);
+    log.info("CLITOOLS", "Error updating kilo settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to update kilo settings" }, { status: 500 });
   }
 }
@@ -127,7 +128,7 @@ export async function DELETE() {
 
     return NextResponse.json({ success: true, message: "Vela settings removed from Kilo Code" });
   } catch (error) {
-    console.log("Error resetting kilo settings:", error);
+    log.info("CLITOOLS", "Error resetting kilo settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to reset kilo settings" }, { status: 500 });
   }
 }

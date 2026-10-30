@@ -4,6 +4,7 @@
 // one the Usage page already uses; `since` (hours) remains accepted because it
 // was this endpoint's only name before. The resolved period is echoed so an
 // empty window cannot be mistaken for a different one.
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { getCompressionAnalyticsSummary } from "@/lib/db/repos/compressionAnalyticsRepo.js";
 
@@ -29,7 +30,7 @@ export async function GET(request) {
     const summary = await getCompressionAnalyticsSummary({ sinceIso, period: label });
     return NextResponse.json(summary);
   } catch (error) {
-    console.error("[Analytics] Failed to read compression summary:", error);
+    log.error("ANALYTICS", "Failed to read compression summary:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to read compression analytics" }, { status: 500 });
   }
 }

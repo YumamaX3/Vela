@@ -8,6 +8,7 @@ import {
   ANTHROPIC_COMPATIBLE_PREFIX,
 } from "@/shared/constants/providers";
 import { testSingleConnection } from "../[id]/test/testUtils.js";
+import * as log from "@/sse/utils/logger.js";
 
 function getAuthGroup(providerId, connection = null) {
   // Prioritize authType from connection if available
@@ -125,7 +126,7 @@ export async function POST(request) {
       },
     });
   } catch (error) {
-    console.log("Error in batch test:", error);
+    log.info("PROVIDERS", "Error in batch test:", (error?.message ?? error));
     return NextResponse.json({ error: "Batch test failed" }, { status: 500 });
   }
 }

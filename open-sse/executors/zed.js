@@ -15,14 +15,14 @@
 // fit the generic transformRequest/buildUrl contract.
 
 import { BaseExecutor } from "./base.js";
-import { FORMATS } from "../translator/formats.js";
-import { initState } from "../translator/index.js";
-import { openaiToClaudeRequest } from "../translator/request/openai-to-claude.js";
-import { openaiToGeminiRequest } from "../translator/request/openai-to-gemini.js";
-import { openaiToOpenAIResponsesRequest } from "../translator/request/openai-responses.js";
-import { claudeToOpenAIResponse } from "../translator/response/claude-to-openai.js";
-import { geminiToOpenAIResponse } from "../translator/response/gemini-to-openai.js";
-import { openaiResponsesToOpenAIResponse } from "../translator/response/openai-responses.js";
+import { FORMATS } from "../transformer/translator/formats.js";
+import { initState } from "../transformer/translator/index.js";
+import { openaiToClaudeRequest } from "../transformer/translator/request/openai-to-claude.js";
+import { openaiToGeminiRequest } from "../transformer/translator/request/openai-to-gemini.js";
+import { openaiToOpenAIResponsesRequest } from "../transformer/translator/request/openai-responses.js";
+import { claudeToOpenAIResponse } from "../transformer/translator/response/claude-to-openai.js";
+import { geminiToOpenAIResponse } from "../transformer/translator/response/gemini-to-openai.js";
+import { openaiResponsesToOpenAIResponse } from "../transformer/translator/response/openai-responses.js";
 import {
   ZED_HEADERS,
   resolveZedModels,

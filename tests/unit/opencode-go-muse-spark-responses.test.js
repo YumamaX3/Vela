@@ -6,9 +6,9 @@ import { getCapabilitiesForModel } from "../../open-sse/providers/capabilities.j
 import { getThinkingLevels } from "../../open-sse/providers/thinkingLevels.js";
 import { getExecutor } from "../../open-sse/executors/index.js";
 import { OpenCodeGoExecutor } from "../../open-sse/executors/opencode-go.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
 import "../translator/registerAll.js";
-import { translateRequest } from "../../open-sse/translator/index.js";
+import { translateRequest } from "../../open-sse/transformer/translator/index.js";
 
 const MODEL = "muse-spark-1.3-contributor";
 const PROVIDER = "opencode-go";

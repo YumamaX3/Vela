@@ -15,8 +15,8 @@ const {
   getGeminiThoughtSignatureSync,
   signatureFamily,
 } = await import("../../open-sse/services/thoughtSignatureStore.js");
-const { openaiToAntigravityRequest } = await import("../../open-sse/translator/request/openai-to-gemini.js");
-const { geminiToOpenAIResponse } = await import("../../open-sse/translator/response/gemini-to-openai.js");
+const { openaiToAntigravityRequest } = await import("../../open-sse/transformer/translator/request/openai-to-gemini.js");
+const { geminiToOpenAIResponse } = await import("../../open-sse/transformer/translator/response/gemini-to-openai.js");
 const { DEFAULT_THINKING_GEMINI_CLI_SIGNATURE } = await import("../../open-sse/config/defaultThinkingSignature.js");
 
 let n = 0;

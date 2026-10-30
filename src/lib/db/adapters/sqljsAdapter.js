@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import initSqlJs from "sql.js";
 import { PRAGMA_SQL } from "../schema.js";
+import * as log from "@/sse/utils/logger.js";
 
 let SQL = null;
 
@@ -48,7 +49,7 @@ export async function createSqlJsAdapter(filePath) {
     saveTimer = setTimeout(() => {
       saveTimer = null;
       if (dirty) {
-        try { persist(); } catch (e) { console.error("[sqljs] save failed:", e); }
+        try { persist(); } catch (e) { log.error("DB", "[sqljs] save failed:", (e?.message ?? e)); }
       }
     }, SAVE_DEBOUNCE_MS);
   }

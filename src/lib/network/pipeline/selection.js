@@ -37,6 +37,7 @@ import {
 } from "./stages.js";
 import { runSelection } from "./runner.js";
 import { buildRouteContext } from "./wire.js";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * Sync the live fleet state into the pipeline seams. Called on every
@@ -158,7 +159,7 @@ export async function repickPool(_model, excludePoolIds, opts = {}) {
     }
     return null; // exhausted
   } catch (err) {
-    console.error("[pipeline/selection] repickPool failed:", err?.message ?? err);
+    log.error("PROXY", "[pipeline/selection] repickPool failed:", err?.message ?? err);
     return null;
   }
 }

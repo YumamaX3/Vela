@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { CursorService } from "@/lib/oauth/services/cursor";
 import { createProviderConnection } from "@/models";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * POST /api/oauth/cursor/import
@@ -65,7 +66,7 @@ export async function POST(request) {
       },
     });
   } catch (error) {
-    console.log("Cursor import token error:", error);
+    log.info("OAUTH", "Cursor import token error:", (error?.message ?? error));
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

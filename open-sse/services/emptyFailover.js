@@ -14,11 +14,11 @@
 // enum is used only in the inverse: to NOT retry a legitimately-empty content-filter block.
 import {
   NO_RETRY_EMPTY_FINISH, OPENAI_FINISH, RESPONSES_STATUS, RESPONSES_INCOMPLETE_REASON,
-} from "../translator/schema/finishReasons.js";
-import { CLAUDE_BLOCK, RESPONSES_ITEM } from "../translator/schema/blocks.js";
-import { CLAUDE_EVENT, CLAUDE_DELTA, RESPONSES_EVENT, RESPONSES_EVENT_PREFIX } from "../translator/schema/streamEvents.js";
-import { toOpenAIFinish } from "../translator/concerns/finishReason.js";
-import { FORMATS } from "../translator/formats.js";
+} from "../transformer/translator/schema/finishReasons.js";
+import { CLAUDE_BLOCK, RESPONSES_ITEM } from "../transformer/translator/schema/blocks.js";
+import { CLAUDE_EVENT, CLAUDE_DELTA, RESPONSES_EVENT, RESPONSES_EVENT_PREFIX } from "../transformer/translator/schema/streamEvents.js";
+import { toOpenAIFinish } from "../transformer/translator/concerns/finishReason.js";
+import { FORMATS } from "../transformer/translator/formats.js";
 import { EMPTY_PEEK_DEADLINE_MS } from "../config/runtimeConfig.js";
 import { parseSSELine } from "../utils/streamHelpers.js";
 

@@ -20,6 +20,7 @@
 import { init, pruneExpiredBlocks } from "@/lib/network/proxyFleet.js";
 import { startPoolEgressProbe } from "./poolEgressProbe.js";
 import { pruneStaleGeo } from "./poolGeo.js";
+import * as log from "@/sse/utils/logger.js";
 
 export async function startFleet() {
   try {
@@ -37,14 +38,14 @@ export async function startFleet() {
         const relaxed = pruneExpiredBlocks();
         const geo = pruneStaleGeo();
         if (relaxed > 0 || geo > 0) {
-          console.log(`[fleetStartup] state sweeper: relaxed ${relaxed} expired blocks, pruned ${geo} stale geo entries`);
+          log.info("PROXY", `[fleetStartup] state sweeper: relaxed ${relaxed} expired blocks, pruned ${geo} stale geo entries`);
         }
       } catch { /* fail-open */ }
     }, 10 * 60 * 1000);
     if (sweeper.unref) sweeper.unref();
-    console.log("[fleetStartup] Fleet Captain initialized");
+    log.info("PROXY", "[fleetStartup] Fleet Captain initialized");
   } catch (err) {
-    console.warn("[fleetStartup] Fleet Captain init failed:", err.message);
+    log.warn("PROXY", "[fleetStartup] Fleet Captain init failed:", err.message);
   }
 }
 

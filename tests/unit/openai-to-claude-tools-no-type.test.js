@@ -22,7 +22,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { openaiToClaudeRequest } from "../../open-sse/translator/request/openai-to-claude.js";
+import { openaiToClaudeRequest } from "../../open-sse/transformer/translator/request/openai-to-claude.js";
 
 const baseBody = (extra = {}) => ({
   messages: [{ role: "user", content: "hi" }],

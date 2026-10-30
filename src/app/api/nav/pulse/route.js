@@ -42,6 +42,7 @@
  * scans. A cached body is returned with its ORIGINAL `ts` — the timestamp says
  * when the numbers were true, not when they were last asked for.
  */
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { GET as keysStats } from "../../keys/stats/route";
 import { GET as providersStatus } from "../../providers/status/route";
@@ -252,7 +253,7 @@ export async function GET() {
           (result.reason === undefined
             ? "rejected with no reason (cold compile?)"
             : String(result.reason));
-        console.log(`[nav/pulse] ${source.name} source unavailable: ${why}`);
+        log.info("API", `[nav/pulse] ${source.name} source unavailable: ${why}`);
       }
     });
 
@@ -269,7 +270,7 @@ export async function GET() {
   } catch (error) {
     // Reached only if the pulse ITSELF fails (the assembler, not a source) —
     // a loud 500, never a chart that reads "nothing is wrong here".
-    console.log("Error building nav pulse:", error);
+    log.info("API", "Error building nav pulse:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to build nav pulse" }, { status: 500 });
   }
 }

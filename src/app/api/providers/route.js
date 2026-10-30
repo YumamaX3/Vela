@@ -16,6 +16,7 @@ import { normalizeProviderId, normalizeProviderSpecificData } from "@/lib/provid
 // this route and [id]/route.js each had their own, and this one set the fields
 // to `undefined` instead of deleting, a third variant of one law.
 import { maskConnectionForRead } from "@/lib/db/repos/proxyRedaction.js";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +79,7 @@ export async function GET() {
 
     return NextResponse.json({ connections: safeConnections });
   } catch (error) {
-    console.log("Error fetching providers:", error);
+    log.info("PROVIDERS", "Error fetching providers:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch providers" }, { status: 500 });
   }
 }
@@ -190,7 +191,7 @@ export async function POST(request) {
     // nested connectionProxyUrl all crossed this boundary in plaintext on create.
     return NextResponse.json({ connection: maskConnectionForRead(newConnection) }, { status: 201 });
   } catch (error) {
-    console.log("Error creating provider:", error);
+    log.info("PROVIDERS", "Error creating provider:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to create provider" }, { status: 500 });
   }
 }

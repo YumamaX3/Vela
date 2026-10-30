@@ -1,4 +1,5 @@
 "use server";
+import * as log from "@/sse/utils/logger.js";
 
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
@@ -74,7 +75,7 @@ export async function GET() {
       settingsPath: getDroidSettingsPath(),
     });
   } catch (error) {
-    console.log("Error checking droid settings:", error);
+    log.info("CLITOOLS", "Error checking droid settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to check droid settings" }, { status: 500 });
   }
 }
@@ -166,7 +167,7 @@ export async function POST(request) {
       settingsPath,
     });
   } catch (error) {
-    console.log("Error updating droid settings:", error);
+    log.info("CLITOOLS", "Error updating droid settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to update droid settings" }, { status: 500 });
   }
 }
@@ -209,7 +210,7 @@ export async function DELETE() {
       message: "Vela settings removed successfully",
     });
   } catch (error) {
-    console.log("Error resetting droid settings:", error);
+    log.info("CLITOOLS", "Error resetting droid settings:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to reset droid settings" }, { status: 500 });
   }
 }

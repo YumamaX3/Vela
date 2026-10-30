@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { deleteApiKey, getApiKeyById, updateApiKey, KeyLimitsValidationError, sanitizeCategory } from "@/lib/localDb";
 import { getPlan } from "@/lib/db/repos/plansRepo.js";
+import { validateKeyAccessInput } from "@/shared/utils/keyAccess.js";
+import * as log from "@/sse/utils/logger.js";
 
 // GET /api/keys/[id] — masked row (never the full key)
 export async function GET(request, { params }) {
@@ -12,7 +14,7 @@ export async function GET(request, { params }) {
     }
     return NextResponse.json({ key });
   } catch (error) {
-    console.log("Error fetching key:", error);
+    log.info("KEYS", "Error fetching key:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch key" }, { status: 500 });
   }
 }
@@ -70,6 +72,16 @@ export async function PUT(request, { params }) {
         return NextResponse.json({ error: e.message }, { status: 400 });
       }
     }
+    // Per-key access (migration 024) — { restricted, allow }. The shared
+    // validator rejects rather than repairs; a refusal is a 400 naming the
+    // problem. The repo writes both columns through keyAccessToColumns.
+    if (body.access !== undefined) {
+      const checked = validateKeyAccessInput(body.access);
+      if (!checked.ok) {
+        return NextResponse.json({ error: checked.error }, { status: 400 });
+      }
+      updateData.access = checked.value;
+    }
     // W3 governance fields pass through as-is — the repo validates shape,
     // range, scope membership, expiry-future, and CIDR syntax.
     for (const f of ["rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents", "budgetScope", "expiresAt", "ipAllowlist"]) {
@@ -89,7 +101,7 @@ export async function PUT(request, { params }) {
     if (error instanceof KeyLimitsValidationError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    console.log("Error updating key:", error);
+    log.info("KEYS", "Error updating key:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to update key" }, { status: 500 });
   }
 }
@@ -106,7 +118,7 @@ export async function DELETE(request, { params }) {
 
     return NextResponse.json({ message: "Key deleted successfully" });
   } catch (error) {
-    console.log("Error deleting key:", error);
+    log.info("KEYS", "Error deleting key:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to delete key" }, { status: 500 });
   }
 }

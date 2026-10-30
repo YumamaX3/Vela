@@ -9,7 +9,7 @@ import {
   needsTerminationPrompt,
   TERMINATION_PROMPT,
 } from "../../open-sse/rtk/terminationPrompt.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
 
 describe("needsTerminationPrompt — the Kimi gate", () => {
   it("passes a Kimi model (provider or model segment)", () => {

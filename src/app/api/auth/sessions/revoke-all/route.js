@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/dashboardSession";
 import { revokeAllAuthSessions } from "@/lib/db/repos/authStoreRepo.js";
 import { auditAuthEvent, AUTH_EVENTS } from "@/lib/auth/authAudit.js";
+import * as log from "@/sse/utils/logger.js";
 
 // POST /api/auth/sessions/revoke-all — logout everywhere.
 //
@@ -47,7 +48,7 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true, revoked, keptCurrent: Boolean(keepId) });
   } catch (error) {
-    console.error("[auth/sessions] revoke-all failed:", error?.message || error);
+    log.error("AUTH", "[auth/sessions] revoke-all failed:", error?.message || error);
     return NextResponse.json(
       { error: "Could not revoke the sessions. Check the server logs." },
       { status: 500 }

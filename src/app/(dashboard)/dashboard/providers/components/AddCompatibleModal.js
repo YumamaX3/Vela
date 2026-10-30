@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/clientLogger.js";
 
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
@@ -84,7 +85,7 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
         setValidationResult(null);
       }
     } catch (error) {
-      console.log(`Error creating ${config.errorLabel} node:`, error);
+      logger.info("PROVIDERS", ("Error creating " + (config.errorLabel) + " node:"), error);
     } finally {
       setSubmitting(false);
     }

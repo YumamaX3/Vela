@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { KiroService } from "@/lib/oauth/services/kiro";
 import { createProviderConnection } from "@/models";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * POST /api/oauth/kiro/social-exchange
@@ -61,7 +62,7 @@ export async function POST(request) {
       },
     });
   } catch (error) {
-    console.log("Kiro social exchange error:", error);
+    log.info("OAUTH", "Kiro social exchange error:", (error?.message ?? error));
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

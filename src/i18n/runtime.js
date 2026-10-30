@@ -1,5 +1,6 @@
 "use client";
 
+import { logger } from "@/lib/clientLogger.js";
 import { DEFAULT_LOCALE, LOCALE_COOKIE, normalizeLocale } from "./config";
 
 let translationMap = {};
@@ -27,7 +28,7 @@ async function loadTranslations(locale) {
     const response = await fetch(`/i18n/literals/${locale}.json`);
     translationMap = await response.json();
   } catch (err) {
-    console.error("Failed to load translations:", err);
+    logger.error("I18N", "Failed to load translations:", err);
     translationMap = {};
   }
 }

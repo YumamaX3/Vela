@@ -18,6 +18,7 @@ import { auditAuthEvent, AUTH_EVENTS } from "@/lib/auth/authAudit.js";
 import { isLocalRequest } from "@/dashboardGuard";
 import { timingSafeEqual } from "@/shared/utils/timingSafeEqual.js";
 import { NO_PASSWORD_REMOTE_MESSAGE } from "@/lib/auth/loginMessages.js";
+import * as log from "@/sse/utils/logger.js";
 
 const RESET_HINT = "Forgot password? Clear it via Vela CLI → Settings → Reset Password (clear), then enter from the local console and set a new one under Profile → Security.";
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
@@ -107,7 +108,7 @@ export async function POST(request) {
       storeReadable = false;
       // A harbor that cannot be read must not lock the operator out of their own
       // console: the legacy mirror admits, exactly as it did before this wave.
-      console.error("[auth/login] credential store unavailable (falling back to stored settings):", err?.message || err);
+      log.error("AUTH", "credential store unavailable (falling back to stored settings):", err?.message || err);
     }
     const mirrorHash = storeReadable ? null : settings.password;
     const storedHash = userRow?.passwordHash || mirrorHash;
@@ -169,7 +170,7 @@ export async function POST(request) {
         try {
           await touchUserLogin(userRow.id, new Date().toISOString());
         } catch (err) {
-          console.error("[auth/login] lastLoginAt stamp failed (fail-open):", err?.message || err);
+          log.error("AUTH", "lastLoginAt stamp failed (fail-open):", err?.message || err);
         }
       }
 
@@ -213,7 +214,7 @@ export async function POST(request) {
     // crypto failure describing itself — to whoever probed the gate. The detail
     // goes to the log instead (consoleLogBuffer keeps it visible to the operator
     // on the dashboard's console-log page); the caller gets a stable line.
-    console.error("[auth/login] unexpected failure:", error?.message || error);
+    log.error("AUTH", "unexpected failure:", error?.message || error);
     return NextResponse.json(
       { error: "Login failed. Check the server logs." },
       { status: 500 }

@@ -3,6 +3,7 @@ import { exportDb, getSettings, importDb } from "@/lib/localDb";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 import { verifyDashboardPassword } from "@/lib/auth/dashboardSession";
 import { IMPORT_SECTIONS, projectPayloadToSections } from "@/lib/db/repos/backupSecurity.js";
+import * as log from "@/sse/utils/logger.js";
 
 const CLI_TOKEN_HEADER = "x-vela-cli-token";
 const PASSWORD_HEADER = "x-9r-password";
@@ -51,7 +52,7 @@ export async function GET(request) {
     }
     return NextResponse.json(payload);
   } catch (error) {
-    console.log("Error exporting database:", error);
+    log.info("SETTINGS", "Error exporting database:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to export database" }, { status: 500 });
   }
 }
@@ -108,7 +109,7 @@ export async function POST(request) {
       const settings = await getSettings();
       applyOutboundProxyEnv(settings);
     } catch (err) {
-      console.warn("[Settings][DatabaseImport] Failed to re-apply outbound proxy env:", err);
+      log.warn("SETTINGS", "[DatabaseImport] Failed to re-apply outbound proxy env:", (err?.message ?? err));
     }
 
     return NextResponse.json({
@@ -117,7 +118,7 @@ export async function POST(request) {
       appliedRows: result.appliedRows ?? null,
     });
   } catch (error) {
-    console.log("Error importing database:", error);
+    log.info("SETTINGS", "Error importing database:", (error?.message ?? error));
     const overBound = String(error?.message || "").includes("restore bound");
     return NextResponse.json(
       { error: error?.message || "Failed to import database" },

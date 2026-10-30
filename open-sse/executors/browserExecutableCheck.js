@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import * as keeperLog from "../../src/sse/utils/logger.js";
 
 // Shared classification for browser-backed executors: distinguishes a missing Playwright
 // Chromium binary (`chromium.launch: Executable doesn't exist at ...`) from a transient
@@ -48,8 +49,9 @@ export async function launchChromiumWithFallback(chromium, options = {}) {
   try {
     return await chromium.launch(options);
   } catch (error) {
-    console.warn(
-      `[browser] ${executablePath} failed to launch (${error?.message || error}) — retrying with Playwright's Chromium`
+    keeperLog.warn(
+      "BROWSER",
+      `${executablePath} failed to launch (${error?.message || error}) — retrying with Playwright's Chromium`
     );
     const { executablePath: _ignored, ...rest } = options;
     return chromium.launch(rest);

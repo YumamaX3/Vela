@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCombos, createCombo, getProviderConnections } from "@/lib/localDb";
 import { buildPresetItems, PRESET_SOURCES } from "@/lib/comboPresets";
 import { resolveCursorModels } from "open-sse/services/cursorModels.js";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ async function fetchCursorLiveModels() {
     }, { log: console });
     return result?.models?.length ? result.models : null;
   } catch (error) {
-    console.log("combo presets: cursor live catalog failed", error?.message || error);
+    log.info("COMBO", "combo presets: cursor live catalog failed", error?.message || error);
     return null;
   }
 }
@@ -66,7 +67,7 @@ export async function GET(request) {
       toSkip: items.filter((i) => i.exists).length,
     });
   } catch (error) {
-    console.log("Error previewing combo presets:", error);
+    log.info("COMBO", "Error previewing combo presets:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to preview combo presets" }, { status: 500 });
   }
 }
@@ -104,7 +105,7 @@ export async function POST(request) {
       skippedCount: skipped.length,
     });
   } catch (error) {
-    console.log("Error creating combo presets:", error);
+    log.info("COMBO", "Error creating combo presets:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to create combo presets" }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRequestDetails } from "@/lib/usageDb";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * GET /api/usage/request-details
@@ -65,7 +66,7 @@ export async function GET(request) {
 
     return NextResponse.json({ ...result, details: redactedDetails });
   } catch (error) {
-    console.error("[API] Failed to get request details:", error);
+    log.error("USAGE", "Failed to get request details:", (error?.message ?? error));
     return NextResponse.json(
       { error: "Failed to fetch request details" },
       { status: 500 }

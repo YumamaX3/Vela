@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { canonicalizeUsage, extractUsage, mergeUsage } from "../../open-sse/utils/usageTracking.js";
 import { calculateCostFromTokens } from "../../open-sse/providers/pricing.js";
-import { toOpenAIUsage } from "../../open-sse/translator/concerns/usage.js";
+import { toOpenAIUsage } from "../../open-sse/transformer/translator/concerns/usage.js";
 
 // Canonical convention (single source of truth for storage + cost):
 //   prompt_tokens             = total input INCLUDING cache read + cache creation

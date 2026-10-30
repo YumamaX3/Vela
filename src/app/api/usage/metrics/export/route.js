@@ -11,6 +11,7 @@
 //     when the cap bites, the file ends with a truncation note — the export
 //     never silently disagrees with what the cap actually returned.
 //   • Fixed attachment filename — nothing user-controlled in headers.
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { getExportCursor } from "@/lib/usageDb";
 // The DoS rail constant is engine-neutral (frozen at definition) — import it
@@ -124,7 +125,7 @@ export async function GET(request) {
         }
         controller.close();
       } catch (error) {
-        console.error("[API] usage/metrics/export failed:", error);
+        log.error("USAGE", "usage/metrics/export failed:", (error?.message ?? error));
         try { controller.close(); } catch { /* already closed */ }
       } finally {
         exportActive = false;

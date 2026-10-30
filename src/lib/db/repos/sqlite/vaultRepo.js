@@ -18,6 +18,7 @@ import {
   sealConnection, hasPlaintextCredential,
   SEALED_SLOTS, SLOT_COLUMNS, SEALED_COLUMN_SQL,
 } from "../../connectionVault.js";
+import * as log from "@/sse/utils/logger.js";
 
 function parseData(raw) {
   try {
@@ -111,7 +112,7 @@ export async function migratePlaintextCredentials() {
       sealed++;
     } catch (e) {
       skipped.push(`${candidate.id}: ${e.message}`);
-      console.warn(`[vault] connection ${candidate.id} not sealed, left plaintext: ${e.message}`);
+      log.warn("DB", `[vault] connection ${candidate.id} not sealed, left plaintext: ${e.message}`);
     }
   }
   return { enabled: true, sealed, skipped, backup };

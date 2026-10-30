@@ -2,6 +2,7 @@ const path = require("path");
 const fs = require("fs");
 const { MITM_DIR } = require("../paths");
 const { generateRootCA, loadRootCA, generateLeafCert } = require("./rootCA");
+const { err } = require("../logger");
 
 /**
  * Generate Root CA certificate (one-time setup)
@@ -24,7 +25,7 @@ function getCertForDomain(domain) {
       cert: leafCert.cert
     };
   } catch (error) {
-    console.error(`Failed to generate cert for ${domain}:`, error.message);
+    err(`Failed to generate cert for ${domain}: ${error.message}`);
     return null;
   }
 }

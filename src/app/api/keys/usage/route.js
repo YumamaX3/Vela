@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getKeyUsageStats } from "@/lib/usageDb";
+import * as log from "@/sse/utils/logger.js";
 
 const VALID_PERIODS = new Set(["24h", "7d", "30d", "60d", "all"]);
 
@@ -21,7 +22,7 @@ export async function GET(request) {
     const byKey = await getKeyUsageStats(period);
     return NextResponse.json({ period, byKey });
   } catch (error) {
-    console.error("[API] Failed to get per-key usage:", error);
+    log.error("KEYS", "Failed to get per-key usage:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch key usage" }, { status: 500 });
   }
 }

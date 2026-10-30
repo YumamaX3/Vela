@@ -8,9 +8,9 @@ vi.mock("../../open-sse/translator/concerns/image.js", async (orig) => {
   };
 });
 
-import { prefetchRemoteImages } from "../../open-sse/translator/concerns/prefetch.js";
-import { fetchImageAsBase64 } from "../../open-sse/translator/concerns/image.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
+import { prefetchRemoteImages } from "../../open-sse/transformer/translator/concerns/prefetch.js";
+import { fetchImageAsBase64 } from "../../open-sse/transformer/translator/concerns/image.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
 
 beforeEach(() => { fetchImageAsBase64.mockClear(); });
 afterEach(() => { vi.restoreAllMocks(); });

@@ -8,6 +8,7 @@ import {
   reachabilityOf,
   strategyOf,
 } from "../_lib/combosApi.js";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -137,7 +138,7 @@ export async function GET(request) {
       idle: idle.slice(0, 50),
     });
   } catch (error) {
-    console.log("Error computing combo stats:", error);
+    log.info("COMBO", "Error computing combo stats:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to compute combo stats" }, { status: 500 });
   }
 }

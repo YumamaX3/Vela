@@ -1,4 +1,5 @@
 import { NOUS_CONFIG } from "../constants/oauth.js";
+import * as log from "@/sse/utils/logger.js";
 
 const nous = {
   config: NOUS_CONFIG,
@@ -77,7 +78,7 @@ const nous = {
 
       if (!response.ok) {
         const error = await response.text().catch(() => "");
-        console.warn(`[oauth] Nous agent key mint failed (${response.status}): ${error}`);
+        log.warn("OAUTH", `[oauth] Nous agent key mint failed (${response.status}): ${error}`);
         return { agentKey: null };
       }
 
@@ -89,7 +90,7 @@ const nous = {
         agentKeyExpiresIn: data.expires_in || null,
       };
     } catch (err) {
-      console.warn(`[oauth] Nous agent key mint error: ${err?.message || err}`);
+      log.warn("OAUTH", `[oauth] Nous agent key mint error: ${err?.message || err}`);
       return { agentKey: null };
     }
   },

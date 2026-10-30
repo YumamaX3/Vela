@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getDashboardAuthSession, AUTH_COOKIE_NAME } from "@/lib/auth/dashboardSession";
 import { listAuthSessions, pruneAuthSessions } from "@/lib/db/repos/authStoreRepo.js";
+import * as log from "@/sse/utils/logger.js";
 
 // GET /api/auth/sessions — every session the ledger holds, the caller's own
 // flagged.
@@ -43,7 +44,7 @@ export async function GET() {
     });
   } catch (error) {
     // Error-hygiene: the detail goes to the log, the caller gets a stable line.
-    console.error("[auth/sessions] list failed:", error?.message || error);
+    log.error("AUTH", "list failed:", error?.message || error);
     return NextResponse.json(
       { error: "Could not read the session ledger. Check the server logs." },
       { status: 500 }

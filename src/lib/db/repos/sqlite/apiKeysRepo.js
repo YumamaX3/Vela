@@ -9,6 +9,7 @@ import { validateKeyLimits, KeyLimitsValidationError } from "../../keyLimits.js"
 // reaches only stdlib + DATA_DIR, so no import cycle.
 import { parseVelaKeyShape, hashKey } from "@/shared/utils/apiKey";
 import { touchKeyLastUsed } from "./usageRepo.js";
+import { keyAccessFromColumns, keyAccessToColumns } from "@/shared/utils/keyAccess.js";
 
 export { KeyLimitsValidationError } from "../../keyLimits.js";
 
@@ -38,6 +39,9 @@ function rowToPublic(row) {
     ipAllowlist: safeParse(row.ipAllowlist),
     category: row.category || null,
     planId: row.planId || null,
+    // Per-key access (migration 024) — the restricted switch and its allow
+    // list, read through the shared fail-closed builder.
+    access: keyAccessFromColumns(row.accessRestricted, row.accessAllow),
   };
 }
 
@@ -146,6 +150,8 @@ const MUTABLE_FIELDS = new Set([
   "name", "description", "allowedModels", "allowedKinds", "allowedProviders", "allowedCombos", "isActive",
   "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
   "budgetScope", "expiresAt", "ipAllowlist", "category", "planId",
+  // Per-key access (migration 024) — writable so a key can be set restricted.
+  "access",
 ]);
 const LIMIT_FIELDS = new Set([
   "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
@@ -167,6 +173,14 @@ export async function updateApiKey(id, data) {
     const vals = [];
     const JSON_FIELDS = new Set(["allowedModels", "allowedKinds", "allowedProviders", "allowedCombos"]);
     for (const k of present) {
+      if (k === "access") {
+        // The access object moves BOTH columns at once, through the shared
+        // validator's normalized value — never a raw object into TEXT.
+        const cols = keyAccessToColumns(data.access);
+        sets.push("accessRestricted = ?", "accessAllow = ?");
+        vals.push(cols.accessRestricted, cols.accessAllow);
+        continue;
+      }
       if (JSON_FIELDS.has(k)) {
         sets.push(`${k} = ?`);
         vals.push(data[k] != null ? JSON.stringify(data[k]) : null);

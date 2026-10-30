@@ -1,7 +1,7 @@
-import { FORMATS } from "../../translator/formats.js";
-import { needsTranslation } from "../../translator/index.js";
-import { fromOpenAIFinish } from "../../translator/concerns/finishReason.js";
-import { ollamaBodyToOpenAI } from "../../translator/response/ollama-to-openai.js";
+import { FORMATS } from "../../transformer/translator/formats.js";
+import { needsTranslation } from "../../transformer/translator/index.js";
+import { fromOpenAIFinish } from "../../transformer/translator/concerns/finishReason.js";
+import { ollamaBodyToOpenAI } from "../../transformer/translator/response/ollama-to-openai.js";
 import { addBufferToUsage, filterUsageForFormat } from "../../utils/usageTracking.js";
 import { createErrorResult } from "../../utils/error.js";
 import { HTTP_STATUS } from "../../config/runtimeConfig.js";
@@ -12,7 +12,8 @@ import { buildRequestDetail, extractRequestConfig, extractUsageFromResponse, sav
 import { appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
 import { scanOutboundPayload, auditDecision, BLOCK_STATUS, BLOCKED_OUTBOUND } from "@/lib/guardrails/pipeline.js";
 import { decloakToolNames } from "../../utils/claudeCloaking.js";
-import { ROLE, RESPONSES_ITEM } from "../../translator/schema/index.js";
+import { ROLE, RESPONSES_ITEM } from "../../transformer/translator/schema/index.js";
+import * as keeperLog from "../../../src/sse/utils/logger.js";
 
 function parseToolArguments(value) {
   if (!value) return {};
@@ -302,7 +303,7 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
       responseBody = await providerResponse.json();
     } catch (err) {
       appendLog({ status: `FAILED ${HTTP_STATUS.BAD_GATEWAY}` });
-      console.error(`[ChatCore] Failed to parse JSON from ${provider}:`, err.message);
+      keeperLog.error("STREAM", `[ChatCore] Failed to parse JSON from ${provider}:`, err.message);
       return createErrorResult(HTTP_STATUS.BAD_GATEWAY, `Invalid JSON response from ${provider}`);
     }
   }
@@ -317,7 +318,7 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
     Promise.resolve()
       .then(onRequestSuccess)
       .catch(err => {
-        console.error("[ChatCore] onRequestSuccess failed:", err?.message || err);
+        keeperLog.error("STREAM", "onRequestSuccess failed:", err?.message || err);
       });
   }
 
@@ -434,7 +435,7 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
     pxpipe,
     status: "success"
   }, { endpoint: clientRawRequest?.endpoint || null })).catch(err => {
-    console.error("[RequestDetail] Failed to save:", err.message);
+    keeperLog.error("STREAM", "Failed to save:", err.message);
   });
 
   return {

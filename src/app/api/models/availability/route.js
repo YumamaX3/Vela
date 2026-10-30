@@ -3,6 +3,7 @@ import {
   getProviderConnections,
   updateProviderConnection,
 } from "@/lib/localDb";
+import * as log from "@/sse/utils/logger.js";
 
 const MODEL_LOCK_PREFIX = "modelLock_";
 const CACHE_MS = 5000;
@@ -66,7 +67,7 @@ export async function GET(request) {
     availabilityCache = { at: Date.now(), body };
     return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    console.error("[API] Failed to get model availability:", error);
+    log.error("MODELS", "Failed to get model availability:", (error?.message ?? error));
     return NextResponse.json(
       { error: "Failed to fetch model availability" },
       { status: 500 },
@@ -106,7 +107,7 @@ export async function POST(request) {
     availabilityCache = { at: 0, body: null };
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("[API] Failed to clear model cooldown:", error);
+    log.error("MODELS", "Failed to clear model cooldown:", (error?.message ?? error));
     return NextResponse.json(
       { error: "Failed to clear cooldown" },
       { status: 500 },

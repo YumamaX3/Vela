@@ -2,7 +2,7 @@ import {
   KIRO_TOOL_DESCRIPTION_MAX_LENGTH,
   KIRO_TOOL_ID_MAX_LENGTH,
   KIRO_TOOL_NAME_MAX_LENGTH,
-} from "../../config/kiroConstants.js";
+} from "../../../config/kiroConstants.js";
 
 const TOOL_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
 

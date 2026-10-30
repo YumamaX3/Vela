@@ -1,5 +1,6 @@
 import { getSettings } from "@/lib/localDb";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
+import * as log from "@/sse/utils/logger.js";
 
 let initialized = false;
 
@@ -15,7 +16,7 @@ export async function ensureOutboundProxyInitialized() {
     applyNetworkTimeoutOverrides(settings);
     initialized = true;
   } catch (error) {
-    console.error("[ServerInit] Error initializing outbound proxy:", error);
+    log.error("PROXY", "[ServerInit] Error initializing outbound proxy:", (error?.message ?? error));
   }
 
   return initialized;
@@ -23,7 +24,7 @@ export async function ensureOutboundProxyInitialized() {
 
 // Defer init so HTTP server accepts connections first
 setImmediate(() => {
-  ensureOutboundProxyInitialized().catch(console.log);
+  ensureOutboundProxyInitialized().catch((e) => log.error("PROXY", "outbound proxy init failed:", e?.message ?? e));
 });
 
 export default ensureOutboundProxyInitialized;

@@ -35,6 +35,7 @@
  */
 import { openStoreAdapter } from "./sqlite/storeAdapter.js";
 import * as fallbackRulesRepo from "@/lib/db/repos/fallbackRulesRepo.js";
+import * as log from "@/sse/utils/logger.js";
 
 let repoCache = null;
 let warnLatched = false;
@@ -43,7 +44,7 @@ let warnLatched = false;
 function warnOnce(reason) {
   if (warnLatched) return;
   warnLatched = true;
-  console.warn("[bindFallbackRules] fallback rules disabled:", reason);
+  log.warn("DB", "fallback rules disabled:", reason);
 }
 
 /**

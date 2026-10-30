@@ -7,8 +7,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { openaiToKiroRequest } from "../../open-sse/translator/request/openai-to-kiro.js";
-import { claudeToKiroRequest } from "../../open-sse/translator/request/claude-to-kiro.js";
+import { openaiToKiroRequest } from "../../open-sse/transformer/translator/request/openai-to-kiro.js";
+import { claudeToKiroRequest } from "../../open-sse/transformer/translator/request/claude-to-kiro.js";
 
 const contentOf = (result) =>
   result.conversationState.currentMessage.userInputMessage.content;

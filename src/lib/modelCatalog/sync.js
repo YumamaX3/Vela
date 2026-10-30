@@ -4,6 +4,7 @@
 // and writes it next to the database. Failures are swallowed on purpose: a
 // stale or missing file just means those tables keep deciding on their own.
 
+import * as log from "@/sse/utils/logger.js";
 import fs from "node:fs";
 import path from "node:path";
 import { CATALOG_FILE, CATALOG_RAW_FILE, CATALOG_VERSION, invalidateCatalog, installCatalogSource } from "open-sse/providers/catalogOverride.js";
@@ -219,7 +220,7 @@ export async function syncModelCatalog() {
         models: Object.keys(models).length,
         providers: Object.keys(providers).length,
       };
-      console.log(`[modelCatalog] ${result.models} models, ${result.providers} providers, ${(result.bytes / 1024).toFixed(1)}KB`);
+      log.info("MODELS", `[modelCatalog] ${result.models} models, ${result.providers} providers, ${(result.bytes / 1024).toFixed(1)}KB`);
     }
 
     state.lastSync = Date.now();
@@ -228,7 +229,7 @@ export async function syncModelCatalog() {
     return result;
   } catch (error) {
     state.lastError = error?.message || String(error);
-    console.log(`[modelCatalog] sync failed: ${state.lastError}`);
+    log.info("MODELS", `[modelCatalog] sync failed: ${state.lastError}`);
     return null;
   } finally {
     // collectEntries() detaches the reader; put it back whatever happened.

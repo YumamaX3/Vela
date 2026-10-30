@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { getCapabilitiesForModel } from "../../open-sse/providers/capabilities.js";
 import { PROVIDER_MODELS, getModelTargetFormat } from "../../open-sse/config/providerModels.js";
 import { getThinkingLevels } from "../../open-sse/providers/thinkingLevels.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
 import { OpenCodeExecutor } from "../../open-sse/executors/opencode.js";
 import "../translator/registerAll.js";
-import { translateRequest } from "../../open-sse/translator/index.js";
+import { translateRequest } from "../../open-sse/transformer/translator/index.js";
 
 const MODEL = "muse-spark-1.2-contributor-free";
 const PROVIDER = "opencode";

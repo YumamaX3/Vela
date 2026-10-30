@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { deleteProviderConnectionsByProvider, deleteProviderNode, getProviderConnections, getProviderNodeById, updateProviderConnection, updateProviderNode } from "@/models";
+import * as log from "@/sse/utils/logger.js";
 
 // PUT /api/provider-nodes/[id] - Update provider node
 export async function PUT(request, { params }) {
@@ -75,7 +76,7 @@ export async function PUT(request, { params }) {
 
     return NextResponse.json({ node: updated });
   } catch (error) {
-    console.log("Error updating provider node:", error);
+    log.info("API", "Error updating provider node:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to update provider node" }, { status: 500 });
   }
 }
@@ -95,7 +96,7 @@ export async function DELETE(request, { params }) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.log("Error deleting provider node:", error);
+    log.info("API", "Error deleting provider node:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to delete provider node" }, { status: 500 });
   }
 }

@@ -5,6 +5,7 @@ import {
   getConsoleLogStats,
   initConsoleLogCapture
 } from "@/lib/consoleLogBuffer";
+import * as log from "@/sse/utils/logger.js";
 
 initConsoleLogCapture();
 
@@ -30,7 +31,7 @@ export async function GET(request) {
       stats,
     });
   } catch (error) {
-    console.error("Error getting console logs:", error);
+    log.error("API", "Error getting console logs:", (error?.message ?? error));
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
@@ -40,7 +41,7 @@ export async function DELETE() {
     clearConsoleLogs();
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error clearing console logs:", error);
+    log.error("API", "Error clearing console logs:", (error?.message ?? error));
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

@@ -36,6 +36,7 @@ import trae from "./trae.js";
 import windsurf from "./windsurf.js";
 import zed from "./zed.js";
 import freebuff from "./freebuff.js";
+import * as log from "@/sse/utils/logger.js";
 
 // Provider configurations
 const PROVIDERS = {
@@ -259,6 +260,6 @@ export async function backfillCodexEmails() {
     }
   } catch (err) {
     codexBackfillDone = false;
-    console.log("backfillCodexEmails failed:", err?.message || err);
+    log.info("OAUTH", "backfillCodexEmails failed:", err?.message || err);
   }
 }

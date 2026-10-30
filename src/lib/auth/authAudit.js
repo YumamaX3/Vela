@@ -16,6 +16,7 @@
  * own errors (one latched warning, so a broken harbor logs once rather than
  * once per request) and resolves to null. The caller never awaits an exception.
  */
+import * as log from "@/sse/utils/logger.js";
 import { getAuthStoreAdapterSync, insertAuditRow } from "@/lib/db/repos/authStoreRepo.js";
 import { getClientIp } from "./loginLimiter.js";
 
@@ -66,7 +67,7 @@ let warned = false;
 function warnOnce(err) {
   if (warned) return;
   warned = true;
-  console.warn("[authAudit] audit write failed (fail-open):", err?.message || err);
+  log.warn("AUTH", "audit write failed (fail-open):", err?.message || err);
 }
 
 /** Test seam — re-arm the latched warning. */

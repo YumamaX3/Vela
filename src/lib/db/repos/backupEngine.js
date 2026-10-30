@@ -19,6 +19,7 @@ import zlib from "node:zlib";
 import { BACKUPS_DIR, ensureDirs } from "../paths.js";
 import { SCHEMA_VERSION } from "../schema.js";
 import { getDataDir } from "@/lib/dataDir.js";
+import * as log from "@/sse/utils/logger.js";
 
 const KDF = { N: 2 ** 17, r: 8, p: 1, keyLen: 32 };
 const ARTIFACT_MAGIC = "VELABAK1";
@@ -353,7 +354,7 @@ export async function restoreBackup({ artifactId, adoptSecrets = false, trigger 
       safetyBackup = backupDbLite(db, dirPath);
     }
   } catch (err) {
-    console.warn("[backup] pre-restore safety backup failed (restore proceeds):", err?.message);
+    log.warn("DB", "[backup] pre-restore safety backup failed (restore proceeds):", err?.message);
   }
 
   await repo.importDb(payload, { adoptSecrets });

@@ -16,6 +16,7 @@
 import { NextResponse } from "next/server";
 import { queryLogPage } from "@/lib/db/repos/sqlite/logQuery.js";
 import { SelectorError, parseLogSelector } from "@/lib/logSelector.js";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -48,7 +49,7 @@ export async function GET(request) {
     if (error instanceof SelectorError) {
       return NextResponse.json({ error: error.message, field: error.field }, { status: 400 });
     }
-    console.error("[API] logs/events failed:", error);
+    log.error("LOGS", "logs/events failed:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to read log events" }, { status: 500 });
   }
 }

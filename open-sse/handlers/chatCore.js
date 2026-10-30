@@ -1,9 +1,9 @@
 import { detectFormat, getTargetFormat, resolveTransport } from "../services/provider.js";
 import { fmtDur } from "../utils/logfmt.js";
-import { translateRequest } from "../translator/index.js";
-import { applyThinking, extractThinking, stripThinkingSuffix } from "../translator/concerns/thinkingUnified.js";
-import { FORMATS } from "../translator/formats.js";
-import { normalizeClaudePassthrough, anchorClaudeCache } from "../translator/formats/claude.js";
+import { translateRequest } from "../transformer/translator/index.js";
+import { applyThinking, extractThinking, stripThinkingSuffix } from "../transformer/translator/concerns/thinkingUnified.js";
+import { FORMATS } from "../transformer/translator/formats.js";
+import { normalizeClaudePassthrough, anchorClaudeCache } from "../transformer/translator/formats/claude.js";
 import { createStreamController } from "../utils/streamHandler.js";
 import { refreshWithRetry } from "../services/tokenRefresh.js";
 import { createRequestLogger } from "../utils/requestLogger.js";
@@ -38,11 +38,12 @@ import { injectTerminationPrompt, injectToolProtocolPrompt, needsTerminationProm
 import { applyUserInjectors } from "../rtk/userInjectors.js"; // v0.9.19 — operator injectors
 import { compressMessages, formatRtkLog } from "../rtk/index.js";
 import { compressWithHeadroom, formatHeadroomLog, formatHeadroomSizeLog, isHeadroomPhantomSavings } from "../rtk/headroom.js";
+import * as keeperLog from "../../src/sse/utils/logger.js";
 import { compressWithPxpipe } from "../rtk/pxpipe.js";
 import { getCapabilitiesForModel } from "../providers/capabilities.js";
-import { stripUnsupportedModalities } from "../translator/concerns/modality.js";
-import { defaultClaudeToolType, shouldDefaultClaudeToolType } from "../translator/concerns/toolCall.js";
-import { prefetchRemoteImages } from "../translator/concerns/prefetch.js";
+import { stripUnsupportedModalities } from "../transformer/translator/concerns/modality.js";
+import { defaultClaudeToolType, shouldDefaultClaudeToolType } from "../transformer/translator/concerns/toolCall.js";
+import { prefetchRemoteImages } from "../transformer/translator/concerns/prefetch.js";
 import { resolveSessionId } from "../utils/sessionManager.js";
 
 // ---------------------------------------------------------------------------
@@ -225,7 +226,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   if (providerThinking?.mode && providerThinking.mode !== "auto") {
     const mode = providerThinking.mode;
     if (mode === "on" && !body.thinking) {
-      console.log("Injecting provider-level thinking config override: on");
+      keeperLog.info("CHAT", "Injecting provider-level thinking config override: on");
       body = { ...body, thinking: { type: "enabled", budget_tokens: 10000 } };
     } else if (mode === "off" && !body.thinking) {
       body = { ...body, thinking: { type: "disabled" } };
@@ -375,7 +376,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   const rtkStats = compressMessages(translatedBody, tokenSaverEnabled && rtkEnabled);
   const rtkLine = formatRtkLog(rtkStats);
   if (rtkLine && log?.line) log.line(reqTag, "⚙", rtkLine);
-  else if (rtkLine) console.log(rtkLine);
+  else if (rtkLine) keeperLog.info("STREAM", rtkLine);
 
   // Headroom: optional external proxy compression; fail open if proxy is absent.
   const headroomDiagnostics = {};

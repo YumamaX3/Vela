@@ -8,6 +8,7 @@
 //
 // Needle-bar param names (phase7): ?tab&period&prov&model&key&status&q&gran
 // The `prov`/`key` short forms map to the census keys provider/keyId.
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { FilterParamError } from "@/lib/db/usageNames";
 
@@ -78,6 +79,6 @@ export function metricsErrorResponse(error, label) {
       { status: 400 }
     );
   }
-  console.error(`[API] usage/metrics/${label} failed:`, error);
+  log.error("USAGE", `[API] usage/metrics/${label} failed:`, error);
   return NextResponse.json({ error: `Failed to fetch usage ${label}` }, { status: 500 });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSyncedPricing, replaceSyncedPricing, clearSyncedPricing } from "@/lib/db/index.js";
 import { SYNC_VENDOR_MAP } from "open-sse/providers/pricing.js";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * POST /api/pricing/sync — refresh synced pricing from models.dev (primary)
@@ -168,7 +169,7 @@ export async function POST(request) {
 
     return NextResponse.json({ ok: true, syncedAt, entryCount, diff, failed, crossCheck });
   } catch (error) {
-    console.error("Error syncing pricing:", error);
+    log.error("API", "Error syncing pricing:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to sync pricing" }, { status: 500 });
   }
 }
@@ -179,7 +180,7 @@ export async function GET() {
     const { meta } = await getSyncedPricing();
     return NextResponse.json({ meta: meta || null });
   } catch (error) {
-    console.error("Error reading sync meta:", error);
+    log.error("API", "Error reading sync meta:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to read sync meta" }, { status: 500 });
   }
 }
@@ -190,7 +191,7 @@ export async function DELETE() {
     await clearSyncedPricing();
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("Error clearing synced pricing:", error);
+    log.error("API", "Error clearing synced pricing:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to clear synced pricing" }, { status: 500 });
   }
 }

@@ -16,6 +16,7 @@
  * confined to this file — never scattered into the executor.
  */
 import { getProviderConnections, updateProviderConnection } from "@/lib/localDb";
+import * as log from "../../src/sse/utils/logger.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
 import {
   FREEBUFF_SESSION_URL,
@@ -375,7 +376,8 @@ function warnDirectEgressOnce(credentials) {
   const envProxy = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.ALL_PROXY || process.env.all_proxy;
   if (!psd.connectionProxyUrl && !envProxy) {
     warnedDirectEgress.add(connectionId);
-    console.warn(
+    log.warn(
+      "PROVIDERS",
       `[freebuff] direct egress — free-tier quota is per egress IP and ToS bans are terminal; ` +
       `configure a connection proxy for IP isolation (connection ${connectionId}).`
     );

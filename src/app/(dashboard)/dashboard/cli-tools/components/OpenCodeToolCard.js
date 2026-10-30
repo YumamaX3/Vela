@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/clientLogger.js";
 
 import { useState, useEffect, useRef } from "react";
 import { Card, Button, ModelSelectModal, ManualConfigModal } from "@/shared/components";
@@ -70,7 +71,7 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
       const data = await res.json();
       if (res.ok) setModelAliases(data.aliases || {});
     } catch (error) {
-      console.log("Error fetching model aliases:", error);
+      logger.error("CLITOOLS", "Error fetching model aliases:", "CLITOOLS", error);
     }
   };
 
@@ -90,7 +91,7 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
         }),
       });
     } catch (error) {
-      console.log("Error saving models:", error);
+      logger.error("CLITOOLS", "Error saving models:", "CLITOOLS", error);
     }
   };
 
@@ -339,7 +340,7 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
                                     checkStatus();
                                   }
                                 } catch (error) {
-                                  console.log("Error clearing active model:", error);
+                                  logger.error("CLITOOLS", "Error clearing active model:", "CLITOOLS", error);
                                 }
                               } else {
                                 setActiveModel(model);
@@ -368,7 +369,7 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
                                     checkStatus();
                                   }
                                 } catch (error) {
-                                  console.log("Error removing model:", error);
+                                  logger.error("CLITOOLS", "Error removing model:", "CLITOOLS", error);
                                 }
                               }}
                               className="ml-0.5 hover:text-red-500"

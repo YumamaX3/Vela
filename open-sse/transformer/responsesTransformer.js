@@ -4,6 +4,7 @@
  * Can be used in both Next.js and Cloudflare Workers
  */
 
+import * as log from "../../src/sse/utils/logger.js";
 import fs from "fs";
 import path from "path";
 
@@ -40,7 +41,7 @@ export function createResponsesLogger(model, logsDir = null) {
         fs.writeFileSync(path.join(logDir, "1_input_stream.txt"), inputEvents.join("\n"));
         fs.writeFileSync(path.join(logDir, "2_output_stream.txt"), outputEvents.join("\n"));
       } catch (e) {
-        console.log("[RESPONSES] Failed to write logs:", e.message);
+        log.info("STREAM", "[RESPONSES] Failed to write logs:", e.message);
       }
     }
   };

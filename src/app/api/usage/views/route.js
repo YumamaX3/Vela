@@ -14,6 +14,7 @@
 //                                        duplicate name; 400 on invalid input,
 //                                        409 when MAX_SAVED_VIEWS bites)
 //   DELETE /api/usage/views?id=<id>   — remove (404 if absent)
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import {
   listSavedViews, saveSavedView, deleteSavedView,
@@ -34,7 +35,7 @@ export async function GET() {
     const views = await listSavedViews();
     return NextResponse.json({ views });
   } catch (error) {
-    console.error("[API] usage/views GET failed:", error);
+    log.error("USAGE", "usage/views GET failed:", (error?.message ?? error));
     return errorResponse(500, "Failed to list saved views");
   }
 }
@@ -65,7 +66,7 @@ export async function POST(request) {
     if (error instanceof SavedViewValidationError) {
       return errorResponse(400, "Invalid saved view", { errors: error.errors });
     }
-    console.error("[API] usage/views POST failed:", error);
+    log.error("USAGE", "usage/views POST failed:", (error?.message ?? error));
     return errorResponse(500, "Failed to save view");
   }
 }
@@ -82,7 +83,7 @@ export async function DELETE(request) {
     if (!removed) return errorResponse(404, "Saved view not found");
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("[API] usage/views DELETE failed:", error);
+    log.error("USAGE", "usage/views DELETE failed:", (error?.message ?? error));
     return errorResponse(500, "Failed to delete saved view");
   }
 }

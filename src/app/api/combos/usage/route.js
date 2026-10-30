@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getComboUsage } from "@/lib/usageDb";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export async function GET(request) {
     const result = await getComboUsage({ hours, buckets });
     return NextResponse.json(result);
   } catch (error) {
-    console.log("Error fetching combo usage:", error);
+    log.info("COMBO", "Error fetching combo usage:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch combo usage" }, { status: 500 });
   }
 }

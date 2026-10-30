@@ -1,4 +1,5 @@
 "use server";
+import * as log from "@/sse/utils/logger.js";
 
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
@@ -117,7 +118,7 @@ export async function GET() {
             configPath: getDeepSeekConfigPath(),
         });
     } catch (error) {
-        console.log("Error checking deepseek-tui settings:", error);
+        log.info("CLITOOLS", "Error checking deepseek-tui settings:", (error?.message ?? error));
         return NextResponse.json({ error: "Failed to check deepseek-tui settings" }, { status: 500 });
     }
 }
@@ -142,7 +143,7 @@ export async function POST(request) {
             configPath: getDeepSeekConfigPath(),
         });
     } catch (error) {
-        console.log("Error updating deepseek-tui settings:", error);
+        log.info("CLITOOLS", "Error updating deepseek-tui settings:", (error?.message ?? error));
         return NextResponse.json({ error: "Failed to update deepseek-tui settings" }, { status: 500 });
     }
 }
@@ -159,7 +160,7 @@ export async function DELETE() {
         await fs.writeFile(configPath, DEFAULT_CONFIG);
         return NextResponse.json({ success: true, message: `${PROVIDER_NAME} config reset to DeepSeek defaults` });
     } catch (error) {
-        console.log("Error resetting deepseek-tui settings:", error);
+        log.info("CLITOOLS", "Error resetting deepseek-tui settings:", (error?.message ?? error));
         return NextResponse.json({ error: "Failed to reset deepseek-tui settings" }, { status: 500 });
     }
 }

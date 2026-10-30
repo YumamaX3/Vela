@@ -3,7 +3,7 @@
 // stt / image lanes still take only `max_tokens`. The rename is therefore
 // scoped to the modern families, not the whole provider.
 import { describe, expect, it } from "vitest";
-import { stripUnsupportedParams } from "../../open-sse/translator/concerns/paramSupport.js";
+import { stripUnsupportedParams } from "../../open-sse/transformer/translator/concerns/paramSupport.js";
 
 const run = (provider, model, body) => stripUnsupportedParams(provider, model, { ...body });
 

@@ -7,9 +7,9 @@
  * of "codex-ok".
  */
 import { describe, it, expect } from "vitest";
-import { openaiToOpenAIResponsesResponse } from "../../open-sse/translator/response/openai-responses.js";
-import { initState } from "../../open-sse/translator/index.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
+import { openaiToOpenAIResponsesResponse } from "../../open-sse/transformer/translator/response/openai-responses.js";
+import { initState } from "../../open-sse/transformer/translator/index.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
 
 describe("OpenAI Chat stream → Responses: empty tool_calls arrays", () => {
   it("does not emit output_text.done early when every chunk carries tool_calls: []", () => {

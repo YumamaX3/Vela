@@ -2,7 +2,8 @@
  * Token Usage Tracking - Extract, normalize, estimate and log token usage
  */
 
-import { FORMATS } from "../translator/formats.js";
+import { FORMATS } from "../transformer/translator/formats.js";
+import * as keeperLog from "../../src/sse/utils/logger.js";
 
 // Legacy per-chunk usage console line; off by default (superseded by "📊 done")
 const DEBUG_USAGE = process.env.LOG_USAGE_VERBOSE === "1";
@@ -459,5 +460,5 @@ export function logUsage(provider, usage, model = null, connectionId = null, api
   const reasoning = usage.reasoning_tokens;
   if (reasoning) msg += ` | reasoning=${reasoning}`;
 
-  console.log(msg);
+  keeperLog.info("SSE", msg);
 }

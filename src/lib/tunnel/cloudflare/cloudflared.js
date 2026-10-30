@@ -5,6 +5,7 @@ import os from "os";
 import { execSync, spawn } from "child_process";
 import { savePid, loadPid, clearPid } from "./pid.js";
 import { DATA_DIR } from "@/lib/dataDir.js";
+import * as log from "@/sse/utils/logger.js";
 
 const BIN_DIR = path.join(DATA_DIR, "bin");
 const BINARY_NAME = "cloudflared";
@@ -155,7 +156,7 @@ async function _ensureCloudflared() {
 
   if (fs.existsSync(BIN_PATH)) {
     if (!isValidBinary(BIN_PATH)) {
-      console.log("[cloudflared] Invalid binary detected, re-downloading...");
+      log.info("TUNNEL", "Invalid binary detected, re-downloading...");
       fs.unlinkSync(BIN_PATH);
     } else {
       if (!IS_WINDOWS) fs.chmodSync(BIN_PATH, "755");
@@ -347,14 +348,14 @@ export async function spawnQuickTunnel(localPort, onUrlUpdate) {
         lastUrl = tunnelUrl;
         clearTimeout(timeout);
         cleanup();
-        console.log(`[Tunnel] cloudflared URL: ${tunnelUrl}`);
+        log.info("TUNNEL", `[Tunnel] cloudflared URL: ${tunnelUrl}`);
         resolve({ child, tunnelUrl });
         return;
       }
 
       // URL changed after initial connect — notify caller to re-register
       if (tunnelUrl !== lastUrl) {
-        console.log(`[Tunnel] cloudflared URL changed: ${tunnelUrl}`);
+        log.info("TUNNEL", `[Tunnel] cloudflared URL changed: ${tunnelUrl}`);
         lastUrl = tunnelUrl;
         if (onUrlUpdate) onUrlUpdate(tunnelUrl);
       }
@@ -382,7 +383,7 @@ export async function spawnQuickTunnel(localPort, onUrlUpdate) {
         if (!resolved) { resolved = true; reject(new Error("cloudflared killed")); }
         return;
       }
-      console.log(`[Tunnel] cloudflared exit code=${code} signal=${signal}`);
+      log.info("TUNNEL", `[Tunnel] cloudflared exit code=${code} signal=${signal}`);
       if (!resolved) {
         resolved = true;
         clearTimeout(timeout);

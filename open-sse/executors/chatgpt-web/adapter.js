@@ -16,7 +16,7 @@ import {
   resolveChatGptWebAttachments,
 } from "./attachments.js";
 import { PlaywrightChatGptWebBrowserSession, runChatGptWebBrowserTurn } from "./browserSession.js";
-import { prepareToolMessages } from "../../translator/webTools.js";
+import { prepareToolMessages } from "../../transformer/translator/webTools.js";
 import { buildToolModeResponse } from "../chatgptWebTools.js";
 
 const CHATGPT_WEB_PAGE_URL = "https://chatgpt.com/?temporary-chat=true";

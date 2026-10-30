@@ -22,6 +22,7 @@ import {
   normalizeImportSections,
   sectionOfField,
 } from "../backupSecurity.js";
+import * as log from "@/sse/utils/logger.js";
 
 // S1 bounds + S3 exclusions — identical law to the sqlite twin.
 export const MAX_PAYLOAD_BYTES = 512 * 1024 * 1024;
@@ -475,7 +476,7 @@ export async function writeLedger(kind, fields = {}) {
       ]
     );
   } catch (err) {
-    console.warn("[backup] ledger write failed (fail-open):", err?.message);
+    log.warn("DB", "[backup] ledger write failed (fail-open):", err?.message);
   }
 }
 

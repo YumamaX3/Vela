@@ -102,7 +102,8 @@ function remoteRequest(password) {
 }
 
 describe("auth error hygiene — an internal failure never narrates itself", () => {
-  let errorSpy;
+  let loggerErrorSpy;
+  let logModule;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -123,14 +124,21 @@ describe("auth error hygiene — an internal failure never narrates itself", () 
     mocks.setUserPassword.mockResolvedValue(true);
     mocks.touchUserLogin.mockResolvedValue(true);
     mocks.deleteAllUsers.mockResolvedValue(0);
-    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    // The routes now log through the Vela logger — spy its error lane, not
+    // the console. The module is imported directly (never vi.mock'ed here),
+    // so the spy lands on the same function object the routes hold.
+    loggerErrorSpy = vi.spyOn(logModule, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
     process.env.NODE_ENV = originalNodeEnv;
     delete process.env.VELA_PEER_TOKEN;
     delete process.env.INITIAL_PASSWORD;
-    errorSpy.mockRestore();
+    loggerErrorSpy.mockRestore();
+  });
+
+  beforeAll(async () => {
+    logModule = await import("@/sse/utils/logger.js");
   });
 
   it("login: a store failure answers one stable line, and the detail stays in the log", async () => {
@@ -143,8 +151,9 @@ describe("auth error hygiene — an internal failure never narrates itself", () 
     expect(JSON.stringify(response.body)).not.toContain(INTERNAL_DETAIL);
     expect(JSON.stringify(response.body)).not.toContain("SQLITE_ERROR");
     // The remedy, not merely the redaction — the operator still receives it.
-    expect(errorSpy).toHaveBeenCalledWith(
-      "[auth/login] unexpected failure:",
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      "AUTH",
+      "unexpected failure:",
       INTERNAL_DETAIL
     );
   });
@@ -159,8 +168,9 @@ describe("auth error hygiene — an internal failure never narrates itself", () 
       "Could not reset the password. Check the server logs."
     );
     expect(JSON.stringify(response.body)).not.toContain(INTERNAL_DETAIL);
-    expect(errorSpy).toHaveBeenCalledWith(
-      "[auth/reset-password] unexpected failure:",
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      "AUTH",
+      "unexpected failure:",
       INTERNAL_DETAIL
     );
   });

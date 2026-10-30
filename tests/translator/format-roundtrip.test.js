@@ -2,8 +2,8 @@
 // core parts (text, tool, system) survive. Exposes bridge data loss.
 import { describe, it, expect } from "vitest";
 import "./registerAll.js";
-import { translateRequest } from "../../open-sse/translator/index.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
+import { translateRequest } from "../../open-sse/transformer/translator/index.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
 
 const T = (src, tgt, body, provider = null) =>
   translateRequest(src, tgt, "m", body, true, null, provider);

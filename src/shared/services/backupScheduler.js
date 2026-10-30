@@ -1,3 +1,4 @@
+import * as log from "@/sse/utils/logger.js";
 // Storage Covenant Wave B3 — the backup scheduler.
 // Plan: plans/storage-covenant.md line 286-288 (scheduler) + line 300-302
 // (usage purge runs AFTER the scheduled backup so purged rows live in the
@@ -89,7 +90,7 @@ export async function runBackupTick(deps = null) {
       error: err?.message || String(err),
       at: new Date().toISOString(),
     };
-    console.warn("[backup] scheduler tick failed (fail-open):", err?.message);
+    log.warn("SERVICES", "[backup] scheduler tick failed (fail-open):", err?.message);
     return g.lastResult;
   } finally {
     g.running = false;
@@ -111,7 +112,7 @@ function scheduleNext() {
 export function startBackupScheduler() {
   if (g.timer) return; // already running — idempotent
   if (!isBackupEnabled()) return; // master switch off — no timer
-  console.log("[backup] scheduler started");
+  log.info("SERVICES", "[backup] scheduler started");
   // One tick shortly after boot (not immediately — let the app settle), then
   // on interval. The boot tick catches up if the last scheduled run was missed.
   const bootDelayMs = Math.floor(Math.random() * JITTER_MS);
@@ -131,7 +132,7 @@ export function stopBackupScheduler() {
   clearInterval(g.timer);
   g.timer = null;
   g.nextRunAt = null;
-  console.log("[backup] scheduler stopped");
+  log.info("SERVICES", "[backup] scheduler stopped");
 }
 
 /** Re-read env policy + start/stop accordingly. Called from settings changes

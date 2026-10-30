@@ -3,6 +3,7 @@
 // Port of 9router-go `HandleAutoFreeCombo`. The combo keeps a stable id, so a
 // rebuild replaces the row instead of stacking a new one. A rebuild is
 // explicit because it overwrites whatever the operator edited.
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { upsertComboWithId } from "@/lib/db/repos/combosRepo.js";
 import { AUTO_FREE_COMBO_ID, FREE_COMBO_KIND, freeTierComboModels } from "@/lib/combos/autoGenerate.js";
@@ -25,7 +26,7 @@ export async function POST() {
     });
     return NextResponse.json({ status: "ok", id: combo.id, models, combo });
   } catch (error) {
-    console.error("[Combos] auto-free failed:", error);
+    log.error("COMBO", "auto-free failed:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to build the free-tier combo" }, { status: 500 });
   }
 }

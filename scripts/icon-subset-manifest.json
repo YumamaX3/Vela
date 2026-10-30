@@ -20,6 +20,7 @@
     "assistant",
     "attach_file",
     "auto_awesome",
+    "auto_mode",
     "backup",
     "badge",
     "bar_chart",
@@ -65,6 +66,7 @@
     "delete_sweep",
     "deployed_code",
     "description",
+    "desktop_windows",
     "developer_board",
     "devices",
     "diamond",
@@ -261,9 +263,9 @@
     "wrap_text",
     "wrong_location"
   ],
-  "count": 260,
-  "sha256": "ba86d53d88eb501ebe1cd16105aca6f042eae02b1f9837f4a9f624e417547e18",
-  "identity": "fc72afbc8d441854",
-  "file": "vela-icons.fc72afbc8d441854.woff2",
+  "count": 262,
+  "sha256": "f5adefda06a2c8cd70429efdacc0a9ca349ff17d0cb7d6bffe603b84a04db40b",
+  "identity": "68ad5f6d5674597a",
+  "file": "vela-icons.68ad5f6d5674597a.woff2",
   "source": "node_modules/material-symbols/material-symbols-outlined.woff2"
 }

@@ -28,6 +28,7 @@
 //     text child, which was already inert; parsing makes the raw view legible
 //     AND keeps the law — a span with a class is still a text child, and
 //     `\u001b[31m` in a message body becomes zero characters, not markup.
+import { logger } from "@/lib/clientLogger.js";
 import { AnsiText } from "./LogRow";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Drawer } from "@/shared/components";
@@ -206,7 +207,7 @@ export default function ContainerStream() {
     try {
       await fetch("/api/translator/console-logs", { method: "DELETE" });
     } catch (err) {
-      console.error("Failed to clear console logs:", err);
+      logger.error("LOGS", "Failed to clear console logs:", err);
     }
   }, [armedClear]);
   const jumpToTail = useCallback(() => {

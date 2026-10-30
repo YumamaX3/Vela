@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "path";
 import os from "os";
+import * as log from "@/sse/utils/logger.js";
 
 const APP_NAME = "vela";
 
@@ -18,7 +19,7 @@ export function getDataDir() {
   // On Windows, ignore Unix-style absolute paths (e.g. /var/lib/...) that come
   // from a Linux-targeted .env or Docker config — they are not valid here.
   if (process.platform === "win32" && /^\//.test(configured)) {
-    console.warn(`[DATA_DIR] '${configured}' is a Unix path on Windows → fallback to default`);
+    log.warn("LIB", `[DATA_DIR] '${configured}' is a Unix path on Windows → fallback to default`);
     return defaultDir();
   }
 
@@ -27,7 +28,7 @@ export function getDataDir() {
     return configured;
   } catch (e) {
     if (e?.code === "EACCES" || e?.code === "EPERM") {
-      console.warn(`[DATA_DIR] '${configured}' not writable → fallback ~/.${APP_NAME}`);
+      log.warn("LIB", `[DATA_DIR] '${configured}' not writable → fallback ~/.${APP_NAME}`);
       return defaultDir();
     }
     throw e;

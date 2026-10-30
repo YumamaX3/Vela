@@ -1,5 +1,6 @@
 "use client";
 
+import { logger } from "@/lib/clientLogger.js";
 import { useState, useEffect, useCallback } from "react";
 import Card from "@/shared/components/Card";
 import Button from "@/shared/components/Button";
@@ -137,7 +138,7 @@ export default function RequestDetailsTab({ provider: controlledProvider = "" })
       const cache = await fetchProviderNames();
       setProviderNameCache(cache.providerNameCache);
     } catch (error) {
-      console.error("Failed to fetch providers:", error);
+      logger.error("USAGE", "Failed to fetch providers:", error);
     }
   }, []);
 
@@ -158,7 +159,7 @@ export default function RequestDetailsTab({ provider: controlledProvider = "" })
       setDetails(data.details || []);
       setPagination(prev => ({ ...prev, ...data.pagination }));
     } catch (error) {
-      console.error("Failed to fetch request details:", error);
+      logger.error("USAGE", "Failed to fetch request details:", error);
     } finally {
       setLoading(false);
     }

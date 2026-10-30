@@ -2,6 +2,7 @@
 // `n` is the Go handler's parameter name; both spellings are accepted so an
 // older client or a bookmark keeps working.
 // Port of 9router-go's debug tracing payload.
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { tracesPayload } from "@/lib/tracing.js";
 
@@ -11,7 +12,7 @@ export async function GET(request) {
     const limit = Math.max(0, Number(params.get("n") ?? params.get("limit")) || 0);
     return NextResponse.json(tracesPayload(limit));
   } catch (error) {
-    console.error("[Traces] Failed to read spans:", error);
+    log.error("API", "Failed to read spans:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to read traces" }, { status: 500 });
   }
 }

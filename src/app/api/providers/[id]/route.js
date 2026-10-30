@@ -11,6 +11,7 @@ import {
 // dialing is unaffected: testUtils.js reads via getProviderConnectionById, never
 // through this response (proven, not assumed).
 import { maskConnectionForRead } from "@/lib/db/repos/proxyRedaction.js";
+import * as log from "@/sse/utils/logger.js";
 
 function normalizeProxyConfig(body = {}) {
   const hasAnyProxyField =
@@ -80,7 +81,7 @@ export async function GET(request, { params }) {
     // providerSpecificData.connectionProxyUrl.
     return NextResponse.json({ connection: maskConnectionForRead(connection) });
   } catch (error) {
-    console.log("Error fetching connection:", error);
+    log.info("PROVIDERS", "Error fetching connection:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch connection" }, { status: 500 });
   }
 }
@@ -165,7 +166,7 @@ export async function PUT(request, { params }) {
     // would have looked complete.
     return NextResponse.json({ connection: maskConnectionForRead(updated) });
   } catch (error) {
-    console.log("Error updating connection:", error);
+    log.info("PROVIDERS", "Error updating connection:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to update connection" }, { status: 500 });
   }
 }
@@ -182,7 +183,7 @@ export async function DELETE(request, { params }) {
 
     return NextResponse.json({ message: "Connection deleted successfully" });
   } catch (error) {
-    console.log("Error deleting connection:", error);
+    log.info("PROVIDERS", "Error deleting connection:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to delete connection" }, { status: 500 });
   }
 }

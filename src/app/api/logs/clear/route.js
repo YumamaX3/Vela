@@ -24,6 +24,7 @@ import { verifyDashboardPassword } from "@/lib/auth/dashboardSession";
 import { auditAuthEvent } from "@/lib/auth/authAudit.js";
 import { runOrderedClear, SETTLE_BOUND_MS } from "@/lib/logshipper/clear.js";
 import { getLogshipperStats } from "@/lib/logshipper/index.js";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -89,7 +90,7 @@ export async function POST(request) {
       settleBoundMs: SETTLE_BOUND_MS,
     });
   } catch (error) {
-    console.error("[API] logs/clear failed:", error);
+    log.error("LOGS", "logs/clear failed:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to clear logs" }, { status: 500 });
   }
 }

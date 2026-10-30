@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { convertOpenAIContentToParts } from "../../open-sse/translator/formats/gemini.js";
-import { openaiToClaudeRequest } from "../../open-sse/translator/request/openai-to-claude.js";
-import { VALID_OPENAI_CONTENT_TYPES, OPENAI_BLOCK, CLAUDE_BLOCK } from "../../open-sse/translator/schema/index.js";
+import { convertOpenAIContentToParts } from "../../open-sse/transformer/translator/formats/gemini.js";
+import { openaiToClaudeRequest } from "../../open-sse/transformer/translator/request/openai-to-claude.js";
+import { VALID_OPENAI_CONTENT_TYPES, OPENAI_BLOCK, CLAUDE_BLOCK } from "../../open-sse/transformer/translator/schema/index.js";
 
 const PDF_DATA = "data:application/pdf;base64,JVBERi0xLjE=";
 const PNG_DATA = "data:image/png;base64,iVBORw0KGgo=";

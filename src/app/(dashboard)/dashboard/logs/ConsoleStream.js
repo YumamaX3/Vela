@@ -7,6 +7,7 @@
 // the harbor's first stream. Two harmony changes on this tide: meta text rides
 // at >=55% opacity (the old 35% measured 2.66:1 on the terminal ground, below
 // SC 1.4.3), and the empty states speak in the Keeper's register.
+import { logger } from "@/lib/clientLogger.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Drawer } from "@/shared/components";
 import { CONSOLE_LOG_CONFIG } from "@/shared/constants/config";
@@ -249,7 +250,7 @@ export default function ConsoleStream() {
     try {
       await fetch("/api/translator/console-logs", { method: "DELETE" });
     } catch (err) {
-      console.error("Failed to clear console logs:", err);
+      logger.error("LOGS", "Failed to clear console logs:", err);
     }
   }, [armedClear]);
   const jumpToTail = useCallback(() => {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createProviderNode, getProviderNodes } from "@/models";
 import { OPENAI_COMPATIBLE_PREFIX, ANTHROPIC_COMPATIBLE_PREFIX, CUSTOM_EMBEDDING_PREFIX } from "@/shared/constants/providers";
 import { generateId } from "@/shared/utils";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export async function GET() {
     const nodes = await getProviderNodes();
     return NextResponse.json({ nodes });
   } catch (error) {
-    console.log("Error fetching provider nodes:", error);
+    log.info("API", "Error fetching provider nodes:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch provider nodes" }, { status: 500 });
   }
 }
@@ -98,7 +99,7 @@ export async function POST(request) {
 
     return NextResponse.json({ error: "Invalid provider node type" }, { status: 400 });
   } catch (error) {
-    console.log("Error creating provider node:", error);
+    log.info("API", "Error creating provider node:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to create provider node" }, { status: 500 });
   }
 }

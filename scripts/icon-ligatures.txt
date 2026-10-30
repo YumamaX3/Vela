@@ -258,3 +258,5 @@ wifi_off
 wifi_tethering
 wrap_text
 wrong_location
+auto_mode
+desktop_windows

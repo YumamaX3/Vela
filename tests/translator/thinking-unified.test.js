@@ -5,8 +5,8 @@ import {
   parseSuffix,
   extractThinking,
   applyThinking,
-} from "../../open-sse/translator/concerns/thinkingUnified.js";
-import { extractReasoningText } from "../../open-sse/translator/concerns/reasoning.js";
+} from "../../open-sse/transformer/translator/concerns/thinkingUnified.js";
+import { extractReasoningText } from "../../open-sse/transformer/translator/concerns/reasoning.js";
 
 const apply = (targetFormat, model, body, provider) => {
   const b = JSON.parse(JSON.stringify(body));

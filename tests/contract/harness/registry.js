@@ -100,6 +100,9 @@ export const EXEMPT_PROCESS = {
   // v0.9.81 store adapter (2bf3c625) — handle openers, same class as initDb.
   openStoreAdapter: "adapter handle opener — process surface, no comparable data",
   openStoreAdapterSync: "sync adapter handle opener — process surface",
+  // Security & governance repos (migrations 020/021, kv scope
+  // "modelDeprecations") — the pure constructors, same class as budgetId.
+  deprecationKey: "pure key constructor (provider/model) — no DB access",
 };
 
 /** Parity coverage scheduled — the Observatory's aggregation layer (W1-C +
@@ -112,6 +115,35 @@ export const EXEMPT_PENDING = {
   // The Observatory's aggregation-layer debt was retired at W2-G (2026-08-16):
   // parity-usage.test.js's usageScenario runs all eight across BOTH twins,
   // and the census pin keeps this ledger empty until new scheduled debt lands.
+
+  // Security & governance surface — the A8 wave bound these in bind.js
+  // (SECURITY_WAVE_NAMES) and both harbors carry a complete twin, but every
+  // test that exercises them is sqlite-only (tests/unit/guardrails-mirror,
+  // guardrails-policy-store, vault, models-routes run the sqlite harbor; the
+  // mirror suite proves outbox capture, never convergence). No parity leg
+  // runs them across both engines yet, so they hold here — the debt named,
+  // not hidden — until a security-governance parity gate pays them.
+  // guardrailsRepo (migration 020) — row tables guardrailPolicies/guardrailLogs.
+  listGuardrailPolicies: "security-wave row read — sqlite-only unit coverage; parity gate scheduled",
+  getGuardrailPolicy: "security-wave row read — sqlite-only unit coverage; parity gate scheduled",
+  upsertGuardrailPolicy: "security-wave row upsert — sqlite-only unit coverage; parity gate scheduled",
+  deleteGuardrailPolicy: "security-wave row delete — sqlite-only unit coverage; parity gate scheduled",
+  insertGuardrailLog: "security-wave audit-log insert — sqlite-only unit coverage; parity gate scheduled",
+  listGuardrailLogs: "security-wave audit-log read — sqlite-only unit coverage; parity gate scheduled",
+  deleteGuardrailLogs: "security-wave audit-log delete — sqlite-only unit coverage; parity gate scheduled",
+  // vaultRepo (migration 021) — seals providerConnections credentials.
+  // The migration leg additionally writes a pre-vault artifact file (VACUUM
+  // INTO) on the sqlite harbor; the twin seals in place by design.
+  getVaultCounts: "seal-state census over providerConnections — sqlite-only unit coverage; parity gate scheduled",
+  listConnectionsNeedingSeal: "plaintext-credential scan — sqlite-only unit coverage; parity gate scheduled",
+  migratePlaintextCredentials: "credential migration (sqlite backs up via VACUUM INTO, twin seals in place) — parity gate scheduled",
+  rewrapConnectionDEKs: "DEK rewrap with master-key custody — sqlite-only unit coverage; parity gate scheduled",
+  // deprecationsRepo (kv scope "modelDeprecations") — rides the kv store.
+  listModelDeprecations: "kv-scope read — sqlite-only unit coverage; parity gate scheduled",
+  getModelDeprecation: "kv-scope read — sqlite-only unit coverage; parity gate scheduled",
+  recordModelDeprecation: "kv-scope write — detectedAt wall-clock default (volatile field); parity gate scheduled",
+  clearModelDeprecation: "kv-scope delete — sqlite-only unit coverage; parity gate scheduled",
+  retainLiveModels: "kv-scope sweep against a live catalogue — the catalogue choice is the caller's, so the harness must fix it; parity gate scheduled",
 };
 
 /** The full set of classified symbols — the census compares the barrel to this. */

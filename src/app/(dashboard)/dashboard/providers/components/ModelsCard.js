@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/clientLogger.js";
 
 import { useState, useCallback, useEffect } from "react";
 import PropTypes from "prop-types";
@@ -130,7 +131,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
       const customData = await customRes.json();
       if (aliasRes.ok) setModelAliases(aliasData.aliases || {});
       if (customRes.ok) setCustomModels(customData.models || []);
-    } catch (e) { console.log("ModelsCard fetch error:", e); }
+    } catch (e) { logger.error("PROVIDERS", "ModelsCard fetch error:", "PROVIDERS", e); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -144,14 +145,14 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
         body: JSON.stringify({ model: fullModel, alias }),
       });
       if (res.ok) await fetchData();
-    } catch (e) { console.log("set alias error:", e); }
+    } catch (e) { logger.error("PROVIDERS", "set alias error:", "PROVIDERS", e); }
   };
 
   const handleDeleteAlias = async (alias) => {
     try {
       const res = await fetch(`/api/models/alias?alias=${encodeURIComponent(alias)}`, { method: "DELETE" });
       if (res.ok) await fetchData();
-    } catch (e) { console.log("delete alias error:", e); }
+    } catch (e) { logger.error("PROVIDERS", "delete alias error:", "PROVIDERS", e); }
   };
 
   const handleAddCustomModel = async (modelId) => {
@@ -165,7 +166,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
         await fetchData();
         window.dispatchEvent(new CustomEvent("customModelChanged"));
       }
-    } catch (e) { console.log("add custom model error:", e); }
+    } catch (e) { logger.error("PROVIDERS", "add custom model error:", "PROVIDERS", e); }
   };
 
   const handleDeleteCustomModel = async (modelId) => {
@@ -176,7 +177,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
         await fetchData();
         window.dispatchEvent(new CustomEvent("customModelChanged"));
       }
-    } catch (e) { console.log("delete custom model error:", e); }
+    } catch (e) { logger.error("PROVIDERS", "delete custom model error:", "PROVIDERS", e); }
   };
 
   const handleTestModel = async (modelId) => {

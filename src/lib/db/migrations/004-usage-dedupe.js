@@ -26,6 +26,7 @@
 //   3. Collapse pre-existing duplicate groups keeping the lowest id —
 //      a UNIQUE index cannot be created over duplicates.
 //   4. CREATE UNIQUE INDEX IF NOT EXISTS.
+import * as log from "@/sse/utils/logger.js";
 export default {
   version: 4,
   name: "usage-history dedupe UNIQUE",
@@ -67,7 +68,7 @@ export default {
     `);
     const after = db.get(`SELECT COUNT(*) AS c FROM usageHistory`)?.c ?? 0;
     if (before !== after) {
-      console.log(`[DB][m004] collapsed ${before - after} duplicate usageHistory rows (kept lowest id per group)`);
+      log.info("DB", `[DB][m004] collapsed ${before - after} duplicate usageHistory rows (kept lowest id per group)`);
     }
 
     // 4. The dedupe identity — enforced atomically by both engines from here

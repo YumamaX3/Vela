@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/clientLogger.js";
 
 import { useState, useEffect } from "react";
 import { CardSkeleton } from "@/shared/components";
@@ -19,7 +20,7 @@ export default function CLIToolsPageClient({ machineId }) {
         const res = await fetch(ALL_STATUSES_URL);
         if (res.ok && mounted) setToolStatuses(await res.json());
       } catch (error) {
-        console.log("Error fetching tool statuses:", error);
+        logger.error("CLITOOLS", "Error fetching tool statuses:", "CLITOOLS", error);
       } finally {
         if (mounted) setLoading(false);
       }

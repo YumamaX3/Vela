@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { request as httpRequest } from "node:http";
 import { beginSession, encodeSessionCookie, rewriteMimoBases, absorbSetCookies as absorbResponseCookies, originOf, loginUpstreamFetch, SESSION_COOKIE } from "@/lib/mimoLoginSession";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * POST /api/oauth/xiaomi-mimo/login/start
@@ -123,7 +124,7 @@ export async function POST(request) {
     // dropped-cookie browser still recovers on the next poll cycle.
     const proxiedPath = rewriteMimoBases(pageUrl.pathname + pageUrl.search, "toProxy", origin);
     const egressLog = egress ? egress.replace(/\/\/[^@/]+@/, "//***@") : "";
-    console.log(`${new Date().toISOString().slice(11,23)} [mimo-login] start region=${sess.region} origin=${origin} egress=${egressSource}${egressLog ? ` (${egressLog})` : ""} page=${pageUrl.pathname}`);
+    log.info("OAUTH", `mimo-login start region=${sess.region} origin=${origin} egress=${egressSource}${egressLog ? ` (${egressLog})` : ""} page=${pageUrl.pathname}`);
 
     const res = NextResponse.json({ success: true, state: sess.state, pageUrl: proxiedPath, region });
     res.cookies.set(SESSION_COOKIE, encodeSessionCookie(sess), {
@@ -134,7 +135,7 @@ export async function POST(request) {
     });
     return res;
   } catch (error) {
-    console.log(`${new Date().toISOString().slice(11,23)} [mimo-login] start error:`, error?.message || error);
+    log.error("OAUTH", "mimo-login start error:", error?.message || error);
     return NextResponse.json({ error: error?.message || "login start failed" }, { status: 500 });
   }
 }

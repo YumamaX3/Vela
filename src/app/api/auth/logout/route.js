@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/dashboardSession";
 import { revokeAuthSession } from "@/lib/db/repos/authStoreRepo.js";
 import { auditAuthEvent, AUTH_EVENTS } from "@/lib/auth/authAudit.js";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * POST /api/auth/logout
@@ -41,7 +42,7 @@ export async function POST(request) {
     } catch (err) {
       // The cookie still goes: the caller asked to leave, and the ledger's
       // silence must not hold them here.
-      console.error("[auth/logout] session revocation failed (fail-open):", err?.message || err);
+      log.error("AUTH", "session revocation failed (fail-open):", err?.message || err);
     }
   }
 

@@ -21,6 +21,7 @@
 // context, so users who never use the browser-backed path pay zero startup
 // cost. Set NINEROUTER_BROWSER_POOL=off to fully disable.
 
+import * as log from "../../src/sse/utils/logger.js";
 import { Buffer } from "node:buffer";
 import { loadRuntimeDep } from "./lazyRuntime.js";
 
@@ -107,9 +108,7 @@ function evictStaleContexts() {
   const now = Date.now();
   for (const [key, pooled] of state.contexts) {
     if (now - pooled.lastUsed > CONTEXT_TTL_MS) {
-      console.log(
-        "[BrowserPool] Evicted stale context",
-        "(idle",
+      log.info("PROVIDERS", "Evicted stale context", "(idle",
         ((now - pooled.lastUsed) / 1000).toFixed(0) + "s)"
       );
       state.contexts.delete(key);

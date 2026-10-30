@@ -1,5 +1,6 @@
 import { getProviderConnections, updateProviderConnection } from "@/lib/localDb.js";
 import { getExecutor } from "open-sse/index.js";
+import * as log from "@/sse/utils/logger.js";
 
 async function persistRefreshedCredentials(connection, newCredentials) {
   const updateData = {};
@@ -76,7 +77,7 @@ export async function POST(request) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[Translator] Provider error ${response.status}:`, errorText.slice(0, 500));
+      log.error("API", `[Translator] Provider error ${response.status}:`, errorText.slice(0, 500));
       return Response.json({ success: false, error: `Provider error: ${response.status}`, details: errorText }, { status: response.status });
     }
 
@@ -88,7 +89,7 @@ export async function POST(request) {
       }
     });
   } catch (error) {
-    console.error("[Translator] Send error:", error);
+    log.error("API", "Send error:", (error?.message ?? error));
     return Response.json({ success: false, error: error.message }, { status: 500 });
   }
 }

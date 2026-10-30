@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readZedIdeCredentials } from "@/lib/oauth/utils/zedCredentials";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * GET /api/oauth/zed/auto-import
@@ -30,7 +31,7 @@ export async function GET() {
       credentialsUrl: result.credentialsUrl,
     });
   } catch (error) {
-    console.log("Zed auto-import error:", error);
+    log.info("OAUTH", "Zed auto-import error:", (error?.message ?? error));
     return NextResponse.json(
       { found: false, error: error.message || "Failed to read Zed credentials" },
       { status: 500 },

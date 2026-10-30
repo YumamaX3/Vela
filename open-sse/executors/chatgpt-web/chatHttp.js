@@ -13,7 +13,7 @@
 
 import { randomUUID } from "node:crypto";
 import { fetchSentinelHeaders } from "./sentinel.js";
-import { prepareToolMessages } from "../../translator/webTools.js";
+import { prepareToolMessages } from "../../transformer/translator/webTools.js";
 const SSE_DEADLINE_MS = 120000;
 const POLL_INTERVAL_MS = 1500;
 const POLL_TIMEOUT_MS = 180000;

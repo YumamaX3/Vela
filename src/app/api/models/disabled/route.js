@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDisabledModels, disableModels, enableModels } from "@/lib/disabledModelsDb";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export async function GET(request) {
     if (providerAlias) return NextResponse.json({ ids: all[providerAlias] || [] });
     return NextResponse.json({ disabled: all });
   } catch (error) {
-    console.log("Error fetching disabled models:", error);
+    log.info("MODELS", "Error fetching disabled models:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch disabled models" }, { status: 500 });
   }
 }
@@ -27,7 +28,7 @@ export async function POST(request) {
     await disableModels(providerAlias, ids);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.log("Error disabling models:", error);
+    log.info("MODELS", "Error disabling models:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to disable models" }, { status: 500 });
   }
 }
@@ -44,7 +45,7 @@ export async function DELETE(request) {
     await enableModels(providerAlias, id ? [id] : []);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.log("Error enabling models:", error);
+    log.info("MODELS", "Error enabling models:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to enable models" }, { status: 500 });
   }
 }

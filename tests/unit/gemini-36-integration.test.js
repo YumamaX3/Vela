@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 
 import { getModelUpstreamId } from "../../open-sse/config/providerModels.js";
 import { AntigravityExecutor } from "../../open-sse/executors/antigravity.js";
-import { applyThinking, stripThinkingSuffix } from "../../open-sse/translator/concerns/thinkingUnified.js";
+import { applyThinking, stripThinkingSuffix } from "../../open-sse/transformer/translator/concerns/thinkingUnified.js";
 import antigravity from "../../open-sse/providers/registry/antigravity.js";
 import geminiCli from "../../open-sse/providers/registry/gemini-cli.js";
 import gemini from "../../open-sse/providers/registry/gemini.js";

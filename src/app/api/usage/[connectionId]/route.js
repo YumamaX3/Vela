@@ -1,4 +1,5 @@
 // Ensure proxyFetch is loaded to patch globalThis.fetch
+import * as log from "@/sse/utils/logger.js";
 import "open-sse/index.js";
 
 import { getProviderConnectionById, updateProviderConnection } from "@/lib/localDb";
@@ -170,7 +171,7 @@ export async function GET(request, { params }) {
         const result = await refreshAndUpdateCredentials(connection, false, proxyOptions);
         connection = result.connection;
       } catch (refreshError) {
-        console.error("[Usage API] Credential refresh failed:", refreshError);
+        log.error("USAGE", "[Usage API] Credential refresh failed:", refreshError);
         return Response.json({
           error: `Credential refresh failed: ${refreshError.message}`
         }, { status: 401 });
@@ -188,14 +189,14 @@ export async function GET(request, { params }) {
         connection = retryResult.connection;
         usage = await getUsageForProvider(connection, proxyOptions, { force });
       } catch (retryError) {
-        console.warn(`[Usage] ${connection.provider}: force refresh failed: ${retryError.message}`);
+        log.warn("USAGE", `[Usage] ${connection.provider}: force refresh failed: ${retryError.message}`);
       }
     }
 
     return Response.json(usage);
   } catch (error) {
     const provider = connection?.provider ?? "unknown";
-    console.warn(`[Usage] ${provider}: ${error.message}`);
+    log.warn("USAGE", `[Usage] ${provider}: ${error.message}`);
     return Response.json({ error: error.message }, { status: 500 });
   }
 }

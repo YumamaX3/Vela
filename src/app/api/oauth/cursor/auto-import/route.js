@@ -4,6 +4,7 @@ import { homedir } from "os";
 import { join } from "path";
 import { execFile } from "child_process";
 import { promisify } from "util";
+import * as log from "@/sse/utils/logger.js";
 
 const execFileAsync = promisify(execFile);
 // Static import (2026-10-11): see extractTokensViaBetterSqlite — bare require()
@@ -256,7 +257,7 @@ export async function GET() {
     // Strategy 3: ask user to paste manually
     return NextResponse.json({ found: false, windowsManual: true, dbPath });
   } catch (error) {
-    console.log("Cursor auto-import error:", error);
+    log.info("OAUTH", "Cursor auto-import error:", (error?.message ?? error));
     return NextResponse.json(
       { found: false, error: error.message },
       { status: 500 },

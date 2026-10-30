@@ -19,6 +19,7 @@ import {
   renamespaceName,
   uniqueCopyName,
 } from "../_lib/combosApi.js";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -186,7 +187,7 @@ export async function POST(request) {
     // Unreachable — ACTIONS is exhaustive above.
     return NextResponse.json({ error: "Unhandled action" }, { status: 400 });
   } catch (error) {
-    console.log("Error running bulk combo action:", error);
+    log.info("COMBO", "Error running bulk combo action:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to run bulk action" }, { status: 500 });
   }
 }

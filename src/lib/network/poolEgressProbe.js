@@ -16,6 +16,7 @@ import { getProxyPools } from "@/models";
 import { getSettings } from "@/lib/localDb";
 import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
 import { getPoolGeo, setPoolGeo, POOL_GEO_TTL_MS } from "./poolGeo.js";
+import * as log from "@/sse/utils/logger.js";
 
 const PROBE_INTERVAL_MS = 30 * 60 * 1000;
 const INITIAL_DELAY_MS = 15 * 1000;
@@ -137,9 +138,9 @@ async function probeAll() {
 
     const okCount = targets.length - Object.values(failTally).reduce((a, b) => a + b, 0);
     const failSummary = Object.entries(failTally).map(([k, v]) => `${k}:${v}`).join(" ") || "none";
-    console.log(`[poolEgressProbe] probed ${targets.length} pools (${okCount} ok) | failures ${failSummary}`);
+    log.info("PROXY", `[poolEgressProbe] probed ${targets.length} pools (${okCount} ok) | failures ${failSummary}`);
   } catch (err) {
-    console.warn("[poolEgressProbe] sweep failed:", err.message);
+    log.warn("PROXY", "[poolEgressProbe] sweep failed:", err.message);
   } finally {
     probing = false;
   }

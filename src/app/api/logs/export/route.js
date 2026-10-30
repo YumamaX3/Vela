@@ -25,6 +25,7 @@ import { NextResponse } from "next/server";
 import { EXPORT_ROW_CAP } from "@/lib/db/usageAggregation";
 import { iterateLogRows } from "@/lib/db/repos/sqlite/logQuery.js";
 import { SelectorError, parseLogSelector } from "@/lib/logSelector.js";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -82,7 +83,7 @@ export async function GET(request) {
         }
         controller.close();
       } catch (error) {
-        console.error("[API] logs/export failed:", error);
+        log.error("LOGS", "logs/export failed:", (error?.message ?? error));
         try {
           controller.close();
         } catch {

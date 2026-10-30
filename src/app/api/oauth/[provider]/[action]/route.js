@@ -38,6 +38,7 @@ import {
 import { detectIdeInstalled } from "@/lib/oauth/utils/ideDetect";
 import { ZED_HOSTED_CONFIG } from "@/lib/oauth/constants/oauth";
 import { getCallbackOrigin } from "@/lib/oauth/utils/redirect";
+import * as log from "@/sse/utils/logger.js";
 
 async function completeXaiManualCode(code, state) {
   const session = state ? getXaiSessionStatus(state) : null;
@@ -229,7 +230,7 @@ export async function GET(request, { params }) {
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (error) {
-    console.log("OAuth GET error:", error);
+    log.info("OAUTH", "OAuth GET error:", (error?.message ?? error));
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -449,7 +450,7 @@ export async function POST(request, { params }) {
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (error) {
-    console.log("OAuth POST error:", error);
+    log.info("OAUTH", "OAuth POST error:", (error?.message ?? error));
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

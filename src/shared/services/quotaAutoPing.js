@@ -10,6 +10,7 @@ import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
 import { resolveConnectionProxyConfig, buildProxyOptionsPayload } from "@/lib/network/connectionProxy";
 import { refreshAndUpdateCredentials } from "@/app/api/usage/[connectionId]/route.js";
 import { QUOTA_AUTOPING_CONFIG } from "@/shared/constants/config";
+import * as log from "@/sse/utils/logger.js";
 
 const C = QUOTA_AUTOPING_CONFIG;
 const CLAUDE_PING_URL = "https://api.anthropic.com/v1/messages?beta=true";
@@ -200,7 +201,7 @@ async function pingConnection(conn, provider, providerConfig, handler, deps, sta
     connection = r.connection;
   } catch (e) {
     state.failureCache[key] = Date.now();
-    console.warn(`[AutoPing] ${provider}:${conn.id}: refresh failed: ${e.message}`);
+    log.warn("SERVICES", `[AutoPing] ${provider}:${conn.id}: refresh failed: ${e.message}`);
     return;
   }
 
@@ -228,7 +229,7 @@ async function pingConnection(conn, provider, providerConfig, handler, deps, sta
   if (!ok) {
     // Do not mark reset as pinged unless upstream accepted the tiny request.
     state.failureCache[key] = Date.now();
-    console.warn(`[AutoPing] ${provider}:${connection.id}: ping failed (reset ${resetAt})`);
+    log.warn("SERVICES", `[AutoPing] ${provider}:${connection.id}: ping failed (reset ${resetAt})`);
     return;
   }
 
@@ -239,7 +240,7 @@ async function pingConnection(conn, provider, providerConfig, handler, deps, sta
     lastPingAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   });
-  console.log(`[AutoPing] ${provider}:${connection.id}: ping sent (reset ${resetAt})`);
+  log.info("SERVICES", `[AutoPing] ${provider}:${connection.id}: ping sent (reset ${resetAt})`);
 }
 
 function createDefaultDeps() {
@@ -274,12 +275,12 @@ export async function runQuotaAutoPingTick(deps = createDefaultDeps(), state = g
           await pingConnection(conn, provider, providerConfig, handler, deps, state);
         } catch (e) {
           state.failureCache[cacheKey(provider, conn.id)] = Date.now();
-          console.warn(`[AutoPing] ${provider}:${conn.id}: ${e.message}`);
+          log.warn("SERVICES", `[AutoPing] ${provider}:${conn.id}: ${e.message}`);
         }
       }
     }
   } catch (e) {
-    console.warn("[AutoPing] tick error:", e.message);
+    log.warn("SERVICES", "[AutoPing] tick error:", e.message);
   } finally {
     state.running = false;
   }
@@ -287,7 +288,7 @@ export async function runQuotaAutoPingTick(deps = createDefaultDeps(), state = g
 
 export function startQuotaAutoPing() {
   if (g.interval) return;
-  console.log("[AutoPing] scheduler started");
+  log.info("SERVICES", "[AutoPing] scheduler started");
   runQuotaAutoPingTick().catch(() => {});
   g.interval = setInterval(() => { runQuotaAutoPingTick().catch(() => {}); }, C.tickIntervalMs);
   if (g.interval.unref) g.interval.unref();
@@ -297,7 +298,7 @@ export function stopQuotaAutoPing() {
   if (!g.interval) return;
   clearInterval(g.interval);
   g.interval = null;
-  console.log("[AutoPing] scheduler stopped");
+  log.info("SERVICES", "[AutoPing] scheduler stopped");
 }
 
 export function configureQuotaAutoPing(settings) {

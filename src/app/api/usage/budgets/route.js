@@ -19,6 +19,7 @@
 //   PATCH  /api/usage/budgets?id=<id>   — partial update (may change id;
 //                                         404 if absent, 400 on invalid)
 //   DELETE /api/usage/budgets?id=<id>   — remove (404 if absent)
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import {
   listBudgets, getBudget, upsertBudget, updateBudget, removeBudget,
@@ -63,7 +64,7 @@ export async function POST(request) {
       const limitReached = error.errors.some((e) => e.startsWith("budget limit reached"));
       return errorResponse(limitReached ? 409 : 400, error.message, { errors: error.errors });
     }
-    console.error("[budgets] create failed:", error);
+    log.error("USAGE", "create failed:", (error?.message ?? error));
     return errorResponse(500, "failed to create budget");
   }
 }
@@ -85,7 +86,7 @@ export async function PATCH(request) {
       const limitReached = error.errors.some((e) => e.startsWith("budget limit reached"));
       return errorResponse(limitReached ? 409 : 400, error.message, { errors: error.errors });
     }
-    console.error("[budgets] update failed:", error);
+    log.error("USAGE", "update failed:", (error?.message ?? error));
     return errorResponse(500, "failed to update budget");
   }
 }

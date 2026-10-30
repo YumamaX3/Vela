@@ -25,6 +25,7 @@ import { EventEmitter } from "events";
 import { getMysqlAdapter } from "../../mysql/adapter.js";
 import { parseJson, stringifyJson } from "../../helpers/jsonCol.js";
 import { deriveStatusClass } from "../../../usageStatus.js";
+import * as log from "@/sse/utils/logger.js";
 
 // Usage Observatory W1-B (plans/mirror-usage-observatory/SEALED-PLAN.md W1.3):
 // the write-time enrichment covenant, mirrored verbatim from the sqlite twin
@@ -260,7 +261,7 @@ async function calculateCost(provider, model, tokens) {
     const { calculateCostFromTokens } = await import("open-sse/providers/pricing.js");
     return calculateCostFromTokens(tokens, pricing);
   } catch (e) {
-    console.error("Error calculating cost:", e);
+    log.error("DB", "Error calculating cost:", (e?.message ?? e));
     return 0;
   }
 }
@@ -475,10 +476,11 @@ export async function saveRequestUsage(entry) {
     // stats bug. Report once through the shared counter, then stay quiet.
     const { isCorruptionError, noteRuntimeCorruption } = await import("../../integrity.js");
     if (!isCorruptionError(e)) {
-      console.error("Failed to save usage stats:", e);
+      log.error("DB", "Failed to save usage stats:", (e?.message ?? e));
     } else if (noteRuntimeCorruption(e, "mysql usage write")) {
-      console.error(
-        "[DB] mysql usage write hit a MALFORMED database — usage history is NOT being recorded (fail-open)."
+      log.error(
+        "DB",
+        "mysql usage write hit a MALFORMED database — usage history is NOT being recorded (fail-open)."
       );
     }
   }
@@ -1016,7 +1018,7 @@ export async function getRecentLogs(limit = 200) {
       return `${ts} | ${m} | ${p} | ${account} | ${sent} | ${received} | ${r.status || "-"}`;
     });
   } catch (e) {
-    console.error("[usageRepo] getRecentLogs failed:", e.message);
+    log.error("DB", "getRecentLogs failed:", e.message);
     return [];
   }
 }

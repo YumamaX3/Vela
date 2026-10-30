@@ -10,6 +10,7 @@
 // facade) so the module never depends on posture dispatch at runtime.
 import { getMysqlAdapter } from "../../mysql/adapter.js";
 import { parseJson, stringifyJson } from "../../helpers/jsonCol.js";
+import * as log from "@/sse/utils/logger.js";
 
 const DEFAULT_MAX_RECORDS = 200;
 const DEFAULT_BATCH_SIZE = 20;
@@ -149,7 +150,7 @@ async function flushToDatabase() {
       });
     }
   } catch (e) {
-    console.error("[requestDetailsRepo] Batch write failed:", e);
+    log.error("DB", "Batch write failed:", (e?.message ?? e));
   } finally {
     isFlushing = false;
   }
@@ -165,7 +166,7 @@ export async function saveRequestDetail(detail) {
   // flushToDatabase() drains entire buffer in a loop, so all pushes during await are persisted.
   if (writeBuffer.length >= config.batchSize) {
     if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
-    flushToDatabase().catch((e) => console.error("[requestDetailsRepo] flush err:", e));
+    flushToDatabase().catch((e) => log.error("DB", "flush err:", e));
   } else if (!flushTimer) {
     flushTimer = setTimeout(() => {
       flushTimer = null;

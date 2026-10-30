@@ -46,6 +46,7 @@ import {
   setMirrorCursor,
 } from "../repos/sqlite/outboxRepo.js";
 import { REDACTED_SENTINEL } from "../repos/backupSecurity.js";
+import * as log from "@/sse/utils/logger.js";
 
 const PUMP_BATCH = 100;
 const HEALTHY_TICK_MS = 15_000;
@@ -114,8 +115,9 @@ async function poisonAlert(op, error, retries) {
     error,
     meta: { seq: op.seq, fnName: op.fnName, replayClass: op.replayClass, retries },
   });
-  console.warn(
-    `[mirror] POISON — outbox seq=${op.seq} ${op.fnName} (${op.replayClass}) exceeded its retry budget; skipped, twin reconciliation owed: ${String(error).slice(0, 200)}`
+  log.warn(
+    "DB",
+    `POISON — outbox seq=${op.seq} ${op.fnName} (${op.replayClass}) exceeded its retry budget; skipped, twin reconciliation owed: ${String(error).slice(0, 200)}`
   );
 }
 
@@ -221,7 +223,7 @@ export async function runMirrorPumpOnce({ maxRetries } = {}) {
       error: `${aged.agedPending} op(s) aged out of the outbox window still unapplied`,
       meta: { rows: aged.agedPending },
     });
-    console.warn(`[mirror] ${aged.agedPending} outbox op(s) aged out still unapplied — twin reconciliation owed (Wave C4 sweep)`);
+    log.warn("DB", `[mirror] ${aged.agedPending} outbox op(s) aged out still unapplied — twin reconciliation owed (Wave C4 sweep)`);
   }
 
   const cursor = await getMirrorCursor();
@@ -272,15 +274,16 @@ async function tick() {
     if (isCorruptionError(e)) {
       const first = noteRuntimeCorruption(e, "mirror pump");
       if (first) {
-        console.error(
-          "[mirror] the primary harbor image is MALFORMED — the pump cannot drain.\n" +
+        log.error(
+          "DB",
+          "the primary harbor image is MALFORMED — the pump cannot drain.\n" +
           "     Primary keeps serving. Repair: POST /api/settings/database/repair, then restart."
         );
       } else if (state.failures % 60 === 0) {
-        console.warn(`[mirror] still malformed (${state.failures} consecutive ticks) — repair not yet run`);
+        log.warn("DB", `[mirror] still malformed (${state.failures} consecutive ticks) — repair not yet run`);
       }
     } else if (state.failures === 1 || state.failures % 60 === 0) {
-      console.warn(`[mirror] pump run failed (fail-open, primary keeps serving): ${state.lastError}`);
+      log.warn("DB", `[mirror] pump run failed (fail-open, primary keeps serving): ${state.lastError}`);
     }
   } finally {
     state.running = false;

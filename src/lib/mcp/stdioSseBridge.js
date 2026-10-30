@@ -1,5 +1,11 @@
 // Inline stdio<->SSE bridge for MCP. Spawns one child per plugin on demand,
 // broadcasts JSON-RPC frames over SSE, accepts client messages via HTTP POST.
+// THE LOGGER SEAM (CJS→ESM): this file is CommonJS; the logger is ESM. A require()
+// of it is the one shape custom-server.js MEASURED to fail after boot (an ESM module
+// already registered in the loader is not re-requireable by path → MODULE_NOT_FOUND).
+// So the logger is INJECTED from ESM context instead — initializeApp.js calls
+// setBridgeLogger(log) once. Until that lands (or if an MCP child dies pre-boot),
+// the console fallback below still prints: the bridge is never silent.
 
 const { spawn } = require("child_process");
 const crypto = require("crypto");
@@ -133,9 +139,9 @@ function getOrSpawn(name) {
     }
   });
 
-  proc.stderr.on("data", (d) => console.log(`[mcp:${name}]`, d.toString().trim()));
+  proc.stderr.on("data", (d) => emit("warn", `[mcp:${name}]`, d.toString().trim()));
   proc.on("exit", (code) => {
-    console.log(`[mcp:${name}] exited`, code);
+    emit(code === 0 ? "info" : "error", `[mcp:${name}] exited`, code);
     store.delete(name);
   });
 
@@ -180,4 +186,12 @@ function isRunning(name) {
   return !!(entry?.proc && !entry.proc.killed && entry.proc.exitCode === null);
 }
 
-module.exports = { getOrSpawn, registerSession, unregisterSession, sendToChild, isRunning, findPlugin, killAllBridges };
+// The seam: a logger bound from ESM (initializeApp.js). Null until then.
+let bridgeLog = null;
+function setBridgeLogger(next) { bridgeLog = next || null; }
+const emit = (level, message, data) => {
+  if (bridgeLog && typeof bridgeLog[level] === "function") return bridgeLog[level]("MCP", message, data);
+  return console[level === "info" ? "log" : level](message, data);
+};
+
+module.exports = { getOrSpawn, registerSession, unregisterSession, sendToChild, isRunning, findPlugin, killAllBridges, setBridgeLogger };

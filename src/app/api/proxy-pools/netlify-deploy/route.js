@@ -9,6 +9,7 @@ import {
   netlifyHeaders,
   pollDeployReady,
 } from "@/lib/network/netlifyRelay.js";
+import * as log from "@/sse/utils/logger.js";
 
 function sanitizeSiteName(raw) {
   const name = typeof raw === "string" ? raw.trim().toLowerCase() : "";
@@ -140,7 +141,7 @@ export async function POST(request) {
 
     return NextResponse.json({ proxyPool, deployUrl: relayUrl }, { status: 201 });
   } catch (error) {
-    console.log("Error deploying Netlify relay:", error);
+    log.info("PROXYPOOLS", "Error deploying Netlify relay:", (error?.message ?? error));
     return NextResponse.json({ error: error.message || "Deploy failed" }, { status: 500 });
   }
 }

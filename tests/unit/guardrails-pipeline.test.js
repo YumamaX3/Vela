@@ -13,7 +13,7 @@
 //      and relays every clean frame byte-for-byte.
 import { describe, it, expect } from "vitest";
 import { GuardrailEngine, engineFromPolicy } from "open-sse/guardrails/engine.js";
-import { FORMATS } from "open-sse/translator/formats.js";
+import { FORMATS } from "open-sse/transformer/translator/formats.js";
 import {
   scanInboundBody,
   scanOutboundPayload,

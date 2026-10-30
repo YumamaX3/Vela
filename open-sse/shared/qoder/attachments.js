@@ -16,8 +16,8 @@ import { createHash } from "crypto";
 import { v4 as uuidv4 } from "uuid";
 
 import { proxyAwareFetch } from "../../utils/proxyFetch.js";
-import { parseDataUri } from "../../translator/concerns/image.js";
-import { OPENAI_BLOCK, CLAUDE_BLOCK } from "../../translator/schema/blocks.js";
+import { parseDataUri } from "../../transformer/translator/concerns/image.js";
+import { OPENAI_BLOCK, CLAUDE_BLOCK } from "../../transformer/translator/schema/blocks.js";
 import { MAX_IMAGE_BYTES } from "../../config/mediaConfig.js";
 import { buildCosyHeaders } from "./cosy.js";
 import {

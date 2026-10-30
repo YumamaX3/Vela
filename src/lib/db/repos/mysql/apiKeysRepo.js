@@ -15,6 +15,7 @@ import { validateKeyLimits, KeyLimitsValidationError } from "../../keyLimits.js"
 // per-call `await import()` inflates p99 under CPU contention. apiKey.js
 // reaches only stdlib + DATA_DIR, so no import cycle.
 import { parseVelaKeyShape, hashKey } from "@/shared/utils/apiKey";
+import { keyAccessFromColumns, keyAccessToColumns } from "@/shared/utils/keyAccess.js";
 
 export { KeyLimitsValidationError } from "../../keyLimits.js";
 
@@ -57,6 +58,8 @@ function rowToPublic(row) {
     ipAllowlist: safeParse(row.ipAllowlist),
     category: row.category || null,
     planId: row.planId || null,
+    // Per-key access (migration 024) — same fail-closed builder as sqlite.
+    access: keyAccessFromColumns(row.accessRestricted, row.accessAllow),
   };
 }
 
@@ -150,6 +153,8 @@ const MUTABLE_FIELDS = new Set([
   "name", "description", "allowedModels", "isActive",
   "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
   "budgetScope", "expiresAt", "ipAllowlist", "category", "planId",
+  // Per-key access (migration 024) — writable so a key can be set restricted.
+  "access",
 ]);
 const LIMIT_FIELDS = new Set([
   "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
@@ -170,6 +175,13 @@ export async function updateApiKey(id, data) {
     const sets = [];
     const vals = [];
     for (const k of present) {
+      if (k === "access") {
+        // Both columns move at once through the shared normalized shape.
+        const cols = keyAccessToColumns(data.access);
+        sets.push("accessRestricted = ?", "accessAllow = ?");
+        vals.push(cols.accessRestricted, cols.accessAllow);
+        continue;
+      }
       if (k === "allowedModels") {
         sets.push("allowedModels = ?");
         vals.push(data[k] != null ? JSON.stringify(data[k]) : null);

@@ -5,7 +5,7 @@ import {
   refreshProviderCredentials,
   shouldRefreshCredentials,
 } from "../services/oauthCredentialManager.js";
-import { normalizeResponsesInput } from "../translator/formats/responsesApi.js";
+import { normalizeResponsesInput } from "../transformer/translator/formats/responsesApi.js";
 import { getModelUpstreamId } from "../config/providerModels.js";
 import {
   GROK_CLI_CLIENT_IDENTIFIER,

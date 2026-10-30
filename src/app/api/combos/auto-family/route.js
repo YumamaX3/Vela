@@ -4,6 +4,7 @@
 // usable members are skipped: a single model has nothing to fall back to.
 // Generated combos stay editable — they are a starting point, not registry
 // truth.
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { upsertComboWithId } from "@/lib/db/repos/combosRepo.js";
 import {
@@ -32,7 +33,7 @@ export async function POST() {
     created.sort();
     return NextResponse.json({ status: "ok", created, count: created.length });
   } catch (error) {
-    console.error("[Combos] auto-family failed:", error);
+    log.error("COMBO", "auto-family failed:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to build family combos" }, { status: 500 });
   }
 }

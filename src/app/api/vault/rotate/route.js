@@ -8,6 +8,7 @@
 // The new key is NOT persisted by this route. The operator must export it as
 // VELA_MASTER_KEY (and move the old key to VELA_MASTER_KEY_PREVIOUS) before the
 // next restart, or this process's rotation dies with the process.
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { verifyDashboardPassword } from "@/lib/auth/dashboardSession";
 import { getVault, decodeMasterKey, VaultError, ERR_DISABLED } from "@/lib/vault.js";
@@ -64,7 +65,7 @@ export async function POST(request) {
     if (error instanceof VaultError && error.code === ERR_DISABLED) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    console.error("[Vault] Rotation failed:", error);
+    log.error("API", "Rotation failed:", (error?.message ?? error));
     return NextResponse.json({ error: "Vault rotation failed" }, { status: 500 });
   }
 }

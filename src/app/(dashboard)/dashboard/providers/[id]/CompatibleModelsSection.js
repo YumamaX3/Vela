@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/clientLogger.js";
 
 import { useState } from "react";
 import PropTypes from "prop-types";
@@ -116,7 +117,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
       await onAddCustomModel(modelId);
       setNewModel("");
     } catch (error) {
-      console.log("Error adding model:", error);
+      logger.error("PROVIDERS", "Error adding model:", "PROVIDERS", error);
     } finally {
       setAdding(false);
     }
@@ -152,7 +153,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
         alert("No new models were added.");
       }
     } catch (error) {
-      console.log("Error importing models:", error);
+      logger.error("PROVIDERS", "Error importing models:", "PROVIDERS", error);
     } finally {
       setImporting(false);
     }

@@ -22,6 +22,8 @@
  * @module open-sse/utils/claudeHeaderCache
  */
 
+import * as keeperLog from "../../src/sse/utils/logger.js";
+
 /**
  * The client-identity header shape that is worth forwarding to
  * api.anthropic.com. Deliberately excludes every credential-bearing header.
@@ -104,7 +106,7 @@ export function cacheClaudeHeaders(headers, options = {}) {
     const log = options?.log;
     if (typeof log?.debug === "function") log.debug(line);
     else if (typeof log?.info === "function") log.info(line);
-    else console.log(line);
+    else keeperLog.debug("CLAUDE", line);
   } catch { /* logging must never break capture */ }
   return true;
 }

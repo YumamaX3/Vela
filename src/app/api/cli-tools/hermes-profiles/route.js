@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { listProfiles } from "../hermes-settings/hermesProfiles.js";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export async function GET() {
     const profiles = await listProfiles();
     return NextResponse.json({ profiles });
   } catch (error) {
-    console.error("Error listing hermes profiles:", error);
+    log.error("CLITOOLS", "Error listing hermes profiles:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to list hermes profiles" }, { status: 500 });
   }
 }

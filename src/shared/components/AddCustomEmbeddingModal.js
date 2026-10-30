@@ -1,5 +1,6 @@
 "use client";
 
+import { logger } from "@/lib/clientLogger.js";
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import { Modal, Input, Button, Badge } from "@/shared/components";
@@ -60,7 +61,7 @@ export default function AddCustomEmbeddingModal({ isOpen, onClose, onCreated, on
         else onCreated?.(data.node);
       }
     } catch (error) {
-      console.log("Error saving custom embedding node:", error);
+      logger.error("PROVIDERS", "Error saving custom embedding node:", "PROVIDERS", error);
     } finally {
       setSubmitting(false);
     }

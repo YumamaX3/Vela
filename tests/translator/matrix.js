@@ -8,7 +8,7 @@ import {
   getModelUpstreamId,
 } from "../../open-sse/config/providerModels.js";
 import { PROVIDERS } from "../../open-sse/config/providers.js";
-import { FORMATS } from "../../open-sse/translator/formats.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
 
 // Reverse alias → providerId to resolve provider-level config.format
 const ALIAS_TO_PROVIDER_ID = Object.fromEntries(

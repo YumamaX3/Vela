@@ -156,11 +156,12 @@ async function loadFitness() {
     }
   } catch (err) {
     // Boot fail-open: empty store = neutral fitness = legacy behavior (C15)
-    console.warn("[proxyFleet] boot failed — defaulting to neutral fitness:", err.message);
+    log.warn("PROXY", "[proxyFleet] boot failed — defaulting to neutral fitness:", err.message);
     fitnessStore.clear();
     loaded = true;
   }
 }
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * Get or create fitness entry for a pool/provider pair
@@ -280,7 +281,7 @@ export async function flushNow() {
     const db = await openStoreAdapter();
     await upsertFitnessBatch(db, rowsToFlush);
   } catch (err) {
-    console.warn("[proxyFleet] flush failed:", err.message);
+    log.warn("PROXY", "[proxyFleet] flush failed:", err.message);
   } finally {
     dirtyKeys.clear();
     flushArmed = false;
@@ -438,7 +439,7 @@ export function pick(poolIds, policy) {
     return null;
   } catch (err) {
     // Fail-open: fall back to first pool
-    console.warn("[proxyFleet] pick failed:", err.message);
+    log.warn("PROXY", "[proxyFleet] pick failed:", err.message);
     return poolIds[0];
   }
 }
@@ -481,7 +482,7 @@ export function recordOutcome(poolId, providerId, signal) {
     markDirty(poolId, providerId);
   } catch (err) {
     // Fire-and-forget: never throw here
-    console.debug("[proxyFleet] recordOutcome failed:", err.message);
+    log.debug("PROXY", "[proxyFleet] recordOutcome failed:", err.message);
   }
 }
 
@@ -510,7 +511,7 @@ export function recordClaimGate(poolId, providerId, code) {
       markDirty(poolId, providerId);
     }
   } catch (err) {
-    console.debug("[proxyFleet] recordClaimGate failed:", err.message);
+    log.debug("PROXY", "[proxyFleet] recordClaimGate failed:", err.message);
   }
 }
 
@@ -545,7 +546,7 @@ export function getFitnessSummary() {
     }
     return { pools: summary, count: summary.length };
   } catch (err) {
-    console.warn("[proxyFleet] getFitnessSummary failed:", err.message);
+    log.warn("PROXY", "[proxyFleet] getFitnessSummary failed:", err.message);
     return { pools: [], count: 0 };
   }
 }
@@ -660,7 +661,7 @@ export function startHealthScheduler() {
   healthSchedulerTimer = setInterval(async () => {
   
     if (sweepInFlight) {
-      console.warn("[proxyFleet] health sweep skipped — previous pass still in flight");
+      log.warn("PROXY", "[proxyFleet] health sweep skipped — previous pass still in flight");
       return;
     }
     sweepInFlight = true;
@@ -668,7 +669,7 @@ export function startHealthScheduler() {
       await detectIdlePools();
       await checkAllPools({ autoDisable: true });
     } catch (err) {
-      console.warn("[proxyFleet] health scheduler failed:", err.message);
+      log.warn("PROXY", "[proxyFleet] health scheduler failed:", err.message);
     } finally {
       sweepInFlight = false;
     }
@@ -777,7 +778,7 @@ export async function checkAllPools({ autoDisable = false, concurrency = null } 
       results,
     };
   } catch (err) {
-    console.warn("[proxyFleet] checkAllPools failed:", err.message);
+    log.warn("PROXY", "[proxyFleet] checkAllPools failed:", err.message);
     return null;
   }
 }
@@ -807,10 +808,10 @@ export async function detectIdlePools(unfitTtlMs = IDLE_UNFIT_TTL_MS) {
       marked++;
     }
 
-    if (marked > 0) console.log(`[proxyFleet] idle detection marked ${marked} pool(s) unfit`);
+    if (marked > 0) log.info("PROXY", `[proxyFleet] idle detection marked ${marked} pool(s) unfit`);
     return marked;
   } catch (err) {
-    console.warn("[proxyFleet] detectIdlePools failed:", err.message);
+    log.warn("PROXY", "[proxyFleet] detectIdlePools failed:", err.message);
     return 0;
   }
 }
@@ -822,7 +823,7 @@ async function disablePool(poolId) {
   try {
     await updateProxyPool(poolId, { isActive: false }); // self-binding facade
   } catch (err) {
-    console.warn("[proxyFleet] disablePool failed:", err.message);
+    log.warn("PROXY", "[proxyFleet] disablePool failed:", err.message);
   }
 }
 
@@ -865,7 +866,7 @@ export async function init() {
     scheduleFlush();
   } catch (err) {
     // fire-and-forget boot — server starts regardless (defaults to legacy)
-    console.warn("[proxyFleet] init() failed — fleet running in legacy mode:", err.message);
+    log.warn("PROXY", "[proxyFleet] init() failed — fleet running in legacy mode:", err.message);
   }
 
   return global.__velaProxyFleet;

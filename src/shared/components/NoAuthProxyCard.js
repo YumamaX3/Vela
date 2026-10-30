@@ -1,5 +1,6 @@
 "use client";
 
+import { logger } from "@/lib/clientLogger.js";
 import { useCallback, useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import Card from "./Card";
@@ -55,7 +56,7 @@ export default function NoAuthProxyCard({ providerId, hybrid = false }) {
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 1500);
     } catch (e) {
-      console.log("Save proxy config error:", e);
+      logger.error("PROXY", "Save proxy config error:", "PROXY", e);
     } finally {
       setSaving(false);
     }

@@ -2,6 +2,7 @@
  * POST /api/proxy-pools/[id]/probe
  * IP-echo egress probe through pool's dispatcher
  */
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { getProxyPoolById } from "@/lib/localDb";
 import fleet from "@/lib/network/proxyFleet.js"; // Fleet Captain for probe execution
@@ -17,7 +18,7 @@ export async function POST(request, { params }) {
 
     return NextResponse.json(result);
   } catch (err) {
-    console.error("[probe]", err.message);
+    log.error("PROXYPOOLS", "probe:", err.message);
     return NextResponse.json({ error: "probe failed" }, { status: 500 });
   }
 }

@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 
-import { FORMATS } from "../../open-sse/translator/formats.js";
-import { translateRequest } from "../../open-sse/translator/index.js";
-import { claudeToOpenAIRequest } from "../../open-sse/translator/request/claude-to-openai.js";
-import { filterToOpenAIFormat } from "../../open-sse/translator/formats/openai.js";
+import { FORMATS } from "../../open-sse/transformer/translator/formats.js";
+import { translateRequest } from "../../open-sse/transformer/translator/index.js";
+import { claudeToOpenAIRequest } from "../../open-sse/transformer/translator/request/claude-to-openai.js";
+import { filterToOpenAIFormat } from "../../open-sse/transformer/translator/formats/openai.js";
 import { parseSSELine } from "../../open-sse/utils/streamHelpers.js";
 
 describe("request normalization", () => {

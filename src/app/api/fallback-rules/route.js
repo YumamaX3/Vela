@@ -4,6 +4,7 @@ import { getSettings } from "@/lib/localDb";
 import { getFallbackRules, getFallbackRuleById, createFallbackRule, updateFallbackRule, deleteFallbackRule } from "@/lib/db/repos/fallbackRulesRepo.js";
 import { openStoreAdapter } from "@/lib/db/index.js";
 import { verifyDashboardAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth/dashboardSession";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * Dashboard gate — the canonical pattern (see /api/auth/oidc/test).
@@ -38,7 +39,7 @@ export async function GET(request) {
 
     return NextResponse.json(rules);
   } catch (error) {
-    console.error("Error fetching fallback rules:", error);
+    log.error("API", "Error fetching fallback rules:", (error?.message ?? error));
     return NextResponse.json(
       { error: "Failed to fetch fallback rules" },
       { status: 500 }
@@ -120,7 +121,7 @@ export async function POST(request) {
 
     return NextResponse.json(rule, { status: 201 });
   } catch (error) {
-    console.error("Error creating fallback rule:", error);
+    log.error("API", "Error creating fallback rule:", (error?.message ?? error));
     return NextResponse.json(
       { error: "Failed to create fallback rule" },
       { status: 500 }

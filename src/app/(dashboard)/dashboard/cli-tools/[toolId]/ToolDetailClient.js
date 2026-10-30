@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/lib/clientLogger.js";
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
@@ -57,7 +58,7 @@ export default function ToolDetailClient({ toolId, machineId }) {
           setApiKeys(data.keys || []);
         }
       } catch (error) {
-        console.log("Error loading tool data:", error);
+        logger.error("CLITOOLS", "Error loading tool data:", "CLITOOLS", error);
       } finally {
         if (mounted) setLoading(false);
       }

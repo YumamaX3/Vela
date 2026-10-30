@@ -9,6 +9,7 @@ import {
   validateRelaySlug,
   validateRelayOrgDomain,
 } from "@/lib/network/relayDeploy.js";
+import * as log from "@/sse/utils/logger.js";
 
 const DENO_V2_API = "https://api.deno.com/v2";
 
@@ -69,7 +70,8 @@ export async function POST(request) {
     }
 
     if (allowWildcard) {
-      console.warn(
+      log.warn(
+        "API",
         `[deno-deploy] relay "${projectName}" deployed with a WILDCARD target allow-list — it will forward to any http(s) host for a holder of its secret`
       );
     }
@@ -171,7 +173,7 @@ export async function POST(request) {
 
     if (!deployRes.ok) {
       const text = await deployRes.text().catch(() => "");
-      console.error("Deno Deploy error:", deployRes.status, text);
+      log.error("PROXYPOOLS", "Deno Deploy error:", deployRes.status, text);
       if (createdHere) await deleteApp(appId, denoToken);
       return NextResponse.json(
         { error: `Deploy failed (${deployRes.status}): ${text}` },
@@ -234,7 +236,7 @@ export async function POST(request) {
     if (error?.status === 404) {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }
-    console.log("Error deploying Deno Deploy relay:", error);
+    log.info("PROXYPOOLS", "Error deploying Deno Deploy relay:", (error?.message ?? error));
     return NextResponse.json({ error: error.message || "Deploy failed" }, { status: 500 });
   }
 }

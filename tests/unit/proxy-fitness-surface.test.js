@@ -55,7 +55,7 @@ vi.mock("@/lib/db/repos/proxyFitnessRepo.js", () => fitnessRepo);
 vi.mock("../../src/lib/db/repos/proxyPoolsRepo.js", () => poolsRepo);
 vi.mock("@/models", () => ({ getProxyPoolById: poolsRepo.getProxyPoolById }));
 vi.mock("../../open-sse/utils/proxyFetch.js", () => ({ proxyAwareFetch: vi.fn() }));
-vi.mock("@/sse/utils/logger.js", () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn() }));
+vi.mock("@/sse/utils/logger.js", () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }));
 vi.mock("@/shared/constants/providers.js", () => ({
   FREE_PROVIDERS: {},
   FREE_TIER_PROVIDERS: {},

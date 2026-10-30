@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { detectFormat, getTargetFormat } from "open-sse/services/provider.js";
-import { translateRequest } from "open-sse/translator/index.js";
-import { FORMATS } from "open-sse/translator/formats.js";
+import { translateRequest } from "open-sse/transformer/translator/index.js";
+import { FORMATS } from "open-sse/transformer/translator/formats.js";
 import { getModelInfo } from "@/sse/services/model.js";
 import { getProviderConnections } from "@/lib/localDb.js";
 import { getExecutor } from "open-sse/executors/index.js";
+import * as log from "@/sse/utils/logger.js";
 
 export async function POST(request) {
   try {
@@ -84,7 +85,7 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: "Invalid step (1-3)" }, { status: 400 });
     }
   } catch (error) {
-    console.error("Error in translator:", error);
+    log.error("API", "Error in translator:", (error?.message ?? error));
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

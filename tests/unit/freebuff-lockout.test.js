@@ -21,7 +21,7 @@ vi.mock("@/shared/constants/providers.js", () => ({
   FREE_PROVIDERS: {},
   resolveProviderId: (provider) => provider,
 }));
-vi.mock("@/sse/utils/logger.js", () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn() }));
+vi.mock("@/sse/utils/logger.js", () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }));
 
 const { markAccountUnavailable } = await import("../../src/sse/services/auth.js");
 

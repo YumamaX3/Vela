@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getComboById, updateCombo, deleteCombo, getComboByName } from "@/lib/localDb";
 import { resetComboRotation } from "open-sse/services/combo.js";
 import { validateComboName } from "@/shared/constants/comboValidation";
+import * as log from "@/sse/utils/logger.js";
 
 // GET /api/combos/[id] - Get combo by ID
 export async function GET(request, { params }) {
@@ -15,7 +16,7 @@ export async function GET(request, { params }) {
     
     return NextResponse.json(combo);
   } catch (error) {
-    console.log("Error fetching combo:", error);
+    log.info("COMBO", "Error fetching combo:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch combo" }, { status: 500 });
   }
 }
@@ -56,7 +57,7 @@ export async function PUT(request, { params }) {
 
     return NextResponse.json(combo);
   } catch (error) {
-    console.log("Error updating combo:", error);
+    log.info("COMBO", "Error updating combo:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to update combo" }, { status: 500 });
   }
 }
@@ -76,7 +77,7 @@ export async function DELETE(request, { params }) {
     
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.log("Error deleting combo:", error);
+    log.info("COMBO", "Error deleting combo:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to delete combo" }, { status: 500 });
   }
 }

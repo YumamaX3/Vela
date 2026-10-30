@@ -3,6 +3,7 @@
 import { RAW_CAP, MIN_COMPRESS_SIZE } from "./constants.js";
 import { autoDetectFilter } from "./autodetect.js";
 import { safeApply } from "./applyFilter.js";
+import * as keeperLog from "../../src/sse/utils/logger.js";
 
 // Compress tool_result content in-place. Returns stats or null if disabled/failed.
 export function compressMessages(body, enabled) {
@@ -81,7 +82,7 @@ export function compressMessages(body, enabled) {
       }
     }
   } catch (e) {
-    console.warn("[RTK] compressMessages error:", e.message);
+    keeperLog.warn("EXECUTOR", `compressMessages error: ${e.message}`);
     return null;
   }
   return stats;
@@ -111,7 +112,7 @@ function compressKiroFormat(body, enabled) {
       }
     }
   } catch (e) {
-    console.warn("[RTK] compressKiroFormat error:", e.message);
+    keeperLog.warn("EXECUTOR", `compressKiroFormat error: ${e.message}`);
     return null;
   }
   return stats;

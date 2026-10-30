@@ -5,6 +5,7 @@ import { XAI_CONFIG, XAI_PKCE_VERIFIER_BYTES } from "../constants/xai.js";
 import { startLocalServer } from "../utils/server.js";
 import { generateCodeVerifier, generateCodeChallenge, generateState } from "../utils/pkce.js";
 import { spinner as createSpinner } from "../utils/ui.js";
+import * as log from "@/sse/utils/logger.js";
 
 /**
  * xAI (Grok) OAuth Service
@@ -196,8 +197,8 @@ export class XaiService extends OAuthService {
       const state = generateState();
       const authUrl = this.buildXaiAuthUrl(redirectUri, state, codeChallenge, authorizeUrl);
 
-      console.log("\nOpening browser for xAI authentication...");
-      console.log(`If browser doesn't open, visit:\n${authUrl}\n`);
+      log.info("OAUTH", "\nOpening browser for xAI authentication...");
+      log.info("OAUTH", `If browser doesn't open, visit:\n${authUrl}\n`);
       await open(authUrl);
 
       spinner.start("Waiting for xAI authorization...");

@@ -112,7 +112,7 @@ describe("completion payload shaping", () => {
     // Sanity: the shared translator still emits safetySettings — the removal
     // happens in the Zed executor, not in shared/native Gemini behavior.
     const { openaiToGeminiRequest } = await import(
-      "open-sse/translator/request/openai-to-gemini.js"
+      "open-sse/transformer/translator/request/openai-to-gemini.js"
     );
     expect(openaiToGeminiRequest("gemini-x", { ...CHAT_BODY }, true)).toHaveProperty(
       "safetySettings",

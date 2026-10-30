@@ -8,6 +8,7 @@ import {
   renderRelay,
   validateRelaySlug,
 } from "@/lib/network/relayDeploy.js";
+import * as log from "@/sse/utils/logger.js";
 
 const VERCEL_API = "https://api.vercel.com";
 
@@ -63,7 +64,8 @@ export async function POST(request) {
     const projectName = slugCheck.slug;
 
     if (allowWildcard) {
-      console.warn(
+      log.warn(
+        "API",
         `[vercel-deploy] relay "${projectName}" deployed with a WILDCARD target allow-list — it will forward to any http(s) host for a holder of its secret`
       );
     }
@@ -200,7 +202,7 @@ export async function POST(request) {
     if (error?.status === 404) {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }
-    console.log("Error deploying Vercel relay:", error);
+    log.info("PROXYPOOLS", "Error deploying Vercel relay:", (error?.message ?? error));
     return NextResponse.json({ error: error.message || "Deploy failed" }, { status: 500 });
   }
 }

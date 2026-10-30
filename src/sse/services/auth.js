@@ -16,7 +16,7 @@ import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLock
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
 import { FREEBUFF_MODEL_LOCK_MS, FREEBUFF_COOLDOWNS, FREEBUFF_MAX_COOLDOWN_MS } from "open-sse/config/freebuff.js";
 import { resolveProviderId, FREE_PROVIDERS, FREE_TIER_PROVIDERS } from "@/shared/constants/providers.js";
-import * as log from "../utils/logger.js";
+import * as log from "@/sse/utils/logger.js";
 
 // Mutex to prevent race conditions during account selection
 let selectionMutex = Promise.resolve();
@@ -460,7 +460,7 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
   log.warn("AUTH", `${connName} locked ${lockKey} for ${Math.round(cooldownMs / 1000)}s [${status}]`);
 
   if (provider && status && reason) {
-    console.error(`❌ ${provider} [${status}]: ${reason}`);
+    log.error("PROVIDERS", `❌ ${provider} [${status}]: ${reason}`);
   }
 
   return { shouldFallback: true, cooldownMs };

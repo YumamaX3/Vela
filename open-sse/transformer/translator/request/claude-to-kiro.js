@@ -15,10 +15,11 @@
  * the `<thinking_mode>enabled</thinking_mode>` reasoning trigger, matching
  * buildKiroPayload.
  */
+import * as log from "../../../../src/sse/utils/logger.js";
 import { register } from "../index.js";
 import { FORMATS } from "../formats.js";
-import { applyKiroSessionReplay } from "../../utils/kiroSessionReplay.js";
-import { resolveContinuationId, resolveSessionIdentity } from "../../utils/sessionManager.js";
+import { applyKiroSessionReplay } from "../../../utils/kiroSessionReplay.js";
+import { resolveContinuationId, resolveSessionIdentity } from "../../../utils/sessionManager.js";
 import {
   resolveKiroModelIntent,
   applyKiroThinkingOverride,
@@ -28,7 +29,7 @@ import {
   resolveDefaultProfileArn,
   buildKiroAdditionalModelRequestFieldsForModel,
   usesKiroNativeGptEffort,
-} from "../../config/kiroConstants.js";
+} from "../../../config/kiroConstants.js";
 import { DEFAULT_IMAGE_MIME } from "../schema/index.js";
 import { ROLE, CLAUDE_BLOCK } from "../schema/index.js";
 import {
@@ -308,7 +309,7 @@ export function claudeToKiroRequest(model, body, stream, credentials) {
   // (role:N | pair:N | id:N | spec:N | orphan:0 | current) names the offending
   // turn so the shape can be diagnosed from the log alone.
   if (!canonical.valid) {
-    console.error(`[Kiro] refusing invalid conversation (claude → kiro): ${(canonical.errors || []).join(", ") || "unknown"} | turns=${(canonical.history || []).length + 1}`);
+    log.error("STREAM", `[Kiro] refusing invalid conversation (claude → kiro): ${(canonical.errors || []).join(", ") || "unknown"} | turns=${(canonical.history || []).length + 1}`);
     return null;
   }
   const replayCurrent = canonical.currentMessage.userInputMessage;

@@ -25,6 +25,7 @@ import { resolveZedModels } from "open-sse/shared/zedAuth.js";
 import { updateProviderCredentials } from "@/sse/services/tokenRefresh";
 import { resolveConnectionProxyConfig, buildProxyOptionsPayload } from "@/lib/network/connectionProxy";
 import { capabilitiesFromServiceKind, getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
+import * as log from "@/sse/utils/logger.js";
 
 const parseOpenAIStyleModels = (data) => {
   if (Array.isArray(data)) return data;
@@ -288,35 +289,35 @@ export async function buildModelsList(kindFilter, options = {}) {
     connections = await getProviderConnections();
     connections = connections.filter(c => c.isActive !== false);
   } catch (e) {
-    console.log("Could not fetch providers, returning all models");
+    log.info("LIB", "Could not fetch providers, returning all models");
   }
 
   let combos = [];
   try {
     combos = await getCombos();
   } catch (e) {
-    console.log("Could not fetch combos");
+    log.info("LIB", "Could not fetch combos");
   }
 
   let customModels = [];
   try {
     customModels = await getCustomModels();
   } catch (e) {
-    console.log("Could not fetch custom models");
+    log.info("LIB", "Could not fetch custom models");
   }
 
   let modelAliases = {};
   try {
     modelAliases = await getModelAliases();
   } catch (e) {
-    console.log("Could not fetch model aliases");
+    log.info("LIB", "Could not fetch model aliases");
   }
 
   let disabledByAlias = {};
   try {
     disabledByAlias = await getDisabledModels();
   } catch (e) {
-    console.log("Could not fetch disabled models");
+    log.info("LIB", "Could not fetch disabled models");
   }
   const isDisabled = (alias, modelId) => Array.isArray(disabledByAlias[alias]) && disabledByAlias[alias].includes(modelId);
 
@@ -471,7 +472,7 @@ export async function buildModelsList(kindFilter, options = {}) {
             );
           }
         } catch (err) {
-          console.log(`Live model fetch failed for ${providerId}: ${err?.message || err}`);
+          log.info("LIB", `Live model fetch failed for ${providerId}: ${err?.message || err}`);
         }
       }
 

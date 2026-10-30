@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCombos, getSettings } from "@/lib/localDb";
 import { isLlmCombo } from "../_lib/combosApi.js";
+import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,7 @@ export async function GET(request) {
       },
     });
   } catch (error) {
-    console.log("Error exporting combos:", error);
+    log.info("COMBO", "Error exporting combos:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to export combos" }, { status: 500 });
   }
 }

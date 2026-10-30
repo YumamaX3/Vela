@@ -21,10 +21,10 @@ import {
   clampResponsesCallId,
   coerceResponsesArguments,
   coerceResponsesOutput,
-} from "../translator/formats/responsesApi.js";
-import { openaiToOpenAIResponsesRequest } from "../translator/request/openai-responses.js";
-import { openaiResponsesToOpenAIResponse } from "../translator/response/openai-responses.js";
-import { initState } from "../translator/index.js";
+} from "../transformer/translator/formats/responsesApi.js";
+import { openaiToOpenAIResponsesRequest } from "../transformer/translator/request/openai-responses.js";
+import { openaiResponsesToOpenAIResponse } from "../transformer/translator/response/openai-responses.js";
+import { initState } from "../transformer/translator/index.js";
 import { parseSSELine, formatSSE } from "../utils/streamHelpers.js";
 import { SSE_DONE } from "../utils/sseConstants.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";

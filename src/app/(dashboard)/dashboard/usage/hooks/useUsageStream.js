@@ -10,6 +10,7 @@
 // Zero behavior change: same effects, same merge semantics, same ref guards.
 // The W2 cockpit's decks will consume this hook instead of the orchestrator.
 import { useState, useEffect, useRef } from "react";
+import { logger } from "@/lib/clientLogger.js";
 
 export function useUsageStream(period) {
   const [stats, setStats] = useState(null);
@@ -67,7 +68,7 @@ export function useUsageStream(period) {
         });
         if (hasLoadedStats.current) setLoading(false);
       } catch (err) {
-        console.error("[SSE CLIENT] parse error:", err);
+        logger.error("USEUSAGESTREAM", "[SSE CLIENT] parse error:", err);
       }
     };
 

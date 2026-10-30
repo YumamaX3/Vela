@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUsageStats } from "@/lib/usageDb";
+import * as log from "@/sse/utils/logger.js";
 
 const VALID_PERIODS = new Set(["today", "24h", "7d", "14d", "30d", "60d", "all"]);
 
@@ -17,7 +18,7 @@ export async function GET(request) {
     const stats = await getUsageStats(period);
     return NextResponse.json(stats);
   } catch (error) {
-    console.error("[API] Failed to get usage stats:", error);
+    log.error("USAGE", "Failed to get usage stats:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to fetch usage stats" }, { status: 500 });
   }
 }

@@ -8,6 +8,7 @@
 // Query:  GET /api/guardrails/logs?limit=100&action=block&entity=credit_card&sinceMs=...
 // Clear:  DELETE /api/guardrails/logs?beforeMs=...   (omit beforeMs to clear all)
 
+import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
 import { listLogs, clearLogs } from "@/lib/guardrails/policyStore.js";
 
@@ -40,7 +41,7 @@ export async function GET(request) {
     });
     return NextResponse.json(logs);
   } catch (error) {
-    console.error("[Guardrails] Failed to list logs:", error);
+    log.error("API", "Failed to list logs:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to list guardrail logs" }, { status: 500 });
   }
 }
@@ -56,7 +57,7 @@ export async function DELETE(request) {
     const removed = await clearLogs({ beforeMs: beforeMs === null ? undefined : Number(beforeMs) });
     return NextResponse.json({ status: "ok", removed });
   } catch (error) {
-    console.error("[Guardrails] Failed to clear logs:", error);
+    log.error("API", "Failed to clear logs:", (error?.message ?? error));
     return NextResponse.json({ error: "Failed to clear guardrail logs" }, { status: 500 });
   }
 }

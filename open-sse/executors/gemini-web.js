@@ -17,7 +17,7 @@ import { isMissingBrowserExecutable, resolveSystemChromeExecutable, launchChromi
 import { loadRuntimeDep } from "../services/lazyRuntime.js";
 import { normalizeGeminiCookieInput } from "../utils/geminiCookies.js";
 import { toPlaywrightCookies } from "../utils/webCookieAuth.js";
-import { prepareToolMessages } from "../translator/webTools.js";
+import { prepareToolMessages } from "../transformer/translator/webTools.js";
 import { buildToolModeResponse } from "./chatgptWebTools.js";
 import {
   checkGeminiWebUnsupportedControls,
