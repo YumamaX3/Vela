@@ -1,3 +1,36 @@
+# v1.2.10 — The Voice One, the Ledger Home 🌊📖
+> *"Seventy-two doors spoke in their own tongues — console.log here, console.warn there — so the harbor's voice scattered across the decks. I gathered every door into the logger's four lanes, roosted eight dashboard components back on their rungs, re-pointed the translator suites to their directory's new address, and raised the battery's floors to the heights the measured load demands. One voice now, and every number it sings is kept."* 🌊📖💜
+
+**The console tide, the ledger sweep, and the battery floor — three tides fused into one seal, per the versioning law's +5 decree from 1.2.5. The in-flight labels v1.2.6/v1.2.7 were never tagged and are subsumed here; no tombstones are owed.**
+
+**🌊 The voice carried whole (the console tide)**
+- 72 call sites across `open-sse/` and `src/` migrated: `console.log/info/warn/debug/error` → the logger's four lanes, level declared at the source, one ring entry, one SSE frame, one durable row. The terminal channel is unchanged per function; only the path to the ledger changed.
+- The logger's voice restored: `setLogTheme`/`getLogTheme`/`refreshLogTheme`/`banner` — throttled store read (once per 5s, fail-open), plain-tongue glyph stripping, realm marks through the same funnel. `log-theme` (39) and `logbook-voice` (14) prove both tongues switch cleanly.
+- Failing-doors mends from triage: `dbg()` reaches the logger lazily with a raw-console fallback; the injector suite imports through `vi.importActual`; `tests/vitest.config.js` gains the `DATA_DIR` isolation floor; exportDb and mirror-sweep shadow mapping carry migration 024's access columns; `mitm/paths.js` speaks a clean `console.warn`.
+- Icon subset regrown: `auto_mode` and `desktop_windows` join; 262 icons, font re-cut under its new content hash.
+- Six white-box suites' logger mocks armed with the `error:` lane; the auth hygiene suite spies the logger, not `console`.
+
+**🎨 The ledger spent in full (the rungs)**
+- Eight components came home to the rungs — dashboard CLI tools, usage charts, provider ping, web-login and policy/modals — following the ledger directory's new address, with the translator suites' mocks re-pointed to match (`79e6a26c`).
+
+**🧪 The battery floor rises (the measured mends)**
+- `tests/vitest.config.js`: `testTimeout` 30s→60s (compose-pin's history law walks every release tag through `git show` — ~160 spawns measured 36s+ under full-battery contention; the oauth barrel loads 32 provider modules at 64s), `hookTimeout` 30s (beforeAll chains boot real adapters and spawn workers). All three pass in isolation and in trio — 60s is still the fail-fast wall (`763f9d4c`).
+- The parity shakeout pin rides `SCHEMA_VERSION` (dynamic import, same module instance under `vi.resetModules`), guarded non-zero — a pin re-typed on every migration is a pin that will be forgotten (`763f9d4c`).
+- The `xai-oauth` barrel hook bound rises to 60000ms, written from the measurement instead of the old floor's name (`ccb42885`).
+- Scratch residues ignored; working shores that never sail stay off the ledger (`eb5aeac6`).
+
+**🧪 Proof**
+- Canonical confirmation after all three commits: **464 files, 5,391 tests, 0 failures** — the two reds the console tide had carried (deck-motion's Tailwind timing ladder; the shakeout's frozen schemaVersion pin) were mended by the battery-floor tide, and the barrel hook bound mended after.
+- Pin guard on the 1.2.10 charts: **5/5 green** (6.07s).
+- Line endings held byte-honest: the example chart keeps its CRLF store, the CHANGELOG keeps its LF — the one-line pin diff stays one line.
+
+**⚓ What sailed** — `open-sse/**` + `src/**` console→logger migration (18+ files) · logger voice/theme doors · `src/lib/logshipper/**` · dashboard/translator re-points · `tests/vitest.config.js` (floors + DATA_DIR) · `tests/contract/parity-sqlite-shakeout.test.js` · `tests/unit/xai-oauth-service.test.js` · icon subset regrowth · `CHANGELOG.md` · `package.json` · `package-lock.json` · `docker-compose.example.yml` (+ live chart pin, never staged)
+
+**🌊 Recorded, not repeated**
+- **A console call is a lane that lied** — level belongs to the source, not to the reader's guess. The harbor's voice is one voice now.
+- **A pin that must be re-typed on every migration is a pin that will be forgotten** — let it swim with the chain it measures.
+- **The battery's bounds are measurements, not opinions** — raise them to the measured load, and the wall stays fail-fast.
+
 # v1.2.5 — The Key That Never Was 📮🔑
 > *"One binding dropped on a refactor's floor, and a whole lane died at the harbor gate — four products' requests unwinding in three hundred milliseconds on an error thrown before the first byte left the ship. The wound was one missing line; the lesson is that no suite ever drove the real executor through execute() until today. I mend the line, and I forge the instrument that would have caught it before the tag."* 📮🔑💜
 **The codebuddy-intl lane (and its three family siblings) died at v1.2.4 with `ReferenceError: key is not defined` on every request — thrown inside `CodeBuddyFamilyExecutor.execute()` at the first breaker call, because the `key` binding was dropped when the family was assembled. Production confirmed: every `cbai/*` request failed in ~300ms with HTTP 502 and a 30-second model-lock per account; rolled back dockside to 1.1.9, 1.2.4 banned.**
