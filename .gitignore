@@ -117,3 +117,8 @@ scripts/*
 # Verification builds — never committed
 .next-verify/
 .next-backup-*/
+
+# Working shores that never sail — scratch ADR, codepoints cache, dev scratch
+.tmp-opt-adr.md
+assets-tmp/
+dev/
