@@ -344,8 +344,8 @@ export default function XiaomiMimoAuthModal({ isOpen, onSuccess, onClose }) {
 
         {/* Cluster selection sub-modal */}
         {showClusterModal && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
-            <div className="relative w-full max-w-sm bg-surface border border-border-subtle rounded-[14px] shadow-2xl p-5 flex flex-col gap-3.5 animate-in zoom-in-95 duration-150">
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in motion-enter">
+            <div className="relative w-full max-w-sm bg-surface border border-border-subtle rounded-[14px] shadow-2xl p-5 flex flex-col gap-3.5 animate-in zoom-in-95 motion-enter">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-primary text-lg">public</span>
@@ -354,7 +354,7 @@ export default function XiaomiMimoAuthModal({ isOpen, onSuccess, onClose }) {
                 <button
                   type="button"
                   onClick={() => setShowClusterModal(false)}
-                  className="text-text-muted hover:text-text-primary p-1 rounded-md transition-colors cursor-pointer"
+                  className="text-text-muted hover:text-text-primary p-1 rounded-md motion-control cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-lg">close</span>
                 </button>
@@ -368,11 +368,11 @@ export default function XiaomiMimoAuthModal({ isOpen, onSuccess, onClose }) {
                     key={c.id}
                     type="button"
                     onClick={() => startSessionLogin(c.id)}
-                    className="p-3 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-all text-left flex items-start gap-3 group cursor-pointer"
+                    className="p-3 rounded-lg border border-border hover:border-primary hover:bg-primary/5 motion-control text-left flex items-start gap-3 group cursor-pointer"
                   >
                     <span className="text-2xl mt-0.5">{c.flag}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold group-hover:text-primary transition-colors">
+                      <div className="text-sm font-semibold group-hover:text-primary motion-control">
                         {c.name}
                       </div>
                       <div className="text-xs text-text-muted mt-0.5">{c.host}</div>

@@ -99,11 +99,13 @@ describe("Storage Covenant A4 — parity harness shakeout (sqlite vs sqlite)", (
     expect(payload.providerConnections[0].isActive).toBe(true);
     expect(payload.proxyPools[0].isActive).toBe(true);
     expect(payload.apiKeys[0].isInternal).toBe(false);
-    // Provenance header rides every export (schemaVersion rides SCHEMA_VERSIONgration 010)
-    // 2026-10-11 drift mend: schemaVersion rode SCHEMA_VERSION, which moved
-    // 10→19 across migrations 011-019 (through the v1.0.76 Routing Rebirth).
-    // The pin froze the birth value; the provenance header is version-live.
-    expect(payload._meta.schemaVersion).toBe(19);
+    // Provenance header rides every export (schemaVersion rides SCHEMA_VERSION).
+    // Drift mends: the pin froze 10 (migration 010's birth), then 19 after
+    // 011-019 moved it (the 2026-10-11 Routing Rebirth mend), now 24 after
+    // migrations 020-024 (the 2026-10-21 Sibling's Blueprint port and the
+    // per-key access columns). The doctrine is the pin chases the chain, so
+    // it is re-frozen at each landing rather than widened.
+    expect(payload._meta.schemaVersion).toBe(24);
     expect(payload._meta.sourceMode).toBe("sqlite");
   });
 

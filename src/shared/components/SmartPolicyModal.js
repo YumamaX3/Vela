@@ -100,7 +100,7 @@ export default function SmartPolicyModal({
               <div
                 key={p.id}
                 onClick={() => setSelectedPolicy(p.id)}
-                className={`relative flex flex-col rounded-xl border p-3 cursor-pointer transition-all ${
+                className={`relative flex flex-col rounded-xl border p-3 cursor-pointer motion-control ${
                   isSelected
                     ? "border-primary bg-primary/[0.04] shadow-sm"
                     : "border-border/60 hover:border-border hover:bg-black/[0.01] dark:hover:bg-white/[0.01]"
@@ -109,7 +109,7 @@ export default function SmartPolicyModal({
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span
-                      className={`size-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                      className={`size-4 rounded-full border flex items-center justify-center shrink-0 motion-control ${
                         isSelected
                           ? "border-primary bg-primary text-white"
                           : "border-border-subtle bg-surface"
@@ -168,7 +168,7 @@ export default function SmartPolicyModal({
                           key={pct}
                           type="button"
                           onClick={() => setThreshold(pct)}
-                          className={`px-2 py-0.5 rounded text-[11px] font-mono transition-colors ${
+                          className={`px-2 py-0.5 rounded text-[11px] font-mono motion-control ${
                             threshold === pct
                               ? "bg-primary text-white font-semibold"
                               : "bg-black/5 dark:bg-white/5 text-text-muted hover:text-text-main"

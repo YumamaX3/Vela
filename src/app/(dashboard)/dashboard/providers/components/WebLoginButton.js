@@ -217,7 +217,7 @@ export default function WebLoginButton({ providerId, onConnected, size = "sm" })
                     type="button"
                     disabled={busy}
                     onClick={() => pickProfile(name)}
-                    className={`flex items-center gap-2 rounded border border-accent/30 bg-sidebar p-2 text-left text-sm transition-colors focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 ${
+                    className={`flex items-center gap-2 rounded border border-accent/30 bg-sidebar p-2 text-left text-sm motion-control focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 ${
                       selected ? "border-primary ring-1 ring-primary" : "hover:border-accent/60"
                     }`}
                   >

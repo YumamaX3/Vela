@@ -100,7 +100,7 @@ export default function AutoPingScheduleModal({ isOpen, onClose, onSave, connect
                 type="button"
                 onClick={() => update({ mode: option.value })}
                 className={cn(
-                  "flex h-9 items-center justify-center gap-1.5 rounded-[8px] px-3 text-sm font-medium transition-all",
+                  "flex h-9 items-center justify-center gap-1.5 rounded-[8px] px-3 text-sm font-medium motion-control",
                   isSelected
                     ? "bg-surface text-text-main shadow-sm"
                     : "text-text-muted hover:text-text-main"
