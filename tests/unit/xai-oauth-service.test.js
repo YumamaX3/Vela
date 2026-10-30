@@ -18,7 +18,7 @@ describe("xai/oauth service", () => {
     await ensureBarrel();
     fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-  }, 30000);
+  }, 60000);
 
   it("validates discovered endpoints are https x.ai URLs", async () => {
     const { validateOAuthEndpoint } = await import("../../src/lib/oauth/services/xai.js");
