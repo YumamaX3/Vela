@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-vi.mock("../../open-sse/translator/concerns/image.js", async (orig) => {
+vi.mock("../../open-sse/transformer/translator/concerns/image.js", async (orig) => {
   const actual = await orig();
   return {
     ...actual,

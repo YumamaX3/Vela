@@ -29,7 +29,7 @@ vi.mock("../../open-sse/executors/index.js", () => ({
   })),
 }));
 
-vi.mock("../../open-sse/translator/index.js", () => ({
+vi.mock("../../open-sse/transformer/translator/index.js", () => ({
   translateRequest: translateRequestMock,
 }));
 
@@ -72,7 +72,7 @@ vi.mock("../../open-sse/utils/proxyFetch.js", () => ({
   proxyAwareFetch: vi.fn(),
 }));
 
-vi.mock("../../open-sse/translator/formats/claude.js", () => ({
+vi.mock("../../open-sse/transformer/translator/formats/claude.js", () => ({
   normalizeClaudePassthrough: vi.fn(),
   anchorClaudeCache: vi.fn(),
 }));
@@ -97,7 +97,7 @@ vi.mock("../../open-sse/rtk/pxpipe.js", () => ({
   compressWithPxpipe: vi.fn(async () => ({ body: null, summary: null })),
 }));
 
-vi.mock("../../open-sse/translator/concerns/prefetch.js", () => ({
+vi.mock("../../open-sse/transformer/translator/concerns/prefetch.js", () => ({
   prefetchRemoteImages: vi.fn(async () => 0),
 }));
 
