@@ -65,9 +65,18 @@ export default defineConfig({
     // Real-adapter floor: the DB suites boot a real SQLite adapter and run the
     // full migration chain per test (some spawn a real worker thread); the
     // vitest default 5000ms starves them whenever the machine is loaded
-    // (parallel tide, a build running). 30s is still a hard fail-fast bound —
-    // a hung boot is a defect, a 6s boot is not.
-    testTimeout: 30_000,
+    // (parallel tide, a build running). Raised to 60s after the battery
+    // measured compose-pin's tag walk and the oauth barrel at 36s+ under load.
+    // Still a hard fail-fast bound — a hung test is a defect; a slow one is not.
+    testTimeout: 60_000,
+    // The battery's own floor, raised from 30s: the compose-pin history law
+    // walks every release tag through `git show` (~160 spawns), and the oauth
+    // suites load the full provider barrel — both measured 36s+ under full
+    // battery contention while passing in isolation and in trio runs. 60s is
+    // still a fail-fast bound; a hung test is a defect, a slow tag-walk is not.
+    hookTimeout: 30_000,
+    // beforeAll hooks boot real adapters and spawn workers; the vitest
+    // default 10s starved db-sqlite-vs-lowdb's migration chain under load.
     // Suppress noisy console output from handlers under test
     silent: false,
   },

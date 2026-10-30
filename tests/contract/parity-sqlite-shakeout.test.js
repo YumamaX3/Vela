@@ -99,13 +99,16 @@ describe("Storage Covenant A4 — parity harness shakeout (sqlite vs sqlite)", (
     expect(payload.providerConnections[0].isActive).toBe(true);
     expect(payload.proxyPools[0].isActive).toBe(true);
     expect(payload.apiKeys[0].isInternal).toBe(false);
-    // Provenance header rides every export (schemaVersion rides SCHEMA_VERSION).
-    // Drift mends: the pin froze 10 (migration 010's birth), then 19 after
-    // 011-019 moved it (the 2026-10-11 Routing Rebirth mend), now 24 after
-    // migrations 020-024 (the 2026-10-21 Sibling's Blueprint port and the
-    // per-key access columns). The doctrine is the pin chases the chain, so
-    // it is re-frozen at each landing rather than widened.
-    expect(payload._meta.schemaVersion).toBe(24);
+    // Provenance header. schemaVersion is pinned to the LIVE SCHEMA_VERSION
+    // constant, not a hardcoded number: this assertion once read `toBe(10)`,
+    // was re-frozen to `toBe(19)` after the 2026-10-11 drift mend, and rusted
+    // again at migrations 020-024 — the exact red a hardcoded pin produces on
+    // every bump (see db-export-completeness's own post-mortem). Riding the
+    // constant, the provenance header is what it always claimed to be:
+    // version-live, true without an edit at the next landing.
+    const { SCHEMA_VERSION } = await import("@/lib/db/schema.js");
+    expect(SCHEMA_VERSION).toBeGreaterThan(0); // the constant resolved, not undefined
+    expect(payload._meta.schemaVersion).toBe(SCHEMA_VERSION);
     expect(payload._meta.sourceMode).toBe("sqlite");
   });
 
