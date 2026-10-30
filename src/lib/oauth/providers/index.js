@@ -21,6 +21,7 @@ import muse from "./muse.js";
 import qoderCn from "./qoder-cn.js";
 import xiaomiMimo from "./xiaomi-mimo.js";
 import glm from "./glm.js";
+import zcodePlan from "./zcode-plan.js";
 import minimaxCode from "./minimax-code.js";
 import minimaxCodeGlobal from "./minimax-code-global.js";
 import workbuddyCn from "./workbuddy-cn.js";
@@ -57,6 +58,7 @@ const PROVIDERS = {
   "qoder-cn": qoderCn,
   "xiaomi-mimo": xiaomiMimo,
   glm,
+  "zcode-plan": zcodePlan,
   "minimax-code": minimaxCode,
   "minimax-code-global": minimaxCodeGlobal,
   "workbuddy-cn": workbuddyCn,

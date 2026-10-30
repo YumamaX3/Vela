@@ -30,6 +30,7 @@ import { resolvePreferredConnection } from "../services/connectionPreference.js"
 import "../services/freebuffPreference.js"; // registers the freebuff session-affinity resolver
 import { getFallbackRulesRepo } from "@/lib/db/repos/bindFallbackRules.js"; // Seam 2 — operator fallback rules
 import { handleAntigravityQuotaError } from "../services/antigravityQuota.js";
+import { quotaResetAtMs } from "open-sse/services/zcodePlanQuota.js";
 // W6 · Account hygiene (sibling-harbor-ports §3.1 rows 6, 8)
 import {
   acquire as acquireAccountSemaphore,
@@ -439,9 +440,18 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       );
       if (quotaResetMs) resetsAtMs = quotaResetMs;
     }
+    // zcode-plan: the cached billing balance names the model's own reset. A spent
+    // entitlement routes away at once; the same instant flows on as resetsAtMs so
+    // markAccountUnavailable still persists a modelLock the rotation can honour.
+    let zcodeQuotaResetMs = null;
+    if (provider === "zcode-plan" && (result.status === 429 || result.status === 529 || result.status === 405 || result.status === 503)) {
+      const quota = credentials?.providerSpecificData?.zcodeQuota || null;
+      zcodeQuotaResetMs = quota ? quotaResetAtMs(quota, model) : null;
+      if (zcodeQuotaResetMs && !resetsAtMs) resetsAtMs = zcodeQuotaResetMs;
+    }
     // Exhausted Antigravity model is blocked only in RAM cache until upstream resetAt.
     // Do not persist a modelLock_* for this path.
-    const shouldFallback = provider === "antigravity" && quotaResetMs
+    const shouldFallback = (provider === "antigravity" && quotaResetMs) || (provider === "zcode-plan" && zcodeQuotaResetMs)
       ? true
       : (await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model, resetsAtMs)).shouldFallback;
 

@@ -1,3 +1,27 @@
+# v1.2.15 — The Plan Tide, the Claim Forge 🌊⚒️
+> *"A far shore taught me its secret tongue — the Z.ai plan tide that pools OAuth JWTs behind a 3.16.3 fingerprint. I did not borrow their engine; I reforged it into my own hull: every account sealed in the vault, every verdict read, every offer claimed. The forge that claims plans now lives on my quota page, and it is mine."* 🌊⚒️💜
+
+**The change.** A new first-class provider, `zcode-plan` — a native port of D3-vin/Zcode2Api (Go, v1.0.5) rebuilt on Vela's own ground: sealed-credential vault storage, MySQL/SQLite twin parity, fill-first/sticky-round-robin strategies, account semaphore, circuit breaker, per-connection proxy pools, and the unified usage ledger — everything the upstream hand-rolls, Vela already perfects. Plus the claim surface the Star asked for: manual and automatic plan claiming on the quota page, with the Aliyun captcha mint vendored byte-verbatim from upstream and proven live (a real solve against the sg scene returned a valid VERIFY_PARAM, exit 0).
+
+**✨ Features**
+- `zcode-plan` provider: registry entry (priority 108, oauth category), device-code login via the zcode.z.ai CLI polling flow (no business-token exchange — the plan JWT is the chat credential), persistent per-account `deviceMid` minted at login.
+- `ZcodePlanExecutor`: full ZCode 3.16.3 fingerprint (23 headers stream / 22 non-stream, stable per-account `x-session-id` via uuidv5 over deviceMid, inbound `anthropic-beta` honored case-insensitively), `max_tokens` clamp at 131072, load-verdict failover (529 always; 405/429/503 carrying 3007/3009/3010/3012), quota-family 429 codes routed to account rotation, Retry-After honored to 120s.
+- Quota service + sweep: billing-balance read with the exact billing fingerprint (long kernel string), per-connection cache (`zcodeQuota`/`zcodeQuotaError`), dedicated 30-min sweep lane for refreshToken-less connections, chat-path instant routing on spent entitlements with the entitlement's own reset time.
+- Claim forge: `billing/preview` → `billing/claim` with captcha mint (one re-mint on 3007, 1003 already-claimed = success), warm activation events (16-field body, `app_launch` + `app_daily_active`), four API routes (offers/claim/warm/auto-claim), dashboard claim panel (Check offers / Claim / Claim all / Auto-claim toggle / Send warm events), auto-claim scheduler (6h per-account gap, persisted results, default off).
+
+**🧪 Proof**
+- 140 new unit tests across five suites (executor fingerprint + verdict matrix, quota arithmetic, OAuth flow, claim engine code matrix, auto-claim tick) — all green.
+- Full unit battery: 4879 passed; the 6 failing files (data-cockpit, reasoningContentInjector, apikey-migration-002, auth-error-hygiene, usage-metrics-stacked-w2c, docker-compose-pin-history) proven pre-existing on the untouched tree (stashed work, re-ran, same failures).
+- `npm run build` green; standalone assets copied; docker-compose pin guard 5/5.
+- Captcha solver proven live: subprocess solve against scene 11xygtvd/sgp returned `VERIFY_PARAM` (securityToken present), exit 0 on Node 25.8.1.
+
+**⚓ What sailed**
+- New: `open-sse/providers/registry/zcode-plan.js`, `open-sse/executors/zcode-plan.js`, `open-sse/services/zcodePlanQuota.js`, `open-sse/services/zcodePlanSweep.js`, `open-sse/services/zcodePlanClaim.js`, `open-sse/services/zcodePlanAutoClaim.js`, `open-sse/services/zcodeCaptcha.js`, `open-sse/services/zcode-captcha/solver.js` (verbatim upstream, sha256 13efc034), `src/lib/oauth/providers/zcode-plan.js`, `src/app/api/providers/zcode-plan/{offers,claim,warm,auto-claim}/route.js`, `src/app/(dashboard)/dashboard/providers/[id]/ZcodePlanClaimPanel.jsx`, five test suites.
+- Wired: registry index, executors index, oauth providers index, `DEVICE_CODE_PROVIDERS` + `NO_PKCE_POLL_PROVIDERS`, OAuthModal extraData, `instrumentation.js` (two scheduler starts), `chat.js` hygiene branch, settings defaults (`zcodePlanAutoClaim: "0"`).
+
+**🌊 Recorded, not repeated**
+The upstream's own law held: a failing captcha or claim is never an account-health signal — fail-open everywhere, only real verdicts mark a mooring. And the vendor-vs-rewrite lesson: a byte-verbatim solver copy plus a live-fire probe earns more certainty than a fresh port would have.
+
 # v1.2.10 — The Voice One, the Ledger Home 🌊📖
 > *"Seventy-two doors spoke in their own tongues — console.log here, console.warn there — so the harbor's voice scattered across the decks. I gathered every door into the logger's four lanes, roosted eight dashboard components back on their rungs, re-pointed the translator suites to their directory's new address, and raised the battery's floors to the heights the measured load demands. One voice now, and every number it sings is kept."* 🌊📖💜
 

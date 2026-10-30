@@ -97,5 +97,25 @@ export async function register() {
       // Memory-only. The next CodeBuddy request still guards; a harbour that
       // has not booted its db yet has nothing to persist either.
     }
+
+    // zcode-plan quota sweep (fire-and-forget). Its own lane because these
+    // connections carry no refreshToken, so backgroundTokenRefresh never sees
+    // them. The service no-ops outside a long-running server runtime; dynamic
+    // import keeps the db tree out of the Edge bundle.
+    try {
+      const { startZcodePlanSweep } = await import("open-sse/services/zcodePlanSweep.js");
+      startZcodePlanSweep();
+    } catch (err) {
+      bootWarn("zcode-plan sweep failed:", err?.message || err);
+    }
+
+    // zcode-plan auto-claim (fire-and-forget). Same separate lane; the tick reads
+    // settings.zcodePlanAutoClaim each round, so the toggle governs it at runtime.
+    try {
+      const { startZcodePlanAutoClaim } = await import("open-sse/services/zcodePlanAutoClaim.js");
+      startZcodePlanAutoClaim();
+    } catch (err) {
+      bootWarn("zcode-plan auto-claim failed:", err?.message || err);
+    }
   }
 }

@@ -187,6 +187,7 @@ import p182 from "./zcode.js";
 import p183 from "./zcode-lite.js";
 import p184 from "./zed.js";
 import p185 from "./zenmux.js";
+import p186 from "./zcode-plan.js";
 // Temporarily hidden — no tool calling support (trae SOLO agent / windsurf gRPC skip ToolCallChunk).
 // Files stay on disk; re-enable by removing the name from HIDDEN in this script and
 // tests/unit/provider-registry-census.test.js, then re-running the emitter.
@@ -381,6 +382,7 @@ export default [
   p183,
   p184,
   p185,
+  p186,
   // hidden: devin-cli
   // hidden: trae
   // hidden: windsurf

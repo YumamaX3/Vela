@@ -20,6 +20,7 @@ import ModelRow from "./ModelRow";
 import PassthroughModelsSection from "./PassthroughModelsSection";
 import CompatibleModelsSection from "./CompatibleModelsSection";
 import ConnectionRow from "./ConnectionRow";
+import ZcodePlanClaimPanel from "./ZcodePlanClaimPanel";
 import AddApiKeyModal from "./AddApiKeyModal";
 import EditCompatibleNodeModal from "./EditCompatibleNodeModal";
 import AddCustomModelModal from "./AddCustomModelModal";
@@ -1016,6 +1017,10 @@ export default function ProviderDetailPage() {
 
   const isSelected = (connectionId) => selectedConnectionIds.includes(connectionId);
 
+  const refreshConnectionById = async () => {
+    await fetchConnections();
+  };
+
   const connectionsList = (
     <div className="flex min-w-0 flex-col divide-y divide-black/[0.03] dark:divide-white/[0.03]">
       {connections
@@ -1069,6 +1074,9 @@ export default function ProviderDetailPage() {
                 onDelete={() => handleDelete(conn.id)}
                 oneByOneStatus={oneByOneResults[conn.id] || null}
               />
+              {providerId === "zcode-plan" && (
+                <ZcodePlanClaimPanel connection={conn} onRefreshConnection={refreshConnectionById} />
+              )}
             </div>
           </div>
         ))}

@@ -19,6 +19,8 @@ export const DEFAULT_SETTINGS = {
   tailscaleUrl: "",
   stickyRoundRobinLimit: 3,
   providerStrategies: {},
+  // zcode-plan auto-claim scheduler (zcodePlanAutoClaim.js) — "1" on, "0" off.
+  zcodePlanAutoClaim: "0",
   // W2 of the sibling-constellation plan: the operator's pinned providers.
   // The writable roster derives from DEFAULT_SETTINGS, so a pin key that is
   // not declared here would be dropped by the settings route.

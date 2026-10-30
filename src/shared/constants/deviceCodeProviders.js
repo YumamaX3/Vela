@@ -20,6 +20,7 @@ export const DEVICE_CODE_PROVIDERS = [
   "qoder",
   "grok-cli",
   "freebuff",
+  "zcode-plan",
 ];
 
 // Subset that polls WITHOUT a PKCE code verifier (noPkceProviders on the
@@ -35,4 +36,5 @@ export const NO_PKCE_POLL_PROVIDERS = [
   "workbuddy-cn",
   "workbuddy-intl",
   "freebuff",
+  "zcode-plan",
 ];
