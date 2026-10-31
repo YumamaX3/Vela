@@ -41,6 +41,7 @@ import {
 } from "./utils";
 import Card from "@/shared/components/Card";
 import { ConfirmModal, EditConnectionModal } from "@/shared/components";
+import ZcodePlanClaimPanel from "@/app/(dashboard)/dashboard/providers/[id]/ZcodePlanClaimPanel";
 import { USAGE_SUPPORTED_PROVIDERS, AI_PROVIDERS } from "@/shared/constants/providers";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 
@@ -507,6 +508,21 @@ export default function ProviderLimits() {
       setRefreshingAll(false);
     }
   }, [fetchConnections, fetchQuota, page]);
+
+  // Re-pull quota for a zcode-plan card after the claim panel acts on it.
+  // The panel calls this with a connectionId for a single claim; a bare call
+  // (no id) re-reads every provider on the page.
+  const handleZcodeQuotaRefresh = useCallback(
+    async (connectionId) => {
+      if (connectionId) {
+        await fetchQuota(connectionId, "zcode-plan", { force: true });
+        setLastUpdated(new Date());
+      } else {
+        await refreshAll(true);
+      }
+    },
+    [fetchQuota, refreshAll],
+  );
 
   useEffect(() => {
     const initializeData = async () => {
@@ -1295,6 +1311,11 @@ export default function ProviderLimits() {
                   </div>
                 )}
               </div>
+              {conn.provider === "zcode-plan" && (
+                <div className="border-t border-black/5 px-3 py-2 dark:border-white/5">
+                  <ZcodePlanClaimPanel connection={conn} onRefreshConnection={handleZcodeQuotaRefresh} />
+                </div>
+              )}
             </Card>
           );
         })}

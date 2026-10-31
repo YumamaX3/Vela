@@ -536,6 +536,24 @@ export function parseQuotaData(provider, data) {
         }
         break;
 
+      case "zcode-plan":
+        // Entitlement rows from the billing balance — name like "glm-5.3", the row
+        // is a 0–100 fraction. Forward `unlimited` so a zero-limit row renders as an
+        // unbounded balance instead of a spent bar.
+        if (data.quotas) {
+          Object.entries(data.quotas).forEach(([name, quota]) => {
+            normalizedQuotas.push({
+              name,
+              used: quota.used || 0,
+              total: quota.total || 0,
+              resetAt: quota.resetAt || null,
+              remainingPercentage: quota.remainingPercentage,
+              unlimited: quota.unlimited ?? false,
+            });
+          });
+        }
+        break;
+
       case "ollama":
         // Session (5h) / Weekly (7d) usage % from ollama.com/api/usage, the free plan's
         // monthly window, and — since Ollama Cloud moved its live limits there — the

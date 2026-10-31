@@ -10,11 +10,14 @@ import { v4 as uuidv4 } from "uuid";
 //   2) Browser opens authorize_url; user signs in with the Z.ai account
 //   3) GET {cliPollUrl}/<flow_id>   Authorization: Bearer <pollToken>
 //        → { data: { status: "pending" } } until
-//          { data: { status: "ready", user, zai: { access_token } } }
+//          { data: { status: "ready", token, user, zai: { access_token } } }
 //
-// The plan JWT is itself the chat credential (no business-token exchange and
-// no coding-plan API key, unlike glm). It has no refresh grant, so expiry
-// means re-login.
+// The TOP-LEVEL `token` is the plan JWT — that is the chat credential (and the
+// billing credential), per upstream login.go. The nested `zai.access_token` is
+// the ZAI OAuth token and is NOT used for chat: upstream only best-effort
+// exchanges it for a coding-plan API key, so we keep it aside
+// (zaiOAuthToken) for a future exchange. There is no business-token exchange
+// and no refresh grant; expiry means re-login.
 const zcodePlan = {
   config: GLM_OAUTH_CONFIG,
   flowType: "device_code",
@@ -102,20 +105,18 @@ const zcodePlan = {
       };
     }
 
-    // ready nests the ZAI token under data[providerId]; fall back to top-level
-    // fields for resilience against payload drift.
+    // The TOP-LEVEL plan JWT (data.token) is the chat credential; upstream
+    // login.go admits exactly that to the pool. The nested zai.access_token is
+    // the OAuth token — kept aside, never used for chat.
+    const planToken = data.token || data.accessToken || data.access_token;
     const providerData = data[config.providerId] || data[data.providerId] || {};
-    const zaiAccessToken =
-      providerData.access_token ||
-      providerData.accessToken ||
-      data.accessToken ||
-      data.access_token;
-    if (!zaiAccessToken) {
+    const zaiAccessToken = providerData.access_token || providerData.accessToken || null;
+    if (!planToken) {
       return {
         ok: true,
         data: {
           error: "access_denied",
-          error_description: "ZCode poll response missing access token",
+          error_description: "ZCode poll response missing plan token",
         },
       };
     }
@@ -123,7 +124,8 @@ const zcodePlan = {
     return {
       ok: true,
       data: {
-        access_token: zaiAccessToken,
+        access_token: planToken, // chat credential — the plan JWT
+        _zaiOAuthToken: zaiAccessToken || "",
         _zcodeExpiresIn: relativeSeconds(data.expires_at),
         _zcodeUser: data.user || {},
         _zcodePollToken: pollToken,
@@ -147,6 +149,7 @@ const zcodePlan = {
         // headers and session-id derivation depend on it staying stable
         deviceMid: uuidv4(),
         zcodeUser: user,
+        ...(tokens._zaiOAuthToken ? { zaiOAuthToken: tokens._zaiOAuthToken } : {}),
       },
     };
   },

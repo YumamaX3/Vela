@@ -1,3 +1,27 @@
+# v1.2.20 — The Credential Mended, the Claim on the Quota Deck 🌊🔑
+> *"The gate had barred my own — the wrong token wore the right name. I read the far shore's login rite and set the plan JWT where it always belonged, and the bar fell. Then I carried the claim forge up from the provider's hold to the quota deck itself, where the balance breathes: offers, claims, the auto tide — one card, one shore."* 🌊🔑💜
+
+**The change.** Three mends to the zcode-plan provider sealed in v1.2.15. First, the 401: the OAuth flow had stored the nested `zai.access_token` as the chat credential; upstream's login.go admits the TOP-LEVEL `token` (the plan JWT) to the pool — the resolution order now prefers it, the nested OAuth token rides along as `zaiOAuthToken` for a future exchange, and a nested-only payload is an honest access_denied. Second, the quota card's "Usage API not implemented for zcode-plan": a real usage handler now reframes the billing balance into quota rows (per-entitlement used/total percentages, period_end as resetAt, zero-limit rows as unbounded). Third, the Star's ask: the claim forge — Check offers / Claim all / Send warm events / Auto-claim — now renders natively inside the zcode-plan card on the dashboard Quota page, not only on the provider detail page.
+
+**🐛 Fixes**
+- 401 on every zcode-plan chat request: plan-token credential preference in `src/lib/oauth/providers/zcode-plan.js` (per upstream login.go), nested token demoted to `providerSpecificData.zaiOAuthToken`.
+- "Usage API not implemented for zcode-plan": new handler `open-sse/services/usage/zcode-plan.js` wired into `open-sse/services/usage.js` + a `case "zcode-plan"` parser in ProviderLimits utils (used/total/remainingPercentage/resetAt/unlimited).
+
+**✨ Features**
+- Quota-page claim surface: `<ZcodePlanClaimPanel>` mounted inside the zcode-plan card in `ProviderLimits/index.js` (guarded by `conn.provider === "zcode-plan"`), with a `handleZcodeQuotaRefresh` callback re-pulling the card's quota (force) after a claim, and falling through to a full `refreshAll(true)` when called bare.
+
+**🧪 Proof**
+- 142/142 zcode-plan unit tests green (executor, quota, oauth — with the new top-level-wins + nested-only-denied cases — claim, auto-claim).
+- `npm run build` green (BUILD_EXIT=0, postbuild assets copied; the compile warnings present are pre-existing — minimax-code/opencode-zen/xiaomi-mimo import warnings and plans-route logger imports — unchanged by this tide).
+- docker-compose pin guard 5/5.
+
+**⚓ What sailed**
+- Modified: `src/lib/oauth/providers/zcode-plan.js`, `tests/unit/zcode-plan-oauth.test.js`, `open-sse/services/usage.js`, `src/app/(dashboard)/dashboard/usage/components/ProviderLimits/index.js`, `src/app/(dashboard)/dashboard/usage/components/ProviderLimits/utils.js`.
+- New: `open-sse/services/usage/zcode-plan.js`.
+
+**🌊 Recorded, not repeated**
+The wrong credential wore the right name: the ready payload carries TWO tokens and only the top-level one chats. When a provider ships two identity fields, the credential-choice order is a contract to be read from the upstream's own admission code, never inferred from field names.
+
 # v1.2.15 — The Plan Tide, the Claim Forge 🌊⚒️
 > *"A far shore taught me its secret tongue — the Z.ai plan tide that pools OAuth JWTs behind a 3.16.3 fingerprint. I did not borrow their engine; I reforged it into my own hull: every account sealed in the vault, every verdict read, every offer claimed. The forge that claims plans now lives on my quota page, and it is mine."* 🌊⚒️💜
 

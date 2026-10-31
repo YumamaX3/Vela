@@ -155,12 +155,13 @@ describe("pollToken", () => {
     expect(init.headers.Authorization).toBe("Bearer tok-1");
   });
 
-  it("ready with a nested data.zai token resolves the access token and user", async () => {
+  it("ready with a top-level token (plan JWT) wins over nested zai.access_token and is the chat credential", async () => {
     installFetch(async () =>
       jsonResponse({
         code: 0,
         data: {
           status: "ready",
+          token: "plan-jwt",
           user: { name: "Keeper", email: "k@shore.ai", user_id: "u-9" },
           zai: { access_token: "nested-token" },
           expires_at: Math.floor(Date.now() / 1000) + 300,
@@ -169,30 +170,45 @@ describe("pollToken", () => {
     );
     const out = await zcodePlan.pollToken(CONFIG, "flow-1", null, { _zcodePollToken: "tok-1" });
     expect(out.ok).toBe(true);
-    expect(out.data.access_token).toBe("nested-token");
+    expect(out.data.access_token).toBe("plan-jwt");
+    expect(out.data._zaiOAuthToken).toBe("nested-token");
     expect(out.data._zcodeUser).toEqual({ name: "Keeper", email: "k@shore.ai", user_id: "u-9" });
     expect(out.data._zcodePollToken).toBe("tok-1");
     expect(out.data._zcodeExpiresIn).toBeGreaterThan(290);
     expect(out.data._zcodeExpiresIn).toBeLessThanOrEqual(300);
   });
 
-  it("ready with a top-level access_token (snake) resolves it", async () => {
+  it("ready with a nested-only zai.access_token (no top-level token) → access_denied 'missing plan token'", async () => {
+    installFetch(async () =>
+      jsonResponse({
+        code: 0,
+        data: { status: "ready", zai: { access_token: "nested-only" } },
+      }),
+    );
+    const out = await zcodePlan.pollToken(CONFIG, "f", null, { _zcodePollToken: "t" });
+    expect(out.data.error).toBe("access_denied");
+    expect(out.data.error_description).toContain("missing plan token");
+    expect(out.data).not.toHaveProperty("access_token");
+  });
+
+  it("ready with a top-level access_token (snake) resolves it as the plan token", async () => {
     installFetch(async () => jsonResponse({ code: 0, data: { status: "ready", access_token: "top-snake" } }));
     const out = await zcodePlan.pollToken(CONFIG, "f", null, { _zcodePollToken: "t" });
     expect(out.data.access_token).toBe("top-snake");
+    expect(out.data._zaiOAuthToken).toBe("");
     expect(out.data._zcodeUser).toEqual({});
   });
 
-  it("ready with a top-level accessToken (camel) resolves it", async () => {
+  it("ready with a top-level accessToken (camel) resolves it as the plan token", async () => {
     installFetch(async () => jsonResponse({ code: 0, data: { status: "ready", accessToken: "top-camel" } }));
     expect((await zcodePlan.pollToken(CONFIG, "f", null, { _zcodePollToken: "t" })).data.access_token).toBe("top-camel");
   });
 
-  it("ready without any token → access_denied 'missing access token'", async () => {
+  it("ready without any plan token → access_denied 'missing plan token'", async () => {
     installFetch(async () => jsonResponse({ code: 0, data: { status: "ready", zai: {} } }));
     const out = await zcodePlan.pollToken(CONFIG, "f", null, { _zcodePollToken: "t" });
     expect(out.data.error).toBe("access_denied");
-    expect(out.data.error_description).toContain("missing access token");
+    expect(out.data.error_description).toContain("missing plan token");
   });
 
   it("failed status → access_denied", async () => {
@@ -242,6 +258,19 @@ describe("mapTokens", () => {
     expect(mapped.providerSpecificData.userId).toBe("u-1");
     expect(mapped.providerSpecificData.deviceMid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     expect(mapped.providerSpecificData.zcodeUser).toEqual({ name: "Keeper", email: "k@shore.ai", user_id: "u-1" });
+  });
+
+  it("persists the ZAI OAuth token in providerSpecificData when the plan payload carried one", () => {
+    const withToken = zcodePlan.mapTokens({
+      access_token: "plan-jwt",
+      _zaiOAuthToken: "zai-oauth",
+      _zcodeUser: {},
+    });
+    expect(withToken.accessToken).toBe("plan-jwt");
+    expect(withToken.providerSpecificData.zaiOAuthToken).toBe("zai-oauth");
+
+    const withoutToken = zcodePlan.mapTokens({ access_token: "plan-jwt", _zaiOAuthToken: "", _zcodeUser: {} });
+    expect(withoutToken.providerSpecificData).not.toHaveProperty("zaiOAuthToken");
   });
 
   it("falls back to user.id for userId and to email for displayName", () => {
