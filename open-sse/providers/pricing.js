@@ -190,7 +190,7 @@ export const MODEL_PRICING = {
   "deepseek-flash":               { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,   cache_creation: 0.14  },
   "deepseek-v4-pro":              { input: 0.435, output: 0.87,  cached: 0.003625, reasoning: 0.87,  cache_creation: 0.435 },
 
-  // === GLM (Z.ai) === [2026-08-15 models.dev/api.json — zai official; cache writes free]
+  // === GLM (Z.ai) === [2026-08-15 models.dev/api.json — zai official; cache writes free; glm-5.3 rows re-captured 2026-10-31]
   "glm-4.5":                      { input: 0.60,  output: 2.20,  cached: 0.11,  reasoning: 2.20,   cache_creation: 0     },
   "glm-4.5-air":                  { input: 0.20,  output: 1.10,  cached: 0.03,  reasoning: 1.10,   cache_creation: 0     },
   "glm-4.5-flash":                { input: 0,     output: 0,     cached: 0,     reasoning: 0,      cache_creation: 0     },
@@ -204,6 +204,8 @@ export const MODEL_PRICING = {
   "glm-5-turbo":                  { input: 1.20,  output: 4.00,  cached: 0.24,  reasoning: 4.00,   cache_creation: 0     },
   "glm-5.1":                      { input: 1.40,  output: 4.40,  cached: 0.26,  reasoning: 4.40,   cache_creation: 0     },
   "glm-5.2":                      { input: 1.40,  output: 4.40,  cached: 0.26,  reasoning: 4.40,   cache_creation: 0     },
+  "glm-5.3":                      { input: 1.40,  output: 4.40,  cached: 0.26,  reasoning: 4.40,   cache_creation: 0     }, // 2026-10-31 models.dev zai — 1M-context flagship, same rates as 5.2
+  "glm-5.3-flash":                { input: 0.15,  output: 0.50,  cached: 0.03,  reasoning: 0.50,   cache_creation: 0     }, // 2026-10-31 models.dev zai — vision flash tier
   "glm-5v-turbo":                 { input: 1.20,  output: 4.00,  cached: 0.24,  reasoning: 4.00,   cache_creation: 0     },
   "zai-glm-4.7":                  { input: 2.25,  output: 2.75,  cached: 2.25,  reasoning: 2.75,   cache_creation: 0     }, // cerebras lane
 
@@ -479,6 +481,8 @@ export const PROVIDER_PRICING = {
     "z-ai/glm-5-turbo": { input: 1.2, output: 4.0, cached: 0.24, reasoning: 4.0 },
     "z-ai/glm-5.1": { input: 1.05, output: 3.5, cached: 0.525, reasoning: 3.5 },
     "z-ai/glm-5.2": { input: 1.4, output: 4.4, cached: 0.26, reasoning: 4.4 },
+    "z-ai/glm-5.3": { input: 1.4, output: 4.4, cached: 0.26, reasoning: 4.4 },
+    "z-ai/glm-5.3-flash": { input: 0.15, output: 0.5, cached: 0.03, reasoning: 0.5 },
   },
 
   // === Lane tables keyed by REGISTRY ID === [2026-08-15]

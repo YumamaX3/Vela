@@ -56,8 +56,12 @@ const PATTERN_THINKING = [
   { provider: "codebuddy-cn", pattern: "deepseek-v4*", levels: ["low", "high", "xhigh"] },
   { provider: "codebuddy-cn", pattern: "hy3*",         levels: ["low", "high"] },
   { provider: "codebuddy-cn", pattern: "hy4*",         levels: ["high"] },
-  // codebuddy-intl rides the same gateway catalog, so its deepseek levels match.
+  // codebuddy-intl rides the same gateway catalog, so its GLM/deepseek/Hy
+  // levels match CN's.
+  { provider: "codebuddy-intl", pattern: "glm-5.3*",     levels: ["low", "high", "max"] },
+  { provider: "codebuddy-intl", pattern: "glm-5.2",      levels: ["high", "xhigh"] },
   { provider: "codebuddy-intl", pattern: "deepseek-v4*", levels: ["low", "high", "xhigh"] },
+  { provider: "codebuddy-intl", pattern: "hy3*",         levels: ["low", "high"] },
 ];
 
 // Returns valid thinking levels for a model, or null when the model has no reasoning.
