@@ -16,6 +16,7 @@ import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLock
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
 import { FREEBUFF_MODEL_LOCK_MS, FREEBUFF_COOLDOWNS, FREEBUFF_MAX_COOLDOWN_MS } from "open-sse/config/freebuff.js";
 import { resolveProviderId, FREE_PROVIDERS, FREE_TIER_PROVIDERS } from "@/shared/constants/providers.js";
+import { recordZcodeWafStrike, clearZcodeStrikes } from "open-sse/services/zcodePlanStrikes.js";
 import * as log from "@/sse/utils/logger.js";
 
 // Mutex to prevent race conditions during account selection
@@ -407,6 +408,20 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
   const freebuffResetAtMs = freebuffBounded ? null : freebuffDailyResetMs(status, errorText, provider, resetsAtMs);
   const freebuffLockMs = freebuffModelLockedMs(status, errorText, provider);
 
+  // zcode-plan WAF (G2/G11): upstream risk-control answers a challenged account
+  // with 405 {code: 3012}. Runs AFTER the freebuff taxonomy and BEFORE the
+  // generic resetsAtMs branch — a 6h bench must not be truncated by
+  // MAX_RATE_LIMIT_COOLDOWN_MS (same shape as the github branch above). The
+  // FIRST strike earns no lock; its patch is still persisted below (spread
+  // over the existing providerSpecificData) so the second 405 finds it.
+  const isZcodePlan = resolveProviderId(provider) === "zcode-plan";
+  let zcodeWaf = null;
+  let zcodeBenchMs = 0;
+  if (isZcodePlan && Number(status) === 405) {
+    zcodeWaf = recordZcodeWafStrike(conn?.providerSpecificData, Date.now());
+    if (zcodeWaf.benchUntilMs) zcodeBenchMs = Math.max(0, zcodeWaf.benchUntilMs - Date.now());
+  }
+
   // Provider-specific precise cooldown (e.g. codex usage_limit_reached resets_at) overrides backoff
   let shouldFallback, cooldownMs, newBackoffLevel;
   if (githubResetAtMs) {
@@ -429,6 +444,12 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
     shouldFallback = true;
     cooldownMs = freebuffLockMs;
     newBackoffLevel = 0;
+  } else if (zcodeBenchMs) {
+    // Second consecutive WAF strike — account-wide 6h bench, intentionally past
+    // MAX_RATE_LIMIT_COOLDOWN_MS (the risk-control answer is not a retry advice).
+    shouldFallback = true;
+    cooldownMs = zcodeBenchMs;
+    newBackoffLevel = 0;
   } else if (resetsAtMs && resetsAtMs > Date.now()) {
     shouldFallback = true;
     cooldownMs = Math.min(resetsAtMs - Date.now(), MAX_RATE_LIMIT_COOLDOWN_MS);
@@ -436,18 +457,32 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
   } else {
     ({ shouldFallback, cooldownMs, newBackoffLevel } = checkFallbackError(status, errorText, backoffLevel, provider));
   }
-  if (!shouldFallback) return { shouldFallback: false, cooldownMs: 0 };
+  // The strike patch is persisted whether or not this 405 benches: the first
+  // strike falls through to the generic decision, but its record is what makes
+  // the second one consecutive. Spread over the connection's existing
+  // providerSpecificData — no key is dropped.
+  const zcodePatch = zcodeWaf
+    ? { providerSpecificData: { ...(conn?.providerSpecificData || {}), zcodeStrikes: zcodeWaf.patch } }
+    : {};
+
+  if (!shouldFallback) {
+    if (zcodeWaf) {
+      await updateProviderConnection(connectionId, zcodePatch);
+    }
+    return { shouldFallback: false, cooldownMs: 0 };
+  }
 
   const reason = typeof errorText === "string" ? errorText.slice(0, 200) : "Provider error";
-  // GitHub + freebuff ban + freebuff daily quota are account-wide; freebuff
-  // bounded codes rotate accounts (account-wide) except invalid_agent_model
-  // (the (egress, model) pairing); everything else is per-model.
-  const accountWide = !!(githubResetAtMs || freebuffBanMs || freebuffResetAtMs || (freebuffBounded && freebuffBounded.accountWide));
+  // GitHub + freebuff ban + freebuff daily quota + the zcode-plan WAF bench are
+  // account-wide; freebuff bounded codes rotate accounts (account-wide) except
+  // invalid_agent_model (the (egress, model) pairing); everything else is per-model.
+  const accountWide = !!(githubResetAtMs || freebuffBanMs || freebuffResetAtMs || zcodeBenchMs || (freebuffBounded && freebuffBounded.accountWide));
   const lockModel = accountWide ? null : model;
   const lockUpdate = buildModelLockUpdate(lockModel, cooldownMs);
 
   await updateProviderConnection(connectionId, {
     ...lockUpdate,
+    ...zcodePatch,
     testStatus: "unavailable",
     lastError: reason,
     errorCode: status,
@@ -501,12 +536,23 @@ export async function clearAccountError(connectionId, currentConnection, model =
     await recordOutcome(poolId || "", conn?.provider || "", { ok: true });
   } catch { /* fire-and-forget: never break login */ }
 
+  // zcode-plan (G2/G11): a clean 200 between two WAF strikes resets the
+  // consecutive count. Built before the guards below so the strike patch rides
+  // whichever write happens (or is the only reason to write). Null when the
+  // connection carries no zcodeStrikes — nothing to clear, nothing added.
+  const zcodeClear = resolveProviderId(conn?.provider) === "zcode-plan" && conn?.providerSpecificData?.zcodeStrikes
+    ? { providerSpecificData: { ...conn.providerSpecificData, zcodeStrikes: clearZcodeStrikes(conn.providerSpecificData, Date.now()) } }
+    : null;
+
   if (!connectionId || connectionId === "noauth") return;
 
   const now = Date.now();
   const allLockKeys = Object.keys(conn).filter(k => k.startsWith("modelLock_"));
 
-  if (!conn.testStatus && !conn.lastError && allLockKeys.length === 0) return;
+  if (!conn.testStatus && !conn.lastError && allLockKeys.length === 0) {
+    if (zcodeClear) await updateProviderConnection(connectionId, zcodeClear);
+    return;
+  }
 
   // Keys to clear: current model's lock + all expired locks
   //
@@ -556,6 +602,7 @@ export async function clearAccountError(connectionId, currentConnection, model =
       backoffLevel: 0
     });
   }
+  if (zcodeClear) Object.assign(clearObj, zcodeClear);
   if (Object.keys(clearObj).length === 0) return;
 
   await updateProviderConnection(connectionId, clearObj);

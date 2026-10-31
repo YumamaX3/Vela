@@ -443,8 +443,10 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
     // zcode-plan: the cached billing balance names the model's own reset. A spent
     // entitlement routes away at once; the same instant flows on as resetsAtMs so
     // markAccountUnavailable still persists a modelLock the rotation can honour.
+    // 402 (G2/G11) is the exhausted-plan answer too — it must consult the same
+    // cached billingResetAtMs rather than settle for the generic 2-min rule.
     let zcodeQuotaResetMs = null;
-    if (provider === "zcode-plan" && (result.status === 429 || result.status === 529 || result.status === 405 || result.status === 503)) {
+    if (provider === "zcode-plan" && (result.status === 402 || result.status === 429 || result.status === 529 || result.status === 405 || result.status === 503)) {
       const quota = credentials?.providerSpecificData?.zcodeQuota || null;
       zcodeQuotaResetMs = quota ? quotaResetAtMs(quota, model) : null;
       if (zcodeQuotaResetMs && !resetsAtMs) resetsAtMs = zcodeQuotaResetMs;

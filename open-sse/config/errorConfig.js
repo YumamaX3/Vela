@@ -88,6 +88,14 @@ export const ERROR_RULES = [
   { text: "capacity",                 backoff: true },
   { text: "overloaded",               backoff: true },
 
+  // zcode-plan: a 401/403 means the bearer the plan issued is no longer
+  // accepted (expired session / account-level refusal). The generic 401/403
+  // cooldown is short; a refused plan credential stays refused until it is
+  // re-claimed, so the connection benches for a day instead of churning.
+  // Provider-scoped: other providers' 401/403 keep their generic cooldown.
+  { provider: "zcode-plan", status: 401, cooldownMs: 24 * 60 * 60 * 1000 },
+  { provider: "zcode-plan", status: 403, cooldownMs: 24 * 60 * 60 * 1000 },
+
   // --- Status-based rules (fallback when text doesn't match) ---
   { status: 401, cooldownMs: COOLDOWN.long },
   { status: 402, cooldownMs: COOLDOWN.long },
