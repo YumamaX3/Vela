@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from "uuid";
 import { refreshKiroToken } from "../services/tokenRefresh.js";
 import { SSE_DONE, SSE_HEADERS } from "../utils/sseConstants.js";
 import { getCapabilitiesForModel } from "../providers/capabilities.js";
+import { attachKiroAvailability } from "../services/kiroControlPlane.js";
 import { STREAM_FIRST_CHUNK_TIMEOUT_MS } from "../config/runtimeConfig.js";
 import * as log from "../../src/sse/utils/logger.js";
 
@@ -349,6 +350,11 @@ export class KiroExecutor extends BaseExecutor {
    * classify the status, and trigger account fallback/cooldown.
    */
   async execute(args) {
+    // M3 · C3 — fill `credentials.kiroAvailableModels` for this account BEFORE
+    // the body is translated (the translator gates on it). Default OFF: with
+    // KIRO_CONTROL_PLANE unset this awaited call returns immediately and the
+    // credentials record is untouched.
+    await attachKiroAvailability(args?.credentials, { log: args?.log });
     const result = await super.execute(args);
     if (result?.response?.ok) this.attachIntegrityGate(result, args);
     return result;

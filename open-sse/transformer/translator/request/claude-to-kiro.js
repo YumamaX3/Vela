@@ -236,12 +236,20 @@ export function claudeToKiroRequest(model, body, stream, credentials) {
   const temperature = body.temperature;
   const topP = body.top_p;
 
-  const modelIntent = resolveKiroModelIntent(model);
+  const modelIntent = resolveKiroModelIntent(model, credentials);
   const { upstream: upstreamModel, agentic } = modelIntent;
+  // M3 · C3 — an account the control plane answered for may only call what its
+  // ListAvailableModels listed. Declining here turns into a 400 in chatCore
+  // (falsy translation), with the account's own list carried in the log line.
+  if (modelIntent.available === false) {
+    log.error("STREAM", `[Kiro] model not available on this account: ${model} | ${modelIntent.unavailableReason} | available=${(modelIntent.availableModels || []).join(",")}`);
+    return null;
+  }
   const thinkingBody = applyKiroThinkingOverride(body, modelIntent.thinkingOverride);
   const thinkingBudget = resolveKiroThinkingBudget(thinkingBody, credentials?.rawHeaders, modelIntent.model);
-  const additionalModelRequestFields = buildKiroAdditionalModelRequestFieldsForModel(thinkingBody, upstreamModel);
-  const usesNativeGptEffort = usesKiroNativeGptEffort(thinkingBody, upstreamModel);
+  // Public name for the effort tables (enum ids match no ladder — M3 · C1).
+  const additionalModelRequestFields = buildKiroAdditionalModelRequestFieldsForModel(thinkingBody, modelIntent.model);
+  const usesNativeGptEffort = usesKiroNativeGptEffort(thinkingBody, modelIntent.model);
 
   const { specs: toolSpecs, nameMap } = normalizeKiroToolSpecs(tools);
   const { history, currentMessage } = convertClaudeMessagesToKiro(messages, upstreamModel);

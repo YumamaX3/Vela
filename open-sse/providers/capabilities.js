@@ -221,7 +221,32 @@ export const PROVIDER_CAPABILITIES = {
     "performance":    { reasoning: false, thinkingFormat: "qwen",     contextWindow: 1000000, maxOutput: 131072 },
     "efficient":      { reasoning: false, thinkingFormat: "qwen",     contextWindow: 180000, maxOutput: 64000 },
   },
+  // Kiro (alias kr) — M3 · C6. MEASURED FIRST (scripts/probe-kiro-capabilities.mjs,
+  // fresh process, every roster id): the pattern chain agreed with the roster
+  // on window AND vision for all 56 ids, so there is deliberately NO blanket
+  // conversion — the table stays at the 12 GPT-5.6 rows plus the eight below.
+  //
+  // The eight are rows whose RESOLUTION the probe could not judge but whose
+  // provenance it exposed:
+  //   • claude-opus-4.5 / claude-sonnet-4.5 / claude-haiku-4.5 resolved through
+  //     GLOBAL model rows (MODEL_CAPABILITIES) and the generic *claude*opus*
+  //     glob — data shared with every other provider, so a global edit for
+  //     Kiro's sake would move ANOTHER lane. Restated here at the values the
+  //     probe measured for Kiro (200k / 64k / claude-budget).
+  //   • deepseek-3.2, qwen3-coder-next, glm-5, MiniMax-M2.5 resolved
+  //     `search: true` off generic globs — but Kiro's web tool exists ONLY on
+  //     the agentic surface, so `search` is false on this lane. glm-5 and
+  //     MiniMax-M2.5 also arrive text-only from the probe (the zai / minimax
+  //     globs carry no vision), stated here rather than inferred.
+  // Pin: tests/unit/kiro-capability-rows.test.js (incl. kr↔kiro alias parity).
   "kiro": {
+    "claude-opus-4.5":   { vision: true, reasoning: true, search: true, thinkingFormat: "claude-budget", contextWindow: 200000, maxOutput: 64000 },
+    "claude-sonnet-4.5": { vision: true, reasoning: true, search: true, thinkingFormat: "claude-budget", contextWindow: 200000, maxOutput: 64000 },
+    "claude-haiku-4.5":  { vision: true, reasoning: true, search: true, thinkingFormat: "claude-budget", contextWindow: 200000, maxOutput: 64000 },
+    "deepseek-3.2":      { vision: false, reasoning: true, search: false, thinkingFormat: "deepseek", contextWindow: 128000, maxOutput: 64000 },
+    "qwen3-coder-next":  { vision: false, reasoning: true, search: false, thinkingFormat: "qwen", contextWindow: 1000000, maxOutput: 64000 },
+    "glm-5":             { vision: false, reasoning: true, search: false, thinkingFormat: "zai", contextWindow: 200000, maxOutput: 128000 },
+    "MiniMax-M2.5":      { vision: false, reasoning: true, search: false, thinkingFormat: "minimax", thinkingCanDisable: false, contextWindow: 200000, maxOutput: 131072 },
     "gpt-5.6-sol": KIRO_GPT_5_6_CAPABILITIES,
     "gpt-5.6-terra": KIRO_GPT_5_6_CAPABILITIES,
     "gpt-5.6-luna": KIRO_GPT_5_6_CAPABILITIES,

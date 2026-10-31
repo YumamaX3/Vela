@@ -35,6 +35,13 @@ const REGISTRY_DIR = join(
 // Deliberately unindexed providers — must exist on disk, must stay out of the index.
 const HIDDEN = new Set(["trae", "devin-cli", "windsurf"]);
 
+// Registry-directory HELPER modules: shared data imported BY registry entries,
+// not providers themselves. Exempt from the disk↔index census, but held to
+// their own law — a helper must export no `id` of its own, so a future file
+// that is really a provider cannot hide behind this list (the exemption test
+// below redens if it does).
+const HELPER_MODULES = new Set(["kiroModelAliases"]);
+
 const diskFiles = readdirSync(REGISTRY_DIR)
   .filter((f) => f.endsWith(".js") && f !== "index.js")
   .map((f) => f.replace(/\.js$/, ""));
@@ -44,7 +51,7 @@ const importedIds = REGISTRY.map((e) => e.id);
 describe("provider registry census", () => {
   it("imports EVERY provider file on disk except the named HIDDEN set", () => {
     const importedSet = new Set(importedIds);
-    const missing = diskFiles.filter((f) => !importedSet.has(f) && !HIDDEN.has(f));
+    const missing = diskFiles.filter((f) => !importedSet.has(f) && !HIDDEN.has(f) && !HELPER_MODULES.has(f));
     // The exact 2026-09-04 failure mode: a file reachable on disk, dark at runtime.
     expect(missing, `provider files on disk but absent from registry/index.js: ${missing.join(", ")}`).toEqual([]);
   });
@@ -54,6 +61,18 @@ describe("provider registry census", () => {
     for (const h of HIDDEN) {
       expect(diskFiles, `HIDDEN provider ${h} must keep its file on disk`).toContain(h);
       expect(importedSet.has(h), `HIDDEN provider ${h} must NOT be imported by index.js`).toBe(false);
+    }
+  });
+
+  it("holds HELPER_MODULES to the helper law — present on disk, never a provider", async () => {
+    for (const h of HELPER_MODULES) {
+      expect(diskFiles, `helper module ${h} must keep its file on disk`).toContain(h);
+      // A helper exports data/functions consumed by registry entries; it must
+      // not carry a default provider entry of its own (that would make it a
+      // silently dark provider — the exact failure the census exists to catch).
+      const mod = await import(`../../open-sse/providers/registry/${h}.js`);
+      expect(mod.default, `helper module ${h} must not export a provider default`).toBeUndefined();
+      expect(importedIds, `helper ${h} must not masquerade as a provider id`).not.toContain(h);
     }
   });
 

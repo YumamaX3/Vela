@@ -1,3 +1,15 @@
+import {
+  KIRO_ALIASES,
+  KIRO_UNION_ADDITIONS,
+  KIRO_WIRE_ENUM,
+  kiroUpstreamModelIdFor as KIRO_UPSTREAM_ID_FOR,
+  kiroUnionVariantIds as KIRO_UNION_VARIANT_IDS,
+  kiroUnionDisplayName as KIRO_UNION_DISPLAY_NAMES,
+} from "./kiroModelAliases.js";
+
+// Dated Anthropic ids ride `auto` — see the union block below.
+const KIRO_UNION_UPSTREAM_ID = "auto";
+
 export default {
   id: "kiro",
   priority: 10,
@@ -92,7 +104,39 @@ export default {
     { id: "gpt-5.6-sol-thinking-agentic", name: "GPT 5.6 Sol (Thinking + Agentic)", contextLength: 272000, rateMultiplier: 2.4, upstreamModelId: "gpt-5.6-sol", description: "Experimental preview of OpenAI GPT 5.6 Sol with 272k context window" },
     { id: "gpt-5.6-terra-thinking-agentic", name: "GPT 5.6 Terra (Thinking + Agentic)", contextLength: 272000, rateMultiplier: 1.2, upstreamModelId: "gpt-5.6-terra", description: "Experimental preview of OpenAI GPT 5.6 Terra with 272k context window" },
     { id: "gpt-5.6-luna-thinking-agentic", name: "GPT 5.6 Luna (Thinking + Agentic)", contextLength: 272000, rateMultiplier: 0.6, upstreamModelId: "gpt-5.6-luna", description: "Experimental preview of OpenAI GPT 5.6 Luna with 272k context window" },
+    // ── Union additions (M3 · C2) ──────────────────────────────────────────
+    // The three ids the sealed plan adds to the union. None of them is in the
+    // wire enum (KIRO_WIRE_ENUM), so they ride upstream as `auto`: the
+    // control plane picks the concrete Anthropic model server-side. That is
+    // why upstreamModelId is `auto` rather than the dated public id — sending a
+    // dated id the enum never evidenced is exactly the extrapolation the law
+    // forbids. The four synthetic variants come from kiroUnionVariantIds().
+    ...KIRO_UNION_ADDITIONS.flatMap((baseId) => KIRO_UNION_VARIANT_IDS(baseId)).map((id) => {
+      const base = id.replace(/-(thinking-agentic|thinking|agentic)$/, "");
+      const variant = id.slice(base.length);
+      const label = variant === "-thinking" ? " (Thinking)"
+        : variant === "-agentic" ? " (Agentic)"
+          : variant === "-thinking-agentic" ? " (Thinking + Agentic)"
+            : "";
+      return {
+        id,
+        name: `${KIRO_UNION_DISPLAY_NAMES(base) || base}${label}`,
+        // The union ids have no enum id; their wire id is `auto` (see above).
+        // kiroUpstreamModelIdFor() would keep the dated id verbatim, which is
+        // exactly the guess the law forbids — so `auto` is stated, not derived.
+        upstreamModelId: KIRO_UPSTREAM_ID_FOR(id) || KIRO_UNION_UPSTREAM_ID,
+        description: `Anthropic dated id — rides the Kiro control plane's auto routing (enum has no CLAUDE id for it)`,
+      };
+    }),
   ],
+  // Public-spelling aliases (M3 · C2) — resolved in kiroModelAliases.js BEFORE
+  // any `-thinking` / `-agentic` suffix is stripped.
+  modelAliases: KIRO_ALIASES,
+  // Enum data (M3 · C1) — read straight off this entry by the control-plane
+  // client, so the alias/enum table can be co-located with the roster WITHOUT
+  // being mistaken for a provider file on disk (the census pins that).
+  wireEnum: KIRO_WIRE_ENUM,
+  unionAdditions: KIRO_UNION_ADDITIONS,
   oauth: {
     ssoOidcEndpoint: "https://oidc.us-east-1.amazonaws.com",
     registerClientUrl: "https://oidc.us-east-1.amazonaws.com/client/register",

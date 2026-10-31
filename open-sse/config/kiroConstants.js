@@ -17,6 +17,8 @@
 
 import { extractThinking, parseSuffix } from "../transformer/translator/concerns/thinkingUnified.js";
 import { effortToBudget } from "../transformer/translator/concerns/thinking.js";
+import { resolveKiroWireModel } from "../providers/registry/kiroModelAliases.js";
+import { selectKiroModelForAccount } from "../services/kiroControlPlane.js";
 
 export const KIRO_AGENTIC_SUFFIX = "-agentic";
 export const KIRO_THINKING_SUFFIX = "-thinking";
@@ -25,6 +27,12 @@ export const KIRO_TOOL_DESCRIPTION_MAX_LENGTH = 10237;
 export const KIRO_TOOL_ID_MAX_LENGTH = 64;
 export const KIRO_CODEWHISPERER_TARGET =
   "AmazonCodeWhispererStreamingService.GenerateAssistantResponse";
+
+// The control-plane model listing (M3 · C3). Same service, different target:
+// the identity is carried in X-Amz-Target, not in the URL path, so this endpoint
+// shares the host list the streaming surface already fails over across.
+export const KIRO_CONTROL_PLANE_TARGET =
+  "KiroControlPlaneBearerService.ListAvailableModels";
 export const KIRO_ENDPOINT_FALLBACK_STATUSES = new Set([401, 403, 404]);
 
 // Public default CodeWhisperer profile ARNs (us-east-1), keyed by auth method.
@@ -50,11 +58,41 @@ export const KIRO_THINKING_BUDGET_DEFAULT = 16000;
  * Resolve a Kiro model after consuming the generic model(level) suffix.
  * The suffix is a Vela request override, not part of Kiro's upstream model id.
  */
-export function resolveKiroModelIntent(model) {
+export function resolveKiroModelIntent(model, credentials = null, intentOptions = null) {
+  // Also accepts the executor-shaped call `(model, null, { credentials })`.
+  const gateCredentials = credentials ?? intentOptions?.credentials ?? null;
   const { cleanModel, override } = parseSuffix(model);
+  // M3 · C1/C2 — mapping BEFORE the suffix strip. resolveKiroWireModel() owns
+  // the order (enum → alias → suffix split → enum → verbatim), so the tail of
+  // this intent must agree with it: the alias hop may itself rename the model
+  // (claude-3-5-sonnet → claude-sonnet-5) and the wire id may be a
+  // control-plane enum (CLAUDE_SONNET_4_5_V1_0) the suffixes never touched.
+  const wire = resolveKiroWireModel(cleanModel);
+  // The TRANSLATOR's modelId stays the suffix-stripped PUBLIC id — unchanged
+  // behaviour for every id, enum table or not. The enum (C1) is a
+  // control-plane identity carried alongside as `wireModel`, never substituted
+  // into conversationState/userInputMessage.modelId: that is what the
+  // CodeWhisperer GenerateAssistantResponse surface has always been sent, and
+  // whether it also accepts the enum is an unproven claim we do not ratify.
+  // `credentials.kiroAvailableModels` (a Set filled by the control plane when
+  // its flag is ON) gates selection per account — absent, nothing is gated.
+  const gate = selectKiroModelForAccount(cleanModel, gateCredentials?.kiroAvailableModels);
   return {
     model: cleanModel,
-    ...resolveKiroModel(cleanModel),
+    upstream: resolveKiroModel(cleanModel).upstream,
+    wireModel: wire.wire,
+    // Behaviour flags come from the SAME split the wire resolver used, so the
+    // agentic prompt can never disagree with the model id that ships.
+    agentic: wire.agentic,
+    thinking: wire.thinking,
+    aliased: wire.aliased,
+    enumMapped: wire.enumMapped,
+    // The public id after the alias hop (what a session-replay key should hash).
+    publicModel: wire.base,
+    // ok:false → chatCore answers 400 with the account's own available list;
+    // never a 500, never a silent substitution.
+    available: gate.ok !== false,
+    ...(gate.ok === false ? { unavailableReason: gate.reason, availableModels: gate.available } : {}),
     thinkingOverride: override,
   };
 }

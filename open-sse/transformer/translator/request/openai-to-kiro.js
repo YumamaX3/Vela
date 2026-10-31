@@ -313,12 +313,22 @@ export function openaiToKiroRequest(model, body, stream, credentials) {
   const temperature = body.temperature;
   const topP = body.top_p;
 
-  const modelIntent = resolveKiroModelIntent(model);
+  const modelIntent = resolveKiroModelIntent(model, credentials);
   const { upstream: upstreamModel, agentic } = modelIntent;
+  // M3 · C3 — an account the control plane answered for may only call what its
+  // ListAvailableModels listed. Declining here turns into a 400 in chatCore
+  // (falsy translation), with the account's own list carried in the log line.
+  if (modelIntent.available === false) {
+    log.error("STREAM", `[Kiro] model not available on this account: ${model} | ${modelIntent.unavailableReason} | available=${(modelIntent.availableModels || []).join(",")}`);
+    return null;
+  }
+  // Effort/keyword tables key on PUBLIC model names, never enum ids (M3 · C1):
+  // `CLAUDE_SONNET_5_V1_0` matches no effort ladder, so the family gates read
+  // modelIntent.model (the public spelling) while the wire id ships below.
   const thinkingBody = applyKiroThinkingOverride(body, modelIntent.thinkingOverride);
   const thinkingBudget = resolveKiroThinkingBudget(thinkingBody, credentials?.rawHeaders, modelIntent.model);
-  const additionalModelRequestFields = buildKiroAdditionalModelRequestFieldsForModel(thinkingBody, upstreamModel);
-  const usesNativeGptEffort = usesKiroNativeGptEffort(thinkingBody, upstreamModel);
+  const additionalModelRequestFields = buildKiroAdditionalModelRequestFieldsForModel(thinkingBody, modelIntent.model);
+  const usesNativeGptEffort = usesKiroNativeGptEffort(thinkingBody, modelIntent.model);
 
   const { specs: toolSpecs, nameMap } = normalizeKiroToolSpecs(tools);
   const { history, currentMessage } = convertMessages(messages, upstreamModel);

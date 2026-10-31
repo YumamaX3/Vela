@@ -15,6 +15,7 @@ import { FILTERS as SUGGESTED_MODEL_FILTERS } from "@/app/api/providers/suggeste
 import { getProviderConnections, getCombos, getCustomModels, getModelAliases } from "@/lib/localDb";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { resolveKiroModels } from "open-sse/services/kiroModels.js";
+import { deriveKiroCatalog, getKiroAccountModelCatalog } from "open-sse/services/kiroControlPlane.js";
 import { resolveKimchiModels } from "open-sse/services/kimchiModels.js";
 import { resolveQoderModels } from "open-sse/services/qoderModels.js";
 import { resolveCopilotModels } from "open-sse/services/copilotModels.js";
@@ -182,9 +183,45 @@ function comboMatchesKinds(combo, kindFilter) {
 
 // Per-provider live model resolvers. Each receives a connection record and
 // returns { models: [{ id, name? }, ...] } | null on failure.
+// M3 · C3 — the control plane merges EVERY active Kiro account in account
+// order, not just the first one the walk happens to answer. Falls back to the
+// single connection the walk is on when no registry is reachable.
+let kiroAccountLookup = null;
+function kiroConnectionsFor(conn) {
+  try {
+    const all = kiroAccountLookup?.() || [];
+    const unique = [];
+    for (const candidate of [conn, ...all]) {
+      if (candidate && !unique.includes(candidate)) unique.push(candidate);
+    }
+    return unique;
+  } catch {
+    return [conn];
+  }
+}
+
 // Adding a provider here makes /v1/models prefer the live catalog for it.
 const LIVE_MODEL_RESOLVERS = {
   kiro: async (conn) => {
+    // M3 · C3 — when the control plane is ON, /v1/models derives from
+    // ListAvailableModels (per account, 30-min cache) and merges EVERY active
+    // Kiro connection in account order. A null from the control plane (flag
+    // off / upstream down) falls through to the legacy ListAvailableModels
+    // call in kiroModels.js — today's behavior, unchanged.
+    const catalogs = [];
+    for (const candidate of kiroConnectionsFor(conn)) {
+      const catalog = await getKiroAccountModelCatalog({
+        accessToken: candidate?.accessToken,
+        apiKey: candidate?.apiKey,
+        refreshToken: candidate?.refreshToken,
+        providerSpecificData: candidate?.providerSpecificData || {},
+      }, { log: console });
+      if (catalog?.models?.length) catalogs.push(catalog);
+    }
+    if (catalogs.length > 0) {
+      const merged = deriveKiroCatalog(catalogs);
+      if (merged?.models?.length) return { models: merged.models };
+    }
     const result = await resolveKiroModels({
       accessToken: conn.accessToken,
       refreshToken: conn.refreshToken,
@@ -327,6 +364,9 @@ export async function buildModelsList(kindFilter, options = {}) {
       activeConnectionByProvider.set(conn.provider, conn);
     }
   }
+  // M3 · C3 — the Kiro control-plane merge walks every active Kiro account.
+  const kiroAccounts = connections.filter((c) => c?.provider === "kiro");
+  kiroAccountLookup = () => kiroAccounts;
 
   const models = [];
 
@@ -601,6 +641,8 @@ export async function buildModelsList(kindFilter, options = {}) {
       }
     }
   }
+
+  kiroAccountLookup = null;
 
   const dedupedModels = [];
   const seenModelIds = new Set();
