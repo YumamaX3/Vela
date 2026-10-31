@@ -31,17 +31,18 @@ describe("stripUnsupportedParams", () => {
 
   it("clamps VolcEngine Ark GLM max token fields to the model output ceiling", () => {
     const body = {
-      max_tokens: 131072,
-      max_completion_tokens: 131072,
-      max_output_tokens: 131072,
+      max_tokens: 200000,
+      max_completion_tokens: 200000,
+      max_output_tokens: 200000,
     };
 
     stripUnsupportedParams("volcengine-ark", "GLM-5.2", body);
 
+    // 131072 = models.dev zai output ceiling (the *glm-5.2* pattern row).
     expect(body).toEqual({
-      max_tokens: 128000,
-      max_completion_tokens: 128000,
-      max_output_tokens: 128000,
+      max_tokens: 131072,
+      max_completion_tokens: 131072,
+      max_output_tokens: 131072,
     });
   });
 

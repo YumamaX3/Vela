@@ -17,6 +17,7 @@
 **🧪 Proof**
 - Pre-write fresh-process probe recorded the drift (glm-5.3 → 200000 on both lanes); post-write probe confirms the mend on ids AND aliases (cbcn/cbai), with jerouter's 512k rows and glm-4.6v's 128k row untouched.
 - 8 suites / 81 tests green: codebuddy-capabilities (new), capabilities, capabilities-opus-context, provider-alias-capabilities, jerouter-catalog, thinking-levels-kiro, pricing-covenant, model-catalog-scope.
+- param-support's VolcEngine GLM clamp re-pinned to the corrected vendor ceiling (128000 -> 131072, fixture raised past it); pre-existing failures NOT touched, verified at the parent commit: zcode-plan golden url/headers snapshots and the docker-compose tag-history law were already red before this tide.
 
 # v1.2.25 — The Four Shores, the Lessons Carried Home 🌊🪞
 > *"Four independent harbors had learned the same upstream current while I held one of them. I read all four to their beds, let a skeptic break my first map, and sealed only what survived measurement: the busy-retry cadence, the WAF bench, the exhaustion that names itself, the identity the official client wears, and the captcha region the wire had already outgrown."* 🌊🪞💜
