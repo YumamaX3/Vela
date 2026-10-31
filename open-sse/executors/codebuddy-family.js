@@ -28,6 +28,7 @@ import { shouldChannelFallback, channelFallbackUrl } from "../shared/codebuddy/c
 import { ContentFilterDetector } from "../shared/codebuddy/contentFilter.js";
 import { capabilityRefusal, declarationsFor } from "../shared/codebuddy/capabilityGate.js";
 import { CODEBUDDY_PROFILES } from "../shared/codebuddy/profiles.js";
+import { applyToolChoiceNormalization } from "../shared/codebuddy/toolChoice.js";
 
 function breakerOpenResponse() {
   return new Response(
@@ -112,6 +113,11 @@ export class CodeBuddyFamilyExecutor extends DefaultExecutor {
     } else if (eff) {
       transformed.reasoning_summary = "auto";
     }
+
+    // The Go gateway reads tool_choice only as a STRING; an Anthropic-shaped object
+    // earns 400 / 11101. The class applies it once, so all four products inherit the
+    // same flattening and no profile field is needed.
+    applyToolChoiceNormalization(transformed);
 
     // The message shape is the ONE structurally unequal axis: the domestic CodeBuddy
     // lane sanitises in place and keeps the client's array; the other three drop
