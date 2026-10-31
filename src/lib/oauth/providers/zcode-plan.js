@@ -149,6 +149,14 @@ const zcodePlan = {
         // headers and session-id derivation depend on it staying stable
         deviceMid: uuidv4(),
         zcodeUser: user,
+        // client platform profile — resolveZcodeProfile (Wave A) reads these
+        // four keys verbatim as the CLI's own darwin-x64 fingerprint
+        zcodeProfile: {
+          platform: "darwin-x64",
+          osVersion: "21.6.0",
+          language: "en-US",
+          timezone: "Europe/Bucharest",
+        },
         ...(tokens._zaiOAuthToken ? { zaiOAuthToken: tokens._zaiOAuthToken } : {}),
       },
     };

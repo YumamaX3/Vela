@@ -22,7 +22,7 @@ const CFG_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_CAPTCHA_CFG = {
   enabled: true,
   prefix: "no8xfe",
-  region: "sgp",
+  region: "cn",
   sceneId: "11xygtvd",
   skipModelRequest: false,
 };
@@ -52,7 +52,7 @@ async function fetchCaptchaCfg() {
       const value = {
         enabled: cc.enabled !== false,
         prefix: cc.prefix,
-        region: cc.region || "",
+        region: cc.region || "cn",
         sceneId: cc.sceneId || "",
         skipModelRequest: !!cc.skip_model_request,
       };
