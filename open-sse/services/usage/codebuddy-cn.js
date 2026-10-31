@@ -50,7 +50,15 @@ async function getCodeBuddyUsage(providerId, accessToken, apiKey, providerSpecif
   }
 
   try {
-    const response = await proxyAwareFetch(U(providerId).url, {
+    // The billing endpoint comes from the registry's own usage.url — one source
+    // of truth per shore. The WorkBuddy siblings (M2/B2) carry their own hosts
+    // there (workbuddy.cn / workbuddy.ai); a hardcoded host would silently bill
+    // a WorkBuddy account against CodeBuddy's door. U() resolves both.
+    const usageUrl = U(providerId).url;
+    if (!usageUrl) {
+      return { message: `Usage endpoint not configured for ${providerId}.` };
+    }
+    const response = await proxyAwareFetch(usageUrl, {
       method: "POST",
       headers: {
         ...(PROVIDERS[providerId]?.headers || {}),
@@ -143,4 +151,20 @@ export async function getCodeBuddyCnUsage(accessToken, apiKey, providerSpecificD
 
 export async function getCodeBuddyIntlUsage(accessToken, apiKey, providerSpecificData, proxyOptions = null) {
   return getCodeBuddyUsage("codebuddy-intl", accessToken, apiKey, providerSpecificData, proxyOptions);
+}
+
+// WorkBuddy siblings (M2/B2). Same billing envelope as CodeBuddy
+// (data.Response.Data.Accounts[]), same double-wrapped payload, same credit
+// split — but their own accounts and their own billing door: the base URL is
+// the registry's usage.url already present in workbuddy-cn.js and
+// workbuddy-intl.js (www.workbuddy.cn / www.workbuddy.ai), resolved by U().
+// Nothing hardcoded here; B4's "cn billing host www.codebuddy.cn" note concerns
+// the CodeBuddy CN lane, and a WorkBuddy account must never be billed at
+// CodeBuddy's door.
+export async function getWorkBuddyCnUsage(accessToken, apiKey, providerSpecificData, proxyOptions = null) {
+  return getCodeBuddyUsage("workbuddy-cn", accessToken, apiKey, providerSpecificData, proxyOptions);
+}
+
+export async function getWorkBuddyIntlUsage(accessToken, apiKey, providerSpecificData, proxyOptions = null) {
+  return getCodeBuddyUsage("workbuddy-intl", accessToken, apiKey, providerSpecificData, proxyOptions);
 }

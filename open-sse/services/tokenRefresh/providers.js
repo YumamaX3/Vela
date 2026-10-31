@@ -567,6 +567,101 @@ export async function refreshCodebuddyIntlToken(refreshToken, log) {
   }, log);
 }
 
+// WorkBuddy refresh — the LIVE DEFECT this closes: WorkBuddy connections carried a
+// refresh token but had no dispatcher entry, so the first expiry was a silent 401.
+//
+// Same wire shape as its CodeBuddy sibling (POST /v2/plugin/auth/token/refresh,
+// refresh token in the X-Refresh-Token header, response {code:0, data:<token>}) —
+// but TWO fields differ, and both are decisions recorded in the plan's decision log:
+//
+//  * X-Auth-Refresh-Source is "workbuddy", not CodeBuddy's "plugin". The working
+//    reference proxy (yuan240324) sends "workbuddy"; Vela's CodeBuddy lanes send
+//    "plugin". WorkBuddy shores send the WorkBuddy value — the source names the
+//    client family that is asking, and a WorkBuddy account asking as "plugin"
+//    would be exactly the identity mismatch §B3 exists to kill.
+//  * Host, User-Agent and the value above are read from the registry's own oauth
+//    block (provided by the `oauth` profile of providers/index.js), never hardcoded
+//    here — one source of truth per shore, so a version bump is a registry edit.
+//
+// The sibling functions above hardcode their host; this one cannot, because the two
+// WorkBuddy shores share one product and differ in host. That asymmetry is known
+// and owed a fuller refactor (the four refresh functions folded into one driven by
+// the oauth block) — noted in the plan's decision log, not attempted here.
+async function refreshWorkbuddy(providerId, refreshToken, log) {
+  const oauth = PROVIDER_OAUTH[providerId] || {};
+  if (!oauth.refreshUrl) {
+    log?.warn?.("TOKEN_REFRESH", `No refreshUrl configured for ${providerId}`);
+    return null;
+  }
+  // X-Domain is derived from the registry's baseUrl host — never hardcoded, so
+  // the CN shore can never send an intl domain header. A registry that carries
+  // refreshUrl but no baseUrl must fail as a clean null, not a thrown URL parse.
+  let domain = null;
+  try {
+    domain = new URL(oauth.baseUrl).host;
+  } catch {
+    log?.warn?.("TOKEN_REFRESH", `Invalid or missing baseUrl for ${providerId}; cannot derive X-Domain`);
+    return null;
+  }
+
+  return dedupRefresh(providerId, refreshToken, async () => {
+    const response = await fetch(oauth.refreshUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "User-Agent": oauth.userAgent,
+        "X-Requested-With": "XMLHttpRequest",
+        "X-Domain": domain,
+        "X-Refresh-Token": refreshToken,
+        "X-Auth-Refresh-Source": "workbuddy",
+        "X-Product": "SaaS",
+      },
+      body: "{}",
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      log?.error?.("TOKEN_REFRESH", `Failed to refresh WorkBuddy token (${providerId})`, {
+        status: response.status,
+        error: errorText,
+      });
+      return null;
+    }
+
+    const data = await response.json();
+    if (data.code !== 0 || !data.data?.accessToken) {
+      log?.error?.("TOKEN_REFRESH", `WorkBuddy token refresh returned no token (${providerId})`, {
+        code: data.code,
+        msg: data.msg,
+      });
+      return null;
+    }
+
+    log?.info?.("TOKEN_REFRESH", `Successfully refreshed WorkBuddy token (${providerId})`, {
+      hasNewAccessToken: !!data.data.accessToken,
+      hasNewRefreshToken: !!data.data.refreshToken,
+      expiresIn: data.data.expiresIn,
+    });
+
+    return {
+      accessToken: data.data.accessToken,
+      refreshToken: data.data.refreshToken || refreshToken,
+      expiresIn: data.data.expiresIn,
+    };
+  }, log);
+}
+
+export async function refreshWorkbuddyCnToken(refreshToken, log) {
+  if (!refreshToken) return null;
+  return refreshWorkbuddy("workbuddy-cn", refreshToken, log);
+}
+
+export async function refreshWorkbuddyIntlToken(refreshToken, log) {
+  if (!refreshToken) return null;
+  return refreshWorkbuddy("workbuddy-intl", refreshToken, log);
+}
+
 // Trae refresh — POST ExchangeToken with JSON body {ClientID, RefreshToken, ClientSecret, UserID}.
 // Response: {Result: {AccessToken, RefreshToken, TokenType, ExpiresAt}}.
 export async function refreshTraeToken(refreshToken, credentials, log) {

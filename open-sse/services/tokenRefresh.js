@@ -14,6 +14,8 @@ import {
   refreshCopilotToken,
   refreshCodebuddyToken,
   refreshCodebuddyIntlToken,
+  refreshWorkbuddyCnToken,
+  refreshWorkbuddyIntlToken,
   refreshTraeToken,
   refreshZedToken,
   refreshWindsurfToken,
@@ -34,6 +36,8 @@ export {
   refreshCopilotToken,
   refreshCodebuddyToken,
   refreshCodebuddyIntlToken,
+  refreshWorkbuddyCnToken,
+  refreshWorkbuddyIntlToken,
   refreshTraeToken,
   refreshZedToken,
   refreshWindsurfToken,
@@ -146,6 +150,11 @@ const REFRESH_HANDLERS = {
   gcli: (c, log) => refreshXaiToken(c.refreshToken, log),
   "codebuddy-cn": (c, log) => refreshCodebuddyToken(c.refreshToken, log),
   "codebuddy-intl": (c, log) => refreshCodebuddyIntlToken(c.refreshToken, log),
+  // WorkBuddy siblings (M2/B1) — the missing entries were the silent-401 defect:
+  // without them getAccessToken warned "Unsupported provider" and the first
+  // expiry was terminal. Same family, same wire shape, other two accounts.
+  "workbuddy-cn": (c, log) => refreshWorkbuddyCnToken(c.refreshToken, log),
+  "workbuddy-intl": (c, log) => refreshWorkbuddyIntlToken(c.refreshToken, log),
   trae: (c, log) => refreshTraeToken(c.refreshToken, c, log),
   // (ported from upstream 9router f6e7cabe — ADR-004 M2) Cline had NO handler
   // in this fork at all — its OAuth tokens could never rotate here (silent 401
@@ -161,6 +170,11 @@ const REFRESH_HANDLERS = {
   vertex: vertexRefreshHandler,
   "vertex-partner": vertexRefreshHandler
 };
+
+// The dispatcher table itself, exported read-only for the pin tests: a family id
+// that is missing here is a provider whose credentials can never rotate, and the
+// coverage test must be able to see the whole table — not just probe the paths.
+export const REFRESHERS = Object.freeze(REFRESH_HANDLERS);
 
 export async function getAccessToken(provider, credentials, log) {
   if (!credentials || !credentials.refreshToken || typeof credentials.refreshToken !== "string") {

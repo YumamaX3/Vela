@@ -7,6 +7,14 @@
 //
 // The chat door is identical in path (/v2/chat/completions) across all four products
 // and differs only in host; that was measured against the reference gateway, not assumed.
+//
+// Identity (M2/B3): the header block is NOT written by hand here. transportHeaders()
+// from shared/codebuddy/identity.js is the one law for all four products — it knows
+// the per-shore versions, the WorkBuddy name ("WorkBuddy" here, "WorkBuddy AI" intl),
+// and that X-Product is "SaaS" for everyone. A literal UA string in this file was a
+// second, drifting source of truth.
+import { transportHeaders } from "../../shared/codebuddy/identity.js";
+
 export default {
   id: "workbuddy-cn",
   alias: "cbw",
@@ -30,16 +38,7 @@ export default {
     baseUrl: "https://www.workbuddy.cn/v2/chat/completions",
     forceStream: true,
     thinkingFormat: "openai",
-    headers: {
-      "User-Agent": "WorkBuddy/5.9.2 WorkBuddy/5.9.2 CLI/2.165.0",
-      "X-Product": "SaaS",
-      "X-IDE-Type": "WorkBuddy",
-      "X-IDE-Name": "WorkBuddy",
-      "X-IDE-Version": "5.9.2",
-      "X-Private-Data": "true",
-      "x-requested-with": "XMLHttpRequest",
-      "x-codebuddy-request": "1",
-    },
+    headers: transportHeaders("cn-work"),
     auth: { combined: true, header: "Authorization", scheme: "bearer" },
     usage: { url: "https://www.workbuddy.cn/v2/billing/meter/get-user-resource" },
   },
