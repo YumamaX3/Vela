@@ -1,3 +1,38 @@
+# v1.2.25 — The Four Shores, the Lessons Carried Home 🌊🪞
+> *"Four independent harbors had learned the same upstream current while I held one of them. I read all four to their beds, let a skeptic break my first map, and sealed only what survived measurement: the busy-retry cadence, the WAF bench, the exhaustion that names itself, the identity the official client wears, and the captcha region the wire had already outgrown."* 🌊🪞💜
+
+**The change.** A sibling-fork mining campaign over four `zcode2api` repositories (D3-vin Go — the gateway this provider was first ported from, pushed 2026-10-30 with a month of live-fire fixes after our port; dengyie Python "zcode-hub" — the largest and most evolved; liu5269 + Sakuralaaa Python — the elder ancestors). Eight measured capabilities ported into the native `zcode-plan` provider; five already present; five refused with recorded grounds. Sealed plan: `plans/2026-10-31-four-shores-zcode2api.md` (16-row capability table, G1–G16, with evidence and verdicts).
+
+**✨ Features**
+- 3010 admission-limit cadence (G1): a 429 carrying business code 3010 now busy-retries the SAME account at 1s/2s (the official client's cadence) before rotating — previously it burned the generic 429 ladder and failed over the whole account. New export `isZcodeAdmissionLimit`.
+- Official-client system identity (G8): the three system blocks the official ZCode client prepends (sha256-verified vendored asset `open-sse/services/zcode-system-blocks.json`) are now injected post-translation in `transformRequest`, idempotent, never fatal, no cache_control on injected blocks — d3-vin's wire capture shows a 4th block earns a 3012, so only three sail.
+- Per-connection device profile (G9): OAuth mint now stamps `providerSpecificData.zcodeProfile`; the executor's X-Platform/X-Os-Version/X-Client-Language/X-Client-Timezone read it with the old baked values as fallback — existing connections behave byte-identically. Header count stays 23/22 (the d3-vin HAR capture carries no X-Device-Mid; the wire capture outranks the proxy reconstruction).
+- metadata.user_id identity blob (G14): requests without one now carry `{"device_id","account_uuid","session_id"}` derived from the connection's deviceMid (d3-vin shape), set-if-absent.
+- WAF bench discipline (G2): a zcode-plan 405 (upstream 3012 risk control) records a strike in `providerSpecificData.zcodeStrikes` (7-day decay); two consecutive 405s bench the account for 6 hours — intentionally past the generic 30-minute cap, shaped like the github/freebuff branches. A clean 200 resets the consecutive count.
+- 402 exhaustion (G11): an exhausted-plan 402 now consults the cached billing reset instead of the generic 2-minute rule; 401/403 on this provider lock 24h (provider-scoped ERROR_RULES — other providers untouched).
+- 500 joins the retry ladder (G7): {attempts:2, 1000ms}; 502/503 trimmed 5→2 to match the upstream's measured cadence.
+- Captcha region mend (G10): baked fallback region `sgp` → `cn` (upstream: "sgp is expired, live-measured cn"); a live configs answer without a region can no longer blank it.
+
+**🚫 Refused, with grounds** (in the plan, not silently dropped): claude-alias hijack (dead code — routing resolves in model.js before any executor), REQUEST_HOLD 10m client hold (wrong shape for a multi-provider router), captcha mint pool (chat needs no captcha), round-robin/inflight caps (Vela's semaphore already provides them), bigmodel routing (a future provider, not a port).
+
+**🧪 Proof**
+- zcode battery 142/142 → 188/188: six suites green (executor 71, quota, oauth 25, claim, auto-claim, strikes 23).
+- Adjacent error-path suites green: 206/206 cumulative incl. account-fallback, github-monthly-lock, freebuff cooldowns.
+- Provider registry census 5/5 (189 files / 186 imported / 145 dialable — no registry adds).
+- `node --check` 12/12 on every touched file; CRLF churn caught and mended (accountFallback.js restored; chat.js endings preserved file-level — true diff is 3 lines).
+- Golden-url-header pair + `npm run build` TS2344: proven pre-existing via stash-baseline (identical failures on the clean tree, born before this tide). Zero attributable failures.
+- Live smoke against real Z.ai accounts remains the credential-gated ritual, unrun here.
+
+**⚓ What sailed**
+- New: `open-sse/services/zcodeProfile.js`, `open-sse/services/zcodeSystemIdentity.js`, `open-sse/services/zcode-system-blocks.json` (vendored, sha256 80884b19), `open-sse/services/zcodePlanStrikes.js`, `tests/unit/zcode-plan-strikes.test.js`, `plans/2026-10-31-four-shores-zcode2api.md`.
+- Modified: `open-sse/executors/zcode-plan.js`, `src/sse/services/auth.js`, `src/sse/handlers/chat.js`, `open-sse/config/errorConfig.js`, `src/lib/oauth/providers/zcode-plan.js`, `open-sse/services/zcodeCaptcha.js`, `tests/unit/zcode-plan-executor.test.js`, `package.json`, `package-lock.json`, `docker-compose.example.yml`.
+
+**🌊 Recorded, not repeated**
+- An executor-side fix for a routing problem is dead code: the route is chosen before the executor wakes. Measure where the decision lives before choosing where the fix lands.
+- A wire capture outranks a reconstruction: where two upstreams disagree about what the official client sends, the one holding the HAR wins.
+- A comment is not a rule: d3-vin's "200s between strikes reset" is a code comment, not implemented behavior — porting it would have shipped a fiction.
+
+
 # v1.2.20 — The Credential Mended, the Claim on the Quota Deck 🌊🔑
 > *"The gate had barred my own — the wrong token wore the right name. I read the far shore's login rite and set the plan JWT where it always belonged, and the bar fell. Then I carried the claim forge up from the provider's hold to the quota deck itself, where the balance breathes: offers, claims, the auto tide — one card, one shore."* 🌊🔑💜
 
