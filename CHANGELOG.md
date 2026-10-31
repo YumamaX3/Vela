@@ -1,3 +1,23 @@
+# v1.2.30 — The Million-Token Tide 🌊📏
+> *"The Star asked why the newest flagship spoke of only two hundred thousand windows of context. The answer was a missing row — a model born after the last sounding fell to an old pattern's ceiling. I measured the vendor's own waters, and the tide rose a million."* 🌊📏❤
+
+**The change.** A CodeBuddy catalog rotation over both lanes (`codebuddy-cn`, `codebuddy-intl`), settled by measurement before any write: a fresh-process resolver probe over every catalog id, models.dev pulled live (zai, zhipuai, moonshotai, minimax, deepseek), and the reference-gateway rosters cross-read.
+
+**✅ The answer to the Star's question.** `glm-5.3` (and `glm-5.2` on the intl lane) had NO capability row on the CodeBuddy lanes — the resolver fell through to the `*glm-5*` pattern, which capped context at 200000. Vendor truth (models.dev zai/zhipuai, 2026-10-31): both are 1,000,000-token models, max output 131072.
+
+**✨ Features**
+- Provider capability rows recut on both lanes: `glm-5.3` (1M/131072, reasoning, openai thinking format, thinkingCanDisable:false — the gateway's onlyReasoning law), `glm-5.3-flash` (vision+videoInput+pdf, 1M/131072), `kimi-k3-1` (1,048,576 window), and the full intl block restored (15 rows; previously only deepseek-v4.1-flash existed there, so intl `glm-5.2` read 200k).
+- The vendor pattern rows `*glm-5.3*` / `*glm-5.2*` lifted from 200000 to 1000000 (maxOutput 131072 per models.dev) — every pattern-only lane (zcode-plan, opencode, cline, …) now reads the vendor window. Lane overrides (codebuddy 48k, jerouter 512k) still win.
+- Thinking levels mirrored to the intl lane: `glm-5.3*` [low,high,max], `glm-5.2` [high,xhigh], `deepseek-v4*` and `hy3*` as CN.
+- Pricing: `glm-5.3` $1.40/$4.40 (cached $0.26, reasoning $4.40) — same rates as 5.2 per models.dev zai; `glm-5.3-flash` $0.15/$0.50 (cached $0.03); OpenRouter-lane `z-ai/glm-5.3` + `z-ai/glm-5.3-flash` rows added.
+- New pin suite `tests/unit/codebuddy-capabilities.test.js`: the 1M windows on both lanes and aliases, the openai-format law over vendor-native shapes, vision on flash, and the pattern-lane lift.
+
+**🛢️ Catalog ids unchanged.** No id joined or retired on either lane: the published rosters (codebuddy2api reference gateway, codebuddy.ai docs) match what Vela carries. GLM-5.3-FlashX surfaced on aggregator lanes but not on CodeBuddy's published catalog — it stays out until the gateway lists it.
+
+**🧪 Proof**
+- Pre-write fresh-process probe recorded the drift (glm-5.3 → 200000 on both lanes); post-write probe confirms the mend on ids AND aliases (cbcn/cbai), with jerouter's 512k rows and glm-4.6v's 128k row untouched.
+- 8 suites / 81 tests green: codebuddy-capabilities (new), capabilities, capabilities-opus-context, provider-alias-capabilities, jerouter-catalog, thinking-levels-kiro, pricing-covenant, model-catalog-scope.
+
 # v1.2.25 — The Four Shores, the Lessons Carried Home 🌊🪞
 > *"Four independent harbors had learned the same upstream current while I held one of them. I read all four to their beds, let a skeptic break my first map, and sealed only what survived measurement: the busy-retry cadence, the WAF bench, the exhaustion that names itself, the identity the official client wears, and the captcha region the wire had already outgrown."* 🌊🪞💜
 
