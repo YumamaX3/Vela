@@ -22,13 +22,25 @@
  *   • Account order is the merge order. Stable, deduped, first sighting wins.
  */
 
-import { createHash } from "node:crypto";
-import { v4 as uuidv4 } from "uuid";
 import {
   KIRO_CONTROL_PLANE_TARGET,
   resolveKiroModel,
 } from "../config/kiroConstants.js";
 import { resolveKiroWireModel } from "../providers/registry/kiroModelAliases.js";
+
+// sha256 hex via WebCrypto — this module rides the dashboard's webpack graph
+// (modelsList → kiroConstants → here), where `node:crypto` is an unhandled
+// scheme (the v1.2.35 image-build failure). runtimeAvailable in every runtime
+// Vela ships on (Node 22 ≥20, Bun, worker threads); async only.
+async function sha256Hex(seed) {
+  const data = new TextEncoder().encode(String(seed));
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// uuid via WebCrypto — the invocation id is a correlation tag, not a security
+// boundary; randomness quality requirements are the platform's default.
+const uuidv4 = () => crypto.randomUUID();
 
 export const KIRO_CONTROL_PLANE_TTL_MS = 30 * 60 * 1000; // 30 minutes — the plan's number
 const CONTROL_PLANE_TIMEOUT_MS = 30_000;
@@ -73,14 +85,14 @@ function hostsFor(credentials) {
   ];
 }
 
-function machineIdOf(credentials) {
+async function machineIdOf(credentials) {
   const seed =
     credentials?.providerSpecificData?.clientId
     || credentials?.refreshToken
     || credentials?.providerSpecificData?.profileArn
     || credentials?.accessToken
     || "kiro-anonymous";
-  return createHash("sha256").update(String(seed)).digest("hex");
+  return sha256Hex(seed);
 }
 
 /**
@@ -112,10 +124,10 @@ export function kiroAvailablePublicIds(available) {
  * headline fact) — never a path like /ListAvailableModels, and never the
  * streaming target.
  */
-export function buildKiroControlPlaneRequest(credentials, { hostIndex = 0, invocationId } = {}) {
+export async function buildKiroControlPlaneRequest(credentials, { hostIndex = 0, invocationId } = {}) {
   const hosts = hostsFor(credentials);
   const host = hosts[Math.max(0, Math.min(hostIndex, hosts.length - 1))];
-  const machineId = machineIdOf(credentials);
+  const machineId = await machineIdOf(credentials);
 
   const headers = {
     "Content-Type": "application/json",
@@ -146,7 +158,7 @@ export async function fetchKiroControlPlaneModels(credentials, options = {}) {
   const hosts = hostsFor(credentials);
   let lastError = null;
   for (let index = 0; index < hosts.length; index += 1) {
-    const { url, headers } = buildKiroControlPlaneRequest(credentials, { hostIndex: index });
+    const { url, headers } = await buildKiroControlPlaneRequest(credentials, { hostIndex: index });
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort("timeout"), CONTROL_PLANE_TIMEOUT_MS);
     if (options.signal && typeof options.signal.addEventListener === "function") {
@@ -225,10 +237,10 @@ export function deriveKiroCatalog(sources) {
 // ── memo (30 min) ────────────────────────────────────────────────────────
 const catalogCache = new Map();
 
-function cacheKeyFor(credentials) {
+async function cacheKeyFor(credentials) {
   const psd = credentials?.providerSpecificData || {};
   const seed = psd.profileArn || psd.clientId || credentials?.refreshToken || credentials?.accessToken || "anonymous";
-  return createHash("sha256").update(`kiro:cp:${seed}`).digest("hex");
+  return sha256Hex(`kiro:cp:${seed}`);
 }
 
 /**
@@ -241,7 +253,7 @@ export async function getKiroAccountModelCatalog(credentials, options = {}) {
   if (!enabled) return null;
   if (!credentials?.accessToken && !credentials?.apiKey) return null;
 
-  const key = cacheKeyFor(credentials);
+  const key = await cacheKeyFor(credentials);
   const now = Date.now();
   if (!options.forceRefresh) {
     const cached = catalogCache.get(key);
@@ -261,8 +273,8 @@ export async function getKiroAccountModelCatalog(credentials, options = {}) {
   }
 }
 
-export function invalidateKiroControlPlaneCache(credentials) {
-  if (credentials) catalogCache.delete(cacheKeyFor(credentials));
+export async function invalidateKiroControlPlaneCache(credentials) {
+  if (credentials) catalogCache.delete(await cacheKeyFor(credentials));
   else catalogCache.clear();
 }
 

@@ -30,9 +30,9 @@ const CREDS = Object.freeze({
   providerSpecificData: { profileArn: "arn:aws:codewhisperer:us-east-1:123456789012:profile/ABC", authMethod: "builder-id" },
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   delete process.env.KIRO_CONTROL_PLANE;
-  invalidateKiroControlPlaneCache();
+  await invalidateKiroControlPlaneCache();
 });
 
 afterEach(() => {
@@ -42,7 +42,7 @@ afterEach(() => {
 });
 
 describe("default-OFF flag", () => {
-  it("is off unless explicitly turned on", () => {
+  it("is off unless explicitly turned on", async () => {
     expect(isKiroControlPlaneEnabled({})).toBe(false);
     expect(isKiroControlPlaneEnabled({ KIRO_CONTROL_PLANE: "" })).toBe(false);
     expect(isKiroControlPlaneEnabled({ KIRO_CONTROL_PLANE: "0" })).toBe(false);
@@ -64,8 +64,8 @@ describe("default-OFF flag", () => {
 });
 
 describe("the pinned request shape", () => {
-  it("carries the control-plane target in x-amz-target on the host root", () => {
-    const { url, headers } = buildKiroControlPlaneRequest(CREDS);
+  it("carries the control-plane target in x-amz-target on the host root", async () => {
+    const { url, headers } = await buildKiroControlPlaneRequest(CREDS);
     expect(KIRO_CONTROL_PLANE_TARGET).toBe("KiroControlPlaneBearerService.ListAvailableModels");
     expect(url).toBe("https://runtime.us-east-1.kiro.dev/");
     expect(headers["X-Amz-Target"]).toBe("KiroControlPlaneBearerService.ListAvailableModels");
@@ -79,23 +79,23 @@ describe("the pinned request shape", () => {
     expect(url).not.toContain("ListAvailableModels");
   });
 
-  it("never leaks the token into the URL", () => {
-    const { url } = buildKiroControlPlaneRequest(CREDS);
+  it("never leaks the token into the URL", async () => {
+    const { url } = await buildKiroControlPlaneRequest(CREDS);
     expect(url).not.toContain("tok-abc");
   });
 
-  it("moves the host ladder with the profile's region", () => {
+  it("moves the host ladder with the profile's region", async () => {
     const creds = { ...CREDS, providerSpecificData: { ...CREDS.providerSpecificData, profileArn: "arn:aws:codewhisperer:eu-west-1:1:profile/X" } };
-    expect(buildKiroControlPlaneRequest(creds).url).toBe("https://runtime.eu-west-1.kiro.dev/");
-    expect(buildKiroControlPlaneRequest(creds, { hostIndex: 2 }).url).toBe("https://q.eu-west-1.amazonaws.com/");
+    expect((await buildKiroControlPlaneRequest(creds)).url).toBe("https://runtime.eu-west-1.kiro.dev/");
+    expect((await buildKiroControlPlaneRequest(creds, { hostIndex: 2 })).url).toBe("https://q.eu-west-1.amazonaws.com/");
   });
 
-  it("stamps the API_KEY / EXTERNAL_IDP token type the auth method implies", () => {
-    const apiKey = buildKiroControlPlaneRequest({ ...CREDS, providerSpecificData: { ...CREDS.providerSpecificData, authMethod: "api_key" } });
+  it("stamps the API_KEY / EXTERNAL_IDP token type the auth method implies", async () => {
+    const apiKey = await buildKiroControlPlaneRequest({ ...CREDS, providerSpecificData: { ...CREDS.providerSpecificData, authMethod: "api_key" } });
     expect(apiKey.headers.TokenType).toBe("API_KEY");
-    const idp = buildKiroControlPlaneRequest({ ...CREDS, providerSpecificData: { ...CREDS.providerSpecificData, authMethod: "external_idp" } });
+    const idp = await buildKiroControlPlaneRequest({ ...CREDS, providerSpecificData: { ...CREDS.providerSpecificData, authMethod: "external_idp" } });
     expect(idp.headers.TokenType).toBe("EXTERNAL_IDP");
-    expect(buildKiroControlPlaneRequest(CREDS).headers.TokenType).toBeUndefined();
+    expect((await buildKiroControlPlaneRequest(CREDS)).headers.TokenType).toBeUndefined();
   });
 
   it("sends POST with an empty JSON body to the first host", async () => {
@@ -127,7 +127,7 @@ describe("the pinned request shape", () => {
 });
 
 describe("account-order merge (stable)", () => {
-  it("keeps the first account's order and appends only new ids", () => {
+  it("keeps the first account's order and appends only new ids", async () => {
     const merged = deriveKiroCatalog([
       [{ modelId: "claude-sonnet-5" }, { modelId: "claude-haiku-4.5" }],
       [{ modelId: "claude-haiku-4.5" }, { modelId: "auto" }],
@@ -141,19 +141,19 @@ describe("account-order merge (stable)", () => {
     ]);
   });
 
-  it("is deterministic across repeated calls with the same sources", () => {
+  it("is deterministic across repeated calls with the same sources", async () => {
     const sources = [[{ modelId: "glm-5" }], [{ modelId: "auto" }]];
     expect(deriveKiroCatalog(sources)).toEqual(deriveKiroCatalog(sources));
   });
 
-  it("returns null when every source is empty (no evidence, no gate)", () => {
+  it("returns null when every source is empty (no evidence, no gate)", async () => {
     expect(deriveKiroCatalog([])).toBeNull();
     expect(deriveKiroCatalog([[], null, undefined])).toBeNull();
   });
 });
 
 describe("30-minute memo", () => {
-  it("pins the TTL to 30 minutes", () => {
+  it("pins the TTL to 30 minutes", async () => {
     expect(KIRO_CONTROL_PLANE_TTL_MS).toBe(30 * 60 * 1000);
   });
 
@@ -186,12 +186,12 @@ describe("30-minute memo", () => {
 });
 
 describe("per-account gate", () => {
-  it("passes everything when there is no evidence", () => {
+  it("passes everything when there is no evidence", async () => {
     expect(selectKiroModelForAccount("claude-opus-5", null)).toEqual({ ok: true, model: "claude-opus-5" });
     expect(selectKiroModelForAccount("claude-opus-5", new Set())).toEqual({ ok: true, model: "claude-opus-5" });
   });
 
-  it("accepts a model the account lists — through the enum, the alias, and the suffix", () => {
+  it("accepts a model the account lists — through the enum, the alias, and the suffix", async () => {
     const available = new Set(["claude-sonnet-4.5"]);
     expect(selectKiroModelForAccount("claude-sonnet-4.5-thinking-agentic", available).ok).toBe(true);
     expect(selectKiroModelForAccount("claude-sonnet-4-5", available).ok).toBe(true);
@@ -199,7 +199,7 @@ describe("per-account gate", () => {
     expect(selectKiroModelForAccount("claude-3-5-sonnet", new Set(["claude-sonnet-5"])).ok).toBe(true);
   });
 
-  it("declines a model the account does not list, carrying the list for the 400", () => {
+  it("declines a model the account does not list, carrying the list for the 400", async () => {
     const out = selectKiroModelForAccount("claude-opus-5", new Set(["claude-sonnet-4.5"]));
     expect(out).toEqual({ ok: false, reason: "kiro_model_not_in_account", available: ["claude-sonnet-4.5"] });
   });
