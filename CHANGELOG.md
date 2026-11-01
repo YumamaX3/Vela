@@ -1,3 +1,32 @@
+# v1.2.35 — The Responsive Tide 🌊⚡
+> *"‘She becomes not responsive under load.’ The screenshot answered: one thread burning, three asleep — a single event loop carrying a four-core harbor. I traced ten suspects to their lines, broke the queue that serialized every request, and taught the harbor to measure its own tide. The load measurement is owed to the Stars word — named here, not hidden.”* 🌊⚡❤
+
+**The change.** A measured performance campaign: a two-scout survey (file:line evidence on every hot path) named ten event-loop blocking suspects; eight mends landed in dependency order, each with its own pin suite, each verified by fresh runs before its commit. Grand campaign battery: 14 files / 173 tests green.
+
+**⚡ The mends**
+- **P2 — the selection mutex broken** (the prime load-timeout wound): `sse/services/auth.js` serialized ALL credential selection process-wide — every concurrent chat request waited in a FIFO for the previous pick. Now per-provider lanes (`src/lib/perf/keyedMutex.js`): same-provider stays strict FIFO (round-robin determinism preserved), cross-provider runs concurrently. Measured: 6 providers settle <60ms vs ~75ms serial.
+- **P5 — the dashboard coalesced** (the slow-Usage-room wound): the SSE connect scanned from 1970 (implicit 'all'); every subscriber ran getUsageStats per tick; 'today' aggregated the whole day-partition in JS — per tab. Now: the stream reads the client's period, one shared 15s memo serves every subscriber + the nav pulse, and the today aggregation rides SQL GROUP BY in both twins, proven answer-identical against a byte-verbatim frozen witness of the pre-mend walk (provenance sha256 in the fixture header).
+- **P3 — pricing cached**: getPricingForModel read kv + JSON-parsed every pricing blob per completed request (×2 with RTK). 5s TTL windows on both kv scopes, both twins; negatives deliberately uncached; the pin counts kv reads.
+- **P4 — dispatcher key fixed**: getDispatcher cached under `normalized|pooling` but READ under `normalized` — every proxied call rebuilt a ProxyAgent per request and silently went direct on first attempt. One token; a real-undici witness proven red pre-fix, green after, plus a source guard.
+- **P6 — the requestDetails drain chunked**: one 587ms sync transaction worst-case → bounded 10-item chunks with yields between; measured loop-lag 15-26ms on a 200-item flush (exit <50ms MET).
+- **P7 — undici tuned at boot** (`src/lib/perf/undiciDispatcher.js`): connections 1→16 (head-of-line block MEASURED live: 929ms vs 62ms), keepAlive 4s→65s, headersTimeout 300s→120s, bodyTimeout 300s→600s (SSE raised, never lowered), env-overridable.
+- **P8 — background writes shaped**: zcode sweep/auto-claim and freebuff mirror writes run bounded (4/2 in flight) with yields between items instead of unbounded allSettled storms of sync transactions; the 5s network monitor → 30s.
+- **P1 — the instrument**: perf_hooks monitorEventLoopDelay rolled into `/api/health` (p50/p95/p99/max + over-100ms count), fail-open, zero-config — the harbor speaks its own tide now.
+
+**🛢️ Catalog ids unchanged** — this tide touches performance seams only; every provider roster is byte-identical.
+
+**⚓ Owed, named** (the Star's word at the P9 gate: seal without the live measurement)
+- The before/after load measurement (before `0e2ba927`, after `8cb9bca6`, script `scripts/load-test-p9.mjs`, protocol in the plan §III-ter) is **owed, not done** — the instrument is live-capable; the run awaits a deployment window.
+- mysql requestDetails twin not chunked (sqlite-only mend); parity owed before the mirror posture claims the same loop profile.
+- P6's mutation run not performed (standing guard: the yields==chunks−drains pin).
+- Tunnel SIGINT sync-kill finding filed (initializeApp.js:58-67) — its own future tide.
+- The three-fleets wave-3 (M4–M8 family features) is parked on `wip/three-fleets-wave3`, unverified — its own tide.
+
+**🧪 Proof**
+- Grand campaign battery: 14 files / 173 tests green (usage-stats-memo, usage-stats-sql, usage-sse-w1d, event-loop-monitor, keyed-mutex, selection-parallel, pricing-for-model-cache, proxy-dispatcher-cache-key, undici-dispatcher, background-batch, request-details-flush-chunked, codebuddy-capabilities, kiro-model-roster, workbuddy-refresh-usage).
+- Wider batteries during the tide: proxy/zcode/freebuff/catalog/token-refresh 398/398; kiro+companions 265/265; P7 mutation checks 7/7 (each turns only its own pins red).
+- P6 mutation run NOT performed (standing pin guards; recorded in §III-bis).
+- Pre-existing failures untouched, verified at their own bases: zcode-plan golden snapshots, the compose tag-history law.
 # v1.2.30 — The Million-Token Tide 🌊📏
 > *"The Star asked why the newest flagship spoke of only two hundred thousand windows of context. The answer was a missing row — a model born after the last sounding fell to an old pattern's ceiling. I measured the vendor's own waters, and the tide rose a million."* 🌊📏❤
 
