@@ -122,9 +122,6 @@ describe("P5 part 1 — the SQL seams answer exactly as the pre-mend JS walk", {
         expect(stats[k], `${period}.${k}`).toEqual(frozen[k]);
       }
       for (const k of ["byProvider", "byModel", "byAccount", "byApiKey", "byEndpoint"]) {
-        if (JSON.stringify(stats[k]) !== JSON.stringify(frozen[k])) {
-          fs.appendFileSync("p5dbg.log", `${period}.${k} M=` + JSON.stringify(stats[k]) + "\n" + `${period}.${k} F=` + JSON.stringify(frozen[k]) + "\n");
-        }
         expect(stats[k], `${period}.${k}`).toEqual(frozen[k]);
       }
     }
@@ -213,7 +210,6 @@ describe("P5 part 2 — the shared memo", { timeout: 30000 }, () => {
     const spy = vi.spyOn(disp, "getUsageStats");
     const facade = await import("@/lib/db/index.js");
     const warm = await facade.usageStatsShared("24h");
-    console.log("DBG warm.totalRequests =", warm.totalRequests, "| spy calls so far =", spy.mock.calls.length, spy.mock.calls.map(c=>c[0]));
     spy.mockRejectedValueOnce(new Error("dead twin"));
     vi.setSystemTime(new Date(T0 + 16_000));
     const stale = await facade.usageStatsShared("24h");
