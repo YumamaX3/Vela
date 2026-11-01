@@ -18,9 +18,19 @@ import { FREEBUFF_MODEL_LOCK_MS, FREEBUFF_COOLDOWNS, FREEBUFF_MAX_COOLDOWN_MS } 
 import { resolveProviderId, FREE_PROVIDERS, FREE_TIER_PROVIDERS } from "@/shared/constants/providers.js";
 import { recordZcodeWafStrike, clearZcodeStrikes } from "open-sse/services/zcodePlanStrikes.js";
 import * as log from "@/sse/utils/logger.js";
+import { createKeyedMutex } from "@/lib/perf/keyedMutex.js";
 
-// Mutex to prevent race conditions during account selection
-let selectionMutex = Promise.resolve();
+// Selection chain — ONE lane per provider (Responsive Tide P2).
+//
+// Was: a single module-level promise chain (auth.js:23,178-180) that every
+// selection for every provider queued behind — provider A's slow read blocked
+// provider B's pickup, and under load the gate became a process-wide FIFO
+// (plan suspect 2, the load-timeout prime suspect). Now the lane is keyed to
+// the RESOLVED provider id: same-provider calls still run one at a time (the
+// round-robin read-then-write at the strategy block below MUST stay serialized
+// to keep its deterministic rotation), while different providers run
+// concurrently on the event loop. See src/lib/perf/keyedMutex.js for the law.
+const selectionChain = createKeyedMutex();
 
 const GITHUB_MONTHLY_USAGE_LIMIT = "you've reached your additional usage limit for your plan";
 
@@ -174,176 +184,207 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
     ? excludeConnectionIds
     : (excludeConnectionIds ? new Set([excludeConnectionIds]) : new Set());
   const preferredConnectionId = options?.preferredConnectionId || null;
-  // Acquire mutex to prevent race conditions
-  const currentMutex = selectionMutex;
-  let resolveMutex;
-  selectionMutex = new Promise(resolve => { resolveMutex = resolve; });
 
-  try {
-    await currentMutex;
+  // Resolve alias to provider ID (e.g., "kc" -> "kilocode") BEFORE taking a
+  // lane: the alias is pure string work, and two calls for the same provider
+  // via different names ("./kc.json, kilocode") must land on the SAME lane.
+  const providerId = resolveProviderId(provider);
 
-    // Resolve alias to provider ID (e.g., "kc" -> "kilocode")
-    const providerId = resolveProviderId(provider);
+  // Select inside this provider's lane only (Responsive Tide P2). Same-provider
+  // calls keep the strict FIFO the old global mutex gave them; other providers
+  // proceed in parallel. Errors and early returns still release the lane — the
+  // chain settles its tail in both cases (see keyedMutex.js law #3 #4).
+  return selectionChain.run(providerId, () => selectConnection({
+    provider, providerId, excludeSet, preferredConnectionId, model,
+  }));
+}
 
-    // Inject a virtual connection for no-auth free providers (with optional proxy pool from settings)
-    if (FREE_PROVIDERS[providerId]?.noAuth) {
+/**
+ * The selection body — everything getProviderCredentials did inside the old
+ * mutex (auth.js:196-353), unchanged in behaviour. Extracted so the per-provider
+ * lane wraps exactly the critical section and nothing more.
+ */
+async function selectConnection({ provider, providerId, excludeSet, preferredConnectionId, model }) {
+  // Inject a virtual connection for no-auth free providers (with optional proxy pool from settings)
+  if (FREE_PROVIDERS[providerId]?.noAuth) {
+    return buildVirtualNoAuthConnection(providerId);
+  }
+
+  // Hybrid noAuth freeTier lane (e.g. OpenCode Zen): real apikey connections
+  // ALWAYS take precedence — the virtual "Public" connection is injected only
+  // when the provider has no active connections at all. Fall-through with
+  // existing connections lets the normal selection below handle strategy,
+  // model locks and preferred pins exactly as for any keyed provider.
+  if (FREE_TIER_PROVIDERS[providerId]?.noAuth) {
+    const existing = await getProviderConnections({ provider: providerId, isActive: true });
+    if (existing.length === 0) {
       return buildVirtualNoAuthConnection(providerId);
     }
+  }
 
-    // Hybrid noAuth freeTier lane (e.g. OpenCode Zen): real apikey connections
-    // ALWAYS take precedence — the virtual "Public" connection is injected only
-    // when the provider has no active connections at all. Fall-through with
-    // existing connections lets the normal selection below handle strategy,
-    // model locks and preferred pins exactly as for any keyed provider.
-    if (FREE_TIER_PROVIDERS[providerId]?.noAuth) {
-      const existing = await getProviderConnections({ provider: providerId, isActive: true });
-      if (existing.length === 0) {
-        return buildVirtualNoAuthConnection(providerId);
-      }
+  const connections = await getProviderConnections({ provider: providerId, isActive: true });
+  log.debug("AUTH", `${provider} | total connections: ${connections.length}, excludeIds: ${excludeSet.size > 0 ? [...excludeSet].join(",") : "none"}, model: ${model || "any"}`);
+
+  if (connections.length === 0) {
+    log.warn("AUTH", `No credentials for ${provider}`);
+    return null;
+  }
+
+  // Filter out model-locked and excluded connections
+  const availableConnections = connections.filter(c => {
+    if (excludeSet.has(c.id)) return false;
+    if (isModelLockActive(c, model)) return false;
+    return true;
+  });
+
+  log.debug("AUTH", `${provider} | available: ${availableConnections.length}/${connections.length}`);
+  connections.forEach(c => {
+    const excluded = excludeSet.has(c.id);
+    const locked = isModelLockActive(c, model);
+    if (excluded || locked) {
+      const lockUntil = getEarliestModelLockUntil(c);
+      log.debug("AUTH", `  → ${c.id?.slice(0, 8)} | ${excluded ? "excluded" : ""} ${locked ? `modelLocked(${model}) until ${lockUntil}` : ""}`);
     }
+  });
 
-    const connections = await getProviderConnections({ provider: providerId, isActive: true });
-    log.debug("AUTH", `${provider} | total connections: ${connections.length}, excludeIds: ${excludeSet.size > 0 ? [...excludeSet].join(",") : "none"}, model: ${model || "any"}`);
-
-    if (connections.length === 0) {
-      log.warn("AUTH", `No credentials for ${provider}`);
-      return null;
+  if (availableConnections.length === 0) {
+    // Find earliest lock expiry across all connections for retry timing
+    const lockedConns = connections.filter(c => isModelLockActive(c, model));
+    const expiries = lockedConns.map(c => getEarliestModelLockUntil(c)).filter(Boolean);
+    const earliest = expiries.sort()[0] || null;
+    if (earliest) {
+      const earliestConn = lockedConns[0];
+      log.warn("AUTH", `${provider} | all ${connections.length} accounts locked for ${model || "all"} (${formatRetryAfter(earliest)}) | lastError=${earliestConn?.lastError?.slice(0, 50)}`);
+      return {
+        allRateLimited: true,
+        retryAfter: earliest,
+        retryAfterHuman: formatRetryAfter(earliest),
+        lastError: earliestConn?.lastError || null,
+        lastErrorCode: earliestConn?.errorCode || null
+      };
     }
+    log.warn("AUTH", `${provider} | all ${connections.length} accounts unavailable`);
+    return null;
+  }
 
-    // Filter out model-locked and excluded connections
-    const availableConnections = connections.filter(c => {
-      if (excludeSet.has(c.id)) return false;
-      if (isModelLockActive(c, model)) return false;
-      return true;
-    });
+  const settings = await getSettings();
+  // Per-provider strategy overrides global setting
+  const providerOverride = (settings.providerStrategies || {})[providerId] || {};
+  const strategy = providerOverride.fallbackStrategy || settings.fallbackStrategy || "fill-first";
 
-    log.debug("AUTH", `${provider} | available: ${availableConnections.length}/${connections.length}`);
-    connections.forEach(c => {
-      const excluded = excludeSet.has(c.id);
-      const locked = isModelLockActive(c, model);
-      if (excluded || locked) {
-        const lockUntil = getEarliestModelLockUntil(c);
-        log.debug("AUTH", `  → ${c.id?.slice(0, 8)} | ${excluded ? "excluded" : ""} ${locked ? `modelLocked(${model}) until ${lockUntil}` : ""}`);
-      }
-    });
-
-    if (availableConnections.length === 0) {
-      // Find earliest lock expiry across all connections for retry timing
-      const lockedConns = connections.filter(c => isModelLockActive(c, model));
-      const expiries = lockedConns.map(c => getEarliestModelLockUntil(c)).filter(Boolean);
-      const earliest = expiries.sort()[0] || null;
-      if (earliest) {
-        const earliestConn = lockedConns[0];
-        log.warn("AUTH", `${provider} | all ${connections.length} accounts locked for ${model || "all"} (${formatRetryAfter(earliest)}) | lastError=${earliestConn?.lastError?.slice(0, 50)}`);
-        return {
-          allRateLimited: true,
-          retryAfter: earliest,
-          retryAfterHuman: formatRetryAfter(earliest),
-          lastError: earliestConn?.lastError || null,
-          lastErrorCode: earliestConn?.errorCode || null
-        };
-      }
-      log.warn("AUTH", `${provider} | all ${connections.length} accounts unavailable`);
-      return null;
-    }
-
-    const settings = await getSettings();
-    // Per-provider strategy overrides global setting
-    const providerOverride = (settings.providerStrategies || {})[providerId] || {};
-    const strategy = providerOverride.fallbackStrategy || settings.fallbackStrategy || "fill-first";
-
-    let connection;
-    // Pin to preferred connection if specified and available
-    if (preferredConnectionId) {
-      connection = availableConnections.find((c) => c.id === preferredConnectionId);
-      if (connection) {
-        log.info("AUTH", `${provider} | pinned to ${connection.id?.slice(0, 8)} (${connection.name || connection.email || "unnamed"})`);
-      }
-    }
+  let connection;
+  // Pin to preferred connection if specified and available
+  if (preferredConnectionId) {
+    connection = availableConnections.find((c) => c.id === preferredConnectionId);
     if (connection) {
-      // skip strategy
-    } else if (strategy === "round-robin") {
-      const stickyLimit = providerOverride.stickyRoundRobinLimit || settings.stickyRoundRobinLimit || 3;
+      log.info("AUTH", `${provider} | pinned to ${connection.id?.slice(0, 8)} (${connection.name || connection.email || "unnamed"})`);
+    }
+  }
+  if (connection) {
+    // skip strategy
+  } else if (strategy === "round-robin") {
+    // ATOMICITY RECORD (Responsive Tide P2 — the deliberate non-change).
+    //
+    // This read-then-write is a selection COUNTER, not shared state to repair:
+    // which account is "current", and whether its sticky streak has room, is
+    // read from the rows above and written back below. Two interleaved picks
+    // for ONE provider could therefore both read "conn A, streak 2 of 3" and
+    // both write 3 — the rotation would still advance only once and the
+    // determinism the strategy promises would be gone. The decision: this
+    // block stays inside the provider's lane (keyedMutex, auth.js:197), so it
+    // is serialized exactly as the old global mutex serialized it, and its
+    // ordering guarantee (FIFO arrival order → deterministic rotation) is
+    // preserved bit-for-bit.
+    //
+    // The write below is ALSO atomic on its own (updateProviderConnection runs
+    // its row read + upsert inside one transaction — sqlite/connectionsRepo.js
+    // :256-269, mysql twin :262-275), and under a sync sqlite adapter that
+    // transaction completes before the await yields, so in THIS harbor the
+    // chain could be released first and the database would still carry the
+    // write's atomicity. We do not rely on that posture: the mysql adapter's
+    // transaction is genuinely async (pool.js:104-128 — awaits begin/commit),
+    // and releasing before the commit would reopen the read-then-write gap
+    // exactly where the database can no longer close it. Holding the lane is
+    // the posture-independent law; the DB transaction remains the
+    // crash/worker-level guarantee beneath it.
+    const stickyLimit = providerOverride.stickyRoundRobinLimit || settings.stickyRoundRobinLimit || 3;
 
-      // Sort by lastUsed (most recent first) to find current candidate
-      const byRecency = [...availableConnections].sort((a, b) => {
+    // Sort by lastUsed (most recent first) to find current candidate
+    const byRecency = [...availableConnections].sort((a, b) => {
+      if (!a.lastUsedAt && !b.lastUsedAt) return (a.priority || 999) - (b.priority || 999);
+      if (!a.lastUsedAt) return 1;
+      if (!b.lastUsedAt) return -1;
+      return new Date(b.lastUsedAt) - new Date(a.lastUsedAt);
+    });
+
+    const current = byRecency[0];
+    const currentCount = current?.consecutiveUseCount || 0;
+
+    if (current && current.lastUsedAt && currentCount < stickyLimit) {
+      // Stay with current account
+      connection = current;
+      // Update lastUsedAt and increment count (await to ensure persistence)
+      await updateProviderConnection(connection.id, {
+        lastUsedAt: new Date().toISOString(),
+        consecutiveUseCount: (connection.consecutiveUseCount || 0) + 1
+      });
+    } else {
+      // Pick the least recently used (excluding current if possible)
+      const sortedByOldest = [...availableConnections].sort((a, b) => {
         if (!a.lastUsedAt && !b.lastUsedAt) return (a.priority || 999) - (b.priority || 999);
-        if (!a.lastUsedAt) return 1;
-        if (!b.lastUsedAt) return -1;
-        return new Date(b.lastUsedAt) - new Date(a.lastUsedAt);
+        if (!a.lastUsedAt) return -1;
+        if (!b.lastUsedAt) return 1;
+        return new Date(a.lastUsedAt) - new Date(b.lastUsedAt);
       });
 
-      const current = byRecency[0];
-      const currentCount = current?.consecutiveUseCount || 0;
+      connection = sortedByOldest[0];
 
-      if (current && current.lastUsedAt && currentCount < stickyLimit) {
-        // Stay with current account
-        connection = current;
-        // Update lastUsedAt and increment count (await to ensure persistence)
-        await updateProviderConnection(connection.id, {
-          lastUsedAt: new Date().toISOString(),
-          consecutiveUseCount: (connection.consecutiveUseCount || 0) + 1
-        });
-      } else {
-        // Pick the least recently used (excluding current if possible)
-        const sortedByOldest = [...availableConnections].sort((a, b) => {
-          if (!a.lastUsedAt && !b.lastUsedAt) return (a.priority || 999) - (b.priority || 999);
-          if (!a.lastUsedAt) return -1;
-          if (!b.lastUsedAt) return 1;
-          return new Date(a.lastUsedAt) - new Date(b.lastUsedAt);
-        });
-
-        connection = sortedByOldest[0];
-
-        // Update lastUsedAt and reset count to 1 (await to ensure persistence)
-        await updateProviderConnection(connection.id, {
-          lastUsedAt: new Date().toISOString(),
-          consecutiveUseCount: 1
-        });
-      }
-    } else {
-      // Default: fill-first (already sorted by priority in getProviderConnections)
-      connection = availableConnections[0];
+      // Update lastUsedAt and reset count to 1 (await to ensure persistence)
+      await updateProviderConnection(connection.id, {
+        lastUsedAt: new Date().toISOString(),
+        consecutiveUseCount: 1
+      });
     }
-
-    const resolvedProxy = await resolveConnectionProxyConfig(connection.providerSpecificData || {});
-
-    return {
-      authType: connection.authType,
-      apiKey: connection.apiKey,
-      accessToken: connection.accessToken,
-      refreshToken: connection.refreshToken,
-      idToken: connection.idToken,
-      expiresAt: connection.expiresAt,
-      expiresIn: connection.expiresIn,
-      lastRefreshAt: connection.lastRefreshAt,
-      projectId: connection.projectId,
-      connectionName: connection.displayName || connection.name || connection.email || connection.id,
-      copilotToken: connection.providerSpecificData?.copilotToken,
-      providerSpecificData: {
-        ...(connection.providerSpecificData || {}),
-        connectionProxyEnabled: resolvedProxy.connectionProxyEnabled,
-        connectionProxyUrl: resolvedProxy.connectionProxyUrl,
-        connectionNoProxy: resolvedProxy.connectionNoProxy,
-        connectionProxyPoolId: resolvedProxy.proxyPoolId || null,
-        vercelRelayUrl: resolvedProxy.vercelRelayUrl || "",
-      },
-      // §5.2d — TOP LEVEL, not inside the providerSpecificData block above, for the
-      // persistence reason documented at the noauth credential's stamping site
-      // (:133). This is the credential chatCore reads, so it is the one that carries
-      // a relay secret onto the live request path.
-      relayAuth: resolvedProxy.relayAuth || "",
-      relayVersion: resolvedProxy.relayVersion || 1,
-      connectionId: connection.id,
-      // Include current status for optimization check
-      testStatus: connection.testStatus,
-      lastError: connection.lastError,
-      // Pass full connection for clearAccountError to read modelLock_* keys
-      _connection: connection
-    };
-  } finally {
-    if (resolveMutex) resolveMutex();
+  } else {
+    // Default: fill-first (already sorted by priority in getProviderConnections)
+    connection = availableConnections[0];
   }
+
+  const resolvedProxy = await resolveConnectionProxyConfig(connection.providerSpecificData || {});
+
+  return {
+    authType: connection.authType,
+    apiKey: connection.apiKey,
+    accessToken: connection.accessToken,
+    refreshToken: connection.refreshToken,
+    idToken: connection.idToken,
+    expiresAt: connection.expiresAt,
+    expiresIn: connection.expiresIn,
+    lastRefreshAt: connection.lastRefreshAt,
+    projectId: connection.projectId,
+    connectionName: connection.displayName || connection.name || connection.email || connection.id,
+    copilotToken: connection.providerSpecificData?.copilotToken,
+    providerSpecificData: {
+      ...(connection.providerSpecificData || {}),
+      connectionProxyEnabled: resolvedProxy.connectionProxyEnabled,
+      connectionProxyUrl: resolvedProxy.connectionProxyUrl,
+      connectionNoProxy: resolvedProxy.connectionNoProxy,
+      connectionProxyPoolId: resolvedProxy.proxyPoolId || null,
+      vercelRelayUrl: resolvedProxy.vercelRelayUrl || "",
+    },
+    // §5.2d — TOP LEVEL, not inside the providerSpecificData block above, for the
+    // persistence reason documented at the noauth credential's stamping site
+    // (:133). This is the credential chatCore reads, so it is the one that carries
+    // a relay secret onto the live request path.
+    relayAuth: resolvedProxy.relayAuth || "",
+    relayVersion: resolvedProxy.relayVersion || 1,
+    connectionId: connection.id,
+    // Include current status for optimization check
+    testStatus: connection.testStatus,
+    lastError: connection.lastError,
+    // Pass full connection for clearAccountError to read modelLock_* keys
+    _connection: connection
+  };
 }
 
 /**
