@@ -218,6 +218,14 @@ describe("P4 — the RED-TO-GREEN witness (real undici, unique dead origin)", ()
     const { proxyAwareFetch } = await import("open-sse/utils/proxyFetch.js");
     const res = await proxyAwareFetch(TARGET, {}, proxied(deadProxy, { pooling: POOL_32 }));
     warnSpy.mockRestore();
+    // The witness imports a FRESH proxyFetch record (doMock + resetModules in
+    // beforeEach), so the dispatcher map this run built dies with the record —
+    // but doUnmock in afterEach must be preceded by a reset to drop the doMock
+    // registration itself, or a later test file importing proxyFetch under a
+    // stale doMock sees THIS record's dead-proxy state (the order-dependence
+    // the P3 ledger flagged).
+    vi.resetModules();
+    vi.doUnmock("undici");
 
     // 1. The pooling knobs reached the constructor at all.
     expect(proxyOpts).toEqual([{ uri: deadProxy, ...POOL_32 }]);
