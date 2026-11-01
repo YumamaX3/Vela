@@ -13,11 +13,16 @@ const syncKv = makeKvMysql("pricing_sync"); // Pricing Covenant — never mixed 
 const CACHE_TTL_MS = 5000;
 
 let cache = { value: null, expiresAt: 0 };
+// Both kv namespaces behind getPricingForModel, on the same 5s clock as
+// `cache` (Responsive Tide P3 — plans/2026-11-01-responsive-tide-performance.md).
+// The cache never changes an answer, only how often the kv rows are read.
 let syncCache = { value: null, expiresAt: 0 };
+let userCache = { value: null, expiresAt: 0 };
 
 function invalidate() {
   cache = { value: null, expiresAt: 0 };
   syncCache = { value: null, expiresAt: 0 };
+  userCache = { value: null, expiresAt: 0 };
 }
 
 async function getUserPricing() {
@@ -91,20 +96,38 @@ function lookupDualKey(map, provider, model) {
   return null;
 }
 
+// Responsive Tide P3 — the per-request pricing read, cached for 5s.
+//
+// Every completed request prices itself twice (usageRepo calculateCost +
+// fundRtkSavedCost), and before the mend each call ran kv.getAll() over the
+// user scope and — after one miss — the sync scope: two full-scope reads +
+// a JSON.parse of every blob, sync on the loop, per request. The rows change
+// only through the five writers below, and each of them invalidates, so the
+// 5s window can only ever be as stale as a writer's own 5s window — never
+// longer. Per the plan's law this changes call FREQUENCY only, never results.
+//
+// Deliberately NOT cached:
+//   • negative (null) results — an unpriced model must stay re-checked, so a
+//     later override or sync is seen as soon as the window turns over, not
+//     pinned as "unpriceable" behind a memo;
+//   • stratum 3 — the static chain is pure and re-evaluates the live module
+//     tables, so its answer can never go stale and an in-process copy could.
 export async function getPricingForModel(provider, model) {
   if (!model) return null;
-  // Stratum 1 — user override (sovereign)
-  const userPricing = await getUserPricing();
-  const userMatch = lookupDualKey(userPricing, provider, model);
-  if (userMatch) return userMatch;
-  // Stratum 2 — synced rates (TTL-cached)
   const now = Date.now();
+  // Stratum 1 — user override (sovereign; 5s window)
+  if (!userCache.value || userCache.expiresAt <= now) {
+    userCache = { value: await getUserPricing(), expiresAt: now + CACHE_TTL_MS };
+  }
+  const userMatch = lookupDualKey(userCache.value, provider, model);
+  if (userMatch) return userMatch;
+  // Stratum 2 — synced rates (5s window)
   if (!syncCache.value || syncCache.expiresAt <= now) {
     syncCache = { value: await getSyncedPricingRaw(), expiresAt: now + CACHE_TTL_MS };
   }
   const syncMatch = lookupDualKey(syncCache.value, provider, model);
   if (syncMatch) return syncMatch;
-  // Stratum 3 — the seven-stratum static chain
+  // Stratum 3 — the seven-stratum static chain (pure, never cached)
   const { getPricingForModel: resolveStatic } = await import("open-sse/providers/pricing.js");
   return resolveStatic(provider, model);
 }

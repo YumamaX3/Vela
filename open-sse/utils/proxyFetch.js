@@ -444,7 +444,7 @@ async function getDispatcher(proxyUrl, pooling = null) {
     proxyDispatchers.set(cacheKey, Dispatcher);
   }
 
-  return proxyDispatchers.get(normalized);
+  return proxyDispatchers.get(cacheKey);
 }
 
 /**
