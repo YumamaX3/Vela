@@ -61,6 +61,20 @@ export async function register() {
       bootWarn("Fleet Captain init failed:", err?.message || err);
     }
 
+    // Responsive Tide P1 (plans/2026-11-01-responsive-tide-performance.md) —
+    // the event-loop-lag instrument. Zero-config (on by default), cheap (one
+    // histogram read+reset per 5s on the timer; callers read non-destructively),
+    // fail-open (a monitor that cannot boot never stops the server). Dynamic
+    // import keeps the perf tree out of the Edge bundle; the module itself is a
+    // Node built-in wrapper, so a failed import simply leaves /api/health
+    // reporting `{ available: false }`.
+    try {
+      const { bootEventLoopMonitor } = await import("@/lib/perf/eventLoopMonitor.js");
+      bootEventLoopMonitor();
+    } catch (err) {
+      bootWarn("Event-loop monitor failed to boot:", err?.message || err);
+    }
+
     // Model-catalog sync (fire-and-forget): the gateway's published modality /
     // limit snapshot, refreshed on a 24h cadence. Dynamic for the same reason as
     // the Fleet Captain import above — keep the fs tree out of the Edge bundle.

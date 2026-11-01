@@ -380,7 +380,7 @@ the total exactly, with no remainder to explain.
 | `metrics` | 1 | the process metrics read | `GET /api/metrics` |
 | `locale` | 1 | set the dashboard UI locale cookie | `POST /api/locale` |
 | `init` | 1 | boot ping — `"Initialized"` | `GET /api/init` |
-| `health` | 1 | liveness — `{"ok":true}`, the Docker `HEALTHCHECK` target | `GET /api/health` |
+| `health` | 1 | liveness — `{"ok":true}` first, plus an additive `eventLoop` lag block (Responsive Tide P1); the Docker `HEALTHCHECK` target | `GET /api/health` |
 | `debug` | 1 | trace inspection | `GET /api/debug/traces` |
 | `changelog` | 1 | the changelog the UI renders | `GET /api/changelog` |
 | `analytics` | 1 | compression analytics | `GET /api/analytics/compression` |
@@ -423,6 +423,41 @@ git ls-files | grep -E '^src/app/api/.*route\.js$' \
   | sed 's|^src/app/api/||; s|/route.js||' \
   | cut -d/ -f1 | sort -u | wc -l
 ```
+
+### The health door — liveness first, lag alongside
+
+`GET /api/health` answers **`{"ok":true}` first and unconditionally** — the
+Docker `HEALTHCHECK` (`wget -qO- …`) and `cli/daemon.js` parse `ok` and nothing
+else. Since the Responsive Tide P1 the body also carries an additive
+`eventLoop` block: the event-loop lag histogram (`perf_hooks
+.monitorEventLoopDelay`; the timer does one read+reset per 5s, callers read the
+latest window non-destructively — polling `/api/health` never resets it —
+reported in **milliseconds**).
+
+```json
+{
+  "ok": true,
+  "eventLoop": {
+    "available": true, "windowMs": 5000, "samples": 1250,
+    "lagMs": { "p50": 1.2, "p95": 16, "p99": 41.5, "max": 88, "min": 0.9, "mean": 2.7 },
+    "warn": { "p95Exceeded": false, "maxExceeded": false, "p95ThresholdMs": 100, "maxThresholdMs": 250 },
+    "startedAt": "2026-11-01T00:00:00.000Z", "resetAt": "2026-11-01T00:05:00.000Z"
+  }
+}
+```
+
+| Field | Meaning |
+|-|-|
+| `eventLoop.available` | `false` when disabled, broken, or the window is **empty** — an empty window is *no evidence*, never "lag 0"; `lagMs` is then all `null` |
+| `eventLoop.lagMs.*` | milliseconds, 2dp. `perf_hooks` measures ns; the module converts once, at the read boundary |
+| `eventLoop.warn` | the plan's thresholds — p95 > 100ms, max > 250ms |
+
+**Fail-open:** the instrument can *never* flip the harbor unhealthy. A monitor
+that throws, fails to boot, or is disabled yields `eventLoop.available:false`
+while `ok` stays `true`. Zero-config (on by default); disarm with
+`VELA_EVENT_LOOP_MONITOR=off`. Never cached (`Cache-Control: no-store`) — a
+cached `ok` is not a liveness truth. Source: `src/lib/perf/eventLoopMonitor.js`,
+pinned by `tests/unit/event-loop-monitor-p1.test.js`.
 
 ### The auth posture — three tiers
 
