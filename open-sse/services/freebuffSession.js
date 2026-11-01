@@ -18,6 +18,7 @@
 import { getProviderConnections, updateProviderConnection } from "@/lib/localDb";
 import * as log from "../../src/sse/utils/logger.js";
 import { proxyAwareFetch } from "../utils/proxyFetch.js";
+import { yieldToLoop } from "../utils/backgroundBatch.js";
 import {
   FREEBUFF_SESSION_URL,
   FREEBUFF_ME_URL,
@@ -89,6 +90,13 @@ export async function findWarmConnection(model) {
 /**
  * Write claim state through mirror + DB. The repo merge is shallow — spread
  * the existing providerSpecificData or proxy config keys are wiped.
+ *
+ * Responsive Tide P8 — the mirror write is SYNCHRONOUS and stays first: the
+ * claim chains (and findWarmConnection) read sessionMirror the moment they run,
+ * so a yield before the mirror's `set` would open a window where this process
+ * serves a stale session. The yield sits AFTER both writes, so the NEXT claim's
+ * DB round-trip — a sync better-sqlite3 transaction on the request loop — never
+ * lands back-to-back on this one's.
  */
 export async function writeSession(credentials, session) {
   const connectionId = credentials?.connectionId;
@@ -109,6 +117,8 @@ export async function writeSession(credentials, session) {
       };
     }
   } catch { /* DB write failed — mirror still serves this process */ }
+  // P8 — after both writes: give the loop a turn before the next claim's write.
+  await yieldToLoop();
 }
 
 /** Clear claim state (401 / terminal supersede / connection removal). */
@@ -128,6 +138,9 @@ export async function clearSession(credentials, reason = null) {
       if (reason) credentials.providerSpecificData.freebuff.lastClaimError = { code: reason, at: new Date().toISOString() };
     }
   } catch { /* best-effort */ }
+  // P8 — the same breathing turn as writeSession, AFTER the synchronous mirror
+  // delete and the DB write. A clear can be the first half of a reclaim chain.
+  await yieldToLoop();
 }
 
 // ── gate classification — status + structured code ONLY ────────────────────

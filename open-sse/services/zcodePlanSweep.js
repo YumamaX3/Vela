@@ -5,9 +5,19 @@
 
 import * as log from "../../src/sse/utils/logger.js";
 import { refreshZcodeQuotaForConnection } from "./zcodePlanQuota.js";
+import { runBoundedBatch } from "../utils/backgroundBatch.js";
 
 export const ZCODE_SWEEP_INTERVAL_MS = 30 * 60 * 1000;
 export const ZCODE_SWEEP_INITIAL_DELAY_MS = 60 * 1000;
+
+// Responsive Tide P8 — the sweep's batch ceiling and its breathing cadence.
+// Before this, the tick fired EVERY due connection at once (one unbounded
+// Promise.allSettled): N simultaneous billing calls against one origin, all
+// landing on the loop the requests live on. Four in flight and a real macrotask
+// yield every four completions keeps the burst wide enough to finish the round
+// promptly and narrow enough to leave the loop free between groups.
+export const ZCODE_SWEEP_CONCURRENCY = 4;
+export const ZCODE_SWEEP_YIELD_EVERY = 4;
 
 let started = false;
 let intervalHandle = null;
@@ -63,18 +73,21 @@ export async function runZcodePlanSweepTick(deps = {}) {
       ids: due.map((c) => c.id).filter(Boolean),
     });
 
-    await Promise.allSettled(
-      due.map(async (conn) => {
-        try {
-          await refresh(conn);
-        } catch (err) {
+    await runBoundedBatch(
+      due,
+      async (conn) => {
+        await refresh(conn);
+      },
+      {
+        concurrency: ZCODE_SWEEP_CONCURRENCY,
+        every: ZCODE_SWEEP_YIELD_EVERY,
+        onError: (conn, _index, err) =>
           log.warn("ZCODE_SWEEP", "one quota read stumbled — swallowed, the round goes on", {
             id: conn?.id,
             provider: conn?.provider,
             error: err?.message ?? String(err),
-          });
-        }
-      })
+          }),
+      }
     );
   } catch (err) {
     log.warn("ZCODE_SWEEP", "the round itself broke — swallowed", {

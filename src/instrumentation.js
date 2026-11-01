@@ -75,6 +75,23 @@ export async function register() {
       bootWarn("Event-loop monitor failed to boot:", err?.message || err);
     }
 
+    // Responsive Tide P7 (plans/2026-11-01-responsive-tide-performance.md §III) —
+    // the global undici dispatcher, tuned once. It must land BEFORE the background
+    // schedulers below (sweeps, catalog syncs) so every timer's fetch rides it, and
+    // it sits AFTER the Fleet Captain on purpose: the Captain's dynamic import is
+    // the tree's first `undici` load, so it is the ESM module record OUR install
+    // writes to — the one every later ESM import in the gateway reads. Fail-open:
+    // a boot that cannot tune its sockets leaves undici's defaults standing.
+    try {
+      const { installGlobalDispatcher } = await import("@/lib/perf/undiciDispatcher.js");
+      const dispatcher = await installGlobalDispatcher();
+      if (!dispatcher.ok) {
+        bootWarn("Undici dispatcher not tuned (defaults stand):", dispatcher.reason ?? "global did not acknowledge install");
+      }
+    } catch (err) {
+      bootWarn("Undici dispatcher failed to boot:", err?.message || err);
+    }
+
     // Model-catalog sync (fire-and-forget): the gateway's published modality /
     // limit snapshot, refreshed on a 24h cadence. Dynamic for the same reason as
     // the Fleet Captain import above — keep the fs tree out of the Edge bundle.

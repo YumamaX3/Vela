@@ -4,10 +4,20 @@
 // unavailable. Fail-open at top level and per connection.
 
 import * as log from "../../src/sse/utils/logger.js";
+import { runBoundedBatch } from "../utils/backgroundBatch.js";
 
 export const ZCODE_AUTO_CLAIM_INTERVAL_MS = 30 * 60 * 1000;
 export const ZCODE_AUTO_CLAIM_INITIAL_DELAY_MS = 60 * 1000;
 const ZCODE_AUTO_CLAIM_MIN_GAP_MS = 6 * 3600 * 1000;
+
+// Responsive Tide P8 — the claim round's batch ceiling and breathing cadence.
+// The round used to be a linked `for … await`: only each iteration's sync slice
+// ran before the microtask checkpoint, and every skipped mooring (the 6h-gap
+// `continue`) yielded nothing at all. Two in flight, a macrotask yield every two
+// completions: each connection's claim → persist stays causal and in order, and
+// the round's DB writes interleave with live request turns instead of bursting.
+export const ZCODE_AUTO_CLAIM_CONCURRENCY = 2;
+export const ZCODE_AUTO_CLAIM_YIELD_EVERY = 2;
 
 let started = false;
 let intervalHandle = null;
@@ -98,31 +108,45 @@ export async function runZcodePlanAutoClaimTick(deps = {}) {
       (c) => c && c.provider === "zcode-plan" && c.isActive !== false
     );
 
+    // The 6h-gap filter runs FIRST, synchronously, so a round where every mooring
+    // was claimed recently never reaches the batch at all (the previous shape
+    // walked all of them, yielding nothing).
+    const fresh = [];
     for (const conn of due) {
       const last = conn.providerSpecificData?.zcodeLastAutoClaimAt;
       if (last && Date.now() - new Date(last).getTime() < ZCODE_AUTO_CLAIM_MIN_GAP_MS) {
         log.debug("ZCODE_CLAIM", "this mooring was claimed recently — skip", { id: conn.id });
         continue;
       }
-
-      ran += 1;
-      try {
-        const result = await claim(conn);
-        log.info("ZCODE_CLAIM", "auto-claim round", {
-          id: conn.id,
-          claimed: result?.claim?.claimed || [],
-          skipped: result?.claim?.skipped || [],
-          problems: (result?.problems || []).length,
-        });
-        await persist(conn, result);
-      } catch (err) {
-        log.warn("ZCODE_CLAIM", "one claim stumbled — swallowed, the round goes on", {
-          id: conn?.id,
-          provider: conn?.provider,
-          error: err?.message ?? String(err),
-        });
-      }
+      fresh.push(conn);
     }
+
+    await runBoundedBatch(
+      fresh,
+      async (conn) => {
+        ran += 1;
+        try {
+          const result = await claim(conn);
+          log.info("ZCODE_CLAIM", "auto-claim round", {
+            id: conn.id,
+            claimed: result?.claim?.claimed || [],
+            skipped: result?.claim?.skipped || [],
+            problems: (result?.problems || []).length,
+          });
+          await persist(conn, result);
+        } catch (err) {
+          log.warn("ZCODE_CLAIM", "one claim stumbled — swallowed, the round goes on", {
+            id: conn?.id,
+            provider: conn?.provider,
+            error: err?.message ?? String(err),
+          });
+        }
+      },
+      {
+        concurrency: ZCODE_AUTO_CLAIM_CONCURRENCY,
+        every: ZCODE_AUTO_CLAIM_YIELD_EVERY,
+      }
+    );
   } catch (err) {
     log.warn("ZCODE_CLAIM", "the claim round itself broke — swallowed", {
       error: err?.message ?? String(err),

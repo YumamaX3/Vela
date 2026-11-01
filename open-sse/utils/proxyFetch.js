@@ -352,6 +352,14 @@ function resolveConnectionProxyUrl(targetUrl, proxyOptions) {
 /**
  * Create proxy dispatcher lazily (undici-compatible)
  * SOCKS5 support via Socks5ProxyAgent (undici 7.29.0)
+ *
+ * Responsive Tide P7 — this function's signature takes ONE optional pooling
+ * object, so the absence of a per-connection proxy leaves `proxyWrappedFetch`
+ * without a dispatcher, and the fetch below then falls through to the global set
+ * once at boot (src/lib/perf/undiciDispatcher.js). The import below is the
+ * GATEWAY's `undici` — the same ESM record the boot install wrote — so every
+ * proxy node constructed here also carries the boot tuning (connectTimeout and
+ * the handshake watchdog) through Agent[kOptions] → Pool → Client.
  */
 async function getDispatcher(proxyUrl, pooling = null) {
   const normalized = normalizeProxyUrl(proxyUrl);
