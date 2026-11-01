@@ -543,29 +543,29 @@ export async function getUsageStats(period = "all") {
   // Keyed by keyId — the stable attribution identity (hash-at-rest, plan §3.6)
   for (const k of allApiKeys) apiKeyMap[k.id] = { name: k.name, id: k.id, keyPrefix: k.keyPrefix, createdAt: k.createdAt };
 
-  // recentRequests from live history (last 100 entries enough for 20 deduped)
-  const recentRows = await db.all(`SELECT timestamp, provider, model, tokens, status FROM usageHistory ORDER BY id DESC LIMIT 100`);
-  const seen = new Set();
-  const recentRequests = recentRows
-    .map((r) => {
-      const t = parseJson(r.tokens, {}) || {};
-      return {
-        timestamp: r.timestamp, model: r.model, provider: r.provider || "",
-        promptTokens: t.prompt_tokens || t.input_tokens || 0,
-        completionTokens: t.completion_tokens || t.output_tokens || 0,
-        cachedTokens: t.cached_tokens || t.cache_read_input_tokens || 0,
-        status: r.status || "ok",
-      };
-    })
-    .filter((e) => {
-      if (e.promptTokens === 0 && e.completionTokens === 0) return false;
-      const minute = e.timestamp ? e.timestamp.slice(0, 16) : "";
-      const key = `${e.model}|${e.provider}|${e.promptTokens}|${e.completionTokens}|${minute}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, 20);
+  // recentRequests from live history (last 100 entries enough for 20 deduped).
+  // P5: same 100-row tail, but the zero-token filter and the minute-level
+  // dedupe (first seen wins, then the newest 20) ride one engine GROUP BY.
+  // The unquoted camelCase aliases stay lowercase for MySQL's column names.
+  const recentRows = await db.all(
+    `SELECT timestamp, provider, model,
+            COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(tokens, '$.prompt_tokens')) AS SIGNED), CAST(JSON_UNQUOTE(JSON_EXTRACT(tokens, '$.input_tokens')) AS SIGNED), 0) AS ptok,
+            COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(tokens, '$.completion_tokens')) AS SIGNED), CAST(JSON_UNQUOTE(JSON_EXTRACT(tokens, '$.output_tokens')) AS SIGNED), 0) AS ctok,
+            COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(tokens, '$.cached_tokens')) AS SIGNED), CAST(JSON_UNQUOTE(JSON_EXTRACT(tokens, '$.cache_read_input_tokens')) AS SIGNED), 0) AS ktok,
+            MIN(id) AS firstId, status
+     FROM (SELECT * FROM usageHistory ORDER BY id DESC LIMIT 100) recent
+     GROUP BY model, provider, ptok, ctok, SUBSTRING(timestamp, 1, 16)
+     HAVING NOT (COALESCE(ptok, 0) = 0 AND COALESCE(ctok, 0) = 0)
+     ORDER BY firstId DESC
+     LIMIT 20`
+  );
+  const recentRequests = recentRows.map((r) => ({
+    timestamp: r.timestamp, model: r.model, provider: r.provider || "",
+    promptTokens: Number(r.ptok) || 0,
+    completionTokens: Number(r.ctok) || 0,
+    cachedTokens: Number(r.ktok) || 0,
+    status: r.status || "ok",
+  }));
 
   const stats = {
     totalRequests: 0,
@@ -603,18 +603,20 @@ export async function getUsageStats(period = "all") {
     bucketMap[ts] = { requests: 0, promptTokens: 0, completionTokens: 0, cost: 0 };
     stats.last10Minutes.push(bucketMap[ts]);
   }
-  const recent10 = await db.all(
-    `SELECT timestamp, promptTokens, completionTokens, cost FROM usageHistory WHERE timestamp >= ? AND timestamp <= ?`,
-    [tenMinutesAgo.toISOString(), now.toISOString()]
-  );
+  // P5: one engine GROUP BY over the window's bucket cells; the local-minute
+  // slot arithmetic stays here (it is the caller's clock).
+  const recent10 = await statsMinuteRowsImpl(db, {
+    from: tenMinutesAgo.toISOString(),
+    to: now.toISOString(),
+  });
   for (const r of recent10) {
-    const tt = new Date(r.timestamp).getTime();
+    const tt = new Date(r.ts).getTime();
     const minuteStart = Math.floor(tt / 60000) * 60000;
     if (bucketMap[minuteStart]) {
-      bucketMap[minuteStart].requests++;
-      bucketMap[minuteStart].promptTokens += r.promptTokens || 0;
-      bucketMap[minuteStart].completionTokens += r.completionTokens || 0;
-      bucketMap[minuteStart].cost += r.cost || 0;
+      bucketMap[minuteStart].requests += r.requests;
+      bucketMap[minuteStart].promptTokens += r.promptTokens;
+      bucketMap[minuteStart].completionTokens += r.completionTokens;
+      bucketMap[minuteStart].cost += r.cost;
     }
   }
 
@@ -748,57 +750,55 @@ export async function getUsageStats(period = "all") {
     } else {
       cutoff = new Date(Date.now() - PERIOD_MS["24h"]).toISOString();
     }
-    const filtered = await db.all(
-      `SELECT timestamp, provider, model, connectionId, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, tokens FROM usageHistory WHERE timestamp >= ?`,
-      [cutoff]
-    );
+    // P5 — the sums and the four identity maps leave the bridge as GROUPS:
+    // two engine statements (totals, byProvider) plus one GROUP BY over the
+    // walk's own identity key, ordered by first-seen id. The JS below is
+    // naming and assembly only — no per-row row set, no per-row fold.
+    const sums = await statsHistorySumsImpl(db, { since: cutoff, dialect: MYSQL_STATS_DIALECT });
+    stats.totalPromptTokens += sums.totals.promptTokens;
+    stats.totalCompletionTokens += sums.totals.completionTokens;
+    stats.totalCachedTokens += sums.totals.cachedTokens;
+    stats.totalCost += sums.totals.cost;
+    // migration 004: '' is the normalized form of "unset" — key the display
+    // map on null so live stats and artifacts agree.
+    for (const [prov, cell] of Object.entries(sums.byProvider)) {
+      stats.byProvider[prov === "" ? null : prov] = { ...cell };
+    }
 
-    for (const r of filtered) {
-      const tokens = parseJson(r.tokens, {}) || {};
-      const promptTokens = tokens.prompt_tokens || 0;
-      const completionTokens = tokens.completion_tokens || 0;
-      const cachedTokens = tokens.cached_tokens || tokens.cache_read_input_tokens || 0;
-      const entryCost = r.cost || 0;
+    const groups = await statsDimensionsImpl(db, { since: cutoff, dialect: MYSQL_STATS_DIALECT });
+    for (const r of groups) {
+      const promptTokens = r.promptTokens;
+      const completionTokens = r.completionTokens;
+      const entryCost = r.cost;
       const providerDisplayName = providerNodeNameMap[r.provider] || r.provider || null;
-
-      stats.totalPromptTokens += promptTokens;
-      stats.totalCompletionTokens += completionTokens;
-      stats.totalCachedTokens += cachedTokens;
-      stats.totalCost += entryCost;
-
-      // migration 004: '' is the normalized form of "unset" — key the display
-      // map on null so live stats and artifacts agree.
-      const prov = r.provider || null;
-      if (!stats.byProvider[prov]) stats.byProvider[prov] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0 };
-      stats.byProvider[prov].requests++;
-      stats.byProvider[prov].promptTokens += promptTokens;
-      stats.byProvider[prov].completionTokens += completionTokens;
-      stats.byProvider[prov].cachedTokens += cachedTokens;
-      stats.byProvider[prov].cost += entryCost;
+      // The old walk's per-row arithmetic, verbatim — only the row is now a group.
+      const cachedTokens = r.cachedTokens;
 
       const modelKey = r.provider ? `${r.model} (${r.provider})` : r.model;
       if (!stats.byModel[modelKey]) {
-        stats.byModel[modelKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel: r.model, provider: providerDisplayName, lastUsed: r.timestamp };
+        stats.byModel[modelKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel: r.model, provider: providerDisplayName, lastUsed: r.lastUsed };
       }
-      stats.byModel[modelKey].requests++;
+      stats.byModel[modelKey].requests += r.requests;
       stats.byModel[modelKey].promptTokens += promptTokens;
       stats.byModel[modelKey].completionTokens += completionTokens;
       stats.byModel[modelKey].cachedTokens += cachedTokens;
       stats.byModel[modelKey].cost += entryCost;
-      if (new Date(r.timestamp) > new Date(stats.byModel[modelKey].lastUsed)) stats.byModel[modelKey].lastUsed = r.timestamp;
+      // The walk overwrote lastUsed with each row's stamp; the group's
+      // MIN(timestamp) is exactly what it left behind (pinned).
+      if (new Date(r.lastUsed) > new Date(stats.byModel[modelKey].lastUsed)) stats.byModel[modelKey].lastUsed = r.lastUsed;
 
       if (r.connectionId) {
         const accountName = connectionMap[r.connectionId] || `Account ${r.connectionId.slice(0, 8)}...`;
         const accountKey = `${r.model} (${r.provider} - ${accountName})`;
         if (!stats.byAccount[accountKey]) {
-          stats.byAccount[accountKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel: r.model, provider: providerDisplayName, connectionId: r.connectionId, accountName, lastUsed: r.timestamp };
+          stats.byAccount[accountKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel: r.model, provider: providerDisplayName, connectionId: r.connectionId, accountName, lastUsed: r.lastUsed };
         }
-        stats.byAccount[accountKey].requests++;
+        stats.byAccount[accountKey].requests += r.requests;
         stats.byAccount[accountKey].promptTokens += promptTokens;
         stats.byAccount[accountKey].completionTokens += completionTokens;
         stats.byAccount[accountKey].cachedTokens += cachedTokens;
         stats.byAccount[accountKey].cost += entryCost;
-        if (new Date(r.timestamp) > new Date(stats.byAccount[accountKey].lastUsed)) stats.byAccount[accountKey].lastUsed = r.timestamp;
+        if (new Date(r.lastUsed) > new Date(stats.byAccount[accountKey].lastUsed)) stats.byAccount[accountKey].lastUsed = r.lastUsed;
       }
 
       if (r.keyId && typeof r.keyId === "string") {
@@ -807,28 +807,28 @@ export async function getUsageStats(period = "all") {
         const apiKeyMasked = keyInfo?.keyPrefix || r.keyPrefix || `vela-v1-${r.keyId.slice(0, 8)}…`;
         const akKey = `${r.keyId}|${r.model}|${r.provider || "unknown"}`;
         if (!stats.byApiKey[akKey]) {
-          stats.byApiKey[akKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel: r.model, provider: providerDisplayName, apiKeyMasked, keyName, apiKeyKey: r.keyId, lastUsed: r.timestamp };
+          stats.byApiKey[akKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel: r.model, provider: providerDisplayName, apiKeyMasked, keyName, apiKeyKey: r.keyId, lastUsed: r.lastUsed };
         }
         const ake = stats.byApiKey[akKey];
-        ake.requests++; ake.promptTokens += promptTokens; ake.completionTokens += completionTokens; ake.cachedTokens += cachedTokens; ake.cost += entryCost;
-        if (new Date(r.timestamp) > new Date(ake.lastUsed)) ake.lastUsed = r.timestamp;
+        ake.requests += r.requests; ake.promptTokens += promptTokens; ake.completionTokens += completionTokens; ake.cachedTokens += cachedTokens; ake.cost += entryCost;
+        if (new Date(r.lastUsed) > new Date(ake.lastUsed)) ake.lastUsed = r.lastUsed;
       } else {
         if (!stats.byApiKey["local-no-key"]) {
-          stats.byApiKey["local-no-key"] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel: r.model, provider: providerDisplayName, apiKeyMasked: null, keyName: "Local (No API Key)", apiKeyKey: "local-no-key", lastUsed: r.timestamp };
+          stats.byApiKey["local-no-key"] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, rawModel: r.model, provider: providerDisplayName, apiKeyMasked: null, keyName: "Local (No API Key)", apiKeyKey: "local-no-key", lastUsed: r.lastUsed };
         }
         const ake = stats.byApiKey["local-no-key"];
-        ake.requests++; ake.promptTokens += promptTokens; ake.completionTokens += completionTokens; ake.cachedTokens += cachedTokens; ake.cost += entryCost;
-        if (new Date(r.timestamp) > new Date(ake.lastUsed)) ake.lastUsed = r.timestamp;
+        ake.requests += r.requests; ake.promptTokens += promptTokens; ake.completionTokens += completionTokens; ake.cachedTokens += cachedTokens; ake.cost += entryCost;
+        if (new Date(r.lastUsed) > new Date(ake.lastUsed)) ake.lastUsed = r.lastUsed;
       }
 
       const endpoint = r.endpoint || "Unknown";
       const epKey = `${endpoint}|${r.model}|${r.provider || "unknown"}`;
       if (!stats.byEndpoint[epKey]) {
-        stats.byEndpoint[epKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, endpoint, rawModel: r.model, provider: providerDisplayName, lastUsed: r.timestamp };
+        stats.byEndpoint[epKey] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, endpoint, rawModel: r.model, provider: providerDisplayName, lastUsed: r.lastUsed };
       }
       const epe = stats.byEndpoint[epKey];
-      epe.requests++; epe.promptTokens += promptTokens; epe.completionTokens += completionTokens; epe.cachedTokens += cachedTokens; epe.cost += entryCost;
-      if (new Date(r.timestamp) > new Date(epe.lastUsed)) epe.lastUsed = r.timestamp;
+      epe.requests += r.requests; epe.promptTokens += promptTokens; epe.completionTokens += completionTokens; epe.cachedTokens += cachedTokens; epe.cost += entryCost;
+      if (new Date(r.lastUsed) > new Date(epe.lastUsed)) epe.lastUsed = r.lastUsed;
     }
   }
 
@@ -1039,6 +1039,9 @@ import {
   kpisImpl,
   ledgerRowsImpl,
   exportCursorImpl,
+  statsHistorySumsImpl, // P5 — getUsageStats' SQL seams
+  statsDimensionsImpl,
+  statsMinuteRowsImpl,
 } from "../../usageAggregation.js";
 
 /** mysql's JSON dialect for the two JSON-backed KPI expressions. DECIMAL(20,6)
@@ -1048,6 +1051,13 @@ const MYSQL_KPI_DIALECT = Object.freeze({
   cachedRowExpr:
     "COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(tokens, '$.cached_tokens')) AS UNSIGNED), 0) + COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(tokens, '$.cache_read_input_tokens')) AS UNSIGNED), 0)",
   rtkRowExpr: "COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(meta, '$.rtkSavedCostUsd')) AS DECIMAL(20,6)), 0)",
+});
+
+// P5 — the getUsageStats seams' dialect (HEAD's fallback law as ONE
+// COALESCE; see the sqlite twin's SQLITE_STATS_DIALECT comment).
+const MYSQL_STATS_DIALECT = Object.freeze({
+  cachedTokens: "JSON_UNQUOTE(JSON_EXTRACT(tokens, '$.cached_tokens'))",
+  cacheReadTokens: "JSON_UNQUOTE(JSON_EXTRACT(tokens, '$.cache_read_input_tokens'))",
 });
 
 export async function getFilteredSeries(opts) {

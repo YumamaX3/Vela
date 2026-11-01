@@ -1,4 +1,6 @@
-import { getUsageStats, statsEmitter, getActiveRequests, getPerProviderFrame } from "@/lib/usageDb";
+import { statsEmitter, getActiveRequests, getPerProviderFrame } from "@/lib/usageDb";
+import { usageStatsCoalesced } from "@/lib/db/index.js";
+import { readUsagePeriodFromStreamUrl } from "@/lib/usagePeriods.js";
 
 export const dynamic = "force-dynamic";
 
@@ -10,9 +12,19 @@ export const dynamic = "force-dynamic";
 //     "update" events can never trigger more than one heavy getUsageStats()
 //     per client per window; between windows the lightweight push carries
 //     the live picture (activeRequests, recentRequests, perProvider).
+//
+// P5 — the dashboard coalescing mend (suspects 1 + 7):
+//   • The client's OWN period rides the query string (?period=7d). Before
+//     this, every subscriber scanned "all" whatever the tab showed; the
+//     period now flows client → route → the shared memo → getUsageStats.
+//   • The heavy full-stats read goes through usageStatsCoalesced: the 15s
+//     window is shared ACROSS tabs (server-side, per period) and concurrent
+//     cold subscribers JOIN one in-flight compute. The per-client gate below
+//     stays as the second floor — one client's storm still pushes quickly.
 const FULL_STATS_MIN_INTERVAL_MS = 15_000;
 
-export async function GET() {
+export async function GET(request) {
+  const period = readUsagePeriodFromStreamUrl(request?.url);
   const encoder = new TextEncoder();
   const state = { closed: false, keepalive: null, send: null, sendPending: null, cachedStats: null, lastFullAt: 0 };
   let controller = null; // bound when the ReadableStream starts
@@ -58,7 +70,9 @@ export async function GET() {
           // Outside the window (or first paint) — the heavy path. Push the
           // lightweight update first so the UI reflects changes fast.
           if (state.cachedStats) await sendQuick();
-          const stats = await getUsageStats();
+          // The SAME 15s window, held server-side and shared by every tab
+          // subscribed to this period (in-flight cold subscribers join it).
+          const stats = await usageStatsCoalesced(period);
           state.cachedStats = stats;
           state.lastFullAt = Date.now();
           const perProvider = await getPerProviderFrame();

@@ -98,12 +98,19 @@ const h = vi.hoisted(() => {
   };
 });
 
-vi.mock("@/lib/usageDb", () => ({
-  statsEmitter: h.emitter,
-  getUsageStats: async () => { h.calls.full++; return { totalRequests: 7, marker: "FULL" }; },
-  getActiveRequests: async () => { h.calls.active++; return { activeRequests: [], recentRequests: [], errorProvider: null }; },
-  getPerProviderFrame: async () => { h.calls.frame++; return { perProvider: { openai: { requests: 2, errors: 0 } }, windowMs: 60000, ts: 123 }; },
-}));
+// P5 migration: the stream route now reads through @/lib/db/index.js's
+// coalescing seam (usageStatsCoalesced), not the raw usageDb — the mock
+// moved with it (deliberate test-migration, noted in the P5 commit).
+vi.mock("@/lib/db/index.js", async (importOriginal) => {
+  const actual = await importOriginal().catch(() => ({}));
+  return {
+    ...actual,
+    statsEmitter: h.emitter,
+    usageStatsCoalesced: async () => { h.calls.full++; return { totalRequests: 7, marker: "FULL" }; },
+    getActiveRequests: async () => { h.calls.active++; return { activeRequests: [], recentRequests: [], errorProvider: null }; },
+    getPerProviderFrame: async () => { h.calls.frame++; return { perProvider: { openai: { requests: 2, errors: 0 } }, windowMs: 60000, ts: 123 }; },
+  };
+});
 
 describe("W1-D SSE route — coalesced recompute + perProvider carriage", () => {
   let GET;

@@ -9,6 +9,14 @@
 //
 // Zero behavior change: same effects, same merge semantics, same ref guards.
 // The W2 cockpit's decks will consume this hook instead of the orchestrator.
+//
+// P5 — the dashboard coalescing mend (suspects 1 + 7), the client half:
+//   • The SSE opens under the CLIENT'S period (?period=…, the same allow-list
+//     the REST leg uses — src/lib/usagePeriods.js). Before this the stream had
+//     no period and every subscriber scanned "all" whatever the tab showed.
+//   • The connection is keyed by period: a period change closes the old
+//     EventSource and opens the new one. No REST-bypass: the REST leg remains
+//     the period picture's owner, exactly as sealed in W2-A.
 import { useState, useEffect, useRef } from "react";
 import { logger } from "@/lib/clientLogger.js";
 
@@ -44,9 +52,10 @@ export function useUsageStream(period) {
       });
   }, [period]);
 
-  // SSE connection - real-time updates for activeRequests + recentRequests only
+  // SSE connection - real-time updates for activeRequests + recentRequests
+  // only. P5: period-keyed — re-opens under the client's own period.
   useEffect(() => {
-    const es = new EventSource("/api/usage/stream");
+    const es = new EventSource(`/api/usage/stream?period=${encodeURIComponent(period)}`);
 
     es.onmessage = (e) => {
       try {
@@ -75,7 +84,7 @@ export function useUsageStream(period) {
     es.onerror = () => setLoading(false);
 
     return () => es.close();
-  }, []);
+  }, [period]);
 
   return { stats, loading, fetching };
 }

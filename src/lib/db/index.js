@@ -106,6 +106,127 @@ export {
   getComboUsage, // v0.9.40 — per-combo attribution aggregation (migration 015)
 } from "./repos/usageRepo.js";
 
+// ─── P5 — the dashboard coalescing layer (plans/2026-11-01-responsive-tide-
+// performance.md §III, suspects 1 + 7). THE SEAM: every dashboard read — the
+// REST stats route, the SSE stream's full paint — now enters getUsageStats
+// through HERE, never the raw twin. Two server-global memos, the
+// getPerProviderFrame precedent (usageRepo.js, W1-D) one floor down:
+//
+//   • usageStatsShared(period) — a 15s memo PER PERIOD, shared across every
+//     browser tab, HomePageClient and the usage page alike. An AUTHENTICATED
+//     caller costs at most one getUsageStats(period) per 15s regardless of how
+//     many subscribers ask. A single caller pays the same cache of a burst.
+//   • usageStatsCoalesced(period) — the SAME memo plus in-flight joining: N
+//     concurrent first-callers for a cold/stale key share ONE compute.
+//
+// FAIL-OPEN, exactly like the frame memo: a failed compute serves the last
+// good copy for that period; with no copy it rethrows (the REST route turns
+// that into its 500, the SSE tick into its detach — unchanged). Only HONEST
+// results are memoized: live/volatile fields are spliced in fresh per call,
+// so the memo never launders a live counter into the window.
+//
+// THE NO-CHANGE LAW (pinned in tests/unit/usage-stats-sql-p5.test.js): the
+// period is the WHOLE cache key and is normalized identically to the twin's
+// `getUsageStats(period = "all")` (nullish → "all"), so every distinct
+// argument maps to its own entry and no caller ever receives another
+// period's answer after ONE call — a "today" request can never be served a
+// "7d" scan. The window INSIDE an entry starts at the compute, by the same
+// clock the twin reads, and ends by the TTL — the published staleness bound.
+export const USAGE_STATS_MEMO_TTL_MS = 15_000;
+if (!global.__velaUsageStatsMemo) global.__velaUsageStatsMemo = { byPeriod: new Map(), inflight: new Map() };
+const usageStatsMemo = global.__velaUsageStatsMemo;
+
+const usageStatsKey = (period) => period ?? "all";
+
+/** Live/volatile fields: always THIS call's truth, never the memo's copy.
+ *  (`activeRequests` is rebuilt from the pending counters inside every
+ *  compute too; the splice keeps the memo from serving a cache-stale one.) */
+function spliceLive(stats, active) {
+  return {
+    ...stats,
+    pending: active.pending,
+    activeRequests: active.activeRequests,
+    recentRequests: active.recentRequests,
+    errorProvider: active.errorProvider,
+  };
+}
+
+// The memo's compute seam: the TWIN's getUsageStats (the symbol this barrel
+// re-exports) and the barrel's own live read. Resolved through the dispatcher
+// namespace at CALL time — property access, not a snapshot — so the posture
+// binding stays live and a test spy on the dispatcher module sees every call.
+import * as __usageDispatcher from "./repos/usageRepo.js";
+const bound = {
+  getUsageStats: (period) => __usageDispatcher.getUsageStats(period),
+  getActiveRequests: () => __usageDispatcher.getActiveRequests(),
+};
+
+async function computeUsageStats(period) {
+  const [stats, active] = await Promise.all([
+    bound.getUsageStats(period),
+    bound.getActiveRequests(),
+  ]);
+  return spliceLive(stats, active);
+}
+
+/** The shared 15s read — bounded staleness (≤ TTL), fail-open to the last
+ *  good copy. No in-flight joining: the first caller computes, later callers
+ *  within the window read the memo (or the warm copy once it lands). */
+export async function usageStatsShared(period) {
+  const key = usageStatsKey(period);
+  const now = Date.now();
+  const hit = usageStatsMemo.byPeriod.get(key);
+  if (hit && now - hit.ts < USAGE_STATS_MEMO_TTL_MS) {
+    if (hit.stats) return spliceLive(hit.stats, await bound.getActiveRequests());
+    if (hit.inflight) return hit.inflight; // a compute is landing — ride it
+  }
+  const entry = { ts: now, stats: hit?.stats || null, inflight: null };
+  usageStatsMemo.byPeriod.set(key, entry);
+  entry.inflight = (async () => {
+    try {
+      const fresh = await computeUsageStats(period);
+      entry.ts = Date.now();
+      entry.stats = fresh;
+      return fresh;
+    } catch (e) {
+      if (entry.stats) { entry.ts = Date.now(); return spliceLive(entry.stats, await bound.getActiveRequests()); }
+      usageStatsMemo.byPeriod.delete(key);
+      throw e;
+    } finally {
+      entry.inflight = null;
+    }
+  })();
+  return entry.inflight;
+}
+
+/** The coalesced read — shared memo PLUS in-flight joining: a cold key hit by
+ *  N subscribers runs ONE compute; every one of them receives its result. */
+export async function usageStatsCoalesced(period) {
+  const key = usageStatsKey(period);
+  const hit = usageStatsMemo.byPeriod.get(key);
+  if (hit && Date.now() - hit.ts < USAGE_STATS_MEMO_TTL_MS) {
+    if (hit.stats) return spliceLive(hit.stats, await bound.getActiveRequests());
+    if (hit.inflight) return hit.inflight;
+  }
+  const existing = usageStatsMemo.inflight.get(key);
+  if (existing) return existing;
+  const p = (async () => {
+    try {
+      return await usageStatsShared(period);
+    } finally {
+      usageStatsMemo.inflight.delete(key);
+    }
+  })();
+  usageStatsMemo.inflight.set(key, p);
+  return p;
+}
+
+/** Test/support seam: drop every memoized copy (never called in production). */
+export function __clearUsageStatsMemo() {
+  usageStatsMemo.byPeriod.clear();
+  usageStatsMemo.inflight.clear();
+}
+
 // Usage Observatory W4-C — request tags (facade → repos/usageTagsRepo.js).
 // The census pin demands every harness-registry name resolve from THIS barrel;
 // the PUT tags route imports the facade directly, but the barrel keeps the

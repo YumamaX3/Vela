@@ -592,6 +592,142 @@ export async function kpisImpl(db, { filters = {}, period = "24h", now = Date.no
   };
 }
 
+// ─── getUsageStats' SQL seams — the dashboard coalescing mend (P5) ────────
+// Response campaign P5 (plans/2026-11-01-responsive-tide-performance.md §III:
+// "getUsageStats coalescing … SQL-aggregate today's KPIs instead of JS loops
+// where the schema allows"). getUsageStats' heavy arms used to fold a full
+// window scan ROW BY ROW in JS; these seams push the grouping into the
+// engine in the getKpis SUM(CASE …) shape above — the counting in SQL, the
+// JS side reduced to naming and cell assembly.
+//
+// CORRECTNESS LAW: a seam may move WHERE the arithmetic happens, never its
+// answer. The P5 pin (tests/unit/usage-stats-sql-p5.test.js) proves it on a
+// seeded fixture against a frozen copy of the pre-mend JS. What shaped the SQL:
+//
+//   • Cached tokens. The JS reads `cached_tokens || cache_read_input_tokens
+//     || 0` — a FALLBACK chain, never a sum (HEAD :757): cache_read fills in
+//     only when cached_tokens is absent/null. The SQL carries the same
+//     fallback as ONE dialect expression — COALESCE(CAST(cached AS INTEGER),
+//     CAST(read AS INTEGER), 0) — SUM'd once. (An earlier draft summed the
+//     two terms; the pin's 22-vs-17 caught it.)
+//   • SQLite int64 wraparound (MEASURED, not assumed): json_extract yields
+//     INTEGER (int64), and `int64 + int64` OVERFLOWS SILENTLY on SQLite
+//     (2^60 + 2^60 → −2^61, handed back as a float; SQLite 3.53.2). With the
+//     fallback law each row contributes at most ONE term, so a plain int64
+//     SUM from 0 cannot wrap for any real input, and the JS join needs no
+//     second sum. (The pin still seeds the overflowing pair to hold the
+//     refusal law where sums appear.)
+//   • Ordering. The JS walks `WHERE timestamp >= ?` in row order and keeps
+//     the FIRST row's display cells; the identity seam pins first-seen with
+//     MIN(id) and walks its groups in that order.
+//   • Presence. The identity maps (byModel/byAccount/byApiKey/byEndpoint)
+//     still materialize ONLY from the exact history arm ("today"/"24h"),
+//     never from the usageDaily rollup — a grouped key exists iff history has
+//     a row in the window.
+
+/** One statement's SUM(CASE …) columns over the bounded window. Every sum
+ *  rides the ONE `timestamp >= ?` predicate, so each statement binds exactly
+ *  one parameter (the prefix); plain SUMs and CASE'd SUMs leave every empty
+ *  window a numeric 0, never NULL. */
+const statsSumColumns = (d) => `
+  SUM(CASE WHEN timestamp >= ? THEN promptTokens ELSE 0 END) AS promptTokens,
+  SUM(CASE WHEN timestamp >= ? THEN completionTokens ELSE 0 END) AS completionTokens,
+  SUM(CASE WHEN timestamp >= ? THEN COALESCE(CAST(${d.cachedTokens} AS INTEGER), CAST(${d.cacheReadTokens} AS INTEGER), 0) ELSE 0 END) AS cachedSum,
+  SUM(CASE WHEN timestamp >= ? THEN cost ELSE 0 END) AS cost`;
+
+/** Totals + byProvider in TWO engine statements over the same window: the
+ *  grand-total aggregates (no GROUP BY) and `GROUP BY provider`. The '' group
+ *  (migration 004 "unset") keeps the NULL key the JS live arm always used.
+ *  `excludeProvider` is a compile-time twin constant (see the sqlite twin). */
+export async function statsHistorySumsImpl(db, { since, dialect, excludeProvider = null } = {}) {
+  const sel = statsSumColumns(dialect);
+  const notP = excludeProvider == null ? "" : ` AND provider <> ?`;
+  const ex = excludeProvider == null ? [] : [excludeProvider];
+  const row = (await db.get(
+    `SELECT COUNT(*) AS requests, ${sel} FROM usageHistory WHERE timestamp >= ?${notP}`,
+    [since, since, since, since, since, ...ex]
+  )) || {};
+  const provRows = (await db.all(
+    `SELECT provider, COUNT(*) AS requests, ${sel} FROM usageHistory WHERE timestamp >= ? GROUP BY provider`,
+    [since, since, since, since, since]
+  )) || [];
+  const byProvider = {};
+  for (const p of provRows) {
+    if (!p.requests) continue;
+    if (excludeProvider != null && p.provider === excludeProvider) continue;
+    byProvider[p.provider] = {
+      requests: num(p.requests),
+      promptTokens: num(p.promptTokens),
+      completionTokens: num(p.completionTokens),
+      cachedTokens: num(p.cachedSum), // the fallback chain, summed once
+      cost: num(p.cost),
+    };
+  }
+  return {
+    totals: {
+      requests: num(row.requests),
+      promptTokens: num(row.promptTokens),
+      completionTokens: num(row.completionTokens),
+      cachedTokens: num(row.cachedSum), // the fallback chain, summed once
+      cost: num(row.cost),
+    },
+    byProvider,
+  };
+}
+
+/** The exact arm's four identity dimensions — ONE GROUP BY over the walk's
+ *  OWN key (model · provider · connectionId · keyId · keyPrefix · endpoint).
+ *  Groups walk in first-seen order (MIN(id)); `lastUsed` is MAX(timestamp) —
+ *  HEAD's per-row max-fold (:785), the last stamp the walk left behind. */
+export async function statsDimensionsImpl(db, { since, dialect } = {}) {
+  const key = "model, provider, connectionId, keyId, keyPrefix, endpoint";
+  // cachedSum carries HEAD's fallback law (cached_tokens || cache_read || 0),
+  // same expression as the sums seam; lastUsed is MAX(timestamp) — HEAD's
+  // per-row max-fold over the group (:785).
+  const cachedCol = dialect
+    ? `COALESCE(CAST(${dialect.cachedTokens} AS INTEGER), CAST(${dialect.cacheReadTokens} AS INTEGER), 0)`
+    : "0";
+  const rows = (await db.all(
+    `SELECT ${key}, MIN(id) AS firstId, COUNT(*) AS requests,
+            SUM(promptTokens) AS promptTokens, SUM(completionTokens) AS completionTokens,
+            SUM(CASE WHEN timestamp >= ? THEN COALESCE(CAST(${cachedCol} AS INTEGER), 0) ELSE 0 END) AS cachedSum,
+            SUM(cost) AS cost, MAX(timestamp) AS lastUsed
+     FROM usageHistory WHERE timestamp >= ? GROUP BY ${key}`,
+    [since, since]
+  )) || [];
+  return rows
+    .filter((r) => num(r.requests) > 0)
+    .sort((a, b) => Number(a.firstId) - Number(b.firstId))
+    .map((r) => ({
+      model: r.model, provider: r.provider, connectionId: r.connectionId,
+      keyId: r.keyId, keyPrefix: r.keyPrefix, endpoint: r.endpoint,
+      requests: num(r.requests),
+      promptTokens: num(r.promptTokens),
+      completionTokens: num(r.completionTokens),
+      cachedTokens: num(r.cachedSum),
+      cost: num(r.cost),
+      lastUsed: r.lastUsed,
+    }));
+}
+
+/** The 10-minute strip — one GROUP BY the bucket cells (the slot arithmetic
+ *  itself stays JS-side: local-minute boundaries are the caller's clock). */
+export async function statsMinuteRowsImpl(db, { from, to } = {}) {
+  const rows = (await db.all(
+    `SELECT timestamp, COUNT(*) AS requests, promptTokens, completionTokens, cost
+     FROM usageHistory WHERE timestamp >= ? AND timestamp <= ?
+     GROUP BY timestamp, promptTokens, completionTokens, cost`,
+    [from, to]
+  )) || [];
+  return rows.map((r) => ({
+    ts: r.timestamp,
+    requests: num(r.requests),
+    promptTokens: num(r.promptTokens),
+    completionTokens: num(r.completionTokens),
+    cost: num(r.cost),
+  }));
+}
+
 // ─── getLedgerRows — keyset-paginated, enriched ────────────────────────────
 
 const LEDGER_PAGE_MAX = 200;
