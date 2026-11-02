@@ -166,13 +166,18 @@ async function facade() {
 }
 
 /** Run one encrypted backup (any posture). Writes a ledger row. */
-export async function runBackup({ trigger = "manual" } = {}) {
+export async function runBackup({ trigger = "manual", scope = null } = {}) {
   const passphrase = getBackupEncryptionKey();
   const includeRequestDetails = process.env.VELA_BACKUP_INCLUDE_REQUEST_DETAILS === "true";
   const repo = await facade();
   try {
-    const payload = await repo.exportDb({ includeRequestDetails });
-    const secretBundle = captureSecretBundle();
+    // A scoped backup crops the payload and DECLARES the crop in the manifest
+    // (backupSecurity.js "scoped-backup law"); a scoped artifact carries no
+    // secret-file bundle and no request-details ledger (whole-harbour cargo).
+    const normalizedScope = scope ? (await import("./backupSecurity.js")).normalizeBackupScope(scope) : null;
+    const payload = await repo.exportDb({ includeRequestDetails: includeRequestDetails && !normalizedScope, scope: normalizedScope });
+    const secretBundle = normalizedScope ? { capturedAt: new Date().toISOString(), files: {} } : captureSecretBundle();
+    const declaredScope = normalizedScope;
     const plain = zlib.gzipSync(Buffer.from(JSON.stringify({ payload, secretBundle }), "utf8"), { level: 9 });
     const manifest = {
       created: new Date().toISOString(),
@@ -180,7 +185,13 @@ export async function runBackup({ trigger = "manual" } = {}) {
       schemaVersion: SCHEMA_VERSION,
       sourceMode: payload._meta?.sourceMode ?? null,
       secretBundle: Object.keys(secretBundle.files || {}),
-      includeRequestDetails,
+      includeRequestDetails: includeRequestDetails && !normalizedScope,
+      // The scope declaration: sections + explicit provider ids + completeness.
+      // null for a full backup — which keeps every existing artifact's manifest
+      // shape unchanged.
+      scope: declaredScope
+        ? { sections: [...(declaredScope.sections || [])], providers: declaredScope.providers ?? null, complete: true }
+        : null,
     };
     const sealed = sealArtifact(plain, passphrase, manifest);
     const artifactId = `vela-backup-${artifactTimestampSlug()}-${crypto.randomBytes(3).toString("hex")}`;
@@ -192,7 +203,7 @@ export async function runBackup({ trigger = "manual" } = {}) {
       sizeBytes: sealed.length,
       schemaVersion: SCHEMA_VERSION,
       sourceMode: manifest.sourceMode,
-      meta: { trigger, secretBundleFiles: manifest.secretBundle },
+      meta: { trigger, secretBundleFiles: manifest.secretBundle, scope: declaredScope ? { sections: manifest.scope.sections, providers: manifest.scope.providers } : null },
     });
 
     // Wave C6 — the off-site leg (fail-open by law). Uploads ONLY the sealed
@@ -270,6 +281,7 @@ export function listBackupArtifacts() {
         sourceMode: header?.manifest?.sourceMode ?? null,
         includeRequestDetails: header?.manifest?.includeRequestDetails ?? null,
         secretBundle: header?.manifest?.secretBundle ?? [],
+        scope: header?.manifest?.scope ?? null,
         // A header that will not parse is a fact worth surfacing, not hiding.
         headerOk: header !== null,
       };
@@ -293,6 +305,7 @@ export function verifyBackupArtifact(artifactId) {
     ok: true,
     artifactId,
     manifest: header?.manifest ?? null,
+    scope: header?.manifest?.scope ?? parsed?.payload?._meta?.scope ?? null,
     secretBundleFiles: Object.keys(parsed?.secretBundle?.files ?? {}),
     sections: {
       settings: count(payload.settings),
@@ -357,10 +370,14 @@ export async function restoreBackup({ artifactId, adoptSecrets = false, trigger 
     log.warn("DB", "[backup] pre-restore safety backup failed (restore proceeds):", err?.message);
   }
 
-  await repo.importDb(payload, { adoptSecrets });
+  // The scope the artifact declares (a full artifact declares none) rides into
+  // the import, so a scoped restore replaces EXACTLY its sections.
+  await repo.importDb(payload, { adoptSecrets, scope: payload._meta?.scope ?? null });
 
   // S6 — secret-bundle write-back. Restart REQUIRED afterwards.
-  const restoredSecrets = envelope.secretBundle ? restoreSecretBundle(envelope.secretBundle) : [];
+  // A scoped artifact writes back ONLY the section it declares — the S6
+  // secret-file bundle is whole-harbour cargo and must never ride a crop.
+  const restoredSecrets = !envelope.payload?._meta?.scope && envelope.secretBundle ? restoreSecretBundle(envelope.secretBundle) : [];
 
   const artifactName = path.basename(file, ".velabak");
   await repo.writeLedger("restore", {
@@ -368,7 +385,7 @@ export async function restoreBackup({ artifactId, adoptSecrets = false, trigger 
     schemaVersion: payloadVersion,
     sourceMode: header?.manifest?.sourceMode ?? null,
     targetMode: mode,
-    meta: { trigger, adoptSecrets, restoredSecrets, safetyBackup: safetyBackup ? String(safetyBackup) : null },
+    meta: { trigger, adoptSecrets, restoredSecrets, safetyBackup: safetyBackup ? String(safetyBackup) : null, scope: payload._meta?.scope ?? null },
   });
 
   return {

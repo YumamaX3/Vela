@@ -25,8 +25,13 @@ import m021 from "./021-credential-vault.js";
 import m022 from "./022-semantic-cache.js";
 import m023 from "./023-plans.js";
 import m024 from "./024-key-access.js";
+import m025 from "./025-key-rate-dimensions.js";
+import m026 from "./026-guardrail-prompts.js";
+import m027 from "./027-policy-kinds.js";
+import m028 from "./028-user-totp.js";
+import m029 from "./029-security-log-trust-inbox.js";
 
-export const MIGRATIONS = [m001, m002, m003, m004, m005, m006, m007, m008, m009, m010, m011.default || m011, m012.default || m012, m013.default || m013, m014.default || m014, m015.default || m015, m016.default || m016, m017.default || m017, m018.default || m018, m019.default || m019, m020.default || m020, m021.default || m021, m022.default || m022, m023.default || m023, m024.default || m024].sort((a, b) => a.version - b.version);
+export const MIGRATIONS = [m001, m002, m003, m004, m005, m006, m007, m008, m009, m010, m011.default || m011, m012.default || m012, m013.default || m013, m014.default || m014, m015.default || m015, m016.default || m016, m017.default || m017, m018.default || m018, m019.default || m019, m020.default || m020, m021.default || m021, m022.default || m022, m023.default || m023, m024.default || m024, m025.default || m025, m026.default || m026, m027.default || m027, m028.default || m028, m029.default || m029].sort((a, b) => a.version - b.version);
 
 export function latestVersion() {
   return MIGRATIONS.length ? MIGRATIONS[MIGRATIONS.length - 1].version : 0;

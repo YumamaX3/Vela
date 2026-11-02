@@ -31,7 +31,17 @@ export const EXPORT_EXCLUDED_TABLES = ["backupLedger", "outbox", "mirrorSeq"];
 // redact — M0 Tag 2: identical law to the sqlite twin — see its header. The
 // plaintext HTTP export surface opts in; the artifact + resync callers stay
 // full-fidelity BY CONSTRUCTION.
-export async function exportDb({ includeRequestDetails = false, redact = false } = {}) {
+export async function exportDb({ includeRequestDetails = false, redact = false, scope = null } = {}) {
+  // The scoped backup lands on the sqlite harbour first; the twin refuses
+  // LOUDLY rather than silently serving a whole export under a scoped request
+  // (fail loud, never silent downgrade — the house law). Threading the crop
+  // through this harbour is the open follow-up, not a silent identity.
+  if (scope !== null && scope !== undefined) {
+    const { normalizeBackupScope } = await import("../backupSecurity.js");
+    if (normalizeBackupScope(scope)) {
+      throw new Error("[backup] scoped export is not yet implemented on the mysql posture — refusing to return a whole export for a scoped request");
+    }
+  }
   const db = await getMysqlAdapter();
   const { exportSettings } = await import("./settingsRepo.js");
   const settings = await exportSettings(); // S2 — redacted at the source

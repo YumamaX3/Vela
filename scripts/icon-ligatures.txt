@@ -3,6 +3,7 @@ account_tree
 add
 add_box
 add_link
+add_notes
 air
 all_inclusive
 alt_route
@@ -11,6 +12,7 @@ anchor
 antigravity
 api
 apps
+area_chart
 arrow_back
 arrow_downward
 arrow_forward
@@ -18,14 +20,16 @@ arrow_upward
 assistant
 attach_file
 auto_awesome
+auto_mode
 backup
 badge
 bar_chart
+battery_5_bar
 bedtime
 block
 blur_on
-bookmark_add
 bolt
+bookmark_add
 brush
 business
 call_merge
@@ -48,12 +52,16 @@ cloud_upload
 code
 compress
 computer
+construction
 content_copy
+contract
 contrast
+conversion_path
 cookie
 copy_all
 dark_mode
 dashboard
+dashboard_customize
 data_array
 data_object
 data_usage
@@ -63,6 +71,7 @@ delete
 delete_sweep
 deployed_code
 description
+desktop_windows
 developer_board
 devices
 diamond
@@ -89,11 +98,13 @@ flight
 flutter_dash
 folder_open
 forum
+g_translate
 gavel
 graphic_eq
 grid_view
 group
 group_work
+handyman
 health_and_safety
 help
 history
@@ -110,6 +121,7 @@ input
 insights
 inventory_2
 key
+key_visualizer
 keyboard_arrow_down
 keyboard_arrow_up
 keyboard_capslock
@@ -153,6 +165,7 @@ output
 paid
 palette
 park
+passkey
 password
 pause
 pause_circle
@@ -258,5 +271,3 @@ wifi_off
 wifi_tethering
 wrap_text
 wrong_location
-auto_mode
-desktop_windows

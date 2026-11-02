@@ -41,6 +41,7 @@ import {
   setUserPassword,
   deleteAllUsers,
   touchUserLogin,
+  getUserById,
 } from "@/lib/db/repos/usersRepo.js";
 
 export const DEFAULT_USERNAME = "admin";
@@ -110,4 +111,4 @@ export async function loadLoginTarget(settings) {
   return resolveLoginUser(users);
 }
 
-export { setUserPassword, deleteAllUsers, touchUserLogin, countUsers };
+export { setUserPassword, deleteAllUsers, touchUserLogin, countUsers, getUserById };

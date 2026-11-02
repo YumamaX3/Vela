@@ -137,6 +137,12 @@ function rebuildShadow(shadow, payload) {
     // Migration 024 — per-key access columns; the rebuild mapping must carry
     // them or the twin's fingerprint reads phantom drift after every resync.
     accessRestricted: k.accessRestricted ?? 0, accessAllow: k.accessAllow ?? null,
+    // Migration 025 — per-key rate dimensions. Same 024 law: the rebuild
+    // mapping must carry them or the twin's fingerprint reads phantom drift
+    // after every resync (the row compares equal on every named column while
+    // the missing ones read as undefined-vs-null on the normalized hash).
+    rateLimitTpm: k.rateLimitTpm ?? null, rateLimitRph: k.rateLimitRph ?? null,
+    rateLimitRpd: k.rateLimitRpd ?? null, maxConcurrentRequests: k.maxConcurrentRequests ?? null,
   }));
   shadow.combos = (payload.combos || []).map((c) => ({
     id: c.id, name: c.name, kind: c.kind || null, models: JSON.stringify(c.models || []),

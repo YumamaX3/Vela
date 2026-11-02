@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { exportDb, getSettings, importDb } from "@/lib/localDb";
+import { exportBackup } from "@/lib/db/repos/backupRepo";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 import { verifyDashboardPassword } from "@/lib/auth/dashboardSession";
-import { IMPORT_SECTIONS, projectPayloadToSections } from "@/lib/db/repos/backupSecurity.js";
+import { IMPORT_SECTIONS, projectPayloadToSections, normalizeBackupScope } from "@/lib/db/repos/backupSecurity.js";
 import * as log from "@/sse/utils/logger.js";
 
 const CLI_TOKEN_HEADER = "x-vela-cli-token";
@@ -32,6 +33,32 @@ export async function GET(request) {
     // absent/empty selection is the whole-database export, byte-identical to
     // the historical surface.
     const { searchParams } = new URL(request.url);
+
+    // SCOPED BACKUP ARTIFACT. `?scope=<json|urlencoded>` (e.g.
+    // ?scope={"sections":["providers"],"providers":["openai"]}) returns an
+    // artifact-ready object declared by its manifest instead of the bare
+    // payload; `?preview=1` answers that manifest and WRITES NOTHING.
+    // `?sections=` (below) remains the legacy whole-database crop and is
+    // byte-identical to before when absent.
+    const rawScope = searchParams.get("scope");
+    const wantsPreview = searchParams.get("preview") === "1";
+    if (rawScope !== null || wantsPreview) {
+      let scope = null;
+      if (rawScope) {
+        try {
+          scope = normalizeBackupScope(JSON.parse(rawScope));
+        } catch (err) {
+          return NextResponse.json({ error: `Invalid scope: ${err.message}` }, { status: 400 });
+        }
+      }
+      const artifact = await exportBackup({ scope, persistDefault: searchParams.get("persistDefault") === "1" });
+      if (wantsPreview) {
+        // The manifest is a pure function of the payload — nothing is written.
+        return NextResponse.json({ preview: true, ...artifact.manifest });
+      }
+      return NextResponse.json(artifact);
+    }
+
     const raw = searchParams.get("sections");
     let selected = null;
     if (raw) {
@@ -59,7 +86,25 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    const { password, adoptSecrets, sections, dryRun, ...payload } = await request.json();
+    const body = await request.json();
+    const { password, adoptSecrets, sections, dryRun, velaBackup, manifest: artifactManifest, payload: artifactPayload } = body;
+    let { scope: restoreScope } = body;
+    // A scoped backup ARTIFACT (produced by /api/backup/export or GET ?scope=)
+    // wraps its payload; the manifest's scope is the restore's law. A bare
+    // payload keeps the historical shape (everything else rides as payload).
+    const payload = {};
+    if (velaBackup === true && artifactPayload && typeof artifactPayload === "object") {
+      Object.assign(payload, artifactPayload);
+      if (restoreScope === undefined || restoreScope === null) restoreScope = artifactManifest?.scope ?? null;
+    } else {
+      for (const [k, v] of Object.entries(body)) {
+        if (["password", "adoptSecrets", "sections", "dryRun"].includes(k)) continue;
+        payload[k] = v;
+      }
+      delete payload.scope;
+    }
+    // An explicit caller scope and the scope a scoped artifact DECLARES both
+    // ride into importDb, which refuses when they disagree (sameScope).
     if (!isCliRequest(request) && !(await verifyDashboardPassword(password))) {
       return NextResponse.json({ error: "Invalid password" }, { status: 401 });
     }
@@ -93,10 +138,20 @@ export async function POST(request) {
       return NextResponse.json({ error: "dryRun must be a boolean" }, { status: 400 });
     }
     const wantsDryRun = dryRun === true;
+    // An explicit caller scope must be well-formed — a typo never widens a wipe.
+    let scopeSelection = null;
+    if (restoreScope !== undefined && restoreScope !== null) {
+      try {
+        scopeSelection = normalizeBackupScope(restoreScope);
+      } catch (err) {
+        return NextResponse.json({ error: err.message }, { status: 400 });
+      }
+    }
     const result = await importDb(payload, {
       adoptSecrets: adoptSecrets === true,
       sections: sectionSelection,
       dryRun: wantsDryRun,
+      scope: scopeSelection,
     });
     // The dry run writes NOTHING — proxy env re-application and the applied
     // report below are restore-only concerns.
@@ -116,6 +171,7 @@ export async function POST(request) {
       success: true,
       appliedSections: result.appliedSections ?? null,
       appliedRows: result.appliedRows ?? null,
+      scope: result.scope ?? null,
     });
   } catch (error) {
     log.info("SETTINGS", "Error importing database:", (error?.message ?? error));

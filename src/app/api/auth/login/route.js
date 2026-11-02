@@ -14,10 +14,14 @@ import {
 } from "@/lib/auth/loginLimiter";
 import { recordSession } from "@/lib/auth/sessionLedger.js";
 import { loadLoginTarget, verifyUserPassword, touchUserLogin, countUsers } from "@/lib/auth/users.js";
+import { updateUser } from "@/lib/db/repos/usersRepo.js";
+import { verifyTotp } from "@/lib/auth/totp.js";
+import { verifyBackupCode } from "@/lib/auth/backupCodes.js";
+import { mintTicket, consumeTicket } from "@/lib/auth/twoFactorTicket.js";
 import { auditAuthEvent, AUTH_EVENTS } from "@/lib/auth/authAudit.js";
 import { isLocalRequest } from "@/dashboardGuard";
 import { timingSafeEqual } from "@/shared/utils/timingSafeEqual.js";
-import { NO_PASSWORD_REMOTE_MESSAGE } from "@/lib/auth/loginMessages.js";
+import { NO_PASSWORD_REMOTE_MESSAGE, TOTP_REFUSED_MESSAGE } from "@/lib/auth/loginMessages.js";
 import * as log from "@/sse/utils/logger.js";
 
 const RESET_HINT = "Forgot password? Clear it via Vela CLI → Settings → Reset Password (clear), then enter from the local console and set a new one under Profile → Security.";
@@ -56,6 +60,118 @@ async function admitPasswordlessLoopback(request, ip, deviceLabel = null) {
   return NextResponse.json({ success: true }, { headers: NO_STORE_HEADERS });
 }
 
+// ── The second step (2FA) ─────────────────────────────────────────────────
+//
+// Called ONLY on the password-success branch, ONLY when the row's lock is live,
+// and BEFORE anything is minted. It returns a response when the caller must not
+// get a session, or null when the flow may continue to mint one.
+//
+//   • no ticket/code in the body → hand back a single-use, IP-bound, 5-minute
+//     TICKET and require:true. Never a cookie — a correct password alone is not
+//     a login. The ticket names THIS user, so it cannot be traded against
+//     another row.
+//   • ticket/code present → the ticket must match this user and this IP (a
+//     mismatch is refused and burns the ticket), then the code must be a live
+//     TOTP step or an unburned backup code. A backup code's digest set is
+//     persisted back (that IS the burn). Success falls through to the session.
+//
+// Every refusal feeds the EXISTING ladder — the same recordFail + audit + lock
+// check the wrong-password branch uses — so a guessed code costs exactly what a
+// guessed password costs, and the lockout still bites.
+
+// The claims a password-door session carries. `userId` is additive: routes that
+// manage the second lock (totp) resolve the occupant by it. A userRow with no
+// username mints the same empty claims it always did.
+function sessionClaimsFor(userRow) {
+  const claims = {};
+  if (userRow?.id) claims.userId = userRow.id;
+  if (userRow?.username) claims.username = userRow.username;
+  return claims;
+}
+
+// The session a proven second step earns — forged and recorded through the same
+// seam as the oidc/saml callbacks, so the ledger row and the audit line carry
+// the same shape every other door uses (method names the two factors).
+async function finishTwoFactorLogin({ request, ip, userRow, deviceLabel }) {
+  const cookieStore = await cookies();
+  const minted = await setDashboardAuthCookie(cookieStore, request, sessionClaimsFor(userRow));
+  await recordSession(minted, request, { ip, label: deviceLabel });
+  await auditAuthEvent(AUTH_EVENTS.LOGIN_OK, {
+    request,
+    ip,
+    detail: { method: "password+totp", username: userRow?.username || null, sessionId: minted?.jti || null },
+  });
+  return NextResponse.json({ success: true }, { headers: NO_STORE_HEADERS });
+}
+
+async function handleTotpStep({ request, ip, userRow, totpTicket, totpCode, deviceLabel }) {
+  const hasTicket = typeof totpTicket === "string" && totpTicket.length > 0;
+  const hasCode = typeof totpCode === "string" && totpCode.trim().length > 0;
+
+  if (!hasTicket || !hasCode) {
+    const ticket = mintTicket({ userId: userRow.id, username: userRow.username, ip });
+    return NextResponse.json(
+      { totpRequired: true, totpTicket: ticket },
+      { headers: NO_STORE_HEADERS }
+    );
+  }
+
+  // consumeTicket is single-use: it burns the ticket whether or not the code
+  // that follows is right, so a replay buys nothing.
+  const entry = consumeTicket({ ticket: totpTicket, ip });
+  const ticketBelongs = !!entry && entry.userId === userRow.id;
+
+  let verified = false;
+  if (ticketBelongs) {
+    const totp = userRow.totpSecret ? verifyTotp(userRow.totpSecret, totpCode) : { ok: false };
+    if (totp.ok) {
+      verified = true;
+    } else {
+      const backup = verifyBackupCode(userRow.backupCodes, totpCode);
+      if (backup.ok) {
+        // Done the moment the code is recognized: deleting its digest IS the
+        // burn. Best-effort — a store hiccup must not fail a login a valid code
+        // already earned; the worst case is one code honored a second time.
+        try {
+          await updateUser(userRow.id, { backupCodes: JSON.stringify(backup.hashes) });
+        } catch (err) {
+          log.error("AUTH", "backup-code burn persist failed (fail-open):", err?.message || err);
+        }
+        verified = true;
+      }
+    }
+  }
+
+  if (!verified) {
+    const { remainingBeforeLock } = recordFail(ip);
+    // AUTH_EVENTS exports no TOTP_FAIL constant; the brief forbids editing
+    // authAudit.js to invent one, so the round-trip rides LOGIN_FAIL with a
+    // detail that names the reason. (A ticket that is absent, expired, spent,
+    // or minted for another user is the same refusal — the code was not proven.)
+    await auditAuthEvent(AUTH_EVENTS.LOGIN_FAIL, {
+      request,
+      ip,
+      detail: { reason: "invalid_totp", remainingBeforeLock },
+    });
+    const postLock = checkLock(ip);
+    if (postLock.locked) {
+      await auditAuthEvent(AUTH_EVENTS.LOGIN_LOCKED, { request, ip, detail: { reason: "locked", retryAfter: postLock.retryAfter } });
+      return NextResponse.json(
+        { error: `Too many failed attempts. Try again in ${postLock.retryAfter}s. ${RESET_HINT}`, retryAfter: postLock.retryAfter, resetHint: RESET_HINT },
+        { status: 429, headers: { "Retry-After": String(postLock.retryAfter), ...NO_STORE_HEADERS } }
+      );
+    }
+    return NextResponse.json(
+      { error: TOTP_REFUSED_MESSAGE, totpRequired: true },
+      { status: 401, headers: NO_STORE_HEADERS }
+    );
+  }
+
+  // Proven — mint and return the session here, so the password + ticket + code
+  // trio is the ONLY path that produces a cookie for a locked row.
+  return finishTwoFactorLogin({ request, ip, userRow, deviceLabel });
+}
+
 export async function POST(request) {
   try {
     const ip = getClientIp(request);
@@ -80,7 +196,7 @@ export async function POST(request) {
       );
     }
 
-    const { password, label } = await request.json();
+    const { password, label, totpTicket, totpCode } = await request.json();
     const deviceLabel = sanitizeDeviceLabel(label);
     const settings = await getSettings();
 
@@ -174,12 +290,19 @@ export async function POST(request) {
         }
       }
 
+      // The password was right — but it is only ONE factor when the second
+      // lock is live. STRICT `=== 1`: a row that is absent, NULL, or 0 means
+      // "no 2FA" and falls straight through to the session below, unchanged.
+      //
+      // A half-enrolled row (secret minted, flag never flipped) reads as 0 —
+      // the enrollment is inert until the operator proves a code, by design.
+      if (userRow && userRow.totpEnabled === 1) {
+        const stepUp = await handleTotpStep({ request, ip, userRow, totpTicket, totpCode, deviceLabel });
+        if (stepUp) return stepUp;
+      }
+
       const cookieStore = await cookies();
-      const minted = await setDashboardAuthCookie(
-        cookieStore,
-        request,
-        userRow?.username ? { username: userRow.username } : {}
-      );
+      const minted = await setDashboardAuthCookie(cookieStore, request, sessionClaimsFor(userRow));
       await recordSession(minted, request, { ip, label: deviceLabel });
       await auditAuthEvent(AUTH_EVENTS.LOGIN_OK, {
         request,

@@ -1,3 +1,8 @@
+// The injector validators (validateUserInjectors et al.) live in
+// open-sse/rtk/injectorScripts.js, NOT here: this seam is imported by a bare
+// Node worker thread (the log retention sweep) that resolves no bundler
+// aliases, so the pure settings core must stay dependency-free by construction.
+
 // Storage Covenant Wave A7 — the pure settings core, shared by BOTH harbors.
 // DEFAULT_SETTINGS + mergeWithDefaults carry no persistence — they are logic,
 // not SQL, so they live in the seam (not duplicated into each harbor, where a
@@ -110,6 +115,26 @@ export const DEFAULT_SETTINGS = {
     // Usage Observatory W3-D — the weekly usage digest rides the same
     // operator-configured channels as the budget alerts.
     weeklyDigestEnabled: false,
+  },
+  // The webhook ledger (src/lib/webhooks.js) — the operator's OUTBOUND event
+  // stream for machine consumers ('usage' | 'quota' | 'error'), HMAC-signed so
+  // a receiver can prove the body came from this gateway. Off by default and
+  // empty by default: an empty `webhookEvents` emits NOTHING, and even a
+  // configured URL stays silent until an event is switched on. webhookSecret is
+  // secret-bearing — the settings route never echoes it back (presence flag
+  // only), exactly like budgetAlerts' webhook URLs.
+  webhooks: {
+    webhookUrl: "",
+    webhookSecret: "",
+    webhookEvents: [],
+  },
+  // Telegram notifications (src/lib/notify.js) — the human channel. Off by
+  // default; an empty token or chat id sends nothing. The bot token is
+  // secret-bearing — never echoed, never logged.
+  notify: {
+    telegramEnabled: false,
+    telegramBotToken: "",
+    telegramChatId: "",
   },
   // Log Pipeline v2 §8 — the durable log ledger's retention posture.
   //
@@ -259,6 +284,9 @@ export const WRITABLE_SETTING_KEYS = [
   "userInjectors",
   "claudeAutoPing",
   "codexAutoPing",
+  // The webhook ledger + Telegram channel (src/lib/webhooks.js, src/lib/notify.js).
+  "webhooks",
+  "notify",
   "headroomCodeAware",
   "headroomKompress",
 ];
@@ -286,6 +314,15 @@ export function mergeWithDefaults(raw) {
   if (merged.budgetAlerts && typeof merged.budgetAlerts === "object") {
     merged.budgetAlerts = { ...DEFAULT_SETTINGS.budgetAlerts, ...merged.budgetAlerts };
   }
+  // The same backfill law for the two notification postures: a row written
+  // before a key existed must not leave a reader holding `undefined` where a
+  // switch belongs. Defaults first, stored values win.
+  if (merged.webhooks && typeof merged.webhooks === "object") {
+    merged.webhooks = { ...DEFAULT_SETTINGS.webhooks, ...merged.webhooks };
+  }
+  if (merged.notify && typeof merged.notify === "object") {
+    merged.notify = { ...DEFAULT_SETTINGS.notify, ...merged.notify };
+  }
   // M8 backfill, the same law as budgetAlerts above: a logRetention row written
   // before `maxRows` existed — or one stored as a partial object — must not
   // leave the sweep reading an undefined ceiling. Defaults first, stored wins.
@@ -294,3 +331,5 @@ export function mergeWithDefaults(raw) {
   }
   return merged;
 }
+
+

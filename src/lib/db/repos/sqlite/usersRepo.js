@@ -26,7 +26,17 @@
 import { getAdapter } from "../../driver.js";
 
 /** Named columns a patch may touch. Anything else is dropped, loudly, by the API. */
-const PATCHABLE = ["passwordHash", "disabledAt", "lastLoginAt", "username"];
+const PATCHABLE = [
+  "passwordHash",
+  "disabledAt",
+  "lastLoginAt",
+  "username",
+  // The second lock (029): enrollment writes the secret first, flips the
+  // flag only after a valid code, and replaces the code set on regeneration.
+  "totpSecret",
+  "totpEnabled",
+  "backupCodes",
+];
 
 function rowToUser(row) {
   if (!row) return null;
@@ -36,6 +46,16 @@ function rowToUser(row) {
     passwordHash: row.passwordHash,
     disabledAt: row.disabledAt ?? null,
     lastLoginAt: row.lastLoginAt ?? null,
+    // The second lock (migration 029). Surfaced because the LOGIN DOOR reads
+    // them: `totpEnabled` decides whether a password alone opens a session and
+    // `totpSecret`/`backupCodes` are what the submitted code is checked against.
+    // A reader that dropped these three would make enrollment a write into a
+    // field nobody could read back — the lock's door would never open, so the
+    // lock itself would never engage. `?? null` is the fail-open edge: a row
+    // written before 029 reads exactly as "no 2FA", which is what it is.
+    totpSecret: row.totpSecret ?? null,
+    totpEnabled: row.totpEnabled ?? null,
+    backupCodes: row.backupCodes ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

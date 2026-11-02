@@ -184,6 +184,136 @@ export function redactSecretConnectionData(data) {
   return out;
 }
 
+/** Masking — the OUTBOUND-event redactor (src/lib/webhooks.js).
+ *
+ *  Distinct from redactSecret* above on purpose. Those write the "[REDACTED]"
+ *  SENTINEL into artifacts — a value a reader is meant to fail LOUD on. An
+ *  event payload is read by a machine (a webhook receiver, a chat bridge), so
+ *  it is MASKED instead: a credential keeps its shape (length, last 4) but not
+ *  its secret, and no secret-shaped string survives the walk. The key set is the
+ *  SAME single source of truth (run it here rather than keeping a second list
+ *  that drifts from the first).
+ *
+ *  What masks:
+ *    • any field whose name IS a known credential (apiKey/accessToken/…) or
+ *      LOOKS like one (key?, *Secret, *Token, password, authorization,
+ *      cookie, credential*, webhookSecret, botToken, …) at ANY depth;
+ *    • any string that carries the shape of a secret — `Bearer …`, `sk-…`,
+ *      `ghp_…`, `AKIA…`, a JWT — wherever it rides, whatever its key;
+ *    • a URL's userinfo (`scheme://user:pass@host` → `scheme://user:***@host`);
+ *      the host:port stays legible, which is what a receiver needs to tell
+ *      pools apart.
+ *
+ *  What deliberately does NOT mask: free-form USER CONTENT — prompt, content,
+ *  text, message, body, title, description, error, … — because a provider
+ *  error line may legitimately quote a prompt, and a webhook that rewrites
+ *  every "token" in prose is a webhook nobody can read. Credential FIELDS and
+ *  secret-SHAPED strings are masked regardless; only a bare low-entropy word
+ *  inside prose survives, which is exactly the "token count" the operator
+ *  meant to see. */
+// (A field-name allow-list of "prose" keys is deliberately NOT used: a string
+// under ANY non-credential key is masked when it carries a secret's shape, and
+// left alone otherwise — "token budget at 90%" and an `aws: "AKIA…"` both get
+// exactly what they deserve, regardless of the key they ride under.)
+const SECRET_KEY_RE =
+  /(api[-_]?key|access[-_]?key|secret|passw(or)?d|authorization|cookie|credential|token|private[-_]?key|signature)/i;
+const CONTENT_CARRYING_RE = /inject|prompt/i;
+const VENDOR_ALIAS_RE =
+  /^(aws|gcp|azure|openai|anthropic|google|gemini|mistral|cohere|groq|deepseek|xai|stripe|twilio|sendgrid|github|gitlab|slack|telegram|discord|huggingface)$/i;
+
+function looksLikeCredentialField(key) {
+  if (typeof key !== "string" || !key) return false;
+  if (CONNECTION_REDACT_SET.has(key) || SECRET_SETTING_KEYS.includes(key)) return true;
+  if (SECRET_KEY_RE.test(key)) return true;
+  // A credential-adjacent alias (`aws`, `openai`, `stripe`, `anthropic`, …):
+  // operators routinely park a provider credential under the provider's own
+  // name. A bare, lower-cased vendor key with no extra words is such an alias;
+  // a field like `awsRegion` or `openaiModel` is NOT (it has extra words) and
+  // rides untouched.
+  if (VENDOR_ALIAS_RE.test(key)) return true;
+  // Content-carrying RELAY fields (proxyInjection: {type, value}) are prompts,
+  // not credentials — a token-shaped word inside one is the operator's prose.
+  if (CONTENT_CARRYING_RE.test(key)) return false;
+  return /(^|[-_])key$/i.test(key);
+}
+
+/** Is this STRING the shape of a secret? Exported for the test vector. */
+export function looksLikeSecretString(value) {
+  if (typeof value !== "string" || !value) return false;
+  if (/^Bearer\s+\S+/i.test(value)) return true;
+  if (/\bsk-[A-Za-z0-9_-]{8,}/.test(value)) return true;
+  if (/\bgh[pousr]_[A-Za-z0-9]{16,}/.test(value)) return true;
+  if (/\bAKIA[0-9A-Z]{16}\b/.test(value)) return true;
+  if (/\bxox[abpsr]-[A-Za-z0-9-]{8,}/.test(value)) return true;
+  if (/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}/.test(value)) return true;
+  return false;
+}
+
+/** Mask ONE secret leaf: keep the tail so an operator can tell two keys apart. */
+function maskSecretValue(value) {
+  if (value === undefined || value === null || value === "") return value;
+  const str = typeof value === "string" ? value : JSON.stringify(value);
+  if (str.length <= 16) return "***";
+  // The tail is kept ONLY when it cannot itself read as a secret (an AWS id's
+  // last 4 uppercase letters alone — "MNOP" — would trip the AWS pattern, so a
+  // disguised fragment could survive). Short value or secret-shaped tail ⇒ all masked.
+  // A tail that cannot be told apart from a secret on its own (`MNOP` reads as
+  // an AWS id fragment) is never emitted — the whole value masks instead. Four
+  // uppercase letters make a distinctive fingerprint, the house rule.
+  const tail = str.slice(-4);
+  if (/^[A-Z]{4}$/.test(tail) || looksLikeSecretString(tail)) return "***";
+  return `***${tail}`;
+}
+
+/** Mask a URL's userinfo password; everything else of the URL survives. */
+export function maskUrlUserinfo(value) {
+  if (typeof value !== "string") return value;
+  return value.replace(/^([a-z][a-z0-9+.-]*):\/\/([^@/?#]*@)/i, (m, scheme, userinfo) => {
+    const at = userinfo.lastIndexOf("@");
+    const creds = userinfo.slice(0, at);
+    const colon = creds.indexOf(":");
+    if (colon < 0) return `${scheme}://***@`;
+    return `${scheme}://${creds.slice(0, colon)}:***@`;
+  });
+}
+
+/**
+ * Deep-mask a payload destined for an outbound event. Pure — returns NEW
+ * objects/arrays, never mutates the input. Bounded: cycle-safe (a repeated
+ * reference is emitted once, then elided) and depth-capped, so a pathological
+ * payload can never hang a fire-and-forget delivery.
+ */
+export function maskSecretPayload(payload, { depth = 0, seen = new WeakSet() } = {}) {
+  if (depth > 12) return "[TRUNCATED]";
+  if (Array.isArray(payload)) {
+    return payload.map((v) => maskSecretPayload(v, { depth: depth + 1, seen }));
+  }
+  if (typeof payload === "string") {
+    if (looksLikeSecretString(payload)) return maskSecretValue(payload);
+    return maskUrlUserinfo(payload);
+  }
+  if (!payload || typeof payload !== "object") return payload;
+  if (seen.has(payload)) return "[CYCLE]";
+  seen.add(payload);
+  const out = {};
+  for (const [key, value] of Object.entries(payload)) {
+    // A content-carrying object (a list of injections) keeps its prose values
+    // untouched EXCEPT credential-named fields — handled by the recursion.
+    if (looksLikeCredentialField(key)) {
+      out[key] = maskSecretValue(value);
+    } else if (typeof value === "string") {
+      // A STRING LEAF under a non-credential key is masked only when it carries a
+      // secret's SHAPE — `aws: "EXAMPLE-AWS..."`, a bare `sk-…` riding any field.
+      // Content fields are no exception: prose without a secret shape (the
+      // "token budget" case) passes untouched, so this is the strict version.
+      out[key] = looksLikeSecretString(value) ? maskSecretValue(value) : maskUrlUserinfo(value);
+    } else {
+      out[key] = maskSecretPayload(value, { depth: depth + 1, seen });
+    }
+  }
+  return out;
+}
+
 /** S1 — strip RESTORE-QUARANTINED fields from a hostile settings payload.
  *  The default restore path keeps current values by never restoring these. */
 export function quarantineSettingsPayload(settings) {
@@ -244,7 +374,7 @@ export const IMPORT_SECTION_FIELDS = {
   keys: ["apiKeys"],
   combos: ["combos"],
   kv: [
-    "kvScopes", "modelAliases", "customModels", "mitmAlias",
+    "kvScopes", "injections", "modelAliases", "customModels", "mitmAlias",
     "pricing", "pricingSync", "disabledModels",
   ],
   usage: ["usageHistory", "usageDaily", "requestDetails"],
@@ -288,4 +418,171 @@ export function projectPayloadToSections(payload, sections) {
     }
   }
   return out;
+}
+
+
+// ── The scoped-backup law (export/restore by scope) ─────────────────────
+// A scoped backup is a deliberate CROP of the payload, and its artifact must
+// say so: the manifest declares exactly what it carries (sections + explicit
+// provider ids + whether that list was complete). The RESTORE reads the same
+// declaration, so "what this file replaces" is never inferred from what
+// happens to be in it — a scoped file replaces EXACTLY its declared sections,
+// a full file keeps the historical whole restore.
+//
+// The section vocabulary here is the BACKUP crop's, intentionally narrower
+// than IMPORT_SECTIONS: a scoped backup can narrow `connections` to explicit
+// provider rows (IMPORT_SECTIONS cannot — a section is all-or-nothing there),
+// so it needs its own field map. `keys`/`settings` still ride their existing
+// quarantine/store, never a second route.
+export const SCOPED_BACKUP_SECTIONS = ["providers", "keys", "combos", "proxyPools", "injections", "settings"];
+
+/** Which export payload fields one scoped section carries. `providers` rides
+ *  providerConnections (provider id rows) + providerNodes; `injections` is the
+ *  user-injector list, which lives inside settings (userInjectors) — carried
+ *  as its own top-level field so a file with BOTH can still crop it alone. */
+export const SCOPED_SECTION_FIELDS = {
+  providers: ["providerConnections", "providerNodes"],
+  keys: ["apiKeys"],
+  combos: ["combos"],
+  proxyPools: ["proxyPools"],
+  injections: ["injections"],
+  settings: ["settings"],
+};
+
+/** The payload fields that ride a provider SUBSTRING: their keys are provider
+ *  ids, so a provider-scoped crop filters them by the same id list. */
+export const PROVIDER_SCOPED_FIELDS = ["relay", "disabledModels", "pricing"];
+
+/**
+ * Normalize a caller's scope. Returns null for "no scope" (a full backup —
+ * byte-identical behaviour for every existing caller) and throws on anything
+ * malformed: a typo'd section name must fail loudly at the door, never widen
+ * or silently narrow a crop.
+ */
+export function normalizeBackupScope(scope) {
+  if (scope === undefined || scope === null) return null;
+  if (typeof scope !== "object" || Array.isArray(scope)) {
+    throw new Error("scope must be an object { sections?, providers? }");
+  }
+  const hasSections = scope.sections !== undefined;
+  // null reads as ABSENT, not malformed: the export path itself emits
+  // `providers: null` for a scope with no provider crop (backupRepo's
+  // `normalized.providers ?? null`), so a normalize that throws on null would
+  // refuse the very artifact the house minted. undefined is absent by the
+  // same law; a non-array, non-null value is a malformed scope.
+  const hasProviders = scope.providers !== undefined && scope.providers !== null;
+  if (!hasSections && !hasProviders) return null;
+  const out = {};
+  if (hasSections) {
+    if (!Array.isArray(scope.sections) || scope.sections.some((s) => typeof s !== "string")) {
+      throw new Error("scope.sections must be an array of section names");
+    }
+    const unknown = [...new Set(scope.sections)].filter((s) => !SCOPED_BACKUP_SECTIONS.includes(s));
+    if (unknown.length) {
+      throw new Error(
+        `Unknown scope section(s): ${unknown.join(", ")} — valid: ${SCOPED_BACKUP_SECTIONS.join(", ")}`
+      );
+    }
+    // A section WITHOUT a provider list is the whole section. A section WITH
+    // one is cropped to it — and cropping requires the list, so an empty
+    // provider list is a refusal, never "everything" (the classic empty-means-all).
+    out.sections = [...new Set(scope.sections)];
+    if (out.sections.length === 0) throw new Error("scope.sections must not be empty");
+  }
+  if (hasProviders) {
+    if (!Array.isArray(scope.providers) || scope.providers.some((p) => typeof p !== "string" || !p.trim())) {
+      throw new Error("scope.providers must be a non-empty array of provider ids");
+    }
+    out.providers = [...new Set(scope.providers.map((p) => p.trim()))];
+    if (out.providers.length === 0) throw new Error("scope.providers must not be empty");
+    // A provider list with no section list means "these providers' cargo":
+    // connections, nodes, their keys, combos and pools. providers is implied.
+    if (!hasSections) out.sections = ["providers", "keys", "combos", "proxyPools"];
+    if (!out.sections.includes("providers")) out.sections.push("providers");
+  }
+  return out;
+}
+
+/** The declared section set of a scope (null ⇒ full). Ordered per the vocabulary. */
+export function sectionIdsForScope(scope) {
+  if (!scope) return null;
+  return SCOPED_BACKUP_SECTIONS.filter((s) => (scope.sections || []).includes(s));
+}
+
+/** Does this scope crop `field`'s rows by the provider list? */
+export function isProviderScopedField(scope, field) {
+  if (!scope || !Array.isArray(scope.providers)) return false;
+  return field === "providerConnections" || field === "providerNodes" || PROVIDER_SCOPED_FIELDS.includes(field);
+}
+
+
+// ── The import side of the scope law ─────────────────────────────────────
+// A scoped artifact restores EXACTLY what it declared. `scope` reaches
+// importDb on two routes: (a) the manifest recorded in the artifact, (b) the
+// caller's explicit option. They must AGREE where both exist — a full
+// artifact blessed by a scoped request (or the reverse) is a refusal, not a
+// guess, because guessing writes the wrong rows at the moment trust is
+// extended. `implicitSections` are the import sections a scope necessarily
+// touches as a side effect of its own cross-references (a provider crop rides
+// the settings row for document refs), so they are restored but never counted
+// as a failure of the artifact's declaration.
+export function sameScope(a, b) {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  const norm = (x) => JSON.stringify({
+    sections: sectionIdsForScope(x) || [],
+    providers: [...(x.providers || [])].sort(),
+  });
+  return norm(a) === norm(b);
+}
+
+/** The import sections a scope touches without declaring them. */
+export function implicitSectionsForScope(scope) {
+  if (!scope) return [];
+  const out = new Set();
+  const declaresProviders = (scope.sections || []).includes("providers");
+  // A provider-specific crop keeps connection documents' settings references
+  // alive by restoring the settings row from the file (never wiping it).
+  if (declaresProviders && Array.isArray(scope.providers)) out.add("settings");
+  // Combos carry model refs to providers; their rows are the combo table only.
+  return [...out];
+}
+
+/** Which IMPORT section each scope section restores. */
+const IMPORT_SECTION_FOR_SCOPE = {
+  providers: "connections",
+  keys: "keys",
+  combos: "combos",
+  proxyPools: "pools",
+  injections: "kv", // userInjectors ride the kv table, scope "userInjectors"
+  settings: "settings",
+};
+
+/**
+ * The import-side predicate set for a scope. Returns null for a full restore
+ * (historical behaviour, byte-identical) or
+ *   { scope, want, mayDelete, providerSubset }
+ *   • want(s)       — is import section `s` part of this restore at all?
+ *   • mayDelete(s)  — may the restore WIPE `s` before refilling it? A declared
+ *                     section may; an implicit one (a provider crop's settings
+ *                     row) is restored over, never wiped.
+ *   • providerSubset — an explicit provider list makes EVERY touched section
+ *                     row-granular: a crop that wiped `combos` to refill it with
+ *                     2 of 9 rows, or keys to 1 of 12, would silently delete the
+ *                     rest — the no-cross-ref-collateral rule.
+ * Anything the scope does not map (usage, kv beyond injections, requestDetails)
+ * is untouched by construction.
+ */
+export function scopeImportPlan(scope) {
+  if (!scope) return null;
+  const declared = new Set(
+    (sectionIdsForScope(scope) || []).map((s) => IMPORT_SECTION_FOR_SCOPE[s])
+  );
+  const implicit = new Set(implicitSectionsForScope(scope).map((s) => s));
+  return {
+    scope,
+    want: (importSection) => declared.has(importSection),
+    mayDelete: (importSection) => declared.has(importSection) && !implicit.has(importSection),
+    providerSubset: Array.isArray(scope.providers) && scope.providers.length > 0,
+  };
 }

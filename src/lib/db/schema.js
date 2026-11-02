@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 24;
+export const SCHEMA_VERSION = 29;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -114,6 +114,13 @@ export const TABLES = {
       spendCapDailyCents: "INTEGER",
       budgetScope: "TEXT",
       rateLimitRpm: "INTEGER",
+      // Five-dimension per-key rate limits (migration 025). All nullable —
+      // NULL is the additive default, and NULL/0 both mean "this dimension is
+      // unlimited" (the gate fails open on a missing ceiling).
+      rateLimitTpm: "INTEGER",
+      rateLimitRph: "INTEGER",
+      rateLimitRpd: "INTEGER",
+      maxConcurrentRequests: "INTEGER",
       ipAllowlist: "TEXT",
       // Free-form key category (migration 003; mirrored here for fresh installs + auto-sync)
       category: "TEXT",
@@ -394,6 +401,16 @@ export const TABLES = {
       target: "TEXT",
       direction: "TEXT NOT NULL DEFAULT 'both'",
       detectors: "TEXT NOT NULL DEFAULT '[]'",
+      // Pro's grouped pass (026): a policy may carry system-prompt CONTENT.
+      // NULL = no prompt (the additive default, so an upgraded database reads
+      // exactly as it did). promptPosition is "prepend" | "append" | NULL.
+      prompt: "TEXT",
+      promptPosition: "TEXT",
+      // Migration 027 — the kind switch. NULL = "system" (026 + before, the
+      // additive default); "script" reads `turns` and inserts fake history.
+      // turns is a JSON array of {role, content}; NULL = no script.
+      kind: "TEXT",
+      turns: "TEXT",
       action: "TEXT NOT NULL DEFAULT 'log_only'",
       priority: "INTEGER NOT NULL DEFAULT 100",
       notes: "TEXT",
@@ -521,11 +538,71 @@ export const TABLES = {
       passwordHash: "TEXT NOT NULL",
       disabledAt: "TEXT",
       lastLoginAt: "TEXT",
+      // The second lock (migration 029). All three nullable: a row written
+      // before enrollment reads as "no 2FA", which is the behavior an
+      // un-enrolled install already has — no backfill, no version branch.
+      totpSecret: "TEXT",   // base32; NULL = no enrollment
+      totpEnabled: "INTEGER", // 0/1; NULL = not enrolled
+      backupCodes: "TEXT",  // JSON array of sha256 digests; NULL = none
       createdAt: "TEXT NOT NULL",
       updatedAt: "TEXT NOT NULL",
     },
     indexes: [
       "CREATE UNIQUE INDEX IF NOT EXISTS uq_auth_users_username ON authUsers(username)",
+    ],
+  },
+  // Trust inbox (migration 030) — the other half of the security log's story.
+  //
+  // The security log is a LEDGER: it records everything, forever (30 days),
+  // and it is read deliberately. This table is an INBOX: the handful of things
+  // that happen TO the operator — a key revoked, a guardrail blocking traffic —
+  // which deserve a glance and then a dismissal. `read` is the 0/1 dismissal
+  // flag (INTEGER, never a TEXT boolean: the twin's DDL reads this very
+  // definition). `detail` is metadata JSON only — no credential, no key, no
+  // matched text ever rides it, same contract as authAuditLog.detail.
+  //
+  // Either ORDERING column is epoch-ms INTEGER, not ISO TEXT: an inbox is
+  // always read newest-first and range-pruned on `createdAt`, and an integer
+  // comparison is what SQLite can serve from an index without parsing first.
+  trustEvents: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      kind: "TEXT NOT NULL",
+      title: "TEXT NOT NULL",
+      detail: "TEXT", // JSON, metadata only
+      read: "INTEGER NOT NULL DEFAULT 0", // 0 = unread, 1 = read
+      createdAt: "INTEGER NOT NULL", // epoch ms
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_te_created ON trustEvents(createdAt DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_te_read ON trustEvents(read, createdAt DESC)",
+    ],
+  },
+  // Security log (migration 030) — the append-only per-key audit trail.
+  //
+  // One row per security-relevant act: a key minted, a key revoked, a rate or
+  // budget denial at the gate, a guardrail block. `keyId` is nullable because
+  // not every act has an identity (a keyless passthrough denial, a global
+  // budget); the READ surface masks it to keyPrefix form and never returns a
+  // full key — the column stores an id, never a secret.
+  //
+  // Append-only BY CONTRACT: no repo function ever UPDATEs a row here. The
+  // only delete is the 30-day retention prune, enforced ON WRITE — every
+  // append prunes what has aged out first, so the table cannot grow past its
+  // window even on an install with no scheduler.
+  securityLog: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      keyId: "TEXT",
+      kind: "TEXT NOT NULL",
+      detail: "TEXT", // JSON, metadata only
+      ip: "TEXT",
+      createdAt: "INTEGER NOT NULL", // epoch ms — the range-queried integer
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_sl_created ON securityLog(createdAt)",
+      "CREATE INDEX IF NOT EXISTS idx_sl_kind ON securityLog(kind, createdAt)",
+      "CREATE INDEX IF NOT EXISTS idx_sl_key ON securityLog(keyId, createdAt)",
     ],
   },
   // The log pipeline (migration 018) — three streams in one ledger.

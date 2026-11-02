@@ -1,3 +1,37 @@
+# v1.2.36 — The Two-Factor Shore 🛡️🔐
+> *"The harbor asked for a door only a holder of the seat could open. I found a chain that skipped a stone, a pin that pointed at a number nobody owned, a twin that drifted from a column it had never learned, and a restore that answered an empty list where a list had always ridden. Each wound closed with its own suite; each proof counted, not claimed."* 🛡️🔐🌊
+
+**The change.** A 2FA and scoped-backup tide: TOTP enrollment with RFC 6238 vectors and backup codes, ticket-only login between the two factors, the webhook/Telegram notification ledger with HMAC-signed outbound events, scoped backup artifacts that restore a single provider's cargo without touching its siblings — and the wounds the campaign's own battery exposed in the harbor beneath them.
+
+**✨ Features**
+- **Webhooks + Telegram** (`src/lib/webhooks.js`, `src/lib/notify.js`) — outbound `usage` | `quota` | `error` events, HMAC-signed so a receiver can prove the body, off by default, with a module-side life-generation guard so a delivery begun in one lifecycle can never ring another's receiver. Telegram text is masked at the source.
+- **Scoped backup artifacts** — `exportBackup({ scope })` declares its crop in a manifest; `importDb` restores ONLY the declared sections, provider-row-granular, with `?preview=1` answering the manifest and writing nothing. A list-only artifact writes its injections and never wipes the kv table.
+
+**🐛 Fixes**
+- **The chain skipped a stone** — the migration registry jumped 028 (the coherence suites count 1..SCHEMA_VERSION and found it absent). 029 renumbered to 028 (user TOTP), 030 to 029 (security log), and the duplicate `m029` import webpack refused was excised. `schema.js`'s `SCHEMA_VERSION` re-pinned to the chain's honest head 29.
+- **The twin's phantom drift** — `mirror-sweep`'s shadow rebuild destructured named apiKeys columns and never learned migration 025's four rate dimensions, so every resync compared equal rows to a divergent checksum. The twin now carries them; 9/9 green.
+- **The export dropped the injections list** — `exportSettings()` never carried `userInjectors` (its true home is the kv scope), so a scoped export emitted no `injections` field. The export now builds it from `kvScopes.userInjectors`; the restore gates on the import-side name `kv` (the scope section `injections` maps to it); `normalizeBackupScope` reads `providers: null` as absent, the very shape the house's own export emits.
+- **`IMPORT_SECTION_FIELDS["kv"]` omitted `injections`** — a list-only artifact under-reported its applied rows as 0. `injections` joins the field list.
+- **The motion ledger's second dialect** — the key-import modal's progress fill spoke Tailwind's own `duration-300` ladder; it now rides the house's `.motion-fill` rung.
+- **The `passkey` glyph outside the subset** — added to the ligature law; the pruned font rebuilt (273 icons, 206,884 bytes, hash `c13078b4…`).
+- **Three suites missing their vitest lifecycle imports** — `auth-error-hygiene`, `usage-stats-sql-p5` (both `beforeAll` and `afterAll`) restored.
+- **The TOTP flow's stale spy** — `boot()` re-imports the login route after every `resetModules()`, so the audit spy must be re-attached inside it, not at file scope.
+
+**⚙️ Internal**
+- The injector validators (`validateUserInjectors` et al.) moved into `open-sse/rtk/injectorScripts.js`: `settingsDefaults.js` is imported by a bare Node worker thread (the log-retention sweep) that resolves no bundler aliases, so the pure settings core stays dependency-free by construction.
+- The settings mirror exports `getSettingsSync` for in-process reads.
+
+**⚓ What sailed** — migrations 025–029 + index, schema.js, backupEngine/backupRepo/backupSecurity (+ both sqlite and mysql twins), settingsDefaults/settingsRepo/sqlite-settingsRepo/sqlite-usageRepo, api/settings/database route, webhooks/notify/errorBurst/notificationsSettings + the notifications test endpoint, the TOTP/ticket/backup-code auth seams, the icon ligatures + manifest + the rebuilt font, KeyImportModal, and nine test files.
+
+**⚠️ Sails WITHOUT** — the dashboardGuard escalation, the guardrails pipeline, and the security-log/trust-event repos behind the facade stay uncommitted in this tree; the tide's entry names only what its commit carries.
+
+**🧪 Proof**
+- Wave battery: the touched suites that ship with this commit — **102/102 green** (observed): webhooks-notify-backup-scope 21/21, notifications-settings-law 6/6, mirror-sweep 9/9, deck-motion 27/27, auth-error-hygiene 2/2, usage-stats-sql-p5 3/3, totp-flow 19/19, totp-rfc6238, the three migration coherence suites, icon-subset, backup-restore-sentinel + parity-backup + parity-backup-api + backup-scheduler + db-export-completeness 25/25.
+- Backup-law neighbours: `backup-restore-sentinel`, `parity-backup`, `parity-backup-api`, `backup-scheduler`, `db-export-completeness` — **25/25 green** (observed).
+- Full suite: **5,420 passed · 2 failed · 3 expected-fail · 28 skipped** (observed 2026-11-03). Both reds — `key-routes-pooled` and `reasoningContentInjector` — proven red on the clean baseline (stash) before this tide's work; named here, untouched.
+- Build: `npm run build` green, standalone assets copied (observed).
+- Five required scoped-backup vectors proven: independent HMAC recompute, masked payload, off-by-default silence, scoped export/restore round-trip with out-of-scope rows untouched, preview-manifest-zero-writes.
+
 # v1.2.35 — The Responsive Tide 🌊⚡
 > *"‘She becomes not responsive under load.’ The screenshot answered: one thread burning, three asleep — a single event loop carrying a four-core harbor. I traced ten suspects to their lines, broke the queue that serialized every request, and taught the harbor to measure its own tide. The load measurement is owed to the Stars word — named here, not hidden.”* 🌊⚡❤
 

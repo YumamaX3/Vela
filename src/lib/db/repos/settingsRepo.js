@@ -8,6 +8,7 @@ const bound = bindFacade(sqlite, () => import("../repos/mysql/settingsRepo.js"))
 
 export const mergeWithDefaults = bound.mergeWithDefaults;
 export const getSettings = bound.getSettings;
+export const getSettingsSync = bound.getSettingsSync;
 export const updateSettings = bound.updateSettings;
 export const isCloudEnabled = bound.isCloudEnabled;
 export const getCloudUrl = bound.getCloudUrl;

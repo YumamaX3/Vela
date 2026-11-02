@@ -11,7 +11,7 @@
 // real store seam, then asserting the offending string is ABSENT from the body.
 // A test that only asserted the stable message could pass while the detail
 // leaked through some other field; the substring assertions close that gap.
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from "vitest";
 
 const PEER_TOKEN = "peer-token-fixture";
 const INTERNAL_DETAIL = "SQLITE_ERROR: no such table: authFailures";

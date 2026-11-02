@@ -49,6 +49,14 @@ export async function importDb(payload, opts) {
   return mod.importDb(payload, opts); // S1 adoptSecrets rides opts
 }
 
+// The scoped-backup artifact producer (GET ?scope= / POST /api/backup/export).
+// It rides the same facade so the plan-preview's manifest is answered on every
+// posture; a mysql crop is refused LOUDLY inside the twin, never downgraded.
+export async function exportBackup(opts) {
+  const mod = await dispatchData();
+  return mod.exportBackup(opts);
+}
+
 export async function initDb() {
   const mod = await dispatchData();
   return mod.initDb();

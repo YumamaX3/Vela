@@ -14,7 +14,17 @@ async function readRaw() {
 
 export async function getSettings() {
   const raw = await readRaw();
-  return mergeWithDefaults(raw);
+  const merged = mergeWithDefaults(raw);
+  globalThis._velaSettingsMirror = merged;
+  return merged;
+}
+
+/** The in-process settings mirror — the LAST settings this process loaded or
+ *  wrote, without a harbour round-trip. For SYNCHRONOUS hot paths (the error
+ *  burst's armed gate) that must never await. Null until the first load; a
+ *  caller treats null as "not yet known" (the fail-open default). */
+export function getSettingsSync() {
+  return globalThis._velaSettingsMirror || null;
 }
 
 // Atomic read-merge-write inside transaction (prevents losing concurrent updates)
@@ -25,6 +35,7 @@ export async function updateSettings(updates) {
     const row = db.get(`SELECT data FROM settings WHERE id = 1`);
     const current = row ? parseJson(row.data, {}) : {};
     next = { ...current, ...updates };
+    globalThis._velaSettingsMirror = mergeWithDefaults(next);
     db.run(
       `INSERT INTO settings(id, data) VALUES(1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data`,
       [stringifyJson(next)],

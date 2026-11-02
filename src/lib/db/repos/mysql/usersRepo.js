@@ -11,7 +11,17 @@
 
 import { getMysqlAdapter } from "../../mysql/adapter.js";
 
-const PATCHABLE = ["passwordHash", "disabledAt", "lastLoginAt", "username"];
+const PATCHABLE = [
+  "passwordHash",
+  "disabledAt",
+  "lastLoginAt",
+  "username",
+  // The second lock (029): enrollment writes the secret first, flips the
+  // flag only after a valid code, and replaces the code set on regeneration.
+  "totpSecret",
+  "totpEnabled",
+  "backupCodes",
+];
 
 function rowToUser(row) {
   if (!row) return null;
@@ -21,6 +31,11 @@ function rowToUser(row) {
     passwordHash: row.passwordHash,
     disabledAt: row.disabledAt ?? null,
     lastLoginAt: row.lastLoginAt ?? null,
+    // The second lock (migration 029) — mirrored from the sqlite harbor's
+    // reader verbatim; see its note. The login door reads these three.
+    totpSecret: row.totpSecret ?? null,
+    totpEnabled: row.totpEnabled ?? null,
+    backupCodes: row.backupCodes ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

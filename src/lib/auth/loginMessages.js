@@ -7,6 +7,10 @@
 // route and its test pin the exact operator-facing wording without touching
 // the route's export surface.
 
+// Honest refusal for a wrong or missing second-factor code. Shared with the
+// login route's TOTP step so both surfaces refuse in one voice.
+export const TOTP_REFUSED_MESSAGE = "Invalid authentication code";
+
 // Honest refusal for remote logins on an install with no password configured.
 // Names the setting path (Dashboard → Profile → Security → Change password)
 // so the operator knows exactly where to fix it.

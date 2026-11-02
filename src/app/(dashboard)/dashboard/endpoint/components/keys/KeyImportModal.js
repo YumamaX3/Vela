@@ -36,6 +36,10 @@ export default function KeyImportModal({ deck }) {
   const applied = state.applied?.applied;
 
   const rows = showAll ? plan : plan.slice(0, 8);
+  const progress = state.progress || null;
+  // The form is shut for the whole run — a changed file, conflict mode or a
+  // second Apply under a live batch would make "n of N" name the wrong file.
+  const running = Boolean(progress?.running) || Boolean(state.busy);
 
   return (
     <Modal
@@ -45,13 +49,13 @@ export default function KeyImportModal({ deck }) {
       size="lg"
       footer={
         <div className="flex items-center justify-end gap-2">
-          <Button variant="outline" onClick={deck.closeImport}>
+          <Button variant="outline" disabled={running} onClick={deck.closeImport}>
             {translate("Close")}
           </Button>
           {!state.applied && (
             <Button
               icon="search"
-              disabled={!state.envelope || state.busy}
+              disabled={!state.envelope || running}
               onClick={deck.previewImport}
             >
               {translate("Preview (writes nothing)")}
@@ -61,7 +65,7 @@ export default function KeyImportModal({ deck }) {
             <Button
               variant="danger"
               icon="file_upload"
-              disabled={state.busy || (summary && summary.create + summary.update === 0)}
+              disabled={running || (summary && summary.create + summary.update === 0)}
               onClick={deck.applyImport}
             >
               {translate("Apply & mint")}
@@ -86,13 +90,14 @@ export default function KeyImportModal({ deck }) {
             type="file"
             accept="application/json,.json"
             className="hidden"
+            disabled={running}
             onChange={(e) => deck.loadImportFile(e.target.files?.[0])}
           />
           <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="outline" icon="file_upload" onClick={() => fileRef.current?.click()}>
+            <Button variant="outline" icon="file_upload" disabled={running} onClick={() => fileRef.current?.click()}>
               {translate("Choose a file")}
             </Button>
-            <Button variant="outline" icon="download" onClick={deck.loadImportFromUrl}>
+            <Button variant="outline" icon="download" disabled={running} onClick={deck.loadImportFromUrl}>
               {translate("Use this fleet's own export")}
             </Button>
             {state.fileName && (
@@ -104,10 +109,49 @@ export default function KeyImportModal({ deck }) {
         <Select
           label={translate("When a name already exists")}
           value={state.onConflict}
+          disabled={running}
           onChange={(e) => deck.setImportState((prev) => ({ ...prev, onConflict: e.target.value, plan: null, applied: null }))}
           options={IMPORT_CONFLICT_OPTIONS.map((o) => ({ value: o.value, label: translate(o.label) }))}
           hint={translate("Overwrite updates the existing key's governance in place — it does not keep its old key string.")}
         />
+
+        {/* Live progress — the current made visible. `done`/`total` count KEYS,
+            not chunks, so the bar and the sentence agree even on a short last
+            chunk; `currentName` names the key in flight. */}
+        {progress && (progress.running || progress.total > 0) && (
+          <div className="rounded-[10px] border border-border-subtle bg-surface-2 p-3">
+            <div className="flex items-center justify-between gap-3 text-xs">
+              <span className="font-medium tabular-nums">
+                {progress.running
+                  ? `${translate("Importing")} ${progress.done} ${translate("of")} ${progress.total}`
+                  : `${progress.done} ${translate("of")} ${progress.total} ${translate("done")}`}
+              </span>
+              <span className="tabular-nums text-text-muted">{progress.percent}%</span>
+            </div>
+            <span
+              role="progressbar"
+              aria-label={translate("Import progress")}
+              aria-valuemin={0}
+              aria-valuemax={progress.total || 0}
+              aria-valuenow={progress.done}
+              className="mt-2 relative block h-1.5 w-full rounded-full bg-surface border border-border-subtle overflow-hidden"
+            >
+              <span
+                className="absolute inset-y-0 left-0 rounded-full bg-primary motion-fill"
+                style={{ width: `${progress.percent}%` }}
+              />
+            </span>
+            {progress.running && (
+              <p className="mt-1.5 text-2xs text-text-muted truncate flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+                {progress.currentName ? `${translate("Now minting")} ${progress.currentName}` : translate("Starting the current…")}
+                {progress.chunkCount > 1 && (
+                  <span className="shrink-0">· {translate("batch")} {progress.chunkIndex + 1}/{progress.chunkCount}</span>
+                )}
+              </p>
+            )}
+          </div>
+        )}
 
         {state.error && (
           <p className="text-xs text-red-500">{state.error}</p>
