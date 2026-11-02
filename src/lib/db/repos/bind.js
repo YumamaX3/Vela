@@ -127,6 +127,7 @@ const SECURITY_WAVE_NAMES = new Set([
 const USAGE_WAVE_NAMES = new Set([
   "trackPendingRequest", "getActiveRequests", "saveRequestUsage", "getUsageHistory",
   "getUsageStats", "getKeyUsageStats", "touchKeyLastUsed", "getUsageDailySince",
+  "getKeyWindowsSince", // migration 025 — the rate gate's per-key window sum
   "getChartData", "appendRequestLog", "getRecentLogs",
   "getFilteredSeries", "getBreakdown", "getStackedSeries", "getPercentiles", "getProviderHealthFrame",
   "getKpis", "getInsights", "getLedgerRows", "getExportCursor",
@@ -177,6 +178,17 @@ const BREAKER_WAVE_NAMES = new Set([
   "deleteBreakerRowsByPool", "clearBreakerRows",
 ]);
 
+/** The security ledger + trust inbox (migration 030). Both twins exist and
+ *  are complete; bound so a mysql posture answers instead of hitting the
+ *  fail-loud stub on the header bell or the security-log page. */
+const AUDIT_INBOX_WAVE_NAMES = new Set([
+  // securityLogRepo
+  "appendSecurityEvent", "listSecurityEvents", "pruneSecurityEvents", "countSecurityEvents",
+  // trustEventsRepo
+  "appendTrustEvent", "listTrustEvents", "countUnreadTrustEvents",
+  "markTrustEventRead", "markAllTrustEventsRead",
+]);
+
 /** Bind a facade barrel to its posture's harbor.
  *  @param sqliteRepo the sqlite harbor module (verbatim binding under sqlite)
  *  @param mysqlLoader `() => import("../mysql/<repo>.js")` — static call site */
@@ -195,7 +207,7 @@ export function bindFacade(sqliteRepo, mysqlLoader) {
   const bound = {};
   for (const [name, fn] of Object.entries(sqliteRepo)) {
     if (typeof fn !== "function") { bound[name] = fn; continue; }
-    if (!CONFIG_WAVE_NAMES.has(name) && !SECURITY_WAVE_NAMES.has(name) && !USAGE_WAVE_NAMES.has(name) && !OBSERVATORY_W3_NAMES.has(name) && !OBSERVATORY_W4_NAMES.has(name) && !AUTH_WAVE_NAMES.has(name) && !FITNESS_WAVE_NAMES.has(name) && !BREAKER_WAVE_NAMES.has(name)) {
+    if (!CONFIG_WAVE_NAMES.has(name) && !SECURITY_WAVE_NAMES.has(name) && !USAGE_WAVE_NAMES.has(name) && !OBSERVATORY_W3_NAMES.has(name) && !OBSERVATORY_W4_NAMES.has(name) && !AUTH_WAVE_NAMES.has(name) && !FITNESS_WAVE_NAMES.has(name) && !BREAKER_WAVE_NAMES.has(name) && !AUDIT_INBOX_WAVE_NAMES.has(name)) {
       bound[name] = () => {
         throw new Error(`[DB] VELA_DB_MODE=mysql — repo fn "${name}" lands in a later Storage Covenant wave (Wave C mirror). Boot refusal (fail loud, never silent downgrade).`);
       };
