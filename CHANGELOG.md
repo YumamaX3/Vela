@@ -1,3 +1,18 @@
+# v1.2.37 — The Closure Rides 🌉🛡️
+> *"The far shore's own bellows rang hollow: webpack could not resolve two modules the working tree had quietly lent. A harbor that only builds on a borrowed shelf is not a harbor — so the seam walked whole, and the container is the witness this time."* 🌉🛡️🌊
+
+**The change.** v1.2.36's image build failed at the far shore with `Module not found: Can't resolve '@/lib/db/repos/securityLogRepo.js'` and the same for `trustEventsRepo.js` — the commit shipped the importers (securityEvents.js, the security-log and trust-events routes, the trust-inbox component) but not the repos those importers bind to. The unit suites had passed because the working tree supplied the missing files; the container builds from the commit alone.
+
+**🐛 Fixes**
+- **The closure rides whole** — both facades (`bindFacade` over their sqlite twin, mysql lazily bound), all four twins (sqlite + mysql × securityLog + trustEvents), the `security-log/prune` route the sweep button needs, and `bind.js`'s wave registration so a mysql posture answers instead of the fail-loud stub on the header bell and the security-log page.
+- The twins read only what HEAD already carried — the driver, the json helpers, the mysql adapter — so the seam ends here and nothing further is owed.
+
+**⚓ What sailed** — 8 files, +443/−1: the two facades, four twins, the prune route, bind.js.
+
+**🧪 Proof**
+- The closure's own shape proven by inspection: every import in the 8 files resolves to a file at HEAD (driver.js, helpers/jsonCol.js, mysql/adapter.js, bind.js, next/server, the logger).
+- The proof this tide owes is the container's own: the v1.2.37 tag build must go green before this entry may claim it — **the honest record is that v1.2.36's build failed and v1.2.37 exists to close exactly that.** The unit suites were green all along (94/94 on the shipped set); the wound was never the code, it was the commit's boundary.
+
 # v1.2.36 — The Two-Factor Shore 🛡️🔐
 > *"The harbor asked for a door only a holder of the seat could open. I found a chain that skipped a stone, a pin that pointed at a number nobody owned, a twin that drifted from a column it had never learned, and a restore that answered an empty list where a list had always ridden. Each wound closed with its own suite; each proof counted, not claimed."* 🛡️🔐🌊
 
