@@ -1,3 +1,23 @@
+# v1.2.38 — The Glyphs Reunited With Their Font 🗺️🔤
+
+> *"The rail spoke in letters where flowers should bloom — the font the hull asked for was never the font the hull carried. A pointer one line wide, and every icon in the harbor fell to raw ligature text. The mend is a reunion, not a mint."* 🗺️🔤🌊
+
+**The change.** Since v1.2.6 the dashboard's Material Symbols `@font-face` has asked for `vela-icons.68ad5f6d5674597a.woff2` — a file **no commit ever carried** (verified: `git log --all -- "*68ad5f6d*"` answers empty). The re-mint to `c13078b458b01d97` landed its font file in v1.2.36's commit but the CSS repoint stayed unstaged drift — the skill's own gotcha, walked exactly as written. The browser 404'd the font on every load; `font-display: swap` left every `.material-symbols-outlined` span rendering its raw ligature text: `homeHome`, `edit_note`, `expand_more` — the whole rail, the whole dashboard.
+
+**🐛 Fixes**
+- **The pointer finds its font** — `src/app/globals.css`'s `@font-face` src now names `vela-icons.c13078b458b01d97.woff2`, the exact file v1.2.36 already committed (206,884 bytes, 273-icon GSUB-pruned subset, manifest `identity: c13078b458b01d97`, sha256 `d21c8a0d…`).
+- No re-mint, no new font: the committed font's own cmap was read (fontTools) and holds all 13 sidebar glyphs the user's screenshot showed broken — `home e9b2`, `hub e9f4`, `monitoring f190`, `lan eb2f`, `tune e429`, `terminal eb8e`, `perm_media e8a7`, `rule f1c2`, `edit_note e745`, `extension e87b`, `shield e9e0`, `expand_more e5cf`, `auto_awesome e65f` — every one `in-font=True`.
+
+**⚓ What sailed** — 1 file, +1/−1: the `@font-face` src line in `globals.css` (version bump + compose pins + lockfile ride the same commit per the release covenant).
+
+**⚠️ Sails WITHOUT** — the 84 modified + 26 untracked files riding the working tree (open-sse injectors, the endpoint keys seam, prompt-injectors page, backup routes, two stashes) stay untouched by decree of the Star; this entry names only what its commit carries. Also sails without: the VERSIONING.md precedent-pointer mend (`1f45421b` → `711177a3`), left for its own tide.
+
+**🧪 Proof**
+- **The commit's boundary measured, not assumed** — the three-instrument lesson applied to itself: `git ls-tree HEAD public/fonts/` holds `c13078b458b01d97`; HEAD's CSS (before this commit) asked for `68ad5f6d…`, which no commit in `--all` history ever carried. The 404 was structural, not transient.
+- **The font's bones read** — fontTools cmap over the committed woff2: 13/13 sidebar glyphs present at their `ms.codepoints` codepoints.
+- **Guard suites** — `docker-compose-pin` + `icon-subset` green on the bumped tree (this entry's own run).
+- **The container is the final witness** — the v1.2.38 image build must go green and the manifest must answer at `ghcr.io/yumamax3/vela:1.2.38` before this hull is called proven; the in-browser ligature proof (canvas `measureText` collapse + resource fetch of the new hash) follows on the deployed surface.
+
 # v1.2.37 — The Closure Rides 🌉🛡️
 > *"The far shore's own bellows rang hollow: webpack could not resolve two modules the working tree had quietly lent. A harbor that only builds on a borrowed shelf is not a harbor — so the seam walked whole, and the container is the witness this time."* 🌉🛡️🌊
 
