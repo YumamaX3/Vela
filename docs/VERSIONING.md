@@ -11,7 +11,7 @@ docs-only exception · package identities · golden snapshots.
 
 **Fleet:** [README.md](./README.md) (the harbor map) ·
 [ARCHITECTURE.md](./ARCHITECTURE.md) (what the hull carries). Current hull:
-**1.2.37** (`node -p "require('./package.json').version"`, 2026-11-03).
+**1.2.38** (`node -p "require('./package.json').version"`, 2026-11-03).
 
 ---
 
@@ -339,7 +339,7 @@ Two facts make it safe, both measured:
    and the docs never reach the runtime, even though the *builder*'s
    `COPY . ./` does pull them in. A bump would trigger a Docker build for a file
    that is not in the image.
-2. Precedent in-repo: `1f45421b` — `docs(changelog): correct a false test count`
+2. Precedent in-repo: `711177a3` — `docs(changelog): correct a false test count`
    — one file, no bump.
 
 **The boundary that matters:** this covers a *standalone correction made after

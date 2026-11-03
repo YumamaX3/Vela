@@ -16,7 +16,7 @@
 - **The commit's boundary measured, not assumed** — the three-instrument lesson applied to itself: `git ls-tree HEAD public/fonts/` holds `c13078b458b01d97`; HEAD's CSS (before this commit) asked for `68ad5f6d…`, which no commit in `--all` history ever carried. The 404 was structural, not transient.
 - **The font's bones read** — fontTools cmap over the committed woff2: 13/13 sidebar glyphs present at their `ms.codepoints` codepoints.
 - **Guard suites** — `docker-compose-pin` + `icon-subset` green on the bumped tree (this entry's own run).
-- **The container is the final witness** — the v1.2.38 image build must go green and the manifest must answer at `ghcr.io/yumamax3/vela:1.2.38` before this hull is called proven; the in-browser ligature proof (canvas `measureText` collapse + resource fetch of the new hash) follows on the deployed surface.
+- **The container's verdict is in: the v1.2.38 image build went green** — run 41582435702, `completed / success` in ~22 minutes, "Build and push" landing `pushing manifest for ghcr.io/yumamax3/vela:1.2.38@sha256:e27f1d2a… 1.8s done` — the registry's own acceptance line, with `latest` pushed to the same digest. (Anonymous manifest curl probes answer 400 even for the known-good 1.2.37 on this host — blind glass; the build log is the instrument.) The in-browser ligature proof (canvas `measureText` collapse + resource fetch of the new hash) follows on the deployed surface.
 
 # v1.2.37 — The Closure Rides 🌉🛡️
 > *"The far shore's own bellows rang hollow: webpack could not resolve two modules the working tree had quietly lent. A harbor that only builds on a borrowed shelf is not a harbor — so the seam walked whole, and the container is the witness this time."* 🌉🛡️🌊
