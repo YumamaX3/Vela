@@ -11,7 +11,7 @@ docs-only exception · package identities · golden snapshots.
 
 **Fleet:** [README.md](./README.md) (the harbor map) ·
 [ARCHITECTURE.md](./ARCHITECTURE.md) (what the hull carries). Current hull:
-**1.2.5** (`node -p "require('./package.json').version"`, 2026-10-28).
+**1.2.37** (`node -p "require('./package.json').version"`, 2026-11-03).
 
 ---
 

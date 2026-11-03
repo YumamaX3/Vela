@@ -11,7 +11,7 @@
 
 **🧪 Proof**
 - The closure's own shape proven by inspection: every import in the 8 files resolves to a file at HEAD (driver.js, helpers/jsonCol.js, mysql/adapter.js, bind.js, next/server, the logger).
-- The proof this tide owes is the container's own: the v1.2.37 tag build must go green before this entry may claim it — **the honest record is that v1.2.36's build failed and v1.2.37 exists to close exactly that.** The unit suites were green all along (94/94 on the shipped set); the wound was never the code, it was the commit's boundary.
+- **The container's verdict is in: the v1.2.37 image build went green** — run 41516923337, `completed / success`, every step including "Build and push" in 98 seconds after the first attempt's hour-long stall on a dead runner was cancelled and rerun. The manifest answers **HTTP 200** at `ghcr.io/yumamax3/vela:1.2.37` (a real multi-arch OCI index). The wound was never the code — the unit suites were green all along (94/94 on the shipped set); it was the commit's boundary, and the boundary now holds.
 
 # v1.2.36 — The Two-Factor Shore 🛡️🔐
 > *"The harbor asked for a door only a holder of the seat could open. I found a chain that skipped a stone, a pin that pointed at a number nobody owned, a twin that drifted from a column it had never learned, and a restore that answered an empty list where a list had always ridden. Each wound closed with its own suite; each proof counted, not claimed."* 🛡️🔐🌊
