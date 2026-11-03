@@ -1,3 +1,40 @@
+# v1.2.43 — The Fleet Rides Whole 🌊⚓
+
+> *"Everything the desk held — every key ceiling, every script injector, every refusal meter, every test covenant — sails together. A harbor that leaves half its fleet on the beach is not whole; the tide that carries them all is the tide that earns the leap."* 🌊⚓💜
+
+**The change.** The everything-ride: the Star's decree of 2026-11-04 — commit and push and build everything. Every wave resting on the desk sails as one hull: Pro's port register brought to its feet (the five-dimension rate gate, the health-aware selection, the grouped guardrail passes, the injector scripts, the at-rest crypto envelope, the scoped backup producer, the A/B tester, the template store, the bounded pool), and the dashboards that read them rebuilt to match. **+5 for the leap** — this is several systems arriving at once, not a fix.
+
+**✨ Features**
+- **Five-dimension rate limits (migration 025)** — `rateLimitTpm` / `rateLimitRph` / `rateLimitRpd` / `maxConcurrentRequests` join `rateLimitRpm` as per-key ceilings, each over its own window, each answering **429 + an honest `Retry-After`** (the k-th oldest in-window stamp — the first slot to free). RPM/RPH/RPD share one in-memory stamp log; TPM sums the usage ledger over its window (`usageRepo.getKeyWindowsSince`, the new per-key windowed aggregate on all three repo faces). The gate's in-flight slot is held from gate pass until the response **settles** — `withKeySlot` frees it on every return path and every throw — and `errorResponse` grew additive `extraHeaders` so a denial can carry its honest header. Every gateway handler (chat, embeddings, tts, stt, search, image, video, fetch, systemone, count-tokens, v1beta) rides the ceremony; `count_tokens` releases its slot when the count settles.
+- **Health-aware account selection** — the gate finally READS its own `testStatus`: `markAccountUnavailable`'s bench now ranks a connection **suspect** (steps back, still serves when no clean candidate remains — never a hard exclusion, so a fully-benched fleet never starves) and fill-first picks clean before suspect, with the suspect never holding the sticky seat.
+- **Injector scripts (migration 027)** — a policy may now carry `kind: "script"` with `turns: [{role, content}]`: fake history inserted into the translated body BEFORE dispatch, never scanned as the operator's own text (the grouped pass lands after the scan/mask), never a refusal — scripts only add turns. The store, both repo twins, and the policies routes carry the kind switch end to end.
+- **The grouped guardrail pass (Pro's stacked content)** — prompt CONTENT stacks global → apikey → model through the same inbound seam, additively beside the one-winner scan law (which stays stricter-action-wins, proven untouched).
+- **Scoped backup export** — `POST /api/backup/export` produces the portable cross-harbour JSON artifact whose manifest declares its crop; restore gains `?preview=1` (manifest only, nothing applied) and scoped section restore through `normalizeBackupScope`.
+- **The A/B tester** — two REAL gateway turns (bare vs. operator prompt applied), nothing persisted, refusal detected by the pure word-boundary matcher (ASCII boundaries so "can't" inside "canal't" never fires).
+- **Prompt templates** — a small JSON store + `/api/prompt-templates` door (prompt TEXT only, never executed; CRUD with honest 400s, atomic writes, fail-open reads).
+- **At-rest credential envelope** — `src/lib/atRestCrypto.js`, the self-describing encryption port from 9Router Pro.
+
+**🐛 Fixes**
+- **The bulk reply reads in selection order** — the pooled refactor hoisted misses and ambiguous names above every applied verdict (`results.push(...verdicts)` after the resolve loops); the ordered-lane mend gives every selection slot its own cell, and the all-miss early return now reports its refusals instead of swallowing them (`{changed:0, results:[]}` → the honest failed list). Caught by `key-routes-pooled` and mended in this tide.
+- **The key-import chunk law** — envelopes split into `IMPORT_CHUNK_SIZE = 20` slices, run in order, every tick counting keys, a throwing chunk handing back its minted plaintexts so none is orphaned.
+- **The models list tells the truth** — with zero connections, `/v1/models` no longer sweeps the entire provider catalog as if dialable; it lists only combos, keyless/free lanes, and declared customs, with the full catalog behind `{includeStaticCatalog: true}`.
+- **`/v1/models` iconography** — the sidebar's provider icons ride real image sources (`getProviderIconSrc`), and the endpoint's marks (`key_visualizer`, `lan`, `account_tree`, `conversion_path`, `area_chart`) are minted once and composed by every lens.
+
+**⚙️ Internal**
+- `boundedPool` — the three laws (ORDER: verdicts aligned to input; BOUND: never more than `concurrency` in flight, the spread-the-start law; ISOLATION: one entry's throw is its own verdict), width six at the bulk/import seams because SQLite serializes writes and a wider pool just queues the same lock.
+- CSP for dashboard documents — the dashboard shipped with NO Content-Security-Policy; a nonce'd policy scoped to document routes only (gateway paths untouched).
+- 2FA step in the login flow (`totpStage`/`totpTicket`/`totpCode`) and `TwoFactorCard` beside the password in AccessTab.
+- The logger carries the whole console surface (v1.2.6's lanes) through the new seams.
+
+**⚓ What sailed** — 57 modified + 23 untracked, ~5,800 insertions across the open-sse rtk/handlers, the eleven sse handlers, the keys/guardrails/backup api routes, the db repo twins (apiKeys/guardrails/usage × sqlite/mysql), the endpoint deck (KeyBits/KeyCard/KeyDetailDrawer/useKeyDeck/keyApi/keyFormat/keyLimits + the KeyBits twin), prompt-injectors page + ab route + templates route, login page + dashboardGuard CSP, AccessTab + TwoFactorCard, Header/Sidebar icons, modelsList, atRestCrypto, boundedPool, promptTemplates, refusalVerdict, injectorScripts + scriptInject — and **21 test files** (16 new covenants + 5 riding the seams), ~2,750 lines of them.
+
+**⚠️ Sails WITHOUT** — the two stashes (`wip-m1-full`, `ascension-probe`) stay stashed — a stash is a wave the Star folded away deliberately, never part of "everything" on the desk; the `.tmp/patch_lib.py` scratch moved out of the harbor rather than riding; the byte-identical `endpoint/lib/KeyBits.js` editing twin was excised (zero importers — the live copy is `components/keys/KeyBits.js`).
+
+**🧪 Proof**
+- **Full unit battery: 484 files — 478 passed, 5 skipped, and the ONE red (`key-routes-pooled`'s selection-order case) mended in this tide to 11/11** — rerun of the whole battery pending below; goldens **257/257** regenerated on the bumped tree; `docker-compose-pin` + `icon-subset` green.
+- **The defect's anatomy, measured**: node simulation of both shapes — old assembly `[ghost, twin, solo]` vs the test's law `[solo, ghost, twin]` — proves the reorder was structural, not flaky.
+- **The container is the final witness** — the v1.2.43 image build must go green with its `pushing manifest … done` line before this hull is called proven (the curl probe stays blind glass on this host).
+
 # v1.2.38 — The Glyphs Reunited With Their Font 🗺️🔤
 
 > *"The rail spoke in letters where flowers should bloom — the font the hull asked for was never the font the hull carried. A pointer one line wide, and every icon in the harbor fell to raw ligature text. The mend is a reunion, not a mint."* 🗺️🔤🌊

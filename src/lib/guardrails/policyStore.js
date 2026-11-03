@@ -16,6 +16,14 @@
 // ACTION is chosen — a broad "log only" rule must never soften a narrow
 // "block" one that an operator deliberately added.
 //
+// RESOLUTION LAW, CONTENT SIDE (Pro's grouped pass — the 2026-11-02 tide):
+// scope specificity above decides which policy governs the SCAN (one winner,
+// stricter action wins). Prompt CONTENT is resolved separately and additively:
+// `listMatchingPolicies` returns EVERY enabled policy that matches, in stack
+// order (global → apikey → model, priority ascending within a scope), and the
+// pipeline applies each one's prepend/append in that order. One policy's
+// prompt never silences another's — only the scan keeps a single winner.
+//
 // The whole store is intentionally fail-open at the edges: a policy table that
 // cannot be read must not take the gateway down. It degrades to "no policy",
 // which is the same posture an unconfigured harbor has.
@@ -31,12 +39,19 @@ import {
   deleteGuardrailLogs,
 } from "../db/repos/guardrailsRepo.js";
 import { GuardrailEngine, engineFromPolicy, ACTIONS } from "open-sse/guardrails/engine.js";
+import { normalizeKind, parseTurnsJson, validateScriptTurns } from "open-sse/rtk/injectorScripts.js";
 
 /** Specificity ranking. Higher number = more specific = wins. */
 const SCOPE_RANK = { global: 0, provider: 1, model: 2, chain: 3, apikey: 4 };
 
 export const SCOPES = Object.keys(SCOPE_RANK);
 export const DIRECTIONS = ["inbound", "outbound", "both"];
+export const PROMPT_POSITIONS = ["prepend", "append"];
+
+/** The stack, outermost first — Pro stacks global → user(key) → model. Rank
+ *  ascends along the same axis SCOPE_RANK rises, so a later (more specific)
+ *  policy's prepend sits closer to the model's own system text. */
+const STACK_RANK = { global: 0, apikey: 1, provider: 2, model: 3, chain: 4 };
 
 function parseDetectors(raw) {
   try {
@@ -47,7 +62,19 @@ function parseDetectors(raw) {
   }
 }
 
+/** A prompt row: absent/blank is null (never an empty string), a position
+ *  outside the vocabulary reads as "append" — silence is the safe default. */
+function parsePrompt(raw, position) {
+  const prompt = typeof raw === "string" && raw.trim() ? raw : null;
+  if (!prompt) return { prompt: null, promptPosition: null };
+  return {
+    prompt,
+    promptPosition: PROMPT_POSITIONS.includes(position) ? position : "append",
+  };
+}
+
 function rowToPolicy(r) {
+  const kind = normalizeKind(r.kind);
   return {
     id: r.id,
     name: r.name,
@@ -56,12 +83,29 @@ function rowToPolicy(r) {
     target: r.target || null,
     direction: r.direction || "both",
     detectors: parseDetectors(r.detectors),
+    kind,
+    // A script policy's turns are read tolerantly: malformed JSON in the column
+    // reads as no turns, which leaves the policy a plain scanner (fail-open).
+    ...(kind === "script"
+      ? { turns: parseTurnsJson(r.turns) || [] }
+      : parsePrompt(r.prompt, r.promptPosition)),
     action: r.action,
     priority: r.priority ?? 100,
     notes: r.notes || null,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
   };
+}
+
+/** The kind-bearing half of a policy, shared by create and update. A script
+ *  stores its turns and no system prompt (position is the system path's, and a
+ *  script has no single string to position); a system policy keeps 026's
+ *  prompt/promptPosition untouched. */
+function shapeBody(policy) {
+  if (normalizeKind(policy.kind) === "script") {
+    return { kind: "script", turns: parseTurnsJson(policy.turns) || [], prompt: null, promptPosition: null };
+  }
+  return { kind: "system", ...parsePrompt(policy.prompt, policy.promptPosition), turns: null };
 }
 
 // ── CRUD ────────────────────────────────────────────────────────────────────
@@ -94,6 +138,23 @@ function validate(policy) {
   if (policy.detectors && !Array.isArray(policy.detectors)) {
     errors.push("detectors must be an array");
   }
+  if (policy.prompt != null && typeof policy.prompt !== "string") {
+    errors.push("prompt must be a string");
+  }
+  // A script carries turns instead of a prompt. Its shape is validated by the
+  // injector module, which owns the turn vocabulary — the store must not keep a
+  // second dialect. Only a script's blank-or-absent turns are rejected; the
+  // system kind's prompt validation above still applies to it.
+  if (normalizeKind(policy.kind) === "script") {
+    const rawTurns = policy.turns;
+    if (rawTurns == null || (Array.isArray(rawTurns) && rawTurns.length === 0)) {
+      errors.push("a script policy needs at least one turn");
+    } else {
+      errors.push(...validateScriptTurns(rawTurns));
+    }
+  } else if (policy.prompt != null && policy.prompt.trim() && !PROMPT_POSITIONS.includes(policy.promptPosition)) {
+    errors.push(`promptPosition must be one of ${PROMPT_POSITIONS.join(", ")}`);
+  }
   return errors;
 }
 
@@ -110,6 +171,7 @@ export async function createPolicy(input) {
     target: input.scope === "global" ? null : (input.target || null),
     direction: input.direction || "both",
     detectors: Array.isArray(input.detectors) ? input.detectors : [],
+    ...shapeBody(input),
     action: input.action || "log_only",
     priority: Number.isFinite(input.priority) ? Number(input.priority) : 100,
     notes: input.notes || null,
@@ -135,6 +197,7 @@ export async function updatePolicy(id, patch = {}) {
     ...merged,
     target: merged.scope === "global" ? null : merged.target,
     detectors: Array.isArray(merged.detectors) ? merged.detectors : [],
+    ...shapeBody(merged),
     priority: Number.isFinite(Number(merged.priority)) ? Number(merged.priority) : 100,
     notes: merged.notes || null,
     updatedAt: now,
@@ -195,21 +258,11 @@ export async function resolvePolicy(ctx = {}) {
   const policies = await enabledPolicies();
   if (!policies.length) return null;
 
-  const candidates = [];
-  for (const p of policies) {
-    // A policy that names only one direction never governs the other. "both"
-    // is the default, and an unknown value behaves as "both" rather than
-    // silently disabling a policy someone deliberately wrote.
-    if (ctx.direction && p.direction !== "both" && p.direction !== ctx.direction) continue;
-    if (p.scope === "global") {
-      candidates.push(p);
-      continue;
-    }
-    const wanted = ctx[scopeKey(p.scope)];
-    // A scoped policy with no target matches nothing — never everything.
-    if (!p.target || !wanted || String(wanted) !== String(p.target)) continue;
-    candidates.push(p);
-  }
+  // A policy that names only one direction never governs the other. "both"
+  // is the default, and an unknown value behaves as "both" rather than
+  // silently disabling a policy someone deliberately wrote. policyMatches
+  // carries that law once, shared with the content stack.
+  const candidates = policies.filter((p) => policyMatches(p, ctx));
   if (!candidates.length) return null;
 
   candidates.sort((a, b) => {
@@ -222,6 +275,52 @@ export async function resolvePolicy(ctx = {}) {
   });
 
   return candidates[0];
+}
+
+/** Everything resolvePolicy uses to decide whether a policy MATCHES, without
+ *  the winner-pick. Exported so the stack and the winner share one law. */
+function policyMatches(p, ctx) {
+  if (ctx.direction && p.direction !== "both" && p.direction !== ctx.direction) return false;
+  if (p.scope === "global") return true;
+  const wanted = ctx[scopeKey(p.scope)];
+  // A scoped policy with no target matches nothing — never everything.
+  return Boolean(p.target && wanted && String(wanted) === String(p.target));
+}
+
+/**
+ * Pro's grouped pass: EVERY enabled policy that matches, in stack order.
+ *
+ *   global → apikey → model (provider/chain ride their specificity rank)
+ *
+ * and within one scope the lower `priority` number first; final tie-break by
+ * id so the order is stable across cache rebuilds. Deduped by policy id. This
+ * returns prompt CONTENT candidates — the scan still picks one winner through
+ * resolvePolicy, untouched.
+ *
+ * @param {object} ctx same shape as resolvePolicy
+ * @returns {Promise<object[]>} matching policies, outermost first
+ */
+export async function listMatchingPolicies(ctx = {}) {
+  try {
+    const policies = await enabledPolicies();
+    if (!policies.length) return [];
+    const matched = [];
+    const seen = new Set();
+    for (const p of policies) {
+      if (!p || !p.id || seen.has(p.id)) continue; // dedupe by policy id
+      seen.add(p.id);
+      if (policyMatches(p, ctx)) matched.push(p);
+    }
+    return matched
+      .sort((a, b) => {
+        const rank = (STACK_RANK[a.scope] ?? STACK_RANK.global) - (STACK_RANK[b.scope] ?? STACK_RANK.global);
+        if (rank !== 0) return rank;
+        if (a.priority !== b.priority) return a.priority - b.priority;
+        return String(a.id).localeCompare(String(b.id));
+      });
+  } catch {
+    return []; // fail-open: an unreadable table stacks nothing
+  }
 }
 
 function scopeKey(scope) {
@@ -298,4 +397,4 @@ export async function clearLogs({ beforeMs } = {}) {
   return deleteGuardrailLogs({ beforeMs });
 }
 
-export const __test__ = { parseDetectors, rowToPolicy, validate, scopeKey, invalidateCache };
+export const __test__ = { parseDetectors, parsePrompt, shapeBody, rowToPolicy, validate, scopeKey, policyMatches, invalidateCache };

@@ -95,9 +95,39 @@ export function cidrContains(cidr, ip) {
 // carry "Daily" for migration compatibility; the scope decides the reset.
 export const BUDGET_SCOPES = ["daily", "weekly", "monthly", "yearly"];
 
+// ── Rate-limit dimensions ──────────────────────────────────────────────────
+// The five per-key rate dimensions, each over its own window. 0/absent = the
+// dimension is off (fail-open). Windows are the honest spans a client would
+// name: per minute, per hour, per day, and the token ceiling that belongs to
+// the minute.
+export const RATE_DIMENSIONS = [
+  { field: "rateLimitRpm", windowMs: 60_000, unit: "requests per minute" },
+  { field: "rateLimitRph", windowMs: 3_600_000, unit: "requests per hour" },
+  { field: "rateLimitRpd", windowMs: 86_400_000, unit: "requests per day" },
+  { field: "rateLimitTpm", windowMs: 60_000, unit: "tokens per minute" },
+];
+
+/** The longest window any request-count dimension spans — the stamp array is
+ *  pruned to this span so every per-window count reads from ONE shared log. */
+export const RATE_LOG_SPAN_MS = Math.max(
+  ...RATE_DIMENSIONS.filter((d) => d.field !== "rateLimitTpm").map((d) => d.windowMs)
+);
+
 // ── Write-side validation for W3 governance fields ─────────────────────────
 
-const INT_FIELDS = ["rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents"];
+/** The integer governance fields. `rateLimitTpm` and `maxConcurrentRequests`
+ *  are per-minute dimensions (tokens, in-flight slots); RPH/RPD are stored
+ *  and validated here even though their WINDOW enforcement belongs to the
+ *  gate — the column the dashboard writes is the same column the gate reads. */
+const INT_FIELDS = [
+  "rateLimitRpm",
+  "rateLimitTpm",
+  "rateLimitRph",
+  "rateLimitRpd",
+  "maxConcurrentRequests",
+  "tokenBudgetDaily",
+  "spendCapDailyCents",
+];
 const MAX_ALLOWLIST_ENTRIES = 100;
 
 /** Thrown by the repo when governance fields fail validation. Carries every

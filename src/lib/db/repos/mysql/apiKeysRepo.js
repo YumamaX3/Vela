@@ -55,6 +55,11 @@ function rowToPublic(row) {
     spendCapDailyCents: row.spendCapDailyCents ?? null,
     budgetScope: row.budgetScope || null,
     rateLimitRpm: row.rateLimitRpm ?? null,
+    // Five-dimension rate limits (migration 025) — NULL = that dimension is off.
+    rateLimitTpm: row.rateLimitTpm ?? null,
+    rateLimitRph: row.rateLimitRph ?? null,
+    rateLimitRpd: row.rateLimitRpd ?? null,
+    maxConcurrentRequests: row.maxConcurrentRequests ?? null,
     ipAllowlist: safeParse(row.ipAllowlist),
     category: row.category || null,
     planId: row.planId || null,
@@ -116,8 +121,8 @@ export async function createApiKey(name, opts = {}) {
   const createdAt = new Date().toISOString();
   const v = limits.values;
   await db.run(
-    `INSERT INTO apiKeys(id, \`key\`, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, description, allowedModels, isInternal, rateLimitRpm, tokenBudgetDaily, spendCapDailyCents, budgetScope, expiresAt, ipAllowlist, category, planId)
-     VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO apiKeys(id, \`key\`, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, description, allowedModels, isInternal, rateLimitRpm, rateLimitTpm, rateLimitRph, rateLimitRpd, maxConcurrentRequests, tokenBudgetDaily, spendCapDailyCents, budgetScope, expiresAt, ipAllowlist, category, planId)
+     VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       `vela-minted-${id}`,
@@ -130,6 +135,10 @@ export async function createApiKey(name, opts = {}) {
       opts.description || null,
       opts.allowedModels != null ? JSON.stringify(opts.allowedModels) : null,
       v.rateLimitRpm ?? null,
+      v.rateLimitTpm ?? null,
+      v.rateLimitRph ?? null,
+      v.rateLimitRpd ?? null,
+      v.maxConcurrentRequests ?? null,
       v.tokenBudgetDaily ?? null,
       v.spendCapDailyCents ?? null,
       v.budgetScope ?? null,
@@ -151,13 +160,15 @@ export async function createApiKey(name, opts = {}) {
  */
 const MUTABLE_FIELDS = new Set([
   "name", "description", "allowedModels", "isActive",
-  "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
+  "rateLimitRpm", "rateLimitTpm", "rateLimitRph", "rateLimitRpd", "maxConcurrentRequests",
+  "tokenBudgetDaily", "spendCapDailyCents",
   "budgetScope", "expiresAt", "ipAllowlist", "category", "planId",
   // Per-key access (migration 024) — writable so a key can be set restricted.
   "access",
 ]);
 const LIMIT_FIELDS = new Set([
-  "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
+  "rateLimitRpm", "rateLimitTpm", "rateLimitRph", "rateLimitRpd", "maxConcurrentRequests",
+  "tokenBudgetDaily", "spendCapDailyCents",
   "budgetScope", "expiresAt", "ipAllowlist",
 ]);
 export async function updateApiKey(id, data) {

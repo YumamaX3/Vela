@@ -83,26 +83,32 @@ export async function POST(request) {
     });
   }
 
-  // Full gate — this route had ZERO key checks before W1 (plan §3.5 site 10)
+  // Full gate — this route had ZERO key checks before W1 (plan §3.5 site 10).
+  // The verdict is held: its release frees the in-flight slot (migration 025)
+  // when the count settles — this route is not exempt from the operator's cap.
+  let gate;
+  let keyGate;
   {
-    const { authorizeApiRequest } = await import("@/sse/services/keyGate.js");
+    keyGate = await import("@/sse/services/keyGate.js");
     const { getSettings } = await import("@/lib/db/repos/settingsRepo.js");
     const settings = await getSettings();
-    const gate = await authorizeApiRequest(request, { requestModel: body?.model || null, settings });
+    gate = await keyGate.authorizeApiRequest(request, { requestModel: body?.model || null, settings });
     if (!gate.ok) {
+      // Surface any honest denial headers (e.g. the rate stage's Retry-After).
       return new Response(JSON.stringify({ error: { code: gate.code, message: gate.message } }), {
         status: gate.status,
-        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+        headers: { "Content-Type": "application/json", ...(gate.headers || {}), ...CORS_HEADERS },
       });
     }
   }
 
-  const inputTokens = estimateAnthropicInputTokens(body);
-
-  return new Response(JSON.stringify({
-    input_tokens: inputTokens
-  }), {
-    headers: { "Content-Type": "application/json", ...CORS_HEADERS }
+  return keyGate.withKeySlot(gate, () => {
+    const inputTokens = estimateAnthropicInputTokens(body);
+    return new Response(JSON.stringify({
+      input_tokens: inputTokens
+    }), {
+      headers: { "Content-Type": "application/json", ...CORS_HEADERS }
+    });
   });
 }
 

@@ -10,6 +10,7 @@ import HeaderMenu from "@/shared/components/HeaderMenu";
 import HeaderLanguage from "@/shared/components/HeaderLanguage";
 import ThemeToggle from "@/shared/components/ThemeToggle";
 import StatusBeacon from "@/shared/components/StatusBeacon";
+import TrustInbox from "@/shared/components/TrustInbox";
 import QuickNav from "@/shared/components/QuickNav";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
@@ -360,6 +361,10 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
 
         {/* The beacon — live version / update signal (status cluster) */}
         <StatusBeacon />
+
+        {/* Trust inbox — the unread bell. Renders NOTHING at 0 unread
+            (the zero-suppression law); appears with the first notice. */}
+        <TrustInbox />
 
 
         {/* Page search cluster: store-driven search + `/` shortcut.

@@ -4,7 +4,7 @@ import {
   clearAccountError,
   extractApiKey,
 } from "../services/auth.js";
-import { authorizeApiRequest } from "../services/keyGate.js";
+import { authorizeApiRequest, withKeySlot } from "../services/keyGate.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo } from "../services/model.js";
 import { handleVideoProxyCore, getVideoConfig, sanitizeSecrets } from "open-sse/handlers/videoCore.js";
@@ -30,8 +30,9 @@ async function requireValidApiKey(request) {
   const settings = await getSettings();
   // Identity-only gate: the video body is read AFTER auth (stream-forwarding),
   // so the model is not available here (documented carve-out, plan §3.5).
-  const gate = await authorizeApiRequest(request, { settings, kind: "video" });
-  return gate.ok ? null : gate.response;
+  // Returns the FULL verdict (migration 025): its `release` frees the in-flight
+  // slot when the caller's response settles — the verdict must never be dropped.
+  return authorizeApiRequest(request, { settings, kind: "video" });
 }
 
 /**
@@ -89,9 +90,12 @@ function withConnectionHeader(response, connectionId) {
  * POST /v1/videos/{generations|edits|extensions} — async job creation proxy.
  */
 export async function handleVideoCreate(request, action) {
-  const authError = await requireValidApiKey(request);
-  if (authError) return authError;
+  const gate = await requireValidApiKey(request);
+  if (!gate.ok) return gate.response;
+  return withKeySlot(gate, () => runVideoCreate(request, action));
+}
 
+async function runVideoCreate(request, action) {
   const bodyInfo = await readForwardableBody(request);
   if (bodyInfo.error) return bodyInfo.error;
 
@@ -177,9 +181,12 @@ export async function handleVideoCreate(request, action) {
  * caller pins the creating account via `x-connection-id` (returned on create).
  */
 export async function handleVideoGet(request, requestId) {
-  const authError = await requireValidApiKey(request);
-  if (authError) return authError;
+  const gate = await requireValidApiKey(request);
+  if (!gate.ok) return gate.response;
+  return withKeySlot(gate, () => runVideoGet(request, requestId));
+}
 
+async function runVideoGet(request, requestId) {
   if (!requestId) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing video request id");
 
   const provider = DEFAULT_VIDEO_PROVIDER;

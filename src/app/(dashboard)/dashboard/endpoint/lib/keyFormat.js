@@ -92,6 +92,52 @@ export function usageRatio(usage) {
   return usage.ok != null ? usage.ok / usage.requests : null;
 }
 
+// ── the quota meter ─────────────────────────────────────────────────────────
+// A budget is only a percentage when the usage it is compared against is the
+// SAME quantity the gate counts. The gate (keyGate's spendStage) sums
+// usageDaily — LOCAL calendar dateKeys — from the budgetScope's start; the
+// strip sums usageHistory — a ROLLING window back from now (getKeyUsageStats:
+// `timestamp >= now − 24h`). These are one in the same only on a day that has
+// not crossed local midnight since its start, and they are never comparable
+// over a longer horizon: 7d spans two or more calendar days, so weekly and
+// every longer scope are excluded here — understating, never inventing.
+// So the one honest pair is an empty/daily scope with the 24h period, and even
+// there the bar does not claim an exact equality. An absent scope is the app's
+// own default (daily); an unknown string stays silent.
+
+/** The one usage period (the strip's own picker) that sums this budget's window. */
+export const PERIOD_BUDGET_SCOPE = { "24h": "daily" };
+
+/** The scope a usage period corresponds to, or null when it does not match
+ *  any budget scope (7d, 30d, 60d, all time) and the two cannot be compared. */
+export function budgetScopeForPeriod(period) {
+  if (!period) return null;
+  return PERIOD_BUDGET_SCOPE[period] || null;
+}
+
+/** The meter's fill, 0–1 — or null when an honest one cannot be drawn.
+ *  Null on ANY of: no budget, budget ≤ 0, no usage row at all, a calendar
+ *  scope past a day (weekly/monthly/yearly), or a period that is not the
+ *  budget's own window. An absent scope reads as the app's default (daily —
+ *  see limitsFromRecord / keyGate's spendStage fallback); an unknown string
+ *  stays silent, never assumed to be daily.
+ *  A fill of 0 is returned only for a real zero (usage observed, nothing
+ *  used); the VIEW suppresses the bar itself at 0 (zero-suppression law).
+ *  Under a key's usage, totalTokens is the gate's own sum — prompt +
+ *  completion — which is exactly what sumKeyUsage counts. */
+export function tokenBudgetFill({ usage, tokenBudgetDaily, budgetScope, period } = {}) {
+  const budget = Number(tokenBudgetDaily);
+  if (!Number.isFinite(budget) || budget <= 0) return null;
+  if (!usage) return null;
+  const scope = budgetScope || "daily";
+  if (budgetScopeForPeriod(period) !== scope) return null;
+  // Only a daily budget resets inside the 24h window the strip sums.
+  if (scope !== "daily") return null;
+  const used = Number(usage.totalTokens || 0);
+  if (!Number.isFinite(used)) return null;
+  return Math.min(Math.max(used, 0) / budget, 1);
+}
+
 /** "just now" / "12m ago" / "3h ago" / "5d ago" — the same ladder the combos
  *  deck uses, so two rooms do not speak two dialects of "recently". */
 export function timeAgo(iso) {

@@ -14,6 +14,7 @@ import {
   formatTokens,
   keyLimitBadges,
   postureMeta,
+  tokenBudgetFill,
 } from "../../lib/keyFormat";
 
 function Pill({ tone = "muted", icon, children, title }) {
@@ -88,11 +89,51 @@ export function StoredHerePill({ title }) {
 }
 
 /** Requests, in/out/total tokens and spend — the identical strip the room has
- *  always shown, so a returning operator reads it without learning anything. */
-export function UsageStrip({ usage, className = "" }) {
+ *  always shown, so a returning operator reads it without learning anything.
+ *  Beside them, when the key carries a token budget AND the strip is showing
+ *  that budget's own window, a slim quota meter. Absent budget, absent usage,
+ *  or a mismatched period renders exactly today's strip. See tokenBudgetFill. */
+export function UsageStrip({ usage, k, period, className = "" }) {
   if (!usage) return null;
+  const fill = tokenBudgetFill({
+    usage,
+    tokenBudgetDaily: k?.tokenBudgetDaily,
+    budgetScope: k?.budgetScope,
+    period,
+  });
+  // Zero-suppression: at 0 the numbers already say "nothing used" — a full
+  // empty frame would be noise, so no bar is drawn at all.
+  const budget = Number(k?.tokenBudgetDaily);
+  const pct = fill == null ? null : Math.round(fill * 100);
+  const showMeter = pct != null && pct > 0;
   return (
     <div className={`flex items-center gap-3 flex-wrap text-2xs text-text-muted ${className}`}>
+      {showMeter && (
+        <span
+          className="inline-flex items-center gap-1.5 basis-full min-w-0"
+          title={translate("Token budget used")}
+        >
+          <span
+            role="progressbar"
+            aria-label={translate("Token budget used")}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={pct}
+            className="relative h-1 w-24 shrink-0 rounded-full bg-surface-2 border border-border-subtle overflow-hidden"
+          >
+            <span
+              className="absolute inset-y-0 left-0 rounded-full bg-primary"
+              style={{ width: `${pct}%` }}
+            />
+          </span>
+          <span className="tabular-nums font-medium text-text-main">
+            {pct}% {translate("of budget")}
+          </span>
+          <span className="tabular-nums">
+            {formatTokens(usage.totalTokens)} / {formatTokens(budget)}
+          </span>
+        </span>
+      )}
       <span className="inline-flex items-center gap-1" title={translate("Requests")}>
         <span className="material-symbols-outlined text-sm text-primary/70">swap_calls</span>
         {Number(usage.requests || 0).toLocaleString()}

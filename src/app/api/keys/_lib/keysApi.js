@@ -55,6 +55,10 @@ export function isScoped(key) {
 export function isLimited(key) {
   return (
     key?.rateLimitRpm != null ||
+    key?.rateLimitTpm != null ||
+    key?.rateLimitRph != null ||
+    key?.rateLimitRpd != null ||
+    key?.maxConcurrentRequests != null ||
     key?.tokenBudgetDaily != null ||
     key?.spendCapDailyCents != null ||
     (Array.isArray(key?.ipAllowlist) && key.ipAllowlist.length > 0)
@@ -110,6 +114,12 @@ export function redactKeyForExport(key) {
     allowedProviders: Array.isArray(key?.allowedProviders) ? key.allowedProviders : null,
     allowedCombos: Array.isArray(key?.allowedCombos) ? key.allowedCombos : null,
     rateLimitRpm: key?.rateLimitRpm ?? null,
+    // Five-dimension rate limits (migration 025) — ride the export like the
+    // other ceilings; an import re-issues them onto the freshly minted key.
+    rateLimitTpm: key?.rateLimitTpm ?? null,
+    rateLimitRph: key?.rateLimitRph ?? null,
+    rateLimitRpd: key?.rateLimitRpd ?? null,
+    maxConcurrentRequests: key?.maxConcurrentRequests ?? null,
     tokenBudgetDaily: key?.tokenBudgetDaily ?? null,
     spendCapDailyCents: key?.spendCapDailyCents ?? null,
     budgetScope: key?.budgetScope ?? null,

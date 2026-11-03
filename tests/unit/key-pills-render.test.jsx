@@ -30,7 +30,9 @@ vi.mock("@/i18n/runtime", () => ({ translate: (s) => s }));
 import {
   ScopePill,
   LimitPills,
+  UsageStrip,
 } from "@/app/(dashboard)/dashboard/endpoint/components/keys/KeyBits";
+import { tokenBudgetFill } from "@/app/(dashboard)/dashboard/endpoint/lib/keyFormat";
 
 const mounted = [];
 
@@ -106,5 +108,106 @@ describe("LimitPills", () => {
       />,
     );
     expect(container.textContent).toBe("");
+  });
+});
+
+// ── the quota meter ─────────────────────────────────────────────────────────
+// Wave-1 evidence: the strip rendered raw counts and never divided by
+// tokenBudgetDaily. The meter is only honest when the usage shown was summed
+// over the budget's own window (keyGate's spendStage sums over budgetScope;
+// the strip shows usagePeriod) — so the law is tested both ways: it appears
+// when the windows match, and today's strip returns unchanged when they do not.
+
+const usage = { requests: 12, promptTokens: 30000, completionTokens: 20000, totalTokens: 50000, cost: 0.25 };
+
+describe("tokenBudgetFill", () => {
+  it("divides totalTokens by the budget when the period is the budget's scope", () => {
+    expect(tokenBudgetFill({ usage, tokenBudgetDaily: 100000, budgetScope: "daily", period: "24h" })).toBe(0.5);
+  });
+
+  it("reads an absent scope as the app's own default, daily", () => {
+    expect(tokenBudgetFill({ usage, tokenBudgetDaily: 200000, period: "24h" })).toBe(0.25);
+    expect(tokenBudgetFill({ usage, tokenBudgetDaily: 200000, budgetScope: "", period: "24h" })).toBe(0.25);
+    expect(tokenBudgetFill({ usage, tokenBudgetDaily: 200000, budgetScope: null, period: "24h" })).toBe(0.25);
+  });
+
+  it("is null without a budget, without usage, or for an unknown scope", () => {
+    const daily = { usage, budgetScope: "daily", period: "24h" };
+    expect(tokenBudgetFill({ ...daily, tokenBudgetDaily: null })).toBeNull();
+    expect(tokenBudgetFill({ ...daily, tokenBudgetDaily: 0 })).toBeNull();
+    expect(tokenBudgetFill({ ...daily, tokenBudgetDaily: 100000, usage: null })).toBeNull();
+    // An unknown scope is not assumed to be daily — the meter stays silent.
+    expect(tokenBudgetFill({ ...daily, tokenBudgetDaily: 100000, budgetScope: "fortnightly" })).toBeNull();
+  });
+
+  it("never divides across a window the gate did not sum", () => {
+    const daily = { usage, tokenBudgetDaily: 100000, budgetScope: "daily" };
+    // Every picker period other than 24h is a different span from a day.
+    for (const period of ["7d", "30d", "60d", "all", undefined]) {
+      expect(tokenBudgetFill({ ...daily, period })).toBeNull();
+    }
+    // And a calendar scope past a day is a longer window than any picker shows.
+    for (const budgetScope of ["weekly", "monthly", "yearly"]) {
+      expect(tokenBudgetFill({ ...daily, budgetScope, period: "24h" })).toBeNull();
+      expect(tokenBudgetFill({ ...daily, budgetScope, period: "7d" })).toBeNull();
+    }
+  });
+
+  it("clamps a key past its budget to a full bar", () => {
+    expect(tokenBudgetFill({ usage: { totalTokens: 300000 }, tokenBudgetDaily: 100000, period: "24h" })).toBe(1);
+  });
+
+  it("returns a real zero when usage was observed and nothing was used", () => {
+    expect(tokenBudgetFill({ usage: { totalTokens: 0 }, tokenBudgetDaily: 100000, period: "24h" })).toBe(0);
+  });
+});
+
+describe("UsageStrip — the quota meter", () => {
+  const meter = (c) => c.querySelector('[role="progressbar"]');
+
+  it("renders the percentage and keeps the raw counts beside it", () => {
+    const { container } = render(
+      <UsageStrip usage={usage} k={{ tokenBudgetDaily: 100000, budgetScope: "daily" }} period="24h" />,
+    );
+    const bar = meter(container);
+    expect(bar).not.toBeNull();
+    expect(bar.getAttribute("aria-valuenow")).toBe("50");
+    expect(bar.firstElementChild.style.width).toBe("50%");
+    expect(container.textContent).toContain("50% of budget");
+    expect(container.textContent).toContain("50K / 100K");
+    // The counts the strip always carried are still there.
+    expect(container.textContent).toContain("12");
+    expect(container.textContent).toContain("30K in");
+    expect(container.textContent).toContain("$0.25");
+  });
+
+  it("suppresses the bar at 0% (zero-suppression law)", () => {
+    const { container } = render(
+      <UsageStrip
+        usage={{ ...usage, totalTokens: 0 }}
+        k={{ tokenBudgetDaily: 100000, budgetScope: "daily" }}
+        period="24h"
+      />,
+    );
+    expect(meter(container)).toBeNull();
+    expect(container.textContent).not.toContain("of budget");
+  });
+
+  it("renders exactly today's strip without a budget, without a period, or over another window", () => {
+    const baseline = render(<UsageStrip usage={usage} />).container.innerHTML;
+    for (const el of [
+      <UsageStrip usage={usage} k={{ tokenBudgetDaily: null }} period="24h" />,
+      <UsageStrip usage={usage} k={{ tokenBudgetDaily: 100000, budgetScope: "daily" }} />,
+      <UsageStrip usage={usage} k={{ tokenBudgetDaily: 100000, budgetScope: "daily" }} period="7d" />,
+      <UsageStrip usage={usage} k={{ tokenBudgetDaily: 100000, budgetScope: "daily" }} period="all" />,
+      <UsageStrip usage={usage} k={{ tokenBudgetDaily: 100000, budgetScope: "weekly" }} period="7d" />,
+    ]) {
+      // Guard the guard: a non-empty baseline, or identity is proven on "".
+      expect(baseline).toContain("50K total");
+      expect(render(el).container.innerHTML).toBe(baseline);
+    }
+    // An absent scope beside 24h DOES draw (absent scope reads as daily).
+    const shown = render(<UsageStrip usage={usage} k={{ tokenBudgetDaily: 100000 }} period="24h" />);
+    expect(shown.container.querySelector('[role="progressbar"]')).not.toBeNull();
   });
 });

@@ -4,7 +4,7 @@ import {
   clearAccountError,
   extractApiKey,
 } from "../services/auth.js";
-import { authorizeApiRequest } from "../services/keyGate.js";
+import { authorizeApiRequest, withKeySlot } from "../services/keyGate.js";
 import { getSettings, getCombos } from "@/lib/localDb";
 import { AI_PROVIDERS, resolveProviderId } from "@/shared/constants/providers.js";
 import { handleSearchCore } from "open-sse/handlers/search/index.js";
@@ -22,17 +22,34 @@ import { getFallbackRulesRepo } from "@/lib/db/repos/bindFallbackRules.js"; // S
  * @param {Request} request
  */
 export async function handleSearch(request) {
+  // Migration 025 — the gate's in-flight slot is held until this request's
+  // response settles; the body (and its inline gate) lives in handleSearchBody.
+  const ctx = {};
+  const gate = await gateSearch(request, ctx);
+  if (!gate.ok) return gate.response;
+  return withKeySlot(gate, () => handleSearchBody(request, ctx));
+}
+
+/** The gate half of handleSearch — resolves the key, returns its verdict. */
+async function gateSearch(request, ctx) {
   let body;
   try {
     body = await request.json();
   } catch {
-    log.warn("SEARCH", "the payload arrived waterlogged — invalid JSON");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid JSON body");
   }
-
-  const url = new URL(request.url);
-  // Accept either `provider` or `model` (UI sends `model` since provider IS the model for webSearch)
+  // Provider IS the model for webSearch.
   const providerInput = body.provider || body.model;
+  const settings = await getSettings();
+  const gate = await authorizeApiRequest(request, { requestModel: providerInput, settings, kind: "webSearch" });
+  if (!gate.ok) return gate;
+  Object.assign(ctx, { body, providerInput, settings });
+  return gate;
+}
+
+async function handleSearchBody(request, ctx) {
+  const { body, providerInput, settings } = ctx;
+  const url = new URL(request.url);
   const query = body.query;
 
   log.request("POST", `${url.pathname} | ${providerInput}`);
@@ -47,11 +64,6 @@ export async function handleSearch(request) {
 
   // The gate — identity + scope in one stage pipeline (plan §3.4).
   // Provider IS the model for webSearch.
-  const settings = await getSettings();
-  {
-    const gate = await authorizeApiRequest(request, { requestModel: providerInput, settings, kind: "webSearch" });
-    if (!gate.ok) return gate.response;
-  }
 
   if (!providerInput || typeof providerInput !== "string") {
     log.warn("SEARCH", "no provider named — turning the boat away");
@@ -85,7 +97,6 @@ export async function handleSearch(request) {
 
   return handleSingleProviderSearch(body, providerInput, request, apiKey, settings);
 }
-
 async function handleSingleProviderSearch(body, providerInput, request, apiKey, settings) {
   const query = body.query;
   const providerId = resolveProviderId(providerInput);

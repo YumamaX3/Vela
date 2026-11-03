@@ -15,6 +15,8 @@ import { handleBypassRequest } from "../utils/bypassHandler.js";
 import { trackPendingRequest, appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
 import {
   resolveGuardrail,
+  applyPromptStack,
+  applyScriptStack,
   scanInboundBody,
   scanOutboundPayload,
   auditDecision,
@@ -490,6 +492,28 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
         translatedBody = decision.value;
         if (log?.line) log.line(reqTag, "🛡", `guardrail masked ${decision.findings.length} value(s) · ${provider}/${model}`);
       }
+    }
+    // GROUPED PASS (Pro's stacked content) — applied only after a decision that
+    // is not a block, so the scan judged the operator's own text and the
+    // harbor's prompts are never what a detector reads. Every matching
+    // enabled policy stacks in order global → apikey → model.
+    if (inboundGuardrail?.promptStack?.length) {
+      const stacked = applyPromptStack(inboundGuardrail, translatedBody, finalFormat);
+      if (stacked > 0 && log?.line) log.line(reqTag, "🛡", `guardrail stacked ${stacked} prompt(s) · ${provider}/${model}`);
+    }
+    // GROUPED SCRIPT PASS (027) — a script policy inserts fake history instead
+    // of system text. It lands here, after the scan/mask, so the detector judged
+    // the operator's request and not the script's words, and before dispatch so
+    // the provider reads the turns. Scripts never refuse; they only add turns.
+    if (inboundGuardrail?.scriptStack?.length) {
+      const scripted = applyScriptStack(inboundGuardrail, translatedBody, finalFormat, {
+        model: upstreamModel != null ? upstreamModel : (modelInfo?.id || modelInfo?.name || ""),
+        kind: "llm",
+        requestId: connectionId || "",
+        userAgent: userAgent || "",
+        headers: clientRawRequest?.headers || null,
+      });
+      if (scripted > 0 && log?.line) log.line(reqTag, "🛡", `guardrail scripted ${scripted} turn stack(s) · ${provider}/${model}`);
     }
   } catch { /* fail-open: guardrails never break a request */ }
 

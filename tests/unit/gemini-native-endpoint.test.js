@@ -27,6 +27,9 @@ vi.mock("@/sse/services/keyGate.js", () => ({
   // GET model-listing scopes the catalog to the key's allowed models —
   // identity passthrough keeps this suite about the catalog itself.
   scopeModelsForRequest: vi.fn(async (_request, models) => models),
+  // Migration 025 — the in-flight slot ceremony (pass-through here: this suite
+  // is about native translation, and the fake verdict carries no release).
+  withKeySlot: (_gate, fn) => fn(),
 }));
 
 vi.mock("@/lib/localDb", () => ({

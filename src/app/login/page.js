@@ -115,6 +115,12 @@ export default function LoginPage() {
   // entry is frictionless instead of advertising a default password.
   const [unconfigured, setUnconfigured] = useState(false);
   const [deviceLabel, setDeviceLabel] = useState("");
+  // The second step (2FA). Set when the server answers a correct password with
+  // {totpRequired:true}. The ticket is held for the code round-trip only; it is
+  // single-use and expires in five minutes, so it lives in memory, never storage.
+  const [totpStage, setTotpStage] = useState(false);
+  const [totpTicket, setTotpTicket] = useState("");
+  const [totpCode, setTotpCode] = useState("");
 
   // Footer status — version + gateway health, polled gently
   const [version, setVersion] = useState(null);
@@ -222,11 +228,31 @@ export default function LoginPage() {
         body: JSON.stringify({ password, label: deviceLabel }),
       });
 
+      const data = await res.json().catch(() => ({}));
+
+      // A correct password on a 2FA-locked account is NOT yet a login: the
+      // server answers 200 with a single-use ticket and NO cookie. Ask for the
+      // code and resend the password alongside it (the password step is
+      // re-verified; the code is checked against the ticket's user).
+      if (res.ok && data.totpRequired) {
+        setTotpTicket(data.totpTicket || "");
+        setTotpStage(true);
+        setError("");
+        return;
+      }
+
       if (res.ok) {
         openGate();
       } else {
-        const data = await res.json();
         setError(data.error || "Invalid password");
+        if (data.totpRequired) {
+          // A wrong code keeps the ticket spendable for the next try? No — the
+          // ticket is burned on use. Request a fresh one by letting the next
+          // submit carry the stale ticket: the server mints a new one when the
+          // code cannot be checked. Simplest honest path: clear it so the next
+          // submit carries the password only and earns a new ticket.
+          setTotpTicket("");
+        }
         if (data.resetHint) setResetHint(data.resetHint);
         if (data.retryAfter) {
           const secs = Number(data.retryAfter);
@@ -238,6 +264,46 @@ export default function LoginPage() {
         }
       }
     } catch (err) {
+      setError("An error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTotpSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setResetHint("");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // The code alone is refused and a fresh ticket is minted; with a ticket
+        // the code is what opens the gate. Password is resent because the step
+        // is one handler: the door re-verifies it before it looks at the code.
+        body: JSON.stringify({ password, label: deviceLabel, totpTicket, totpCode }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.totpRequired) {
+        // A new ticket was minted (the previous one was spent or absent).
+        setTotpTicket(data.totpTicket || "");
+        setError("Enter the current code from your authenticator app.");
+        return;
+      }
+      if (res.ok) {
+        openGate();
+        return;
+      }
+      setError(data.error || "Invalid authentication code");
+      if (data.retryAfter) {
+        const secs = Number(data.retryAfter);
+        setRetryAfter(secs);
+        setLockTotal(secs);
+      } else if (typeof data.remainingBeforeLock === "number") {
+        setAttemptsLeft(Math.max(0, data.remainingBeforeLock));
+      }
+    } catch {
       setError("An error occurred. Please try again.");
     } finally {
       setLoading(false);
@@ -474,11 +540,33 @@ export default function LoginPage() {
                   )}
 
                   {passwordAvailable ? (
-                    <form onSubmit={handleLogin} className="flex flex-col gap-4">
+                    <form onSubmit={totpStage ? handleTotpSubmit : handleLogin} className="flex flex-col gap-4">
                       {isSsoEnabled && !ssoAvailable && (
                         <p className="login-warn text-xs text-center">
                           {activeSsoType === "saml" ? "SAML SSO" : "OIDC"} login is enabled, but configuration is incomplete. Password login is still available for recovery.
                         </p>
+                      )}
+
+                      {totpStage && (
+                        <div className="flex flex-col gap-2">
+                          <label className="text-sm font-medium" htmlFor="totpCode">Authentication code</label>
+                          <div className="relative">
+                            <span className="login-glow" aria-hidden="true" />
+                            <Input
+                              id="totpCode"
+                              type="text"
+                              placeholder="6-digit code or a backup code"
+                              value={totpCode}
+                              onChange={(e) => setTotpCode(e.target.value)}
+                              autoFocus
+                              autoComplete="one-time-code"
+                              maxLength={20}
+                            />
+                          </div>
+                          <p className="text-xs text-text-muted">
+                            Enter the code from your authenticator app, or one of your backup codes.
+                          </p>
+                        </div>
                       )}
 
                       <div className="flex flex-col gap-2">
@@ -504,7 +592,7 @@ export default function LoginPage() {
                             onKeyDown={trackCapsLock}
                             error={error || undefined}
                             required
-                            autoFocus={!oidcAvailable}
+                            autoFocus={!oidcAvailable && !totpStage}
                             autoComplete="current-password"
                             inputClassName="pr-11"
                           />
@@ -560,7 +648,7 @@ export default function LoginPage() {
                         loading={loading}
                         disabled={retryAfter > 0}
                       >
-                        {retryAfter > 0 ? `Wait ${retryAfter}s` : "Login"}
+                        {retryAfter > 0 ? `Wait ${retryAfter}s` : totpStage ? "Verify code" : "Login"}
                       </Button>
 
                       <div className="flex flex-col gap-1.5 mt-1">

@@ -3,6 +3,10 @@
 // Plan: plans/vela-key-governance.md §3.6 W3c. Controlled component:
 //   value = {
 //     rateLimitRpm:  null | int,     requests/minute (null = unlimited)
+//     rateLimitTpm:  null | int,     tokens/minute   (null = unlimited)
+//     rateLimitRph:  null | int,     requests/hour   (null = unlimited)
+//     rateLimitRpd:  null | int,     requests/day    (null = unlimited)
+//     maxConcurrentRequests: null | int, in-flight requests (null = unlimited)
 //     tokenBudget:   null | int,     tokens per window
 //     budgetScope:   "daily"|"weekly"|"monthly"|"yearly"  (window for BOTH budgets)
 //     spendCapCents: null | int,     dollars*100 per window
@@ -29,6 +33,14 @@ const SPEND_PRESETS = [
   { v: 10000, label: "$100" },
 ];
 const BUDGET_SCOPES = ["daily", "weekly", "monthly", "yearly"];
+
+// Compact chip labels for the five-dimension ceilings (migration 025):
+// 10000 → 10K. Small values render as themselves.
+function formatLimit(n) {
+  if (n >= 1e6) return `${+(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${+(n / 1e3).toFixed(1)}K`;
+  return String(n);
+}
 
 function Chip({ active, onClick, children }) {
   return (
@@ -117,6 +129,135 @@ export default function KeyLimitsEditor({ value, onChange }) {
           onChange={(e) => {
             const n = parseInt(e.target.value, 10);
             set({ rateLimitRpm: Number.isFinite(n) && n > 0 ? n : null });
+          }}
+        />
+      </Section>
+
+      {/* Five-dimension ceilings (migration 025) — each null = unlimited */}
+      <Section
+        title={translate("Tokens per minute")}
+        hint={translate("Token ceiling per 60s, summed from the usage ledger")}
+        on={v.rateLimitTpm != null}
+        onChange={(c) => set({ rateLimitTpm: c ? (v.rateLimitTpm ?? 100_000) : null })}
+      >
+        <div className="flex flex-wrap items-center gap-1.5">
+          {[10_000, 50_000, 100_000, 500_000].map((p) => (
+            <Chip key={p} active={v.rateLimitTpm === p} onClick={() => set({ rateLimitTpm: p })}>
+              {formatLimit(p)}
+            </Chip>
+          ))}
+          <button
+            type="button"
+            onClick={() => set({ rateLimitTpm: null })}
+            className="px-2.5 py-1 rounded-full text-xs font-medium bg-surface-2 text-text-muted border border-border-subtle hover:text-primary hover:border-primary/40 motion-control"
+          >
+            {translate("Unlimited")}
+          </button>
+        </div>
+        <Input
+          type="number"
+          min="1"
+          placeholder={translate("Custom")}
+          value={v.rateLimitTpm ?? ""}
+          onChange={(e) => {
+            const n = parseInt(e.target.value, 10);
+            set({ rateLimitTpm: Number.isFinite(n) && n > 0 ? n : null });
+          }}
+        />
+      </Section>
+
+      <Section
+        title={translate("Requests per hour")}
+        hint={translate("Request ceiling per 3600s")}
+        on={v.rateLimitRph != null}
+        onChange={(c) => set({ rateLimitRph: c ? (v.rateLimitRph ?? 600) : null })}
+      >
+        <div className="flex flex-wrap items-center gap-1.5">
+          {[100, 600, 3600, 10000].map((p) => (
+            <Chip key={p} active={v.rateLimitRph === p} onClick={() => set({ rateLimitRph: p })}>
+              {formatLimit(p)}
+            </Chip>
+          ))}
+          <button
+            type="button"
+            onClick={() => set({ rateLimitRph: null })}
+            className="px-2.5 py-1 rounded-full text-xs font-medium bg-surface-2 text-text-muted border border-border-subtle hover:text-primary hover:border-primary/40 motion-control"
+          >
+            {translate("Unlimited")}
+          </button>
+        </div>
+        <Input
+          type="number"
+          min="1"
+          placeholder={translate("Custom")}
+          value={v.rateLimitRph ?? ""}
+          onChange={(e) => {
+            const n = parseInt(e.target.value, 10);
+            set({ rateLimitRph: Number.isFinite(n) && n > 0 ? n : null });
+          }}
+        />
+      </Section>
+
+      <Section
+        title={translate("Requests per day")}
+        hint={translate("Request ceiling per 86400s")}
+        on={v.rateLimitRpd != null}
+        onChange={(c) => set({ rateLimitRpd: c ? (v.rateLimitRpd ?? 5000) : null })}
+      >
+        <div className="flex flex-wrap items-center gap-1.5">
+          {[1000, 5000, 10000, 50000].map((p) => (
+            <Chip key={p} active={v.rateLimitRpd === p} onClick={() => set({ rateLimitRpd: p })}>
+              {formatLimit(p)}
+            </Chip>
+          ))}
+          <button
+            type="button"
+            onClick={() => set({ rateLimitRpd: null })}
+            className="px-2.5 py-1 rounded-full text-xs font-medium bg-surface-2 text-text-muted border border-border-subtle hover:text-primary hover:border-primary/40 motion-control"
+          >
+            {translate("Unlimited")}
+          </button>
+        </div>
+        <Input
+          type="number"
+          min="1"
+          placeholder={translate("Custom")}
+          value={v.rateLimitRpd ?? ""}
+          onChange={(e) => {
+            const n = parseInt(e.target.value, 10);
+            set({ rateLimitRpd: Number.isFinite(n) && n > 0 ? n : null });
+          }}
+        />
+      </Section>
+
+      <Section
+        title={translate("Concurrent requests")}
+        hint={translate("In-flight requests allowed at once")}
+        on={v.maxConcurrentRequests != null}
+        onChange={(c) => set({ maxConcurrentRequests: c ? (v.maxConcurrentRequests ?? 2) : null })}
+      >
+        <div className="flex flex-wrap items-center gap-1.5">
+          {[1, 2, 4, 8].map((p) => (
+            <Chip key={p} active={v.maxConcurrentRequests === p} onClick={() => set({ maxConcurrentRequests: p })}>
+              {formatLimit(p)}
+            </Chip>
+          ))}
+          <button
+            type="button"
+            onClick={() => set({ maxConcurrentRequests: null })}
+            className="px-2.5 py-1 rounded-full text-xs font-medium bg-surface-2 text-text-muted border border-border-subtle hover:text-primary hover:border-primary/40 motion-control"
+          >
+            {translate("Unlimited")}
+          </button>
+        </div>
+        <Input
+          type="number"
+          min="1"
+          placeholder={translate("Custom")}
+          value={v.maxConcurrentRequests ?? ""}
+          onChange={(e) => {
+            const n = parseInt(e.target.value, 10);
+            set({ maxConcurrentRequests: Number.isFinite(n) && n > 0 ? n : null });
           }}
         />
       </Section>

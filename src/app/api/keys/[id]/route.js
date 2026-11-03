@@ -3,6 +3,8 @@ import { deleteApiKey, getApiKeyById, updateApiKey, KeyLimitsValidationError, sa
 import { getPlan } from "@/lib/db/repos/plansRepo.js";
 import { validateKeyAccessInput } from "@/shared/utils/keyAccess.js";
 import * as log from "@/sse/utils/logger.js";
+import { recordSecurityAndTrust, recordSecurityEvent } from "@/lib/security/securityEvents.js";
+import { resolveClientIp } from "@/sse/services/keyGate.js";
 
 // GET /api/keys/[id] — masked row (never the full key)
 export async function GET(request, { params }) {
@@ -84,7 +86,7 @@ export async function PUT(request, { params }) {
     }
     // W3 governance fields pass through as-is — the repo validates shape,
     // range, scope membership, expiry-future, and CIDR syntax.
-    for (const f of ["rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents", "budgetScope", "expiresAt", "ipAllowlist"]) {
+    for (const f of ["rateLimitRpm", "rateLimitTpm", "rateLimitRph", "rateLimitRpd", "maxConcurrentRequests", "tokenBudgetDaily", "spendCapDailyCents", "budgetScope", "expiresAt", "ipAllowlist"]) {
       if (body[f] !== undefined) updateData[f] = body[f];
     }
 
@@ -96,6 +98,17 @@ export async function PUT(request, { params }) {
     if (!updated) {
       return NextResponse.json({ error: "Key not found" }, { status: 404 });
     }
+    // SECURITY LOG — a PAUSE (isActive true→false) is a revocation in effect,
+    // so it is recorded like one; every other edit is a governance change.
+    // Fail-open, not awaited: the mutation already happened, and an audit
+    // write must never turn a successful edit into an error.
+    const paused = updateData.isActive === false && existing.isActive !== false;
+    recordSecurityEvent({
+      keyId: id,
+      kind: paused ? "key.paused" : "key.updated",
+      detail: { keyPrefix: existing.keyPrefix || null, fields: Object.keys(updateData) },
+      ip: resolveClientIp(request),
+    });
     return NextResponse.json({ key: updated });
   } catch (error) {
     if (error instanceof KeyLimitsValidationError) {
@@ -115,6 +128,18 @@ export async function DELETE(request, { params }) {
     if (!deleted) {
       return NextResponse.json({ error: "Key not found" }, { status: 404 });
     }
+
+    // SECURITY LOG + TRUST INBOX — a revocation is exactly the act the bell
+    // exists for. The revoke is a soft delete (the row keeps its prefix with
+    // the hash NULLed), so the prefix is still readable here; a read failure
+    // degrades to null and never blocks the response. The id names the key in
+    // the ledger (the read surface masks it to prefix form). Both writes are
+    // fail-open and intentionally not awaited.
+    const revokedPrefix = (await getApiKeyById(id).catch(() => null))?.keyPrefix || null;
+    recordSecurityAndTrust(
+      { keyId: id, kind: "key.revoked", detail: { keyPrefix: revokedPrefix }, ip: resolveClientIp(request) },
+      { trustKind: "key.revoked", title: "API key revoked", trustDetail: { keyPrefix: revokedPrefix } }
+    );
 
     return NextResponse.json({ message: "Key deleted successfully" });
   } catch (error) {

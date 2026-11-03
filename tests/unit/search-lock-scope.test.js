@@ -64,6 +64,9 @@ vi.mock("@/shared/constants/providers.js", () => ({
 
 vi.mock("@/sse/services/keyGate.js", () => ({
   authorizeApiRequest: vi.fn(async () => ({ ok: true })),
+  // Migration 025 — the in-flight slot ceremony; the fake verdict carries no
+  // release, so this is a pass-through (the gate owns whether a slot exists).
+  withKeySlot: (_gate, fn) => fn(),
 }));
 
 const coreMocks = vi.hoisted(() => ({ handleSearchCore: vi.fn() }));

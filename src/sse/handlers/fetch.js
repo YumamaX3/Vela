@@ -8,7 +8,7 @@ import {
 import { getSettings, getCombos } from "@/lib/localDb";
 import { AI_PROVIDERS, resolveProviderId } from "@/shared/constants/providers.js";
 import { handleFetchCore } from "open-sse/handlers/fetch/index.js";
-import { authorizeApiRequest } from "../services/keyGate.js";
+import { authorizeApiRequest, withKeySlot } from "../services/keyGate.js";
 import { errorResponse, unavailableResponse } from "open-sse/utils/error.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
 import * as log from "../utils/logger.js";
@@ -24,17 +24,34 @@ import { assertPublicUrlResolved } from "@/shared/utils/ssrfGuard.js";
  * @param {Request} request
  */
 export async function handleFetch(request) {
+  // Migration 025 — the gate's in-flight slot is held until this request's
+  // response settles; the body (and its inline gate) lives in handleFetchBody.
+  const ctx = {};
+  const gate = await gateFetch(request, ctx);
+  if (!gate.ok) return gate.response;
+  return withKeySlot(gate, () => handleFetchBody(request, ctx));
+}
+
+/** The gate half of handleFetch — resolves the key, returns its verdict. */
+async function gateFetch(request, ctx) {
   let body;
   try {
     body = await request.json();
   } catch {
-    log.warn("FETCH", "the payload arrived waterlogged — invalid JSON");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid JSON body");
   }
-
-  const reqUrl = new URL(request.url);
-  // Accept either `provider` or `model` (UI sends `model` since provider IS the model for webFetch)
+  // Provider IS the model for webFetch.
   const providerInput = body.provider || body.model;
+  const settings = await getSettings();
+  const gate = await authorizeApiRequest(request, { requestModel: providerInput, settings, kind: "webFetch" });
+  if (!gate.ok) return gate;
+  Object.assign(ctx, { body, providerInput, settings });
+  return gate;
+}
+
+async function handleFetchBody(request, ctx) {
+  const { body, providerInput, settings } = ctx;
+  const reqUrl = new URL(request.url);
   const targetUrl = body.url;
   const format = body.format;
   const maxCharacters = body.max_characters;
@@ -47,16 +64,6 @@ export async function handleFetch(request) {
     log.debug("AUTH", `API Key: ${log.maskKey(apiKey)}`);
   } else {
     log.debug("AUTH", "no key at the gate · local mode");
-  }
-
-  // Enforce API key + per-key ACL (v0.9.17) — the same gate every sibling
-  // handler rides. The baseline census (tests/__baseline__/apikey-enforcement-
-  // sites.json) records this file as an enforcement site; the old requireApiKey
-  // block below it predated the ACL wave and skipped scope/kind checks.
-  const settings = await getSettings();
-  {
-    const gate = await authorizeApiRequest(request, { requestModel: providerInput, settings, kind: "webFetch" });
-    if (!gate.ok) return gate.response;
   }
 
   if (!providerInput || typeof providerInput !== "string") {
@@ -111,7 +118,6 @@ export async function handleFetch(request) {
 
   return handleSingleProviderFetch(body, providerInput, request, apiKey, settings);
 }
-
 async function handleSingleProviderFetch(body, providerInput, request, apiKey, settings) {
   const targetUrl = body.url;
   const format = body.format;

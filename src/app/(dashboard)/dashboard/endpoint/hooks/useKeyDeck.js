@@ -14,6 +14,7 @@ import {
   exportKeysFile,
   fetchStats,
   importKeys,
+  importKeysChunked,
 } from "../lib/keyApi";
 import { categoryOf, filterKeys, postureOf, sortKeys, UNCATEGORIZED } from "../lib/keyFormat";
 import { removeKey, storeKey } from "@/shared/utils/keyVault";
@@ -319,7 +320,7 @@ export default function useKeyDeck(c) {
   }, [announce]);
 
   const openImport = useCallback(() => {
-    setImportState({ fileName: "", envelope: null, mode: "dry-run", onConflict: "skip", plan: null, applied: null, busy: false, error: "" });
+    setImportState({ fileName: "", envelope: null, mode: "dry-run", onConflict: "skip", plan: null, applied: null, busy: false, error: "", progress: null });
   }, []);
 
   const closeImport = useCallback(() => setImportState(null), []);
@@ -361,24 +362,71 @@ export default function useKeyDeck(c) {
   }, [importState]);
 
   const applyImport = useCallback(async () => {
-    setImportState((prev) => (prev ? { ...prev, busy: true, error: "" } : prev));
-    try {
-      const applied = await importKeys(
-        importState.envelope,
-        { mode: "apply", onConflict: importState.onConflict }
-      );
-      // The show-once ceremony, N times: every key this import minted carries
-      // its plaintext in THIS response and never again. Capturing them into the
-      // browser vault here is the same act the single-key create path performs.
-      for (const entry of applied?.applied?.created || []) {
-        if (entry.keyId && entry.key) storeKey(entry.keyId, entry.key);
+    // Snapshot the inputs at the click: every later setState spreads `prev`,
+    // so the `progress` ticks below can never be read back into a stale
+    // envelope mid-flight.
+    const { envelope, onConflict } = importState || {};
+    const total = Array.isArray(envelope?.keys) ? envelope.keys.length : 0;
+    setImportState((prev) => (prev ? {
+      ...prev,
+      busy: true,
+      error: "",
+      // Live progress, in the shape the panel draws from. `running` gates the
+      // form; `done`/`total` are the bar's honest arithmetic; `currentName`
+      // is the key in flight, so a long apply names its place in the file.
+      progress: { running: true, done: 0, total, percent: 0, currentName: null, chunkIndex: 0, chunkCount: 0 },
+    } : prev));
+
+    const vault = (entries) => {
+      // The show-once ceremony, N times, CHUNK by chunk: every plaintext this
+      // batch minted rides its own response exactly once, and it is captured
+      // into the browser vault the moment the response lands — never after
+      // the whole run — so a chunk that fails later cannot orphan an earlier
+      // chunk's keys.
+      for (const entry of entries || []) {
+        if (entry?.keyId && entry?.key) storeKey(entry.keyId, entry.key);
       }
-      setImportState((prev) => ({ ...prev, applied, busy: false }));
+    };
+
+    try {
+      const applied = await importKeysChunked(envelope, {
+        mode: "apply",
+        onConflict,
+        onProgress: (p) => {
+          setImportState((prev) => (prev ? { ...prev, progress: { running: true, ...p } } : prev));
+        },
+      });
+      vault(applied?.applied?.created);
+      setImportState((prev) => (prev ? {
+        ...prev,
+        applied: { mode: "apply", onConflict, applied: applied.applied },
+        busy: false,
+        progress: { running: false, done: total, total, percent: 100, currentName: null, chunkIndex: 0, chunkCount: 0 },
+      } : prev));
       await refresh();
       const n = applied?.applied?.changed || 0;
       announce(n > 0 ? "ok" : "warn", n > 0 ? `${n} key${n === 1 ? "" : "s"} re-issued — save the new strings now` : "Nothing was imported");
     } catch (error) {
-      setImportState((prev) => ({ ...prev, busy: false, error: error.message }));
+      // A chunk failed mid-run. Vault whatever was minted BEFORE it — those
+      // strings exist in this error's `partial` and nowhere else — and show
+      // them, so the operator's cost for a dropped connection is the chunk
+      // that failed, not every key the apply already made.
+      const partial = error?.partial;
+      if (partial) {
+        vault(partial.created);
+        setImportState((prev) => (prev ? {
+          ...prev,
+          applied: partial.created.length || partial.results.length
+            ? { mode: "apply", onConflict, applied: { changed: partial.results.filter((r) => r.ok).length, ...partial } }
+            : prev.applied,
+          busy: false,
+          progress: { running: false, done: partial.done, total: partial.total, percent: Math.round((partial.done / Math.max(partial.total, 1)) * 100), currentName: null, chunkIndex: 0, chunkCount: 0 },
+          error: `The apply stopped at chunk ${(partial.chunkIndex ?? error.chunkIndex ?? 0) + 1} — ${error.message}. The keys above were minted and are shown once; the rest were not imported.`,
+        } : prev));
+        await refresh();
+      } else {
+        setImportState((prev) => (prev ? { ...prev, busy: false, progress: null, error: error.message } : prev));
+      }
     }
   }, [importState, refresh, announce]);
 

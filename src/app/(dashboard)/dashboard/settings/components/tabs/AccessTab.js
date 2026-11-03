@@ -14,6 +14,7 @@ import { Button, Card, Input, Toggle } from "@/shared/components";
 import StatusLine from "../StatusLine";
 import SettingRow from "../SettingRow";
 import SessionsCard from "../SessionsCard";
+import TwoFactorCard from "../TwoFactorCard";
 
 export default function AccessTab({ deck }) {
   const { settings, loading, pending, patch } = deck;
@@ -138,6 +139,10 @@ export default function AccessTab({ deck }) {
           )}
         </div>
       </Card>
+
+      {/* The second lock sits beside the password, in the room that answers
+          "who may open this dashboard?" — before the ledger of who is inside. */}
+      <TwoFactorCard />
 
       <SessionsCard />
     </>

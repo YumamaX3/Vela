@@ -16,6 +16,7 @@ import { parseModel } from "./model.js";
 import { budgetStage } from "./budgetGate.js";
 import { applyPlanDefaults } from "./planDefaults.js";
 import { resolveProviderId, AI_PROVIDERS } from "@/shared/constants/providers.js";
+import { recordSecurityEvent } from "@/lib/security/securityEvents.js";
 
 export const GATE_CODES = {
   INVALID_KEY: "invalid_api_key",
@@ -28,8 +29,13 @@ export const GATE_CODES = {
   QUERY_PARAM_KEY_REJECTED: "query_param_key_rejected",
 };
 
-function deny(status, code, message) {
-  return { ok: false, code, message, status, response: errorResponse(status, `${message} (${code})`) };
+// `extraHeaders` is additive (all existing callers pass nothing): a denial may
+// carry honest response headers — today the rate stage's Retry-After.
+function deny(status, code, message, extraHeaders = null) {
+  const verdict = { ok: false, code, message, status };
+  if (extraHeaders) verdict.headers = extraHeaders;
+  verdict.response = errorResponse(status, `${message} (${code})`, extraHeaders ? { extraHeaders } : {});
+  return verdict;
 }
 
 /** Header-only extraction — ?key= is dead (rejected upstream at the guard). */
@@ -53,6 +59,12 @@ function toResolvedKey(row) {
     isInternal: row.isInternal === 1 || row.isInternal === true,
     expiresAt: row.expiresAt || null,
     rateLimitRpm: row.rateLimitRpm ?? null,
+    // Five-dimension rate limits (migration 025) — projected verbatim; the
+    // gate enforces a dimension only when it is a positive integer.
+    rateLimitTpm: row.rateLimitTpm ?? null,
+    rateLimitRph: row.rateLimitRph ?? null,
+    rateLimitRpd: row.rateLimitRpd ?? null,
+    maxConcurrentRequests: row.maxConcurrentRequests ?? null,
     tokenBudgetDaily: row.tokenBudgetDaily ?? null,
     spendCapDailyCents: row.spendCapDailyCents ?? null,
     budgetScope: row.budgetScope || null,
@@ -150,20 +162,87 @@ export function ipStage(key, { clientIp } = {}) {
   return deny(HTTP_STATUS.FORBIDDEN, GATE_CODES.IP_NOT_ALLOWED, "Client address is not in this key's IP allowlist");
 }
 
-// ── Rate limiting (W3 rate stage) ────────────────────────────────────────
-// Sliding 60s window per keyId, in-memory (process-local). Survives module
-// reloads via a global singleton; eviction keeps the map bounded.
+// ── Rate limiting (W3 rate stage → migration 025 five dimensions) ────────
+// Five per-key ceilings, each over its own window, each 429 + Retry-After:
+//
+//   rpm  — requests per 60s       ┐
+//   rph  — requests per 3600s     ├ one shared in-memory stamp log (sync)
+//   rpd  — requests per 86400s    ┘
+//   tpm  — tokens per 60s         — summed from the usage ledger (async)
+//   concurrent — in-flight slots  — an incremented/decremented counter
+//
+// The stamp log is per keyId, process-local, pruned to the LONGEST window
+// (RPD, 86400s) so all three request ceilings count from one array — never
+// three. It survives module reloads via a global singleton; eviction keeps
+// the map bounded. The token and concurrency dimensions read the ledger and
+// the in-flight counter respectively, and live in the async half of the gate
+// (rateAsyncStage), where the ledger read is available and awaited.
+//
+// Failure law: a ceiling that cannot be READ (a DB error on TPM) is a PASS —
+// an unreadable ceiling must never lock a key out. A ceiling that is read and
+// CROSSED is a 429. Zero/absent = the dimension is off.
 
-const RATE_WINDOW_MS = 60_000;
+import { RATE_DIMENSIONS, RATE_LOG_SPAN_MS } from "@/lib/db/keyLimits.js";
+import { getKeyWindowsSince } from "@/lib/db/repos/usageRepo.js";
+
 const RATE_MAP_MAX_KEYS = 10_000;
+/** TTL safety net for the in-flight counter — a slot whose response never
+ *  settled (a hung stream, a worker that died mid-request) frees itself. */
+export const CONCURRENCY_SLOT_TTL_MS = 15 * 60_000;
+const DEFAULT_RETRY_AFTER_SEC = 60;
+
+/** The request-count dimensions, in the order they are reported. */
+const REQUEST_DIMENSIONS = RATE_DIMENSIONS.filter((d) => d.field !== "rateLimitTpm");
+const TPM_DIMENSION = RATE_DIMENSIONS.find((d) => d.field === "rateLimitTpm");
 
 function rateWindowMap() {
   if (!global._velaRateWindows) global._velaRateWindows = new Map();
   return global._velaRateWindows;
 }
 
+/** Count stamps in [now - windowMs, now] within the (oldest-first) log. */
+function countWithin(stamps, now, windowMs) {
+  const floor = now - windowMs;
+  let n = 0;
+  for (let i = stamps.length - 1; i >= 0 && stamps[i] > floor; i--) n++;
+  return n;
+}
+
+/** Honest Retry-After for a full request window: the seconds until the k-th
+ *  oldest in-window stamp ages OUT, where k = stamps - limit + 1. That is
+ *  the first instant the window holds limit-1 stamps — the first slot free.
+ *  Rounded up (sub-second waits still count as 1s), floored at 1. */
+function retryAfterFor(stamps, now, windowMs, limit) {
+  const floor = now - windowMs;
+  const inWindow = stamps.filter((t) => t > floor);
+  const freeing = inWindow[inWindow.length - limit] ?? inWindow[0];
+  return Math.max(1, Math.ceil((freeing + windowMs - now) / 1000));
+}
+
+function rateDeny(unit, limit, retryAfterSec) {
+  return deny(
+    HTTP_STATUS.RATE_LIMITED,
+    GATE_CODES.RATE_LIMITED,
+    // Honest English at any ceiling: "1 request per hour", "2 requests per minute".
+    // The unit reads "requests per hour" (plural form); drop the s for a ceiling of 1.
+    `Rate limit exceeded: ${limit} ${limit === 1 ? unit.replace(/^requests/, "request").replace(/^tokens/, "token") : unit}`,
+    { "Retry-After": String(Math.max(1, Math.round(retryAfterSec || DEFAULT_RETRY_AFTER_SEC))) }
+  );
+}
+
+function hasLimit(v) {
+  return Number.isInteger(v) && v > 0;
+}
+
+/**
+ * The SYNC rate stage — rpm / rph / rpd over the shared stamp log.
+ * Returns { ok: true } (and pushes this request's stamp) or a 429 denial.
+ * Untouched dimensions (null / 0) are skipped entirely and never stamped, so
+ * a key with no request ceilings costs one length check.
+ */
 export function rateStage(key) {
-  if (!key.rateLimitRpm || key.rateLimitRpm <= 0) return { ok: true };
+  const limited = REQUEST_DIMENSIONS.filter((d) => hasLimit(key[d.field]));
+  if (!limited.length) return { ok: true };
   const windows = rateWindowMap();
   const now = Date.now();
   let stamps = windows.get(key.keyId);
@@ -171,24 +250,150 @@ export function rateStage(key) {
     stamps = [];
     windows.set(key.keyId, stamps);
   }
-  // Prune outside the window, then bound the map.
-  while (stamps.length && stamps[0] <= now - RATE_WINDOW_MS) stamps.shift();
+  // Prune to the LONGEST window — every shorter window is a prefix read.
+  while (stamps.length && stamps[0] <= now - RATE_LOG_SPAN_MS) stamps.shift();
   if (windows.size > RATE_MAP_MAX_KEYS) {
     for (const [k, s] of windows) {
-      while (s.length && s[0] <= now - RATE_WINDOW_MS) s.shift();
+      while (s.length && s[0] <= now - RATE_LOG_SPAN_MS) s.shift();
       if (!s.length && k !== key.keyId) windows.delete(k);
       if (windows.size <= RATE_MAP_MAX_KEYS) break;
     }
   }
-  if (stamps.length >= key.rateLimitRpm) {
-    return deny(
-      HTTP_STATUS.RATE_LIMITED,
-      GATE_CODES.RATE_LIMITED,
-      `Rate limit exceeded: ${key.rateLimitRpm} requests per minute`
-    );
+  // Evaluate every request window BEFORE stamping: a denial must not consume
+  // a slot the client never spent.
+  for (const dim of limited) {
+    const limit = key[dim.field];
+    if (countWithin(stamps, now, dim.windowMs) >= limit) {
+      return rateDeny(dim.unit, limit, retryAfterFor(stamps, now, dim.windowMs, limit));
+    }
   }
   stamps.push(now);
   return { ok: true };
+}
+
+// ── In-flight slots (maxConcurrentRequests) ──────────────────────────────
+// A per-keyId counter held by a global singleton. incrementSlot() reserves a
+// slot at gate pass and returns a release function; the caller's response
+// settle calls it (idempotent — a double release is a no-op). Each slot
+// carries its own expiry: if a response never settles, the slot must not be
+// lost forever, so a slot older than CONCURRENCY_SLOT_TTL_MS is reclaimed on
+// the next check. That is a SAFETY NET, not a policy — the normal path frees
+// the slot the moment the response settles.
+
+function concurrencyMap() {
+  if (!global._velaKeySlots) global._velaKeySlots = new Map();
+  return global._velaKeySlots;
+}
+
+/** Live in-flight count for a key, TTL-expired slots excluded. */
+export function inflightCount(keyId, now = Date.now()) {
+  const slots = concurrencyMap().get(keyId);
+  if (!slots) return 0;
+  let live = 0;
+  for (const t of slots) if (t > now - CONCURRENCY_SLOT_TTL_MS) live++;
+  return live;
+}
+
+/**
+ * Reserve one in-flight slot. Returns { ok, release } — release() is safe to
+ * call any number of times. On denial `retryAfterSec` is the time until the
+ * OLDEST live slot may expire (the TTL net) — honest, though pessimistic:
+ * the slot likely frees sooner when its response settles.
+ */
+export function incrementSlot(key) {
+  const limit = key.maxConcurrentRequests;
+  if (!hasLimit(limit)) return { ok: true, release: () => {} };
+  const map = concurrencyMap();
+  const now = Date.now();
+  let slots = map.get(key.keyId);
+  if (!slots) {
+    slots = [];
+    map.set(key.keyId, slots);
+  }
+  // Reclaim expired slots (the safety net) and bound the map.
+  for (let i = slots.length - 1; i >= 0; i--) {
+    if (slots[i] <= now - CONCURRENCY_SLOT_TTL_MS) slots.splice(i, 1);
+  }
+  if (map.size > RATE_MAP_MAX_KEYS) {
+    for (const [k, s] of map) {
+      if (k === key.keyId) continue;
+      const live = s.filter((t) => t > now - CONCURRENCY_SLOT_TTL_MS);
+      if (!live.length) map.delete(k);
+      else s.length = live.length;
+      if (map.size <= RATE_MAP_MAX_KEYS) break;
+    }
+  }
+  if (slots.length >= limit) {
+    const oldest = Math.min(...slots);
+    const retryAfterSec = Math.max(1, Math.ceil((oldest + CONCURRENCY_SLOT_TTL_MS - now) / 1000));
+    return { ok: false, retryAfterSec, release: () => {} };
+  }
+  const stamp = now;
+  slots.push(stamp);
+  let released = false;
+  return {
+    ok: true,
+    release: () => {
+      if (released) return;
+      released = true;
+      const live = map.get(key.keyId);
+      if (!live) return;
+      const idx = live.lastIndexOf(stamp);
+      if (idx >= 0) live.splice(idx, 1);
+      if (!live.length) map.delete(key.keyId);
+    },
+  };
+}
+
+/** The concurrency denial, shaped like every other rate denial. */
+export function concurrencyStage(key) {
+  const slot = incrementSlot(key);
+  if (slot.ok) return { ok: true, release: slot.release };
+  return {
+    ...rateDeny("concurrent requests", key.maxConcurrentRequests, slot.retryAfterSec),
+  };
+}
+
+// ── Tokens per minute (rateLimitTpm) ─────────────────────────────────────
+// Summed from the usage ledger — the same rows saveRequestUsage writes and
+// the dashboard reads — over [now - 60s, now]. Soft check: a read failure is
+// a PASS (fail-open on an unreadable ceiling), never a 429. Retry-After is
+// when the OLDEST row in the window ages out of 60s (it is the first token
+// budget to return); floor 1s so we never promise "retry now".
+export async function tokenRateStage(key, { now = Date.now() } = {}) {
+  const limit = key.rateLimitTpm;
+  if (!hasLimit(limit)) return { ok: true };
+  let window = null;
+  try {
+    window = await getKeyWindowsSince(key.keyId, now - TPM_DIMENSION.windowMs);
+  } catch {
+    return { ok: true }; // unreadable ceiling → pass
+  }
+  if (!window || window.tokens < limit) return { ok: true };
+  let retryAfterSec = DEFAULT_RETRY_AFTER_SEC;
+  const oldest = window.oldestAt ? Date.parse(window.oldestAt) : NaN;
+  if (Number.isFinite(oldest)) {
+    retryAfterSec = Math.max(1, Math.ceil((oldest + TPM_DIMENSION.windowMs - now) / 1000));
+  }
+  return rateDeny(TPM_DIMENSION.unit, limit, retryAfterSec);
+}
+
+/**
+ * The ASYNC half of the rate pipeline — TPM (a ledger read) and in-flight
+ * slots (a counter that must be released on settle). Called by the gate after
+ * the sync stages, in this order: tokens first (no side effect), then the
+ * slot (which reserves state and therefore goes last — a TPM denial must
+ * never leak a reserved slot). Denials carry the SAME *_rate_limited code and
+ * a Retry-After. On every other path the verdict carries `release` (a no-op
+ * when no ceiling is set) so the caller can hold it until the response
+ * settles.
+ */
+export async function rateAsyncStage(key) {
+  const tokenVerdict = await tokenRateStage(key);
+  if (!tokenVerdict.ok) return tokenVerdict;
+  const slot = concurrencyStage(key);
+  if (!slot.ok) return slot;
+  return { ok: true, release: slot.release };
 }
 
 // ── Token + spend budgets (W3 spend stage) ───────────────────────────────
@@ -432,6 +637,38 @@ export function modelScopeStage(key, { requestModel, comboModels } = {}) {
 }
 
 /**
+ * Append the security-log line for a denial. Fail-open and fire-and-forget:
+ * recordSecurityEvent never throws and resolves to a boolean, so the 429 this
+ * accompanies is never delayed by, nor failed because of, the ledger.
+ *
+ * What is recorded: the gate's own verdict code, the dimension/window when the
+ * message names one, the status, the keyPrefix when it is already known (never
+ * a re-read — an IP denial must not cost a second DB round-trip). What is NOT:
+ * the message's figures are derived from the operator's own limits, so they
+ * are safe; the presented key is never, and never has been, in scope here.
+ */
+function recordDeniedVerdict(verdict, key, ip) {
+  try {
+    const detail = { code: verdict?.code || null, status: verdict?.status ?? null };
+    const m = /^(\w+)\s+(\w+)\s+(?:budget|cap) exceeded/.exec(verdict?.message || "");
+    if (m) { detail.window = m[1].toLowerCase(); detail.dimension = m[2].toLowerCase(); }
+    if (/^Rate limit exceeded/.test(verdict?.message || "")) {
+      detail.dimension = /tokens/.test(verdict.message) ? "tpm" : "requests";
+      if (verdict.headers?.["Retry-After"]) detail.retryAfterSec = Number(verdict.headers["Retry-After"]) || null;
+    }
+    const keyId = key?.keyId || null;
+    if (key?.keyPrefix) detail.keyPrefix = key.keyPrefix;
+    const kind = verdict?.status === HTTP_STATUS.RATE_LIMITED ? "rate.limited" : "gate.denied";
+    // A budget_exceeded verdict also carries 429 — name it for what it is.
+    const named = verdict?.code === GATE_CODES.BUDGET_EXCEEDED ? "budget.exceeded" : kind;
+    recordSecurityEvent({ keyId, kind: named, detail, ip: ip || null });
+  } catch {
+    // recordSecurityEvent cannot throw; this guard keeps the gate total even
+    // if a future detail shape slips past it.
+  }
+}
+
+/**
  * The gate. Returns { ok: true, key: ResolvedKey } or { ok: false, response }.
  * - settings.requireApiKey === false → identity/ACL stages skip (key: null) —
  *   behavior frozen since key governance — BUT Observatory gateway/model
@@ -444,29 +681,70 @@ export async function authorizeApiRequest(
   { requestModel = null, comboModels = null, settings, clientIp = null, allowInternal = false, kind = null } = {}
 ) {
   const requireKey = settings ? !!settings.requireApiKey : true;
+  // The address the security line stamps. Resolved once the key is known
+  // (below); a denial before that point records with the caller's override.
+  let resolvedIp = clientIp || null;
+  // SECURITY LOG — every denial below returns through denied(), which appends
+  // one fail-open line (no await: the 429/403 must never wait on the ledger).
+  // QUOTA EVENT — one honest emission point for "the gate denied on a
+  // CEILING" (rate / spend / budget), beside the security-log line and with
+  // the same fail-open by construction. NOT every denial: an invalid or paused
+  // key is an auth fault, not a quota, and must never ring the quota bell.
+  // `kind` rides along so a provider-scope denial is honest. Fire-and-forget:
+  // the 429 never waits on a webhook.
+  const QUOTA_CODES = new Set([
+    GATE_CODES.RATE_LIMITED,
+    GATE_CODES.BUDGET_EXCEEDED,
+    "provider_budget_exceeded",
+    "model_budget_exceeded",
+    "gateway_budget_exceeded",
+  ]);
+  const emitQuota = (verdict, key) => {
+    try {
+      if (!verdict || verdict.ok || !QUOTA_CODES.has(verdict.code)) return;
+      void import("@/lib/webhooks.js")
+        .then((m) => m.emitWebhook("quota", {
+          code: verdict.code,
+          status: verdict.status ?? null,
+          message: verdict.message ?? null,
+          keyId: key?.keyId ?? null,
+          requestModel: requestModel ?? null,
+          kind: kind ?? null,
+        }))
+        .catch(() => {});
+    } catch { /* a notifier never fails a gate */ }
+  };
+  const denied = (verdict, key = null) => {
+    recordDeniedVerdict(verdict, key, resolvedIp);
+    emitQuota(verdict, key);
+    return verdict;
+  };
   if (!requireKey) {
     const budgetVerdict = await budgetStage(null, { requestModel });
-    if (!budgetVerdict.ok) return budgetVerdict;
+    if (!budgetVerdict.ok) return denied(budgetVerdict, null);
     return { ok: true, key: null, skipped: true };
   }
 
   const token = extractKeyFromHeaders(request);
+  // Not recorded: an absent key is anonymous traffic noise, not a key's act.
   if (!token) return deny(HTTP_STATUS.UNAUTHORIZED, GATE_CODES.INVALID_KEY, "Missing API key");
 
   const row = await resolveKey(token);
+  // Not recorded: an unknown key has no row to attribute the act to (and the
+  // presented string is never kept — it may be a near-miss of a real key).
   if (!row) return deny(HTTP_STATUS.UNAUTHORIZED, GATE_CODES.INVALID_KEY, "Invalid API key");
   if (!(row.isActive === 1 || row.isActive === true)) {
-    return deny(HTTP_STATUS.FORBIDDEN, GATE_CODES.KEY_PAUSED, "API key is paused");
+    return denied(deny(HTTP_STATUS.FORBIDDEN, GATE_CODES.KEY_PAUSED, "API key is paused"), { keyId: row.id, keyPrefix: row.keyPrefix });
   }
   const key = await applyPlanDefaults(toResolvedKey(row));
   if (key.isInternal && !allowInternal) {
-    return deny(HTTP_STATUS.FORBIDDEN, GATE_CODES.INVALID_KEY, "Invalid API key");
+    return denied(deny(HTTP_STATUS.FORBIDDEN, GATE_CODES.INVALID_KEY, "Invalid API key"), key);
   }
 
   // W3: resolve the client IP — explicit override → the socket-stamped
   // x-9r-real-ip header → (internal keys only, dev mode) the loopback Host
   // fallback. External keys still fail closed without a stamped IP.
-  const resolvedIp = resolveClientIp(request, { clientIp, isInternal: key.isInternal });
+  resolvedIp = resolveClientIp(request, { clientIp, isInternal: key.isInternal });
 
   for (const stage of STAGES) {
     // Stages may be async (spendStage reads the usage ledger) — await each verdict.
@@ -474,20 +752,62 @@ export async function authorizeApiRequest(
     // comboModels tells providerStage/comboStage that a combo resolved (so
     // slash-bearing combo names never read as provider prefixes, v0.9.39).
     const verdict = await stage(key, { clientIp: resolvedIp, requestModel, kind, comboModels });
-    if (!verdict.ok) return verdict;
+    if (!verdict.ok) return denied(verdict, key);
   }
 
   const scopeVerdict = modelScopeStage(key, { requestModel, comboModels });
-  if (!scopeVerdict.ok) return scopeVerdict;
+  if (!scopeVerdict.ok) return denied(scopeVerdict, key);
 
   // Observatory budget hierarchy (W3-B) — last stage: it reads the ledger, and
   // its distinct *_budget_exceeded 429 codes sit on top of the legacy
   // budget_exceeded code (which fires earlier in STAGES if both are crossed).
   const budgetVerdict = await budgetStage(key, { requestModel });
-  if (!budgetVerdict.ok) return budgetVerdict;
+  if (!budgetVerdict.ok) return denied(budgetVerdict, key);
+
+  // Migration 025 — the async half of the rate pipeline: TPM (a ledger read)
+  // and the in-flight slot counter. It runs LAST because its success path
+  // RESERVES state (one in-flight slot) that must survive until the response
+  // settles — a denial from any earlier stage must never leak a slot. The
+  // verdict carries `release`; a key with no ceilings gets a no-op.
+  const rateVerdict = await rateAsyncStage(key);
+  if (!rateVerdict.ok) return denied(rateVerdict, key);
 
   touchLastUsed(key.keyId);
-  return { ok: true, key };
+  return { ok: true, key, release: rateVerdict.release };
+}
+
+/**
+ * Wrap a handler body so the in-flight slot reserved at gate pass is released
+ * the moment the handler's response SETTLES — success, throw, or a rejected
+ * promise. The gate is the authority on whether a slot was taken: this helper
+ * reads the verdict, wraps the handler, and hands back the handler's result
+ * untouched. A handler that forgets to wrap still cannot leak forever: the
+ * slot TTL (15 min) reclaims it.
+ *
+ *   const gate = await authorizeApiRequest(request, {...});
+ *   if (!gate.ok) return gate.response;
+ *   return withKeySlot(gate, () => handleTheRequest(...));
+ *
+ * A non-Promise return (a plain Response, a thrown error) releases on the
+ * spot; a Promise releases in BOTH settle arms.
+ */
+export function withKeySlot(gate, fn) {
+  const release = typeof gate?.release === "function" ? gate.release : () => {};
+  let result;
+  try {
+    result = fn();
+  } catch (err) {
+    release();
+    throw err;
+  }
+  if (result && typeof result.then === "function") {
+    return result.then(
+      (value) => { release(); return value; },
+      (err) => { release(); throw err; }
+    );
+  }
+  release();
+  return result;
 }
 
 /** Scope-filter a model list for /v1/models responses (no 403 — just less visible). */

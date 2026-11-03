@@ -2,18 +2,25 @@ import { NextResponse } from "next/server";
 import { getApiKeys, createApiKey, updateApiKey, KeyLimitsValidationError } from "@/lib/localDb";
 import { validateKeyLimits } from "@/lib/db/keyLimits.js";
 import { EXPORT_ENVELOPE, readJsonBody, uniqueName } from "../_lib/keysApi.js";
+import { runPool } from "@/shared/utils/boundedPool.js";
 import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
 const MAX_ITEMS = 200;
+// The apply current's width. Each accepted row is its own write, so the only
+// reason to cap it is the writer underneath — SQLite serializes writes, and a
+// wider pool just queues more of them at the same lock. Six keeps the round
+// trips overlapping without stretching the single-writer queue.
+const APPLY_CONCURRENCY = 6;
 const CONFLICT_MODES = ["skip", "overwrite", "rename"];
 // The governance fields an imported entry may carry. Everything else in the
 // file is ignored by construction — an imported document is untrusted input
 // even when it was exported from this same harbor yesterday.
 const IMPORTABLE = [
   "description", "category", "allowedModels", "allowedKinds", "allowedProviders",
-  "allowedCombos", "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
+  "allowedCombos", "rateLimitRpm", "rateLimitTpm", "rateLimitRph", "rateLimitRpd",
+  "maxConcurrentRequests", "tokenBudgetDaily", "spendCapDailyCents",
   "budgetScope", "expiresAt", "ipAllowlist",
 ];
 
@@ -69,7 +76,7 @@ export async function POST(request) {
       // Judge the ceilings exactly as the write path will, so the plan cannot
       // promise an entry the repo would then refuse.
       const limitsInput = {};
-      for (const f of ["rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents", "budgetScope", "expiresAt", "ipAllowlist"]) {
+      for (const f of ["rateLimitRpm", "rateLimitTpm", "rateLimitRph", "rateLimitRpd", "maxConcurrentRequests", "tokenBudgetDaily", "spendCapDailyCents", "budgetScope", "expiresAt", "ipAllowlist"]) {
         if (entry[f] !== undefined && entry[f] !== null) limitsInput[f] = entry[f];
       }
       const verdict = validateKeyLimits(limitsInput);
@@ -122,53 +129,81 @@ export async function POST(request) {
       return NextResponse.json({ mode, onConflict, summary, invalid, plan });
     }
 
-    // ── apply ───────────────────────────────────────────────────────────────
-    const results = [];
+    // The show-once ledger. It is written by the workers themselves, the
+    // instant each minted plaintext exists — never reconstructed afterwards —
+    // so worker k's entry lands before any later worker can throw. Each push
+    // records its input index and the list is re-sorted below: concurrent
+    // completion must not reorder the reveal.
     const created = [];
-    const updated = [];
-    let changed = 0;
 
-    for (const row of accepted) {
-      try {
-        if (row.action === "update") {
-          const next = await updateApiKey(row.id, {
-            ...row.patch,
-            // An explicit null must be able to CLEAR a ceiling, so overwrite
-            // carries the whole shape rather than only the keys present.
-            ...Object.fromEntries(
-              ["rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents", "budgetScope", "expiresAt", "ipAllowlist"]
-                .map((f) => [f, row.limits[f] ?? null])
-            ),
-          });
-          if (next) {
-            changed += 1;
-            updated.push({ id: next.id, name: next.name });
-            results.push({ name: row.name, ok: true, action: "overwrite" });
-          } else {
-            results.push({ name: row.name, ok: false, error: "Update failed" });
+    // ── apply ───────────────────────────────────────────────────────────────
+    // Six mints at a time, not two hundred: each accepted row is an independent
+    // write, so the pool runs them with at most APPLY_CONCURRENCY in flight —
+    // and `results[i]` is always `accepted[i]`'s verdict, whatever order the
+    // writes land in. The per-entry dialect (a limits error's own sentence, or
+    // "Create failed") stays HERE, in the worker, because the pool only knows
+    // that something threw, not what the harbor calls it.
+    const verdicts = await runPool(
+      accepted,
+      async (row, index) => {
+        try {
+          if (row.action === "update") {
+            const next = await updateApiKey(row.id, {
+              ...row.patch,
+              // An explicit null must be able to CLEAR a ceiling, so overwrite
+              // carries the whole shape rather than only the keys present.
+              ...Object.fromEntries(
+                ["rateLimitRpm", "rateLimitTpm", "rateLimitRph", "rateLimitRpd", "maxConcurrentRequests", "tokenBudgetDaily", "spendCapDailyCents", "budgetScope", "expiresAt", "ipAllowlist"]
+                  .map((f) => [f, row.limits[f] ?? null])
+              ),
+            });
+            if (next) {
+              return {
+                verdict: { name: row.name, ok: true, action: "overwrite" },
+                updated: { id: next.id, name: next.name },
+              };
+            }
+            return { verdict: { name: row.name, ok: false, error: "Update failed" } };
           }
-          continue;
-        }
 
-        const minted = await createApiKey(row.targetName, {
-          ...row.patch,
-          rateLimitRpm: row.limits.rateLimitRpm ?? null,
-          tokenBudgetDaily: row.limits.tokenBudgetDaily ?? null,
-          spendCapDailyCents: row.limits.spendCapDailyCents ?? null,
-          budgetScope: row.limits.budgetScope ?? undefined,
-          expiresAt: row.limits.expiresAt ?? null,
-          ipAllowlist: row.limits.ipAllowlist ?? null,
-        });
-        changed += 1;
-        // The plaintext rides this response exactly once — the show-once
-        // ceremony, N times. It is never stored and never returned again.
-        created.push({ name: row.targetName, keyId: minted.keyId, key: minted.key });
-        results.push({ name: row.name, ok: true, action: "add", targetName: row.targetName });
-      } catch (error) {
-        const message = error instanceof KeyLimitsValidationError ? error.message : (error?.message || "Create failed");
-        results.push({ name: row.name, ok: false, error: message });
-      }
-    }
+          const minted = await createApiKey(row.targetName, {
+            ...row.patch,
+            rateLimitRpm: row.limits.rateLimitRpm ?? null,
+            rateLimitTpm: row.limits.rateLimitTpm ?? null,
+            rateLimitRph: row.limits.rateLimitRph ?? null,
+            rateLimitRpd: row.limits.rateLimitRpd ?? null,
+            maxConcurrentRequests: row.limits.maxConcurrentRequests ?? null,
+            tokenBudgetDaily: row.limits.tokenBudgetDaily ?? null,
+            spendCapDailyCents: row.limits.spendCapDailyCents ?? null,
+            budgetScope: row.limits.budgetScope ?? undefined,
+            expiresAt: row.limits.expiresAt ?? null,
+            ipAllowlist: row.limits.ipAllowlist ?? null,
+          });
+          // The plaintext rides this response exactly once — the show-once
+          // ceremony, N times. It is never stored and never returned again. It
+          // is captured HERE, inside the worker, the moment it exists, so a
+          // throwing sibling can never cost a minted key its only reveal.
+          created.push({ _index: index, name: row.targetName, keyId: minted.keyId, key: minted.key });
+          return {
+            verdict: { name: row.name, ok: true, action: "add", targetName: row.targetName },
+            created: true,
+          };
+        } catch (error) {
+          const message = error instanceof KeyLimitsValidationError ? error.message : (error?.message || "Create failed");
+          return { verdict: { name: row.name, ok: false, error: message } };
+        }
+      },
+      { concurrency: APPLY_CONCURRENCY }
+    );
+
+    // Reduce in INPUT order — so the response's results, created and updated
+    // lists read exactly as the file did, and `changed` is the same number the
+    // sequential loop would have reached.
+    const results = verdicts.map((v) => v.verdict);
+    const updated = verdicts.filter((v) => v.updated).map((v) => v.updated);
+    const changed = verdicts.filter((v) => v.verdict.ok).length;
+    created.sort((a, b) => a._index - b._index);
+    for (const entry of created) delete entry._index;
 
     return NextResponse.json({
       mode,

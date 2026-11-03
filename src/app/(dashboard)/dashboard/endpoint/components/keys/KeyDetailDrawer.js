@@ -94,7 +94,7 @@ export default function KeyDetailDrawer({ k, deck }) {
             <p className="text-2xs uppercase tracking-wide text-text-muted mb-2">
               {translate("Usage in this window")}
             </p>
-            <UsageStrip usage={usage} />
+            <UsageStrip usage={usage} k={k} period={deck.usagePeriod} />
           </div>
         )}
 

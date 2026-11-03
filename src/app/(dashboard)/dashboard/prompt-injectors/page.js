@@ -50,6 +50,16 @@ const EMPTY_FORM = {
   enabled: true,
   variables: {},
 };
+const SCRIPT_KIND = "script";
+const MAX_TURNS = 12;
+const MAX_TURN_CHARS = 8000;
+const EMPTY_TURN = { role: "user", content: "" };
+const isScript = (inj) => inj?.kind === SCRIPT_KIND;
+function turnPreview(inj) {
+  const turns = Array.isArray(inj?.turns) ? inj.turns : [];
+  if (!turns.length) return "(empty script)";
+  return turns.map((t) => `${t.role === "assistant" ? "assistant" : "user"}: ${t.content}`).join(" · ");
+}
 
 function previewPrompt(prompt, variables = {}) {
   let out = String(prompt || "");
@@ -69,6 +79,15 @@ export default function PromptInjectorsPage() {
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [confirmState, setConfirmState] = useState(null);
   const [showPresets, setShowPresets] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [templatePick, setTemplatePick] = useState("");
+  const [tplForm, setTplForm] = useState(null);
+  const [abPrompt, setAbPrompt] = useState("");
+  const [abMessage, setAbMessage] = useState("");
+  const [abModel, setAbModel] = useState("");
+  const [abRunning, setAbRunning] = useState(false);
+  const [abResult, setAbResult] = useState(null);
+  const [models, setModels] = useState([]);
   // addNotification, not notify — the store exposes no `notify` key, so the old
   // selector returned undefined and every notify({...}) call threw TypeError.
   // All 15 call sites already pass addNotification's exact { type, message } shape.
@@ -86,8 +105,28 @@ export default function PromptInjectorsPage() {
     }
   }, [notify]);
 
+  const loadTemplates = useCallback(async () => {
+    try {
+      const res = await fetch("/api/prompt-templates", { cache: "no-store" });
+      const data = await res.json();
+      setTemplates(Array.isArray(data.templates) ? data.templates : []);
+    } catch (err) {
+      notify({ type: "error", message: err.message });
+    }
+  }, [notify]);
+
+  const loadModels = useCallback(async () => {
+    try {
+      const res = await fetch("/api/models", { cache: "no-store" });
+      const data = await res.json();
+      setModels(Array.isArray(data?.data) ? data.data.map((m) => m.id || m.name).filter(Boolean) : []);
+    } catch { /* the model field stays free-text */ }
+  }, []);
+
   useEffect(() => {
     load();
+    loadTemplates();
+    loadModels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -105,25 +144,50 @@ export default function PromptInjectorsPage() {
 
   const openCreate = () => {
     setEditingIndex(null);
+    setTemplatePick("");
     setFormData(EMPTY_FORM);
     setShowFormModal(true);
   };
 
   const openEdit = (index) => {
     setEditingIndex(index);
-    setFormData({ ...EMPTY_FORM, ...injectors[index], variables: injectors[index].variables || {} });
+    setFormData({
+      ...EMPTY_FORM,
+      ...injectors[index],
+      variables: injectors[index].variables || {},
+      turns: Array.isArray(injectors[index].turns) ? injectors[index].turns : [],
+    });
     setShowFormModal(true);
   };
 
   const save = async () => {
-    if (!formData.name.trim() || !formData.prompt.trim()) {
-      notify({ type: "error", message: "Name and prompt are required" });
+    const script = isScript(formData);
+    const turns = (formData.turns || []).filter((t) => t.content && t.content.trim());
+    if (!formData.name.trim()) {
+      notify({ type: "error", message: "Name is required" });
+      return;
+    }
+    if (script && turns.length === 0) {
+      notify({ type: "error", message: "A script needs at least one turn with content" });
+      return;
+    }
+    if (!script && !formData.prompt.trim()) {
+      notify({ type: "error", message: "Prompt is required" });
       return;
     }
     setSaving(true);
     try {
       const next = [...injectors];
-      const cleaned = { ...formData, name: formData.name.trim(), variables: formData.variables || {} };
+      const cleaned = script
+        ? {
+            name: formData.name.trim(),
+            kind: SCRIPT_KIND,
+            turns: turns.map((t) => ({ role: t.role === "assistant" ? "assistant" : "user", content: t.content })),
+            applyTo: formData.applyTo,
+            enabled: formData.enabled,
+            variables: formData.variables || {},
+          }
+        : { ...formData, name: formData.name.trim(), kind: "system", variables: formData.variables || {}, turns: undefined };
       if (editingIndex === null) {
         next.push(cleaned);
       } else {
@@ -181,6 +245,66 @@ export default function PromptInjectorsPage() {
     });
   };
 
+  const saveTemplate = async () => {
+    if (!tplForm) return;
+    const editing = !!tplForm.id;
+    try {
+      const res = await fetch(editing ? `/api/prompt-templates?id=${encodeURIComponent(tplForm.id)}` : "/api/prompt-templates", {
+        method: editing ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: tplForm.name, prompt: tplForm.prompt }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to save template");
+      setTplForm(null);
+      await loadTemplates();
+      notify({ type: "success", message: editing ? "Template updated" : "Template saved" });
+    } catch (err) {
+      notify({ type: "error", message: err.message });
+    }
+  };
+
+  const removeTemplate = (tpl) => {
+    setConfirmState({
+      title: "Delete template",
+      message: `Delete template "${tpl.name}"?`,
+      action: async () => {
+        try {
+          const res = await fetch(`/api/prompt-templates?id=${encodeURIComponent(tpl.id)}`, { method: "DELETE" });
+          if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Failed to delete template");
+          if (templatePick === tpl.id) setTemplatePick("");
+          await loadTemplates();
+          notify({ type: "success", message: "Template deleted" });
+        } catch (err) {
+          notify({ type: "error", message: err.message });
+        }
+      },
+    });
+  };
+
+  const runAb = async () => {
+    if (!abModel.trim() || !abMessage.trim()) {
+      notify({ type: "error", message: "Pick a model and a sample user message" });
+      return;
+    }
+    setAbRunning(true);
+    setAbResult(null);
+    try {
+      const res = await fetch("/api/prompt-injectors/ab", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: abModel.trim(), prompt: abPrompt, message: abMessage }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "A/B test failed");
+      setAbResult(data);
+    } catch (err) {
+      notify({ type: "error", message: err.message });
+    } finally {
+      setAbRunning(false);
+    }
+  };
+
   const applyPreset = (preset) => {
     setFormData({ ...EMPTY_FORM, ...preset });
     setShowPresets(false);
@@ -229,14 +353,18 @@ export default function PromptInjectorsPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs text-text-muted font-mono">#{index + 1}</span>
                     <p className="text-sm font-medium">{inj.name}</p>
-                    <span className="rounded-md border px-1.5 py-0.5 text-3xs uppercase tracking-wide text-text-muted">{inj.position}</span>
+                    {isScript(inj) ? (
+                      <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-3xs uppercase tracking-wide text-amber-500">script</span>
+                    ) : (
+                      <span className="rounded-md border px-1.5 py-0.5 text-3xs uppercase tracking-wide text-text-muted">{inj.position}</span>
+                    )}
                     <span className="rounded-md border px-1.5 py-0.5 text-3xs uppercase tracking-wide text-text-muted">{inj.applyTo}</span>
                     {Object.keys(inj.variables || {}).length > 0 && (
                       <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-1.5 py-0.5 text-3xs text-blue-400">vars</span>
                     )}
                     {!inj.enabled && <span className="text-xs text-text-muted">(disabled)</span>}
                   </div>
-                  <p className="mt-1 line-clamp-2 text-xs text-text-muted">{inj.prompt}</p>
+                  <p className="mt-1 line-clamp-2 text-xs text-text-muted">{isScript(inj) ? turnPreview(inj) : inj.prompt}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="sm" onClick={() => move(index, -1)} disabled={index === 0}>↑</Button>
@@ -254,8 +382,87 @@ export default function PromptInjectorsPage() {
       <Modal isOpen={showFormModal} onClose={() => setShowFormModal(false)} title={editingIndex === null ? "Add Injector" : "Edit Injector"}>
         <div className="space-y-4">
           <div className="space-y-1">
+            <label className="text-xs text-text-muted">Kind</label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: "system", label: "System prompt", hint: "One instruction in the system message" },
+                { value: SCRIPT_KIND, label: "Chat script", hint: "Example turns inserted as history" },
+              ].map((k) => (
+                <button
+                  key={k.value}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, kind: k.value })}
+                  className={`rounded-md border p-3 text-left motion-control ${formData.kind === k.value ? "border-primary" : "border-border hover:border-primary/60"}`}
+                >
+                  <span className="block text-sm font-medium">{k.label}</span>
+                  <span className="block text-xs text-text-muted mt-0.5">{k.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-1">
             <label className="text-xs text-text-muted">Name</label>
             <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Always respond in Indonesian" />
+          </div>
+          {isScript(formData) ? (
+            <div className="space-y-2">
+              <label className="text-xs text-text-muted">Turns (inserted in order, before the conversation)</label>
+              <div className="space-y-2">
+                {(formData.turns || []).map((t, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <select
+                      value={t.role}
+                      onChange={(e) => {
+                        const next = [...(formData.turns || [])];
+                        next[i] = { ...next[i], role: e.target.value };
+                        setFormData({ ...formData, turns: next });
+                      }}
+                      className="w-28 shrink-0 rounded-md border bg-transparent px-2 py-2 text-xs outline-none"
+                    >
+                      <option value="user">user</option>
+                      <option value="assistant">assistant</option>
+                    </select>
+                    <textarea
+                      value={t.content}
+                      maxLength={MAX_TURN_CHARS}
+                      onChange={(e) => {
+                        const next = [...(formData.turns || [])];
+                        next[i] = { ...next[i], content: e.target.value };
+                        setFormData({ ...formData, turns: next });
+                      }}
+                      rows={2}
+                      className="w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:border-primary"
+                      placeholder={t.role === "assistant" ? "How the model should answer…" : "What a user might say…"}
+                    />
+                    <Button variant="ghost" size="sm" className="shrink-0 text-red-500" onClick={() => setFormData({ ...formData, turns: (formData.turns || []).filter((_, j) => j !== i) })}>
+                      ✕
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <Button variant="ghost" size="sm" disabled={(formData.turns || []).length >= MAX_TURNS} onClick={() => setFormData({ ...formData, turns: [...(formData.turns || []), { ...EMPTY_TURN }] })}>
+                + Add turn
+              </Button>
+            </div>
+          ) : (
+          <>
+          <div className="space-y-1">
+            <label className="text-xs text-text-muted">From template</label>
+            <select
+              value={templatePick}
+              onChange={(e) => {
+                const id = e.target.value;
+                setTemplatePick(id);
+                const t = templates.find((x) => x.id === id);
+                if (!t) return;
+                setFormData((f) => ({ ...f, prompt: t.prompt }));
+              }}
+              className="w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none"
+            >
+              <option value="">— choose a saved template —</option>
+              {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+            <p className="text-xs text-text-muted">Copying a template does not save an injector — press {editingIndex === null ? "Create" : "Save"} to keep it.</p>
           </div>
           <div className="space-y-1">
             <label className="text-xs text-text-muted">Prompt</label>
@@ -275,6 +482,8 @@ export default function PromptInjectorsPage() {
               ))}
             </p>
           </div>
+          </>
+          )}
 
           <div className="space-y-1">
             <label className="text-xs text-text-muted">Custom variables (overridable via x-vela-inject-var-&lt;name&gt; headers)</label>
@@ -296,7 +505,8 @@ export default function PromptInjectorsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className={`grid gap-4 ${isScript(formData) ? "grid-cols-1" : "grid-cols-2"}`}>
+            {!isScript(formData) && (
             <div className="space-y-1">
               <label className="text-xs text-text-muted">Position</label>
               <select
@@ -308,6 +518,7 @@ export default function PromptInjectorsPage() {
                 <option value="prepend">Prepend (before system)</option>
               </select>
             </div>
+            )}
             <div className="space-y-1">
               <label className="text-xs text-text-muted">Applies to</label>
               <select
@@ -324,7 +535,13 @@ export default function PromptInjectorsPage() {
           <div className="space-y-1">
             <label className="text-xs text-text-muted">Preview</label>
             <div className="rounded-md bg-surface-2/40 p-3 text-xs whitespace-pre-wrap">
-              {previewPrompt(formData.prompt, formData.variables)}
+              {isScript(formData)
+                ? (formData.turns || []).filter((t) => t.content.trim()).map((t, i) => (
+                    <span key={i} className="block">
+                      <strong>{t.role}:</strong> {previewPrompt(t.content, formData.variables)}
+                    </span>
+                  ))
+                : previewPrompt(formData.prompt, formData.variables)}
             </div>
           </div>
 
@@ -338,6 +555,110 @@ export default function PromptInjectorsPage() {
           </div>
         </div>
       </Modal>
+
+      <Card>
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <p className="text-sm font-medium">Template library</p>
+            <p className="text-xs text-text-muted">Reusable prompt text. Copied into an injector on request — never executed here.</p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setTplForm({ id: null, name: "", prompt: "" })}>Save as template</Button>
+        </div>
+        {templates.length === 0 ? (
+          <p className="py-4 text-center text-xs text-text-muted">No templates yet.</p>
+        ) : (
+          <div className="flex flex-col divide-y divide-black/[0.04] dark:divide-white/[0.05]">
+            {templates.map((t) => (
+              <div key={t.id} className="flex items-center justify-between gap-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm">{t.name}</p>
+                  <p className="line-clamp-1 text-xs text-text-muted">{t.prompt}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setTplForm({ id: t.id, name: t.name, prompt: t.prompt })}>Edit</Button>
+                  <Button variant="ghost" size="sm" className="text-red-500" onClick={() => removeTemplate(t)}>Delete</Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <Modal isOpen={!!tplForm} onClose={() => setTplForm(null)} title={tplForm?.id ? "Edit template" : "Save as template"}>
+        {tplForm && (
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-xs text-text-muted">Name</label>
+              <Input value={tplForm.name} onChange={(e) => setTplForm({ ...tplForm, name: e.target.value })} placeholder="e.g. Terse code reviewer" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-text-muted">Prompt</label>
+              <textarea
+                value={tplForm.prompt}
+                onChange={(e) => setTplForm({ ...tplForm, prompt: e.target.value })}
+                rows={6}
+                className="w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setTplForm(null)}>Cancel</Button>
+              <Button onClick={saveTemplate}>Save</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Card>
+        <div className="mb-2">
+          <p className="text-sm font-medium">A/B tester</p>
+          <p className="text-xs text-text-muted">Two real turns through the gateway — one bare, one with the prompt applied. Nothing is saved; each verdict is a pure phrase match.</p>
+        </div>
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-xs text-text-muted">Model</label>
+              <Input list="ab-model-list" value={abModel} onChange={(e) => setAbModel(e.target.value)} placeholder="provider/model — type or pick" />
+              <datalist id="ab-model-list">
+                {models.map((m) => <option key={m} value={m} />)}
+              </datalist>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-text-muted">Prompt to try (optional)</label>
+              <Input value={abPrompt} onChange={(e) => setAbPrompt(e.target.value)} placeholder="System prompt — empty compares bare vs bare" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-text-muted">Sample user message</label>
+            <textarea
+              value={abMessage}
+              onChange={(e) => setAbMessage(e.target.value)}
+              rows={3}
+              className="w-full rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:border-primary"
+              placeholder="The one message both sides will answer…"
+            />
+          </div>
+          <Button onClick={runAb} disabled={abRunning}>{abRunning ? "Running…" : "Run A/B"}</Button>
+          {abResult && (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {[["Bare", abResult.bare], ["With prompt", abResult.applied]].map(([label, side]) => (
+                <div key={label} className="rounded-md border p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-xs font-medium">{label}</p>
+                    {side?.skipped ? (
+                      <span className="text-3xs text-text-muted">skipped — no prompt</span>
+                    ) : (
+                      <span className={`rounded-md border px-1.5 py-0.5 text-3xs ${side?.verdict?.refused ? "border-red-500/30 bg-red-500/10 text-red-400" : "border-green-500/30 bg-green-500/10 text-green-500"}`}>
+                        {side?.verdict?.refused ? `Refused — "${side.verdict.phrase}"` : "Answered"}
+                      </span>
+                    )}
+                  </div>
+                  <p className="whitespace-pre-wrap text-xs">{side?.content || (side?.skipped ? "—" : "")}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Card>
 
       <Modal isOpen={showPresets} onClose={() => setShowPresets(false)} title="Injector presets">
         <div className="space-y-2">

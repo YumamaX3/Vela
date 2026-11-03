@@ -199,6 +199,55 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
   }));
 }
 
+// Health tiers — selection READS the `testStatus` that markAccountUnavailable
+// writes (:507) and clearAccountError heals (:637).
+//
+// Before this tide the column was write-only for routing purposes: a connection
+// benched as "unavailable" — but whose modelLock_* had since lapsed, or whose
+// lock belonged to a different model — was indistinguishable from a clean one,
+// so fill-first handed the next request straight back to the account that just
+// failed. (docs/9router-pro-port-register.md:137 names this wound.)
+//
+// The rule, and nothing more:
+//   • clean     — every testStatus except "unavailable"
+//   • suspect   — exactly "unavailable"; STEPS BACK, still serves when no clean
+//                 candidate remains (never a hard exclusion — the lock filter
+//                 above already does hard exclusion), so a provider never
+//                 starves because its whole fleet is benched
+//   • ordering  — Array.prototype.sort is stable, so a tiered sort preserves
+//                 the DB's priority order and the strategy's recency order
+//                 intact within each tier. Fill-first, round-robin and the
+//                 preferred pin all keep their shapes; they simply see the
+//                 clean tier first.
+//
+// Fail-open: any read problem (nullish conn, throwing getter) reads as clean —
+// a health tier must never be the reason a request finds no account.
+function isSuspectAccount(conn) {
+  try {
+    return conn?.testStatus === "unavailable";
+  } catch {
+    return false;
+  }
+}
+
+/** The status, read fail-open: an unreadable row reads as undefined. */
+function safeTestStatus(conn) {
+  try {
+    return conn?.testStatus;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Clean accounts before suspect ones; stable within each tier. Fail-open. */
+function cleanFirst(connections) {
+  try {
+    return [...connections].sort((a, b) => (isSuspectAccount(a) ? 1 : 0) - (isSuspectAccount(b) ? 1 : 0));
+  } catch {
+    return [...connections];
+  }
+}
+
 /**
  * The selection body — everything getProviderCredentials did inside the old
  * mutex (auth.js:196-353), unchanged in behaviour. Extracted so the per-provider
@@ -231,11 +280,19 @@ async function selectConnection({ provider, providerId, excludeSet, preferredCon
   }
 
   // Filter out model-locked and excluded connections
-  const availableConnections = connections.filter(c => {
+  const filteredConnections = connections.filter(c => {
     if (excludeSet.has(c.id)) return false;
     if (isModelLockActive(c, model)) return false;
     return true;
   });
+
+  // Health tiering (see cleanFirst above): clean first, "unavailable" after.
+  const availableConnections = cleanFirst(filteredConnections);
+  // .map, not .filter — a health probe must never be the reason selection dies.
+  const suspectCount = availableConnections.map((c) => (isSuspectAccount(c) ? 1 : 0)).reduce((a, b) => a + b, 0);
+  if (suspectCount > 0) {
+    log.debug("AUTH", `${provider} | ${suspectCount} suspect (testStatus=unavailable) stepped back behind ${availableConnections.length - suspectCount} clean`);
+  }
 
   log.debug("AUTH", `${provider} | available: ${availableConnections.length}/${connections.length}`);
   connections.forEach(c => {
@@ -276,6 +333,14 @@ async function selectConnection({ provider, providerId, excludeSet, preferredCon
   // Pin to preferred connection if specified and available
   if (preferredConnectionId) {
     connection = availableConnections.find((c) => c.id === preferredConnectionId);
+    // Health outranks the pin: a pinned account the gate has marked suspect
+    // steps back like any other, so the pin cannot re-summon an account that
+    // is already benched for this model — but it still wins when it is the
+    // only candidate (the step-down law: serve rather than starve).
+    if (connection && isSuspectAccount(connection) && availableConnections.length > 1) {
+      log.info("AUTH", `${provider} | pinned ${connection.id?.slice(0, 8)} is suspect (testStatus=unavailable) — stepping back to clean candidates`);
+      connection = undefined;
+    }
     if (connection) {
       log.info("AUTH", `${provider} | pinned to ${connection.id?.slice(0, 8)} (${connection.name || connection.email || "unnamed"})`);
     }
@@ -309,8 +374,13 @@ async function selectConnection({ provider, providerId, excludeSet, preferredCon
     // crash/worker-level guarantee beneath it.
     const stickyLimit = providerOverride.stickyRoundRobinLimit || settings.stickyRoundRobinLimit || 3;
 
-    // Sort by lastUsed (most recent first) to find current candidate
+    // Sort by lastUsed (most recent first) to find current candidate.
+    // Health ranks FIRST, so a suspect account never holds the sticky seat
+    // ahead of a clean one; recency orders within the tier only (stable sort
+    // keeps the tail in DB priority order, as before).
     const byRecency = [...availableConnections].sort((a, b) => {
+      const tier = (isSuspectAccount(a) ? 1 : 0) - (isSuspectAccount(b) ? 1 : 0);
+      if (tier !== 0) return tier;
       if (!a.lastUsedAt && !b.lastUsedAt) return (a.priority || 999) - (b.priority || 999);
       if (!a.lastUsedAt) return 1;
       if (!b.lastUsedAt) return -1;
@@ -329,8 +399,11 @@ async function selectConnection({ provider, providerId, excludeSet, preferredCon
         consecutiveUseCount: (connection.consecutiveUseCount || 0) + 1
       });
     } else {
-      // Pick the least recently used (excluding current if possible)
+      // Pick the least recently used (excluding current if possible) — clean
+      // tier first, recency within it, matching the sticky-seat rule above.
       const sortedByOldest = [...availableConnections].sort((a, b) => {
+        const tier = (isSuspectAccount(a) ? 1 : 0) - (isSuspectAccount(b) ? 1 : 0);
+        if (tier !== 0) return tier;
         if (!a.lastUsedAt && !b.lastUsedAt) return (a.priority || 999) - (b.priority || 999);
         if (!a.lastUsedAt) return -1;
         if (!b.lastUsedAt) return 1;
@@ -379,8 +452,11 @@ async function selectConnection({ provider, providerId, excludeSet, preferredCon
     relayAuth: resolvedProxy.relayAuth || "",
     relayVersion: resolvedProxy.relayVersion || 1,
     connectionId: connection.id,
-    // Include current status for optimization check
-    testStatus: connection.testStatus,
+    // Include current status for optimization check — read through the
+    // fail-open guard: testStatus is an arbitrary property of a raw DB row, and
+    // a throwing getter must not be the reason selection dies after it has
+    // already chosen. Unreadable reads as undefined (the pre-tide shape).
+    testStatus: safeTestStatus(connection),
     lastError: connection.lastError,
     // Pass full connection for clearAccountError to read modelLock_* keys
     _connection: connection

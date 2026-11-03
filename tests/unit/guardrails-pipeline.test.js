@@ -133,6 +133,19 @@ describe("outbound streaming tap", () => {
     expect(text).toBe(input);
   });
 
+  it("relays a CLEAN stream whose held frames outnumber the tail, byte-for-byte", async () => {
+    // REGRESSION (security-log tide): the per-frame block check must judge the
+    // window that includes the incoming frame, but it must NOT re-emit the held
+    // tail — the release path owns ordering. A naive `[...held, frame]` there
+    // duplicated a non-final frame to the client. This pins the no-duplication
+    // half; the block half is pinned in security-log-trust-inbox.test.js.
+    const frames = [openaiFrame("hello "), openaiFrame("there "), openaiFrame("world"), openaiFrame(" and more text here"), openaiFrame(" end"), "data: [DONE]\n\n"];
+    const input = frames.join("");
+    const guarded = guardOutboundStream(streamOf(frames), { guardrail: guard("mask"), format: FORMATS.OPENAI });
+    const text = await new Response(guarded).text();
+    expect(text).toBe(input);
+  });
+
   it("blocks a stream and terminates it in the client format", async () => {
     let blocked = null;
     const guarded = guardOutboundStream(streamOf([

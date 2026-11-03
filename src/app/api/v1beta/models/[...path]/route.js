@@ -1,4 +1,5 @@
 import { handleChat } from "@/sse/handlers/chat.js";
+import { withKeySlot } from "@/sse/services/keyGate.js";
 import {
   clearAccountError,
   getProviderCredentials,
@@ -167,17 +168,13 @@ function buildGeminiNativeUrl(requestUrl, model, action) {
   return upstreamUrl.toString();
 }
 
+// The Gemini-native TTS path bypasses chat.js — this is its own enforcement
+// site (plan §3.5). Full gate pipeline: identity, stages, model scope.
+// Returns the FULL verdict (migration 025) so the caller can hold — and
+// release — the in-flight slot, and can answer a denial honestly.
 async function validateGeminiNativeClientKey(request, model) {
-  // The Gemini-native TTS path bypasses chat.js — this is its own enforcement
-  // site (plan §3.5). Full gate pipeline: identity, stages, model scope.
-  // ?key= never reaches here — the guard rejects it with its own honest code.
   const settings = await getSettings();
-  const gate = await authorizeApiRequest(request, { requestModel: model, settings });
-  if (gate.ok) return null;
-  return Response.json(
-    { error: { code: gate.code, message: gate.message } },
-    { status: gate.status },
-  );
+  return authorizeApiRequest(request, { requestModel: model, settings });
 }
 
 function buildGeminiNativeAuthHeaders(credentials) {
@@ -222,9 +219,18 @@ function getSafeGeminiNativeErrorText(error) {
 }
 
 async function forwardGeminiNativeRequest(request, body, model, action) {
-  const authError = await validateGeminiNativeClientKey(request, model);
-  if (authError) return authError;
+  const gate = await validateGeminiNativeClientKey(request, model);
+  if (!gate.ok) {
+    return Response.json(
+      { error: { code: gate.code, message: gate.message } },
+      // Honest denial headers (e.g. the rate stage's Retry-After) ride along.
+      { status: gate.status, headers: gate.headers || undefined },
+    );
+  }
+  return withKeySlot(gate, () => forwardGeminiNativeRequestInner(request, body, model, action));
+}
 
+async function forwardGeminiNativeRequestInner(request, body, model, action) {
   const modelId = normalizeGeminiNativeModel(model);
   if (!GEMINI_NATIVE_MODEL_PATTERN.test(modelId)) {
     return Response.json({ error: { message: "Invalid model" } }, { status: 400 });

@@ -21,6 +21,12 @@ function normalizeBody(input = {}) {
   if (out.config && typeof out.config === "object") {
     if (out.detectors === undefined && Array.isArray(out.config.detectors)) out.detectors = out.config.detectors;
     if (out.action === undefined && typeof out.config.action === "string") out.action = out.config.action;
+    // Pro's grouped pass: prompt CONTENT rides the same config crate.
+    if (out.prompt === undefined && typeof out.config.prompt === "string") out.prompt = out.config.prompt;
+    if (out.promptPosition === undefined && typeof out.config.promptPosition === "string") out.promptPosition = out.config.promptPosition;
+    // 027 — the kind switch and its turns ride the same crate.
+    if (out.kind === undefined && typeof out.config.kind === "string") out.kind = out.config.kind;
+    if (out.turns === undefined && Array.isArray(out.config.turns)) out.turns = out.config.turns;
   }
   delete out.config;
   return out;

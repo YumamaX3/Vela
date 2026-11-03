@@ -4,7 +4,7 @@ import {
   clearAccountError,
   extractApiKey,
 } from "../services/auth.js";
-import { authorizeApiRequest } from "../services/keyGate.js";
+import { authorizeApiRequest, withKeySlot } from "../services/keyGate.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo, getComboModels } from "../services/model.js";
 import { handleImageGenerationCore } from "open-sse/handlers/imageGenerationCore.js";
@@ -23,25 +23,38 @@ const NO_AUTH_PROVIDERS = new Set(["sdwebui", "comfyui"]);
  * @param {Request} request
  */
 export async function handleImageGeneration(request) {
+  // Migration 025 — the gate's in-flight slot is held until this request's
+  // response settles; the body (and its inline gate) lives in handleImageGenerationBody.
+  const ctx = {};
+  const gate = await gateImageGeneration(request, ctx);
+  if (!gate.ok) return gate.response;
+  return withKeySlot(gate, () => handleImageGenerationBody(request, ctx));
+}
+
+/** The gate half of handleImageGeneration — resolves the key, returns its verdict. */
+async function gateImageGeneration(request, ctx) {
   let body;
   try {
     body = await request.json();
   } catch {
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid JSON body");
   }
+  const modelStr = body.model;
+  const settings = await getSettings();
+  const gate = await authorizeApiRequest(request, { requestModel: modelStr, settings, kind: "image" });
+  if (!gate.ok) return gate;
+  Object.assign(ctx, { body, modelStr, settings });
+  return gate;
+}
 
+async function handleImageGenerationBody(request, ctx) {
+  const { body, modelStr, settings } = ctx;
   const url = new URL(request.url);
   const preferredConnectionId = request.headers.get("x-connection-id") || null;
   const wantsStream = (request.headers.get("accept") || "").includes("text/event-stream");
   const binaryOutput = url.searchParams.get("response_format") === "binary";
-  const modelStr = body.model;
 
   const apiKey = extractApiKey(request);
-  const settings = await getSettings();
-  {
-    const gate = await authorizeApiRequest(request, { requestModel: modelStr, settings, kind: "image" });
-    if (!gate.ok) return gate.response;
-  }
 
   if (!modelStr) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
   if (!body.prompt) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: prompt");
@@ -67,7 +80,6 @@ export async function handleImageGeneration(request) {
 
   return handleSingleModelImage(body, modelStr, { wantsStream, binaryOutput, preferredConnectionId });
 }
-
 async function handleSingleModelImage(body, modelStr, { wantsStream, binaryOutput, preferredConnectionId } = {}) {
   const modelInfo = await getModelInfo(modelStr);
   if (!modelInfo.provider) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");

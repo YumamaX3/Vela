@@ -2610,6 +2610,28 @@ exports[`GOLDEN buildHeaders (default executor providers) > zcode-lite → heade
 }
 `;
 
+exports[`GOLDEN buildHeaders (default executor providers) > zcode-plan → headers (apiKey / oauth) 1`] = `
+{
+  "apiKey": {
+    "Accept": "text/event-stream",
+    "Content-Type": "application/json",
+    "anthropic-version": "2023-06-01",
+    "x-api-key": "<CRED>",
+  },
+  "nonStream": {
+    "Content-Type": "application/json",
+    "anthropic-version": "2023-06-01",
+    "x-api-key": "<CRED>",
+  },
+  "oauth": {
+    "Accept": "text/event-stream",
+    "Content-Type": "application/json",
+    "anthropic-version": "2023-06-01",
+    "x-api-key": "<CRED>",
+  },
+}
+`;
+
 exports[`GOLDEN buildHeaders (default executor providers) > zed → headers (apiKey / oauth) 1`] = `
 {
   "apiKey": {
@@ -3516,6 +3538,13 @@ exports[`GOLDEN buildUrl (default executor providers) > zcode-lite → url (stre
 {
   "nonStream": "https://lite.zcode.ai/v1/chat/completions",
   "stream": "https://lite.zcode.ai/v1/chat/completions",
+}
+`;
+
+exports[`GOLDEN buildUrl (default executor providers) > zcode-plan → url (stream + non-stream) 1`] = `
+{
+  "nonStream": "https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages",
+  "stream": "https://zcode.z.ai/api/v1/zcode-plan/anthropic/v1/messages",
 }
 `;
 

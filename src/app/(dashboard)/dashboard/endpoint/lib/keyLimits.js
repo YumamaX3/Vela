@@ -1,9 +1,14 @@
 // ── W3 key-limit UI helpers ────────────────────────────────────────────────
-// Editor shape: { rateLimitRpm, tokenBudget, budgetScope, spendCapCents,
-// expiresAt, ipAllowlist } — maps to repo fields at submit time
-// (tokenBudget→tokenBudgetDaily, spendCapCents→spendCapDailyCents).
+// Editor shape: { rateLimitRpm, rateLimitTpm, rateLimitRph, rateLimitRpd,
+// maxConcurrentRequests, tokenBudget, budgetScope, spendCapCents, expiresAt,
+// ipAllowlist } — maps to repo fields at submit time (tokenBudget→
+// tokenBudgetDaily, spendCapCents→spendCapDailyCents).
 export const DEFAULT_LIMITS = Object.freeze({
   rateLimitRpm: null,
+  rateLimitTpm: null,
+  rateLimitRph: null,
+  rateLimitRpd: null,
+  maxConcurrentRequests: null,
   tokenBudget: null,
   budgetScope: "daily",
   spendCapCents: null,
@@ -29,6 +34,10 @@ export function formatCost(c) {
 export function limitBadges(key) {
   const badges = [];
   if (key.rateLimitRpm != null) badges.push({ k: "rpm", text: `${key.rateLimitRpm} RPM` });
+  if (key.rateLimitTpm != null) badges.push({ k: "tpm", text: `${formatTokens(key.rateLimitTpm)} TPM` });
+  if (key.rateLimitRph != null) badges.push({ k: "rph", text: `${formatTokens(key.rateLimitRph)} RPH` });
+  if (key.rateLimitRpd != null) badges.push({ k: "rpd", text: `${formatTokens(key.rateLimitRpd)} RPD` });
+  if (key.maxConcurrentRequests != null) badges.push({ k: "conc", text: `${key.maxConcurrentRequests} conc` });
   if (key.tokenBudgetDaily != null) badges.push({ k: "tok", text: `${formatTokens(key.tokenBudgetDaily)} tok` });
   if (key.spendCapDailyCents != null) badges.push({ k: "spend", text: `$${(key.spendCapDailyCents / 100).toFixed(0)}` });
   if (key.ipAllowlist?.length) badges.push({ k: "ip", text: `${key.ipAllowlist.length} IP` });
@@ -38,6 +47,10 @@ export function limitBadges(key) {
 export function limitsFromRecord(k) {
   return {
     rateLimitRpm: k.rateLimitRpm ?? null,
+    rateLimitTpm: k.rateLimitTpm ?? null,
+    rateLimitRph: k.rateLimitRph ?? null,
+    rateLimitRpd: k.rateLimitRpd ?? null,
+    maxConcurrentRequests: k.maxConcurrentRequests ?? null,
     tokenBudget: k.tokenBudgetDaily ?? null,
     budgetScope: k.budgetScope || "daily",
     spendCapCents: k.spendCapDailyCents ?? null,
@@ -54,6 +67,10 @@ export function limitsFromRecord(k) {
 export function limitsToRecord(limits) {
   return {
     rateLimitRpm: limits?.rateLimitRpm ?? null,
+    rateLimitTpm: limits?.rateLimitTpm ?? null,
+    rateLimitRph: limits?.rateLimitRph ?? null,
+    rateLimitRpd: limits?.rateLimitRpd ?? null,
+    maxConcurrentRequests: limits?.maxConcurrentRequests ?? null,
     tokenBudgetDaily: limits?.tokenBudget ?? null,
     spendCapDailyCents: limits?.spendCapCents ?? null,
     budgetScope: limits?.budgetScope || "daily",

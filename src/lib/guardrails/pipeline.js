@@ -27,14 +27,18 @@
 //     names, ids, usage, finish reasons — is relayed untouched, because a
 //     filter that re-encodes clean frames changes a stream for no reason.
 
-import { resolvePolicy, logDecision, listEnabledPolicies } from "./policyStore.js";
+import { resolvePolicy, listMatchingPolicies, logDecision, listEnabledPolicies } from "./policyStore.js";
 import { metrics } from "../metrics.js";
 import { engineFromPolicy } from "open-sse/guardrails/engine.js";
+import { injectPromptStack } from "open-sse/rtk/systemInject.js";
+import { expandScript } from "open-sse/rtk/injectorScripts.js";
+import { insertScriptTurns } from "open-sse/rtk/scriptInject.js";
 import { getSettings } from "../db/repos/settingsRepo.js";
 import { resolveKey } from "../db/repos/apiKeysRepo.js";
 import { buildStreamErrorBytes } from "open-sse/utils/streamHelpers.js";
 import { buildAbortedResponsesTerminalBytes } from "open-sse/utils/responsesStreamHelpers.js";
 import { FORMATS } from "open-sse/transformer/translator/formats.js";
+import { recordSecurityAndTrust } from "@/lib/security/securityEvents.js";
 
 export const BLOCK_STATUS = 451;
 export const BLOCKED_INBOUND = "Request blocked by a configured guardrail policy.";
@@ -104,14 +108,151 @@ export async function resolveGuardrail({ provider, model, chain, apiKey, directi
     apiKeyId = null; // fail-open: an unresolvable key only loses the scope
   }
 
-  const policy = await resolvePolicy({ provider, model, chain, apiKeyId, direction });
-  if (!policy) return null;
+  const ctx = { provider, model, chain, apiKeyId, direction };
+  const policy = await resolvePolicy(ctx);
   const engine = engineFromPolicy(policy);
-  if (!engine.enabled()) return null;
-  return { engine, policy };
+  const scanEnabled = Boolean(policy) && engine.enabled();
+
+  // Pro's grouped pass: prompt CONTENT is resolved additively alongside the
+  // one-winner scan. Only an inbound stack has anywhere to land (the request's
+  // own system text); an outbound policy carries no request to prepend to.
+  let promptStack = [];
+  let scriptStack = [];
+  if (direction === "inbound") {
+    try {
+      const matching = await listMatchingPolicies(ctx);
+      promptStack = matching.filter((p) => p.prompt);
+      // 027 — script policies instruct rather than scan. They ride the same
+      // grouped pass, but a script with no detectors and no prompt would
+      // otherwise be invisible to the return gate below (`detectors: []` is
+      // silent, not "scan everything"), so it is collected here and counted.
+      scriptStack = matching.filter((p) => p.kind === "script" && Array.isArray(p.turns) && p.turns.length > 0);
+    } catch {
+      promptStack = []; // fail-open: an unreadable table stacks nothing
+      scriptStack = [];
+    }
+  }
+
+  // An engine would say it is enabled for "allow" + detectors (warn/log_only
+  // postures still record findings), so the return gate is the scan's own.
+  if (!scanEnabled && !promptStack.length && !scriptStack.length) return null;
+  return { engine, policy, promptStack, scriptStack };
+}
+
+/**
+ * Apply the grouped pass: every matching policy's prompt, in stack order
+ * (global → apikey → model), prepends as one burst ahead of the system text
+ * and appends as one at the end. Mutates the body in place and reports what
+ * landed. Fail-open — a stack that cannot be read or merged changes nothing.
+ *
+ * @returns {number} how many prompts the body did not already carry
+ */
+export function applyPromptStack(guardrail, body, format) {
+  const stack = guardrail?.promptStack;
+  if (!Array.isArray(stack) || stack.length === 0) return 0;
+  try {
+    const items = stack
+      .filter((p) => p && p.prompt)
+      .map((p) => ({ prompt: p.prompt, position: p.promptPosition || "append" }));
+    return injectPromptStack(body, format, items);
+  } catch {
+    return 0; // fail-open
+  }
+}
+
+/**
+ * Apply the grouped SCRIPT pass (027): every matching inbound policy with
+ * `kind: "script"` inserts its turns as fake history, in stack order. A script
+ * is not a scanner — it adds no finding and can never block; the inbound tap
+ * already judged the body without it, and the script's own text is not what a
+ * detector was asked about. Variables ({{model}}, {{date}}, custom vars and
+ * x-vela-inject-var-* overrides) render at dispatch through the same map the
+ * system path uses, so a script and a system prompt name the model identically.
+ *
+ * Fail-open throughout: a malformed script, an unknown wire shape, or a body
+ * that already carries the turns simply contributes nothing.
+ *
+ * @returns {number} how many scripts landed (inserted or already present)
+ */
+export function applyScriptStack(guardrail, body, format, ctx = {}) {
+  const stack = guardrail?.scriptStack;
+  if (!Array.isArray(stack) || stack.length === 0) return 0;
+  // Merge FIRST, insert ONCE. Inserting script-by-script would have each
+  // splice land at the same index, reversing the run (the second script would
+  // arrive ahead of the first). One combined array also gives one fingerprint
+  // for the whole run, so a retry recognises it whether or not the marker
+  // survived, and no two scripts can interleave mid-insertion.
+  const combined = [];
+  let landed = 0;
+  for (const policy of stack) {
+    try {
+      const turns = expandScript({ turns: policy.turns }, ctx);
+      if (turns.length) { combined.push(...turns); landed += 1; }
+    } catch {
+      /* fail-open: one bad script never stops the others or the request */
+    }
+  }
+  if (!combined.length) return 0;
+  return insertScriptTurns(body, format, normalizeSeams(combined)) ? landed : 0;
+}
+
+/**
+ * Keep the merged run a grammatically sound user/assistant alternation.
+ *
+ * Each script is internally a closed loop, but two loops joined end-to-end can
+ * collide at the seam: [user, assistant] + [assistant, user] yields
+ * `assistant, assistant`, and [user] + [user] yields `user, user`. Claude
+ * rejects consecutive same-role turns; Gemini tolerates them poorly. A turn
+ * whose role would repeat its predecessor is dropped — the first of the two
+ * survives, so a script's opening line is never what disappears.
+ */
+function normalizeSeams(turns) {
+  const out = [];
+  for (const t of turns) {
+    if (out.length && out[out.length - 1].role === t.role) continue;
+    out.push(t);
+  }
+  return out;
 }
 
 // ── Audit ───────────────────────────────────────────────────────────────────
+
+/**
+ * A BLOCK is also a security act. Fail-open, never awaited, and metadata-only:
+ * the detectors + entities that fired (names, never the matched values), the
+ * direction, the provider/model and the policy id — exactly what the audit row
+ * already holds, and nothing the block protected. It reaches the trust inbox
+ * too, because a guardrail refusing traffic is the operator's business the
+ * moment it happens. A block is NOT hot-path coalesced the way rate denials
+ * are (securityEvents.js): each refusal is a discrete event.
+ */
+function recordGuardrailBlock({ guardrail, decision, direction, provider, model }) {
+  try {
+    const findings = decision?.findings || [];
+    if (!findings.length) return;
+    const entities = [...new Set(findings.map((f) => f.entity).filter(Boolean))].sort();
+    const detectors = [...new Set(findings.map((f) => f.detector).filter(Boolean))].sort();
+    const detail = {
+      policyId: guardrail?.policy?.id || null,
+      direction,
+      provider: provider || null,
+      model: model || null,
+      detectors,
+      entities,
+      findings: findings.length,
+    };
+    recordSecurityAndTrust(
+      { keyId: null, kind: "guardrail.block", detail, ip: null },
+      {
+        trustKind: "guardrail.block",
+        title: `Guardrail blocked ${direction === "inbound" ? "a request" : "a response"}`,
+        trustDetail: detail,
+      }
+    );
+  } catch {
+    // Fail-open — a security line must never turn a filter into a client error.
+  }
+}
 
 /**
  * Record what a guardrail decided. Never blocks, never throws: the decision
@@ -120,6 +261,7 @@ export async function resolveGuardrail({ provider, model, chain, apiKey, directi
  */
 export function auditDecision({ guardrail, decision, direction, provider, model, connectionId, excerpt = null }) {
   if (!guardrail || !decision || !decision.findings?.length) return;
+  if (decision.action === "block") recordGuardrailBlock({ guardrail, decision, direction, provider, model });
   for (const finding of decision.findings) {
     metrics.recordGuardrailDecision({
       detector: finding.detector || "unknown",
@@ -397,26 +539,43 @@ export function guardOutboundStream(stream, { guardrail, format, provider, model
     }
     const text = nodes.map((n) => n.text).join("");
 
-    if (text) {
-      const windowText = held.map((f) => f.text).join("") + text;
+    const pending = { raw: `${raw}\n\n`, prefix: eventPrefix(raw), payload, nodes, text };
+
+    // THE WINDOW includes THIS frame. release() has always judged `held +
+    // frame` (it appends to the window before scanning), but the per-frame
+    // check here once scanned only `held + text` — so a detector match that
+    // sat entirely inside the held tail was released by release() WITHOUT
+    // EVER BEING JUDGED, and reached the client ahead of a later block's
+    // terminal frames. Judging the whole window first closes that gap: a frame
+    // is never released before the window containing it has been scanned.
+    //
+    // Extra held text is NOT re-released. Re-appending `held` here (the naive
+    // "world" list) would leak the held tail to the client a second time on a
+    // clean stream — the pre-existing release path owns ordering. Only THIS
+    // frame is judged again; its scan is idempotent (the engine reads text,
+    // never mutates it), so an entity already flagged in `held` simply trips
+    // the block here, which discards `held` anyway.
+    const windowText = held.map((f) => f.text).join("") + text;
+    if (windowText) {
       const verdict = engine.scan(windowText);
       if (verdict.action === "block" && verdict.findings?.length) {
         auditDecision({ guardrail, decision: verdict, direction: "outbound", provider, model, connectionId });
+        const wasBlocked = blocked;
         blocked = true;
         held = [];
         emit(controller, terminalFrames(format));
+        // The turn is over — CLOSE the tap after the terminal frames. The
+        // upstream parse loop may keep reading (the source may never signal
+        // done promptly), and a tap that stays open holds flush() — the point
+        // where pending audit writes settle — for a turn already decided.
+        // Terminating here ends the tap cleanly right after the block.
+        if (!wasBlocked) { try { controller.terminate(); } catch { /* already closed */ } }
         try { onBlock?.({ provider, model, connectionId, count: verdict.findings.length }); } catch { /* never break the stream */ }
         return;
       }
     }
 
-    held.push({
-      raw: `${raw}\n\n`,
-      prefix: eventPrefix(raw),
-      payload,
-      nodes,
-      text,
-    });
+    held.push(pending);
     release(controller, false);
   };
 

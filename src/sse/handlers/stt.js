@@ -2,7 +2,7 @@ import {
   extractApiKey,
   getProviderCredentials, markAccountUnavailable,
 } from "../services/auth.js";
-import { authorizeApiRequest } from "../services/keyGate.js";
+import { authorizeApiRequest, withKeySlot } from "../services/keyGate.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo } from "../services/model.js";
 import { handleSttCore } from "open-sse/handlers/sttCore.js";
@@ -19,21 +19,34 @@ const CREDENTIALED_PROVIDERS = new Set(
 );
 
 export async function handleStt(request) {
+  // Migration 025 — the gate's in-flight slot is held until this request's
+  // response settles; the body (and its inline gate) lives in handleSttBody.
+  const ctx = {};
+  const gate = await gateStt(request, ctx);
+  if (!gate.ok) return gate.response;
+  return withKeySlot(gate, () => handleSttBody(request, ctx));
+}
+
+/** The gate half of handleStt — resolves the key, returns its verdict. */
+async function gateStt(request, ctx) {
   let formData;
   try {
     formData = await request.formData();
   } catch {
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid multipart form data");
   }
-
   const modelStr = formData.get("model");
+  const settings = await getSettings();
+  const gate = await authorizeApiRequest(request, { requestModel: modelStr, settings, kind: "stt" });
+  if (!gate.ok) return gate;
+  Object.assign(ctx, { formData, modelStr, settings });
+  return gate;
+}
+
+async function handleSttBody(request, ctx) {
+  const { formData, modelStr, settings } = ctx;
   log.request("POST", `/v1/audio/transcriptions | ${modelStr}`);
 
-  const settings = await getSettings();
-  {
-    const gate = await authorizeApiRequest(request, { requestModel: modelStr, settings, kind: "stt" });
-    if (!gate.ok) return gate.response;
-  }
 
   if (!modelStr) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
   if (!formData.get("file")) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: file");

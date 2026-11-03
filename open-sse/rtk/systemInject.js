@@ -9,6 +9,27 @@ import { ROLE } from "../transformer/translator/schema/roles.js";
 
 const SEP = "\n\n";
 
+// Capture the system text for change detection (same shapes systemInject touches).
+export function captureSystemText(body, format) {
+  try {
+    const target = body?.request && typeof body.request === "object" ? body.request : body;
+    if (typeof body?.instructions === "string") return `instructions:${body.instructions}`;
+    const arr = Array.isArray(body?.messages) ? body.messages : Array.isArray(body?.input) ? body.input : null;
+    if (arr) {
+      const sys = arr.find((m) => m && (m.role === "system" || m.role === "developer"));
+      if (sys && typeof sys.content === "string") return `msg:${sys.content}`;
+      if (sys && Array.isArray(sys.content)) return `arr:${sys.content.length}`;
+    }
+    if (typeof target?.system === "string") return `sys:${target.system}`;
+    if (Array.isArray(target?.system)) return `sysArr:${target.system.length}`;
+    const sysKey = Object.prototype.hasOwnProperty.call(target, "system_instruction") ? "system_instruction" : "systemInstruction";
+    const sys = target?.[sysKey];
+    if (sys && Array.isArray(sys.parts)) return `gem:${sys.parts.length}`;
+  } catch { /* fail-open */ }
+  return "";
+}
+
+
 export function injectSystemPrompt(body, format, prompt, position = "append") {
   try {
     if (!body || !prompt) return;
@@ -76,7 +97,7 @@ function isKiroBody(body) {
 // multi-paragraph prompts (ADHD's heading + rules) need: splitting them by a
 // blank line makes no single segment equal the prompt, so a segment-only test
 // appended the same block on every injection.
-function hasPrompt(haystack, prompt) {
+export function hasPrompt(haystack, prompt) {
   if (!haystack || typeof haystack !== "string") return false;
   if (haystack === prompt) return true;
   if (haystack.includes(prompt)) return true;
@@ -87,6 +108,56 @@ function dedupStringAppend(curr, prompt) {
   if (!curr) return prompt;
   if (hasPrompt(curr, prompt)) return curr;
   return `${curr}${SEP}${prompt}`;
+}
+
+/**
+ * Inject SEVERAL prompts as ONE grouped pass, per position — Pro's law for
+ * stacked policy content (global → apikey → model). A single prepend burst is
+ * merged outermost-first into one string, then injected ahead of the existing
+ * system text; a single append burst is merged at the end. So the stack reads
+ * global → apikey → model in BOTH positions; the first prepend is merely
+ * farthest from the model's own words, and the last append nearest.
+ *
+ * Already-present prompts are skipped by the same idempotency (hasPrompt) —
+ * every prompt in a burst is tested against the current text, so a re-run or
+ * a deterministic prompt blocks a later duplicate, never draws its dupes in.
+ *
+ * @param {object} body  the final request body (mutated in place)
+ * @param {string} format the body's format label
+ * @param {{prompt: string, position: "prepend"|"append"}[]} items stack order
+ * @returns {number} how many items the body did not already carry
+ */
+export function injectPromptStack(body, format, items) {
+  try {
+    if (!body || !Array.isArray(items) || items.length === 0) return 0;
+    const prepend = [], append = [];
+    const seen = new Set();
+    for (const it of items) {
+      const prompt = it && typeof it.prompt === "string" ? it.prompt.trim() : "";
+      if (!prompt || seen.has(prompt)) continue;
+      seen.add(prompt);
+      (it.position === "prepend" ? prepend : append).push(prompt);
+    }
+    const bursts = [
+      { prompts: prepend, position: "prepend" },
+      { prompts: append, position: "append" },
+    ];
+    let injected = 0;
+    for (const { prompts, position } of bursts) {
+      if (!prompts.length) continue;
+      const block = prompts.join(SEP);
+      const before = captureSystemText(body, format);
+      if (hasPrompt(before, block)) continue;
+      // Merge only the fragments this burst did not already carry in place.
+      const text = prompts.filter((p) => !hasPrompt(before, p)).join(SEP);
+      if (!text) continue;
+      injectSystemPrompt(body, format, text, position);
+      if (captureSystemText(body, format) !== before) injected += prompts.length;
+    }
+    return injected;
+  } catch (_) {
+    return 0; // fail-open: a prompt stack never breaks a request
+  }
 }
 
 function mergeString(curr, prompt, position) {

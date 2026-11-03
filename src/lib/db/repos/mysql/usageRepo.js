@@ -910,6 +910,45 @@ export async function getUsageDailySince(startDateKey) {
   return days;
 }
 
+/**
+ * Per-key usage summed over the ledger's last WINDOW — the five-dimension rate
+ * gate's (migration 025) read seam. One aggregate row per keyId in
+ * `[sinceMs, now]`: requests, promptTokens, completionTokens, tokens (the
+ * sum the token-per-minute ceiling counts), cost, and the timestamp of the
+ * OLDEST row in the window (the honest Retry-After floor for request ceilings
+ * — the stamp that ages out first).
+ *
+ * The ledger is the SAME one the dashboard reads and saveRequestUsage writes;
+ * a rate dimension measured here can never disagree with what the operator
+ * sees or what the spend stage sums. Returns null when the window holds no
+ * rows. Fail-open is the GATE's decision, not this seam's: a thrown read
+ * propagates and the gate treats an unreadable ceiling as pass.
+ */
+export async function getKeyWindowsSince(keyId, sinceMs) {
+  if (!keyId) return null;
+  const since = new Date(Number(sinceMs) || 0).toISOString();
+  const row = await (await getMysqlAdapter()).get(
+    `SELECT COUNT(*) AS requests,
+            COALESCE(SUM(promptTokens), 0) + COALESCE(SUM(completionTokens), 0) AS tokens,
+            COALESCE(SUM(promptTokens), 0) AS promptTokens,
+            COALESCE(SUM(completionTokens), 0) AS completionTokens,
+            COALESCE(SUM(cost), 0) AS cost,
+            MIN(timestamp) AS oldestAt
+     FROM usageHistory
+     WHERE keyId = ? AND timestamp >= ?`,
+    [keyId, since]
+  );
+  if (!row || !(Number(row.requests) > 0)) return null;
+  return {
+    requests: Number(row.requests) || 0,
+    tokens: Number(row.tokens) || 0,
+    promptTokens: Number(row.promptTokens) || 0,
+    completionTokens: Number(row.completionTokens) || 0,
+    cost: Number(row.cost) || 0,
+    oldestAt: row.oldestAt || null,
+  };
+}
+
 export async function getChartData(period = "7d") {
   const db = await getMysqlAdapter();
   const now = Date.now();

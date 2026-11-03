@@ -6,7 +6,7 @@
 // resolution is the ordinary chat resolver, so a provider prefix selects the
 // harbor exactly as it does on every other lane.
 import { getProviderCredentials, extractApiKey } from "../services/auth.js";
-import { authorizeApiRequest } from "../services/keyGate.js";
+import { authorizeApiRequest, withKeySlot } from "../services/keyGate.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo } from "../services/model.js";
 import { checkAndRefreshToken } from "../services/tokenRefresh.js";
@@ -37,18 +37,32 @@ export function systemoneUrl(providerId, credentials) {
 }
 
 export async function handleSystemone(request) {
+  // Migration 025 — the gate's in-flight slot is held until this request's
+  // response settles. The body (and its inline gate) lives in runSystemone.
+  const ctx = {};
+  const gate = await gateSystemone(request, ctx);
+  if (!gate.ok) return gate.response;
+  return withKeySlot(gate, () => runSystemone(request, ctx));
+}
+
+/** The gate half of handleSystemone — resolves the key, returns its verdict. */
+async function gateSystemone(request, ctx) {
   let body;
   try {
     body = await request.json();
   } catch {
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid JSON body");
   }
-
   const modelInput = typeof body?.model === "string" && body.model.trim() ? body.model.trim() : DEFAULT_MODEL;
   const settings = await getSettings();
   const gate = await authorizeApiRequest(request, { requestModel: modelInput, settings, kind: "chat" });
-  if (!gate.ok) return gate.response;
+  if (!gate.ok) return gate;
+  Object.assign(ctx, { body, modelInput, settings });
+  return gate;
+}
 
+async function runSystemone(request, ctx) {
+  const { body, modelInput } = ctx;
   const apiKey = extractApiKey(request);
   if (apiKey) log.debug("AUTH", `API Key: ${log.maskKey(apiKey)}`);
 

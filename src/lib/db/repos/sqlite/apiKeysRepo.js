@@ -36,6 +36,11 @@ function rowToPublic(row) {
     spendCapDailyCents: row.spendCapDailyCents ?? null,
     budgetScope: row.budgetScope || null,
     rateLimitRpm: row.rateLimitRpm ?? null,
+    // Five-dimension rate limits (migration 025) — NULL = that dimension is off.
+    rateLimitTpm: row.rateLimitTpm ?? null,
+    rateLimitRph: row.rateLimitRph ?? null,
+    rateLimitRpd: row.rateLimitRpd ?? null,
+    maxConcurrentRequests: row.maxConcurrentRequests ?? null,
     ipAllowlist: safeParse(row.ipAllowlist),
     category: row.category || null,
     planId: row.planId || null,
@@ -98,8 +103,8 @@ export async function createApiKey(name, opts = {}) {
   const createdAt = new Date().toISOString();
   const v = limits.values;
   db.run(
-    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, description, allowedModels, allowedKinds, allowedProviders, allowedCombos, isInternal, rateLimitRpm, tokenBudgetDaily, spendCapDailyCents, budgetScope, expiresAt, ipAllowlist, category, planId)
-     VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, keyVersion, keyHash, keyPrefix, description, allowedModels, allowedKinds, allowedProviders, allowedCombos, isInternal, rateLimitRpm, rateLimitTpm, rateLimitRph, rateLimitRpd, maxConcurrentRequests, tokenBudgetDaily, spendCapDailyCents, budgetScope, expiresAt, ipAllowlist, category, planId)
+     VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       `vela-minted-${id}`,
@@ -115,6 +120,10 @@ export async function createApiKey(name, opts = {}) {
       opts.allowedProviders != null ? JSON.stringify(opts.allowedProviders) : null,
       opts.allowedCombos != null ? JSON.stringify(opts.allowedCombos) : null,
       v.rateLimitRpm ?? null,
+      v.rateLimitTpm ?? null,
+      v.rateLimitRph ?? null,
+      v.rateLimitRpd ?? null,
+      v.maxConcurrentRequests ?? null,
       v.tokenBudgetDaily ?? null,
       v.spendCapDailyCents ?? null,
       v.budgetScope ?? null,
@@ -148,13 +157,15 @@ export function getKeyHashForMirror(keyId) {
  */
 const MUTABLE_FIELDS = new Set([
   "name", "description", "allowedModels", "allowedKinds", "allowedProviders", "allowedCombos", "isActive",
-  "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
+  "rateLimitRpm", "rateLimitTpm", "rateLimitRph", "rateLimitRpd", "maxConcurrentRequests",
+  "tokenBudgetDaily", "spendCapDailyCents",
   "budgetScope", "expiresAt", "ipAllowlist", "category", "planId",
   // Per-key access (migration 024) — writable so a key can be set restricted.
   "access",
 ]);
 const LIMIT_FIELDS = new Set([
-  "rateLimitRpm", "tokenBudgetDaily", "spendCapDailyCents",
+  "rateLimitRpm", "rateLimitTpm", "rateLimitRph", "rateLimitRpd", "maxConcurrentRequests",
+  "tokenBudgetDaily", "spendCapDailyCents",
   "budgetScope", "expiresAt", "ipAllowlist",
 ]);
 export async function updateApiKey(id, data) {

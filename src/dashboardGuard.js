@@ -136,6 +136,10 @@ const ALWAYS_PROTECTED = [
   // wider /api/pricing/* prefix falls through to the deny-by-default /api/* branch
   // below; the overlap is intentional — only /sync must escalate above requireLogin.)
   "/api/pricing/sync",
+  // Outbound-event test buttons (webhook / Telegram) fire a server-side fetch
+  // to an operator-configured destination — mutating + outbound, so never
+  // public even when requireLogin is off. Same escalation as /api/pricing/sync.
+  "/api/settings/notifications/test",
   // Storage Covenant Wave B4 (S4): the backup surface — restore must NEVER ride
   // the deny-by-default /api/* branch that passes when requireLogin===false,
   // and the CLI-token bypass of /api/settings/database is NOT inherited.
@@ -406,6 +410,34 @@ function isPublicApi(pathname) {
   return PUBLIC_API_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
+// ── The second lock's session, and ONLY its session ──────────────────────
+//
+// /api/auth/totp* manages how the operator LOGS IN, so it must never ride the
+// deny-by-default branch that passes a remote caller whenever requireLogin is
+// false — that would let the world rekey a factor. But it is also not a
+// posture-free surface like the backup tools: it belongs to the operator's own
+// session, and since the operator can only mint a session by logging in, a
+// session IS the credential everywhere it matters. So the gate is one notch
+// below ALWAYS_PROTECTED (a JWT, no CLI token) and one notch above the
+// deny-by-default pass (never requireLogin===false).
+//
+// Loopback documents entry with no login (README:133), and in that posture the
+// console has no JWT to present — so the box's own console is the session, and
+// it earns the same narrow pass every other dashboard mutation gets.
+//
+// WHY NOT ALWAYS_PROTECTED: that list demands a JWT (or the CLI token), and a
+// no-login console has neither — listing it there would 401 the very operator
+// the card is for. The route itself still reads the cookie (belt to these
+// braces) and the proxy proves the cookie was minted by a full login.
+function isTwoFactorSurface(pathname) {
+  return pathname.startsWith("/api/auth/totp");
+}
+
+async function isTwoFactorCaller(request) {
+  if (await hasValidToken(request)) return true;
+  return isLocalRequest(request) && (await isAuthenticated(request));
+}
+
 // ── CSRF second lock (Auth Hardening W1) ─────────────────────────────────
 // The dashboard session rides a cookie, and its only defence against a
 // cross-site submit is SameSite=Lax — browser policy, not a check we run. When
@@ -571,6 +603,12 @@ export async function proxy(request) {
     }
     // Posture-consistent GET read → fall through to the deny-by-default branch, which
     // passes it under requireLogin===false exactly as the other dashboard reads are.
+  }
+
+  // Second-lock surface (2FA) — session only, never posture-consistent.
+  if (isTwoFactorSurface(pathname)) {
+    if (await isTwoFactorCaller(request)) return NextResponse.next();
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // Deny-by-default for /api/* — public allow-list bypasses, everything else requires auth.

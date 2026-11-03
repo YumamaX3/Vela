@@ -12,7 +12,7 @@ const LOGS = "guardrailLogs";
 
 const POLICY_COLUMNS = [
   "id", "name", "enabled", "scope", "target", "direction", "detectors",
-  "action", "priority", "notes", "createdAt", "updatedAt",
+  "prompt", "promptPosition", "kind", "turns", "action", "priority", "notes", "createdAt", "updatedAt",
 ];
 
 export async function listGuardrailPolicies() {
@@ -31,6 +31,14 @@ export async function upsertGuardrailPolicy(policy) {
     ...policy,
     enabled: policy.enabled ? 1 : 0,
     detectors: JSON.stringify(Array.isArray(policy.detectors) ? policy.detectors : []),
+    prompt: typeof policy.prompt === "string" && policy.prompt.trim() ? policy.prompt : null,
+    promptPosition: policy.prompt ? (policy.promptPosition || "append") : null,
+    // 027 — the kind switch. A system policy stores NULL turns; a script policy
+    // stores them as JSON. `kind` is normalized so an unknown value reads NULL.
+    kind: policy.kind === "script" ? "script" : null,
+    turns: policy.kind === "script" && Array.isArray(policy.turns) && policy.turns.length
+      ? JSON.stringify(policy.turns)
+      : null,
     target: policy.target ?? null,
     notes: policy.notes ?? null,
   };

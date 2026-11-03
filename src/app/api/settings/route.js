@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { getSettings, updateSettings } from "@/lib/localDb";
 import { WRITABLE_SETTING_KEYS, resolveLogRetention } from "@/lib/db/repos/settingsDefaults.js";
+import { validateUserInjectors } from "open-sse/rtk/injectorScripts.js";
+import { WEBHOOK_EVENTS, normalizeWebhookEvents } from "@/lib/webhooks.js";
+import { mergeNotificationPatch } from "@/lib/notificationsSettings.js";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 import { resetComboRotation } from "open-sse/services/combo.js";
 import bcrypt from "bcryptjs";
@@ -37,6 +40,26 @@ export async function GET() {
         weeklyDigestEnabled: !!ba.weeklyDigestEnabled,
         hasDiscordWebhook: !!(typeof ba.discordWebhookUrl === "string" && ba.discordWebhookUrl.trim()),
         hasN8nWebhook: !!(typeof ba.n8nWebhookUrl === "string" && ba.n8nWebhookUrl.trim()),
+      };
+    }
+    // The webhook ledger + Telegram channel carry secrets (an HMAC key, a bot
+    // token) — the read surface exposes presence flags + the non-secret event
+    // switches only, never the URL's query, the secret, or the token.
+    if (safeSettings.webhooks) {
+      const wh = safeSettings.webhooks;
+      safeSettings.webhooks = {
+        webhookEvents: normalizeWebhookEvents(wh.webhookEvents),
+        hasWebhookUrl: !!(typeof wh.webhookUrl === "string" && wh.webhookUrl.trim()),
+        hasWebhookSecret: !!(typeof wh.webhookSecret === "string" && wh.webhookSecret.trim()),
+        eventOptions: WEBHOOK_EVENTS,
+      };
+    }
+    if (safeSettings.notify) {
+      const n = safeSettings.notify;
+      safeSettings.notify = {
+        telegramEnabled: !!n.telegramEnabled,
+        telegramChatId: typeof n.telegramChatId === "string" ? n.telegramChatId : "",
+        hasTelegramBotToken: !!(typeof n.telegramBotToken === "string" && n.telegramBotToken.trim()),
       };
     }
     
@@ -120,6 +143,21 @@ export async function PATCH(request) {
       };
     }
 
+    // The webhook ledger + Telegram channel — the SAME deep-merge law as
+    // budgetAlerts (§ nested objects + secret-bearing fields + an empty
+    // secret meaning "keep the stored one"). Validity is enforced here:
+    // an unknown event name or a non-http(s) URL is a 400, never a silently
+    // stored switch. A typo can never switch an event ON.
+    if (Object.prototype.hasOwnProperty.call(body, "webhooks") || Object.prototype.hasOwnProperty.call(body, "notify")) {
+      const current = await getSettings();
+      const merged = mergeNotificationPatch({ webhooks: current.webhooks, notify: current.notify }, body);
+      if (!merged.ok) {
+        return NextResponse.json({ error: merged.error }, { status: 400 });
+      }
+      if (Object.prototype.hasOwnProperty.call(merged, "webhooks")) body.webhooks = merged.webhooks;
+      if (Object.prototype.hasOwnProperty.call(merged, "notify")) body.notify = merged.notify;
+    }
+
     // M8 §8 — `logRetention`. Two mends, and BOTH are load-bearing:
     //
     //   (1) VALUE VALIDATION BEFORE THE ROSTER ADMIT. A stored `days: NaN` or a
@@ -159,6 +197,16 @@ export async function PATCH(request) {
         return NextResponse.json({ error: "logTheme must be 'themed' or 'plain'" }, { status: 400 });
       }
       body.logTheme = value;
+    }
+
+    // 027 — injector scripts. The dashboard form is one writer; a direct PATCH
+    // is another, and both must meet the same law. A malformed script is refused
+    // here (400) rather than silently skipped at the injector seam.
+    if (Object.prototype.hasOwnProperty.call(body, "userInjectors")) {
+      const reason = validateUserInjectors(body.userInjectors);
+      if (reason) {
+        return NextResponse.json({ error: reason }, { status: 400 });
+      }
     }
 
     // CWE-915 — only declared settings keys may be persisted. Placed AFTER the
@@ -251,6 +299,25 @@ export async function PATCH(request) {
 
     const { password, oidcClientSecret, ...safeSettings } = settings;
     safeSettings.oidcConfigured = !!(safeSettings.oidcIssuerUrl && safeSettings.oidcClientId && oidcClientSecret);
+    // Echo the webhook/Telegram surface in the SAME secret-free shape GET uses —
+    // a save response must never hand back a secret the read surface withholds.
+    if (safeSettings.webhooks) {
+      const wh = safeSettings.webhooks;
+      safeSettings.webhooks = {
+        webhookEvents: normalizeWebhookEvents(wh.webhookEvents),
+        hasWebhookUrl: !!(typeof wh.webhookUrl === "string" && wh.webhookUrl.trim()),
+        hasWebhookSecret: !!(typeof wh.webhookSecret === "string" && wh.webhookSecret.trim()),
+        eventOptions: WEBHOOK_EVENTS,
+      };
+    }
+    if (safeSettings.notify) {
+      const n = safeSettings.notify;
+      safeSettings.notify = {
+        telegramEnabled: !!n.telegramEnabled,
+        telegramChatId: typeof n.telegramChatId === "string" ? n.telegramChatId : "",
+        hasTelegramBotToken: !!(typeof n.telegramBotToken === "string" && n.telegramBotToken.trim()),
+      };
+    }
     return NextResponse.json(safeSettings, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {
     log.info("SETTINGS", "Error updating settings:", (error?.message ?? error));

@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from "vitest";
 // keeps it closed everywhere else.
 vi.mock("@/sse/services/keyGate.js", () => ({
   authorizeApiRequest: vi.fn(async () => ({ ok: true, key: null })),
+  // Migration 025 — the slot ceremony (pass-through; this suite counts tokens).
+  withKeySlot: (_gate, fn) => fn(),
 }));
 vi.mock("@/lib/db/repos/settingsRepo.js", () => ({
   getSettings: vi.fn(async () => ({})),

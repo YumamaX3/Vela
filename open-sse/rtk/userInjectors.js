@@ -9,19 +9,44 @@
 //   (useful for instructions the model should weigh first).
 // - applyTo filters by service kind: "llm" (default) applies only to chat
 //   completions; "*" applies everywhere the injector seam runs.
+// - kind: "system" (default) is the system prompt above. kind: "script" holds
+//   `turns: [{ role: "user"|"assistant", content }]` instead, inserted as fake
+//   history into the translated body BEFORE dispatch (scriptInject.js). A
+//   script is not a scanner: it produces no findings and never triggers a
+//   guardrail refusal — the inbound tap still scans the body it lands in, but
+//   the script itself only adds text.
 // Fail-open: missing/malformed entries are skipped, never break the request.
 
-import { injectSystemPrompt } from "./systemInject.js";
+import { injectSystemPrompt, captureSystemText } from "./systemInject.js";
+import { normalizeKind, expandScript } from "./injectorScripts.js";
+import { insertScriptTurns } from "./scriptInject.js";
 
 const VALID_POSITIONS = new Set(["append", "prepend"]);
 
 function normalizeInjector(raw, index) {
   if (!raw || typeof raw !== "object") return null;
   const name = typeof raw.name === "string" ? raw.name.trim() : null;
+  const kind = normalizeKind(raw.kind);
+  if (!name) return null;
+
+  // A script injector carries turns in place of a prompt. Its turns are the
+  // script; a missing list empties it, which the caller treats as skip.
+  if (kind === "script") {
+    return {
+      name,
+      kind,
+      turns: Array.isArray(raw.turns) ? raw.turns : [],
+      enabled: raw.enabled !== false,
+      applyTo: raw.applyTo === "*" ? "*" : "llm",
+      variables: raw.variables && typeof raw.variables === "object" ? raw.variables : undefined,
+    };
+  }
+
   const prompt = typeof raw.prompt === "string" && raw.prompt.trim() ? raw.prompt.trim() : null;
-  if (!name || !prompt) return null;
+  if (!prompt) return null;
   return {
     name,
+    kind,
     prompt,
     enabled: raw.enabled !== false,
     position: VALID_POSITIONS.has(raw.position) ? raw.position : "append",
@@ -97,6 +122,22 @@ export function applyUserInjectors(body, format, { injectors = [], kind = "llm",
     if (!inj || !inj.enabled) continue;
     if (inj.applyTo !== "*" && inj.applyTo !== kind) continue;
     const vars = buildVarMap(inj, { ...(ctx || {}), kind });
+
+    if (inj.kind === "script") {
+      // Scripts are not scanners: nothing here produces findings or a refusal.
+      // They insert fake history into the translated body and that is all.
+      const turns = expandScript(inj, vars);
+      if (!turns.length) {
+        log?.warn?.("INJECT", `${inj.name} (script) skipped — no usable turns`);
+        continue;
+      }
+      if (insertScriptTurns(body, format, turns)) {
+        applied += 1;
+        log?.info?.("INJECT", `${inj.name} (script · ${turns.length} turn${turns.length === 1 ? "" : "s"})`);
+      }
+      continue;
+    }
+
     const rendered = expandVars(inj.prompt, vars);
     const before = captureSystemText(body, format);
     injectSystemPrompt(body, format, rendered, inj.position);
@@ -108,24 +149,9 @@ export function applyUserInjectors(body, format, { injectors = [], kind = "llm",
   return applied;
 }
 
-// Capture the system text for change detection (same shapes systemInject touches).
-function captureSystemText(body, format) {
-  try {
-    const target = body?.request && typeof body.request === "object" ? body.request : body;
-    if (typeof body?.instructions === "string") return `instructions:${body.instructions}`;
-    const arr = Array.isArray(body?.messages) ? body.messages : Array.isArray(body?.input) ? body.input : null;
-    if (arr) {
-      const sys = arr.find((m) => m && (m.role === "system" || m.role === "developer"));
-      if (sys && typeof sys.content === "string") return `msg:${sys.content}`;
-      if (sys && Array.isArray(sys.content)) return `arr:${sys.content.length}`;
-    }
-    if (typeof target?.system === "string") return `sys:${target.system}`;
-    if (Array.isArray(target?.system)) return `sysArr:${target.system.length}`;
-    const sysKey = Object.prototype.hasOwnProperty.call(target, "system_instruction") ? "system_instruction" : "systemInstruction";
-    const sys = target?.[sysKey];
-    if (sys && Array.isArray(sys.parts)) return `gem:${sys.parts.length}`;
-  } catch { /* fail-open */ }
-  return "";
-}
+// captureSystemText moved to systemInject.js so the policy stack and the
+// operator injectors share ONE change detector; re-exported so existing
+// importers keep their binding.
+export { captureSystemText };
 
 export const __test__ = { normalizeInjector };

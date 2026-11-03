@@ -4,7 +4,7 @@ import {
   clearAccountError,
   extractApiKey,
 } from "../services/auth.js";
-import { authorizeApiRequest } from "../services/keyGate.js";
+import { authorizeApiRequest, withKeySlot } from "../services/keyGate.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo } from "../services/model.js";
 import { handleEmbeddingsCore } from "open-sse/handlers/embeddingsCore.js";
@@ -30,6 +30,16 @@ function exactEmbeddingUsage(raw) {
  * @param {Request} request
  */
 export async function handleEmbeddings(request) {
+  // Migration 025 — same slot ceremony as chat: the gate reserves one
+  // in-flight slot and the response settle frees it.
+  const ctx = {};
+  const gate = await gateEmbeddings(request, ctx);
+  if (!gate.ok) return gate.response;
+  return withKeySlot(gate, () => runEmbeddings(ctx));
+}
+
+/** The gate half of handleEmbeddings — resolves the key, returns its verdict. */
+async function gateEmbeddings(request, ctx) {
   let body;
   try {
     body = await request.json();
@@ -54,11 +64,16 @@ export async function handleEmbeddings(request) {
   // The gate — identity + model scope in one stage pipeline (plan §3.4).
   // allowInternal: the server-side model-test ping authenticates as the internal key.
   const settings = await getSettings();
-  {
-    const gate = await authorizeApiRequest(request, { requestModel: modelStr, settings, allowInternal: true, kind: "embedding" });
-    if (!gate.ok) return gate.response;
-  }
+  const gate = await authorizeApiRequest(request, { requestModel: modelStr, settings, allowInternal: true, kind: "embedding" });
+  if (!gate.ok) return gate.response;
+  // Hand the parsed body and masked key identity to the gated body — one parse.
+  Object.assign(ctx, { body, modelStr, apiKey, url });
+  return gate;
+}
 
+/** The gated body of handleEmbeddings — everything after gate pass. */
+async function runEmbeddings(ctx) {
+  const { body, modelStr, apiKey, url } = ctx;
   if (!modelStr) {
     log.warn("EMBEDDINGS", "no model named — turning the boat away");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");

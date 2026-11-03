@@ -6,11 +6,13 @@ import {
   clearAccountError,
   extractApiKey,
 } from "../services/auth.js";
-import { authorizeApiRequest } from "../services/keyGate.js";
+import { authorizeApiRequest, withKeySlot } from "../services/keyGate.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo, getComboModels } from "../services/model.js";
 import { handleChatCore } from "open-sse/handlers/chatCore.js";
 import { metrics } from "@/lib/metrics.js";
+import { noteUpstreamError } from "@/lib/errorBurst.js";
+import { emitWebhook } from "@/lib/webhooks.js";
 import { recordSpan } from "@/lib/tracing.js";
 import { DEFAULT_HEADROOM_URL } from "@/lib/headroom/detect";
 import { getTransform as getPxpipeTransform } from "@/lib/pxpipe/loader.js";
@@ -62,6 +64,18 @@ export async function resolveConnectionPreference(provider, model) {
  * Format detection and translation handled by translator
  */
 export async function handleChat(request, clientRawRequest = null) {
+  // Migration 025 — the in-flight slot (maxConcurrentRequests) reserved at
+  // gate pass is held until this request's response SETTLES. The body lives
+  // in runChat; this wrapper only owns the release, so every return path —
+  // and every throw — frees the slot (withKeySlot's both-settle-arms law).
+  const ctx = {};
+  const gate = await gateChat(request, clientRawRequest, ctx);
+  if (!gate.ok) return gate.response;
+  return withKeySlot(gate, () => runChat(request, ctx));
+}
+
+/** The gate half of handleChat — resolves the key and returns its verdict. */
+async function gateChat(request, clientRawRequest, ctx) {
   let body;
   try {
     body = await request.json();
@@ -113,14 +127,24 @@ export async function handleChat(request, clientRawRequest = null) {
   // requireApiKey=false passes through; combos gate on ALL members.
   const settings = await getSettings();
   const fallbackRulesRepo = await getFallbackRulesRepo(); // Seam 2 — bound once per request, null ⇒ no rules
+  let gate;
   {
     const gateComboModels = await getComboModels(modelStr);
     // allowInternal — chat is the MITM-facing path; the deterministic internal
     // key (isInternal=1, loopback-pinned, hidden from every list) resolves here.
-    const gate = await authorizeApiRequest(request, { requestModel: modelStr, comboModels: gateComboModels, settings, allowInternal: true, kind: "llm" });
+    gate = await authorizeApiRequest(request, { requestModel: modelStr, comboModels: gateComboModels, settings, allowInternal: true, kind: "llm" });
     if (!gate.ok) return gate.response;
   }
+  // Hand the parsed body, the resolved model/settings, and the masked key
+  // identity to the gated body — one parse, one settings read.
+  Object.assign(ctx, { body, modelStr, settings, fallbackRulesRepo, clientRawRequest, apiKey });
+  return gate;
+}
 
+/** The gated body of handleChat — everything after gate pass. */
+async function runChat(request, ctx) {
+  const { body, modelStr, settings, fallbackRulesRepo } = ctx;
+  let { clientRawRequest, apiKey } = ctx;
   if (!modelStr) {
     log.warn("CHAT", "no model named — turning the boat away");
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
@@ -426,6 +450,16 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       durationMs: body.stream === true ? 0 : elapsedMs,
     });
     if (!result.success) metrics.recordUpstreamError({ provider, model, status: attemptStatus });
+
+    // ERROR-THRESHOLD EVENT — one honest emission point, beside the metrics
+    // counter and only on a REAL failed attempt (a success returned above;
+    // a stage denial never reaches here). The burst counter is synchronous and
+    // fail-open; the emission is fire-and-forget. The payload carries the
+    // upstream error line, which the house masker scrubs before it leaves.
+    if (!result.success) {
+      const burst = noteUpstreamError({ provider, model, status: attemptStatus, error: result.error ?? null });
+      if (burst) emitWebhook("error", burst);
+    }
 
     if (result.success) return result.response;
 

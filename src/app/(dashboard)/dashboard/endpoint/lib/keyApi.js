@@ -130,3 +130,76 @@ export async function importKeys(envelope, { mode = "dry-run", onConflict = "ski
   const res = await fetch("/api/keys/import", json("POST", { mode, onConflict, envelope }));
   return readJson(res);
 }
+
+/** The import's chunk law — fixed here, where the endpoint's 200-entry cap and
+ *  this width are read side by side.
+ *
+ *  The route judges and writes in one call, so the ONLY safe way to report
+ *  progress honestly is to hand it the file a slice at a time and let the
+ *  batches themselves be the ticks of the bar. Each chunk re-judges against the
+ *  fleet as it stands, which is exactly what the operator would get from the
+ *  dry run they already saw when nothing has changed underneath — and, when
+ *  something HAS changed, an honest new verdict rather than a stale promise. */
+export const IMPORT_CHUNK_SIZE = 20;
+
+/** Split an export envelope's keys into `size`-sized envelopes, each still a
+ *  legal `${app}` document so the route's own shape check accepts it verbatim. */
+export function chunkEnvelope(envelope, size = IMPORT_CHUNK_SIZE) {
+  const keys = Array.isArray(envelope?.keys) ? envelope.keys : [];
+  const chunks = [];
+  for (let i = 0; i < keys.length; i += size) {
+    chunks.push({ ...envelope, keys: keys.slice(i, i + size) });
+  }
+  return chunks;
+}
+
+/** POST /api/keys/import, one chunk at a time, against the SAME endpoint.
+ *
+ *  `onProgress({ done, total, percent, currentName, chunkIndex, chunkCount })`
+ *  fires before each chunk (with the first key in it as `currentName`) and once
+ *  more after it settles, so a bar can name the key in flight and tick the
+ *  moment it lands. Chunks run IN ORDER, one request at a time: the server
+ *  already spreads each chunk across six workers, so the client's job is not to
+ *  widen the current further but to keep every verdict attributable to a place
+ *  in the file.
+ *
+ *  Returns the concatenated `{ created, updated, results }`. The plan's
+ *  create/update/skip/refused sums were already decided at preview, where the
+ *  whole file was judged at once, so they are not re-derived from the slices.
+ *  A chunk that throws (a 500, a dropped network) stops the run and is
+ *  re-thrown with `partial` attached: every key minted before it carries a
+ *  plaintext that exists NOWHERE else, and the caller must be able to vault
+ *  them before reporting the failure. */
+export async function importKeysChunked(envelope, { mode = "dry-run", onConflict = "skip", size = IMPORT_CHUNK_SIZE, onProgress } = {}) {
+  const chunks = chunkEnvelope(envelope, size);
+  const total = chunks.reduce((n, chunk) => n + chunk.keys.length, 0);
+  const created = [];
+  const updated = [];
+  const results = [];
+  let done = 0;
+
+  for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex += 1) {
+    const chunk = chunks[chunkIndex];
+    const currentName = chunk.keys[0]?.name ?? null;
+    onProgress?.({ done, total, percent: percentOf(done, total), currentName, chunkIndex, chunkCount: chunks.length });
+    try {
+      const data = await importKeys(chunk, { mode, onConflict });
+      const applied = data?.applied || {};
+      if (Array.isArray(applied.created)) created.push(...applied.created);
+      if (Array.isArray(applied.updated)) updated.push(...applied.updated);
+      if (Array.isArray(applied.results)) results.push(...applied.results);
+      done += chunk.keys.length;
+    } catch (error) {
+      error.partial = { created, updated, results, done, total };
+      error.chunkIndex = chunkIndex;
+      throw error;
+    }
+    onProgress?.({ done, total, percent: percentOf(done, total), currentName: chunk.keys.at(-1)?.name ?? currentName, chunkIndex, chunkCount: chunks.length });
+  }
+
+  return { applied: { changed: results.filter((r) => r.ok).length, created, updated, results } };
+}
+
+function percentOf(done, total) {
+  return total > 0 ? Math.round((done / total) * 100) : 100;
+}

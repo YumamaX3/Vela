@@ -25,14 +25,19 @@ export function buildErrorBody(statusCode, message) {
  * Create error Response object (for non-streaming)
  * @param {number} statusCode - HTTP status code
  * @param {string} message - Error message
+ * @param {object} [options] - Additive knobs; existing callers are untouched.
+ * @param {Record<string,string>} [options.extraHeaders] - Additional response
+ *   headers (e.g. an honest `Retry-After` on gateway-side 429 denials).
  * @returns {Response} HTTP Response object
  */
-export function errorResponse(statusCode, message) {
+export function errorResponse(statusCode, message, options = {}) {
+  const extraHeaders = options?.extraHeaders;
   return new Response(JSON.stringify(buildErrorBody(statusCode, message)), {
     status: statusCode,
     headers: {
       "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*"
+      "Access-Control-Allow-Origin": "*",
+      ...(extraHeaders && typeof extraHeaders === "object" ? extraHeaders : {})
     }
   });
 }

@@ -113,7 +113,7 @@ export default function KeyCard({ k, deck }) {
             {k.expiresAt ? ` · ${translate("Expires")} ${new Date(k.expiresAt).toLocaleDateString()}` : ""}
           </p>
 
-          {usage && <UsageStrip usage={usage} className="mt-1.5" />}
+          {usage && <UsageStrip usage={usage} k={k} period={deck.usagePeriod} className="mt-1.5" />}
         </div>
 
         <div className="flex items-center gap-2 shrink-0">

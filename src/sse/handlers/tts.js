@@ -2,7 +2,7 @@ import {
   extractApiKey,
   getProviderCredentials, markAccountUnavailable,
 } from "../services/auth.js";
-import { authorizeApiRequest } from "../services/keyGate.js";
+import { authorizeApiRequest, withKeySlot } from "../services/keyGate.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo, getComboModels } from "../services/model.js";
 import { handleTtsCore } from "open-sse/handlers/ttsCore.js";
@@ -21,25 +21,38 @@ const CREDENTIALED_PROVIDERS = new Set(
 );
 
 export async function handleTts(request) {
+  // Migration 025 — the gate's in-flight slot is held until this request's
+  // response settles; the body (and its inline gate) lives in handleTtsBody.
+  const ctx = {};
+  const gate = await gateTts(request, ctx);
+  if (!gate.ok) return gate.response;
+  return withKeySlot(gate, () => handleTtsBody(request, ctx));
+}
+
+/** The gate half of handleTts — resolves the key, returns its verdict. */
+async function gateTts(request, ctx) {
   let body;
   try {
     body = await request.json();
   } catch {
     return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid JSON body");
   }
-
-  const url = new URL(request.url);
   const modelStr = body.model;
+  const settings = await getSettings();
+  const gate = await authorizeApiRequest(request, { requestModel: modelStr, settings, kind: "tts" });
+  if (!gate.ok) return gate;
+  Object.assign(ctx, { body, modelStr, settings });
+  return gate;
+}
+
+async function handleTtsBody(request, ctx) {
+  const { body, modelStr, settings } = ctx;
+  const url = new URL(request.url);
   const responseFormat = url.searchParams.get("response_format") || "mp3"; // mp3 (default) | json
   const language = body.language || ""; // Optional language hint (currently used by Gemini)
   const style = body.style || ""; // Optional style/voice instructions (e.g. Xiaomi MiMo)
   log.request("POST", `${url.pathname} | ${modelStr} | format=${responseFormat}${language ? ` | lang=${language}` : ""}`);
 
-  const settings = await getSettings();
-  {
-    const gate = await authorizeApiRequest(request, { requestModel: modelStr, settings, kind: "tts" });
-    if (!gate.ok) return gate.response;
-  }
 
   if (!modelStr) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
   if (!body.input) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: input");
@@ -65,7 +78,6 @@ export async function handleTts(request) {
 
   return handleSingleModelTts(body, modelStr, responseFormat, language, style);
 }
-
 async function handleSingleModelTts(body, modelStr, responseFormat, language, style) {
   const modelInfo = await getModelInfo(modelStr);
   if (!modelInfo.provider) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid model format");

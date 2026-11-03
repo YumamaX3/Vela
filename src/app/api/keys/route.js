@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getApiKeys, createApiKey, KeyLimitsValidationError, sanitizeCategory } from "@/lib/localDb";
 import { getPlan } from "@/lib/db/repos/plansRepo.js";
 import * as log from "@/sse/utils/logger.js";
+import { recordSecurityEvent } from "@/lib/security/securityEvents.js";
+import { resolveClientIp } from "@/sse/services/keyGate.js";
 
 export const dynamic = "force-dynamic";
 
@@ -64,12 +66,33 @@ export async function POST(request) {
       // W3 governance opts — validated by the repo (KeyLimitsValidationError
       // → 400 below). Absent fields stay null = unlimited / unrestricted.
       rateLimitRpm: body.rateLimitRpm,
+      // Five-dimension rate limits (migration 025) — absent stays null = off.
+      rateLimitTpm: body.rateLimitTpm,
+      rateLimitRph: body.rateLimitRph,
+      rateLimitRpd: body.rateLimitRpd,
+      maxConcurrentRequests: body.maxConcurrentRequests,
       tokenBudgetDaily: body.tokenBudgetDaily,
       spendCapDailyCents: body.spendCapDailyCents,
       budgetScope: body.budgetScope,
       expiresAt: body.expiresAt,
       ipAllowlist: body.ipAllowlist,
       planId,
+    });
+
+    // SECURITY LOG (append-only, fail-open). The one-time plaintext key is
+    // never recorded — the row carries the id and the metadata only. Not
+    // awaited: an audit write must never delay or fail the mint (record…() is
+    // fail-open by contract and resolves to a boolean).
+    recordSecurityEvent({
+      keyId: created.keyId,
+      kind: "key.created",
+      detail: {
+        keyPrefix: created.keyPrefix,
+        name: created.record?.name ?? name.trim(),
+        category,
+        planId,
+      },
+      ip: resolveClientIp(request),
     });
 
     return NextResponse.json({

@@ -59,10 +59,10 @@ const SECTIONS = [
     label: "Gateway",
     icon: "hub",
     rooms: [
-      { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: "api", chip: "keys" },
-      { href: "/dashboard/providers", label: "Providers", icon: "dns", chip: "providers", state: "providers" },
-      { href: "/dashboard/combos", label: "Combos", icon: "layers", chip: "combos" },
-      { href: "/dashboard/routed-by-combo", label: "Routed by Combo", icon: "route" },
+      { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: "key_visualizer", chip: "keys" },
+      { href: "/dashboard/providers", label: "Providers", icon: "lan", chip: "providers", state: "providers" },
+      { href: "/dashboard/combos", label: "Combos", icon: "account_tree", chip: "combos" },
+      { href: "/dashboard/routed-by-combo", label: "Routed by Combo", icon: "conversion_path" },
     ],
   },
   {
@@ -70,9 +70,9 @@ const SECTIONS = [
     label: "Traffic",
     icon: "monitoring",
     rooms: [
-      { href: "/dashboard/usage", label: "Usage", icon: "bar_chart", chip: "usage" },
-      { href: "/dashboard/quota", label: "Quota", icon: "data_usage" },
-      { href: "/dashboard/token-saver", label: "Token Saver", icon: "savings" },
+      { href: "/dashboard/usage", label: "Usage", icon: "area_chart", chip: "usage" },
+      { href: "/dashboard/quota", label: "Quota", icon: "battery_5_bar" },
+      { href: "/dashboard/token-saver", label: "Token Saver", icon: "contract" },
     ],
   },
   {
@@ -95,26 +95,26 @@ const SECTIONS = [
   {
     id: "toolkit",
     label: "Toolkit",
-    icon: "tune",
+    icon: "construction",
     rooms: [
       { href: "/dashboard/cli-tools", label: "CLI Tools", icon: "terminal" },
       { href: "/dashboard/media-providers", label: "Media Providers", icon: "perm_media", children: MEDIA_CHILDREN },
       { href: "/dashboard/fallback-rules", label: "Fallback Rules", icon: "rule" },
-      { href: "/dashboard/prompt-injectors", label: "Prompt Injectors", icon: "edit_note" },
-      { href: "/dashboard/skills", label: "Skills", icon: "extension" },
+      { href: "/dashboard/prompt-injectors", label: "Prompt Injectors", icon: "add_notes" },
+      { href: "/dashboard/skills", label: "Skills", icon: "handyman" },
     ],
   },
   {
     id: "system",
     label: "System",
-    icon: "shield",
+    icon: "dashboard_customize",
     rooms: [
-      { href: "/dashboard/logs", label: "Log Harbor", icon: "waves", badge: "NEW", chip: "errors" },
-      { href: "/dashboard/translator", label: "Translator", icon: "translate", requiresEnableTranslator: true },
-      { href: "/dashboard/profile", label: "Settings", icon: "settings" },
+      { href: "/dashboard/logs", label: "Log Harbor", icon: "anchor", badge: "NEW", chip: "errors" },
+      { href: "/dashboard/translator", label: "Translator", icon: "g_translate", requiresEnableTranslator: true },
+      { href: "/dashboard/profile", label: "Settings", icon: "tune" },
       // The two duties: one opens a modal, one leaves the harbor entirely.
       { duty: "remote", label: "9Remote", icon: "computer" },
-      { duty: "external", label: "9English", icon: "translate", href: "https://9english.net/" },
+      { duty: "external", label: "9English", icon: "open_in_new", href: "https://9english.net/" },
     ],
   },
 ];

@@ -8,11 +8,14 @@ import {
 } from "@/lib/localDb";
 import { validateKeyLimits } from "@/lib/db/keyLimits.js";
 import { readJsonBody } from "../_lib/keysApi.js";
+import { runPool } from "@/shared/utils/boundedPool.js";
 import * as log from "@/sse/utils/logger.js";
 
 export const dynamic = "force-dynamic";
 
 const MAX_ITEMS = 200;
+// The current's width — see keys/import/route.js APPLY_CONCURRENCY for why six.
+const BULK_CONCURRENCY = 6;
 const ACTIONS = ["pause", "resume", "delete", "setCategory", "setLimits"];
 
 // POST /api/keys/bulk
@@ -27,7 +30,8 @@ const ACTIONS = ["pause", "resume", "delete", "setCategory", "setLimits"];
 // posture — so it inherits that branch rather than inventing a new trust level.
 //
 // Body: { action, ids?: string[], names?: string[], category?: string|null,
-//         limits?: { rateLimitRpm?, tokenBudgetDaily?, spendCapDailyCents?,
+//         limits?: { rateLimitRpm?, rateLimitTpm?, rateLimitRph?, rateLimitRpd?,
+//                    maxConcurrentRequests?, tokenBudgetDaily?, spendCapDailyCents?,
 //                    budgetScope?, expiresAt?, ipAllowlist? } }
 // Reply: { action, changed, failed, results: [{ id?, name, ok, error? }] }
 export async function POST(request) {
@@ -71,57 +75,88 @@ export async function POST(request) {
       byName.get(k.name).push(k);
     }
 
-    const results = [];
-    const targets = [];
+    // One ordered lane: every selection slot fills ONE cell of the reply, in
+    // SELECTION order. A resolved key's slot rides the pool (which returns its
+    // verdicts aligned to its own input order, whatever the writes interleave);
+    // a miss or an ambiguous name carries its verdict inline. Pushing misses
+    // into `results` before `...verdicts` would hoist them above every applied
+    // key and reorder the reply the operator reads.
+    const slots = [];
     const seen = new Set();
 
     const push = (key, fallbackId) => {
       const identity = key?.id || fallbackId;
       if (identity && seen.has(identity)) return;
       if (identity) seen.add(identity);
-      targets.push(key || { id: fallbackId, name: fallbackId });
+      slots.push(key || { id: fallbackId, name: fallbackId });
     };
 
     for (const id of ids) {
       const key = byId.get(id);
       if (key) push(key, id);
-      else results.push({ id, name: null, ok: false, error: "Key not found" });
+      else slots.push({ id, name: null, ok: false, error: "Key not found" });
     }
     for (const name of names) {
       const matches = byName.get(name) || [];
       if (matches.length === 1) push(matches[0]);
-      else if (matches.length === 0) results.push({ name, ok: false, error: "Key not found" });
-      else results.push({ name, ok: false, error: `Name is ambiguous — ${matches.length} keys share it; select by id` });
+      else if (matches.length === 0) slots.push({ name, ok: false, error: "Key not found" });
+      else slots.push({ name, ok: false, error: `Name is ambiguous — ${matches.length} keys share it; select by id` });
     }
 
-    if (targets.length === 0 && results.length === 0) {
-      return NextResponse.json({ action, changed: 0, failed: 0, results: [] });
+    const targets = slots.filter((s) => !Object.prototype.hasOwnProperty.call(s, "ok"));
+
+    if (targets.length === 0) {
+      // Nothing to apply — but the ordered lane still reports every miss and
+      // ambiguous name it resolved (the old shape emptied results here too,
+      // swallowing refusals when the selection was all misses).
+      const results = slots.filter((s) => Object.prototype.hasOwnProperty.call(s, "ok"));
+      return NextResponse.json({
+        action,
+        changed: 0,
+        failed: results.length,
+        results,
+      });
     }
 
-    let changed = 0;
-    for (const key of targets) {
-      try {
-        if (action === "delete") {
-          const ok = await deleteApiKey(key.id);
-          if (ok) { changed += 1; results.push({ id: key.id, name: key.name, ok: true }); }
-          else results.push({ id: key.id, name: key.name, ok: false, error: "Already revoked" });
-          continue;
+    // One verdict per target, at most BULK_CONCURRENCY in flight. The pool
+    // returns verdicts aligned to its input order; the ordered-lane map below
+    // is what keeps the reply reading as the selection did.
+    const verdicts = await runPool(
+      targets,
+      async (key) => {
+        try {
+          if (action === "delete") {
+            const ok = await deleteApiKey(key.id);
+            if (ok) return { id: key.id, name: key.name, ok: true };
+            return { id: key.id, name: key.name, ok: false, error: "Already revoked" };
+          }
+
+          let patch;
+          if (action === "pause") patch = { isActive: false };
+          else if (action === "resume") patch = { isActive: true };
+          else if (action === "setCategory") patch = { category: body.category ?? null };
+          // The limits patch is applied as the NORMALIZED values the one-time
+          // verdict produced — null stays null only where the caller said so,
+          // and every field the caller omitted is absent from the patch (a
+          // bulk "set these ceilings" must not silently clear the others).
+          else patch = { ...(body.limits || {}) };
+
+          const updated = await updateApiKey(key.id, patch);
+          if (updated) return { id: key.id, name: key.name, ok: true };
+          return { id: key.id, name: key.name, ok: false, error: "Update failed" };
+        } catch (error) {
+          const message = error instanceof KeyLimitsValidationError ? error.message : (error?.message || "Update failed");
+          return { id: key.id, name: key.name, ok: false, error: message };
         }
+      },
+      { concurrency: BULK_CONCURRENCY }
+    );
 
-        let patch;
-        if (action === "pause") patch = { isActive: false };
-        else if (action === "resume") patch = { isActive: true };
-        else if (action === "setCategory") patch = { category: body.category ?? null };
-        else patch = { ...(body.limits || {}) };
-
-        const updated = await updateApiKey(key.id, patch);
-        if (updated) { changed += 1; results.push({ id: key.id, name: key.name, ok: true }); }
-        else results.push({ id: key.id, name: key.name, ok: false, error: "Update failed" });
-      } catch (error) {
-        const message = error instanceof KeyLimitsValidationError ? error.message : (error?.message || "Update failed");
-        results.push({ id: key.id, name: key.name, ok: false, error: message });
-      }
-    }
+    const verdictById = new Map(verdicts.map((v) => [v.id, v]));
+    const results = slots.map((s) =>
+      Object.prototype.hasOwnProperty.call(s, "ok") ? s : verdictById.get(s.id)
+    );
+    const changed = verdicts.filter((v) => v.ok).length;
 
     return NextResponse.json({
       action,

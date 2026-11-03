@@ -16,6 +16,8 @@ export const getUsageStats = bound.getUsageStats;
 export const getKeyUsageStats = bound.getKeyUsageStats;
 export const touchKeyLastUsed = bound.touchKeyLastUsed;
 export const getUsageDailySince = bound.getUsageDailySince;
+// Five-dimension rate gate (migration 025) — per-key window sum over the ledger.
+export const getKeyWindowsSince = bound.getKeyWindowsSince;
 export const getChartData = bound.getChartData;
 export const appendRequestLog = bound.appendRequestLog;
 export const getRecentLogs = bound.getRecentLogs;
