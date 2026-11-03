@@ -18,6 +18,8 @@
 - **Guard suites** — `docker-compose-pin` + `icon-subset` green on the bumped tree (this entry's own run).
 - **The container's verdict is in: the v1.2.38 image build went green** — run 41582435702, `completed / success` in ~22 minutes, "Build and push" landing `pushing manifest for ghcr.io/yumamax3/vela:1.2.38@sha256:e27f1d2a… 1.8s done` — the registry's own acceptance line, with `latest` pushed to the same digest. (Anonymous manifest curl probes answer 400 even for the known-good 1.2.37 on this host — blind glass; the build log is the instrument.) The in-browser ligature proof (canvas `measureText` collapse + resource fetch of the new hash) follows on the deployed surface.
 
+- **The ligature proof lands on the deployed surface (2026-11-04)** — the live gateway at the homelab host (health `ok:true`, started 2026-11-03T06:00Z, after the tag) serves the healed font: `vela-icons.c13078b458b01d97.woff2` → **200** over the water, the ghost `68ad5f6d…` → **404**, and the stylesheet the login page actually loads (`/_next/static/css/b7d42903bdaa2bf6.css`) names the healed hash. The icons are whole on the deployed hull.
+
 # v1.2.37 — The Closure Rides 🌉🛡️
 > *"The far shore's own bellows rang hollow: webpack could not resolve two modules the working tree had quietly lent. A harbor that only builds on a borrowed shelf is not a harbor — so the seam walked whole, and the container is the witness this time."* 🌉🛡️🌊
 
