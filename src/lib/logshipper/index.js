@@ -141,6 +141,7 @@ const state = {
   held: [],
   booted: false,
   pin: null, // M4: { requested, honoured } as reported by the worker's `ready`
+  workerOwner: null, // 2026-11-04: the ownership decree the worker was born with ('worker' | null)
   shutdownPromise: null, // M4 §2.1: the ONE shared handshake (idempotency)
 };
 
@@ -339,6 +340,11 @@ function bridgeWorkerMessage(msg) {
       // Both facts are kept: a requested-but-unhonoured pin is a posture the
       // operator must be able to SEE, not one the harbor rounds away to null.
       if (msg.pin) state.pin = msg.pin;
+      // The 2026-11-04 ownership receipt: the worker echoes the decree it was
+      // born with. `worker` = checkpoint ownership received and applied in the
+      // worker's own registry BEFORE its adapter was born; null = an old-shape
+      // spawn (the test harness) — visible, never guessed.
+      state.workerOwner = msg.owner ?? null;
       break;
     case "flushed":
       state.lastFlushed = { n: Number(msg.n) || 0, droppedSinceLast: Number(msg.droppedSinceLast) || 0 };
@@ -455,7 +461,14 @@ export async function initLogshipper(opts = {}) {
     opts.workerPath ? path.resolve(opts.workerPath) : path.join(__dirname, "worker.js")
   );
   const worker = new Worker(workerUrl, {
-    workerData: { sab: ring.sab, ringBytes: ring.capacityBytes },
+    // The ownership decree RIDES THE SPAWN (2026-11-04 correction, measured):
+    // checkpointOwner's flag is module-level and worker_threads gives the
+    // worker its OWN module registry — main's setCheckpointOwner("worker")
+    // never reaches it (proven: main's view "worker", worker's view "main").
+    // The worker therefore reads its decree from workerData and sets it in its
+    // own registry BEFORE its adapter is born, so its handle is created opted
+    // out of the checkpoint cadence by construction, not by a later patch-up.
+    workerData: { sab: ring.sab, ringBytes: ring.capacityBytes, owner: "worker" },
   });
   state.worker = worker;
   state.transport = "worker";
@@ -581,6 +594,11 @@ export function getLogshipperStats() {
   }
   base.ring = state.ring ? ringStats(state.ring) : null;
   base.checkpointOwner = workerOwnsCheckpointing() ? "worker" : "main";
+  // The 2026-11-04 receipt: what the WORKER itself was born with — the
+  // main-side flag above cannot speak for the worker's own module registry
+  // (per-thread isolation, measured). 'worker' = decree received before its
+  // adapter was born; null = an old-shape spawn. Both facts stay visible.
+  base.workerOwner = state.workerOwner;
   return base;
 }
 

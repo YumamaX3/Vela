@@ -41,7 +41,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 const LOCK_NAME = "data.sqlite.single-instance";
-const DEFAULT_STALE_MS = 60 * 60 * 1000; // 1h — a live server heartbeats well inside this
+const DEFAULT_STALE_MS = 60 * 60 * 1000; // 1h — kept fresh by the heartbeat below
+const HEARTBEAT_MS = 60 * 1000; // 1min — the lockfile's mtime is refreshed well inside staleMs
 // Live handles THIS process holds, keyed by resolved db path. A lock whose
 // holder PID is ours is either (a) a live handle we still own — REFUSE, the
 // WR-a1 contract's second-acquirer case, or (b) a discarded singleton whose
@@ -106,7 +107,23 @@ export function acquireSingleInstanceLock(dbFile, opts = {}) {
   let holder = readHolder(lockPath);
   if (holder) {
     const age = Date.now() - Date.parse(holder.at || 0);
-    const alive = pidAlive(holder.pid) && holder.host === process.platform;
+    const sameHost = holder.host === process.platform;
+    // THE 2026-11-04 CORRECTION (measured on the homelab wreck): a foreign-host
+    // guard used to be taken over silently — pidAlive cannot resolve another
+    // host's pid, so `alive` fell false and the lock was stolen. That guard
+    // file may belong to a LIVE container on the NAS (pid namespaces make the
+    // pid meaningless across hosts); a silent takeover is exactly the
+    // second-writer window this lock exists to close. A foreign host now means
+    // ALIVE-UNKNOWN: refuse loudly unless the caller forces it.
+    if (!sameHost && !opts.force) {
+      return {
+        ok: false,
+        reason: `lock held by another host (${holder.host}) — cannot verify liveness; ` +
+          `if that host is provably down, remove ${path.basename(lockPath)} or pass { force: true }`,
+        holder,
+      };
+    }
+    const alive = pidAlive(holder.pid) && sameHost;
     // SELF-HEAL, NARROWLY: a lock whose holder PID is ours is a REFUSAL unless
     // no live handle in THIS process still owns it. A suite that simulates a
     // fresh boot does `delete global._dbAdapter; vi.resetModules()` — the old
@@ -116,8 +133,11 @@ export function acquireSingleInstanceLock(dbFile, opts = {}) {
     // this whole file exists for.
     const ownStaleLock =
       holder.pid === process.pid &&
-      holder.host === process.platform &&
+      sameHost &&
       !liveHandles.has(path.resolve(dbFile));
+    // A stale mtime ALONE no longer authorises a takeover: a live holder
+    // heartbeats (below), so an old mtime plus a DEAD pid is the only
+    // staleness that proves abandonment.
     if (alive && !opts.force && !ownStaleLock) {
       return {
         ok: false,
@@ -125,9 +145,10 @@ export function acquireSingleInstanceLock(dbFile, opts = {}) {
         holder,
       };
     }
-    // Abandoned (dead PID, foreign host, own discarded singleton, or older than
-    // the ceiling) — take over. Removing first keeps 'wx' honest; a crash
-    // between the two is recovered on the next boot by the same staleness rule.
+    // Abandoned (dead PID on our host, own discarded singleton, or older than
+    // the ceiling with a dead pid) — take over. Removing first keeps 'wx'
+    // honest; a crash between the two is recovered on the next boot by the
+    // same staleness rule.
     try { fs.unlinkSync(lockPath); } catch {}
   }
 
@@ -147,14 +168,19 @@ export function acquireSingleInstanceLock(dbFile, opts = {}) {
 
   let released = false;
   // Register BEFORE returning, so a second acquirer in this same process sees a
-  // live handle and is refused — the WR-a1 contract's first case.
+  // live handle and is refused — the WR-a1 contract's first case. The
+  // heartbeat starts with it: the lockfile is rewritten every HEARTBEAT_MS so
+  // the staleness ceiling can never misread a live holder as abandoned, and
+  // `heartbeatTimer` is what release() clears.
   liveHandles.set(path.resolve(dbFile), me);
+  const heartbeatTimer = heartbeat();
   return {
     ok: true,
     holder: me,
     release() {
       if (released) return;
       released = true;
+      clearInterval(heartbeatTimer);
       // Unregister FIRST: a re-boot that races this release must find no live
       // handle, or it would be refused by a lock we are already giving up.
       const key = path.resolve(dbFile);
@@ -166,6 +192,23 @@ export function acquireSingleInstanceLock(dbFile, opts = {}) {
       }
     },
   };
+
+  function heartbeat() {
+    // Keep the lockfile's at/mtime fresh so the staleness ceiling can never
+    // misread a live holder as abandoned (the comment that claimed a live
+    // server "heartbeats" before 2026-11-04 was a lie — nothing refreshed it).
+    // unref'd: the beat must never hold the process open. Registration into
+    // `liveHandles` happens at the call site, BEFORE this runs — registry and
+    // beat start together, in the contract's required order.
+    const timer = setInterval(() => {
+      try {
+        me.at = new Date().toISOString();
+        fs.writeFileSync(lockPath, JSON.stringify(me), "utf8");
+      } catch {}
+    }, HEARTBEAT_MS);
+    if (typeof timer.unref === "function") timer.unref();
+    return timer;
+  }
 }
 
 /** The current holder, or null. Diagnostic surface for logs and tests. */

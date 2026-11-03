@@ -293,6 +293,10 @@ async function main() {
       retentionSource,
       retentionSweepMs: RETENTION_SWEEP_INTERVAL_MS,
       pin: { requested: pinnedDriver ?? null, honoured: Boolean(pinned) },
+      // The ownership decree, RECEIVED: main reads this to confirm the worker
+      // was born with the decree (workerData.owner) rather than trusting that
+      // a module flag crossed the thread boundary (it cannot — measured).
+      owner: workerData?.owner ?? null,
     });
   } catch (e) {
     post({ type: "error", message: String(e?.message ?? e), fatal: true });

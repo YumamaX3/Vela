@@ -15,7 +15,10 @@
 //   discovered by the first writer who trips on it.
 //
 // THE CONTRACT:
-//   probe()      — quick_check, cheap enough to run at every boot.
+//   probe()      — FULL integrity_check by default: quick_check skips the
+//                  index-vs-table cross-verify that the 11-02/11-04 corruption
+//                  class (SQLITE_CORRUPT_INDEX) needed in order to be seen at
+//                  all. Measured: ~1.5 s on a 114 MB image — boot-cheap.
 //   quarantine() — move the wounded file (and its -wal/-shm siblings) into
 //                  backups/quarantine-<ts>/ so nothing is destroyed.
 //   recoverInto()— VACUUM INTO a fresh image, salvaging what SQLite can still
@@ -99,13 +102,21 @@ export function resetIntegrityStateForTests() {
 }
 
 /**
- * Run SQLite's own self-check. quick_check is the boot-time choice: it skips
- * the (expensive) index-vs-table cross-verification that integrity_check does,
- * while still catching malformed pages, broken b-trees and bad headers.
+ * Run SQLite's own self-check.
+ *
+ * THE 2026-11-04 CORRECTION (measured on the homelab wreck): the 11-02 and
+ * 11-04 corruption episodes were SQLITE_CORRUPT_INDEX class — index b-trees
+ * diverged from their table b-trees (child-depth drift, duplicate child
+ * pointers). quick_check SKIPS the index-vs-table cross-verification that
+ * would have caught them, so an index-blind boot declared a wounded harbor
+ * healthy and kept writing on rot. Measured boot cost of the FULL check on a
+ * 114 MB image: ~1.5 s (cheaper than quick_check's own ~4.9 s on that store) —
+ * boot price is no excuse. `full` now DEFAULTS to true; a caller may still opt
+ * into the cheap probe explicitly.
  *
  * Returns { ok, messages } and never throws.
  */
-export function probeIntegrity(adapter, { full = false } = {}) {
+export function probeIntegrity(adapter, { full = true } = {}) {
   const pragma = full ? "integrity_check" : "quick_check";
   let messages;
   try {
@@ -170,8 +181,8 @@ export function quarantineFile(filePath) {
 
 /**
  * Salvage a readable subset into a brand-new image via VACUUM INTO.
- * Works for logical damage (bad index, one broken table); fails for a damaged
- * header, where the only honest answer is quarantine-and-restart.
+ * Works for logical damage (bad index, one broken table); fails on the
+ * index-corruption class, where the per-table fallback below takes over.
  */
 export function recoverInto(adapter, destPath) {
   try {
@@ -181,6 +192,74 @@ export function recoverInto(adapter, destPath) {
     const size = fs.existsSync(destPath) ? fs.statSync(destPath).size : 0;
     return { ok: size > 0, path: destPath, size };
   } catch (e) {
+    return { ok: false, error: `${e.code || "?"} ${String(e.message || e).slice(0, 200)}` };
+  }
+}
+
+/**
+ * Per-table salvage — the fallback engine healAtBoot reaches when VACUUM INTO
+ * refuses the image (the 2026-11-04 SQLITE_CORRUPT_INDEX class).
+ *
+ * MEASURED BASIS: on the homelab wreck this engine recovered every readable
+ * table from the very image VACUUM INTO rejected — the only tables left behind
+ * were the ones whose TABLE b-trees were themselves gone. Schema, indexes and
+ * triggers ride `sqlite_master` DDL verbatim; rows cross one INSERT..SELECT
+ * per table, ordered by rowid, inside ONE transaction per table so a mid-table
+ * failure abandons only that table. The result is re-probed before the caller
+ * trusts it: a salvage output that is itself damaged is not a salvage.
+ */
+export function salvagePerTable(adapter, destPath, { log = console } = {}) {
+  try {
+    try { fs.rmSync(destPath, { force: true }); } catch {}
+    fs.writeFileSync(destPath, Buffer.alloc(0));
+    const escaped = destPath.replace(/'/g, "''");
+    adapter.exec(`ATTACH DATABASE '${escaped}' AS salvage`);
+
+    let saved = 0;
+    let skipped = 0;
+    let total = 0;
+    try {
+      const objects = adapter.all(
+        `SELECT name, sql, type FROM sqlite_master ` +
+        `WHERE name NOT LIKE 'sqlite_%' AND sql IS NOT NULL`
+      );
+      const tables = objects.filter((o) => o.type === "table");
+      const postTables = objects.filter((o) => o.type !== "table");
+      total = tables.length;
+
+      for (const t of tables) {
+        const ident = `"${String(t.name).replace(/"/g, '""')}"`;
+        try {
+          adapter.exec(`CREATE TABLE salvage.${ident} AS SELECT * FROM main.${ident} WHERE 0`);
+          adapter.transaction(() => {
+            adapter.exec(`INSERT INTO salvage.${ident} SELECT * FROM main.${ident} ORDER BY rowid`);
+          });
+          saved += 1;
+        } catch (e) {
+          skipped += 1;
+          log.warn?.(`[DB] salvage: table ${t.name} unreadable (${String(e?.message || e).slice(0, 120)}) — skipped, not silently lost`);
+          try { adapter.exec(`DROP TABLE IF EXISTS salvage.${ident}`); } catch {}
+        }
+      }
+
+      // Indexes/triggers/views land only from tables that made it across —
+      // a broken tree's secondary objects would be rot, not structure.
+      for (const o of postTables) {
+        const ident = `"${String(o.name).replace(/"/g, '""')}"`;
+        try { adapter.exec(o.sql); } catch {}
+      }
+    } finally {
+      try { adapter.exec("DETACH DATABASE salvage"); } catch {}
+    }
+
+    const size = fs.existsSync(destPath) ? fs.statSync(destPath).size : 0;
+    if (saved === 0 || size === 0) {
+      try { fs.rmSync(destPath, { force: true }); } catch {}
+      return { ok: false, error: `no tables recoverable (0/${total})` };
+    }
+    return { ok: true, path: destPath, size, saved, total, skipped };
+  } catch (e) {
+    try { fs.rmSync(destPath, { force: true }); } catch {}
     return { ok: false, error: `${e.code || "?"} ${String(e.message || e).slice(0, 200)}` };
   }
 }
@@ -205,8 +284,26 @@ export function healAtBoot(adapter, filePath, { log = console } = {}) {
   );
 
   // 1) Try to salvage into a temp image beside the original.
+  //    Two engines, in order — the 2026-11-04 wreck proved why BOTH exist:
+  //    (a) VACUUM INTO (fast, native) — but it FAILS on the index-corruption
+  //        class, leaving a 0-byte file (the empty data.sqlite.recovered the
+  //        operator found). (b) The per-table copy — measured to recover every
+  //        readable table (only genuinely damaged trees stay behind), on the
+  //        very image VACUUM INTO refuses. The fallback is the difference
+  //        between losing ~131,786 rows by default and losing only the trees
+  //        that are truly gone.
   const salvagePath = `${filePath}.recovered`;
-  const recovered = recoverInto(adapter, salvagePath);
+  let recovered = recoverInto(adapter, salvagePath);
+  if (!recovered.ok) {
+    const perTable = salvagePerTable(adapter, salvagePath);
+    if (perTable.ok) {
+      recovered = { ok: true, path: salvagePath, size: perTable.size, engine: "per-table" };
+      log.warn?.(
+        `[DB] VACUUM INTO failed (${recovered.error ?? "corrupt"}); per-table salvage saved ` +
+          `${perTable.saved}/${perTable.total} tables, ${perTable.skipped} skipped (damaged trees)`
+      );
+    }
+  }
   if (recovered.ok) {
     try {
       adapter.close?.();
@@ -223,6 +320,7 @@ export function healAtBoot(adapter, filePath, { log = console } = {}) {
       at: new Date().toISOString(),
       action: "recovered",
       bytes: recovered.size,
+      engine: recovered.engine ?? "vacuum-into",
       quarantineDir: quarantine.dir,
     };
     log.warn?.(

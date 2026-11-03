@@ -59,6 +59,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { workerData } from "worker_threads";
 
 const APP_NAME = "vela";
 
@@ -144,6 +145,17 @@ async function openNamedDriver(name, file) {
  *          the chain's verdict, SURFACED (law 3), never silently hidden.
  */
 export async function openWorkerDriver() {
+  // THE OWNERSHIP DECREE, RECEIVED (2026-11-04): main's setCheckpointOwner
+  // cannot cross the thread boundary (module registries are per-thread), so
+  // the decree rides workerData. Set it HERE, before any adapter is born, so
+  // this thread's handles are created opted out of the checkpoint cadence by
+  // construction — the worker's own registry previously said "main", giving
+  // the worker handle BOTH its own adapter interval AND worker.js's timer.
+  if (workerData?.owner === "worker") {
+    const { setCheckpointOwner } = await import("../db/checkpointOwner.js");
+    setCheckpointOwner("worker");
+  }
+
   const dataDir = resolveDataDir();
   const dbDir = path.join(dataDir, "db");
   const file = path.join(dbDir, "data.sqlite");
