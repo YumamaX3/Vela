@@ -302,7 +302,7 @@ export function trackPendingRequest(model, provider, connectionId, started, erro
   }
 
   if (!started && error && provider) {
-    lastErrorProvider.provider = provider.toLowerCase();
+    lastErrorProvider.provider = String(provider?.name ?? provider ?? "").toLowerCase();
     lastErrorProvider.ts = Date.now();
   }
 
@@ -320,7 +320,7 @@ export async function getActiveRequests() {
         const match = modelKey.match(/^(.*) \((.*)\)$/);
         activeRequests.push({
           model: match ? match[1] : modelKey,
-          provider: match ? match[2] : "unknown",
+          provider: match ? String(match[2]) : "unknown",
           account: accountName, count,
         });
       }
@@ -586,7 +586,7 @@ export async function getUsageStats(period = "all") {
         const match = modelKey.match(/^(.*) \((.*)\)$/);
         stats.activeRequests.push({
           model: match ? match[1] : modelKey,
-          provider: match ? match[2] : "unknown",
+          provider: match ? String(match[2]) : "unknown",
           account: accountName, count,
         });
       }

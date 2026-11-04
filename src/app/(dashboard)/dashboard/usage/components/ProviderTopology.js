@@ -318,16 +318,17 @@ function buildLayout(providers, activeSet, lastSet, errorSet, haloMap = {}, onPr
 
   providers.forEach((p, i) => {
     const config = getProviderConfig(p.provider);
-    const active = activeSet.has(p.provider?.toLowerCase());
-    const last = !active && lastSet.has(p.provider?.toLowerCase());
-    const error = !active && errorSet.has(p.provider?.toLowerCase());
+    const provLower = typeof p.provider === "string" ? p.provider.toLowerCase() : String(p.provider ?? "").toLowerCase();
+    const active = activeSet.has(provLower);
+    const last = !active && lastSet.has(provLower);
+    const error = !active && errorSet.has(provLower);
     const nodeId = `provider-${p.provider}`;
-    const haloRate = Math.max(0, Math.min(1, haloMap[p.provider?.toLowerCase()] || 0));
+    const haloRate = Math.max(0, Math.min(1, haloMap[provLower] || 0));
     const data = {
       label: (config.name !== p.provider ? config.name : null) || p.nodeName || p.name || p.provider,
       color: config.color || "#6b7280",
       imageUrl: getProviderImageUrl(p.provider),
-      textIcon: config.textIcon || (p.provider || "?").slice(0, 2).toUpperCase(),
+      textIcon: config.textIcon || String(p.provider || "?").slice(0, 2).toUpperCase(),
       active,
       haloRate,
       onClick: onProviderClick ? () => onProviderClick(p.provider) : undefined,
@@ -379,11 +380,11 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
   const topologyVisible = usePageVisible();
   // Serialize to stable string keys so useMemo only re-runs when values actually change
   const activeKey = useMemo(
-    () => activeRequests.map((r) => r.provider?.toLowerCase()).filter(Boolean).sort().join(","),
+    () => activeRequests.map((r) => (typeof r.provider === "string" ? r.provider.toLowerCase() : String(r.provider ?? ""))).filter(Boolean).sort().join(","),
     [activeRequests]
   );
-  const lastKey = lastProvider?.toLowerCase() || "";
-  const errorKey = errorProvider?.toLowerCase() || "";
+  const lastKey = typeof lastProvider === "string" ? lastProvider.toLowerCase() : String(lastProvider ?? "");
+  const errorKey = typeof errorProvider === "string" ? errorProvider.toLowerCase() : String(errorProvider ?? "");
 
   const rawActiveSet = useMemo(() => new Set(activeKey ? activeKey.split(",") : []), [activeKey]);
   const lastSet = useMemo(() => new Set(lastKey ? [lastKey] : []), [lastKey]);

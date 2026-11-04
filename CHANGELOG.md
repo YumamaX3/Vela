@@ -1,3 +1,15 @@
+# v1.2.45 — The Wire Speaks Only Strings 🧵⚓
+
+> *"A rumor crossed the wire wearing a number's clothes, and the render fell for it. Now every value that names a harbor is answered for at the well — and the shore that draws it can never again be wrecked by what the tide carries."* 🧵⚓💜
+
+**The change.** The dashboard usage page crashed with `TypeError: e.provider?.toLowerCase is not a function` the moment the topology's layout memo met a connection whose `provider` arrived as a truthy non-string — `?.` guards nullish, never a foreign type. The mend is belt-and-braces at both ends of the wire: the writers coerce, and the render shields. **+1 for the fix.**
+
+**🐛 Fixes**
+- **The writers answer for the type** — `trackPendingRequest` (sqlite + mysql twins) now stamps `lastErrorProvider` through `String(provider?.name ?? provider ?? "")`, and all four `getActiveRequests`/`getUsageStats` regex parses ride `String(match[2])`, so the SSE frame and the stats payload carry only strings no matter what the router resolved upstream.
+- **The render can no longer be wrecked by the wire** — `ProviderTopology`'s `buildLayout` and its `activeKey`/`lastKey`/`errorKey` memos coerce any non-string through a typeof check before `toLowerCase()`, and the textIcon fallback slices through `String(...)`. A poisoned row now renders under its coerced name instead of taking the whole Observatory down.
+
+**🧪 Proof** — a happy-dom probe mounted the REAL `ProviderTopology` with object/number/boolean/null poison rows: the unguarded tree threw `r.provider?.toLowerCase is not a function` (observed, stash-proved), the mended tree rendered all nodes and asserted no such error (observed, 1/1). Usage suites 28/28 green (usage-sse-w1d, usage-stats-sql-p5, apikey-usage-stats, combo-usage-aggregation, apikey-usage-attribution). `npm run build` exit 0; its 9 attempted-import warnings and the proxy-init DB-lock lines reproduce byte-identically on the stashed HEAD baseline — pre-existing, not this tide's. ESLint's 3 purity errors + 6 warnings pre-exist at HEAD (stash-proved identical).
+
 # v1.2.44 — The Harbor Inspects Its Own Keel 🔍⚓
 
 > *"The wreck taught the harbor to look deeper at its own hull: the shallow glance called a wounded ship healthy, and the heal that could not salvage threw the cargo overboard. Now the door inspects with full sight, and what can be saved, is."* 🔍⚓💜
