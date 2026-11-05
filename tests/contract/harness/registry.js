@@ -65,6 +65,15 @@ export const PARITY_REGISTRY = new Set([
   // v0.9.40 combo attribution (c356fcdc) — unit-covered only
   // (tests/unit/combo-usage-aggregation.test.js); parity debt, scheduled.
   "getComboUsage",
+  // ── Proxy telemetry readers (migration 030, v1.2.47) ───────────────────
+  // getPoolAnalytics / getPoolProviderMap / getPoolHealthHistory /
+  // getPoolEgressHistory — engine-neutral by construction (ONE shared impl in
+  // usageAggregation.js; both twins call the same machinery), proven
+  // convergent by the W2 seam suites (tests/unit/proxy-telemetry-seams-w2a/
+  // w2b run a real fixture DB and assert the twin-shaped reads). The cross-
+  // engine parity leg (both harbors, one scenario) is scheduled with the
+  // next storage-covenant wave — named here so the census keeps it visible.
+  "getPoolAnalytics", "getPoolProviderMap", "getPoolHealthHistory", "getPoolEgressHistory",
 ]);
 
 /** Never parity-testable — process/global state, wall-clock, pure helpers. */
@@ -135,6 +144,17 @@ export const EXEMPT_PENDING = {
   // The migration leg additionally writes a pre-vault artifact file (VACUUM
   // INTO) on the sqlite harbor; the twin seals in place by design.
   getVaultCounts: "seal-state census over providerConnections — sqlite-only unit coverage; parity gate scheduled",
+  // ── Pre-existing debt carried from v1.2.45 (ada2a897, the Responsive
+  // Tide's P5 usage-read coalescing) — the four usage-stats memo exports
+  // landed in the barrel WITHOUT a registry home, so the census has failed
+  // on them since 2026-11-01. They are process-surface by construction (a
+  // wall-clock memo over getUsageStats + its coalescing gauges), the same
+  // class as getPerProviderFrame above; named here so the debt is at last
+  // visible instead of silently failing the gate.
+  USAGE_STATS_MEMO_TTL_MS: "wall-clock memo TTL constant — process surface, not data",
+  usageStatsShared: "in-memory memo-coalescing gauge — process state, not data",
+  usageStatsCoalesced: "in-memory coalescing counter — process state, not data",
+  __clearUsageStatsMemo: "test-only memo reset — process surface",
   listConnectionsNeedingSeal: "plaintext-credential scan — sqlite-only unit coverage; parity gate scheduled",
   migratePlaintextCredentials: "credential migration (sqlite backs up via VACUUM INTO, twin seals in place) — parity gate scheduled",
   rewrapConnectionDEKs: "DEK rewrap with master-key custody — sqlite-only unit coverage; parity gate scheduled",

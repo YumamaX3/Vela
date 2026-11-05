@@ -233,7 +233,7 @@ export default function HubClient() {
               <Link
                 key={door.href}
                 href={door.href}
-                className="group flex items-start gap-3 rounded-[14px] border border-border-subtle bg-surface-2/30 p-4 transition-colors hover:border-brand-500/40 hover:bg-surface-2/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+                className="group flex items-start gap-3 rounded-[14px] border border-border-subtle bg-surface-2/30 p-4 motion-control hover:border-brand-500/40 hover:bg-surface-2/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
               >
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-brand)] bg-brand-500/10 text-brand-500">
                   <span className="material-symbols-outlined text-xl" aria-hidden="true">
@@ -248,7 +248,7 @@ export default function HubClient() {
                   <span className="mt-1 block text-xs text-text-muted">{door.blurb}</span>
                 </span>
                 <span
-                  className="material-symbols-outlined text-lg text-text-subtle transition-transform group-hover:translate-x-0.5"
+                  className="material-symbols-outlined text-lg text-text-subtle motion-control group-hover:translate-x-0.5"
                   aria-hidden="true"
                 >
                   arrow_forward

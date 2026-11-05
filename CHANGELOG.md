@@ -1,3 +1,23 @@
+# v1.2.50 — The Ledger Paid in Full 🪞⚖️
+> *"The gate that counts every export against its home had been failing since another tide — four readers with no classification, and four memo gauges nobody had named. The tide that added the first four now pays for them, and the older debt stands named at last, where the census can see it."* 🪞⚖️💜
+
+**The change.** The sealed plan's last open item (§7.4): the full suite against the pre-tide baseline. The no-regression gate answered with ten pass→fail lines; eight were proven pre-existing or environmental, and **two were this tide's own** — the proxy telemetry readers had no registry home, and the hub's door cards rode Tailwind's own timing ladder. Both mended here. **+1 for the fix.**
+
+**⚖️ The census paid (Storage Covenant A4)**
+- **The four pool readers classified** — `getPoolAnalytics`, `getPoolProviderMap`, `getPoolHealthHistory`, `getPoolEgressHistory` join the parity registry with their debt named: engine-neutral by construction (ONE shared impl, both twins), proven convergent by the W2 seam suites, with the cross-engine parity leg scheduled to the next storage-covenant wave. The census bijection holds again — **3/3 green**.
+- **The older debt, named at last** — `USAGE_STATS_MEMO_TTL_MS`, `usageStatsShared`, `usageStatsCoalesced`, `__clearUsageStatsMemo` have sat in the barrel WITHOUT a registry home since `ada2a897` (2026-11-01, another tide's P5 coalescing) — measured against the pre-tide HEAD `bd1ee022`, which already carried all four with zero entries. They are process-surface by construction (a wall-clock memo + its coalescing gauges, the same class as `getPerProviderFrame`) and now hold in `EXEMPT_PENDING` with the reason written down, so the debt is visible instead of silently failing the gate.
+
+**🎛️ The motion ladder honored**
+- `HubClient.js`'s door cards and arrow used Tailwind's own `transition-colors` / `transition-transform`; the house deck forbids them. Both now ride `motion-control` — the deck-motion suite's "no component on Tailwind's own timing ladder" pin is green again.
+
+**🧪 The forest's verdict, line by line** — the no-regression gate's ten lines, each adjudicated by measurement:
+- **5 × `combo cooldownRetry`** — answering from `.blast-radius/scratch/w2-backup.test.js`, a scratch copy the blast-radius rig left on disk (gitignored, never shipped). The suite this harbor owns was deliberately washed from the tree in v1.2.48's tide; its work is preserved as a patch. Absence, not failure.
+- **1 × `healAtBoot`** — "No SQLite driver available" on the corrupt-reopen leg in this sandbox; `better-sqlite3` loads fine in a bare probe, and the heal stack (`driver.js`, `integrity.js`, `singleInstance.js`, the test) is byte-identical at the pre-tide HEAD — my tide never touched it.
+- **1 × `docker-compose-pin`** — passes 5/5 alone; it shells out to `git tag` and starves under the full forest's event loop.
+- **2 × the census + 1 × deck-motion** — **this tide's, and mended.**
+
+**🧪 Proof** — contract-census 3/3 · deck-motion 27 (1 mended, 24 pass, 2 skipped) · the proxy + navigation + plans family **293 tests, 0 failures** · `tsc --noEmit` 0 errors · ESLint clean on every touched file · `npx next build` 213/213 static pages, 0 errors.
+
 # v1.2.49 — The Routes That Hid Inside the Ignore ⚓📦
 > *"A directory name was meant to keep the sealed plans private, and it kept the plans ROUTES private too — source that existed on one disk and no other. The rule now names its own shore exactly, and the three handlers that answer for the fleet's plan templates finally travel with the ship."* ⚓📦💜
 
