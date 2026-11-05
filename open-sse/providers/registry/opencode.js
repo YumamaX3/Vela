@@ -27,6 +27,30 @@ export const OPENCODE_FREE_TIER_MODELS = new Set([
 // only this exact, registry-declared family qualifies.
 export const MUSE_SPARK_FREE_RE = /^muse-spark-\d+(?:\.\d+)?-contributor-free$/;
 
+// The free-tier gate, defined where its truth lives — the curated set above.
+// It answers synchronously because buildHeaders (opencode-zen) reads it inline
+// while assembling headers; a promise would be a truthy stub over the wire.
+// The catalog service (isFreeTierModel) is the richer gate — live snapshot plus
+// verdicts — but it reads DATA_DIR at module scope, and THIS module is loaded
+// inside the registry barrel's own init (providerModels → registry/index →
+// codex → helpers). So this leaf must never reach the catalog; it mirrors the
+// catalog's cold-boot tail exactly (FALLBACK_FREE = this set, plus the family
+// regex), so both owners agree on every id the snapshot has not overruled.
+// Mirrors opencodeCatalog.baseId: strip a thinking-variant suffix, drop a
+// `provider/` prefix, lowercase — both owners name "the model" the same way.
+function freeTierBaseId(model) {
+  if (!model) return "";
+  const trimmed = String(model).trim();
+  const withoutVariant = trimmed.replace(/\([^()]*\)\s*$/, "").trim();
+  return (withoutVariant.includes("/") ? withoutVariant.split("/").pop() : withoutVariant).toLowerCase();
+}
+
+export function isOpencodeFreeTierModel(modelId) {
+  const base = freeTierBaseId(modelId);
+  if (!base) return false;
+  return OPENCODE_FREE_TIER_MODELS.has(base) || MUSE_SPARK_FREE_RE.test(base);
+}
+
 export default {
   id: "opencode",
   priority: 40,

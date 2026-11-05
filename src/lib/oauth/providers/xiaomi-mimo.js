@@ -121,3 +121,24 @@ export function getKeyName() {
     .slice(0, 8);
   return `9router-xmd-${machineId}`;
 }
+
+// ── The provider handler ─────────────────────────────────────────────────────
+// Xiaomi MiMo does NOT sign in through the framework's generic flows: there is
+// no PKCE auth URL and no device grant here. The handshake is an X25519 keypair
+// (generateKeyPair) → buildAuthorizeUrl against the platform → an encrypted
+// callback decrypted with decryptCallback, and the resulting credential is
+// persisted by the api-key route (/api/oauth/xiaomi-mimo/api-key), which is
+// where this provider's "exchange" truly lives. The handler below therefore
+// registers the provider with its honest config and its own flow name — it
+// never pretends to be a flow the framework could drive end-to-end. Helpers the
+// api-key route imports directly bypass this object entirely.
+const xiaomiMimo = {
+  config: XIAOMI_MIMO_CONFIG,
+  flowType: "encrypted_callback",
+  buildAuthUrl: (config, redirectUri, state, _codeChallenge, meta = {}) => {
+    const { publicKey } = meta.keyPair || generateKeyPair();
+    return buildAuthorizeUrl(publicKey, redirectUri, meta.keyName || getKeyName());
+  },
+};
+
+export default xiaomiMimo;

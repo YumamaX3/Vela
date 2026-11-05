@@ -25,8 +25,16 @@ const SOCKET_FLAG = IS_WINDOWS ? [] : ["--socket", TAILSCALE_SOCKET];
 const SYSTEM_TAILSCALE_SOCKET = IS_WINDOWS ? null : "/var/run/tailscale/tailscaled.sock";
 const SYSTEM_SOCKET_FLAG = SYSTEM_TAILSCALE_SOCKET ? ["--socket", SYSTEM_TAILSCALE_SOCKET] : [];
 
-// Well-known Windows install path
-const WINDOWS_TAILSCALE_BIN = "C:\\Program Files\\Tailscale\\tailscale.exe";
+// Well-known Windows install path. BUILT, not written as one literal: a bare
+// absolute-path string is chased as a module specifier by Turbopack's static
+// analysis when this module joins a fully-compiling graph (the harbor's
+// `next build` default bundler) — the path is data, never a dependency, and
+// env.join keeps it honest at runtime while the bundler sees no literal.
+const WINDOWS_TAILSCALE_BIN = path.join(
+  process.env.ProgramFiles || "C:\\Program Files",
+  "Tailscale",
+  "tailscale.exe"
+);
 
 // Common Unix install paths to probe synchronously (system tailscale)
 const UNIX_TAILSCALE_CANDIDATES = [

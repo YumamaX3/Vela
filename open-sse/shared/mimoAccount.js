@@ -184,8 +184,12 @@ async function getServiceCookie(providerSpecificData, proxyOptions) {
     : await readDesktopAccountCookies();
   if (!passJar) return { cookie: null, reason: "no-pass-token" };
 
-  // One cached session per passToken — accounts/connections rotate independently.
-  const key = crypto.createHash("sha256").update(passJar.passToken).digest("hex");
+  // One cached session per passToken+cluster — accounts/connections rotate
+  // independently, and the same passToken maps to a different session per region.
+  // The cluster is part of the key so a region override can never replay a
+  // cookie minted against another cluster's account service.
+  const cluster = resolveMimoServerBase(providerSpecificData);
+  const key = crypto.createHash("sha256").update(`${cluster}|${passJar.passToken}`).digest("hex");
 
   const cached = _cache.get(key);
   if (cached && Date.now() - cached.at < COOKIE_TTL_MS) {
@@ -220,6 +224,32 @@ async function getServiceCookie(providerSpecificData, proxyOptions) {
 /** Drop cached sessions so the next call re-runs the handshake (e.g. after a 401). */
 export function invalidateMimoAccountCookieCache() {
   _cache.clear();
+}
+
+// Cluster hosts — 1:1 with the account-service regions. An unknown or absent
+// region resolves to the CN host — the same host every session in this module is
+// minted against (API_BASE) — so the resolver is a pure override and a default
+// connection keeps HEAD's exact behaviour: the cookie is minted on CN and the
+// chat request goes to CN. Never let these two disagree, or a CN-minted session
+// would be replayed at another cluster.
+const API_BASE_BY_REGION = {
+  cn: "https://mimo-server-cn.xiaomimimo.com",
+  sgp: "https://mimo-server-sgp.xiaomimimo.com",
+  ams: "https://mimo-server-ams.xiaomimimo.com",
+  ru: "https://mimo-server-ru.xiaomimimo.com",
+  in: "https://mimo-server-in.xiaomimimo.com",
+};
+const DEFAULT_API_BASE = API_BASE;
+
+/**
+ * Resolve the account-service host for a connection's region. The /api/route/*
+ * account lane lives per-cluster, so a v2.6 account-route request must be sent
+ * to the cluster its passToken belongs to — not to a single fixed host.
+ * @returns {string} The cluster base URL (SGP when the region is unknown).
+ */
+export function resolveMimoServerBase(providerSpecificData = null) {
+  const region = String(providerSpecificData?.region || "").toLowerCase();
+  return API_BASE_BY_REGION[region] || DEFAULT_API_BASE;
 }
 
 /** mimo-server account API base + the User-Agent its backend expects. */

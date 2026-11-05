@@ -27,3 +27,16 @@ export function isMuseSparkModel(modelId) {
   const base = clean.includes("/") ? clean.split("/").pop() : clean;
   return /^muse[-_]?spark(?:$|[-_:.\s])/i.test(base);
 }
+
+// OpenCode's free tier: upstream's attested suffix gate (59e9b526), kept HERE
+// because this leaf is imported by the executors and must never reach the
+// DATA_DIR-reading catalog service. The curated set + family regex live in
+// registry/opencode.js (one definition, two owners); this leaf mirrors the
+// catalog's cold-boot tail exactly (the same strip-variant/basename shape
+// isMuseSparkModel uses), so both owners agree on every id.
+export function isOpencodeFreeTierModel(modelId) {
+  if (!modelId || typeof modelId !== "string") return false;
+  const clean = modelId.replace(/\([^()]+\)\s*$/, "").trim();
+  const base = clean.includes("/") ? clean.split("/").pop() : clean;
+  return /-free$/i.test(base);
+}

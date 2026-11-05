@@ -43,6 +43,41 @@ export const QODER_LOGIN_VERSION = "v2";
 export const QODER_MACHINE_OS = "x86_64_windows";
 export const QODER_MACHINE_TYPE = "5";
 
+// ── Inference-adjacent wire constants (shared/qoder/attachments.js) ─────────
+// Image upload lands on the same /algo origin as chat, under its own signed path.
+export const QODER_IMAGE_UPLOAD_SIG_PATH = "/api/v2/image/upload";
+
+// Drop remaining inlined binaries if the Qoder JSON body would still exceed this.
+// 30MB+ payloads are what blow past Claude-Code's ~200k context on the wire.
+export const QODER_MAX_PAYLOAD_BYTES = 6 * 1024 * 1024;
+// If OSS upload fails, keep tiny data-URIs; anything larger is stubbed.
+export const QODER_INLINE_FALLBACK_MAX_BYTES = 512 * 1024;
+
+/**
+ * Job-token (jt-...) traffic must hit api2.qoder.sh — api3 rejects jt- with
+ * "Login expired" (403). Device tokens (dt-...) stay on api3. PATs (pt-...)
+ * are exchanged for jt- before this is consulted.
+ */
+export function qoderInferenceBase(credentials) {
+  const raw = credentials?.apiKey || credentials?.accessToken;
+  if (
+    typeof raw === "string" &&
+    !raw.startsWith("pt-") &&
+    (raw.startsWith("jt-") || (credentials?.accessToken || "").startsWith("jt-"))
+  ) {
+    return QODER_CHAT_BASE_ALT;
+  }
+  return QODER_CHAT_BASE;
+}
+
+// ── Context-window tier selection (shared/qoder/contextTier.js) ────────────
+// The IDE exposes the model's context_config tiers (200K/400K/1M); we
+// auto-escalate when the estimated prompt (+ headroom, tokenizer variance) no
+// longer fits the current max_input_tokens.
+export const QODER_CONTEXT_TIER_HEADROOM = 0.15;
+export const QODER_CONTEXT_TIER_ENV = "QODER_CONTEXT_TIER";
+export const QODER_CONTEXT_TIER_MODES = Object.freeze({ AUTO: "auto", MAX: "max", DEFAULT: "default" });
+
 // Canonical model identifiers. Identity map — keep as a map so callers can
 // cheaply test "is this a known qoder model?" before sending the request.
 export const QODER_MODEL_MAP = {

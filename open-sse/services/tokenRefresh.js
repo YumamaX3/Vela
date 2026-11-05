@@ -16,6 +16,7 @@ import {
   refreshCodebuddyIntlToken,
   refreshWorkbuddyCnToken,
   refreshWorkbuddyIntlToken,
+  refreshMiniMaxCodeToken,
   refreshTraeToken,
   refreshZedToken,
   refreshWindsurfToken,
@@ -38,6 +39,7 @@ export {
   refreshCodebuddyIntlToken,
   refreshWorkbuddyCnToken,
   refreshWorkbuddyIntlToken,
+  refreshMiniMaxCodeToken,
   refreshTraeToken,
   refreshZedToken,
   refreshWindsurfToken,
@@ -155,6 +157,10 @@ const REFRESH_HANDLERS = {
   // expiry was terminal. Same family, same wire shape, other two accounts.
   "workbuddy-cn": (c, log) => refreshWorkbuddyCnToken(c.refreshToken, log),
   "workbuddy-intl": (c, log) => refreshWorkbuddyIntlToken(c.refreshToken, log),
+  // MiniMax Code — single-use refresh tokens; the handler dedupes by token
+  // value and classifies invalid_grant (docs/minimax-code-proxy-plan.md §2.3)
+  "minimax-code": (c, log) => refreshMiniMaxCodeToken("minimax-code", c.refreshToken, log),
+  "minimax-code-global": (c, log) => refreshMiniMaxCodeToken("minimax-code-global", c.refreshToken, log),
   trae: (c, log) => refreshTraeToken(c.refreshToken, c, log),
   // (ported from upstream 9router f6e7cabe — ADR-004 M2) Cline had NO handler
   // in this fork at all — its OAuth tokens could never rotate here (silent 401
