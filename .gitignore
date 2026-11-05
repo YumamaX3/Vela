@@ -104,8 +104,12 @@ graphify-out/*
 .PR/
 .next-analyze/*
 
-# sealed plans — internal, not for the public repo
-plans/
+# sealed plans — internal, not for the public repo. ANCHORED AT THE ROOT: a bare
+# `plans/` also ignored `src/app/api/plans/**` — the plans ROUTES' own source —
+# so a fresh clone shipped the /api/plans imports without their handlers (the
+# dev harbor answered 500 on /api/plans until the routes were re-added by hand).
+# The root plans/ shore stays untracked; the route tree never again hides inside it.
+/plans/
 # build-critical scripts must stay tracked (Docker `npm run build` needs them)
 scripts/*
 !scripts/sync-changelog.mjs

@@ -1,3 +1,16 @@
+# v1.2.49 — The Routes That Hid Inside the Ignore ⚓📦
+> *"A directory name was meant to keep the sealed plans private, and it kept the plans ROUTES private too — source that existed on one disk and no other. The rule now names its own shore exactly, and the three handlers that answer for the fleet's plan templates finally travel with the ship."* ⚓📦💜
+
+**The change.** `.gitignore`'s `plans/` rule was a bare directory name, so git matched it at every depth — including `src/app/api/plans/**`, the plans routes' own source. A fresh clone shipped the dashboard's `/api/plans` imports without their handlers (the dev harbor answered 500 until the routes were re-added by hand). The rule is now anchored `/plans/`; the three route files are tracked; and the HTTP contract each handler answers for is pinned. **+1 for the fix.**
+
+**📦 What sails now**
+- `src/app/api/plans/route.js` — GET the roster (loud 500 on a thrown dependency, never a zeroed list), POST a template (validator's 400, the registry's 409 on a duplicate name, 201 with the repo's row).
+- `src/app/api/plans/[id]/route.js` — one template: GET (404 on unknown, never an empty 200), PUT (partial merge through the validator's base — the omitted-field law; the 409 duplicate-name guard leaves the stored row untouched), DELETE (409 while any live key inherits the plan, naming the count).
+- `src/app/api/plans/[id]/keys/route.js` — how many live keys inherit this plan; the dashboard reads it to explain the 409 before the operator meets it.
+- `tests/unit/plans-routes.test.js` — ✦ NEW, **13 tests**: the whole HTTP edge, repo mocked at the seam (the registry layer's own behavior — create/list/update/inherit — stays pinned against a real scratch DB by `plans-registry.test.js`).
+
+**🧪 Proof** — plans-routes 13/13 · plans-registry green · the full proxy + navigation + icon + executor family **293 tests, 0 failures** (the stale `.next/standalone/tests/` ghost-collection cleared, not re-run around — it is the known vitest noise, not a signal). `npx tsc --noEmit` exit 0 · ESLint clean on the new suite · `npx next build` 213/213 static pages, 0 errors, with the three routes now inside the build's route list.
+
 # v1.2.48 — The Harbor Boots Again 🌅⚓
 > *"The image sailed while the shore lay dark: every page answered 500, because ten doors hung on keys that never crossed the water. The keys are forged now — each in its own upstream shape — and the harbor opens its own door once more."* 🌅⚓💜
 
