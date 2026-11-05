@@ -238,6 +238,21 @@ const PROXY_POOLS_POSTURE_READS = new Set([
   "/api/proxy-pools/fitness",
   "/api/proxy-pools/export",
   "/api/proxy-pools/stats",
+  // Proxy Console Separation W2b (§3.4) — the four telemetry reads the new
+  // separated pages lean on. Each is safe BY CONSTRUCTION like stats: no pool
+  // row is spread to the wire, so no `proxyUrl` can cross, masked or otherwise.
+  //   /routing-ledger — {routes, health}: route decisions + a score, no credential.
+  //                     Mended here because the Ledger page would otherwise be
+  //                     DARK on requireLogin===false instances (plan §2 wound #7).
+  //   /analytics      — integers + poolId + a {id,name,type} label (poolUsageLabels).
+  //   /health-history — timestamps + verdicts + poolId; empty until W2a lands.
+  //   /egress-history — ip/country/ts + poolId; the exit address, never the entry url.
+  // The storm suite's S1 exact-set assertion is extended in the SAME wave — the
+  // list and its pin ship together or not at all (plan §3.4).
+  "/api/proxy-pools/routing-ledger",
+  "/api/proxy-pools/analytics",
+  "/api/proxy-pools/health-history",
+  "/api/proxy-pools/egress-history",
 ]);
 
 // Routes that spawn child processes or read host secrets — restrict to localhost.

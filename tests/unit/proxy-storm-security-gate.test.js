@@ -138,11 +138,24 @@ describe("S1 — the posture-read predicate is method-aware and exact-match", ()
   // deliberately; it must not inherit the posture by accident"). It is a
   // count-only census: no pool row, hence no proxyUrl, is ever emitted, so it
   // widens the list without widening what a posture read can disclose.
-  it("names exactly the four verified dashboard GET reads", () => {
+  // Proxy Console Separation W2b (§3.4) — the exact set is extended from four to
+  // FIVE here, in the same wave the routes land. The new entry is
+  // /api/proxy-pools/routing-ledger: it emits {routes, health} — route decisions
+  // and a score, no credential — and the new Ledger page needs it on
+  // requireLogin===false instances (plan §2 wound #7). The three remaining
+  // telemetry reads (analytics, health-history, egress-history) are also
+  // posture-safe by construction (integers + poolId + a {id,name,type} label /
+  // timestamps / exit-ip, never a pool row), so they ride the same list. The pin
+  // moved WITH them, never after (§3.4's coupling).
+  it("names exactly the verified dashboard GET reads — five original-shape + three telemetry", () => {
     expect([...PROXY_POOLS_POSTURE_READS].sort()).toEqual([
       "/api/proxy-pools",
+      "/api/proxy-pools/analytics",
+      "/api/proxy-pools/egress-history",
       "/api/proxy-pools/export",
       "/api/proxy-pools/fitness",
+      "/api/proxy-pools/health-history",
+      "/api/proxy-pools/routing-ledger",
       "/api/proxy-pools/stats",
     ]);
   });
@@ -168,6 +181,12 @@ describe("S1 — the posture-read predicate is method-aware and exact-match", ()
       "/api/proxy-pools/cloudflare-deploy",
       "/api/proxy-pools/deno-deploy",
       "/api/proxy-pools/fitness/reset",
+      // Posture reads are EXACT — a sibling path that merely nests under a
+      // listed read must not inherit it by prefix. The W2b telemetry reads are
+      // exact names, so a subpath under them stays fail-closed.
+      "/api/proxy-pools/analytics/raw",
+      "/api/proxy-pools/health-history/export",
+      "/api/proxy-pools/routing-ledger/clear",
     ]) {
       expect(isProxyPoolsPostureRead(p, "GET")).toBe(false);
     }

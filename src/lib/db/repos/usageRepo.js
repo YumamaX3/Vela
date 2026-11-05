@@ -37,3 +37,8 @@ export const getLedgerRows = bound.getLedgerRows;
 export const getExportCursor = bound.getExportCursor;
 export const getComboUsage = bound.getComboUsage; // v0.9.40 — per-combo attribution (migration 015)
 export const getPerProviderFrame = bound.getPerProviderFrame; // W1-D memo
+// Proxy Console Separation W2b — the proxy telemetry seams (both harbors).
+export const getPoolAnalytics = bound.getPoolAnalytics; // per-pool usage census
+export const getPoolProviderMap = bound.getPoolProviderMap; // provider labels per pool
+export const getPoolHealthHistory = bound.getPoolHealthHistory; // per-pool outcome series
+export const getPoolEgressHistory = bound.getPoolEgressHistory; // per-pool egress ledger

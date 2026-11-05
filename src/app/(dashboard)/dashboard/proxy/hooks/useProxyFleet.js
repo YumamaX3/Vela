@@ -1,140 +1,71 @@
 "use client";
-// The proxy console's data current: one bootstrap load, one set of mutations.
-// Components never fetch — they call these.
+// The proxy fleet's consumer facade — the shape the lenses already speak.
 //
-// The console is one fleet seen four ways (Fleet, Fitness, Egress, Relay), so the
-// fleet listing, the fitness projection, the egress geo registry, and the geo-probe
-// setting are loaded ONCE here and shared by every lens. A tab switch is a change of
-// lens, not a refetch — and the Fitness tab's block ledger and the Fleet tab's pool
-// rows always describe the same pools, because there is one copy.
-import { useCallback, useEffect, useMemo, useState } from "react";
-import * as api from "../lib/proxyApi";
-import { isBlocked, isRelayPool, verdictFromTestStatus, VERDICT } from "../lib/proxyFormat";
+// This hook used to be the console's ONLY store: four `useState`s and ten
+// `useCallback`s, all mounted inside the console page, so a lens switch kept the data
+// and a route navigation threw it away. The data now lives in `stores/proxyFleetStore`
+// (mounted by `layout.js`, outliving every route); this hook is the thin reader on
+// top of it, keeping the exact `c` surface the four lens components were written
+// against — so Fleet/Fitness/Egress/Relay did not need to change to ride the store.
+//
+// The one load is `ensureLoaded`, called from an effect on first mount of ANY lens.
+// Because the store's `load()` is idempotent (`loaded` guard + shared `inflight`),
+// navigating between eight shores still issues ONE bootstrap fetch cycle per store
+// lifetime — the plan's R3, "the bootstrap load runs once per store lifetime".
+import { useCallback, useEffect, useMemo } from "react";
+import {
+  useProxyFleetStore,
+  selectError,
+  selectGeo,
+  selectGeoEnabled,
+  selectLoading,
+  selectPools,
+  selectRecords,
+  computeCensus,
+} from "../stores/proxyFleetStore";
+import { isRelayPool } from "../lib/proxyFormat";
 
+/**
+ * Read the fleet and its mutations. Every lens calls this and mounts a `.load()`;
+ * what it gets back is the same `c` object the console's tabs have always consumed.
+ */
 export function useProxyFleet() {
-  const [pools, setPools] = useState([]);
-  const [records, setRecords] = useState([]);
-  const [geo, setGeo] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [geoEnabled, setGeoEnabled] = useState(true);
+  const pools = useProxyFleetStore(selectPools);
+  const records = useProxyFleetStore(selectRecords);
+  const geo = useProxyFleetStore(selectGeo);
+  const loading = useProxyFleetStore(selectLoading);
+  const error = useProxyFleetStore(selectError);
+  const geoEnabled = useProxyFleetStore(selectGeoEnabled);
 
-  const reload = useCallback(async () => {
-    setError(null);
-    try {
-      const [poolsRes, fitnessRes, settings] = await Promise.all([
-        api.loadPools(),
-        api.loadFitness(),
-        api.loadSettings().catch(() => ({})),
-      ]);
-      if (!poolsRes.ok) setError(poolsRes.body?.error || "Could not read the fleet.");
-      setPools(poolsRes.pools || []);
-      setRecords(fitnessRes.fitness?.pools || []);
-      setGeo(fitnessRes.geo || {});
-      if (typeof settings?.poolGeoProbeEnabled === "boolean") setGeoEnabled(settings.poolGeoProbeEnabled);
-    } catch (err) {
-      setError(err?.message || "Could not reach the fleet.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Actions are stable references on a zustand store — selecting them one by one
+  // keeps this hook subscribed to data only, so a mutation never re-renders a lens
+  // that only reads. `getState().load` reads the action at call time, not at
+  // subscribe time, so this memo is genuinely empty-dependency.
+  const load = useCallback(() => useProxyFleetStore.getState().load(), []);
+  const reload = useCallback(() => useProxyFleetStore.getState().reload(), []);
+  const createPool = useCallback((p) => useProxyFleetStore.getState().createPool(p), []);
+  const updatePool = useCallback((id, p) => useProxyFleetStore.getState().updatePool(id, p), []);
+  const deletePool = useCallback((id) => useProxyFleetStore.getState().deletePool(id), []);
+  const testPool = useCallback((id) => useProxyFleetStore.getState().testPool(id), []);
+  const bulkHealth = useCallback((o) => useProxyFleetStore.getState().bulkHealth(o), []);
+  const saveGeoToggle = useCallback((n) => useProxyFleetStore.getState().saveGeoToggle(n), []);
+  const resetFitness = useCallback((poolId, providerId) => useProxyFleetStore.getState().resetFitness(poolId, providerId), []);
+  const clearAllFitness = useCallback((providerId) => useProxyFleetStore.getState().clearAllFitness(providerId), []);
+  const probeEgress = useCallback((id) => useProxyFleetStore.getState().probeEgress(id), []);
+  const deploy = useCallback((platform, form) => useProxyFleetStore.getState().deploy(platform, form), []);
 
-  // One bootstrap load on mount. setState lives in `reload`'s async continuation,
-  // the same shape every sibling hook uses (react-hooks/set-state-in-effect).
+  // The bootstrap. The store's `load()` is idempotent, so eight lenses each mounting
+  // this effect still cost one network cycle; after the first, every call short-
+  // circuits on `loaded`. `setState` lives inside the store's async continuation,
+  // never in this effect body (react-hooks/set-state-in-effect).
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    reload();
-  }, [reload]);
+    load();
+  }, [load]);
 
-  // ── mutations ─────────────────────────────────────────────────────────────
-  const createPool = useCallback(async (payload) => {
-    const res = await api.createPool(payload);
-    if (res.ok) await reload();
-    return res;
-  }, [reload]);
-
-  const updatePool = useCallback(async (id, payload) => {
-    const res = await api.updatePool(id, payload);
-    if (res.ok) await reload();
-    return res;
-  }, [reload]);
-
-  const deletePool = useCallback(async (id) => {
-    const res = await api.deletePool(id);
-    if (res.ok) await reload();
-    return res;
-  }, [reload]);
-
-  const testPool = useCallback(async (id) => {
-    const res = await api.testPool(id);
-    await reload();
-    return res;
-  }, [reload]);
-
-  const bulkHealth = useCallback(async (options) => {
-    const res = await api.runBulkHealth(options);
-    await reload();
-    return res;
-  }, [reload]);
-
-  const saveGeoToggle = useCallback(async (next) => {
-    setGeoEnabled(next);
-    const res = await api.saveGeoToggle(next);
-    if (!res.ok) setGeoEnabled(!next);
-    return res;
-  }, []);
-
-  const resetFitness = useCallback(async (poolId, providerId) => {
-    const res = await api.resetFitness(poolId, providerId);
-    if (res.ok) await reload();
-    return res;
-  }, [reload]);
-
-  const clearAllFitness = useCallback(async (providerId) => {
-    const res = await api.clearAllFitness(providerId);
-    if (res.ok) await reload();
-    return res;
-  }, [reload]);
-
-  const probeEgress = useCallback(async (id) => {
-    const res = await api.probePoolEgress(id);
-    await reload();
-    return res;
-  }, [reload]);
-
-  const deploy = useCallback(async (platform, form) => {
-    const fn = api.DEPLOYERS[platform];
-    if (!fn) return { ok: false, body: { error: `Unknown platform ${platform}` } };
-    const res = await fn(form);
-    if (res.ok) await reload();
-    return res;
-  }, [reload]);
-
-  // ── derived ───────────────────────────────────────────────────────────────
+  // ── derived — memoized per input identity, in ONE place ──────────────────
   const poolById = useMemo(() => new Map(pools.map((p) => [p.id, p])), [pools]);
   const relays = useMemo(() => pools.filter(isRelayPool), [pools]);
-
-  // The census strip's numbers. Verdict counts use the same three-way vocabulary
-  // the rest of the console does — a pool whose last test was indeterminate is
-  // counted as indeterminate, never folded into dead.
-  const census = useMemo(() => {
-    let active = 0;
-    let ok = 0;
-    let dead = 0;
-    let indeterminate = 0;
-    let bound = 0;
-    for (const pool of pools) {
-      if (pool.isActive === true) active += 1;
-      bound += pool.boundConnectionCount || 0;
-      const v = verdictFromTestStatus(pool.testStatus);
-      if (v === VERDICT.OK) ok += 1;
-      else if (v === VERDICT.DEAD) dead += 1;
-      else indeterminate += 1;
-    }
-    const blocked = records.filter((r) => isBlocked(r)).length;
-    const relayCount = pools.filter(isRelayPool).length;
-    return { total: pools.length, active, ok, dead, indeterminate, bound, blocked, relayCount };
-  }, [pools, records]);
+  const census = useMemo(() => computeCensus(pools, records), [pools, records]);
 
   return {
     pools,

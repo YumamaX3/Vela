@@ -131,6 +131,34 @@ const RING_CAP = 50;
 const CONN_CACHE_TTL_MS = 30 * 1000;
 const PERIOD_MS = { "24h": 86400000, "7d": 604800000, "30d": 2592000000, "60d": 5184000000 };
 
+// ─── W2a · usageHistory.poolId presence (migration 030), twin ─────────────
+// Same law as the sqlite harbor (parity-by-construction): the write is never
+// gated on the migration, only shaped by it. The probe is information_schema
+// (the twin's own dialect), cached PER adapter object.
+const poolIdColumnCache = new WeakMap();
+const POOLID_PROBE_TTL_MS = 60_000;
+function forceLegacyForTests() {
+  return globalThis.__velaUsageLegacyInsert === true;
+}
+async function hasPoolIdColumn(db) {
+  if (forceLegacyForTests()) return false;
+  const hit = poolIdColumnCache.get(db);
+  const now = Date.now();
+  if (hit && now - hit.ts < POOLID_PROBE_TTL_MS) return hit.value;
+  let value = false;
+  try {
+    const row = await db.get(
+      `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usageHistory' AND COLUMN_NAME = 'poolId'`
+    );
+    value = !!row;
+  } catch {
+    value = false;
+  }
+  poolIdColumnCache.set(db, { value, ts: now });
+  return value;
+}
+
 // In-memory state shared across Next.js modules
 if (!global._pendingRequests) global._pendingRequests = { byModel: {}, byAccount: {} };
 if (!global._lastErrorProvider) global._lastErrorProvider = { provider: "", ts: 0 };
@@ -413,11 +441,17 @@ export async function saveRequestUsage(entry) {
     // this INSERT, never a second write, so uq_uh_dedupe's seven-column event
     // identity is untouched — a reqId is not part of that identity.
     const voyage = getVoyage();
+    // W2a (plan §3.2.1) — the twin's identical trailing column; see the
+    // sqlite harbor's comment for the dedupe-identity argument.
+    const withPoolId = await hasPoolIdColumn(db);
+    const poolIdCols = withPoolId ? ", poolId" : "";
+    const poolIdPlaceholders = withPoolId ? ", ?" : "";
+    const withPoolIdParams = (params) => (withPoolId ? [...params, entry.poolId || null] : params);
     await db.transaction(async (tx) => {
       try {
         await tx.run(
-          `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo, reqId, upstreamId) VALUES(?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
+          `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo, reqId, upstreamId${poolIdCols}) VALUES(?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${poolIdPlaceholders})`,
+          withPoolIdParams([
             entry.timestamp, entry.provider || "", entry.model || "",
             entry.connectionId || "", entry.keyId || "", entry.keyPrefix || null,
             entry.endpoint || null,
@@ -427,7 +461,7 @@ export async function saveRequestUsage(entry) {
             entry.combo || null, // migration 015 — NULL = direct request
             voyage?.reqId ?? null, // M6 §3 — the voyage join key
             voyage?.upstreamId ?? null, // M6 §3 — this hop's own upstream id
-          ]
+          ])
         );
         inserted = true;
       } catch (err) {
@@ -1080,6 +1114,10 @@ import {
   exportCursorImpl,
   statsHistorySumsImpl, // P5 — getUsageStats' SQL seams
   statsDimensionsImpl,
+  poolAnalyticsImpl, // W2b — per-pool usage census (Proxy Console Separation)
+  poolProviderMapImpl, // W2b — provider labels for pool buckets
+  healthHistoryImpl, // W2b — per-pool outcome series (W2a's append table)
+  egressHistoryImpl, // W2b — per-pool egress ledger (W2a's append table)
   statsMinuteRowsImpl,
 } from "../../usageAggregation.js";
 
@@ -1228,3 +1266,23 @@ export async function getComboUsage({ hours = 24, buckets = 24 } = {}) {
 
   return { hours, buckets, since, combos: Object.values(comboMap) };
 }
+
+// ─── W2b — the proxy console telemetry seams (parity with the sqlite twin) ──
+export async function getPoolAnalytics(opts) {
+  return poolAnalyticsImpl(await getMysqlAdapter(), opts);
+}
+
+export async function getPoolProviderMap(opts = {}) {
+  return poolProviderMapImpl(await getMysqlAdapter(), { ...opts, repos: "./repos/mysql" });
+}
+
+export async function getPoolHealthHistory(opts) {
+  return healthHistoryImpl(await getMysqlAdapter(), opts);
+}
+
+export async function getPoolEgressHistory(opts) {
+  return egressHistoryImpl(await getMysqlAdapter(), opts);
+}
+
+/** W2a test hook (twin) — same contract as the sqlite harbor. */
+export const __test__ = { __resetPoolIdProbe: (db) => { poolIdColumnCache.delete(db); } };

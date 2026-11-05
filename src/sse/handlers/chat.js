@@ -384,6 +384,14 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
     // Use shared chatCore
     const providerThinking = (chatSettings.providerThinking || {})[provider] || null;
     const upstreamStartedAt = Date.now();
+    // W2a (§3.2.3) — the measured duration the fitness EWMA may learn from.
+    // The SAME law the metrics call below states: handleChatCore returns as soon
+    // as a stream opens, so for a streamed turn a delta taken here is TTFT, not
+    // upstream duration. Handing it over as "latency" would poison the average
+    // with a fiction the old NULL never told. Non-streaming turns carry the real
+    // number; streaming turns stay honestly absent. Computed by the A1 helper so
+    // the success signal and the error signal can never disagree.
+    const outcomeLatency = () => (body.stream === true ? null : Date.now() - upstreamStartedAt);
     let result;
     try {
       result = await handleChatCore({
@@ -428,7 +436,10 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
           });
         },
         onRequestSuccess: async () => {
-          await clearAccountError(credentials.connectionId, credentials, model);
+          // W2a (plan §3.2.3) — `upstreamStartedAt` is the one clock both the
+          // success and failure signals share, so the fitness EWMA learns from
+          // a real measured number instead of staying NULL on the success path.
+          await clearAccountError(credentials.connectionId, credentials, model, Date.now(), outcomeLatency());
         }
       });
     } finally {
@@ -489,7 +500,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
     // Do not persist a modelLock_* for this path.
     const shouldFallback = (provider === "antigravity" && quotaResetMs) || (provider === "zcode-plan" && zcodeQuotaResetMs)
       ? true
-      : (await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model, resetsAtMs)).shouldFallback;
+      : (await markAccountUnavailable(credentials.connectionId, result.status, result.error, provider, model, resetsAtMs, outcomeLatency())).shouldFallback;
 
     if (shouldFallback) {
       metrics.recordFallback({ provider, model, reason: result.status === 429 ? "rate_limited" : "upstream_error" });

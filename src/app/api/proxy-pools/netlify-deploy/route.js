@@ -9,6 +9,11 @@ import {
   netlifyHeaders,
   pollDeployReady,
 } from "@/lib/network/netlifyRelay.js";
+// §5.4 wound mend (Proxy Console Separation §2 #5): the 201 used to emit the raw
+// pool row — every OTHER deploy route returns relayDeployResponse, whose shape
+// carries poolId + deployUrl and never the credential-bearing proxyUrl. Netlify
+// was the lone straggler; it now speaks the same narrow wire shape.
+import { relayDeployResponse } from "@/lib/network/relayDeploy.js";
 import * as log from "@/sse/utils/logger.js";
 
 function sanitizeSiteName(raw) {
@@ -139,7 +144,8 @@ export async function POST(request) {
       strictProxy: false,
     });
 
-    return NextResponse.json({ proxyPool, deployUrl: relayUrl }, { status: 201 });
+    // Never the secret, never the pool row. See relayDeployResponse.
+    return NextResponse.json(relayDeployResponse({ pool: proxyPool, deployUrl: relayUrl }), { status: 201 });
   } catch (error) {
     log.info("PROXYPOOLS", "Error deploying Netlify relay:", (error?.message ?? error));
     return NextResponse.json({ error: error.message || "Deploy failed" }, { status: 500 });

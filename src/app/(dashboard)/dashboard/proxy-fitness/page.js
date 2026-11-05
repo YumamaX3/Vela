@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 
-// The Proxy Fitness page moved into the Proxy console's Fitness lens. The file stays
-// — the console merged two pages into one, and a bookmarked or linked
-// `/dashboard/proxy-fitness` must still land somewhere real — so this is a redirect,
-// not a deletion. The `fitness` lens is the old page's exact subject.
+// The Proxy Fitness page → the separated Fitness route (plan 2026-11-04 §3.1 redirect law).
+//
+// Same reasoning as its sibling: the file stays so an old link lands on the lens that
+// owns its exact subject, and the subject now has its own URL instead of a query tab.
 export default function ProxyFitnessPage() {
-  redirect("/dashboard/proxy?tab=fitness");
+  redirect("/dashboard/proxy/fitness");
 }

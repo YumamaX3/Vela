@@ -19,6 +19,37 @@
 import { getMysqlAdapter } from "../../mysql/adapter.js";
 import { stringifyJson } from "../../helpers/jsonCol.js";
 
+// ─── W2a · usageHistory.poolId presence (migration 030), resync side ──────
+// The apply seam must stay VERBATIM — re-resolving anything here is the hazard
+// this file's header bans — so the only decision it makes is whether the twin
+// has the column to receive. information_schema is the twin's own dialect;
+// cached per adapter object, fail-CLOSED to the legacy statement (a probe that
+// cannot answer must never invent a column that would then make the INSERT
+// throw and stall the watermark).
+const poolIdColumnCache = new WeakMap();
+const POOLID_PROBE_TTL_MS = 60_000;
+function forceLegacyForTests() {
+  return globalThis.__velaUsageLegacyInsert === true;
+}
+async function hasPoolIdColumn(db) {
+  if (forceLegacyForTests()) return false;
+  const hit = poolIdColumnCache.get(db);
+  const now = Date.now();
+  if (hit && now - hit.ts < POOLID_PROBE_TTL_MS) return hit.value;
+  let value = false;
+  try {
+    const row = await db.get(
+      `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'usageHistory' AND COLUMN_NAME = 'poolId'`
+    );
+    value = !!row;
+  } catch {
+    value = false;
+  }
+  poolIdColumnCache.set(db, { value, ts: now });
+  return value;
+}
+
 /** Append one batch of usageHistory rows to the twin, carrying the primary's
  *  own ids (so the watermark and the twin's ids stay in lockstep). Returns the
  *  number of rows applied. */
@@ -49,11 +80,21 @@ export async function applyUsageBatch(rows) {
       //     FINGERPRINT_TABLES, so no sweep would ever see the divergence.
       //     A row written before the stamp is NULL on BOTH harbors; the twin
       //     must not invent one, so `?? null` and never a synthesized id.
+      // W2a (migration 030): `poolId` → `?? null`, carried verbatim from the
+      // primary's own read seam. The 20→21 lesson is the 15→20 lesson one door
+      // down: a resync that omits the column leaves the twin's copy NULL
+      // forever, and usageHistory is absent from FINGERPRINT_TABLES, so no
+      // sweep would ever see it. The adaptive column list keeps a pre-030
+      // twin writable.
+      const withPoolId = await hasPoolIdColumn(db);
+      const poolIdCols = withPoolId ? ", poolId" : "";
+      const poolIdPlaceholders = withPoolId ? ", ?" : "";
+      const withPoolIdParams = (params) => (withPoolId ? [...params, r.poolId ?? null] : params);
       await tx.run(
-        `INSERT INTO usageHistory(id, timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo, reqId, upstreamId)
-         VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO usageHistory(id, timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo, reqId, upstreamId${poolIdCols})
+         VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${poolIdPlaceholders})
          ON DUPLICATE KEY UPDATE id = id`,
-        [
+        withPoolIdParams([
           r.id, r.timestamp, r.provider || "", r.model || "",
           r.connectionId || "", r.keyId || "", r.keyPrefix ?? null,
           r.endpoint ?? null, r.promptTokens ?? 0, r.completionTokens ?? 0,
@@ -63,7 +104,7 @@ export async function applyUsageBatch(rows) {
           r.statusClass ?? "", r.combo ?? null,
           // M6 §3 — carried verbatim from the primary's own read seam.
           r.reqId ?? null, r.upstreamId ?? null,
-        ]
+        ])
       );
     }
   });

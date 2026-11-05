@@ -13,25 +13,45 @@ import Button from "./Button";
 import { ConfirmModal } from "./Modal";
 import NineRemotePromoModal from "./NineRemotePromoModal";
 import UpdateNoticeModal from "./UpdateNoticeModal";
+// The proxy console's one door list — the rail renders the children of it rather
+// than a copy of its own (sealed plan §4 · W5; see PROXY_CHILDREN below).
+import { PROXY_DOORS } from "@/app/(dashboard)/dashboard/proxy/lib/proxyDoors";
 // const VISIBLE_MEDIA_KINDS = ["embedding", "image", "imageToText", "tts", "stt", "webSearch", "webFetch", "video", "music"];
 const VISIBLE_MEDIA_KINDS = ["embedding", "image", "video", "tts", "stt"];
 // Combined entry: webSearch + webFetch share one page at /dashboard/media-providers/web
 const COMBINED_WEB_ITEM = { id: "web", label: "Web Fetch & Search", icon: "travel_explore", href: "/dashboard/media-providers/web" };
-// The proxy console's four lenses. One subsystem, one nav entry, four doors into
-// it, the same shape Media Providers already uses.
-const PROXY_TABS = [
-  { id: "fleet", label: "Fleet", icon: "lan" },
-  { id: "fitness", label: "Fitness", icon: "monitor_heart" },
-  { id: "egress", label: "Egress", icon: "travel_explore" },
-  { id: "relay", label: "Relay", icon: "cloud_upload" },
-];
-// Children of the two disclosure rooms. Each keeps the icon the previous helm
-// gave it, so the glyph subset is never re-minted.
-const PROXY_CHILDREN = PROXY_TABS.map((lens) => ({
-  href: `/dashboard/proxy?tab=${lens.id}`,
-  label: lens.label,
-  icon: lens.icon,
+// The proxy console's seven lenses, plus its hub — eight real doors (sealed plan
+// §4 · W5). One subsystem, one nav entry, eight links into it, the same shape
+// Media Providers already uses.
+//
+// THE ADDRESSES COME FROM THE CONSOLE, NOT FROM HERE. `proxyDoors` is the one
+// list the hub's cards, the Usage page's "open the ledger" jump and this rail
+// all read; a second copy here is a second chance to disagree about a route.
+// This rail used to build `/dashboard/proxy?tab=<lens>` from a four-entry table
+// of its own — every one of those links took a redirect hop through `page.js`
+// to reach a page that already had an address, and the three new shores (Ledger,
+// Usage, Tools) had no door at all.
+//
+// THE HUB RIDES IN THIS LIST TOO, LAST, IN CONSOLE ORDER. `/dashboard/proxy`
+// redirects to `/dashboard/proxy/hub`, so the bare room is never a child's
+// address — linking it would keep the redirect hop this wave retires. The door
+// that owns the hub page is `PROXY_DOORS`'s final entry, so the rail renders the
+// hub LAST (that list's own note: "The hub does not list itself" — the hub page
+// omits its own card, the rail does not), not as a synthetic first link. The
+// room tile's own href stays `/dashboard/proxy`; the list is the hub's.
+//
+// ONE CLAIM PER CHILD, AND IT IS THE CHILD'S OWN ADDRESS. The lens `active` field
+// this file used to carry was a prefix claim — and a prefix claim on
+// `/dashboard/proxy` matches all eight children at once, so `aria-current="page"`
+// would stand on every lens tile at the same time. A child claims the address it
+// opens, nothing wider; the roster tile already claims the console.
+const PROXY_CHILDREN = PROXY_DOORS.map((door) => ({
+  href: door.href,
+  label: door.label,
+  icon: door.icon,
 }));
+// Children of the Media Providers disclosure room. Each keeps the icon the
+// previous helm gave it, so the glyph subset is never re-minted.
 const MEDIA_CHILDREN = [
   ...MEDIA_PROVIDER_KINDS.filter((kind) => VISIBLE_MEDIA_KINDS.includes(kind.id)).map((kind) => ({
     href: `/dashboard/media-providers/${kind.id}`,
@@ -936,7 +956,7 @@ function RoomTile({
               key={child.href}
               href={child.href}
               onClick={onNavigate}
-              aria-current={isActivePath(pathname, child.href) ? "page" : undefined}
+              aria-current={isActivePath(pathname, child.active || child.href) ? "page" : undefined}
               className="nav-sub-tile"
               style={{ "--i": Math.min(i, 8) }}
             >

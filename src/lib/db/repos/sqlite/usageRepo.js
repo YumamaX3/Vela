@@ -119,6 +119,39 @@ const RING_CAP = 50;
 const CONN_CACHE_TTL_MS = 30 * 1000;
 const PERIOD_MS = { "24h": 86400000, "7d": 604800000, "30d": 2592000000, "60d": 5184000000 };
 
+// ─── W2a · usageHistory.poolId presence (migration 030) ────────────────────
+// The write path must NEVER fail because the column is absent: a migrated DB
+// (or a test fixture built from a frozen pre-030 schema) gets the legacy INSERT
+// verbatim, exactly as it did the moment before the ALTER. The probe is cached
+// PER ADAPTER (WeakMap) — the parity harness holds two adapters at once and a
+// process-wide cache would let one answer for the other.
+const poolIdColumnCache = new WeakMap();
+const POOLID_PROBE_TTL_MS = 60_000;
+/** Runtime kill-switch for tests that hold a frozen pre-030 fixture: when set
+ *  it wins over the probe, so the legacy statement can be exercised against a
+ *  real migrated DB without mutating the live column list. */
+function forceLegacyForTests() {
+  return globalThis.__velaUsageLegacyInsert === true;
+}
+function hasPoolIdColumn(db) {
+  if (forceLegacyForTests()) return false;
+  const hit = poolIdColumnCache.get(db);
+  const now = Date.now();
+  if (hit && now - hit.ts < POOLID_PROBE_TTL_MS) return hit.value;
+  // A probe that THREW is not an answer — never cache it. Caching a failure
+  // would pin the legacy INSERT for 60s against an adapter that is fine
+  // (the scratch-adapter/parity harness hands over transient shapes), which is
+  // exactly the kind of silent 60s staleness a latency chart would blame on
+  // the network.
+  try {
+    const value = (db.all(`PRAGMA table_info(usageHistory)`) || []).some((c) => c.name === "poolId");
+    poolIdColumnCache.set(db, { value, ts: now });
+    return value;
+  } catch {
+    return false;
+  }
+}
+
 // In-memory state shared across Next.js modules
 if (!global._pendingRequests) global._pendingRequests = { byModel: {}, byAccount: {} };
 if (!global._lastErrorProvider) global._lastErrorProvider = { provider: "", ts: 0 };
@@ -407,11 +440,21 @@ export async function saveRequestUsage(entry) {
     // seven columns (a reqId is not part of the event identity), so this
     // column can never widen the dedupe.
     const voyage = getVoyage();
+    // W2a (plan §3.2.1) — the comma that was the wound. This INSERT gains ONE
+    // trailing column, never a second write: `poolId` is not part of
+    // uq_uh_dedupe's seven-column event identity (a retry of one request
+    // belongs to the same pool), so the dedupe is untouched. The legacy
+    // statement stands beside it for a DB that has not yet reached 030 — the
+    // write is never gated on the migration, only shaped by it.
+    const withPoolId = hasPoolIdColumn(db);
+    const poolIdCols = withPoolId ? ", poolId" : "";
+    const poolIdPlaceholders = withPoolId ? ", ?" : "";
+    const withPoolIdParams = (params) => (withPoolId ? [...params, entry.poolId || null] : params);
     db.transaction(() => {
       const res = db.run(
-        `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo, reqId, upstreamId) VALUES(?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, keyId, keyPrefix, endpoint, promptTokens, completionTokens, cost, status, tokens, meta, latencyMs, ttftMs, httpStatus, statusClass, combo, reqId, upstreamId${poolIdCols}) VALUES(?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${poolIdPlaceholders})
          ON CONFLICT(timestamp, provider, model, connectionId, keyId, promptTokens, completionTokens) DO NOTHING`,
-        [
+        withPoolIdParams([
           entry.timestamp, entry.provider || "", entry.model || "",
           entry.connectionId || "", entry.keyId || "", entry.keyPrefix || null,
           entry.endpoint || null,
@@ -421,7 +464,7 @@ export async function saveRequestUsage(entry) {
           entry.combo || null, // migration 015 — NULL = direct request
           voyage?.reqId ?? null, // M6 §3 — the voyage join key
           voyage?.upstreamId ?? null, // M6 §3 — this hop's own upstream id
-        ]
+        ])
       );
 
       if (!res || Number(res.changes ?? 0) === 0) {
@@ -1080,6 +1123,10 @@ import {
   statsHistorySumsImpl, // P5 — getUsageStats' SQL seams
   statsDimensionsImpl,
   statsMinuteRowsImpl,
+  poolAnalyticsImpl, // W2b — per-pool usage census (Proxy Console Separation)
+  poolProviderMapImpl, // W2b — provider labels for pool buckets
+  healthHistoryImpl, // W2b — per-pool outcome series (W2a's append table)
+  egressHistoryImpl, // W2b — per-pool egress ledger (W2a's append table)
 } from "../../usageAggregation.js";
 
 /** sqlite's JSON dialect for the two JSON-backed KPI expressions. */
@@ -1232,3 +1279,25 @@ export async function getComboUsage({ hours = 24, buckets = 24 } = {}) {
 
   return { hours, buckets, since, combos: Object.values(comboMap) };
 }
+
+// ─── W2b — the proxy console telemetry seams ────────────────────────────────
+export async function getPoolAnalytics(opts) {
+  return poolAnalyticsImpl(await getAdapter(), opts);
+}
+
+export async function getPoolProviderMap(opts = {}) {
+  return poolProviderMapImpl(await getAdapter(), { ...opts, repos: "./repos/sqlite" });
+}
+
+export async function getPoolHealthHistory(opts) {
+  return healthHistoryImpl(await getAdapter(), opts);
+}
+
+export async function getPoolEgressHistory(opts) {
+  return egressHistoryImpl(await getAdapter(), opts);
+}
+
+/** W2a test hook — drop the cached poolId column verdict for one adapter, so
+ *  a fixture can flip between the migrated and pre-030 shape without a fresh
+ *  process. Never used on a request path. */
+export const __test__ = { __resetPoolIdProbe: (db) => { poolIdColumnCache.delete(db); } };

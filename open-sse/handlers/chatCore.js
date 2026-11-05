@@ -723,9 +723,19 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     outboundGuardrail = await resolveGuardrail({ provider, model, chain: combo, apiKey, direction: "outbound" });
   } catch { /* fail-open */ }
 
+  // W2a (plan §3.2.1) — the pool THIS request actually rode. The credential
+  // resolved it at selection time; both names are read with the same `??`
+  // chain auth.js uses (the persisted binding on a raw row, the synthesized
+  // name on a credential). Never fabricated: no proxy lane → null, and the
+  // usage row then carries NULL, which the analytics seam reads as
+  // "unattributed" rather than a ''-bucket.
+  const poolId = credentials?.providerSpecificData?.proxyPoolId
+    ?? credentials?.providerSpecificData?.connectionProxyPoolId
+    ?? null;
+
   // Upstream HTTP status rides the success path (error paths return above and
   // never write usage — the dropped gateway_error stays unobserved by design).
-  const sharedCtx = { provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, rtk, httpStatus: providerResponse.status, reqTag, log, combo, guardrail: outboundGuardrail };
+  const sharedCtx = { provider, model, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, pxpipe: pxpipeSummary, rtk, httpStatus: providerResponse.status, reqTag, log, combo, guardrail: outboundGuardrail, poolId };
   const appendLog = (extra) => appendRequestLog({ model, provider, connectionId, ...extra }).catch(() => { });
   const trackDone = () => trackPendingRequest(model, provider, connectionId, false);
 

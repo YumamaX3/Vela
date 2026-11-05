@@ -473,7 +473,14 @@ async function selectConnection({ provider, providerId, excludeSet, preferredCon
  * @param {string|null} model - The specific model that triggered the error
  * @returns {{ shouldFallback: boolean, cooldownMs: number }}
  */
-export async function markAccountUnavailable(connectionId, status, errorText, provider = null, model = null, resetsAtMs = null) {
+/**
+ * @param {number|null} [latencyMs] - W2a: the MEASURED duration of the upstream
+ *   attempt that failed (callers pass `Date.now() - upstreamStartedAt`). Optional
+ *   and trailing so every existing caller is untouched; null/undefined stays
+ *   honest — recordOutcome skips the EWMA update and the health row keeps NULL
+ *   latency rather than inventing a number.
+ */
+export async function markAccountUnavailable(connectionId, status, errorText, provider = null, model = null, resetsAtMs = null, latencyMs = null) {
   if (!connectionId || connectionId === "noauth") return { shouldFallback: false, cooldownMs: 0 };
 
   // Fleet outcome signal — poolId read from the connection's OWN persisted data.
@@ -497,13 +504,13 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
   const poolId = conn?.providerSpecificData?.proxyPoolId
     ?? conn?.providerSpecificData?.connectionProxyPoolId;
   try {
-    // latencyMs omitted deliberately: no measured duration reaches this seam.
-    // The real timing lives in chatCore (nonStreamingHandler.js:323,
-    // streamingHandler.js:141) against a requestStartTime that never travels
-    // here. recordOutcome skips the EWMA update when latencyMs is undefined
-    // (proxyFleet.js:428), so omitting it is honest — inventing a number would
-    // poison the latency average with fiction.
-    await recordOutcome(poolId || "", provider || "", { ok: false });
+    // W2a (plan §3.2.3) — latencyMs now TRAVELS here when the caller measured
+    // it (chat.js passes `Date.now() - upstreamStartedAt`). Threading the real
+    // number is what stops latencyEwmaMs being NULL on the success path; when
+    // it is absent (this seam had no clock) it stays undefined and recordOutcome
+    // skips the EWMA update — inventing a number would poison the average with
+    // fiction, and that law has not moved.
+    await recordOutcome(poolId || "", provider || "", { ok: false, latencyMs });
   } catch { /* fire-and-forget: never break login */ }
 
   const backoffLevel = conn?.backoffLevel || 0;
@@ -627,7 +634,10 @@ export async function markAccountUnavailable(connectionId, status, errorText, pr
  * @param {object} currentConnection - credentials object (has _connection) or raw connection
  * @param {string|null} model - model that succeeded
  */
-export async function clearAccountError(connectionId, currentConnection, model = null, requestStart = null) {
+/** @param {number|null} [latencyMs] - W2a: the measured duration of the
+ *  successful attempt (see markAccountUnavailable's identical note). Trailing
+ *  and optional: every existing caller keeps its exact behavior. */
+export async function clearAccountError(connectionId, currentConnection, model = null, requestStart = null, latencyMs = null) {
   // Fleet outcome signal — hoisted ABOVE the guard below.
   //
   // v0.9.42: this signal used to sit after `if (!connectionId ||
@@ -650,7 +660,7 @@ export async function clearAccountError(connectionId, currentConnection, model =
     // the wrong fitness key. `provider` is a real indexed column on
     // providerConnections (schema.js:37), so the raw row carries it, and the
     // virtual credential now stamps it at birth.
-    await recordOutcome(poolId || "", conn?.provider || "", { ok: true });
+    await recordOutcome(poolId || "", conn?.provider || "", { ok: true, latencyMs });
   } catch { /* fire-and-forget: never break login */ }
 
   // zcode-plan (G2/G11): a clean 200 between two WAF strikes resets the

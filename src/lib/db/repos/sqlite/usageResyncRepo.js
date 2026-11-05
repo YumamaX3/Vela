@@ -78,11 +78,21 @@ export async function setUsageWatermark(id) {
  */
 export async function fetchUsageBatch(afterId, batchSize) {
   const db = await getAdapter();
+  // W2a (migration 030): `poolId` rides the batch. A DB that has not reached
+  // 030 has no column to select — the batch then carries rows WITHOUT the key
+  // and applyUsageBatch's own adaptive INSERT (mysql twin) leaves the twin's
+  // column NULL, exactly as the primary's column does not yet exist.
+  let hasPoolId = false;
+  try {
+    hasPoolId = (db.all(`PRAGMA table_info(usageHistory)`) || []).some((c) => c.name === "poolId");
+  } catch {
+    hasPoolId = false;
+  }
   return db.all(
     `SELECT id, timestamp, provider, model, connectionId, keyId, keyPrefix,
             endpoint, promptTokens, completionTokens, cost, status, tokens, meta,
             latencyMs, ttftMs, httpStatus, statusClass, combo,
-            reqId, upstreamId
+            reqId, upstreamId${hasPoolId ? ", poolId" : ""}
      FROM usageHistory WHERE id > ? ORDER BY id ASC LIMIT ?`,
     [afterId, batchSize]
   );

@@ -98,7 +98,11 @@ describe("combo column presence — the INSERT contracts", () => {
     // column-list pin names the whole tail — the case still proves combo is
     // present, and now also that the voyage keys ride the same INSERT rather
     // than a second write that could diverge from the dedupe identity.
-    expect(src).toContain("statusClass, combo, reqId, upstreamId)");
+    // W2a (migration 030) appends a CONDITIONAL `poolId` column after the tail
+    // (`${poolIdCols}`), so the tail is no longer a literal `…upstreamId)`. The
+    // pin still proves the same four columns ride ONE INSERT in order; it no
+    // longer demands the closing paren be glued to upstreamId.
+    expect(src).toMatch(/statusClass, combo, reqId, upstreamId[)\$]/);
     expect(src).toContain("entry.combo || null");
     expect(src).toContain("voyage?.reqId ?? null");
     expect(src).toContain("voyage?.upstreamId ?? null");
@@ -115,7 +119,7 @@ describe("combo column presence — the INSERT contracts", () => {
     const fs = await import("node:fs");
     const usage = fs.readFileSync(new URL("../../src/lib/db/repos/mysql/usageRepo.js", import.meta.url), "utf8");
     const details = fs.readFileSync(new URL("../../src/lib/db/repos/mysql/requestDetailsRepo.js", import.meta.url), "utf8");
-    expect(usage).toContain("statusClass, combo, reqId, upstreamId)");
+    expect(usage).toMatch(/statusClass, combo, reqId, upstreamId[)\$]/);
     expect(usage).toContain("entry.combo || null");
     expect(usage).toContain("voyage?.reqId ?? null");
     expect(usage).toContain("voyage?.upstreamId ?? null");

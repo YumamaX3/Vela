@@ -1,11 +1,11 @@
 "use client";
-// FitnessTab — the block ledger: every (pool, provider) pair whose unfit window is
-// still open, one row each, with a per-row Clear and a Clear All. A block means
-// "this provider is refusing this pool's egress right now" (a region gate, a per-IP
-// cap, an idle mark); smart rotation skips the pair while the window is open and
-// picking re-admits it when the window closes.
+// FitnessTab — the block ledger, on its own route (`/proxy/fitness`, §4 · W3):
+// every (pool, provider) pair whose unfit window is still open, one row each, with a
+// per-row Clear and a Clear All. A block means "this provider is refusing this pool's
+// egress right now" (a region gate, a per-IP cap, an idle mark); smart rotation skips
+// the pair while the window is open and picking re-admits it when the window closes.
 //
-// The geo-probe toggle lives here rather than on the Fleet lens because it is a
+// The geo-probe toggle lives here rather than on the Pools page because it is a
 // fleet-wide probe setting, not a per-pool control — and it is the switch that makes
 // the Egress lens' numbers appear at all. Turning it off is stated as costing
 // nothing: the ledger keeps working, it just stops refreshing egress.

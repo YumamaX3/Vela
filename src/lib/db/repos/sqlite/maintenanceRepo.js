@@ -89,6 +89,12 @@ export async function pruneUsage({ days, dryRun = false } = {}) {
     try {
       db.run(`DELETE FROM usageDaily WHERE dateKey < ?`, [cutoff.slice(0, 10)]);
     } catch { /* usageDaily shape varies by migration level */ }
+    // W2a (plan R4) — the telemetry seams ride the operator's OWN retention
+    // choice (this sweep's `days`), not a hidden constant: the cockpit's prune
+    // is the most explicit retention signal the harbour receives.
+    for (const table of ["proxyPoolHealthHistory", "proxyPoolEgressHistory"]) {
+      try { db.run(`DELETE FROM ${table} WHERE createdAt < ?`, [cutoff]); } catch { /* pre-030 harbor */ }
+    }
   }
 
   return {

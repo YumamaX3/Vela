@@ -320,3 +320,71 @@ describe("a tile shows a number only when the pulse carries an honest one", () =
     expect(chipText("Log Harbor")).toBe("7");
   });
 });
+
+/**
+ * ── The Proxy room's doors — the eight-shore pin (sealed plan §4 · W5) ────────
+ *
+ * The console became eight shores on 2026-11-04 (seven lenses + the hub), but
+ * the rail kept a four-entry table of its own and built `?tab=` links from it —
+ * every one a redirect hop to a page that already had an address, and the three
+ * new shores (Ledger, Usage, Tools) had no door at all. A surface that is never
+ * asserted is a surface that drifts; this block pins the door list to the
+ * console's own table so the next separation cannot leave the rail behind.
+ */
+describe("the Proxy room carries every console door, and lights exactly the one you stand in", () => {
+  const childLinks = () => [...container.querySelectorAll(".nav-sub-tile")];
+  const currentChildren = () =>
+    childLinks().filter((a) => a.getAttribute("aria-current") === "page").map((a) => a.getAttribute("href"));
+  const openProxy = async () => {
+    currentPath = "/dashboard/proxy";
+    await commit();
+  };
+
+  it("renders the hub and all seven lenses as real routes, never as ?tab= hops", async () => {
+    await openProxy();
+    const hrefs = childLinks().map((a) => a.getAttribute("href"));
+    // Console order, hub last. `PROXY_DOORS` lists the seven lenses and closes
+    // with the hub (its own comment: "The hub does not list itself"), and the
+    // rail renders that list in order rather than re-sorting it — one order, one
+    // source. Set equality below is what matters; the sort only pins the count.
+    expect([...hrefs].sort()).toEqual([
+      "/dashboard/proxy/hub",
+      "/dashboard/proxy/pools",
+      "/dashboard/proxy/fitness",
+      "/dashboard/proxy/egress",
+      "/dashboard/proxy/relay",
+      "/dashboard/proxy/ledger",
+      "/dashboard/proxy/usage",
+      "/dashboard/proxy/tools",
+    ].sort());
+    expect(hrefs.every((h) => !h.includes("?tab="))).toBe(true);
+  });
+
+  it("lights exactly one child per route — one page claim, never eight at once", async () => {
+    const routes = [
+      ["/dashboard/proxy/hub", "/dashboard/proxy/hub"],
+      ["/dashboard/proxy/pools", "/dashboard/proxy/pools"],
+      ["/dashboard/proxy/ledger", "/dashboard/proxy/ledger"],
+      ["/dashboard/proxy/tools", "/dashboard/proxy/tools"],
+    ];
+    for (const [route, lit] of routes) {
+      currentPath = route;
+      await commit();
+      expect(currentChildren(), `claims on ${route}`).toEqual([lit]);
+    }
+  });
+
+  it("a door is a real Link, not a redirect stand-in", async () => {
+    // A child door is a next/link target the router navigates; nothing in the
+    // rail pushes for it. So the proof is the ADDRESS it carries — a `?tab=`
+    // href was the stand-in this wave retired, and it can never carry a
+    // `aria-current` of its own because no route equals it. Asserting pushCalls
+    // here would be the harness answering its own question.
+    await openProxy();
+    const usage = childLinks().find((a) => a.getAttribute("href") === "/dashboard/proxy/usage");
+    expect(usage).toBeTruthy();
+    expect(usage.getAttribute("href")).toBe("/dashboard/proxy/usage");
+    expect(usage.getAttribute("href")).not.toContain("?tab=");
+    expect(pushCalls).toEqual([]);
+  });
+});

@@ -530,8 +530,16 @@ export async function purgeOldUsage({ retentionDays = Number(process.env.VELA_US
     detailsRemoved += n;
     if (n < BATCH) break;
   }
+  // W2a (plan R4) — the twin prunes the telemetry seams on the same schedule.
+  let telemetryRemoved = 0;
+  for (const table of ["proxyPoolHealthHistory", "proxyPoolEgressHistory"]) {
+    try {
+      const r = await db.run(`DELETE FROM ${table} WHERE createdAt < ? LIMIT ?`, [cutoff, BATCH]);
+      telemetryRemoved += r?.changes ?? 0;
+    } catch { /* table absent on a pre-030 harbor */ }
+  }
   await writeLedger("purge", {
-    meta: { retentionDays: days, cutoff, usageHistory: usageRemoved, requestDetails: detailsRemoved },
+    meta: { retentionDays: days, cutoff, usageHistory: usageRemoved, requestDetails: detailsRemoved, telemetry: telemetryRemoved },
   });
   return { purged: true, usageHistory: usageRemoved, requestDetails: detailsRemoved };
 }

@@ -1,7 +1,8 @@
 "use client";
-// FleetTab — the pool CRUD lens: create, edit, test, toggle, delete, batch import,
-// and the bulk sweep. It reads and mutates through the shared controller (`c`), so
-// a change here is visible to every other lens on the next render.
+// FleetTab — the pool CRUD lens, on its own route (`/proxy/pools`, §4 · W3):
+// create, edit, test, toggle, delete, batch import, and the bulk sweep. It reads and
+// mutates through the shared controller (`c`), so a change here is visible to every
+// other lens on the next render.
 //
 // ── DEFECT 1 (fixed here): the sweep is ONE request ───────────────────────────
 // `handleHealthCheck` used to fan out N client calls to `/api/proxy-pools/[id]/test`

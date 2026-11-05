@@ -4,7 +4,6 @@
  */
 import * as log from "@/sse/utils/logger.js";
 import { NextResponse } from "next/server";
-import { getProxyPoolById } from "@/lib/localDb";
 import fleet from "@/lib/network/proxyFleet.js"; // Fleet Captain for probe execution
 
 export async function POST(request, { params }) {

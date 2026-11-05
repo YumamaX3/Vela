@@ -98,7 +98,7 @@ export function formatDoneLine({ usage, latency }) {
   return `DONE ${fmtDur(latency?.total ?? 0)}${ttftStr} · ${inStr} · OUT ${fmtTok(outTok)}`;
 }
 
-export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, endpoint, combo = null, label = "USAGE", silent = false, latencyMs = null, ttftMs = null, httpStatus = null, rtk = null }) {
+export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, endpoint, combo = null, label = "USAGE", silent = false, latencyMs = null, ttftMs = null, httpStatus = null, rtk = null, poolId = null }) {
   if (!tokens || typeof tokens !== "object") return;
 
   const inTokens = tokens.input_tokens ?? tokens.prompt_tokens ?? 0;
@@ -132,6 +132,13 @@ export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, 
     apiKey: apiKey || undefined,
     endpoint: endpoint || null,
     combo: combo || null,
+    // W2a (plan §3.2.1) — the request→pool wire. The route context resolved
+    // this pool long before the response completed (chatCore's credential
+    // carries `providerSpecificData.connectionProxyPoolId`); it rides THIS
+    // INSERT as one more column. Absent (local/no-proxy callers that never
+    // fill it) writes NULL — the honest "unattributed" reading the analytics
+    // seam excludes by construction, never a fabricated ''-bucket.
+    poolId: poolId || null,
     latencyMs, ttftMs, httpStatus, rtk
   // Storage Covenant — a failed usage write must be AUDIBLE. The old
   // `.catch(() => {})` swallowed every rejection with no log, no counter and

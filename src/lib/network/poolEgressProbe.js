@@ -16,6 +16,12 @@ import { getProxyPools } from "@/models";
 import { getSettings } from "@/lib/localDb";
 import { proxyAwareFetch } from "open-sse/utils/proxyFetch.js";
 import { getPoolGeo, setPoolGeo, POOL_GEO_TTL_MS } from "./poolGeo.js";
+// W2a (plan §3.2.2/§3.2.3) — the persisted egress ledger. This probe is the
+// ONE place a fresh country is learned, so it is the only writer; the write is
+// fail-open (a DB hiccup must never break a sweep) and rides openStoreAdapter,
+// the harbour's single doorway.
+import { openStoreAdapter } from "@/lib/db/index.js";
+import { appendEgressHistoryRow } from "@/lib/db/repos/proxyEgressHistoryRepo.js";
 import * as log from "@/sse/utils/logger.js";
 
 const PROBE_INTERVAL_MS = 30 * 60 * 1000;
@@ -127,6 +133,14 @@ async function probeAll() {
             continue;
           }
           setPoolGeo(pool.id, result);
+          // W2a — persist the observation (deduped against the pool's last
+          // known IP, so a steady egress is one fact, not thirty samples/hour).
+          try {
+            const db = await openStoreAdapter();
+            await appendEgressHistoryRow(db, { poolId: pool.id, ip: result.ip, country: result.country || "" });
+          } catch (err) {
+            log.debug("PROXY", "[poolEgressProbe] egress ledger append skipped:", err.message);
+          }
           probeBackoff.delete(pool.id);
         } catch {
           // Per-pool failure must never break the sweep.

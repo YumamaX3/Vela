@@ -1,9 +1,15 @@
 // @vitest-environment happy-dom
 /**
- * The Proxy console — structural surface contracts (v0.9.75).
+ * The Proxy family — structural surface contracts (v0.9.75; retargeted by W3).
  *
- * This suite guards the shape of the merged console: four lenses over one fleet,
- * and the two defects the merge was required to fix.
+ * The console was ONE page with four tabs. The separation (sealed plan
+ * 2026-11-04-proxy-console-separation §3.1/§4) gave each lens its own route, and this
+ * suite followed the subject onto the page that now owns it: the shell assertions
+ * render `PoolsClient` (the page the Fleet lens lives on), and each lens's copies
+ * render its own client. The two defects the merge was required to fix are unchanged
+ * and still proved HERE, on the page a navigator can now reach by URL — a separation
+ * that quietly dropped them would be a regression of the very thing the merge existed
+ * to close.
  *
  * ── DEFECT 1: the sweep is ONE request, not N ───────────────────────────────
  * `proxy-pools/page.js` swept health by fanning out one `/api/proxy-pools/[id]/test`
@@ -31,7 +37,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import ProxyConsoleClient from "@/app/(dashboard)/dashboard/proxy/ProxyConsoleClient";
+import PoolsClient from "@/app/(dashboard)/dashboard/proxy/pools/PoolsClient";
+import FitnessClient from "@/app/(dashboard)/dashboard/proxy/fitness/FitnessClient";
+import EgressClient from "@/app/(dashboard)/dashboard/proxy/egress/EgressClient";
+import RelayClient from "@/app/(dashboard)/dashboard/proxy/relay/RelayClient";
+import HubClient from "@/app/(dashboard)/dashboard/proxy/hub/HubClient";
+import { resetProxyFleetStore } from "@/app/(dashboard)/dashboard/proxy/stores/proxyFleetStore";
 import { runBulkHealth } from "@/app/(dashboard)/dashboard/proxy/lib/proxyApi";
 import {
   VERDICT,
@@ -91,16 +102,39 @@ const ENGINE_RESULT = {
   ],
 };
 
+let POOLS_REFUSED = false;
 let fetchMock;
 function installFetch({ engineResult = ENGINE_RESULT } = {}) {
   fetchMock = vi.fn().mockImplementation((url, init = {}) => {
     const u = String(url);
     const method = (init.method || "GET").toUpperCase();
+    // The refusal is scoped to the POOLS read on purpose: fitness and settings are
+    // separate reads, and a failure that took the whole fetch down could not tell a
+    // load error from a broken mock.
+    if (POOLS_REFUSED && u.startsWith("/api/proxy-pools?")) {
+      return Promise.resolve({ ok: false, status: 500, json: async () => ({ error: "db down" }) });
+    }
     if (u.includes("/api/proxy-pools/bulk-health")) {
       return Promise.resolve({ ok: true, status: 200, json: async () => engineResult });
     }
     if (u.includes("/api/proxy-pools/fitness")) {
       return Promise.resolve({ ok: true, status: 200, json: async () => ({ fitness: { pools: RECORDS }, geo: GEO }) });
+    }
+    // W4 — the hub's recent-routes card reads the routing ledger. A route is
+    // modelled so the card renders its table, not its honest empty state; a
+    // halt reason rides the second one so the failure copy is exercised too.
+    if (u.includes("/api/proxy-pools/routing-ledger")) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          routes: [
+            { seq: 2, ts: Date.now(), providerId: "freebuff", model: "m-1", poolId: "alive-one", strategy: "smart", ok: true, haltReason: null, ms: 120, spans: ["pick", "connect"] },
+            { seq: 1, ts: Date.now() - 1000, providerId: "codex", model: "m-2", poolId: "dead-one", strategy: "smart", ok: false, haltReason: "connect_refused", ms: 30, spans: [{ stage: "connect", decision: "halt", detail: "ECONNREFUSED", ms: 30 }] },
+          ],
+          health: { freebuff: { score: 96.5, samples: 20 }, codex: { score: 71.4, samples: 14 } },
+        }),
+      });
     }
     if (u.includes("/api/settings")) {
       return Promise.resolve({ ok: true, status: 200, json: async () => ({ poolGeoProbeEnabled: true }) });
@@ -138,24 +172,16 @@ function selectAllCheckbox(container) {
   if (!cb) throw new Error("no Select all checkbox");
   return cb;
 }
-function tab(container, id) {
-  return container.querySelector(`[role="tab"]#tab-${id}`);
-}
-
 beforeEach(() => {
+  // The fleet store outlives its subscribers BY DESIGN (that is the separation's
+  // premise), and happy-dom shares one module graph across this file — so a store
+  // loaded by one test would answer the next one from memory and the refusal test
+  // could never see a fetch. Each test starts from a cold store.
+  resetProxyFleetStore();
+  POOLS_REFUSED = false;
   // The console remembers its lens in BOTH localStorage and the URL (`?tab=`), and
   // happy-dom shares one `window` across the tests in this file. A previous test's
   // tab switch must not decide which lens the next one lands on, so both are reset.
-  try {
-    window.localStorage.removeItem("vela.proxy.tab");
-  } catch {
-    /* storage unavailable */
-  }
-  try {
-    window.history.replaceState(null, "", "/dashboard/proxy");
-  } catch {
-    /* history unavailable */
-  }
 });
 
 afterEach(() => {
@@ -215,29 +241,25 @@ describe("runBulkHealth — one POST to the engine, never a fan-out", () => {
   });
 });
 
-// ── the shell: four lenses over one fleet ─────────────────────────────────────
-describe("the console shell — census + four tabpanel lenses", () => {
-  it("renders one tablist with exactly the four lens ids", async () => {
+// ── the four shores: one page each, the census above every one of them ────────
+describe("the separated shores — each lens on its own page, over one census", () => {
+  it("the Pools page renders the fleet lens, not a tab bar", async () => {
     installFetch();
-    const { container } = render(<ProxyConsoleClient />);
+    const { container } = render(<PoolsClient />);
     await flush();
-    const tabs = [...container.querySelectorAll('[role="tab"]')].map((t) => t.id);
-    expect(tabs).toEqual(["tab-fleet", "tab-fitness", "tab-egress", "tab-relay"]);
-    expect(container.querySelector('[role="tablist"]')).toBeTruthy();
+    // The console's tablist is GONE: a subject is chosen by navigating, not by a flip.
+    expect(container.querySelector('[role="tablist"]')).toBeNull();
+    expect(container.querySelector('[role="tabpanel"]')).toBeNull();
+    // The room is still the Fleet lens' room: the sweep and the create control.
+    expect(container.textContent).toContain("Health Check");
+    expect(container.textContent).toContain("Add Proxy Pool");
   });
-  it("renders a single role=tabpanel whose id follows the active tab", async () => {
+  it("Fitness renders the census strip with the three-verdict counts", async () => {
+    // The census follows the SUBJECT: Pools owns the pool list (its own badges already
+    // carry the three verdicts), Fitness owns the block ledger, so the strip lives on
+    // Fitness — the page whose "blocked pairs" number is its actual punchline.
     installFetch();
-    const { container } = render(<ProxyConsoleClient />);
-    await flush();
-    const panel = container.querySelector('[role="tabpanel"]');
-    expect(panel).toBeTruthy();
-    expect(panel.id).toBe("panel-fleet");
-    expect(panel.getAttribute("aria-labelledby")).toBe("tab-fleet");
-    expect(container.querySelectorAll('[role="tabpanel"]').length).toBe(1);
-  });
-  it("shows the census strip with the three-verdict counts", async () => {
-    installFetch();
-    const { container } = render(<ProxyConsoleClient />);
+    const { container } = render(<FitnessClient />);
     await flush();
     const text = container.textContent;
     expect(text).toContain("Pools");
@@ -247,21 +269,61 @@ describe("the console shell — census + four tabpanel lenses", () => {
     expect(text).toContain("unknown, left active");
     expect(text).toContain("Blocked pairs");
   });
-  it("switches lenses on tab click — Fitness shows the block ledger", async () => {
+  // W4 widens the hub from four doors to eight (sealed plan §1: "links to every
+  // lens"). The pin moves WITH the doors, never after: the eight door hrefs are
+  // the exact set, in console order, and the hub's own route is not among them
+  // (a door to itself is not a door). The ledger jump in the recent-routes card
+  // is asserted separately so it cannot be mistaken for a door.
+  it("the hub carries the same census and links all eight doors", async () => {
     installFetch();
-    const { container } = render(<ProxyConsoleClient />);
+    const { container } = render(<HubClient />);
     await flush();
-    act(() => tab(container, "fitness").click());
+    const hrefs = [...container.querySelectorAll('a[href^="/dashboard/proxy/"]')].map((a) => a.getAttribute("href"));
+    // The recent-routes card's jump to the Ledger carries the ledger href too, so
+    // compare the DISTINCT hrefs as a set — and then prove the door grid itself is
+    // in console order, which the set alone cannot show.
+    const distinct = [...new Set(hrefs)];
+    expect(distinct.sort()).toEqual(
+      [
+        "/dashboard/proxy/pools",
+        "/dashboard/proxy/fitness",
+        "/dashboard/proxy/egress",
+        "/dashboard/proxy/relay",
+        "/dashboard/proxy/ledger",
+        "/dashboard/proxy/usage",
+        "/dashboard/proxy/tools",
+      ].sort()
+    );
+    // The door grid is the link set inside the "Every lens" section; its hrefs are
+    // in console order. Anchoring on the section (not on copy) keeps this stable
+    // when a blurb is reworded.
+    const lensSection = [...container.querySelectorAll("section")].find((s) => (s.textContent || "").includes("Every lens"));
+    const grid = [...lensSection.querySelectorAll("a[href^='/dashboard/proxy/']")];
+    expect(grid.map((a) => a.getAttribute("href"))).toEqual([
+      "/dashboard/proxy/pools",
+      "/dashboard/proxy/fitness",
+      "/dashboard/proxy/egress",
+      "/dashboard/proxy/relay",
+      "/dashboard/proxy/ledger",
+      "/dashboard/proxy/usage",
+      "/dashboard/proxy/tools",
+    ]);
+    // The recent-routes card's jump to the Ledger is a deep link, not a door.
+    expect(hrefs).toContain("/dashboard/proxy/ledger");
+    // The hub reads the same arithmetic; indeterminate is a named number here too.
+    expect(container.textContent).toContain("Indeterminate");
+    expect(container.textContent).toContain("unknown, left active");
+  });
+  it("Fitness page shows the block ledger", async () => {
+    installFetch();
+    const { container } = render(<FitnessClient />);
     await flush();
     expect(container.textContent).toContain("Block ledger");
     expect(container.textContent).toContain("freebuff");
-    expect(container.querySelector('[role="tabpanel"]').id).toBe("panel-fitness");
   });
-  it("Egress lens (new) shows per-pool IP, country, stability and history", async () => {
+  it("Egress page shows per-pool IP, country, stability and history", async () => {
     installFetch();
-    const { container } = render(<ProxyConsoleClient />);
-    await flush();
-    act(() => tab(container, "egress").click());
+    const { container } = render(<EgressClient />);
     await flush();
     const text = container.textContent;
     expect(text).toContain("Egress ledger");
@@ -272,11 +334,9 @@ describe("the console shell — census + four tabpanel lenses", () => {
     expect(text).toContain("IP history");
     expect(text).toContain("8.8.8.8"); // a prior IP from the history
   });
-  it("Relay lens (new) shows all three platforms as first-class rows", async () => {
+  it("Relay page shows all three platforms as first-class rows", async () => {
     installFetch();
-    const { container } = render(<ProxyConsoleClient />);
-    await flush();
-    act(() => tab(container, "relay").click());
+    const { container } = render(<RelayClient />);
     await flush();
     const text = container.textContent;
     expect(text).toContain("Edge relays");
@@ -287,10 +347,20 @@ describe("the console shell — census + four tabpanel lenses", () => {
     expect(text).toContain("Vercel Relay 1");
     expect(text).toContain("relay-v.vercel.app");
   });
+  it("a failed load shows the banner and still renders the room and its doors", async () => {
+    // The load refuses; the page must NOT vanish. An error banner sits above a room
+    // that still links onward — a dead door is worse than an honest banner.
+    POOLS_REFUSED = true;
+    installFetch();
+    const { container } = render(<HubClient />);
+    await flush();
+    expect(container.textContent).toMatch(/db down|Failed/i);
+    expect(container.querySelector('a[href="/dashboard/proxy/pools"]')).toBeTruthy();
+  });
 });
 
 // ── Defect 1 + Defect 2, proved through the real FleetTab ─────────────────────
-describe("FleetTab health sweep — one bulk-health call, three-verdict honesty", () => {
+describe("FleetTab health sweep, on the Pools page — one call, three verdicts", () => {
   async function openSweep(container) {
     act(() => selectAllCheckbox(container).click());
     await flush();
@@ -301,7 +371,7 @@ describe("FleetTab health sweep — one bulk-health call, three-verdict honesty"
 
   it("POSTs bulk-health once and never the per-pool /test route", async () => {
     installFetch();
-    const { container } = render(<ProxyConsoleClient />);
+    const { container } = render(<PoolsClient />);
     await flush();
     await openSweep(container);
 
@@ -314,7 +384,7 @@ describe("FleetTab health sweep — one bulk-health call, three-verdict honesty"
 
   it("reports all three verdicts in the disable dialog's copy", async () => {
     installFetch();
-    const { container } = render(<ProxyConsoleClient />);
+    const { container } = render(<PoolsClient />);
     await flush();
     await openSweep(container);
 
@@ -333,7 +403,7 @@ describe("FleetTab health sweep — one bulk-health call, three-verdict honesty"
 
   it("disabling on confirm touches ONLY the proven-dead pool, never the indeterminate one", async () => {
     installFetch();
-    const { container } = render(<ProxyConsoleClient />);
+    const { container } = render(<PoolsClient />);
     await flush();
     await openSweep(container);
 
@@ -354,36 +424,82 @@ describe("FleetTab health sweep — one bulk-health call, three-verdict honesty"
   });
 });
 
-// ── the old pages survive as redirects ────────────────────────────────────────
-describe("the two old pages redirect into the console", () => {
-  it("proxy-pools/page.js redirects to the fleet lens", () => {
+// ── the redirect law (§3.1) ───────────────────────────────────────────────────
+describe("the old addresses land on the new routes", () => {
+  it("proxy-pools/page.js redirects to the pools route", () => {
     const src = readSrc("src/app/(dashboard)/dashboard/proxy-pools/page.js");
     expect(src).toContain('from "next/navigation"');
-    expect(src).toContain('redirect("/dashboard/proxy?tab=fleet")');
+    expect(src).toContain('redirect("/dashboard/proxy/pools")');
     // The old page body is gone — this is a redirect, not a page that also renders.
     expect(src).not.toContain("useState");
   });
-  it("proxy-fitness/page.js redirects to the fitness lens", () => {
+  it("proxy-fitness/page.js redirects to the fitness route", () => {
     const src = readSrc("src/app/(dashboard)/dashboard/proxy-fitness/page.js");
     expect(src).toContain('from "next/navigation"');
-    expect(src).toContain('redirect("/dashboard/proxy?tab=fitness")');
+    expect(src).toContain('redirect("/dashboard/proxy/fitness")');
     expect(src).not.toContain("useState");
+  });
+  it("the integrated console's ?tab= links land on the four routes, unknown goes hub", () => {
+    const src = readSrc("src/app/(dashboard)/dashboard/proxy/page.js");
+    for (const [tab, route] of [
+      ["fleet", "/dashboard/proxy/pools"],
+      ["fitness", "/dashboard/proxy/fitness"],
+      ["egress", "/dashboard/proxy/egress"],
+      ["relay", "/dashboard/proxy/relay"],
+    ]) {
+      expect(src).toMatch(new RegExp(`${tab}:\\s*"${route}"`));
+    }
+    expect(src).toContain('"/dashboard/proxy/hub"');
+    expect(src).toContain('from "next/navigation"');
+    // The console itself is a redirect now — no client, no tabs, no state.
+    expect(src).not.toContain('"use client"');
+  });
+  it("the old console page is gone, not merely orphaned", () => {
+    // A fifth copy of the four lenses would drift; the separation deletes it.
+    expect(() => readSrc("src/app/(dashboard)/dashboard/proxy/ProxyConsoleClient.js")).toThrow();
   });
 });
 
-// ── the shell's own structural contract ───────────────────────────────────────
-describe("the shell names its four lenses and wires one tabpanel", () => {
-  const SRC = readSrc("src/app/(dashboard)/dashboard/proxy/ProxyConsoleClient.js");
-  it("declares exactly the four tab ids", () => {
-    expect(SRC).toMatch(/TAB_IDS\s*=\s*\["fleet",\s*"fitness",\s*"egress",\s*"relay"\]/);
-  });
-  it("uses the shared TabBar and a role=tabpanel panel", () => {
-    expect(SRC).toContain('from "@/shared/components/TabBar"');
-    expect(SRC).toContain('role="tabpanel"');
-  });
-  it("renders the census strip and all four lens components", () => {
-    for (const name of ["ProxyCensus", "FleetTab", "FitnessTab", "EgressTab", "RelayTab"]) {
-      expect(SRC).toContain(name);
+// ── each shore's own structural contract ──────────────────────────────────────
+describe("each shore is a page over the shared facade, not a tab", () => {
+  const SHORES = [
+    ["pools/PoolsClient.js", "FleetTab", "lan"],
+    ["fitness/FitnessClient.js", "FitnessTab", "monitor_heart"],
+    ["egress/EgressClient.js", "EgressTab", "travel_explore"],
+    ["relay/RelayClient.js", "RelayTab", "cloud_upload"],
+  ];
+  for (const [rel, lens, icon] of SHORES) {
+    it(`${rel} binds the facade to ${lens} under the room's masthead`, () => {
+      const SRC = readSrc(`src/app/(dashboard)/dashboard/proxy/${rel}`);
+      expect(SRC).toContain("useProxyFleet");
+      expect(SRC).toContain(lens);
+      expect(SRC).toContain(icon);
+      // The frame owns error + skeleton; the shore hands its error through.
+      expect(SRC).toContain("ProxyShore");
+      expect(SRC).toMatch(/error=\{c\.error\}/);
+    });
+  }
+  it("every shore is reached by a route, and every client is a client component", () => {
+    for (const [rel] of SHORES) {
+      const SRC = readSrc(`src/app/(dashboard)/dashboard/proxy/${rel}`);
+      expect(SRC.startsWith('"use client"')).toBe(true);
+      const route = rel.split("/")[0];
+      const PAGE = readSrc(`src/app/(dashboard)/dashboard/proxy/${route}/page.js`);
+      expect(PAGE).toContain(rel.split("/")[1].replace(".js", ""));
     }
+    // The hub has a route of its own too — /dashboard/proxy resolves to it.
+    expect(readSrc("src/app/(dashboard)/dashboard/proxy/hub/page.js")).toContain("HubClient");
+  });
+  it("the shared frame does not mount the facade or own the census", () => {
+    // Code, not prose: the frame's own header discusses what it declines to do, so a
+    // whole-file grep would fire on the explanation. Strip the comments first.
+    const SRC = readSrc("src/app/(dashboard)/dashboard/proxy/components/ProxyShore.js")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    expect(SRC).not.toContain("useProxyFleet");
+    expect(SRC).not.toContain("ProxyCensus");
+    expect(SRC).not.toContain("hooks/");
+    // It renders the room on error rather than gating it away.
+    expect(SRC).toContain("onRetry");
   });
 });

@@ -12,4 +12,9 @@ export {
   getHealthTimeline, // Usage Observatory W4-D — provider health timeline strips
   // v0.9.40 — per-combo attribution aggregation (migration 015)
   getComboUsage,
+  // Proxy Console Separation W2b — the proxy telemetry seams (both harbors).
+  getPoolAnalytics,     // per-pool usage census (analytics route)
+  getPoolProviderMap,   // provider labels for the pool buckets
+  getPoolHealthHistory, // per-pool outcome series (health-history route)
+  getPoolEgressHistory, // per-pool egress ledger (egress-history route)
 } from "@/lib/db/index.js";

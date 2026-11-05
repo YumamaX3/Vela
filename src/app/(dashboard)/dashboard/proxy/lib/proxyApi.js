@@ -152,3 +152,65 @@ export const DEPLOYERS = Object.freeze({
   cloudflare: deployCloudflare,
   deno: deployDeno,
 });
+
+// ── the telemetry seams (§3.2 · W2's routes, read by W4's pages) ────────────
+// Each returns `{ ok, status, body }` like its siblings, and NONE of them is
+// cached: the ledger ring and the usage hours both move under the operator's
+// feet, and a cached census is a census of the past.
+
+/** GET the per-pool usage census — `{period, wired, since, pools[], meta}`. */
+export async function loadPoolAnalytics(period = "24h") {
+  const res = await fetch(`/api/proxy-pools/analytics?period=${encodeURIComponent(period)}`, {
+    cache: "no-store",
+  });
+  return { ok: res.ok, status: res.status, body: await asJson(res) };
+}
+
+/** GET the per-pool outcome series — `{poolId, series[], collecting, ...}`. */
+export async function loadHealthHistory({ poolId = null, period = "24h" } = {}) {
+  const qs = new URLSearchParams({ period });
+  if (poolId) qs.set("poolId", poolId);
+  const res = await fetch(`/api/proxy-pools/health-history?${qs.toString()}`, { cache: "no-store" });
+  return { ok: res.ok, status: res.status, body: await asJson(res) };
+}
+
+/** GET the routing ledger — `{routes[], health}`; `provider` scopes both. */
+export async function loadRoutingLedger({ provider = null, limit = 64 } = {}) {
+  const qs = new URLSearchParams({ limit: String(limit) });
+  if (provider) qs.set("provider", provider);
+  const res = await fetch(`/api/proxy-pools/routing-ledger?${qs.toString()}`, { cache: "no-store" });
+  return { ok: res.ok, status: res.status, body: await asJson(res) };
+}
+
+/**
+ * The raw GET for a browser-owned download (§3.3 "Export").
+ *
+ * The export is a FILE, not a screen: fetching it through `asJson` would turn a
+ * 200-of-json into an object, and a 401 into `{}` — and then hand the operator
+ * an empty file named like a census. So this seam hands back the Response itself
+ * and the caller decides: `Content-Disposition` means a download, a JSON body
+ * means a refusal, and the refusal's message is read and shown rather than
+ * written into a .json the operator never asked for.
+ */
+export async function fetchExportResponse(path) {
+  return fetch(path, { cache: "no-store" });
+}
+
+/**
+ * Read a download seam's Response as a payload the caller can refuse.
+ *
+ * A file endpoint can answer two ways: the payload (here, the export route's
+ * JSON) or a refusal (`{error}` with a non-200). This never throws a string into
+ * a .csv: `ok:false` carries the server's own reason, so the UI can say why no
+ * file was written instead of downloading `{}`.
+ */
+export async function parseExportPayload(res) {
+  let body = {};
+  try {
+    body = await res.json();
+  } catch {
+    body = {};
+  }
+  if (!res.ok) return { ok: false, status: res.status, error: body?.error || `Export refused (${res.status})` };
+  return { ok: true, status: res.status, body };
+}

@@ -42,6 +42,10 @@
 // `db` received the poolId string and `db.run` threw "is not a function" behind
 // a generic 500. The module now owns a caller-facing wrapper of that name.
 import { getFitnessRows, upsertFitnessBatch, resetFitness as resetFitnessRows, clearAllFitnessRows } from "../db/repos/proxyFitnessRepo.js";
+// W2a (plan §3.2.2) — the append-only outcome ledger. Written from the SAME
+// flush that upserts the snapshot below, so the series and the snapshot can
+// never disagree about how many outcomes happened.
+import { appendHealthHistoryRows } from "../db/repos/proxyHealthHistoryRepo.js";
 import { getProxyPools, getProxyPoolById, updateProxyPool } from "../db/repos/proxyPoolsRepo.js";
 import { openStoreAdapter } from "../db/index.js";
 import { resolveConnectionProxyConfig } from "./connectionProxy.js";
@@ -68,6 +72,7 @@ const RE_PICK_CODES = new Set(["country_blocked", "ip_capped"]); // C16 LOCKED
 // W8 cutover: MAX_REPICKS / REPICK_BUDGET_MS deleted with repick() — the
 // freebuff executor now passes its own caps to repickPool (pipeline/selection.js).
 const FLUSH_INTERVAL_MS = 30_000;
+const OUTCOME_PAGE_MAX = 2000; // W2a — bounded append page between flushes
 const ALPHA_EWMA = 0.3;
 const HALF_LIFE_DAYS = 7;
 
@@ -100,8 +105,9 @@ const AUTO_DISABLE_TIMEOUT_MS = 8_000;
 // this reason; poolGeo.js already carries the same precedent
 // (globalThis[GEO_STATE_KEY]). Keys keep the proxyFleet brand.
 const FLEET_STATE_KEY = "__velaProxyFleetState";
-globalThis[FLEET_STATE_KEY] ??= { fitnessStore: new Map(), dirtyKeys: new Set() };
+globalThis[FLEET_STATE_KEY] ??= { fitnessStore: new Map(), dirtyKeys: new Set(), outcomePage: [] };
 const fleetState = globalThis[FLEET_STATE_KEY];
+fleetState.outcomePage ??= []; // W2a — outcomes awaiting the next flush
 let fitnessStore = fleetState.fitnessStore;
 let dirtyKeys = fleetState.dirtyKeys;
 let loaded = false;
@@ -277,11 +283,36 @@ export async function flushNow() {
     }
   }
 
+  // W2a — the append drains ONLY on success. A failed append leaves the page
+  // in memory for the next flush (the snapshot upsert already fails-open the
+  // same way); a snapshot that landed while the append did not is a chart with
+  // a gap, never a fabricated point.
+  const page = fleetState.outcomePage || [];
+  const pageToAppend = page.splice(0, page.length);
+  let unwritten = [];
   try {
     const db = await openStoreAdapter();
     await upsertFitnessBatch(db, rowsToFlush);
+    // The append drains ONE ROW AT A TIME so a mid-batch failure leaves an
+    // exact truth: every row before the throw is durable, and ONLY the rest is
+    // handed back. Re-handing the whole page after a partial write would
+    // duplicate the outcomes that already landed — a chart that counts one
+    // failure twice is worse than one with a gap.
+    for (let i = 0; i < pageToAppend.length; i++) {
+      unwritten = pageToAppend.slice(i);
+      await appendHealthHistoryRows(db, [pageToAppend[i]]);
+      unwritten = pageToAppend.slice(i + 1);
+    }
   } catch (err) {
     log.warn("PROXY", "[proxyFleet] flush failed:", err.message);
+    // Hand back ONLY the outcomes that did not land — snapshot rows are
+    // reconstructed from the live store on every flush, these are not.
+    if (unwritten.length > 0) {
+      fleetState.outcomePage.unshift(...unwritten);
+      if (fleetState.outcomePage.length > OUTCOME_PAGE_MAX) {
+        fleetState.outcomePage.splice(0, fleetState.outcomePage.length - OUTCOME_PAGE_MAX);
+      }
+    }
   } finally {
     dirtyKeys.clear();
     flushArmed = false;
@@ -478,7 +509,28 @@ export function recordOutcome(poolId, providerId, signal) {
     
     fitness.lastOutcomeAt = new Date().toISOString();
     fitness.unreadiedAt = Date.now();
-    
+
+    // W2a — the append side. `latencyMs` is threaded from the caller's own
+    // measurement (auth.js and chatCore both pass it); when absent the row
+    // keeps NULL rather than 0 — the same "unmeasured, never instant" law the
+    // usage ledger holds. The page is bounded: a flush that is failing must not
+    // grow memory without limit, so past OUTCOME_PAGE_MAX the OLDEST are
+    // dropped (a chart loses its oldest shape, never its truth).
+    if (Array.isArray(fleetState.outcomePage)) {
+      fleetState.outcomePage.push({
+        poolId,
+        providerId,
+        verdict: signal.ok ? "ok" : "fail",
+        latencyMs: Number.isFinite(Number(signal.latencyMs)) && signal.latencyMs !== undefined ? Number(signal.latencyMs) : null,
+        egressIp: fitness.egressIp || null,
+        egressCountry: fitness.egressCountry || null,
+        createdAt: fitness.lastOutcomeAt,
+      });
+      if (fleetState.outcomePage.length > OUTCOME_PAGE_MAX) {
+        fleetState.outcomePage.splice(0, fleetState.outcomePage.length - OUTCOME_PAGE_MAX);
+      }
+    }
+
     markDirty(poolId, providerId);
   } catch (err) {
     // Fire-and-forget: never throw here

@@ -1026,3 +1026,346 @@ export async function healthTimelineImpl(db, { filters = {}, period = "7d", now 
     meta: { period, source, startMs, endMs },
   };
 }
+
+// ─── Proxy Console Separation W2b — the three telemetry seams ───────────────
+// Sealed plan §3.2 · §3.4. Three read projections the /dashboard/proxy console
+// needs and the current schema cannot yet answer honestly:
+//
+//   poolAnalyticsImpl    — the per-pool usage census (requests/errors/tokens/
+//                          latency/cost) that funds the Usage lens.
+//   healthHistoryImpl    — the per-pool outcome series that funds the Fitness
+//                          lens's history, once W2a's append-only table exists.
+//   egressHistoryImpl    — the stable IP list per pool that funds the Egress
+//                          lens: the PERSISTED proxyPoolEgressHistory ledger
+//                          (W2a migration 030) with the in-memory ring as its
+//                          fallback when the table is absent.
+//
+// THE POSTURE LAW (identical to stats and the metrics siblings): every row
+// emits integers, timestamps, poolIds, verdicts and IP/country strings — never
+// a proxy row, never `proxyUrl`. Safe BY CONSTRUCTION, so the routes can ride
+// the posture-read allow-list without a masker; the structural tests pin it.
+//
+// THE WOUNDS THESE IMPLS MUST NOT PAPER OVER (plan §2):
+//   • usageHistory has no `poolId` until W2a's migration 030. preflightUsageSeam
+//     probes the column ONCE and CACHES; while absent (or all-NULL) the
+//     analytics rows carry `collecting: true` with ZERO counters — the honest
+//     empty state the R6 risk demands ("collecting since <migration date>",
+//     never a fabricated backfill).
+//   • proxyPoolHealthHistory also lands in W2a. healthHistoryImpl reports
+//     `collecting: true` until the table exists; once it exists it walks the
+//     exact tier (≤3d, bucketed to the local minute) and stays HONEST that it
+//     has no rollup tier — older windows simply hold fewer rows, nothing faked.
+//   • egress history had no persisted home before W2a — the poolGeo ring is
+//     in-memory only (max 8, TTL 1h). egressHistoryImpl now reads W2a's
+//     proxyPoolEgressHistory; while that table is absent it reports
+//     `collecting:true` with NO entries — the ring's transient samples are NOT
+//     smuggled in as pseudo-history (projectEgressHistory remains available for
+//     callers that want the live ring, labelled `source:"memory"`).
+//
+// ENGINE-NEUTRAL: every query is syntax shared by both twins (no sqlite-only
+// PRAGMA, no mysql-only information_schema here). Column/table existence is
+// decided by the caller's `hasColumn` / `hasTable` probes and injected, so the
+// dialect probes stay in the twins where every other engine fragment lives.
+// Adapter ops are await-safe — sqlite returns plain values, mysql a Promise;
+// awaiting a non-Promise is a no-op, so ONE code path serves both.
+
+/** Single-row probes must not be repeated on every read; a missing column or
+ *  table provably exists-or-not for the process lifetime (migrations land at
+ *  boot, before the console can serve a request). An explicit test hook lets
+ *  providers flip the seam without a restart. */
+const ANALYTICS_SEAM_TTL_MS = 60_000;
+function usageSeamState() {
+  if (!global._velaUsageSeams) {
+    global._velaUsageSeams = {
+      poolIdColumn: { value: null, ts: 0 },
+      healthTable: { value: null, ts: 0 },
+      egressTable: { value: null, ts: 0 },
+    };
+  }
+  return global._velaUsageSeams;
+}
+
+/** The waterline — the OLDEST attributed row in the window. Pre-030 usage
+ *  rows were written without a poolId and cannot be attributed after the fact,
+ *  so the Usage lens says "collecting since <ts>" rather than draw a history
+ *  it never had (plan R6: honest empty state, never fabricated backfill).
+ *  Distinct from the seam probe's `wired` flag, which answers "does the column
+ *  exist", not "when did it start carrying truth". */
+export async function poolAttributionSince(db) {
+  try {
+    const row = await db.get(
+      `SELECT MIN(timestamp) AS since FROM usageHistory WHERE poolId IS NOT NULL AND poolId <> ''`
+    );
+    return row?.since || null;
+  } catch {
+    return null; // no column yet — W2a has not landed, nothing was ever attributed
+  }
+}
+
+/** True when usageHistory has ACTUALLY BEEN ATTRIBUTED — a `poolId` column that
+ *  is present but has never carried a value is not a wire, it is a promise. The
+ *  honest reading is "collecting" (plan R6): a fresh gateway that has never
+ *  routed through a pool shows an empty Usage lens with a `since:null`, never a
+ *  census of zero-only buckets pretending history exists.
+ *
+ *  WHY NOT "does the column exist": a SELECT of the column succeeds even with
+ *  zero attributed rows (COLD ≠ ABSENT), so probing existence made a never-used
+ *  harbor read `wired:true` with an empty census — identical on the wire to a
+ *  broken one. Counting attributed rows distinguishes the two truths, which is
+ *  exactly what the Usage lens must tell apart. Cached (the state object is
+ *  dropped by __resetUsageSeams and by a fresh process) so a cold console does
+ *  not re-probe on every navigation. A pre-migrate harbor has no column, the
+ *  COUNT throws, and the answer is an honest `false`. */
+export async function preflightUsageSeam(db) {
+  const state = usageSeamState();
+  const now = Date.now();
+  if (state.poolIdColumn.value !== null && now - state.poolIdColumn.ts < ANALYTICS_SEAM_TTL_MS) {
+    return state.poolIdColumn.value;
+  }
+  let wired = false;
+  try {
+    // COUNT(poolId) succeeds (returns 0) iff the column EXISTS, regardless of
+    // whether any row has been attributed yet — a bare SELECT ... LIMIT 1 on an
+    // empty table returns undefined and would misread "present but cold" as
+    // "absent". No attribution threshold here: `wired` answers "is the seam
+    // there", never "has data flowed". The two are different truths; the census
+    // and its `since` waterline report volume, this flag reports the column.
+    const probe = await db.get(`SELECT COUNT(poolId) AS n FROM usageHistory`);
+    wired = probe !== undefined && probe !== null;
+  } catch {
+    wired = false; // no column yet → W2a has not landed
+  }
+  state.poolIdColumn = { value: wired, ts: now };
+  return wired;
+}
+
+/** W2a's migration 030 lands the append-only ledgers. A `LIMIT 1` select
+ *  succeeds iff the table exists — the same probe for both. `cacheKey` names
+ *  the entry on the seam state so health and egress never share a stale slot.
+ *  A non-existence error answer is cached for the TTL; any OTHER error (a
+ *  transient busy/lock) is treated as "could not confirm" and reads empty this
+ *  request rather than falsely claiming the table is absent forever. */
+async function tableExists(db, table, cacheKey) {
+  const state = usageSeamState();
+  if (!state[cacheKey]) state[cacheKey] = { value: null, ts: 0 };
+  const now = Date.now();
+  if (state[cacheKey].value !== null && now - state[cacheKey].ts < ANALYTICS_SEAM_TTL_MS) {
+    return state[cacheKey].value;
+  }
+  let exists = false;
+  try {
+    await db.get(`SELECT 1 AS x FROM ${table} LIMIT 1`);
+    exists = true;
+  } catch (e) {
+    // "no such table" is a definitive NO (cache it); anything else is a
+    // transient fault — do NOT cache, report absence for THIS read only.
+    const msg = String(e?.message || "");
+    if (!/no such table|doesn't exist|unknown table/i.test(msg)) return false;
+    exists = false;
+  }
+  state[cacheKey] = { value: exists, ts: now };
+  return exists;
+}
+
+/** The health-only convenience wrapper (keeps its historical call sites). */
+async function healthTableExists(db) {
+  return tableExists(db, "proxyPoolHealthHistory", "healthTable");
+}
+
+/** Test hook — reset the cached seam probe between cases. */
+export function __resetUsageSeams() {
+  delete global._velaUsageSeams;
+}
+
+const HEALTH_MINUTE_MS = 60_000;
+
+/** The per-pool usage census — funds the Usage lens. One indexed scan over
+ *  [startMs, endMs) GROUP BY poolId; p95 is a nearest-rank walk per pool
+ *  because SQL percentile interpolation is not portable across the twins. */
+export async function poolAnalyticsImpl(db, { period = "24h", now = Date.now() } = {}) {
+  const { startMs, endMs } = resolvePeriodWindow(period, now);
+  const wired = await preflightUsageSeam(db);
+  // `since` is answered in BOTH branches: wired:false (pre-migrate) reads null,
+  // and wired:true over a cold harbour reads null too — the route turns a null
+  // `since` with no buckets into the R6 "collecting since <when>" empty state,
+  // so honesty about volume never rides on the `wired` flag (which now means
+  // only "the column exists").
+  const since = await poolAttributionSince(db);
+  if (!wired) {
+    return { period, wired: false, since, source: "usageHistory", pools: [], meta: { period, startMs, endMs } };
+  }
+  // One pass: per-pool counts, token sums, cost sum, latency stats.
+  const agg = await db.all(
+    `SELECT poolId,
+            COUNT(*) AS requests,
+            SUM(CASE WHEN status IN ('error','failed','failure') OR statusClass <> 'ok'
+                     THEN 1 ELSE 0 END) AS errors,
+            SUM(promptTokens) AS promptTokens,
+            SUM(completionTokens) AS completionTokens,
+            SUM(cost) AS costUsd,
+            COUNT(latencyMs) AS latencyCount
+     FROM usageHistory
+     WHERE timestamp >= ? AND timestamp < ? AND poolId IS NOT NULL
+     GROUP BY poolId`,
+    [iso(startMs), iso(endMs)]
+  );
+  const pools = [];
+  for (const r of agg || []) {
+    // Nearest-rank p95 from the indexed column, scoped to THIS pool and window.
+    const lat = await db.all(
+      `SELECT latencyMs AS v FROM usageHistory
+       WHERE timestamp >= ? AND timestamp < ? AND poolId = ? AND latencyMs IS NOT NULL
+       ORDER BY latencyMs ASC`,
+      [iso(startMs), iso(endMs), r.poolId]
+    );
+    const n = Array.isArray(lat) ? lat.length : 0;
+    const p95 = n > 0 ? Number(lat[Math.min(n - 1, Math.max(0, Math.ceil(0.95 * n) - 1))].v) : null;
+    const avgLatencyMs = n > 0 ? Math.round(lat.reduce((s, x) => s + Number(x.v || 0), 0) / n) : null;
+    pools.push({
+      poolId: r.poolId,
+      requests: num(r.requests),
+      errors: num(r.errors),
+      promptTokens: num(r.promptTokens),
+      completionTokens: num(r.completionTokens),
+      costUsd: round6(num(r.costUsd)),
+      avgLatencyMs,
+      p95LatencyMs: p95,
+      latencyCount: n,
+    });
+  }
+  pools.sort((a, b) => b.requests - a.requests);
+  return { period, wired: true, since, source: "usageHistory", pools, meta: { period, startMs, endMs } };
+}
+
+/** Provider→pool map — how the Usage lens labels a pool. Reads the sibling
+ *  connections repo (same shape stats leans on for `bound`), fail-open: a
+ *  missing repo yields an empty map rather than a failed census. Distinct
+ *  `provider` values across the connections bound to the pool. */
+export async function poolProviderMapImpl(db, { repos = "./repos/sqlite" } = {}) {
+  const map = new Map();
+  try {
+    const harbor = repos === "./repos/mysql"
+      ? await import("./repos/mysql/connectionsRepo.js")
+      : await import("./repos/sqlite/connectionsRepo.js");
+    const load = harbor.getAllConnections || harbor.getProviderConnections;
+    if (typeof load !== "function") return map;
+    const rows = (await load()) || [];
+    for (const c of rows) {
+      const poolId = c?.providerSpecificData?.proxyPoolId;
+      if (!poolId) continue;
+      if (!map.has(poolId)) map.set(poolId, new Set());
+      if (c.provider) map.get(poolId).add(c.provider);
+    }
+  } catch {
+    // fail-open — an unlabeled bucket is better than a dark page
+  }
+  return map;
+}
+
+/** The per-pool outcome series — funds the Fitness lens's history. Reads the
+ *  append-only `proxyPoolHealthHistory` table W2a creates (migration 030).
+ *  Until it exists: `collecting: true`, an empty series, and NO fabricated
+ *  points. Once it exists: an exact indexed scan [startMs, endMs), bucketed to
+ *  the local minute — the same honesty tier as the percentiles walk. */
+export async function healthHistoryImpl(db, { poolId = null, period = "24h", now = Date.now() } = {}) {
+  const { startMs, endMs } = resolvePeriodWindow(period, now);
+  const exists = await healthTableExists(db);
+  if (!exists) {
+    return { poolId: poolId || null, period, series: [], collecting: true, source: "proxyPoolHealthHistory", meta: { period, startMs, endMs } };
+  }
+  const params = [iso(startMs), iso(endMs)];
+  let where = `WHERE createdAt >= ? AND createdAt < ?`;
+  if (poolId) { where += ` AND poolId = ?`; params.push(poolId); }
+  const rows = await db.all(
+    `SELECT poolId, verdict, latencyMs, createdAt FROM proxyPoolHealthHistory ${where} ORDER BY createdAt ASC`,
+    params
+  );
+  // Bucket to the local minute — one row per (pool, minute) carrying the LAST
+  // verdict in that minute and the mean latency of its ok rows. A minute with
+  // no ok latency stays null, never 0.
+  const buckets = new Map();
+  for (const r of rows || []) {
+    const ts = new Date(r.createdAt).getTime();
+    if (!Number.isFinite(ts)) continue;
+    const minute = Math.floor(ts / HEALTH_MINUTE_MS) * HEALTH_MINUTE_MS;
+    const key = `${r.poolId}|${minute}`;
+    const cell = buckets.get(key) || { poolId: r.poolId, ts: minute, verdict: null, latSum: 0, latN: 0 };
+    cell.verdict = r.verdict || cell.verdict;
+    if (Number.isFinite(Number(r.latencyMs)) && r.latencyMs !== null) {
+      cell.latSum += Number(r.latencyMs); cell.latN += 1;
+    }
+    buckets.set(key, cell);
+  }
+  const series = [...buckets.values()]
+    .sort((a, b) => a.ts - b.ts || String(a.poolId).localeCompare(String(b.poolId)))
+    .map((c) => ({ poolId: c.poolId, ts: new Date(c.ts).toISOString(), verdict: c.verdict, latencyMs: c.latN ? Math.round(c.latSum / c.latN) : null }));
+  return { poolId: poolId || null, period, series, collecting: false, source: "proxyPoolHealthHistory", meta: { period, startMs, endMs } };
+}
+
+/** The per-pool egress history — projects the in-memory geo ring faithfully
+ *  (poolGeo.js, max 8 IPs, TTL 1h). Never persisted; labels itself
+ *  `source: "memory"` so a UI can say what a restart erases. Entries carry the
+ *  CURRENT ip with `ok: true` and PAST ips with `ok: null` (we observed them,
+ *  we never graded them). */
+export function projectEgressHistory(geo, poolId) {
+  if (!geo || !geo.ip) return { poolId, entries: [], stable: null, source: "memory" };
+  const entries = [];
+  const seen = new Set();
+  const push = (ip, country, ts, ok) => {
+    const key = `${ip}|${ts ?? ""}`;
+    if (!ip || seen.has(key)) return;
+    seen.add(key);
+    entries.push({ ts: ts ? new Date(ts).toISOString() : null, ip, country: country || "", ok });
+  };
+  for (const h of geo.ipHistory || []) push(h?.ip, h?.country, h?.ts, null);
+  push(geo.ip, geo.country, geo.ts, true);
+  entries.sort((a, b) => String(a.ts || "").localeCompare(String(b.ts || "")));
+  const distinctIps = new Set([geo.ip, ...(geo.ipHistory || []).map((h) => h?.ip)].filter(Boolean));
+  return {
+    poolId,
+    entries,
+    stable: distinctIps.size < 2,
+    flapCount: Math.max(0, distinctIps.size - 1),
+    current: { ip: geo.ip, country: geo.country || "", ts: geo.ts ? new Date(geo.ts).toISOString() : null },
+    source: "memory",
+  };
+}
+
+/** The per-pool egress history a restart cannot erase — W2a's append-only
+ *  `proxyPoolEgressHistory` (migration 031). W2b's `projectEgressHistory`
+ *  above is the in-memory ring it supersedes for charting; this walks the
+ *  persisted ledger the same way healthHistoryImpl walks its sibling.
+ *
+ *  Until the table exists: zero entries, `collecting: true`, and NO fabricated
+ *  points — the ring's entries are NOT smuggled in as a pseudo-history, because
+ *  mixing them would make one payload two different truths wearing one shape.
+ *  Once it exists it walks the exact indexed tier [startMs, endMs), newest
+ *  first, capped by the legacy MAX and never unbounded.
+ *
+ *  The write seam is the egress PROBE (poolEgressProbe → recordEgressSample),
+ *  the only place a fresh country is ever learned; proxyFleet's setPoolGeo call
+ *  carries an IP with no country and is deliberately not a writer (a blank
+ *  country on every sample would be a lie stamped in a persistent table). */
+export const EGRESS_HISTORY_DEFAULT_MAX = 8; // = poolGeo's POOL_GEO_IP_HISTORY_MAX (the legacy bound)
+
+export async function egressHistoryImpl(db, { poolId, period = "24h", now = Date.now(), max = EGRESS_HISTORY_DEFAULT_MAX } = {}) {
+  const { startMs, endMs } = resolvePeriodWindow(period, now);
+  if (!poolId) return { poolId: null, period, entries: [], collecting: false, source: "proxyPoolEgressHistory", meta: { period, startMs, endMs } };
+  const exists = await tableExists(db, "proxyPoolEgressHistory", "egressTable");
+  if (!exists) {
+    return { poolId, period, entries: [], collecting: true, source: "proxyPoolEgressHistory", meta: { period, startMs, endMs } };
+  }
+  const cap = Math.min(Math.max(1, Math.trunc(Number(max)) || EGRESS_HISTORY_DEFAULT_MAX), 256);
+  const rows = await db.all(
+    `SELECT createdAt, ip, country FROM proxyPoolEgressHistory
+     WHERE poolId = ? AND createdAt >= ? AND createdAt < ?
+     ORDER BY createdAt DESC, id DESC LIMIT ?`,
+    [poolId, iso(startMs), iso(endMs), cap]
+  );
+  // Newest-first from SQL (the LIMIT keeps the freshest cap); returned
+  // oldest-first so a chart reads left→right through time.
+  const entries = (rows || [])
+    .map((r) => ({ ts: r.createdAt || null, ip: r.ip || "", country: r.country || "", ok: null }))
+    .sort((a, b) => String(a.ts || "").localeCompare(String(b.ts || "")));
+  return { poolId, period, entries, collecting: false, source: "proxyPoolEgressHistory", meta: { period, startMs, endMs } };
+}

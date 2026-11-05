@@ -95,6 +95,7 @@
     "face",
     "fact_check",
     "file_upload",
+    "filter_alt",
     "filter_alt_off",
     "flight",
     "flutter_dash",
@@ -187,6 +188,7 @@
     "psychology_alt",
     "public",
     "qr_code_scanner",
+    "query_stats",
     "radio_button_unchecked",
     "receipt_long",
     "record_voice_over",
@@ -223,6 +225,7 @@
     "snowflake",
     "sort",
     "south",
+    "space_dashboard",
     "spatial_audio",
     "speaker",
     "speed",
@@ -274,9 +277,9 @@
     "wrap_text",
     "wrong_location"
   ],
-  "count": 273,
-  "sha256": "d21c8a0d161d5cebbd6516c29f36ef581af1eeb18a0595413a28c4279f78e49f",
-  "identity": "c13078b458b01d97",
-  "file": "vela-icons.c13078b458b01d97.woff2",
+  "count": 276,
+  "sha256": "00f3d0841004dac9a8a9b95c10b489f615a716d0f22cf5ce309968d140fb38a8",
+  "identity": "56e554b3dba4a80c",
+  "file": "vela-icons.56e554b3dba4a80c.woff2",
   "source": "node_modules/material-symbols/material-symbols-outlined.woff2"
 }

@@ -104,6 +104,10 @@ export {
   getLedgerRows,
   getExportCursor,
   getComboUsage, // v0.9.40 — per-combo attribution aggregation (migration 015)
+  getPoolAnalytics, // W2b — per-pool usage census (Proxy Console Separation)
+  getPoolProviderMap, // W2b — provider labels for the pool buckets
+  getPoolHealthHistory, // W2b — per-pool outcome series
+  getPoolEgressHistory, // W2b — per-pool egress ledger
 } from "./repos/usageRepo.js";
 
 // ─── P5 — the dashboard coalescing layer (plans/2026-11-01-responsive-tide-

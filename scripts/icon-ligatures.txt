@@ -93,6 +93,7 @@ extension
 face
 fact_check
 file_upload
+filter_alt
 filter_alt_off
 flight
 flutter_dash
@@ -185,6 +186,7 @@ psychology
 psychology_alt
 public
 qr_code_scanner
+query_stats
 radio_button_unchecked
 receipt_long
 record_voice_over
@@ -221,6 +223,7 @@ smart_toy
 snowflake
 sort
 south
+space_dashboard
 spatial_audio
 speaker
 speed

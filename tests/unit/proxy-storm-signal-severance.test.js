@@ -275,4 +275,25 @@ describe("S2.4: latency honesty", () => {
     const latRow = rows.find((r) => r.poolId === "pool-lat");
     expect(latRow.latencyEwmaMs).toBe(0);
   });
+
+  // W2a (plan §3.2.3): the latency THREAD. `saveUsageStats` always received
+  // latencyMs; the fleet's recordOutcome did not, so latencyEwmaMs stayed NULL
+  // on the success path. The trailing parameter now carries the measured value
+  // and the EWMA learns from it — while the case above still holds when no
+  // clock travelled, which is the honesty law this block is named for.
+  it("honors a MEASURED latencyMs when the caller supplies one", async () => {
+    dbMocks.getProviderConnections.mockResolvedValue([{
+      id: "conn-6", provider: "freebuff", backoffLevel: 0,
+      providerSpecificData: { proxyPoolId: "pool-lat-2" },
+    }]);
+    await markAccountUnavailable("conn-6", 429, "slow", "freebuff", "m", null, 800);
+
+    fitnessRepo.upsertFitnessBatch.mockClear();
+    await fleet.flushNow();
+    const rows = fitnessRepo.upsertFitnessBatch.mock.calls[0][1];
+    const latRow = rows.find((r) => r.poolId === "pool-lat-2");
+    // EWMA 0.3 × 800 (neutral store starts at 0) — a real number, not fiction.
+    expect(latRow.latencyEwmaMs).toBeGreaterThan(0);
+    expect(latRow.latencyEwmaMs).toBeLessThanOrEqual(800);
+  });
 });

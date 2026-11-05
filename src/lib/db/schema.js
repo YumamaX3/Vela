@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 29;
+export const SCHEMA_VERSION = 30;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -230,6 +230,13 @@ export const TABLES = {
       // tokens and cost, which is the one thing this table must never do.
       reqId: "TEXT",
       upstreamId: "TEXT",
+      // Migration 030 (Proxy Console Separation W2a) — the request→pool wire.
+      // NULL is "unattributed" (every pre-030 row; local/no-proxy requests) and
+      // the analytics seam EXCLUDES it rather than folding it into a '' bucket.
+      // Deliberately NOT "DEFAULT ''" — see migration 030's header. Declared so
+      // auto-sync + the mysql bootstrap diff heal the column on fresh installs
+      // and the twin.
+      poolId: "TEXT",
     },
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_uh_ts ON usageHistory(timestamp DESC)",
@@ -255,6 +262,10 @@ export const TABLES = {
       // call within it.
       "CREATE INDEX IF NOT EXISTS idx_uh_reqId ON usageHistory(reqId)",
       "CREATE INDEX IF NOT EXISTS idx_uh_upstreamId ON usageHistory(upstreamId)",
+      // Migration 030 — the analytics scan (poolId + window) and the per-pool
+      // equality lookups.
+      "CREATE INDEX IF NOT EXISTS idx_uh_poolId ON usageHistory(poolId)",
+      "CREATE INDEX IF NOT EXISTS idx_uh_pool_ts ON usageHistory(poolId, timestamp)",
     ],
   },
   usageDaily: {
@@ -362,6 +373,47 @@ export const TABLES = {
     primaryKey: "PRIMARY KEY (poolId, provider)",
     indexes: [
       "CREATE INDEX IF NOT EXISTS idx_pf_pool ON proxyFitness(poolId)",
+    ],
+  },
+  // Migration 030 (Proxy Console Separation W2a) — the append-only outcome
+  // ledger proxyFitness could never be. proxyFitness OVERWRITES its current
+  // state every flush (lastOutcomeAt/successEwma/latencyEwmaMs), so no health
+  // series has ever existed; this table appends one row per outcome from the
+  // SAME flush path, so the snapshot and the series cannot disagree about how
+  // many outcomes happened. Retention: 30 days (migration 030's header +
+  // purgeOldUsage/pruneUsage). verdict is a normalized slug ('ok'|'fail');
+  // latencyMs NULL = unmeasured, never 0-faked. Declared here so the mysql
+  // twin's bootstrap diff creates it identically.
+  proxyPoolHealthHistory: {
+    columns: {
+      id: "INTEGER PRIMARY KEY AUTOINCREMENT",
+      poolId: "TEXT NOT NULL",
+      providerId: "TEXT NOT NULL DEFAULT ''",
+      verdict: "TEXT NOT NULL",
+      latencyMs: "INTEGER",
+      egressIp: "TEXT",
+      egressCountry: "TEXT",
+      createdAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_pphh_pool_ts ON proxyPoolHealthHistory(poolId, createdAt)",
+      "CREATE INDEX IF NOT EXISTS idx_pphh_ts ON proxyPoolHealthHistory(createdAt)",
+    ],
+  },
+  // Migration 030 — the persisted egress IP ledger, the append-only twin of
+  // poolGeo's in-memory ring (max 8, TTL 1h, erased by a restart). Written
+  // ONLY by the egress probe (the one place a fresh country is learned).
+  proxyPoolEgressHistory: {
+    columns: {
+      id: "INTEGER PRIMARY KEY AUTOINCREMENT",
+      poolId: "TEXT NOT NULL",
+      ip: "TEXT NOT NULL",
+      country: "TEXT NOT NULL DEFAULT ''",
+      createdAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_ppeh_pool_ts ON proxyPoolEgressHistory(poolId, createdAt)",
+      "CREATE INDEX IF NOT EXISTS idx_ppeh_ts ON proxyPoolEgressHistory(createdAt)",
     ],
   },
   // Proxy control-plane rebirth W9 (migration 019) — the breaker's own ledger.
