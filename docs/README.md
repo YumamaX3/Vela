@@ -169,7 +169,7 @@ vela/
 ├── open-sse/                 # The gateway engine — providers, RTK, executors, handlers
 │   └── AGENTS.md             # ← engine contributor guide
 ├── src/
-│   ├── app/                  # Next App Router — 36 pages, 255 tracked API routes (258 on disk)
+│   ├── app/                  # Next App Router — 44 pages, 274 tracked API routes
 │   ├── lib/                  # The deep current — db, network, oauth, auth, updater
 │   │   └── db/AGENTS.md      # ← database contributor guide
 │   ├── sse/                  # App-side entry glue — keyGate, budget, handlers
@@ -186,7 +186,7 @@ vela/
 |-|-|-|
 | Version | **1.2.5** | `node -p "require('./package.json').version"` |
 | Dashboard pages | **36** | `find src/app -name 'page.js' \| wc -l` |
-| API routes | **255 tracked** (258 on disk — the `src/app/api/plans/` lanes sit behind the bare `plans/` gitignore rule) | `git ls-files \| grep -E '^src/app/.*route\.js$' \| wc -l` |
+| API routes | **274 tracked** (the `src/app/api/plans/` lanes were behind the bare `plans/` gitignore rule until v1.2.49 anchored it to `/plans/`) | `git ls-files \| grep -E '^src/app/.*route\.js$' \| wc -l` |
 | Test files | **480** (460 `.test.js` + 19 `.test.jsx` + 1 `.test.cjs`) | `find tests -name '*.test.js' -o -name '*.test.jsx' -o -name '*.test.cjs' \| wc -l` |
 
 > ⚠️ **This map wore three false numbers and an old version pin — and every
@@ -246,7 +246,7 @@ ls src/lib/db/migrations/*.js | grep -v index.js | wc -l               # 23 — 
 
 # Surface
 find src/app -name 'page.js' | wc -l                                   # 36 — pages
-find src/app/api -name 'route.js' | wc -l                              # 258 — API routes
+find src/app/api -name 'route.js' | wc -l                              # 274 — API routes
 
 # Tests — by kind, because the scope is the count
 find tests -name '*.test.js' | wc -l                                   # 460

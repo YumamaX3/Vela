@@ -105,7 +105,7 @@ One Node process serves both engines: the **dashboard + API** (`src/`, a Next.js
 - OIDC and SAML single sign-on for the dashboard, a JWT strength gate at boot, a session ledger keyed by `jti`, a CSRF lock, and client IP derived from the **TCP socket** (unspoofable) — forwarding headers trusted only from a loop proxy
 
 **🖥️ Dashboard** — `http://localhost:32060/dashboard`
-- **31 dashboard rooms** (36 pages total) in **35 interface locales**: providers & OAuth flows, combos, endpoints + API keys, per-key usage, quota, token saver, translator console, CLI-tool setup, proxy fleet, fallback rules, prompt injectors, skills, request logs, and the settings console — start at [the harbor map](./docs/README.md)
+- **23 dashboard rooms** (39 pages total) in **35 interface locales**: providers & OAuth flows, combos, endpoints + API keys, per-key usage, quota, token saver, translator console, CLI-tool setup, proxy fleet, fallback rules, prompt injectors, skills, request logs, and the settings console — start at [the harbor map](./docs/README.md)
 
 ---
 
@@ -189,7 +189,7 @@ Newer hands: the [gitbook](./gitbook/content/en/) is the beginner-facing tour, i
 
 ```
 src/                 Next.js app — dashboard UI + /api routes (incl. /v1)
-├── app/             36 pages (31 dashboard rooms) + 255 API route handlers
+├── app/             44 pages (23 dashboard rooms) + 274 API route handlers
 ├── sse/handlers/    app-side entry glue (chat, tts, images, search…)
 └── lib/db/          SQLite/MariaDB layer — driver chain, repos, mirror, backups
 open-sse/            the provider-agnostic routing/translation engine

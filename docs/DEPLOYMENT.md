@@ -47,8 +47,8 @@ There is **no `engines` field** in `package.json`; the image pins
 process serves, measured 2026-10-28:
 
 ```bash
-find src/app/api -name route.js | wc -l        # 258 API routes
-find "src/app/(dashboard)/dashboard" -name page.js | wc -l   # 31 dashboard pages
+find src/app/api -name route.js | wc -l        # 274 API routes
+find "src/app/(dashboard)/dashboard" -name page.js | wc -l   # 39 dashboard pages (23 rooms)
 ```
 
 ---

@@ -47,7 +47,7 @@ vela/
 ├── cli/                      # The `vela` npm CLI — bin `vela`, full purge
 ├── open-sse/                 # The gateway engine — providers, RTK, executors, handlers
 ├── src/
-│   ├── app/                  # Next App Router — 31 dashboard rooms (36 page.js total) + 255 tracked API routes (258 on disk — the `src/app/api/plans/` lanes sit behind the bare `plans/` gitignore rule)
+│   ├── app/                  # Next App Router — 23 dashboard rooms (39 page.js under `(dashboard)/dashboard`, 44 app-wide, all tracked) + 274 tracked API routes (the `src/app/api/plans/` lanes were behind the bare `plans/` gitignore rule until v1.2.49 anchored it to `/plans/`)
 │   ├── lib/                  # The deep current — db, network, oauth, auth, updater, headroom
 │   ├── sse/                  # Server-sent-event services — keyGate, budget, token refresh
 │   ├── shared/               # Shared components, hooks, utils, constants
@@ -78,7 +78,7 @@ Client ──> custom-server.js (IP stamp, h2c, hop-by-hop strip)
 
 | Engine | Path | Responsibility |
 |-|-|-|
-| **Dashboard** | `src/app/` | The UI — 32 dashboard pages (36 `page.js` total), 258 API routes |
+| **Dashboard** | `src/app/` | The UI — 23 dashboard rooms, 39 `page.js` under the dashboard tree (the proxy console's eight shores + hub are nine of them), 274 API routes |
 | **Gateway** | `open-sse/` | The proxy engine — providers, executors, RTK, handlers |
 
 ---

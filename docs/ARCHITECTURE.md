@@ -531,7 +531,7 @@ the Star arms — never this file.
 
 ```
 src/
-├── app/                 Next.js app — 36 pages, 258 API routes (2026-10-28)
+├── app/                 Next.js app — 44 pages, 274 API routes (2026-11-06)
 │   ├── (dashboard)/     dashboard UI pages
 │   ├── api/             REST APIs — auth (incl. oidc/, saml/), backup, combos,
 │   │                    keys, models, oauth, pricing, providers, settings,
