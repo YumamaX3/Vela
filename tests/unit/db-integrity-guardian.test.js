@@ -16,15 +16,24 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 let tempDir;
 const originalDataDir = process.env.DATA_DIR;
 
-/** Overwrite bytes in the middle of a SQLite file, preserving the 100-byte
- *  header so SQLite still recognises it as a database — a header-clobbering
- *  write would fail as "file is not a database" (also handled, but a different
- *  finding than page damage). */
+/** Corrupt the file the way the 2026-11-04 homelab wreck actually damaged
+ *  it: bytes flipped inside a LATE page (an index b-tree leaf), far from the
+ *  100-byte header AND far from page 1's schema — so SQLite still opens the
+ *  image and answers `PRAGMA integrity_check` with "malformed", which is the
+ *  class healAtBoot exists for. MEASURED (2026-11-06): a garbage write over
+ *  the file's MIDDLE destroys a table b-tree page so thoroughly that every
+ *  driver (better/node/sql.js) throws "database disk image is malformed" at
+ *  OPEN — no adapter is ever produced, the integrity gate cannot run, and
+ *  the unhealable case is SQLite itself refusing, not this harbor's heal.
+ *  The middle-of-file write is exactly what made this case unbootable since
+ *  its 2026-10-21 landing — it modelled a wound deeper than any heal engine
+ *  (upstream included) can reach. */
 function corruptPages(filePath) {
   const fd = fs.openSync(filePath, "r+");
   const size = fs.fstatSync(fd).size;
-  const at = Math.floor(size / 2);
-  const garbage = Buffer.alloc(Math.min(4096, size - at), 0xa5);
+  // A late page region: past the schema's first pages, still inside the file.
+  const at = Math.max(8192, size - 8192);
+  const garbage = Buffer.alloc(256, 0xa5);
   fs.writeSync(fd, garbage, 0, garbage.length, at);
   fs.closeSync(fd);
 }

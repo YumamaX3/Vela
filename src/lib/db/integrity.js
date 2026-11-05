@@ -230,7 +230,16 @@ export function salvagePerTable(adapter, destPath, { log = console } = {}) {
       for (const t of tables) {
         const ident = `"${String(t.name).replace(/"/g, '""')}"`;
         try {
-          adapter.exec(`CREATE TABLE salvage.${ident} AS SELECT * FROM main.${ident} WHERE 0`);
+          // Replay the table's ORIGINAL DDL, never CREATE TABLE ... AS SELECT:
+          // the AS-SELECT shape copies columns but silently drops every
+          // constraint — PRIMARY KEY, UNIQUE, NOT NULL, defaults, foreign
+          // keys. A healed image rebuilt that way answers reads and then
+          // fails its first keyed write ("ON CONFLICT clause does not match
+          // any PRIMARY KEY"), which is a wound swapped for a wound. The
+          // original `sql` from sqlite_master carries the constraints
+          // verbatim; the INSERT..SELECT below fills it row by row.
+          if (t.sql) adapter.exec(String(t.sql).replace(/^CREATE (TABLE|UNIQUE INDEX|INDEX)\s+("[^"]+"|\S+)/i, "CREATE $1 salvage.$2"));
+          else adapter.exec(`CREATE TABLE salvage.${ident} AS SELECT * FROM main.${ident} WHERE 0`);
           adapter.transaction(() => {
             adapter.exec(`INSERT INTO salvage.${ident} SELECT * FROM main.${ident} ORDER BY rowid`);
           });

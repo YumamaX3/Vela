@@ -1,3 +1,14 @@
+# v1.2.51 — The Salvage Keeps Its Promises 🔧⚓
+> *"The heal saved every readable row — and then the healed harbor failed its first keyed write, because the salvage had copied the ship's cargo while sawing off its keel. The salvage now replays each table's own DDL, constraints and all, and the test that models the wreck models the wreck that actually happened."* 🔧⚓💜
+
+**The change.** Two mends found while discharging the sealed plan's last open item (§7.4, the full-suite baseline). **+1 for the fix.**
+
+**🔧 The salvage engine kept its keel (integrity.js)**
+- `salvagePerTable` rebuilt every table as `CREATE TABLE ... AS SELECT` — a shape that copies columns but **silently drops every constraint**: PRIMARY KEY, UNIQUE, NOT NULL, defaults, foreign keys. The healed harbor answered reads and then failed its **first keyed write** (`ON CONFLICT clause does not match any PRIMARY KEY`, measured at `metaStore.setMetaSync` on the `_meta` table). The salvage now replays each table's **original DDL from sqlite_master** — constraints verbatim — namespaced into the salvage attachment, with the AS-SELECT shape kept only as a fallback when the DDL is unreadable. The healed image is a harbor, not a raft.
+- `tests/unit/db-integrity-guardian.test.js` — the corruption shape moved from "garbage over the file's middle" to the wreck class the harbor actually suffered (2026-11-04): bytes flipped in a **late page region**, where SQLite still opens the image and `integrity_check` answers "malformed" — the class healAtBoot exists for. MEASURED: a middle-of-file garbage write destroys a table b-tree page so thoroughly that **every driver throws at open** (better/node/sql.js all refused) — no adapter is ever produced, the integrity gate cannot run, and the unhealable case is SQLite itself refusing. The middle-of-file write modelled a wound deeper than any heal engine can reach, which is why the case had been failing since its 2026-10-21 landing.
+
+**🧪 Proof** — db-integrity-guardian **8/8** (the heal now runs, quarantines, salvages, and the next boot's keyed writes work); the proxy + navigation + plans + census + motion family **16 files / 198 tests, 0 failures**; `tsc --noEmit` 0 errors; ESLint clean.
+
 # v1.2.50 — The Ledger Paid in Full 🪞⚖️
 > *"The gate that counts every export against its home had been failing since another tide — four readers with no classification, and four memo gauges nobody had named. The tide that added the first four now pays for them, and the older debt stands named at last, where the census can see it."* 🪞⚖️💜
 
