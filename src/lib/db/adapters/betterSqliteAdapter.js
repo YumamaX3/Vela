@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import { PRAGMA_SQL } from "../schema.js";
 import { registerNativeHandle, workerOwnsCheckpointing } from "../checkpointOwner.js";
+import { withLockRetry } from "../helpers/lockRetry.js";
 
 // Periodic checkpoint to keep WAL file small (avoid huge -wal/-shm growth)
 const CHECKPOINT_INTERVAL_MS = 60 * 1000;
@@ -79,7 +80,7 @@ export function createBetterSqliteAdapter(filePath) {
     get(sql, params = []) { return prepare(sql).get(...params); },
     all(sql, params = []) { return prepare(sql).all(...params); },
     exec(sql) { return db.exec(sql); },
-    transaction(fn) { return db.transaction(fn)(); },
+    transaction(fn) { return withLockRetry((inner) => db.transaction(inner)())(fn); },
     checkpoint() { try { db.pragma("wal_checkpoint(PASSIVE)"); } catch {} },
     close() {
       clearInterval(checkpointTimer);

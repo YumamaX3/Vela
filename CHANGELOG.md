@@ -1,3 +1,15 @@
+# v1.2.52 — The Lock Protocol's Second Chance 🔄⚓
+> *"The harbor threw 'locking protocol' at every trust event, every stat, every pulse — not corruption, but the WAL's lock-state machine refusing a hand when two handles (main thread and the logshipper worker) met at the OS lock level. busy_timeout does not cover SQLITE_PROTOCOL; a short retry does."* 🔄⚓💜
+
+**The change.** One mend, three adapters, one helper. **+1 for the fix.**
+
+**🔄 SQLITE_PROTOCOL now gets a second chance (db layer)**
+- `src/lib/db/helpers/lockRetry.js` (new) — `withLockRetry` retries a transaction up to 4 times with exponential backoff (25ms base + jitter) when the failure is a WAL lock refusal (`SQLITE_PROTOCOL`, the `SQLITE_BUSY` family, or the "locking protocol" message shape). A failed transaction rolls its writes back, so re-running the whole fn is safe by construction; non-lock errors (UNIQUE constraints, corruption) are never retried. The wait uses `Atomics.wait` — allowed on every Node thread, and the blocking matches better-sqlite3's own synchronous nature.
+- Wired into `betterSqliteAdapter`, `nodeSqliteAdapter`, and `bunSqliteAdapter` — the same adapters the logshipper worker opens, so **both** contending sides retry. The mysql twin keeps its own connection-scoped shape.
+- The one-call contract (`adapter.transaction(fn)` executes and returns the result) is unchanged — every repo, migrate, integrity and backup caller passes untouched.
+
+**🧪 Proof** — `tests/unit/db-lock-retry.test.js` (new, 5 tests): retry-then-succeed re-runs the whole fn, message-shape classification, non-lock passthrough, cap-with-last-error, code-family table. The real-shape smoke: 150/150 main-thread transactions landed through the retried adapter while the **real logshipper worker booted concurrently** (the 04:19:07 boot-collision shape from the homelab log) — zero SQLITE_PROTOCOL escapes. DB families 40/40 (retry, integrity-guardian 8/8, fleet store, migration 030, seams); `tsc --noEmit` 0; ESLint 0.
+
 # v1.2.51 — The Salvage Keeps Its Promises 🔧⚓
 > *"The heal saved every readable row — and then the healed harbor failed its first keyed write, because the salvage had copied the ship's cargo while sawing off its keel. The salvage now replays each table's own DDL, constraints and all, and the test that models the wreck models the wreck that actually happened."* 🔧⚓💜
 

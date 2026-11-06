@@ -2,6 +2,7 @@
 // No native build, no npm install. API mirrors betterSqliteAdapter.
 import { PRAGMA_SQL } from "../schema.js";
 import { registerNativeHandle, workerOwnsCheckpointing } from "../checkpointOwner.js";
+import { withLockRetry } from "../helpers/lockRetry.js";
 
 const CHECKPOINT_INTERVAL_MS = 60 * 1000;
 
@@ -101,16 +102,20 @@ export async function createNodeSqliteAdapter(filePath) {
     exec(sql) { return db.exec(sql); },
     transaction(fn) {
       // node:sqlite has no transaction wrapper. Use SAVEPOINT for nested support.
-      const sp = `sp_${Math.random().toString(36).slice(2)}`;
-      db.exec(`SAVEPOINT ${sp}`);
-      try {
-        const r = fn();
-        db.exec(`RELEASE ${sp}`);
-        return r;
-      } catch (e) {
-        try { db.exec(`ROLLBACK TO ${sp}`); db.exec(`RELEASE ${sp}`); } catch {}
-        throw e;
-      }
+      // withLockRetry re-runs the WHOLE fn on a lock-protocol refusal; the
+      // ROLLBACK TO below guarantees no partial state survives between tries.
+      return withLockRetry(() => {
+        const sp = `sp_${Math.random().toString(36).slice(2)}`;
+        db.exec(`SAVEPOINT ${sp}`);
+        try {
+          const r = fn();
+          db.exec(`RELEASE ${sp}`);
+          return r;
+        } catch (e) {
+          try { db.exec(`ROLLBACK TO ${sp}`); db.exec(`RELEASE ${sp}`); } catch {}
+          throw e;
+        }
+      })();
     },
     checkpoint() { try { db.exec("PRAGMA wal_checkpoint(PASSIVE)"); } catch {} },
     close() {

@@ -2,6 +2,7 @@
 // Loaded only when process.versions.bun is present.
 import { PRAGMA_SQL } from "../schema.js";
 import { registerNativeHandle, workerOwnsCheckpointing } from "../checkpointOwner.js";
+import { withLockRetry } from "../helpers/lockRetry.js";
 
 const CHECKPOINT_INTERVAL_MS = 60 * 1000;
 
@@ -77,8 +78,7 @@ export async function createBunSqliteAdapter(filePath) {
     exec(sql) { return db.exec(sql); },
     transaction(fn) {
       // bun:sqlite has db.transaction() API (similar to better-sqlite3)
-      const tx = db.transaction(fn);
-      return tx();
+      return withLockRetry((inner) => db.transaction(inner)())(fn);
     },
     checkpoint() { try { db.exec("PRAGMA wal_checkpoint(PASSIVE)"); } catch {} },
     close() {
