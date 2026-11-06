@@ -388,3 +388,73 @@ describe("the Proxy room carries every console door, and lights exactly the one 
     expect(pushCalls).toEqual([]);
   });
 });
+
+/**
+ * ── The Endpoint room's doors — the five-shore pin (sealed plan §4 · W5) ─────
+ *
+ * The console became five shores (four lenses + the hub), and the rail's tile
+ * gains its children from `ENDPOINT_DOORS` the same wave — the proxy precedent
+ * pinned its own door list in the same tide as the rail change, never after.
+ *
+ * THE RAIL RENDERS FOUR CHILDREN, NOT FIVE: the room tile's own href IS
+ * `/dashboard/endpoint`, the hub's address, and a child carrying the same href
+ * as its room would claim the page twice (`isActivePath` is a prefix claim). So
+ * the room tile owns the front door and the children own the four lenses — each
+ * address has exactly one owner. The hub is a real shore and a real route; it is
+ * simply reached through the room tile, not a second link to the same address.
+ */
+describe("the Endpoint room carries every console door, and lights exactly the one you stand in", () => {
+  const childLinks = () => [...container.querySelectorAll(".nav-sub-tile")];
+  const currentChildren = () =>
+    childLinks().filter((a) => a.getAttribute("aria-current") === "page").map((a) => a.getAttribute("href"));
+  const openEndpoint = async () => {
+    currentPath = "/dashboard/endpoint";
+    await commit();
+  };
+
+  it("renders the hub and all four lenses as real routes, never as ?tab= hops", async () => {
+    await openEndpoint();
+    // The room tile claims `/dashboard/endpoint` (the hub); the four children
+    // claim the lenses. The room tile is `.nav-tile-link`, not a `.nav-sub-tile`,
+    // so it is asserted separately below — this list is the children only.
+    const hrefs = childLinks().map((a) => a.getAttribute("href"));
+    expect([...hrefs].sort()).toEqual([
+      "/dashboard/endpoint/keys",
+      "/dashboard/endpoint/access",
+      "/dashboard/endpoint/security",
+      "/dashboard/endpoint/diagnostics",
+    ].sort());
+    expect(hrefs.every((h) => !h.includes("?tab="))).toBe(true);
+  });
+
+  it("the room tile itself opens the hub as a real route", async () => {
+    await openEndpoint();
+    const room = container.querySelector(".nav-tile-link[href=\"/dashboard/endpoint\"]");
+    expect(room).toBeTruthy();
+    expect(room.getAttribute("href")).toBe("/dashboard/endpoint");
+    expect(room.getAttribute("href")).not.toContain("?tab=");
+  });
+
+  it("lights exactly one child per route — one page claim, never five at once", async () => {
+    const routes = [
+      ["/dashboard/endpoint/keys", "/dashboard/endpoint/keys"],
+      ["/dashboard/endpoint/access", "/dashboard/endpoint/access"],
+      ["/dashboard/endpoint/security", "/dashboard/endpoint/security"],
+      ["/dashboard/endpoint/diagnostics", "/dashboard/endpoint/diagnostics"],
+    ];
+    for (const [route, lit] of routes) {
+      currentPath = route;
+      await commit();
+      expect(currentChildren(), `claims on ${route}`).toEqual([lit]);
+    }
+  });
+
+  it("a door is a real Link, not a redirect stand-in", async () => {
+    await openEndpoint();
+    const keys = childLinks().find((a) => a.getAttribute("href") === "/dashboard/endpoint/keys");
+    expect(keys).toBeTruthy();
+    expect(keys.getAttribute("href")).not.toContain("?tab=");
+    expect(pushCalls).toEqual([]);
+  });
+});
+

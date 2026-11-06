@@ -1,3 +1,27 @@
+# v1.2.57 — The Five Shores of the Endpoint 🌊🏛️
+> *"One room held five questions behind a single tab strip, and a door that named no address could promise nothing but a jump in the dark. Now every question stands at its own shore — the fleet, its access, its safety, its health, and the front door you land on — and the rail names each by the address that owns it."* 🌊🏛️💜
+
+**The change.** The full separation of `/dashboard/endpoint` into five shores, mirroring the proxy console's v1.2.47 pattern. **+5 — a big change** (new routes, new features, multi-file wave).
+
+**🌊 The separation (W1–W4)**
+- **One store, mounted above the routes** — `stores/endpointStore.js` holds every atom the old page client held; a nested `layout.js` mounts `EndpointProvider` above all five shores, so walking between them costs zero refetches.
+- **A facade keeps the old shape** — `hooks/useEndpointFacade.js` exposes the same `c` object the components were written against, so files moved without rewriting expressions; the React-only machines (poll `useEffect`s, the install log's DOM scroll) stay in the facade, where a store action cannot hold them.
+- **A door registry is the one list** — `lib/endpointDoors.js` names the shores, addresses, icons and live chips; the hub's cards, the Sidebar's children and every cross-shore jump read it. `ENDPOINT_LENSES` filters the hub out of its own grid.
+- **A common frame** — `components/EndpointShore.js` carries masthead, the error banner with Retry ABOVE the subject, and the loading skeleton; it never gates the room.
+- **The old shell retired** — `EndpointPageClient.js`, the five-tab shell and the moved tab components deleted, not deprecated; the redirect law (`?tab=` → its shore, unknown → the hub) and `#require-api-key` (now a real address on the Keys shore) catch every old URL.
+- **Modals outlive the walk** — `EndpointModalsHost.js` mounts the modals once above the routes, so a drawer opened on Keys survives a crossing to Access.
+
+**🎛️ Five features (W3)**
+- **Fleet quick-actions bar** — `BulkActionBar` now always-mounted: fleet-level acts (Export / Import / Create) when nothing is selected, per-selection acts when a selection exists — one bar, two modes, every act on the deck's existing named mutations.
+- **Per-key activity chart** — a stacked `/api/usage/metrics/stacked?dimension=keyId` read, honest empty state ("No traffic in this window"), a failed read says so rather than fabricating a zero.
+- **Live request pulse** — an additive `EventSource("/api/usage/stream")` strip on the hub and Keys shore; a stream that never connects leaves every other number standing.
+- **Per-key security trail** — in the key drawer, `/api/security-log?keyId=` masked prefixes; empty renders "no events recorded", never silence.
+- **Cost attribution view** — per-key `/api/keys/usage` + `/api/keys/stats` census, sorted by cost desc, the shared window selector, absent keys shown as zero-traffic rather than invented.
+
+**🧭 Navigation (W5)** — the Gateway section's endpoint tile gains `children` built from `ENDPOINT_DOORS`, the way the proxy's are built; the nav test's claim set extends to the five endpoint routes in the same tide.
+
+**🧪 Proof** — `next build` green (~149s), all five shores compiled as real routes; full suite **5,527 passed** (the one red, `reasoningContentInjector` "vi is not defined", is pre-existing and untouched by this tide); `nav-rail-sections` **27**; `key-pills` **14** / `key-routes-pooled` **14** / `key-import-chunked` **6**; `endpoint-mends-render` **7**. A real-Chromium walk landed **9/11**: login through the password wall, hub doors, all four shores by deep link, and the redirect law both ways (`?tab=keys` → `/keys`, `?tab=bogus` → the hub). One console item stands honestly named: the root layout's `GoogleAnalytics` at `src/app/layout.js:149` is refused by Vela's own CSP — the shield working, present on every page long before this separation.
+
 # v1.2.52 — The Lock Protocol's Second Chance 🔄⚓
 > *"The harbor threw 'locking protocol' at every trust event, every stat, every pulse — not corruption, but the WAL's lock-state machine refusing a hand when two handles (main thread and the logshipper worker) met at the OS lock level. busy_timeout does not cover SQLITE_PROTOCOL; a short retry does."* 🔄⚓💜
 

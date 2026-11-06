@@ -25,6 +25,7 @@ import {
   StoredHerePill,
   UsageStrip,
 } from "./KeyBits";
+import KeySecurityTrail from "./KeySecurityTrail";
 
 function Field({ label, children }) {
   return (
@@ -98,6 +99,9 @@ export default function KeyDetailDrawer({ k, deck }) {
           </div>
         )}
 
+        <div className="rounded-[10px] bg-surface-2 border border-border-subtle p-3">
+          <KeySecurityTrail keyId={k.id} />
+        </div>
         <div>
           <Field label={translate("Description")}>
             {k.description || <span className="text-text-muted">—</span>}

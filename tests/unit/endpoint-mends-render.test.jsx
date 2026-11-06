@@ -102,11 +102,22 @@ describe("BulkActionBar — the per-item verdicts", () => {
     expect(text).not.toContain("refused");
   });
 
-  it("renders nothing at all with an empty selection", () => {
+  it("renders the fleet-level acts when nothing is selected (always-mounted bar)", () => {
+    // The bar is ALWAYS mounted now (sealed plan §3.1 · W3): with nothing
+    // selected it offers the fleet-level acts — Export, Import, Create Key —
+    // plus a one-line hint naming what a selection would add. It no longer
+    // vanishes, because an operator scrolled to the fleet's bottom should be
+    // able to mint a key without scrolling back to the masthead.
     const deck = deckWith(null);
     deck.selected = new Set();
     const { container } = render(<BulkActionBar deck={deck} />);
-    expect(container.textContent).toBe("");
+    const text = container.textContent;
+    expect(text).toContain("Export");
+    expect(text).toContain("Import");
+    expect(text).toContain("Create Key");
+    expect(text).toContain("Select keys to");
+    expect(text).not.toContain("Pause");
+    expect(text).not.toContain("Revoke");
   });
 });
 

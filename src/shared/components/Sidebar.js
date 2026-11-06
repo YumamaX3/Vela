@@ -16,6 +16,8 @@ import UpdateNoticeModal from "./UpdateNoticeModal";
 // The proxy console's one door list — the rail renders the children of it rather
 // than a copy of its own (sealed plan §4 · W5; see PROXY_CHILDREN below).
 import { PROXY_DOORS } from "@/app/(dashboard)/dashboard/proxy/lib/proxyDoors";
+// The endpoint console's one door list — same law, same shape (§4 · W5).
+import { ENDPOINT_DOORS } from "@/app/(dashboard)/dashboard/endpoint/lib/endpointDoors";
 // const VISIBLE_MEDIA_KINDS = ["embedding", "image", "imageToText", "tts", "stt", "webSearch", "webFetch", "video", "music"];
 const VISIBLE_MEDIA_KINDS = ["embedding", "image", "video", "tts", "stt"];
 // Combined entry: webSearch + webFetch share one page at /dashboard/media-providers/web
@@ -50,6 +52,22 @@ const PROXY_CHILDREN = PROXY_DOORS.map((door) => ({
   label: door.label,
   icon: door.icon,
 }));
+// The endpoint console's lenses, in console order — built from `ENDPOINT_DOORS`
+// the same way (§4 · W5), but WITHOUT the hub. The room tile's own href IS
+// `/dashboard/endpoint`, the hub's address, and a child carrying the same href
+// as its own room would claim the page twice (`isActivePath` is a prefix claim,
+// so `/dashboard/endpoint/keys` lights both the room and the hub child). So the
+// room tile claims the front door, the children claim the four lenses, and each
+// address has exactly one owner — the same rule PROXY_CHILDREN satisfies
+// because its hub (`/dashboard/proxy/hub`) sits deeper than its room
+// (`/dashboard/proxy`).
+const ENDPOINT_CHILDREN = ENDPOINT_DOORS
+  .filter((door) => door.slug !== "hub")
+  .map((door) => ({
+    href: door.href,
+    label: door.label,
+    icon: door.icon,
+  }));
 // Children of the Media Providers disclosure room. Each keeps the icon the
 // previous helm gave it, so the glyph subset is never re-minted.
 const MEDIA_CHILDREN = [
@@ -79,7 +97,7 @@ const SECTIONS = [
     label: "Gateway",
     icon: "hub",
     rooms: [
-      { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: "key_visualizer", chip: "keys" },
+      { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: "key_visualizer", chip: "keys", children: ENDPOINT_CHILDREN },
       { href: "/dashboard/providers", label: "Providers", icon: "lan", chip: "providers", state: "providers" },
       { href: "/dashboard/combos", label: "Combos", icon: "account_tree", chip: "combos" },
       { href: "/dashboard/routed-by-combo", label: "Routed by Combo", icon: "conversion_path" },

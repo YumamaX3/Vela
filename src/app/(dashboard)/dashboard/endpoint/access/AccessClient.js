@@ -1,14 +1,27 @@
 "use client";
-// EndpointCard — the three addresses the harbor answers on (Local, Cloudflare
-// Tunnel, Tailscale), each with its own reachability posture. Extracted verbatim
-// from the page client; only its address changed.
+// AccessClient — the Access shore: the three addresses the harbor answers on
+// (Local, Cloudflare Tunnel, Tailscale), each with its own reachability posture.
+// The old `?tab=access`, now a URL (§3.1 · W3).
+//
+// The subject is the moved EndpointCard, VERBATIM (R-31): same rows, same
+// ceremonies, same reachability law. What changed is only its address and the
+// frame around it — the subject now reads the store through the facade, so
+// walking to another shore and back never re-reads the transports.
+//
+// The one law the separation forced onto the body: the security warning's
+// `#require-api-key` action pointed at an anchor that lived on this page. The
+// anchor now lives on the Keys shore, so the action names the real address
+// (`/dashboard/endpoint/keys#require-api-key`) instead of a hash that scrolls
+// to nothing.
 import { Card, Button, Input, Toggle } from "@/shared/components";
 import { translate } from "@/i18n/runtime";
-import EndpointRow from "../endpoint/EndpointRow";
-import SecurityWarning from "../endpoint/SecurityWarning";
-import Tooltip from "../endpoint/Tooltip";
+import SecurityWarning from "../components/endpoint/SecurityWarning";
+import Tooltip from "../components/endpoint/Tooltip";
+import EndpointShore from "../components/EndpointShore";
+import { useEndpointFacade } from "../hooks/useEndpointFacade";
 
-export default function EndpointCard({ c }) {
+export default function AccessClient() {
+  const c = useEndpointFacade();
   const {
     baseUrl,
     clearUserAuth,
@@ -60,7 +73,15 @@ export default function EndpointCard({ c }) {
   const currentEndpoint = baseUrl;
 
   return (
-          <Card>
+    <EndpointShore
+      title="Access"
+      subtitle="The three addresses this gateway answers on — and what each transport is reachable on right now."
+      icon="lan"
+      error={c.error}
+      onRetry={c.reload}
+      loading={c.loading}
+    >
+      <Card>
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <span className="material-symbols-outlined text-primary">api</span>
           {translate("API Endpoint")}
@@ -69,13 +90,16 @@ export default function EndpointCard({ c }) {
         {/* Endpoint rows */}
         <div className="flex flex-col gap-2">
           {/* Local */}
-          <EndpointRow
-            label={translate("Local")}
-            url={currentEndpoint}
-            copyId="local_url"
-            copied={copied}
-            onCopy={copy}
-          />
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono px-1.5 py-0.5 rounded shrink-0 min-w-[88px] text-center bg-surface-2 text-text-muted">{translate("Local")}</span>
+            <Input value={`${currentEndpoint}`} readOnly className="flex-1 font-mono text-sm" />
+            <button
+              onClick={() => copy(`${currentEndpoint}`, "local_url")}
+              className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary motion-control shrink-0"
+            >
+              <span className="material-symbols-outlined text-lg">{copied === "local_url" ? "check" : "content_copy"}</span>
+            </button>
+          </div>
           {/* Cloudflare Tunnel */}
           <div className="flex items-center gap-2">
             <span className={`text-xs font-mono px-1.5 py-0.5 rounded shrink-0 min-w-[88px] text-center ${
@@ -270,7 +294,7 @@ export default function EndpointCard({ c }) {
             {!requireApiKey && (
               <SecurityWarning
                 message="Require API key is disabled — your endpoint is publicly accessible without authentication."
-                action={{ label: "Enable", href: "#require-api-key" }}
+                action={{ label: "Enable", href: "/dashboard/endpoint/keys#require-api-key" }}
               />
             )}
             {(!requireLogin || !hasPassword) && (
@@ -303,5 +327,6 @@ export default function EndpointCard({ c }) {
           </div>
         )}
       </Card>
+    </EndpointShore>
   );
 }

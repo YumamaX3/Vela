@@ -76,33 +76,34 @@ The allowlist runs **after** the shaping branches so their work is not undone an
 
 ## The room pattern — one room, many lenses
 
-A room is a `page.js` that answers several questions, each on its own tab. The reference implementation is the keys console: `src/app/(dashboard)/dashboard/endpoint/page.js` → `EndpointPageClient.js` → `components/keys/` (`KeysMasthead`, `KeyRail`, `KeyToolbar`, `KeysCard`, `KeyTable`, `KeyDetailDrawer`, `BulkActionBar`).
+A room is a `page.js` that answers several questions, each on its own address. The reference implementation is the endpoint console: `src/app/(dashboard)/dashboard/endpoint/` — `layout.js` mounts `EndpointProvider` (the shared store's single mount point) above five shores (`hub/`, `keys/`, `access/`, `security/`, `diagnostics/`), each a thin `page.js` over a `*Client.js` that reads `hooks/useEndpointFacade.js`. The proxy console (`proxy/`) is the same pattern at eight shores.
 
-The contract, in four parts:
+The contract, in five parts:
 
-1. **`TabBar` owns navigation.** `@/shared/components/TabBar` (`src/shared/components/TabBar.js`) renders `role="tablist"` with roving tabindex and Arrow/Home/End keys. Each tab emits `aria-controls="panel-<id>"` — so **the panel must carry `id={`panel-${id}`}` and `aria-labelledby={`tab-${id}`}`**, or the tab promises a destination and delivers a jump to nothing.
-2. **Lazy-mount, then never unmount.** `src/app/(dashboard)/dashboard/settings/page.js` keeps a `mounted` Set seeded with the first tab; switching tabs adds to it. `SettingsPanel` renders with **`hidden={!active}`**, never a conditional:
-
-   ```jsx
-   {TAB_IDS.filter((id) => mounted.has(id)).map((id) => (
-     <SettingsPanel key={id} id={id} active={active === id}>{panels[id]}</SettingsPanel>
-   ))}
-   ```
-
-   A visitor who never opens Single Sign-On pays no request for it; a visitor who does and then wanders to Routing does not lose a half-typed issuer URL. The alternative — hoisting the state above a conditional switch — is what the endpoint room does for its deck, and it works, but it means every piece of surviving state must be lifted deliberately.
-3. **The lens lives in the URL.** Write it with `replaceState`, not `pushState` — tab switching is not a navigation, and a back button that walks five tabs is a worse lie than a stale URL. Read it once on mount from `window.location.search`.
-
-   ⚠️ **Do not use `useSearchParams()` here.** It forces the page behind a Suspense boundary, and these rooms need the value once, on mount. The house helper is a plain `tabFromUrl()` guarded by `typeof window === "undefined"` and validated against the tab-id list.
-4. **A moved route keeps its file.** `redirect()` from `next/navigation`, not a deletion — bookmarks and muscle memory are real users:
+1. **One store, mounted above the routes.** `stores/endpointStore.js` (mirroring `proxy/stores/proxyFleetStore.js`) holds every atom the console used to hold in one page client. A route navigation unmounts a page — but NOT a nested layout — so the store outlives every shore and walking between them costs zero refetches. Pages subscribe with selectors, never a bare store call.
+2. **A facade keeps the old shape.** `hooks/useEndpointFacade.js` selects the store's fields and exposes the same `c` object the components were written against, so a separation moves files without rewriting expressions. The React-only machines (poll `useEffect`s, the install log's DOM scroll) stay in the facade; a store action can hold neither.
+3. **A door registry is the one list every surface reads.** `lib/endpointDoors.js` (mirroring `proxy/lib/proxyDoors.js`) names the shores, their addresses, icons and live chips. The hub's cards, the Sidebar's children and cross-shore jump links all read it — a second copy is a second chance to disagree about a route.
+4. **A common frame wraps each shore.** `components/EndpointShore.js` (mirroring `proxy/components/ProxyShore.js`) carries the masthead, the error banner with Retry ABOVE the subject, and the loading skeleton. It never gates the room: a failed load still renders, still links onward.
+5. **A moved route keeps its file.** `redirect()` from `next/navigation`, not a deletion — bookmarks and muscle memory are real users:
 
    ```js
    // src/app/(dashboard)/dashboard/proxy-pools/page.js
-   export default function ProxyPoolsPage() { redirect("/dashboard/proxy?tab=fleet"); }
+   export default function ProxyPoolsPage() { redirect("/dashboard/proxy/pools"); }
    ```
 
-   Same shape in `profile/page.js` (`/dashboard/settings`) and `proxy-fitness/page.js` (`/dashboard/proxy?tab=fitness`). When one room swallows another, redirect into its lens.
+   Same shape in `proxy-fitness/page.js`. The endpoint console's own `?tab=` URLs land through `endpoint/page.js`'s redirect map: an unknown or absent tab goes to the hub, because a tab we cannot name is not a vote for Keys.
 
-Reaching into a tab from elsewhere (a banner's "Enable" link) must map the old anchor to the room that actually owns it — `EndpointPageClient.js`'s `HASH_TO_TAB` exists because `#require-api-key` pointed at a card that moved to Keys, and a `preventDefault`-ing hash link that scrolls to a missing id goes nowhere at all.
+Reaching into a shore from elsewhere (a banner's "Enable" link) must name the address that actually owns the anchor — `#require-api-key` lives on the Keys shore's masthead, so the hub's and the access shore's warnings link `/dashboard/endpoint/keys#require-api-key`, a real address, rather than a hash that scrolls to nothing.
+
+### The tab pattern — where tabs still live
+
+Some rooms answer several questions on ONE address, and there the tab pattern still holds: `TabBar` owns navigation, the lens is lazy-mounted then never unmounted, and the lens lives in the URL written with `replaceState`. `src/app/(dashboard)/dashboard/settings/page.js` is the reference: it keeps a `mounted` Set seeded with the first tab, and `SettingsPanel` renders with `hidden={!active}`, never a conditional — so a half-typed issuer URL survives a wander to Routing.
+
+A room that outgrows one address separates into shores (the law above); a room that fits keeps its tabs. The choice is the content's shape, not the fashion's.
+
+## Client/server boundary
+
+`src/app/layout.js` is a server component. Everything under `(dashboard)` is effectively client: the group's layout and most pages carry `"use client"`, and page wrappers are thin (`endpoint/keys/page.js` is three lines importing its Client).
 
 ## Client/server boundary
 
