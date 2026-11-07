@@ -1,3 +1,18 @@
+# v1.2.61 — The Table That Read Objects 📋🌊
+> *"The endpoint hub's ledger spoke in pipe-bound strings — the same wire the Log Harbor parses — but this table reached for object fields on every row, and the wire answered nothing. Every column fell to '—', every outcome lied 'ok'. Now the table splits the strings the wire actually carries."* 📋🌊💜
+
+**The change.** One consumer misreading one wire; the fix is a split, not a producer change. **+1 for the fix.**
+
+**🐛 The endpoint hub's "Recent requests" rendered dashes for every field (endpoint/hub/HubClient.js)**
+- `GET /api/usage/request-logs` returns a STRING ARRAY — each row is `` `${ts} | ${model} | ${PROVIDER} | ${account} | ${in} | ${out} | ${status}` `` (`sqlite/usageRepo.js getRecentLogs`, mirrored in mysql). Two correct parsers already read it that way: `shared/components/RequestLogger.js` (`log.split(" | ")`, 7-part guard) and `logs/RequestLedger.js` (`parseLog`). The hub's table alone stored the array raw and read `r.at`, `r.key`, `r.model`, `r.ok`, `r.ms` — every one undefined on a string. Result: When/Key/Model/Duration all rendered "—", and the outcome ternary printed "ok" for every row (`undefined === false` and `undefined >= 400` are both false), hiding even the refusals the column existed to show.
+- The mend mirrors the proven contract exactly: `typeof r === "string" ? r.split(" | ") : []`, `parts.length < 7` guard, then When=`parts[0]`, Key=`parts[3]` (the wire's "account", not a key id), Model=`parts[1]`, Outcome toned from `parts[6]` (OK / FAILED/REFUSED / other), tokens = `` `${parts[4]} / ${parts[5]}` ``. The wire carries no duration, so the misleading "Duration" header becomes the honest "Tokens (in/out)" — a header that named a field the wire never sends was a second lie beside the dashes.
+
+**🧪 Proof** — build green (`npm run build`, 340s, standalone assets copied; eslint clean). Then the real walk: a scratch dev harbor, its sqlite seeded with two `usageHistory` rows in the wire's own shape, and `curl /api/usage/request-logs` returning the two pipe-strings verbatim. The browser walk of `/dashboard/endpoint/hub` read the table back as `[["07-11-2026 18:17:36","test-con","claude-x","ok","80 / 300"], [...]]` — five real columns, `roughWater:false`, zero page errors, no "—" anywhere. Sibling parsers untouched: RequestLogger, RequestLedger, both API routes, getRecentLogs in sqlite + mysql, the proxy hub's separate `/api/proxy-pools/routing-ledger` object wire.
+
+**⚓ What sailed** — `src/app/(dashboard)/dashboard/endpoint/hub/HubClient.js` (string split + honest tokens header), `package.json`, `package-lock.json`, `docker-compose.example.yml` (and the gitignored live chart, bumped on disk, never staged).
+
+**🌊 Recorded, not repeated** — a table that reads a wire must read the wire's SHAPE, not the shape another component would prefer: two consumers parsing the pipe-string correctly sat beside the one that didn't, and only a browser walk with seeded rows could see the dashes. An object-shaped reader on a string wire renders silence — and silence that says "ok" is worse than silence that says "—".
+
 # v1.2.60 — The Pulse That Couldn't Count 🫀🌊
 > *"The gateway's heartbeat was a strip that read the wire wrong: it held an array of rows in a hand shaped for a number, and the first breath of real traffic broke it — Objects are not valid as a React child. An empty harbor never showed it; the live water did. Now the strip reads the shapes the wire actually carries."* 🫀🌊💜
 

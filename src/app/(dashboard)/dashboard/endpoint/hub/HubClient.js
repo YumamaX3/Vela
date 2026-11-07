@@ -162,29 +162,45 @@ export default function HubClient() {
                   <th className="px-4 py-1.5 font-medium">Key</th>
                   <th className="px-4 py-1.5 font-medium">Model</th>
                   <th className="px-4 py-1.5 font-medium">Outcome</th>
-                  <th className="px-4 py-1.5 text-right font-medium">Duration</th>
+                  <th className="px-4 py-1.5 text-right font-medium">Tokens (in/out)</th>
                 </tr>
               </thead>
               <tbody>
-                {logs.rows.slice(0, 8).map((r, i) => (
-                  <tr key={r.id ?? i} className="border-b border-border-subtle last:border-b-0">
-                    <td className="px-4 py-1.5 text-2xs text-text-muted">{logTime(r.at ?? r.ts ?? r.timestamp ?? r.createdAt)}</td>
-                    <td className="px-4 py-1.5 text-xs text-text-main">{r.keyPrefix || r.key || "—"}</td>
-                    <td className="max-w-[220px] truncate px-4 py-1.5 text-xs text-text-muted" title={r.model || ""}>
-                      {r.model || "—"}
+                {logs.rows.slice(0, 8).map((r, i) => {
+                  // The wire is a STRING array, not objects: getRecentLogs
+                  // returns "HH:MM:SS | model | PROVIDER | account | in | out
+                  // | status" (the same rows the Log Harbor and
+                  // RequestLogger parse). Split once per row and read the
+                  // parts — every object-field read on a string was
+                  // undefined, which dashed every column and let the
+                  // outcome ternary print "ok" for every row.
+                  const parts = typeof r === "string" ? r.split(" | ") : [];
+                  if (parts.length < 7) return null;
+                  const status = parts[6];
+                  const failed = status.includes("FAILED") || status.includes("REFUSED");
+                  const succeeded = status.includes("OK");
+                  return (
+                  <tr key={i} className="border-b border-border-subtle last:border-b-0">
+                    <td className="px-4 py-1.5 text-2xs text-text-muted">{parts[0]}</td>
+                    <td className="px-4 py-1.5 text-xs text-text-main truncate max-w-[150px]" title={parts[3]}>{parts[3]}</td>
+                    <td className="max-w-[220px] truncate px-4 py-1.5 text-xs text-text-muted" title={parts[1]}>
+                      {parts[1]}
                     </td>
                     <td className="px-4 py-1.5">
-                      {r.ok === false || r.status >= 400 ? (
+                      {failed ? (
                         <span className="text-2xs font-medium text-red-500">refused</span>
-                      ) : (
+                      ) : succeeded ? (
                         <span className="text-2xs font-medium text-emerald-600 dark:text-emerald-400">ok</span>
+                      ) : (
+                        <span className="text-2xs font-medium text-amber-600 dark:text-amber-400">{status.toLowerCase()}</span>
                       )}
                     </td>
                     <td className="px-4 py-1.5 text-right text-2xs tabular-nums text-text-muted">
-                      {r.ms == null ? "—" : `${r.ms} ms`}
+                      {parts[4]} / {parts[5]}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
