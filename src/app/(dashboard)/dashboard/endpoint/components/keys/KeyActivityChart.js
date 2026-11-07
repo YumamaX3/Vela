@@ -22,6 +22,7 @@
 import { useEffect, useState } from "react";
 import { translate } from "@/i18n/runtime";
 import { PERIODS } from "../../hooks/useKeyDeck";
+import { Card } from "@/shared/components";
 
 /** The window's granularity — hourly inside a day, daily beyond it. The seam
  *  accepts both; the choice is the window's own resolution, not a preference. */

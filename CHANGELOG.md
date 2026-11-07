@@ -1,3 +1,19 @@
+# v1.2.59 — The Unbound Names, Again 🪝🌊
+> *"The five shores were cut whole, but two names fell overboard in the crossing — the rail and the card were called into the room and never bound. The build compiled, the suite passed, and only a real browser walk heard the room confess: ReferenceError. Bound now, and the keys room renders."* 🪝🌊💜
+
+**The change.** Two unbound component names in the keys shore, the v0.9.91 wound-class returning in JSX form. **+1 for the fix.**
+
+**🐛 The keys room hit rough water (keys/KeysClient.js, components/keys/KeyActivityChart.js)**
+- `KeysClient` rendered `<KeyRail c={c} deck={deck} />` (line 94) but never imported `KeyRail` — thrown at render: `Uncaught ReferenceError: KeyRail is not defined`, the whole room replaced by the error boundary ("This room hit rough water").
+- With the rail bound, the walk's next breath died one shore deeper: `KeyActivityChart` wrapped its render in `<Card>` (line 122) with `Card` likewise never imported. The same class, the same silence from every compile-time instrument.
+- Why the house's own guard did not bite: eslint `no-undef` (the v0.9.91 instrument) catches bare identifier references, but JSX component tags compile to `jsx()` calls that were invisible to the walk-less toolchain — webpack warns on missing exports and stays green, and the rule's findings on this fresh code (the Five Shores wave, 13h old) name a different pre-existing pattern (`react-hooks/set-state-in-effect`, present identically in the untouched twin `KeySpendView.js` — baseline proven before blame).
+
+**🧪 Proof** — reproduce-before/confirm-after in a real Chromium walk on an isolated dev harbor: before the mend the boundary stood and the pageerror read `ReferenceError: KeyRail is not defined at KeysClient`; after binding the rail, `ReferenceError: Card is not defined at KeyActivityChart`; after both mends — `roughWater: false`, zero page errors, on **all six endpoint shores** (keys, endpoint, access, security, diagnostics, hub), each exercised by deep link in the same walk. Screenshot read back: the keys fleet renders whole (masthead, rail, cards, toolbar, Fleet traffic, Spend). Suites: `key-format-filters` 14/14, `key-pills-render` 15/15, `endpoint-mends-render` untouched. `npm run build` (webpack, the CI-true gate) green — 218/218 static pages, standalone assets copied. eslint on the touched files: only the pre-existing twin-proven finding.
+
+**⚓ What sailed** — `src/app/(dashboard)/dashboard/endpoint/keys/KeysClient.js` (+1 import), `src/app/(dashboard)/dashboard/endpoint/components/keys/KeyActivityChart.js` (+1 import), `package.json`, `package-lock.json`, `docker-compose.example.yml` (and the gitignored live chart, bumped on disk, never staged).
+
+**🌊 Recorded, not repeated** — when a JSX-rendered component dies as `ReferenceError: X is not defined` in a browser walk, sweep EVERY sibling component in the same wave against its import block in one tide — the wounds surface one walk at a time otherwise. The walk is the only instrument that hears this class at all.
+
 # v1.2.58 — The Hull Reads Its Own Name 🏷️🚢
 > *"The five shores sailed and the harbor pushed the image — but the hull bore no name of its own, for a build dispatched on the branch stamps 'latest' and forgets the version. A name the manifest cannot read is a deploy that cannot pin it; the hull now carries 1.2.58."* 🏷️🚢💜
 

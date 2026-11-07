@@ -18,6 +18,7 @@ import BulkActionBar from "../components/keys/BulkActionBar";
 import KeyCard from "../components/keys/KeyCard";
 import KeyDetailDrawer from "../components/keys/KeyDetailDrawer";
 import KeyImportModal from "../components/keys/KeyImportModal";
+import KeyRail from "../components/keys/KeyRail";
 import KeySpendView from "../components/keys/KeySpendView";
 import KeyTable from "../components/keys/KeyTable";
 import KeyToolbar from "../components/keys/KeyToolbar";
