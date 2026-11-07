@@ -1,3 +1,15 @@
+# v1.2.58 — The Hull Reads Its Own Name 🏷️🚢
+> *"The five shores sailed and the harbor pushed the image — but the hull bore no name of its own, for a build dispatched on the branch stamps 'latest' and forgets the version. A name the manifest cannot read is a deploy that cannot pin it; the hull now carries 1.2.58."* 🏷️🚢💜
+
+**The change.** One CI mend to land the image the five-shores wave built. **+1.**
+
+**🏷️ The version stamp lands (docker-publish.yml)**
+- The v1.2.57 image built green but carried only `:latest` — dispatching the workflow on `main` makes `metadata-action` fall back, so the semver tag and the OCI `image.version` label both read `latest`. A deploy pinned to `:1.2.57` would not resolve.
+- Two consecutive v1.2.57 builds had also hung on `Build and push` pulling the GHCR `type=registry :buildcache`; the cache lines are bypassed so the build lands cold.
+- **v1.2.58** cuts from `main` (identical endpoint code + the bypass workflow), so a clean tag push stamps `1.2.58` correctly — no force, no published-tag move.
+
+**🧪 Proof** — pin guard 5/5; package.json, package-lock.json and both compose charts all read `1.2.58`; the tag push fires `docker-publish.yml` on the tag and stamps the semver.
+
 # v1.2.57 — The Five Shores of the Endpoint 🌊🏛️
 > *"One room held five questions behind a single tab strip, and a door that named no address could promise nothing but a jump in the dark. Now every question stands at its own shore — the fleet, its access, its safety, its health, and the front door you land on — and the rail names each by the address that owns it."* 🌊🏛️💜
 
