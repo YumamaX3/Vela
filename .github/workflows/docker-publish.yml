@@ -17,6 +17,13 @@ concurrency:
 
 jobs:
   build-and-push:
+    # A wedged multi-arch build must die on its own, not smolder for GitHub's
+    # 6-hour default: healthy builds land in 22–30 min (measured v1.2.58–59),
+    # so 90 min is far past the honest envelope and far short of a zombie.
+    # (2026-11-07: the v1.2.60 build sailed 95+ min with no step progress and
+    # no self-termination — the Star cancelled it by hand; this bound makes
+    # that intervention the workflow's own reflex.)
+    timeout-minutes: 90
     runs-on: ubuntu-latest
     permissions:
       contents: read
