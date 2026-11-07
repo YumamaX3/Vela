@@ -1,3 +1,20 @@
+# v1.2.60 — The Pulse That Couldn't Count 🫀🌊
+> *"The gateway's heartbeat was a strip that read the wire wrong: it held an array of rows in a hand shaped for a number, and the first breath of real traffic broke it — Objects are not valid as a React child. An empty harbor never showed it; the live water did. Now the strip reads the shapes the wire actually carries."* 🫀🌊💜
+
+**The change.** One render-time crash under real traffic, the v1.2.57 pulse's own seam. **+1 for the fix.**
+
+**🐛 The hub hit rough water under real traffic (endpoint/components/LiveRequestPulse.js)**
+- The live wire's `activeRequests` is an **ARRAY** of rows `{model, provider, account, count}` (`usageRepo.getActiveRequests`) — ProviderTopology and the Home shore consume it correctly (Home converts array→length at `HomePageClient.js:124`). The new pulse strip stored it raw and rendered it as a child (line 77), so the first SSE frame under real traffic threw `Minified React error #31` — `Objects are not valid as a React child`, keys matching the row shape exactly — and the room's error boundary swallowed the hub.
+- Why no instrument caught it earlier: the dev harbor had **no traffic**, and an empty array renders as nothing between the words — the wound only fires where requests flow. Caught live on the Star's v1.2.58 image, not by any static tool; the walk-with-seeded-data is the instrument this class demands.
+- The `pending` chip carried the same blindness — the wire's pending is the counters **object** (`{byModel, byAccount}`), never a number, so `{live?.pending > 0}` could never fire. Both mends in one tide: the count chip reads the array's length; the pending chip sums the `byModel` counters (a bare number from an older frame still passes through).
+- The EventSource "failure" in the console was a **consequence, not a second wound** — the crash unmounted the strip and closed its own socket; the stream itself answered in-session.
+
+**🧪 Proof** — reproduce-before/confirm-after, twice over: a new suite `tests/unit/live-pulse-frame.test.jsx` (2 tests) drives the wire's exact shapes through a stubbed EventSource — **red 2/2 against the wounded code** (React's own reconcile throw in test 1; "Live active" with no number in test 2), **green 2/2 after the mend**. Then the production walk: the standalone build served, the identical real-traffic frame driven through the strip's own connection in the real bundle — **"2 active" · "4 pending"**, `roughWater: false`, zero page errors. Sibling suites untouched and green: `endpoint-mends-render` 7/7. `npm run build` (webpack, CI-true) green — static pages generated, standalone assets copied. eslint on the touched file: clean.
+
+**⚓ What sailed** — `src/app/(dashboard)/dashboard/endpoint/components/LiveRequestPulse.js` (frame-shape mends + restored `onerror`), `tests/unit/live-pulse-frame.test.jsx` (new), `package.json`, `package-lock.json`, `docker-compose.example.yml` (and the gitignored live chart, bumped on disk, never staged).
+
+**🌊 Recorded, not repeated** — a component that reads a stream field must read the field's SHAPE, not its intended scalar: the wire's arrays and objects reach every consumer verbatim, and only a walk under seeded real-traffic data proves the render. An empty dev harbor is a blind harbor.
+
 # v1.2.59 — The Unbound Names, Again 🪝🌊
 > *"The five shores were cut whole, but two names fell overboard in the crossing — the rail and the card were called into the room and never bound. The build compiled, the suite passed, and only a real browser walk heard the room confess: ReferenceError. Bound now, and the keys room renders."* 🪝🌊💜
 

@@ -41,9 +41,20 @@ export default function LiveRequestPulse({ period }) {
       try {
         const data = JSON.parse(e.data);
         setState("live");
+        // The wire's shapes (usageRepo.getActiveRequests): activeRequests is
+        // an ARRAY of rows {model, provider, account, count} — the count chip
+        // reads its LENGTH, never the array as a child (React #31 under real
+        // traffic). pending is the counters object ({byModel, byAccount}) —
+        // the chip sums the byModel counters; a bare number (an older frame)
+        // passes through.
+        const activeRows = data.activeRequests;
+        const pendingRaw = data.pending?.byModel ?? data.pending ?? {};
+        const pendingCount = typeof pendingRaw === "object" && !Array.isArray(pendingRaw)
+          ? Object.values(pendingRaw).reduce((n, v) => n + (Number(v) || 0), 0)
+          : Number(pendingRaw) || 0;
         setLive({
-          activeRequests: data.activeRequests ?? 0,
-          pending: data.pending ?? 0,
+          activeRequests: Array.isArray(activeRows) ? activeRows.length : (Number(activeRows) || 0),
+          pending: pendingCount,
           errorProvider: data.errorProvider ?? null,
           recentRequests: Array.isArray(data.recentRequests) ? data.recentRequests.slice(0, 5) : [],
         });
