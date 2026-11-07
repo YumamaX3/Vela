@@ -58,6 +58,10 @@ jobs:
             # main-branch dispatches (a manual run showed ONLY :latest).
             type=raw,value=latest
 
+      # The GHCR :buildcache entries went suspect at v1.2.57 — two consecutive
+      # builds hung on this step pulling the registry cache, while every prior
+      # tag built green in ~25 min. The cache is bypassed until that entry is
+      # cleared; a cold multi-arch build is slower but it lands.
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -65,17 +69,12 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Stamp the OCI image.version label from the tag (metadata-action's
-          # version output; falls back to "dev" on non-tag dispatches).
           build-args: |
             VELA_VERSION=${{ steps.meta.outputs.version }}
             GITHUB_SHA=${{ github.sha }}
-          cache-from: type=registry,ref=${{ steps.image.outputs.name }}:buildcache
-          cache-to: type=registry,ref=${{ steps.image.outputs.name }}:buildcache,mode=max
           platforms: linux/amd64,linux/arm64
           provenance: false
           sbom: false
-
 # The image ships to ghcr.io ONLY. ⚠️ The repository is PUBLIC (measured
 # 2026-09-19), and pushes made with GITHUB_TOKEN inherit that visibility — so
 # the package is PUBLIC too and anyone may pull it. It carries no secrets
