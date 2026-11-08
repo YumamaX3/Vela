@@ -1,3 +1,10 @@
+// The identity headers come from the ONE law (shared/codebuddy/identity.js) — the
+// committed literal UA here was a second, drifting source of truth: it sat at
+// 2.165.0 (WorkBuddy-CLI's version) while the law moved CodeBuddy-CLI to 2.179.3
+// with upstream v1.5.4 (app/client_profiles.py:11-17). The intl sibling derives
+// the same way.
+import { transportHeaders } from "../../shared/codebuddy/identity.js";
+
 export default {
   id: "codebuddy-cn",
   // Short model prefix (cbcn/glm-5.2). "cbcn" = CodeBuddy CN; reserve "cbai"
@@ -25,15 +32,7 @@ export default {
     // MiniMax, DeepSeek, Hunyuan) takes reasoning via OpenAI-style reasoning_effort,
     // not its vendor-native thinking shape. Force the openai thinking format.
     thinkingFormat: "openai",
-    headers: {
-      "User-Agent": "CLI/2.165.0 CodeBuddy/2.165.0",
-      "X-Product": "SaaS",
-      "X-IDE-Type": "CLI",
-      "X-IDE-Name": "CLI",
-      "X-IDE-Version": "2.165.0",
-      "x-requested-with": "XMLHttpRequest",
-      "x-codebuddy-request": "1",
-    },
+    headers: transportHeaders("cn-cli"),
     auth: {
       combined: true,
       header: "Authorization",

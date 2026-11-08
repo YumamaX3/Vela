@@ -48,6 +48,13 @@ describe("explicit filter envelopes", () => {
     expect(isFilterError({ error: { message: CANNED } })).toBe(true);
   });
 
+  it("accepts the raw JSON text and raw bytes the wire carries (upstream takes bytes)", () => {
+    const raw = JSON.stringify({ error: { message: CANNED } });
+    expect(isFilterError(raw)).toBe(true);
+    expect(isFilterError(new TextEncoder().encode(raw))).toBe(true);
+    expect(isFilterError("not json at all")).toBe(false);
+  });
+
   it("is inert on unrelated errors and non-objects", () => {
     expect(isFilterError({ error: { code: "11128" } })).toBe(false);
     expect(isFilterError({ error: "boom" })).toBe(false);

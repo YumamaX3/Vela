@@ -6,14 +6,16 @@
 // app/auth_oauth.py), whose facts are these:
 //
 //   CodeBuddy CLI   UA "CLI/<cli> CodeBuddy/<cli>",  X-IDE-Type CLI,       X-IDE-Name CLI
-//   WorkBuddy       UA "WorkBuddy/<wb> <name>/<wb> CLI/<cli>",
+//   WorkBuddy       UA "WorkBuddy/<wb> <name>/<wb> CLI/<wcli>",
 //                   X-IDE-Type WorkBuddy, X-IDE-Name WorkBuddy, X-IDE-Version <wb>,
 //                   X-Private-Data true
 //
-// and whose versions are per shore:
+// and whose versions are per shore (client_profiles.py:11-17, upstream v1.5.4 —
+// CLI 2.179.3 on both shores, WorkBuddy 5.9.3 domestic / 5.9.4 international, and the
+// WorkBuddy UA's trailing CLI component is its own constant, 2.165.0 on both shores):
 //
-//   domestic      CLI 2.165.0   WorkBuddy 5.9.2
-//   international CLI 2.161.0   WorkBuddy 5.8.4
+//   domestic      CLI 2.179.3   WorkBuddy 5.9.3   (WB UA CLI part 2.165.0)
+//   international CLI 2.179.3   WorkBuddy 5.9.4   (WB UA CLI part 2.165.0)
 //
 // The domestic WorkBuddy name is "WorkBuddy"; the international one is "WorkBuddy AI".
 //
@@ -24,10 +26,10 @@
 //     while CodeBuddy's international site requires uppercase "CLI". One shared value
 //     sends the wrong platform to at least one shore.
 
-/** Verified package versions, per shore. */
+/** Verified package versions, per shore (codebuddy2api app/client_profiles.py:11-17, v1.5.4). */
 export const CODEBUDDY_VERSIONS = Object.freeze({
-  domestic: Object.freeze({ cli: "2.165.0", workbuddy: "5.9.2" }),
-  international: Object.freeze({ cli: "2.161.0", workbuddy: "5.8.4" }),
+  domestic: Object.freeze({ cli: "2.179.3", workbuddy: "5.9.3", workbuddyCli: "2.165.0" }),
+  international: Object.freeze({ cli: "2.179.3", workbuddy: "5.9.4", workbuddyCli: "2.165.0" }),
 });
 
 /** The plugin root every product shares for auth and refresh. */
@@ -76,10 +78,12 @@ export function identityHeaders(profile) {
   }
 
   // The international desktop client calls itself "WorkBuddy AI"; the domestic one
-  // is plain "WorkBuddy". Both ride a CLI version alongside their own.
+  // is plain "WorkBuddy". Both ride a CLI version alongside their own — and that
+  // trailing CLI component is workbuddyCli, not the CLI product's version
+  // (client_profiles.py:49 — "WorkBuddy/<wb> <name>/<wb> CLI/<wcli>").
   const name = shore === "international" ? "WorkBuddy AI" : "WorkBuddy";
   return {
-    "User-Agent": `WorkBuddy/${versions.workbuddy} ${name}/${versions.workbuddy} CLI/${versions.cli}`,
+    "User-Agent": `WorkBuddy/${versions.workbuddy} ${name}/${versions.workbuddy} CLI/${versions.workbuddyCli}`,
     "X-IDE-Type": "WorkBuddy",
     "X-IDE-Name": "WorkBuddy",
     "X-IDE-Version": versions.workbuddy,

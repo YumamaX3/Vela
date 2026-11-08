@@ -67,9 +67,10 @@ describe("the console door", () => {
       .toBe("https://www.codebuddy.ai/console/chat/completions");
   });
 
-  it("preserves the host for the other shore", () => {
-    expect(channelFallbackUrl("https://www.codebuddy.cn/v2/chat/completions"))
-      .toBe("https://www.codebuddy.cn/console/chat/completions");
+  it("offers the CN shore no door — the console twin is international-only (upstream:193-204, probed 2026-11-08)", () => {
+    expect(channelFallbackUrl("https://www.codebuddy.cn/v2/chat/completions")).toBeNull();
+    expect(channelFallbackUrl("https://www.workbuddy.cn/v2/chat/completions")).toBeNull();
+    expect(channelFallbackUrl("https://copilot.tencent.com/v2/chat/completions")).toBeNull();
   });
 
   it("offers no door for any other path", () => {

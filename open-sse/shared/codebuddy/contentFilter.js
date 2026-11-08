@@ -46,10 +46,23 @@ export function isFilterText(text) {
 }
 
 /**
- * Is this parsed JSON body an explicit filter error?
- * Reads `error.code`, `error.type`, and `error.message`.
+ * Is this parsed JSON body — or its raw JSON text/bytes — an explicit filter error?
+ * Upstream is_filter_error (app/content_filter.py:17-26) takes the raw bytes and
+ * json.loads them; a body that fails to parse is simply not a filter error. All
+ * three shapes are accepted here so the replay-safety check can hand it the raw
+ * body exactly as the wire carries it (string, bytes, or already-parsed object).
  */
 export function isFilterError(payload) {
+  if (payload instanceof Uint8Array) {
+    payload = new TextDecoder().decode(payload);
+  }
+  if (typeof payload === "string") {
+    try {
+      payload = JSON.parse(payload);
+    } catch {
+      return false;
+    }
+  }
   if (!payload || typeof payload !== "object") return false;
   const error = payload.error;
   if (!error || typeof error !== "object") return false;

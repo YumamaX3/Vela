@@ -1,6 +1,12 @@
 // CodeBuddy international (codebuddy.ai) — mirrors codebuddy-cn registry shape,
 // swapping the Tencent CN domain for the .ai endpoint set. All OAuth/plugin URLs
 // use the /v2/plugin prefix with platform=ide (CN uses platform=CLI).
+//
+// The identity headers come from the ONE law (shared/codebuddy/identity.js) — a
+// literal UA string here was a second, drifting source of truth (it sat at 2.161.0
+// while the law moved to 2.179.3 with upstream v1.5.4, app/client_profiles.py:11-17).
+import { transportHeaders } from "../../shared/codebuddy/identity.js";
+
 export default {
   id: "codebuddy-intl",
   alias: "cbai",
@@ -25,15 +31,7 @@ export default {
     forceStream: true,
     // CodeBuddy intl speaks the same unified OpenAI reasoning_effort shape as CN.
     thinkingFormat: "openai",
-    headers: {
-      "User-Agent": "CLI/2.161.0 CodeBuddy/2.161.0",
-      "X-Product": "SaaS",
-      "X-IDE-Type": "CLI",
-      "X-IDE-Name": "CLI",
-      "X-IDE-Version": "2.161.0",
-      "x-requested-with": "XMLHttpRequest",
-      "x-codebuddy-request": "1",
-    },
+    headers: transportHeaders("intl-cli"),
     auth: {
       combined: true,
       header: "Authorization",

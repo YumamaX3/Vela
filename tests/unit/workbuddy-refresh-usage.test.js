@@ -290,7 +290,7 @@ describe("B3 — WorkBuddy registries speak transportHeaders()", () => {
 
     expect(registry.transport.headers).toEqual(transportHeaders("cn-work"));
     expect(registry.transport.headers["User-Agent"]).toBe(
-      "WorkBuddy/5.9.2 WorkBuddy/5.9.2 CLI/2.165.0",
+      "WorkBuddy/5.9.3 WorkBuddy/5.9.3 CLI/2.165.0",
     );
     expect(registry.transport.headers["X-IDE-Type"]).toBe("WorkBuddy");
   });
@@ -301,7 +301,7 @@ describe("B3 — WorkBuddy registries speak transportHeaders()", () => {
 
     expect(registry.transport.headers).toEqual(transportHeaders("intl-work"));
     expect(registry.transport.headers["User-Agent"]).toBe(
-      "WorkBuddy/5.8.4 WorkBuddy AI/5.8.4 CLI/2.161.0",
+      "WorkBuddy/5.9.4 WorkBuddy AI/5.9.4 CLI/2.165.0",
     );
   });
 

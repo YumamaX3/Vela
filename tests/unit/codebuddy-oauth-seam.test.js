@@ -104,11 +104,11 @@ describe("identity headers are each product's own", () => {
     expect(identityHeaders("cn-cli")["X-Private-Data"]).toBeUndefined();
   });
 
-  it("versions follow the shore", () => {
-    expect(identityHeaders("cn-work")["X-IDE-Version"]).toBe("5.9.2");
-    expect(identityHeaders("intl-work")["X-IDE-Version"]).toBe("5.8.4");
-    expect(identityHeaders("cn-cli")["X-IDE-Version"]).toBe("2.165.0");
-    expect(identityHeaders("intl-cli")["X-IDE-Version"]).toBe("2.161.0");
+  it("versions follow the shore — upstream v1.5.4 pins (client_profiles.py:11-16)", () => {
+    expect(identityHeaders("cn-work")["X-IDE-Version"]).toBe("5.9.3");
+    expect(identityHeaders("intl-work")["X-IDE-Version"]).toBe("5.9.4");
+    expect(identityHeaders("cn-cli")["X-IDE-Version"]).toBe("2.179.3");
+    expect(identityHeaders("intl-cli")["X-IDE-Version"]).toBe("2.179.3");
   });
 
   it("the international desktop client calls itself WorkBuddy AI", () => {

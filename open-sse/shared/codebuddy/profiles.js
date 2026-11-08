@@ -10,6 +10,10 @@
 //     product. The product is named by X-IDE-Type / X-IDE-Name and the User-Agent.
 //   * The OAuth platform parameter is lowercase "workbuddy" on both WorkBuddy shores,
 //     while CodeBuddy's international site requires uppercase "CLI".
+//
+// The consoleDoor law (upstream v1.5.4, app/upstream_compat.py:193-204): the console
+// door is an INTERNATIONAL lane's escape only — channel_fallback_url returns null for
+// every CN profile, so codebuddy-cn and workbuddy-cn carry consoleDoor: false.
 
 /**
  * @typedef {object} CodeBuddyProfile
@@ -57,7 +61,10 @@ export const CODEBUDDY_PROFILES = Object.freeze({
     messageShape: "rebuild",
     opener: "You are WorkBuddy, a powerful AI assistant.",
     sanitise: true,
-    consoleDoor: true,
+    // Upstream v1.5.4 grants the console door to intl profiles only
+    // (app/upstream_compat.py:193-204); the domestic WorkBuddy lane's escape is
+    // the backup ORIGIN (wb.tencentbuddy.com), not the console door.
+    consoleDoor: false,
     refreshUserAgent: null,
   }),
 

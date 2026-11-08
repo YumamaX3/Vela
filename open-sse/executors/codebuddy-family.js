@@ -13,6 +13,13 @@
 // No request state lives on `this`. The executors are module-load singletons, so a field on
 // the instance is a field shared by every concurrent request — the old `_forcedUrl` was not
 // only a race, it was a permanent hijack when its reset was skipped by a throw.
+//
+// The attempt-identity law (ported from codebuddy2api v1.5.4, app/request_context.py) rides
+// here too: every dial carries the CLI's own fingerprint (SDK_HEADERS), a stable conversation
+// id, and per-attempt trace headers; every credential dial names its uid/tenant/domain
+// (app/client_profiles.py:55-72). The domestic WorkBuddy lane's escape is the backup ORIGIN
+// (wb.tencentbuddy.com), one replay on the transient gateway statuses only — upstream
+// _checked_chat_stream, converter.py:5028-5060.
 
 import { DefaultExecutor } from "./default.js";
 import {
@@ -24,11 +31,20 @@ import {
   breakerRecordAnswered,
   refreshCodeBuddyToken,
 } from "../shared/codebuddy/gate.js";
-import { shouldChannelFallback, channelFallbackUrl } from "../shared/codebuddy/channelCheck.js";
+import {
+  shouldChannelFallback,
+  channelFallbackUrl,
+  workbuddyOriginFallbackUrl,
+  shouldOriginFallback,
+  isOriginReplaySafe,
+} from "../shared/codebuddy/channelCheck.js";
 import { ContentFilterDetector } from "../shared/codebuddy/contentFilter.js";
 import { capabilityRefusal, declarationsFor } from "../shared/codebuddy/capabilityGate.js";
 import { CODEBUDDY_PROFILES } from "../shared/codebuddy/profiles.js";
 import { applyToolChoiceNormalization } from "../shared/codebuddy/toolChoice.js";
+import { normalizeToolSchemas } from "../shared/codebuddy/toolSchema.js";
+import { sessionKey, conversationId, attemptHeaders } from "../shared/codebuddy/attemptIdentity.js";
+import { CODEBUDDY_PROFILE_DOMAINS } from "../shared/codebuddy/siteRouting.js";
 
 function breakerOpenResponse() {
   return new Response(
@@ -41,6 +57,33 @@ function breakerOpenResponse() {
     }),
     { status: 429, headers: { "Content-Type": "application/json" } },
   );
+}
+
+/** Decode a JWT payload's claims without verifying — hints only, never authority.
+ *  Upstream reads the uid the same way (app/auth_oauth.py:65-76, token_uid). */
+function jwtClaims(accessToken) {
+  if (typeof accessToken !== "string" || accessToken.split(".").length !== 3) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(accessToken.split(".")[1], "base64").toString("utf8"));
+    return payload && typeof payload === "object" ? payload : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The credential identity headers upstream sends on every chat dial —
+ *  app/client_profiles.py:55-72. Absent values become empty strings, exactly as
+ *  upstream tolerates them; the uid falls back to the token's subject claim. */
+function credentialContextHeaders(profile, credentials) {
+  const account = credentials?.account && typeof credentials.account === "object" ? credentials.account : null;
+  const claims = jwtClaims(credentials?.accessToken);
+  const enterpriseId = String(account?.enterpriseId ?? account?.tenantId ?? "");
+  return {
+    "X-User-Id": String(account?.uid ?? claims?.sub ?? ""),
+    "X-Enterprise-Id": enterpriseId,
+    "X-Tenant-Id": enterpriseId,
+    "X-Domain": CODEBUDDY_PROFILE_DOMAINS[profile.product] ?? "",
+  };
 }
 
 export class CodeBuddyFamilyExecutor extends DefaultExecutor {
@@ -119,24 +162,30 @@ export class CodeBuddyFamilyExecutor extends DefaultExecutor {
     // same flattening and no profile field is needed.
     applyToolChoiceNormalization(transformed);
 
+    // Schema normalization rides AFTER tool_choice: empty parameter roots become
+    // object schemas, legacy field maps are wrapped, RE2-hostile `\_` escapes are
+    // repaired in pattern positions only — copied only when something changed
+    // (codebuddy2api v1.5.4, app/upstream_compat.py normalize_tool_schemas).
+    const normalized = normalizeToolSchemas(transformed);
+
     // The message shape is the ONE structurally unequal axis: the domestic CodeBuddy
     // lane sanitises in place and keeps the client's array; the other three drop
     // system/developer and rebuild behind the product's own opener.
-    const source = Array.isArray(transformed.messages) ? transformed.messages : [];
+    const source = Array.isArray(normalized.messages) ? normalized.messages : [];
     if (this.profile.messageShape === "rebuild") {
-      transformed.messages = [{ role: "system", content: this.profile.opener }];
+      normalized.messages = [{ role: "system", content: this.profile.opener }];
       for (const message of source) {
         if (!message || typeof message !== "object") continue;
         if (message.role === "system" || message.role === "developer") continue;
         if (message.role === "user" && typeof message.content === "string") {
-          transformed.messages.push({ ...message, content: [{ type: "text", text: message.content }] });
+          normalized.messages.push({ ...message, content: [{ type: "text", text: message.content }] });
         } else {
-          transformed.messages.push({ ...message });
+          normalized.messages.push({ ...message });
         }
       }
     } else if (this.profile.sanitise) {
       const { sanitizeCodeBuddySystemText } = this.#sanitiser();
-      transformed.messages = source.map((message) => {
+      normalized.messages = source.map((message) => {
         if (!message || message.role !== "system") return message;
         if (typeof message.content === "string") {
           return { ...message, content: sanitizeCodeBuddySystemText(message.content) };
@@ -153,7 +202,34 @@ export class CodeBuddyFamilyExecutor extends DefaultExecutor {
       });
     }
 
-    return transformed;
+    return normalized;
+  }
+
+  /**
+   * The identity headers on EVERY dial — primary included. Upstream's clock builds
+   * attempt headers for each outgoing request (request_context.py:186-197); the
+   * primary dial was the one request that carried no fingerprint at all. Auth
+   * (Bearer/hooks) rides in first via the inherited build; the identity block and
+   * the credential context overlay after it, and a diverted dial (runtimeTransport
+   * baseUrl) marks its diversion so logs can trace the rescue.
+   *
+   * @param {object} credentials
+   * @param {boolean} stream
+   * @param {string} url
+   * @param {string} model
+   * @param {object} [body] - the TRANSFORMED body; sessionKey derives from it here
+   * @returns {Record<string,string>}
+   */
+  buildHeaders(credentials, stream = true, url, model, body = null) {
+    const headers = super.buildHeaders(credentials, stream, url, model, body);
+    const divertedUrl = credentials?.runtimeTransport?.baseUrl || null;
+    const skey = sessionKey(body) ?? crypto.randomUUID().replace(/-/g, "");
+    const identity = credentials?.account?.uid ?? jwtClaims(credentials?.accessToken)?.sub ?? "";
+    const conv = conversationId(this.profile.product, identity, skey);
+    Object.assign(headers, attemptHeaders(headers, this.profile.product, { conversationId: conv }));
+    Object.assign(headers, credentialContextHeaders(this.profile, credentials));
+    if (divertedUrl) headers["X-Diverted-Url"] = divertedUrl;
+    return headers;
   }
 
   /** Loaded lazily so the family does not drag the sanitiser into every import path. */
@@ -172,6 +248,7 @@ export class CodeBuddyFamilyExecutor extends DefaultExecutor {
     return result;
   }
 
+  
   async execute(opts) {
     const { credentials, log } = opts;
     // The breaker key is derived per request from the credential — every breaker
@@ -210,8 +287,32 @@ export class CodeBuddyFamilyExecutor extends DefaultExecutor {
     const result = await super.execute(opts);
 
     if (!result.response.ok) {
-      const refusal = await this.#channelRefusal(result);
-      if (refusal) {
+      const status = result.response.status;
+
+      // The domestic WorkBuddy lane's escape comes FIRST (upstream _checked_chat_stream
+      // tries the origin replay before the channel fallback): a transient gateway
+      // status with a replay-safe body earns exactly ONE dial against the backup
+      // origin — never a business refusal, never twice.
+      const originUrl = workbuddyOriginFallbackUrl(result.url || this.config?.baseUrl || "", this.profile.product);
+      if (originUrl && shouldOriginFallback(originUrl, status)) {
+        let raw = "";
+        try {
+          raw = await result.response.clone().text();
+        } catch { /* unreadable body — treat as replay-safe-empty */ }
+        if (isOriginReplaySafe(raw)) {
+          log?.debug?.("CODEBUDDY", `${this.provider}: transient ${status} — one replay via ${WORKBUDDY_CN_BACKUP_ORIGIN_LABEL}`);
+          const retried = await this.#dialOrigin(originUrl, opts);
+          if (retried?.response?.ok) {
+            const wrapped = await wrapCodeBuddyStream(retried.response, opts.model);
+            if (wrapped.ok) breakerRecordSuccess(key);
+            return { ...retried, response: wrapped };
+          }
+          if (retried) return retried;
+        }
+      }
+
+      const channelRefusal = await this.#channelRefusal(result);
+      if (channelRefusal) {
         // A confirmed channel rejection on the primary door earns exactly ONE retry
         // against the console door — never more, and never for another path.
         if (this.profile.consoleDoor) {
@@ -230,7 +331,6 @@ export class CodeBuddyFamilyExecutor extends DefaultExecutor {
 
       // A 4xx the request itself earned is not the account's death either. Only a
       // status that says "this credential or this shore is in trouble" is recorded.
-      const status = result.response.status;
       if (status === 401 || status === 403 || status === 429 || status >= 500) {
         breakerRecordFailure(key);
       } else {
@@ -252,6 +352,26 @@ export class CodeBuddyFamilyExecutor extends DefaultExecutor {
       return { ...result, response: guarded || wrapped };
     }
     return { ...result, response: wrapped };
+  }
+
+  /**
+   * One dial against the backup origin.
+   *
+   * The diversion rides the credentials object (runtimeTransport.baseUrl) exactly as
+   * the console door does — never on `this` — and the identity headers are rebuilt
+   * for the diverted dial so the attempt trace stays fresh.
+   */
+  async #dialOrigin(originUrl, opts) {
+    return await super.execute({
+      ...opts,
+      credentials: {
+        ...opts.credentials,
+        runtimeTransport: {
+          ...(opts.credentials?.runtimeTransport || {}),
+          baseUrl: originUrl,
+        },
+      },
+    });
   }
 
   /**
@@ -385,10 +505,8 @@ export class CodeBuddyFamilyExecutor extends DefaultExecutor {
       credentials: {
         ...opts.credentials,
         runtimeTransport: {
-          // The identity headers MUST survive the diversion. `buildHeaders` reads
-          // `rt.headers` when a runtime transport is present, so an rt carrying only
-          // a baseUrl would strip every X-IDE-*/User-Agent and earn the same 11128
-          // refusal the console door exists to escape.
+          // The TRANSPORT headers must survive the diversion (X-IDE-*/User-Agent) —
+          // the identity block overlays in buildHeaders regardless of rt presence.
           ...(opts.credentials?.runtimeTransport || { headers: this.config?.headers || {} }),
           baseUrl: fallback,
         },
@@ -414,6 +532,9 @@ export class CodeBuddyFamilyExecutor extends DefaultExecutor {
     }
   }
 }
+
+// The backup origin's label for logs — same constant the channel-check module holds.
+import { WORKBUDDY_CN_BACKUP_ORIGIN as WORKBUDDY_CN_BACKUP_ORIGIN_LABEL } from "../shared/codebuddy/channelCheck.js";
 
 // Imported at module scope to avoid a circular lazy-init dance; the sanitiser is
 // a pure function with no side effects, so loading it with the class costs nothing.

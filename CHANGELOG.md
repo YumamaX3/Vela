@@ -1,3 +1,32 @@
+# v1.2.66 — The Wire That Learned Four Voices 🌉🌊
+> *"Four products answered one gateway, and each spoke a client identity of its own — yet the primary dial went out nameless, a registry lied about which CLI it carried, and a refusal wearing a clean stop sailed home as success. Now every dial carries the attempt's own fingerprint, both registries derive from one law, and the replay gate holds every answer the upstream truly gave."* 🌉🌊💜
+
+**The change.** The CB2API v1.5.4 wire-law port, sealed through the Stillwater Mirror's mini-doc path: six milestones, three new test batteries, every stale pin re-voiced against the upstream source probed live. **+5 for the wave.**
+
+**✨ Features**
+- **Per-attempt identity on every dial** (new `open-sse/shared/codebuddy/attemptIdentity.js`, 235 lines): session key from the system+first-user turn, stable conversation id per (profile, account, session), the SDK fingerprint block, and the full trace family — traceparent/b3/X-B3-* deriving from the FINAL trace id (CLI lanes trace from the root, upstream request_context.py:102; WorkBuddy lanes from a fresh random), cn-work's session trio + baggage.
+- **Tool-schema normalization** (new `open-sse/shared/codebuddy/toolSchema.js`, 216 lines): empty parameter roots become explicit object schemas, legacy field maps wrap with boolean-required lifted into the root's required array, RE2-hostile `\\_` escapes repaired in pattern positions only — copied only when something changed, same-reference law proven upstream-side.
+- **Credential context headers** on every dial: X-User-Id (account uid, JWT-sub fallback), X-Enterprise-Id/X-Tenant-Id, X-Domain from the profile's domain table; X-Private-Data rides the CN enterprise-tier law.
+
+**🐛 Fixes**
+- The **primary dial carried no identity at all** — only diverted dials (origin replay) rebuilt attempt headers; the one request most exposed to the 11128 channel rejection went out nameless. One `buildHeaders` override now dresses every dial — primary, console door, origin replay — with fresh per-attempt ids over the stable conversation id; the dead per-divert helper is deleted.
+- **A lying registry literal**: `codebuddy-cn.js` committed `CLI/2.165.0` — WorkBuddy-CLI's version stamped on a CodeBuddy-CLI lane (the law is 2.179.3, client_profiles.py:11-17). Both registries now derive via `transportHeaders(...)`; no literal UA survives in the family.
+- **The replay-safety blind spot**: `isFilterError` silently returned false for raw bytes, so the content-filter hold was unreachable on the real wire path (which hands bytes/strings, not parsed objects). All three shapes held now; the filter check runs FIRST per converter.py:5020-5021.
+- **Trace ordering**: the CLI branch reassigned X-Trace-ID after the template literal was built — traceparent carried an orphaned id. The trace derives before the literal now; all four trace fields agree on every lane.
+- **Legacy field maps** kept `required: false` on optional fields (upstream pops unconditionally); the shape gate now passes fields without a required key, matching upstream's default-false read.
+
+**🔧 Changes**
+- Versions table to upstream v1.5.4: CLI 2.179.3 (both shores), WorkBuddy 5.9.3 domestic / 5.9.4 international, WB-CLI 2.165.0 in the UA.
+- Console door is **international-only** (CN hosts answer null — probed against upstream channel_fallback_url); cn-work keeps the backup-origin replay: one dial against wb.tencentbuddy.com on 408/502/503/504, replay-safe bodies only. Two owned deviations carry provenance comments: 11102 (model-scoped) and 14018 (quota, gate.js:33) — held because replaying them would double-spend an account.
+
+**🧪 Proof** — full codebuddy/workbuddy suite **286/286** (26 files); three campaign batteries = 63 vectors at final count (attempt-identity 27, tool-schema 18, origin-fallback 19, plus 5 wire-shape vectors in the content-filter battery); eslint 0 errors on all touched files (one pre-existing registry-idiom warning class, untouched); build green twice — final `BUILD_ID WsoFqg6A6ENZL3XlwLWFp` re-proven over the final disk state. Eight stale test vectors re-voiced against the upstream Python probed live in `.ref-cb2api/` (git-excluded): CN hosts never had a console door; the versions were two generations stale in five pins.
+
+**⚓ What sailed** — new: `attemptIdentity.js`, `toolSchema.js`, three test batteries; modified: `codebuddy-family.js`, `identity.js`, `profiles.js`, `channelCheck.js`, `contentFilter.js`, `codebuddy-cn.js`, `codebuddy-intl.js`, five test files reconciled; plus `package.json`, lockfile (2-line version diff), `docker-compose.example.yml`.
+
+**Sails WITHOUT** — the reference clone (`.ref-cb2api/`, git-excluded, never committed); any commit/tag/release automation changes; the live harbor's deploy (the Star pulls at their hour per the tiller law); upstream's account-automation surface (checkin/travel/growth — named non-goals in the plan).
+
+**🌊 Recorded, not repeated** — a wire law is not "ported" when its files exist; it is ported when every dial that can carry it DOES, every literal that can drift is derived instead, and every place we choose differently from upstream says so in its own comment. The lottery-assertion lesson ships in the battery: a digest byte can read 7 by chance, so the test pins shape, difference, and determinism — never a nibble.
+
 # v1.2.61 — The Table That Read Objects 📋🌊
 > *"The endpoint hub's ledger spoke in pipe-bound strings — the same wire the Log Harbor parses — but this table reached for object fields on every row, and the wire answered nothing. Every column fell to '—', every outcome lied 'ok'. Now the table splits the strings the wire actually carries."* 📋🌊💜
 
