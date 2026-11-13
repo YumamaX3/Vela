@@ -1,7 +1,8 @@
 // Gemini helper functions for translator
 
 import { safeParseJSON } from "../concerns/json.js";
-import { OPENAI_BLOCK } from "../schema/index.js";
+import { DEFAULT_IMAGE_MIME, OPENAI_BLOCK } from "../schema/index.js";
+import { isGemini4Model } from "../../../providers/capabilities.js";
 
 // Unsupported JSON Schema constraints that should be removed for Antigravity
 export const UNSUPPORTED_SCHEMA_CONSTRAINTS = [
@@ -45,6 +46,19 @@ export const DEFAULT_SAFETY_SETTINGS = [
   { category: "HARM_CATEGORY_CIVIC_INTEGRITY", threshold: "OFF" }
 ];
 
+// Gemini requires a concrete MIME for remote images; "image/*" is rejected by
+// the protobuf validator (upstream 9router 7ba1d1ca).
+function remoteImageMimeType(url) {
+  let pathname;
+  try { pathname = new URL(url).pathname.toLowerCase(); }
+  catch { return DEFAULT_IMAGE_MIME; }
+  if (pathname.endsWith(".jpg") || pathname.endsWith(".jpeg")) return "image/jpeg";
+  if (pathname.endsWith(".webp")) return "image/webp";
+  if (pathname.endsWith(".gif")) return "image/gif";
+  if (pathname.endsWith(".bmp")) return "image/bmp";
+  return DEFAULT_IMAGE_MIME;
+}
+
 // Convert OpenAI content to Gemini parts
 export function convertOpenAIContentToParts(content) {
   const parts = [];
@@ -69,7 +83,7 @@ export function convertOpenAIContentToParts(content) {
         }
       } else if (item.type === OPENAI_BLOCK.IMAGE_URL && item.image_url?.url && (item.image_url.url.startsWith("http://") || item.image_url.url.startsWith("https://"))) {
         parts.push({
-          fileData: { fileUri: item.image_url.url, mimeType: "image/*" }
+          fileData: { fileUri: item.image_url.url, mimeType: remoteImageMimeType(item.image_url.url) }
         });
       } else if (item.type === OPENAI_BLOCK.INPUT_AUDIO && item.input_audio?.data) {
         const format = item.input_audio.format || "wav";
@@ -294,7 +308,29 @@ function flattenTypeArrays(obj) {
 
   if (obj.type && Array.isArray(obj.type)) {
     const nonNullTypes = obj.type.filter(t => t !== "null");
-    obj.type = nonNullTypes.length > 0 ? nonNullTypes[0] : "string";
+    if (nonNullTypes.length === 0) {
+      obj.type = "string";
+    } else if (nonNullTypes.length === 1) {
+      obj.type = nonNullTypes[0];
+    } else {
+      // Multiple types: choose best fitting type — Gemini's protobuf
+      // validator needs a single unambiguous type (upstream 9router 8db1f4ae).
+      if (obj.properties && nonNullTypes.includes("object")) {
+        obj.type = "object";
+      } else if (obj.items && typeof obj.items === "object" && Object.keys(obj.items).length > 0 && obj.items.type && nonNullTypes.includes("array")) {
+        obj.type = "array";
+      } else if (nonNullTypes.includes("string")) {
+        obj.type = "string";
+      } else if (nonNullTypes.includes("number")) {
+        obj.type = "number";
+      } else if (nonNullTypes.includes("integer")) {
+        obj.type = "integer";
+      } else if (nonNullTypes.includes("boolean")) {
+        obj.type = "boolean";
+      } else {
+        obj.type = nonNullTypes[0];
+      }
+    }
   }
 
   for (const value of Object.values(obj)) {
@@ -334,6 +370,26 @@ function convertPrefixItems(obj) {
   }
 }
 
+// Gemini requires items on every type:"array" schema — fill a permissive
+// placeholder, and give a typeless items its structural type (upstream 8db1f4ae).
+function ensureArrayItems(obj) {
+  if (!obj || typeof obj !== "object") return;
+  if (obj.type === "array") {
+    if (!obj.items || typeof obj.items !== "object" || Object.keys(obj.items).length === 0) {
+      obj.items = { type: "string" };
+    } else if (!obj.items.type) {
+      if (obj.items.properties) {
+        obj.items.type = "object";
+      } else if (obj.items.items) {
+        obj.items.type = "array";
+      } else {
+        obj.items.type = "string";
+      }
+    }
+  }
+  for (const v of Object.values(obj)) if (v && typeof v === "object") ensureArrayItems(v);
+}
+
 // Clean JSON Schema for Antigravity API compatibility - removes unsupported keywords recursively
 export function cleanJSONSchemaForAntigravity(schema) {
   if (!schema || typeof schema !== "object") return schema;
@@ -353,6 +409,7 @@ export function cleanJSONSchemaForAntigravity(schema) {
 
   // Phase 2.5: Infer missing type=object when properties exist (Gemini requirement)
   ensureObjectType(cleaned);
+  ensureArrayItems(cleaned);
 
   // Phase 3: Remove all unsupported keywords at ALL levels (including inside arrays)
   removeUnsupportedKeywords(cleaned, UNSUPPORTED_SCHEMA_CONSTRAINTS);
@@ -421,6 +478,112 @@ export function cleanJSONSchemaForAntigravity(schema) {
 
   addPlaceholders(cleaned);
 
+  // Phase 6: Enforce Gemini protobuf type predicates — items only on array,
+  // properties/required only on object (upstream 9router 8db1f4ae).
+  enforceTypeConstraints(cleaned);
+
   return cleaned;
 }
 
+// Gemini Schema proto validation rules:
+// 1. Schema.items predicate: $type == Type.ARRAY. If type is not "array", items field MUST NOT exist.
+// 2. Schema.properties / required predicate: $type == Type.OBJECT. If type is not "object", properties and required MUST NOT exist.
+function enforceTypeConstraints(obj) {
+  if (!obj || typeof obj !== "object") return;
+
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === "object") {
+      enforceTypeConstraints(value);
+    }
+  }
+
+  if (obj.type === "array") {
+    delete obj.properties;
+    delete obj.required;
+    if (!obj.items || typeof obj.items !== "object" || Object.keys(obj.items).length === 0) {
+      obj.items = { type: "string" };
+    } else if (!obj.items.type) {
+      if (obj.items.properties) {
+        obj.items.type = "object";
+      } else if (obj.items.items) {
+        obj.items.type = "array";
+      } else {
+        obj.items.type = "string";
+      }
+    }
+  } else {
+    // Non-array schemas MUST NOT carry items
+    delete obj.items;
+  }
+
+  if (obj.type !== "object") {
+    delete obj.properties;
+    delete obj.required;
+  }
+}
+
+
+// JSON Schema / OpenAPI document (webfetch, read, MCP) hit this, so rename the key.
+export const GEMINI_RESERVED_RESPONSE_KEYS = { "$ref": "_ref" };
+
+// Recursively rename reserved keys in a tool-result payload (arrays/objects only)
+export function sanitizeFunctionResponsePayload(value) {
+  if (Array.isArray(value)) return value.map(sanitizeFunctionResponsePayload);
+  if (!value || typeof value !== "object") return value;
+  const out = {};
+  for (const [key, val] of Object.entries(value)) {
+    out[GEMINI_RESERVED_RESPONSE_KEYS[key] ?? key] = sanitizeFunctionResponsePayload(val);
+  }
+  return out;
+}
+
+// Return the part with a sanitized functionResponse.response (same reference when untouched)
+function sanitizeFunctionResponsePart(part) {
+  const response = part?.functionResponse?.response;
+  if (!response || typeof response !== "object") return part;
+  return { ...part, functionResponse: { ...part.functionResponse, response: sanitizeFunctionResponsePayload(response) } };
+}
+
+// Gemini 4 rejects a merged user turn whose last part is not a functionResponse (#4802)
+function moveFunctionResponsesLast(parts) {
+  const responses = parts.filter(p => p.functionResponse);
+  if (!responses.length) return parts;
+  return [...parts.filter(p => !p.functionResponse), ...responses];
+}
+
+// Merge adjacent same-role messages, strip empty parts, ensure initial and terminal user turns
+export function normalizeGeminiContents(contents, model = null) {
+  const frLast = isGemini4Model(model);
+  const out = [];
+  for (const c of contents || []) {
+    if (!c?.role || !Array.isArray(c.parts)) continue;
+    const parts = c.parts.filter(p => p && Object.keys(p).length > 0).map(sanitizeFunctionResponsePart);
+    if (parts.length === 0) continue;
+    const last = out.at(-1);
+    if (last?.role === c.role) {
+      last.parts.push(...parts);
+      if (frLast) last.parts = moveFunctionResponsesLast(last.parts);
+    } else out.push({ ...c, parts: [...parts] });
+  }
+  if (out.length > 0 && out[0].role !== "user") {
+    out.unshift({ role: "user", parts: [{ text: "..." }] });
+  }
+  if (out.length > 0 && out.at(-1).role === "model") {
+    const fnCalls = (out.at(-1).parts || []).filter(p => p && p.functionCall);
+    if (fnCalls.length > 0) {
+      const responses = fnCalls.map(p => {
+        const call = p.functionCall || {};
+        const fr = {
+          name: call.name || "tool",
+          response: { result: "Continue." }
+        };
+        if (call.id) fr.id = call.id;
+        return { functionResponse: fr };
+      });
+      out.push({ role: "user", parts: responses });
+    } else {
+      out.push({ role: "user", parts: [{ text: "Continue." }] });
+    }
+  }
+  return out;
+}

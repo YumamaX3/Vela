@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("xai/oauth service", () => {
   let fetchMock;
@@ -17,9 +17,20 @@ describe("xai/oauth service", () => {
     vi.restoreAllMocks();
     await ensureBarrel();
     fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+   // The xai service calls bare fetch() — which proxyFetch reassigns to patchedFetch
+   // -> rawFetch -> undici.fetch. Both seams need the mock: the test body uses bare
+   // `fetch` (resolves to globalThis.fetch, the stub) and the transport rides undici.
+   vi.stubGlobal("fetch", fetchMock);
+   vi.doMock("undici", async () => {
+     const actual = await vi.importActual("undici");
+     return { ...actual, fetch: fetchMock };
+   });
   }, 60000);
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.doUnmock("undici");
+  });
   it("validates discovered endpoints are https x.ai URLs", async () => {
     const { validateOAuthEndpoint } = await import("../../src/lib/oauth/services/xai.js");
 

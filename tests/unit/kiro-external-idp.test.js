@@ -105,8 +105,11 @@ describe("Kiro external_idp (CLIProxyAPI) import and refresh", () => {
     expect(headers.TokenType).toBe("EXTERNAL_IDP");
     expect(headers.tokentype).toBeUndefined();
 
+    // The q surface comes first for every auth method since 16cb40fd / 35b950be (#3776):
+    // kiro.dev must never be first, and Amazon surfaces reject foreign tokens with
+    // 401/403, which fall through to the next one.
     expect(executor.buildUrl("claude-sonnet-4.5", true, 0, credentials)).toBe(
-      "https://codewhisperer.us-east-1.amazonaws.com/generateAssistantResponse"
+      "https://q.us-east-1.amazonaws.com/generateAssistantResponse"
     );
   });
 
@@ -176,7 +179,7 @@ describe("Kiro external_idp (CLIProxyAPI) import and refresh", () => {
       expired: new Date(Date.now() + 3600_000).toISOString(),
     };
 
-    const response = await POST(new Request("https://Vela.local/api/oauth/kiro/import-cli-proxy", {
+    const response = await POST(new Request("https://9router.local/api/oauth/kiro/import-cli-proxy", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cliProxyAuth }),

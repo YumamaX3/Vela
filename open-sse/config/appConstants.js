@@ -1,5 +1,7 @@
 import { platform, arch, hostname } from "os";
 import { PROVIDERS, PROVIDER_OAUTH } from "./providers.js";
+
+export const CODEX_CLI_VERSION = PROVIDERS["codex"]?.cliVersion;
 import { ANTIGRAVITY_IDE_USER_AGENT } from "../providers/shared.js";
 import { createRequire } from "module";
 

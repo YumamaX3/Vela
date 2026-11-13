@@ -1,5 +1,6 @@
 // Web Fetch handler — dispatches to firecrawl, jina-reader, tavily, exa, ollama
 // Returns normalized shape across all providers
+import { HTTP_STATUS } from "../../config/runtimeConfig.js";
 
 const DEFAULT_TIMEOUT_MS = 15000;
 const DEFAULT_FORMAT = "markdown";
@@ -99,6 +100,15 @@ export async function handleFetchCore({ url, format, maxCharacters, provider, pr
   }
 
   const fmt = format || DEFAULT_FORMAT;
+  const formats = providerConfig?.formats;
+  if (Array.isArray(formats) && formats.length && !formats.includes(fmt)) {
+    // Account fallback also classifies error text; do not echo untrusted input.
+    return {
+      success: false,
+      status: HTTP_STATUS.BAD_REQUEST,
+      error: `Provider does not support format "${fmt}"`,
+    };
+  }
   const timeoutMs = providerConfig?.timeoutMs || DEFAULT_TIMEOUT_MS;
   const apiKey = credentials?.apiKey || credentials?.key || credentials?.token || "";
   const costPerQuery = providerConfig?.costPerQuery ?? null;

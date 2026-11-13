@@ -29,6 +29,11 @@ const REGISTRY_DIR = join(here, "..", "open-sse", "providers", "registry");
 const OUT = join(REGISTRY_DIR, "index.js");
 const DRY = process.argv.includes("--dry");
 
+// Keep in lockstep with HELPER_MODULES in tests/unit/provider-registry-census.test.js:
+// helper modules live on disk (named exports only) but are never providers — they
+// must not be swept into the import/export arrays.
+const HELPER_MODULES = new Set(["kiroModelAliases"]);
+
 // Keep in lockstep with HIDDEN in tests/unit/provider-registry-census.test.js.
 const HIDDEN = new Set(["trae", "devin-cli", "windsurf"]);
 const HIDDEN_NOTE =
@@ -37,7 +42,7 @@ const HIDDEN_NOTE =
   "\n// tests/unit/provider-registry-census.test.js, then re-running the emitter.";
 
 const slugs = readdirSync(REGISTRY_DIR)
-  .filter((f) => f.endsWith(".js") && f !== "index.js")
+  .filter((f) => f.endsWith(".js") && f !== "index.js" && !HELPER_MODULES.has(f.replace(/\.js$/, "")))
   .map((f) => f.replace(/\.js$/, ""))
   .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)); // LC_ALL=C byte order
 

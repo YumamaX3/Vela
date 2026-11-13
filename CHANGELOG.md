@@ -1,3 +1,45 @@
+# v1.2.71 — The Tide That Learned to Retry 🌊🔁💜
+
+> *"A pooled socket died in the dark and the request drowned with it; a relay let a caller impersonate its own control channel; a lease went stale with no way back. Now the gateway knows which failures are provably dead — and which are only ambiguous — and retries the dead ones on a fresh socket, while the ambiguous ones it leaves alone."* 🌊🔁💜
+
+**The change.** The upstream v0.5.116 carry: fresh-socket retry for dead keep-alive sockets, a relay-auth gate on the live request path, lease-based auth for Minimax Code, lazy TLS-impersonating clients, two new System One providers, and local Ollama embeddings + TTS lanes. Six waves, sealed through the Stillwater Mirror's plan path.
+
+**✨ Features**
+- **Fresh-socket retry on provably dead keep-alive sockets** (`open-sse/utils/proxyFetch.js`): the executor asks for a guaranteed-new socket on connect-timeout/502 retries, and the direct path replays once on `UND_ERR_SOCKET` / `ECONNRESET` / `EPIPE` / header-timeout — but never on aborts, DNS, TLS, or an ambiguous bare `fetch failed` (the request may already be served; replaying could double-charge). `FETCH_FRESH_RETRY=off` disables it.
+- **Nace Drex on the System One protocol** (new `open-sse/providers/registry/nace.js`): a state plus typed questions in, calibrated probabilities out; `drex-max` also carries an inline `images` array.
+- **Runcrate** (new `open-sse/providers/registry/runcrate.js`): second System One lane.
+- **Ollama-local embeddings + TTS** (new `open-sse/handlers/embeddingProviders/ollamaLocal.js`, `open-sse/handlers/ttsProviders/ollamaLocal.js`): local lanes for embedding and speech; `ttsModels.js` carries the voice roster, `_base.js` + `index.js` wire the provider in.
+- **Kimi K3.1 Pro** on the commandcode registry (`moonshotai/Kimi-K3.1-Pro`).
+- **GPT-6 family** on the codex registry (9 `gpt-6` entries) + the GPT-6 Lite transport in the codex executor (reasoning clamp, params block). Argon thinking levels carried for the lane (`thinkingLevels.js`, `capabilities.js`).
+- **TLS-impersonating client for opencode.ai's free tier** (new `open-sse/services/opencodeTlsClient.js`): the free gate keys on the TLS ClientHello, not headers.
+- **Lazy runtime loader** (`open-sse/services/lazyRuntime.js`): named exports survive CJS deps loaded from the runtime dir; installs stay local during global npm hooks (`cli/hooks/sqliteRuntime.js` `--global=false`).
+
+**🐛 Fixes**
+- **A relay could be impersonated**: `x-relay-auth` was only gated on some outbound spreads, and the relay path rode undici (whose mock the S2b suite never sees). The relay return now rides the caller's own `globalThis.fetch` seam, behind the same fence and auth-order gate as the direct path.
+- **A duplicate `refreshCredentials` overrode the lease branch** in `minimax-code.js` — the second, older method shadowed the first in class-body order, so a lease refresh never invalidated or re-leased. The stale method is deleted.
+- **Dispatcher cache wiped on every fresh-socket request** (`resetDirectDispatchersForTests` was called inside the production path): pooled agents were rebuilt needlessly, slowing the retry lane. The reset is test-only again.
+- **`createRequire` was statically imported** in `lazyRuntime.js`, which the server bundler stubs — fetched at runtime now so published builds keep working.
+- **Keep-alive dispatcher identity**: `getDirectDispatcher` / `getFreshRetryDispatcher` export distinct, shared agents keyed on the resolved timeouts.
+
+**🔧 Changes**
+- `next.config.mjs`: `/systemone` rewrite; `undici` force-shipped via `outputFileTracingIncludes`; `wreq-js`, `undici`, `@aws-sdk/credential-providers` added to `serverExternalPackages`.
+- `Dockerfile`: wreq-js + playwright-core bundled into `/opt/lazy-runtime` in the builder and copied into `/app/node_modules` (Next tracing omits createRequire-loaded deps).
+- `package.json`: `playwright-core`, `wreq-js` devDeps (lazy-loaded at runtime; keeps end-user installs small).
+- Registry index regenerated via the emitter: 189 imported providers, 3 hidden.
+
+## PROOF
+- Tests: 5780 passed / 6 failed in the parallel battery — 4 environmental contention (green alone, nondeterministic set), 2 pre-existing Windows-temp EPERM+timeout present at HEAD; **every red passes in isolation**.
+- eslint: exit 0 across the seven carried source files (`--max-warnings=0`).
+- build: green — standalone assembled, postbuild assets copied, BUILD_ID minted.
+- audit: 2 high (happy-dom, node-forge — test/bundle-only) + 9 moderate (@vitest/mocker, minimatch), all with a fix path, none in the runtime supply chain.
+- smoke: standalone server on a scratch DATA_DIR booted clean — 30 migrations applied, schedulers + Fleet Captain started. Full HTTP round-trip: `/api/version` 200, `/api/auth/status` 200, `/systemone` 401 (auth-guarded as designed), `/providers` 404 (correct — no page route exists there; providers surface is `/dashboard/providers` + `/api/providers/*`).
+- **Known pre-existing defect (not this carry's):** a `/v1/chat/completions` POST with a dry key returns **500** (`route handler returned undefined`) instead of the structured 401 — reproduced identically against v1.2.66 (baseline-before-blame: the carry commit touches none of `chat.js`/`keyGate.js`/`route.js`/`logContext.js`). The gate itself denies correctly in isolation (`authorizeApiRequest` → 401 with body); the undefined arises between gate and handler return. Owed its own investigation — this carry's scope ends at proving it pre-existing. Scratch dir removed after.
+
+- Census tripod: 189 imported / 3 hidden (on-disk + dialable re-derived by the emitter).
+- Files: 76 tracked changed + 26 new.
+
+**Deferred:** the CLI launcher startup optimization (upstream 9506a59c) — its 142-line `cli.js` rewire is the one carry slice not landed this tide; the unwired helper file was removed rather than shipped dead.
+
 # v1.2.66 — The Wire That Learned Four Voices 🌉🌊
 > *"Four products answered one gateway, and each spoke a client identity of its own — yet the primary dial went out nameless, a registry lied about which CLI it carried, and a refusal wearing a clean stop sailed home as success. Now every dial carries the attempt's own fingerprint, both registries derive from one law, and the replay gate holds every answer the upstream truly gave."* 🌉🌊💜
 

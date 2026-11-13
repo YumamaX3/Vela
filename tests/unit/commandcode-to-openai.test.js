@@ -1,5 +1,5 @@
 /**
- * Unit tests for open-sse/translator/response/commandcode-to-openai.js
+ * Unit tests for open-sse/transformer/translator/response/commandcode-to-openai.js
  *
  * Verified live against upstream stream (curl, 2026-05-07):
  *  - tool-input-start: { id, toolName }   (id, NOT toolCallId)
@@ -113,29 +113,40 @@ describe("commandcode-to-openai — finish", () => {
     const last = chunks[chunks.length - 1];
     expect(last.usage).toEqual({ prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 });
   });
+
+  it("extracts cache details when inputTokenDetails is provided", () => {
+    const { chunks } = feed([
+      { type: "text-delta", text: "hi cached" },
+      {
+        type: "finish",
+        totalUsage: {
+          inputTokens: 100,
+          outputTokens: 20,
+          inputTokenDetails: { cacheReadTokens: 80, cacheWriteTokens: 10 },
+        },
+      },
+    ]);
+    const last = chunks[chunks.length - 1];
+    expect(last.usage.prompt_tokens).toBe(100);
+    expect(last.usage.completion_tokens).toBe(20);
+    expect(last.usage.prompt_tokens_details).toEqual({
+      cached_tokens: 80,
+      cache_creation_tokens: 10,
+    });
+  });
 });
 
 describe("commandcode-to-openai — error event", () => {
-  // A mid-stream error must NOT ride out as content with finish_reason "stop":
-  // a client that sees a clean stop cannot tell a failed answer from a finished
-  // one. The translator throws instead, so the stream handler marks it errored.
-  // (Deliberate contract change — upstream 9router v0.5.81, commit 092c84ea.)
-  it("throws a readable error and emits no content on a mid-stream error", () => {
-    const state = {};
-    const chunks = [];
-    let thrown = null;
+  // Since 092c84ea an error event throws (so the stream is marked errored and can be
+  // retried) instead of being emitted as fake content with finish_reason "stop".
+  it("stringifies object errors so client sees readable message", () => {
+    let message = "";
     try {
-      const out = commandCodeToOpenAIResponse(
-        JSON.stringify({ type: "error", error: { type: "server_error", message: "Boom" } }),
-        state,
-      );
-      if (out) chunks.push(...out);
+      feed([{ type: "error", error: { type: "server_error", message: "Boom" } }]);
     } catch (err) {
-      thrown = err;
+      message = err.message;
     }
-
-    expect(chunks, "an error must not be emitted as content").toEqual([]);
-    expect(thrown?.message, "the client must see why the stream failed").toContain("Boom");
-    expect(thrown?.message).not.toContain("[object Object]");
+    expect(message).toContain("Boom");
+    expect(message).not.toContain("[object Object]");
   });
 });

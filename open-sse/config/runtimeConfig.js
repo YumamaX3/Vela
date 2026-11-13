@@ -143,3 +143,40 @@ export function resolveRetryEntry(entry) {
 export const SKIP_PATTERNS = [
   "Please write a 5-10 word title for the following conversation:"
 ];
+
+
+// Keep-alive socket management for proxyFetch
+export const DEFAULT_KEEPALIVE_TIMEOUT_MS = 4 * 1000;
+export const FRESH_RETRY_KEEPALIVE_TIMEOUT_MS = 1;
+
+export function resolveKeepAliveTimeouts() {
+  const timeout = envMs("FETCH_KEEPALIVE_TIMEOUT_MS", DEFAULT_KEEPALIVE_TIMEOUT_MS);
+  return { keepAliveTimeout: timeout, keepAliveMaxTimeout: timeout };
+}
+
+export function isFreshSocketReplayEnabled() {
+  const raw = String(process.env.FETCH_FRESH_RETRY ?? "").trim().toLowerCase();
+  return !(raw === "off" || raw === "0" || raw === "false" || raw === "no");
+}
+
+export const STALE_SOCKET_ERROR_CODES = new Set([
+  "UND_ERR_SOCKET",
+  "ECONNRESET",
+  "EPIPE",
+  "UND_ERR_HEADERS_TIMEOUT",
+]);
+
+export const NON_STALE_SOCKET_ERROR_CODES = new Set([
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_INVALID_ARG",
+]);
+
+export const STALE_SOCKET_ERROR_SUBSTRINGS = [
+  "other side closed",
+  "socket hang up",
+];

@@ -3,10 +3,12 @@ import REGISTRY from "../providers/registry/index.js";
 // PROVIDER_MODELS now built from providers/registry (transport + models co-located)
 import { PROVIDER_MODELS } from "../providers/index.js";
 import { modelQuotaFamily, modelStrip, modelTargetFormat, modelSupportedFormats, normalizeModelId } from "../providers/models/schema.js";
-import { CODEX_REVIEW_SUFFIX, isMuseSparkModel } from "../providers/models/helpers.js";
+import { CODEX_REVIEW_SUFFIX, isMuseSparkModel, opencodeFamilyFormats } from "../providers/models/helpers.js";
 import { FORMATS } from "../transformer/translator/formats.js";
 export { PROVIDER_MODELS };
 
+// OpenCode providers sharing the endpoint-family fallback for unknown model ids
+const isOpenCodeAlias = (aliasOrId) => !aliasOrId || ["oc", "opencode", "ocg", "opencode-go", "ocz", "opencode-zen"].includes(aliasOrId);
 
 // Helper functions
 export function getProviderModels(aliasOrId) {
@@ -56,12 +58,16 @@ export function getModelTargetFormat(aliasOrId, modelId) {
   // Muse Spark rides the Responses API on both OpenCode lanes whatever the
   // registry declares, so a future id lands on the right transport without a
   // registry edit (upstream v0.5.81).
-  if ((!aliasOrId || aliasOrId === "oc" || aliasOrId === "opencode" || aliasOrId === "ocg" || aliasOrId === "opencode-go") && isMuseSparkModel(modelId)) {
+  if (isOpenCodeAlias(aliasOrId) && isMuseSparkModel(modelId)) {
     return FORMATS.OPENAI_RESPONSES;
   }
   const models = PROVIDER_MODELS[aliasOrId];
   if (!models) return null;
-  return modelTargetFormat(findModel(models, modelId, aliasOrId));
+  const found = findModel(models, modelId, aliasOrId);
+  if (found) return modelTargetFormat(found);
+  // Family fallback keeps modelsFetcher/passthrough ids on their endpoint lane
+  if (isOpenCodeAlias(aliasOrId)) return opencodeFamilyFormats(modelId)?.targetFormat || null;
+  return null;
 }
 
 // Declared upstream formats for a model (registry `supportedFormats`). Drives the
@@ -69,7 +75,10 @@ export function getModelTargetFormat(aliasOrId, modelId) {
 export function getModelSupportedFormats(aliasOrId, modelId) {
   const models = PROVIDER_MODELS[aliasOrId];
   if (!models) return null;
-  return modelSupportedFormats(findModel(models, modelId, aliasOrId));
+  const found = findModel(models, modelId, aliasOrId);
+  if (found) return modelSupportedFormats(found);
+  if (isOpenCodeAlias(aliasOrId)) return opencodeFamilyFormats(modelId)?.supportedFormats || [FORMATS.OPENAI];
+  return null;
 }
 
 export function getModelType(aliasOrId, modelId) {
@@ -77,6 +86,11 @@ export function getModelType(aliasOrId, modelId) {
   if (!models) return null;
   const found = findModel(models, modelId, aliasOrId);
   return found?.kind || found?.type || null;
+}
+
+// Raw registry entry for a model (suffix-aware) — executor lookups of per-model hints (e.g. defaultLocation).
+export function getModelMeta(aliasOrId, modelId) {
+  return findModel(PROVIDER_MODELS[aliasOrId], modelId, aliasOrId) || null;
 }
 
 export function getModelUpstreamId(aliasOrId, modelId, clientBody = null) {
@@ -136,9 +150,13 @@ export const OAUTH_ALIASES = Object.fromEntries(
   REGISTRY.filter(r => r.alias && r.alias !== r.id).map(r => [r.id, r.alias])
 );
 
-// Derived from PROVIDERS — no need to maintain manually
+// Derived from REGISTRY — no need to maintain manually. REGISTRY (not PROVIDERS):
+// media-only entries (elevenlabs, cartesia, inworld, ...) declare no transport, so
+// keying off PROVIDERS dropped their alias and made their registry `models`
+// unreachable — the exact same map PROVIDER_MODELS is keyed by
+// (`entry.alias || entry.id` in providers/index.js).
 export const PROVIDER_ID_TO_ALIAS = Object.fromEntries(
-  Object.keys(PROVIDERS).map(id => [id, OAUTH_ALIASES[id] || id])
+  REGISTRY.map(r => [r.id, r.alias || r.id])
 );
 
 export function getModelsByProviderId(providerId) {

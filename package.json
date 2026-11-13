@@ -1,6 +1,6 @@
 {
   "name": "vela-app",
-  "version": "1.2.66",
+  "version": "1.2.71",
   "description": "Vela — the AI gateway: one OpenAI-compatible endpoint routing 40+ providers, with full key governance",
   "homepage": "https://github.com/YumamaX3/Vela#readme",
   "repository": {
@@ -73,7 +73,10 @@
     "happy-dom": "^20.12.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "comment_playwright_core": "devDependency only (keeps end-user installs small); open-sse/services/lazyRuntime.js downloads it + wreq-js on first use into <DATA_DIR>/runtime. playwright-core ships no browser binaries (run `npx playwright-core install chromium` or point OBSCURA_CDP_ENDPOINT/cloakbrowser at a stealth engine)",
+    "playwright-core": "^1.62.1",
+    "wreq-js": "^3.2.0"
   },
   "overrides": {
     "dompurify": "3.4.17"

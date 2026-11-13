@@ -21,7 +21,7 @@ afterEach(() => {
 });
 
 function fetchStub(capture, response) {
-  return vi.fn(async (url, init) => {
+  const fn = vi.fn(async (url, init) => {
     capture.url = url;
     capture.init = init;
     return {
@@ -31,6 +31,12 @@ function fetchStub(capture, response) {
       json: async () => response.body,
     };
   });
+  // Transport seam: undici.fetch (rawFetch) — mock the module, not the global.
+  vi.doMock("undici", async () => {
+    const actual = await vi.importActual("undici");
+    return { ...actual, fetch: fn };
+  });
+  return fn;
 }
 
 describe("cline/clinepass refresh dispatch", () => {

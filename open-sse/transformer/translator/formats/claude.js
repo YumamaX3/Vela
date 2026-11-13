@@ -97,8 +97,15 @@ export function fixToolUseOrdering(messages) {
   return merged;
 }
 
-// Models that reject thinking.type "adaptive" + output_config.effort (Opus 4.5+/Sonnet 4.6+ only)
-const ADAPTIVE_THINKING_UNSUPPORTED = /haiku/i;
+// Haiku 3.x/4.x reject thinking.type "adaptive" + output_config.effort; Haiku 5+ accepts
+// ONLY adaptive (upstream #5183). Version may follow "haiku" (haiku-4-5, haiku-4.5) or
+// precede it (claude-4.5-haiku, claude-3-5-haiku). Unversioned "haiku" keeps the old,
+// safe downgrade (upstream 9router 0ad0a722).
+function isAdaptiveThinkingUnsupported(model = "") {
+  if (!/haiku/i.test(model)) return false;
+  const m = String(model).match(/haiku[-._]?(\d+)|(?<![\d.])(\d+)(?:[-._]\d+)?[-._]?haiku/i);
+  return m ? Number(m[1] || m[2]) < 5 : true;
+}
 
 function handlesThinkingBlocks(provider) {
   return provider === "claude" || provider?.startsWith("anthropic-compatible") || provider === "deepseek";
@@ -140,12 +147,12 @@ export function normalizeClaudePassthrough(body, model = "") {
   if (!body || typeof body !== "object") return body;
 
   // 1. Downgrade adaptive thinking for models that don't support it
-  if (body.thinking?.type === "adaptive" && ADAPTIVE_THINKING_UNSUPPORTED.test(model)) {
+  if (body.thinking?.type === "adaptive" && isAdaptiveThinkingUnsupported(model)) {
     body.thinking = { type: "enabled", budget_tokens: 10000 };
   }
 
   // 2. Strip effort param for models that don't support it (keep other output_config fields)
-  if (ADAPTIVE_THINKING_UNSUPPORTED.test(model) && body.output_config?.effort != null) {
+  if (isAdaptiveThinkingUnsupported(model) && body.output_config?.effort != null) {
     delete body.output_config.effort;
     if (Object.keys(body.output_config).length === 0) delete body.output_config;
   }
@@ -356,6 +363,21 @@ export function prepareClaudeRequest(body, provider = null, apiKey = null, conne
     delete body.output_config;
   }
 
+  // Models whose API rejects thinking "disabled" and forced tool use with a 400
+  // (Opus/Sonnet 5.5). Runs on every Claude-bound body, so OpenAI clients, native
+  // passthrough and the provider-level "off" override are all covered (#4410).
+  const modelCaps = getCapabilitiesForModel(provider, body.model);
+  if (modelCaps.thinkingOffType && body.thinking?.type === "disabled") {
+    body.thinking = { type: modelCaps.thinkingOffType };
+    // between_tools only accepts effort up to high.
+    const effort = body.output_config?.effort;
+    if (effort === "xhigh" || effort === "max") body.output_config.effort = "high";
+  }
+  if (modelCaps.forcedToolChoice === false && (body.tool_choice?.type === "any" || body.tool_choice?.type === "tool")) {
+    const { disable_parallel_tool_use } = body.tool_choice;
+    body.tool_choice = { type: "auto", ...(disable_parallel_tool_use !== undefined ? { disable_parallel_tool_use } : {}) };
+  }
+
   // Clamp max_tokens to the model's real output ceiling. Models whose caps
   // declare a higher maxOutput (e.g. Opus 4.8 / Sonnet 4.6 = 128000) are allowed
   // up to it, so max-effort thinking gets full budget; others fall back to the
@@ -426,7 +448,18 @@ export function prepareClaudeRequest(body, provider = null, apiKey = null, conne
     // Check if thinking is enabled AND last message is from user
     const lastMessage = filtered[filtered.length - 1];
     const lastMessageIsUser = lastMessage?.role === "user";
-    const thinkingEnabled = body.thinking?.type === "enabled" && lastMessageIsUser;
+
+    // DeepSeek models also arrive behind OpenCode Go's /messages transport.
+    // They carry the same thinking pass-back constraint as the official API:
+    // an adaptive ask must keep the thinking placeholder restored after
+    // tool_use turns (upstream 9router 633c82f5).
+    const deepSeekServed =
+      provider === "deepseek" ||
+      (provider === "opencode-go" && /deepseek/i.test(String(body?.model || "")));
+    const thinkingEnabled = lastMessageIsUser && (
+      body.thinking?.type === "enabled" ||
+      (deepSeekServed && body.thinking?.type === "adaptive")
+    );
 
     // Pass 2 (reverse): add cache_control to last assistant + handle thinking for Anthropic
     let lastAssistantProcessed = false;

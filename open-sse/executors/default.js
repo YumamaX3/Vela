@@ -40,6 +40,15 @@ function applyAuth(headers, desc, credentials) {
 
 // Provider-specific header quirks kept as small hooks (not pure auth).
 const HEADER_HOOKS = {
+  // CodeBuddy (CN + intl): channel check requires conversation/request IDs.
+  // Without them: 400 {"code":11128,"msg":"request illegal"} (3ca04639/3fd925ab).
+  codebuddyHeaders: (h) => {
+    const requestId = randomUUID();
+    h["X-Request-ID"] = requestId;
+    h["X-Conversation-ID"] = randomUUID();
+    h["X-Conversation-Request-ID"] = requestId;
+    h["X-Conversation-Message-ID"] = requestId;
+  },
   // Stable device_id from OAuth connection (CLIProxyAPI KimiTokenStorage.DeviceID)
   kimiHeaders: (h, c) => Object.assign(h, buildKimiHeaders(c?.providerSpecificData?.deviceId)),
   clineHeaders: (h, c) => Object.assign(h, buildClineHeaders(c.apiKey || c.accessToken)),
@@ -106,10 +115,16 @@ export class DefaultExecutor extends BaseExecutor {
     super(provider, PROVIDERS[provider] || PROVIDERS.openai);
   }
 
-  transformRequest(model, body) {
-    const transformed = this.applyJsonSchemaFallback(body);
+  transformRequest(model, body, stream, credentials) {
+    let transformed = this.applyJsonSchemaFallback(body);
 
     if (transformed && typeof transformed === "object") {
+      // OpenAI-compatible upstreams reject `stream_options` on non-streaming
+      // requests with 400 "Stream options can only be defined when stream=True".
+      if (stream !== true && transformed.stream_options !== undefined && transformed.stream !== true) {
+        if (transformed === body) transformed = { ...transformed };
+        delete transformed.stream_options;
+      }
       // quirk: some openai-compatible providers reject Anthropic's client_metadata field
       if (this.config.quirks?.dropClientMetadata) {
         delete transformed.client_metadata;

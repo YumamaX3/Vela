@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { buildCommandCodeHeaders } from "../shared/commandCodeHeaders.js";
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
 import { commandCodeToOpenAIResponse } from "../transformer/translator/response/commandcode-to-openai.js";
@@ -25,18 +25,15 @@ export class CommandCodeExecutor extends BaseExecutor {
     return body;
   }
 
-  buildHeaders(credentials, stream = true) {
-    const headers = {
-      "Content-Type": "application/json",
-      ...(this.config.headers || {}),
-      "x-session-id": randomUUID(),
-    };
-
-    const token = credentials?.apiKey || credentials?.accessToken;
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
-    if (stream) headers["Accept"] = "text/event-stream";
-    return headers;
+  buildHeaders(credentials, stream = true, url, model, transformedBody) {
+    // Session continuity: the header carries the same threadId the request body
+    // sent (derived from the client session in translateRequest), so every turn
+    // of one conversation lands in the same upstream session (b114fa9f).
+    return buildCommandCodeHeaders({
+      apiKey: credentials?.apiKey || credentials?.accessToken,
+      sessionId: transformedBody?.threadId,
+      accept: stream ? "text/event-stream" : null,
+    });
   }
 
   async execute(opts) {

@@ -54,6 +54,8 @@ afterEach(() => {
  */
 async function importWithRecordingAgents() {
   const calls = { socks5: [], proxy: [], closed: [] };
+  // Capture the suite's fetch stub BEFORE importing proxyFetch (which patches globalThis).
+  const suiteFetch = globalThis.fetch;
   vi.doMock("undici", () => ({
     Socks5ProxyAgent: class {
       constructor(url, opts) {
@@ -67,6 +69,8 @@ async function importWithRecordingAgents() {
         this.close = async () => { calls.closed.push(opts?.uri); };
       }
     },
+    Agent: class {},
+    fetch: (...args) => suiteFetch(...args),
   }));
   const mod = await import("open-sse/utils/proxyFetch.js");
   return { mod, calls };
@@ -178,15 +182,6 @@ describe("P4 — the RED-TO-GREEN witness (real undici, unique dead origin)", ()
   // run sidesteps both.
   it("the pooling dispatcher reaches fetch (pre-fix it left as UNDEFINED → direct)", { timeout: 20000 }, async () => {
     const proxyOpts = [];
-    vi.doMock("undici", async (orig) => {
-      const real = await orig();
-      return {
-        Socks5ProxyAgent: real.Socks5ProxyAgent,
-        ProxyAgent: class extends real.ProxyAgent {
-          constructor(o) { super(o); proxyOpts.push(o); }
-        },
-      };
-    });
     // console.warn is the floor: the logger's own sink writes through it, and its
     // ESM namespace is frozen (vi.doMock re-evaluates it into a record whose
     // export identity differs — measured). Spy-with-delegation keeps the line
@@ -205,14 +200,34 @@ describe("P4 — the RED-TO-GREEN witness (real undici, unique dead origin)", ()
     // is not relied on. Measured with this shape: dispatcherSeen defined,
     // status 200, warn captured.
     let dispatcherSeen;
-    const stubCalls = [];
-    vi.stubGlobal("fetch", async (u, init) => {
-      stubCalls.push(Boolean(init?.dispatcher));
-      if (init?.dispatcher) {
-        dispatcherSeen = init.dispatcher;
-        throw new TypeError("fetch failed"); // the seam refuses
+    let proxyDispatcher; // the ProxyAgent instance this run built — the only one that refuses
+    const refused = [];
+    // Capture the suite's fetch stub BEFORE importing proxyFetch: the module body
+    // reassigns globalThis.fetch to patchedFetch, and reading it at call time would
+    // loop forever (patchedFetch → rawFetch → our mock → patchedFetch → …).
+    const suiteFetch = globalThis.fetch;
+    // The direct path ALSO builds a dispatcher now (getDirectDispatcher), so the
+    // discriminator cannot be "is there a dispatcher?" — it must be "is this the
+    // PROXY dispatcher?". Only the proxy try refuses; the direct retry (a different
+    // Agent) passes through to the suite stub, which returns 200.
+    vi.doMock("undici", async (orig) => {
+      const real = await orig();
+      class RecordingProxyAgent extends real.ProxyAgent {
+        constructor(o) { super(o); proxyOpts.push(o); proxyDispatcher = this; }
       }
-      return new Response("UPSTREAM", { status: 200 });
+      return {
+        Socks5ProxyAgent: real.Socks5ProxyAgent,
+        ProxyAgent: RecordingProxyAgent,
+        Agent: real.Agent,
+        fetch: (url, init) => {
+          if (init?.dispatcher === proxyDispatcher) {
+            dispatcherSeen = init.dispatcher;
+            refused.push("fetch");
+            throw new TypeError("fetch failed"); // only the proxy try refuses
+          }
+          return suiteFetch(url, init); // direct retry → suite stub returns 200
+        },
+      };
     });
 
     const { proxyAwareFetch } = await import("open-sse/utils/proxyFetch.js");
@@ -232,7 +247,7 @@ describe("P4 — the RED-TO-GREEN witness (real undici, unique dead origin)", ()
     // 2. THE PROOF: a REAL dispatcher reached the seam. Pre-fix `get(normalized)`
     //    returned undefined and the fetch left with NO dispatcher — direct.
     expect(dispatcherSeen).toBeDefined();
-    expect(stubCalls).toEqual([true, false]); // proxy try, then direct retry
+    expect(refused).toEqual(["fetch"]); // the proxy try refused on the dispatcher seam
     // 3. The wrapper's documented fail-open warn fired…
     expect(warns.join("\n")).toContain("[ProxyFetch] Proxy failed");
     // 4. …and fail-open is intact: the request still completed directly.

@@ -18,6 +18,10 @@ export const CLAUDE_BLOCK = {
   DOCUMENT: "document",
   TOOL_USE: "tool_use",
   TOOL_RESULT: "tool_result",
+  // Anthropic server-side tool reference (tool search): the block names a tool
+  // that may be stripped by the deduper, so the deduper must drop the block
+  // with it (upstream 9router a3039ab1).
+  TOOL_REFERENCE: "tool_reference",
   THINKING: "thinking",
   REDACTED_THINKING: "redacted_thinking",
   // Anthropic built-in server tools (web search etc.) — their result blocks

@@ -9,7 +9,7 @@
  * actually runs the injector.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { createRequire } from "node:module";
 import { injectReasoningContent } from "../../open-sse/utils/reasoningContentInjector.js";
 

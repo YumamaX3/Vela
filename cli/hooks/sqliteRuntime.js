@@ -76,7 +76,10 @@ function summarizeNpmError(stderr = "") {
 }
 
 function runNpmInstall({ cwd, pkgs, extraArgs = [], timeout = 180000 }) {
-  const args = ["install", ...pkgs, "--no-audit", "--no-fund", "--prefer-online", ...extraArgs];
+  // npm_config_global=true leaks into this hook when a GLOBAL npm lifecycle fires
+  // it — without --global=false the runtime deps install as top-level globals
+  // while the runtime project dir stays empty (upstream e3139a43).
+  const args = ["install", ...pkgs, "--global=false", "--no-audit", "--no-fund", "--prefer-online", ...extraArgs];
   const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
   const res = spawnSync(npmCmd, args, {
     cwd,

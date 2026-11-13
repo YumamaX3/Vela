@@ -24,6 +24,22 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV VELA_DB_DRIVER=node:sqlite
 RUN npm run build
 
+# wreq-js and playwright-core are lazy runtime dependencies (loaded by
+# lazyRuntime.js via createRequire on first use). Next standalone tracing does
+# not include them, so providers relying on them fail at runtime with
+# "resolve is undefined". Install them (with their native bindings/transitive
+# deps) in an isolated dir so the runner stage can copy them into /app/node_modules.
+RUN --mount=type=cache,target=/root/.npm \
+    mkdir -p /opt/lazy-runtime && cd /opt/lazy-runtime && \
+    npm init -y >/dev/null && \
+    npm install --no-save \
+      --fetch-retries=5 \
+      --fetch-retry-factor=2 \
+      --fetch-retry-mintimeout=10000 \
+      --fetch-retry-maxtimeout=120000 \
+      --fetch-timeout=300000 \
+      wreq-js playwright-core
+
 FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
 
@@ -127,6 +143,9 @@ COPY --from=builder /app/node_modules/sql.js ./node_modules/sql.js
 # standalone image would crash on first machine-id read (ported from upstream
 # 9router 15687d19 — W1, v0.9.47).
 COPY --from=builder /app/node_modules/node-machine-id ./node_modules/node-machine-id
+# wreq-js + playwright-core (and deps) are lazy-loaded at runtime via createRequire
+# and omitted by standalone tracing — copy them from the isolated builder dir.
+COPY --from=builder /opt/lazy-runtime/node_modules/. ./node_modules/
 # mysql2 loads via a runtime dynamic import (src/lib/db/mysql/pool.js); file tracing
 # does not follow it, so the mysql/mirror postures would boot with no mysql2 present.
 # mysql2 is pure JS (no native bindings) but NOT self-contained — its 9 runtime deps

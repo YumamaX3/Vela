@@ -32,7 +32,7 @@ export const CLAUDE_API_HEADERS = {
 // Full Claude CLI fingerprint — required by providers that gate on client identity (e.g. agentrouter)
 // Single source of truth for the spoofed Claude Code version — registry
 // headers AND the cloaking billing identity both read this (W2, v0.9.48).
-export const CLAUDE_CLI_VERSION = "2.1.258";
+export const CLAUDE_CLI_VERSION = "2.1.280";
 
 export const CLAUDE_CLI_SPOOF_HEADERS = {
   "Anthropic-Version": ANTHROPIC_API_VERSION,
@@ -78,6 +78,11 @@ export function selectAnthropicBeta(model = "", body = null) {
   const flags = ANTHROPIC_BETA_BASE.filter((flag) => flag !== ANTHROPIC_BETA_REDACT_THINKING || !wantsThinkingSummaries(body));
   if (/^claude-(opus|sonnet)/.test(model)) flags.push(...ANTHROPIC_BETA_HEAVY_AGENT);
   return flags.join(",");
+}
+
+export function mergeAnthropicBeta(...values) {
+  const flags = values.flatMap((v) => (typeof v === "string" ? v.split(",") : [])).map((f) => f.trim()).filter(Boolean);
+  return [...new Set(flags)].join(",");
 }
 
 // Shared baseUrls

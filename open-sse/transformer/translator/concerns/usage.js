@@ -57,7 +57,12 @@ const USAGE_EXTRACTORS = {
   commandcode(raw) {
     const input = n(raw.inputTokens), output = n(raw.outputTokens);
     const total = typeof raw.totalTokens === "number" ? raw.totalTokens : input + output;
-    return { promptTokens: input, completionTokens: output, totalTokens: total };
+    // CLI v1.88.5 reports cache reads/writes under inputTokenDetails; without
+    // this bridge the cost ledger sees every cached token as fresh input
+    // (upstream 9router b114fa9f).
+    const cached = n(raw.inputTokenDetails?.cacheReadTokens);
+    const cacheCreate = n(raw.inputTokenDetails?.cacheWriteTokens);
+    return { promptTokens: input, completionTokens: output, totalTokens: total, cachedTokens: cached, cacheCreationTokens: cacheCreate };
   },
 };
 

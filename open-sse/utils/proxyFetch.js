@@ -1,5 +1,5 @@
 import { Readable } from "stream";
-import { MEMORY_CONFIG } from "../config/runtimeConfig.js";
+import { MEMORY_CONFIG, resolveKeepAliveTimeouts } from "../config/runtimeConfig.js";
 import { dbg } from "./debugLog.js";
 // §5.2d — the version gate lives next to RELAY_VERSION so the caller side and the
 // relay side cannot drift apart. relayTemplate.js imports nothing of its own, so
@@ -31,6 +31,33 @@ import * as log from "../../src/sse/utils/logger.js";
 
 const originalFetch = globalThis.fetch;
 const proxyDispatchers = new Map();
+const directDispatchers = new Map();
+let undiciFetch; // lazy `undici.fetch` — imported on first dispatcher use
+
+export function resetDirectDispatchersForTests() {
+  proxyDispatchers.clear();
+  directDispatchers.clear();
+}
+
+async function getOrCreateDirectAgent(key, insecure, keepAliveTimeout, keepAliveMaxTimeout) {
+  const cached = directDispatchers.get(key);
+  if (cached) return cached;
+  const { Agent } = await import("undici");
+  const agent = new Agent({ keepAliveTimeout, keepAliveMaxTimeout });
+  directDispatchers.set(key, agent);
+  return agent;
+}
+
+export function getDirectDispatcher(insecure = false) {
+  const { keepAliveTimeout, keepAliveMaxTimeout } = resolveKeepAliveTimeouts();
+  const key = `direct::${insecure ? "insecure" : "secure"}::${keepAliveTimeout}::${keepAliveMaxTimeout}`;
+  return getOrCreateDirectAgent(key, insecure, keepAliveTimeout, keepAliveMaxTimeout);
+}
+
+export function getFreshRetryDispatcher(insecure = false) {
+  const key = `fresh::${insecure ? "insecure" : "secure"}`;
+  return getOrCreateDirectAgent(key, insecure, 1, 1);
+}
 
 // ─── TLS fingerprinting via got-scraping (browser-like JA3) ───────────────
 // Disabled: not in use. Kept commented for future re-enable.
@@ -322,6 +349,25 @@ function getEnvProxyUrl(targetUrl) {
 /**
  * Normalize proxy URL (allow host:port)
  */
+export function isStaleSocketError(error) {
+  // A bare TypeError("fetch failed") is ambiguous: the request may have been
+  // served upstream, so replaying could double-charge. Only PROVABLE dead-socket
+  // evidence earns a replay — a typed code or a literal closure message.
+  if (!error || typeof error !== "object") return false;
+  if (error.name === "AbortError") return false;
+  const code = error?.cause?.code || error?.code || "";
+  if (["UND_ERR_SOCKET", "ECONNRESET", "EPIPE", "UND_ERR_HEADERS_TIMEOUT"].includes(code)) return true;
+  if (code === "UND_ERR_INVALID_ARG") return false;
+  const causeMsg = `${error?.cause instanceof Error ? error.cause.message : ""}`;
+  if (/other side closed/i.test(causeMsg)) return true;
+  const msg = typeof error?.message === "string" ? error.message.toLowerCase() : "";
+  return /socket hang up|other side closed/.test(msg);
+}
+
+function isFreshSocketReplayEnabled() {
+  return process.env.FETCH_FRESH_RETRY !== "off";
+}
+
 function normalizeProxyUrl(proxyUrl) {
   const normalizedInput = normalizeString(proxyUrl);
   if (!normalizedInput) return null;
@@ -514,6 +560,10 @@ async function createBypassRequest(parsedUrl, realIP, options) {
   });
 }
 
+function isBodyReplaySafe(body) {
+  return !(body && typeof body.getReader === "function" && body.locked);
+}
+
 export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
   const targetUrl = typeof url === "string" ? url : url.toString();
 
@@ -550,7 +600,20 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
       "x-relay-target": `${parsed.protocol}//${parsed.host}`,
       "x-relay-path": `${parsed.pathname}${parsed.search}`,
     };
+    // The relay path rides the CALLER'S fetch — the captured globalThis seam —
+    // not undici's. The upstream handler (Cloudflare Worker) is addressed by the
+    // relay URL itself; no dispatcher is involved, and the S2b suite stubs
+    // globalThis.fetch before importing this module to capture the wire.
     return originalFetch(vercelRelayUrl, { ...options, headers: relayHeaders });
+  }
+
+  // §5.5 — fresh-socket escape: when the executor asked for a guaranteed-new
+  // socket (connect timeout / 502 retry), skip the pooled and plain-direct paths
+  // entirely and ride the fresh dispatcher on the first cast.
+  if (proxyOptions?.forceFreshSocket === true) {
+    const freshDispatcher = await getFreshRetryDispatcher(false);
+    undiciFetch ??= (await import("undici")).fetch;
+    return await undiciFetch(targetUrl, { ...options, dispatcher: freshDispatcher });
   }
 
   const connectionProxyUrl = resolveConnectionProxyUrl(targetUrl, proxyOptions);
@@ -563,7 +626,8 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
       // Proxy resolves DNS externally (not affected by /etc/hosts) — use proxy directly
       try {
         const dispatcher = await getDispatcher(proxyUrl, proxyOptions?.pooling ?? null);
-        return await originalFetch(url, { ...options, dispatcher });
+        undiciFetch ??= (await import("undici")).fetch;
+      return await undiciFetch(url, { ...options, dispatcher });
       } catch (proxyError) {
         if (proxyOptions?.strictProxy === true) {
           throw new Error(`[ProxyFetch] Proxy required but failed (strictProxy=true): ${proxyError.message}`);
@@ -584,20 +648,35 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
   if (proxyUrl) {
     try {
       const dispatcher = await getDispatcher(proxyUrl, proxyOptions?.pooling ?? null);
-      return await originalFetch(url, { ...options, dispatcher });
+      undiciFetch ??= (await import("undici")).fetch;
+      return await undiciFetch(url, { ...options, dispatcher });
     } catch (proxyError) {
       // If strictProxy is enabled, fail hard instead of falling back to direct
       if (proxyOptions?.strictProxy === true) {
         throw new Error(`[ProxyFetch] Proxy required but failed (strictProxy=true): ${proxyError.message}`);
       }
       log.warn("STREAM", `[ProxyFetch] Proxy failed, falling back to direct: ${proxyError.message}`);
-      return originalFetch(url, options);
+      return await originalFetch(url, options);
     }
   }
 
   // got-scraping disabled — use native fetch directly
   // (Re-enable per-host by wrapping with tryGotScrapingFetch when needed)
-  return originalFetch(url, options);
+  try {
+    return await originalFetch(url, options);
+  } catch (error) {
+    if (
+      !options.signal?.aborted
+      && isBodyReplaySafe(options.body)
+      && isFreshSocketReplayEnabled()
+      && isStaleSocketError(error)
+    ) {
+      const freshDispatcher = await getFreshRetryDispatcher(false);
+      undiciFetch ??= (await import("undici")).fetch;
+      return await undiciFetch(url, { ...options, dispatcher: freshDispatcher });
+    }
+    throw error;
+  }
 }
 
 /**

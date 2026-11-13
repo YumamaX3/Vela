@@ -12,6 +12,7 @@ import {
 } from "../services/opencodeCatalog.js";
 import { getCliUserAgent, ensureCliVersionFresh } from "../services/opencodeIdentity.js";
 import { MEMORY_CONFIG } from "../config/runtimeConfig.js";
+import { opencodeTlsFetch } from "../services/opencodeTlsClient.js";
 import { getThinkingLevels } from "../providers/thinkingLevels.js";
 import { injectReasoningContent } from "../utils/reasoningContentInjector.js";
 import { resolveSessionId } from "../utils/sessionManager.js";
@@ -507,6 +508,14 @@ function base62(bytes) {
   return out;
 }
 
+const SESSION_PREFIX_MASK = (1n << 48n) - 1n;
+
+function descendingTimeHex(time, counterValue) {
+  return (~(BigInt(time) * 0x1000n + BigInt(counterValue)) & SESSION_PREFIX_MASK)
+    .toString(16)
+    .padStart(12, "0");
+}
+
 let lastTimestamp = 0;
 // Pinned to 1, deliberately. Upstream decodes the 12-hex session prefix and
 // rejects a non-small counter with 403 FreeTierError, so an incrementing
@@ -638,15 +647,49 @@ export function isOpencodeResponsesModel(model) {
 // Deterministic by design: the same conversation always lands on the same
 // canonical id, so upstream prompt caching and session affinity survive the
 // translation instead of being reset on every turn.
+// Upstream decodes the prefix timestamp and refuses sessions whose time is in
+// the future or older than the free-tier window. Mint with the current time and
+// memoize per conversation so a conversation keeps one stable, valid session.
+const translatedOpencodeSessions = new Map();
+const MAX_TRANSLATED_SESSIONS = 5000;
+const translatedSessionCleanup = setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of translatedOpencodeSessions) {
+    if (now - entry.lastUsed > MEMORY_CONFIG.sessionTtlMs) {
+      translatedOpencodeSessions.delete(key);
+    }
+  }
+}, MEMORY_CONFIG.sessionCleanupIntervalMs);
+if (translatedSessionCleanup.unref) translatedSessionCleanup.unref();
+
+function unstableRandom() {
+  const bytes = crypto.randomBytes(14);
+  let randomPart = "";
+  for (let i = 0; i < 14; i++) {
+    randomPart += BASE62_CHARS[bytes[i] % 62];
+  }
+  return randomPart;
+}
+
 export function translateSessionId(sessionId, clientTool = "") {
   if (typeof sessionId === "string" && OPENCODE_SESSION_RE.test(sessionId.trim())) {
     return sessionId.trim();
   }
-  const digest = crypto
-    .createHash("sha256")
-    .update(`opencode\0${clientTool || "generic"}\0${sessionId || ""}`)
-    .digest();
-  return `ses_${digest.subarray(0, 6).toString("hex")}${base62(digest.subarray(6, 20))}`;
+  // Upstream decodes the prefix timestamp and refuses sessions whose time is in
+  // the future or older than the free-tier window. Mint with the current time and
+  // memoize per conversation so a conversation keeps one stable, valid session.
+  const key = `${clientTool || "generic"}\0${sessionId || ""}`;
+  const existing = translatedOpencodeSessions.get(key);
+  if (existing) {
+    existing.lastUsed = Date.now();
+    return existing.sessionId;
+  }
+  const translated = `ses_${descendingTimeHex(Date.now(), 1)}${unstableRandom()}`;
+  if (translatedOpencodeSessions.size >= MAX_TRANSLATED_SESSIONS) {
+    translatedOpencodeSessions.delete(translatedOpencodeSessions.keys().next().value);
+  }
+  translatedOpencodeSessions.set(key, { sessionId: translated, lastUsed: Date.now() });
+  return translated;
 }
 
 function normalizeSession(value) {

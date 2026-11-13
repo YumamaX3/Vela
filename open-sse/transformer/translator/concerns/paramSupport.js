@@ -21,11 +21,29 @@ const STRIP_RULES = [
   // "integer above maximum value, expected <= 32768". Pin an explicit endpoint cap;
   // min() with the model ceiling still applies if a variant's own limit is lower.
   { provider: "volcengine-ark", match: /kimi/i, maxOutputCap: 32768, clampToModelMaxOutput: true },
-  // Current OpenAI models (gpt-5.x / o-series) reject `max_tokens` with HTTP 400
-  // ("Use 'max_completion_tokens' instead"). The 4-series and the embedding /
-  // tts / stt / image lanes still take only `max_tokens`, so the rename is
-  // scoped to the modern families rather than the whole provider.
-  { provider: "openai", match: /gpt-5|o[134](-|\b|$)/i, renameParams: { max_tokens: "max_completion_tokens" } },
+  // Current OpenAI models (gpt-5.x / gpt-6.x / o-series) reject `max_tokens` with
+  // HTTP 400 ("Use 'max_completion_tokens' instead"). The 4-series and the
+  // embedding / tts / stt / image lanes still take only `max_tokens`, so the
+  // rename is scoped to the modern families rather than the whole provider.
+  { provider: "openai", match: /gpt-[56]|o[134](-|\b|$)/i, renameParams: { max_tokens: "max_completion_tokens" } },
+  // Strict reasoning-field providers reject replayed assistant reasoning
+  // (clients replay it on every history turn).
+  { provider: "groq", dropMessageFields: ["reasoning_content", "reasoning", "reasoning_details"] },
+  { provider: "mistral", dropMessageFields: ["reasoning_content", "reasoning", "reasoning_details"] },
+  { provider: "cerebras", dropMessageFields: ["reasoning_content", "reasoning", "reasoning_details"] },
+  // NVIDIA NIM treats `reasoning` and `reasoning_content` as aliases of one
+  // field; sending both makes its deserializer report a duplicate field. Keep
+  // the OpenAI canonical spelling on assistant history (upstream 9router ced0cf6e).
+  { provider: "nvidia", renameMessageFields: { reasoning: "reasoning_content" } },
+  // OpenCode Go's relay rejects `response_format` for its deepseek family with HTTP
+  // 400 — both json_schema and json_object — while glm / kimi / mimo / minimax /
+  // qwen / grok / gpt on the same relay accept it. The rejection body is either a
+  // bare model echo (`{"model":"deepseek-v4.1-flash"}`, which names neither the
+  // field nor the reason) or "This response_format type is unavailable now", so a
+  // client cannot classify it and keeps re-sending the field. Measured 2026-10-13
+  // against /inference/go/openai/v1/chat/completions with one key: 12/12 structured
+  // calls 400, 4/4 identical calls without the field 200 (upstream 7ef6df56).
+  { provider: "opencode-go", match: /^deepseek/i, drop: ["response_format"] },
 ];
 
 // Test a rule's match (regex or predicate) against the model id.
@@ -54,6 +72,25 @@ export function stripUnsupportedParams(provider, model, body) {
     }
     for (const key of rule.drop || []) {
       if (body[key] !== undefined) delete body[key];
+    }
+    // Normalize/drop assistant-message fields — that is where clients replay
+    // reasoning. A rename keeps the target's existing content when it already
+    // carries one (upstream 9router ced0cf6e).
+    if ((rule.renameMessageFields || rule.dropMessageFields) && Array.isArray(body.messages)) {
+      for (const msg of body.messages) {
+        if (!msg || msg.role !== "assistant") continue;
+        for (const [from, to] of Object.entries(rule.renameMessageFields || {})) {
+          if (msg[from] === undefined) continue;
+          const existing = msg[to];
+          if (existing === undefined || existing === null || (typeof existing === "string" && !existing.trim())) {
+            msg[to] = msg[from];
+          }
+          delete msg[from];
+        }
+        for (const key of rule.dropMessageFields || []) {
+          if (msg[key] !== undefined) delete msg[key];
+        }
+      }
     }
     // CF Workers AI oneOf root schema only accepts content as plain string (#1926)
     if (rule.flattenContent && Array.isArray(body.messages)) {

@@ -14,6 +14,14 @@ import { STREAM_FIRST_CHUNK_TIMEOUT_MS } from "../config/runtimeConfig.js";
 import * as log from "../../src/sse/utils/logger.js";
 
 const KIRO_REPAIR_BUFFER_MAX_BYTES = 8 * 1024 * 1024;
+// Regions per service host; a region outside the set is never spliced into the hostname
+// (upstream 9router 333d249d: requesting a non-existent region produced a hostname
+// the bearer token was never valid for, returning opaque 401s).
+const KIRO_SERVICE_REGIONS = {
+  q: new Set(["us-east-1", "eu-central-1"]),
+  runtime: new Set(["us-east-1", "eu-central-1"]),
+  codewhisperer: new Set(["us-east-1"]),
+};
 const KIRO_REPAIR_HEARTBEAT_MS = 10_000;
 const KIRO_SHORT_FINAL_MAX_CHARS = 800;
 const EVENTSTREAM_MAX_MESSAGE_BYTES = 24 * 1024 * 1024;
@@ -293,27 +301,31 @@ export class KiroExecutor extends BaseExecutor {
     // 403 "bearer token invalid", so they must hit the CodeWhisperer
     // *.amazonaws.com surface, and in the region the token was minted in
     // (the baseUrls are hardcoded us-east-1).
-    const isCodeWhispererSurface =
-      authMethod === "api_key" || authMethod === "external_idp" || authMethod === "idc";
-    if (!isCodeWhispererSurface) return baseUrls;
+    // Kiro deprecated the legacy path-style GenerateAssistantResponse on
+    // runtime.*.kiro.dev (IDE 1.0.228+). The path gateway now answers valid modern
+    // payloads with 400 REQUEST_BODY_INVALID, and 400 is terminal in BaseExecutor,
+    // so kiro.dev must never be the first surface for any auth method. Amazon
+    // surfaces reject foreign tokens with 401/403, which DO fall through, so
+    // trying q/codewhisperer first is safe for every auth method (CLIRO parity,
+    // upstream 9router 333d249d).
 
-    const region = (credentials?.providerSpecificData?.region || "us-east-1").trim();
-    const regionalize = (u) =>
-      region && region !== "us-east-1" && u.includes("amazonaws.com")
-        ? u.replace(/([a-z]+)\.[a-z0-9-]+\.amazonaws\.com/, `$1.${region}.amazonaws.com`)
-        : u;
+    // Only a covered region reaches the hostname that receives the bearer token.
+    const requestedRegion = (credentials?.providerSpecificData?.region || "us-east-1").trim();
+    const regionalize = (u) => {
+      if (!u.includes("amazonaws.com")) return u;
+      const service = u.match(/\/\/([a-z]+)\.[a-z0-9-]+\.amazonaws\.com/)?.[1];
+      const covered = KIRO_SERVICE_REGIONS[service];
+      if (!covered || !covered.has(requestedRegion)) return u;
+      return u.replace(/([a-z]+)\.[a-z0-9-]+\.amazonaws\.com/, `$1.${requestedRegion}.amazonaws.com`);
+    };
 
     const amazon = baseUrls.filter((u) => u.includes("amazonaws.com")).map(regionalize);
     const others = baseUrls.filter((u) => !u.includes("amazonaws.com"));
-    if (authMethod === "api_key") {
-      const q = amazon.filter((u) => u.includes("://q."));
-      const remaining = amazon.filter((u) => !u.includes("://q."));
-      return q.length > 0
-        ? [...q, ...remaining, ...others]
-        : [...amazon, ...others];
-    }
-
-    return amazon.length > 0 ? [...amazon, ...others] : baseUrls;
+    const q = amazon.filter((u) => u.includes("://q."));
+    const remaining = amazon.filter((u) => !u.includes("://q."));
+    return q.length > 0
+      ? [...q, ...remaining, ...others]
+      : [...amazon, ...others];
   }
 
   buildUrl(model, stream, urlIndex = 0, credentials = null) {
@@ -356,7 +368,16 @@ export class KiroExecutor extends BaseExecutor {
     // credentials record is untouched.
     await attachKiroAvailability(args?.credentials, { log: args?.log });
     const result = await super.execute(args);
-    if (result?.response?.ok) this.attachIntegrityGate(result, args);
+    if (result?.response?.ok) {
+      // KIRO_INTEGRITY_GATE=off streams through, forfeiting the tool-call repair retry.
+      if (process.env.KIRO_INTEGRITY_GATE === "off") {
+        result.response = this.transformEventStreamToSSE(result.response, args.model, {
+          toolSpecs: args.body?.conversationState?.currentMessage?.userInputMessage?.userInputMessageContext?.tools || []
+        });
+      } else {
+        this.attachIntegrityGate(result, args);
+      }
+    }
     return result;
   }
 
